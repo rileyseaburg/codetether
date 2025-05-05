@@ -197,8 +197,8 @@ def convert_conversation_to_state(
 
 def convert_task_to_state(task: Task) -> StateTask:
     # Get the first message as the description
-    message = task.history[0]
-    last_message = task.history[-1]
+    message = task.history[0] if task.history else None
+    last_message = task.history[-1] if task.history else None
     output = (
         [extract_content(a.parts) for a in task.artifacts]
         if task.artifacts
