@@ -251,6 +251,8 @@ export interface Message {
   metadata?: {
     [key: string]: any;
   };
+  /** List of tasks referenced as context by this message.*/
+  referenceTaskIds?: string[];
   /** Identifier created by the message creator*/
   messageId: string;
   /** Identifier of task the message is related to */
