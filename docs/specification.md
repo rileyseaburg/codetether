@@ -168,8 +168,8 @@ Agent Cards themselves might contain information that is considered sensitive.
 | `capabilities`                      | [`AgentCapabilities`](#552-agentcapabilities-object)               | Yes      | Specifies optional A2A protocol features supported (e.g., streaming, push notifications).                                                   |
 | `securitySchemes`                   | { [scheme: string]: [SecurityScheme](#553-securityscheme-object) } | No       | Security scheme details used for authenticating with this agent. undefined implies no A2A-advertised auth (not recommended for production). |
 | `security`                          | `{ [scheme: string]: string[]; }[]`                                | No       | Security requirements for contacting the agent.                                                                                             |
-| `defaultInputModes`                 | `string[]`                                                         | Yes      | Input Media Types accepted by the agent.                                                                                                     |
-| `defaultOutputModes`                | `string[]`                                                         | Yes      | Output Media Types produced by the agent.                                                                                                    |
+| `defaultInputModes`                 | `string[]`                                                         | Yes      | Input Media Types accepted by the agent.                                                                                                    |
+| `defaultOutputModes`                | `string[]`                                                         | Yes      | Output Media Types produced by the agent.                                                                                                   |
 | `skills`                            | [`AgentSkill[]`](#554-agentskill-object)                           | Yes      | Array of skills. Must have at least one if the agent performs actions.                                                                      |
 | `supportsAuthenticatedExtendedCard` | `boolean`                                                          | No       | Indicates support for retrieving a more detailed Agent Card via an authenticated endpoint.                                                  |
 
@@ -1313,7 +1313,7 @@ _If the task were longer-running, the server might initially respond with `statu
    - Receives the POST.
    - Validates the `Authorization` header (if applicable).
    - Validates the `X-A2A-Notification-Token`.
-   - Internally processes the notification (e.g., updates application state, notifies end-user).
+   - Internally processes the notification (e.g., updates application state, notifies end user).
 
 ### 9.6. File Exchange (Upload and Download)
 
