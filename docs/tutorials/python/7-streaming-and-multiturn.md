@@ -24,7 +24,7 @@ This example features a "Currency Agent" that uses the Gemini model via LangChai
 
 ## Running the LangGraph Server
 
-Navigate to the `a2a-samples/samples/python/agents/langgraph/` directory in your terminal and ensure your virtual environment (from the SDK root) is activated.
+Navigate to the `a2a-samples/samples/python/agents/langgraph/app` directory in your terminal and ensure your virtual environment (from the SDK root) is activated.
 
 Start the LangGraph agent server:
 
@@ -36,7 +36,7 @@ This will start the server, usually on `http://localhost:10000`.
 
 ## Interacting with the LangGraph Agent
 
-Open a **new terminal window**, activate your virtual environment, and navigate to `a2a-samples/samples/python/agents/langgraph/`.
+Open a **new terminal window**, activate your virtual environment, and navigate to `a2a-samples/samples/python/agents/langgraph/app`.
 
 Run its test client:
 
