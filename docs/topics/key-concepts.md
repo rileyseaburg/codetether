@@ -33,7 +33,7 @@ The Agent2Agent (A2A) protocol is built around a set of core concepts that defin
 - **Part:**
     - The fundamental unit of content within a `Message` or an `Artifact`. Each part has a specific `type` and can carry different kinds of data:
         - `TextPart`: Contains plain textual content.
-        - `FilePart`: Represents a file, which can be transmitted as inline base64-encoded bytes or referenced via a URI. Includes metadata like filename and MIME type.
+        - `FilePart`: Represents a file, which can be transmitted as inline base64-encoded bytes or referenced via a URI. Includes metadata like filename and Media Type.
         - `DataPart`: Carries structured JSON data, useful for forms, parameters, or any machine-readable information.
     - See details in the [Protocol Specification: Part Union Type](../specification.md#65-part-union-type).
 
