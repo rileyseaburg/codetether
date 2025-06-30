@@ -181,6 +181,13 @@
                     "description": "The transport of the preferred endpoint. If empty, defaults to JSONRPC.",
                     "type": "string"
                 },
+                "protocolVersion": {
+                    "description": "The version of the A2A protocol this agent supports.",
+                    "examples": [
+                        "0.2.5"
+                    ],
+                    "type": "string"
+                },
                 "provider": {
                     "$ref": "#/definitions/AgentProvider",
                     "description": "The service provider of the agent"
@@ -234,6 +241,7 @@
                 "defaultOutputModes",
                 "description",
                 "name",
+                "protocolVersion",
                 "skills",
                 "url",
                 "version"
