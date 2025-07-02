@@ -40,7 +40,7 @@ As AI agents become more prevalent, their ability to interoperate is crucial for
 ## Getting Started
 
 - 📚 **Explore the Documentation:** Visit the [Agent2Agent Protocol Documentation Site](https://goo.gle/a2a) for a complete overview, the full protocol specification, tutorials, and guides.
-- 📝 **View the Specification:** [A2A Protocol Specification](https://a2aproject.github.io/A2A/specification/)
+- 📝 **View the Specification:** [A2A Protocol Specification](https://a2aproject.github.io/A2A/latest/specification/)
 - 🐍 Use the SDKs:
     - [A2A Python SDK](https://github.com/a2aproject/a2a-python) `pip install a2a-sdk`
     - [A2A JS SDK](https://github.com/a2aproject/a2a-js) `npm install @a2a-js/sdk`
