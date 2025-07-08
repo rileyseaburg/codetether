@@ -6,24 +6,26 @@ set -e
 # This script deploys the custom 404.html page to the root of the gh-pages branch.
 # It's designed to be called from the GitHub Actions workflow.
 #
-# It expects one argument:
+# Arguments:
 # $1: The GitHub repository name (e.g., "a2aproject/A2A").
-#
-# The script assumes that the git user name and email are already configured.
+# $2: The GITHUB_TOKEN for authentication.
 
 # --- Validate Input ---
-if [ -z "$1" ]; then
-  echo "Error: Missing required argument. Please provide the repository name (e.g., owner/repo)."
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Error: Missing required arguments."
+  echo "Usage: $0 <owner/repo> <github_token>"
   exit 1
 fi
 
 REPO_NAME=$1
+GH_TOKEN=$2
 
 echo "Deploying custom 404 page for repository: $REPO_NAME"
 
 # --- Deployment Logic ---
-# Clone the gh-pages branch into a temporary directory
-git clone --branch=gh-pages --single-branch --depth=1 "https://github.com/${REPO_NAME}" gh-pages-deploy
+# Clone the gh-pages branch using the provided token for authentication.
+# This ensures we have push access.
+git clone --branch=gh-pages --single-branch --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${REPO_NAME}.git" gh-pages-deploy
 
 # Copy the 404 page from the main branch checkout into the gh-pages clone
 cp docs/404.html gh-pages-deploy/404.html
