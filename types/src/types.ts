@@ -112,7 +112,6 @@ export enum TransportProtocol {
 export interface AgentInterface {
   /**
    * The URL where this interface is available. Must be a valid absolute HTTPS URL in production.
-   * @TJS-format uri
    * @TJS-examples ["https://api.example.com/a2a/v1", "https://grpc.example.com/a2a", "https://rest.example.com/v1"]
    */
   url: string;
@@ -154,7 +153,6 @@ export interface AgentCard {
    * The preferred endpoint URL for interacting with the agent.
    * This URL MUST support the transport specified by 'preferredTransport'.
    *
-   * @TJS-format uri
    * @TJS-examples ["https://api.example.com/a2a/v1"]
    */
   url: string;
