@@ -234,7 +234,6 @@
                     "examples": [
                         "https://api.example.com/a2a/v1"
                     ],
-                    "format": "uri",
                     "type": "string"
                 },
                 "version": {
@@ -310,7 +309,6 @@
                         "https://grpc.example.com/a2a",
                         "https://rest.example.com/v1"
                     ],
-                    "format": "uri",
                     "type": "string"
                 }
             },
