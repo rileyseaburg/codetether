@@ -15,7 +15,7 @@ jobs:
       - uses: nearform-actions/github-action-check-linked-issues@v1
         id: check-linked-issues
         with:
-          exclude-branches: 'release/**, dependabot/**'
+          exclude-branches: 'release/**, dependabot/**, release-please--branches--main'
           comment: false
 
       # OPTIONAL: Use the output from the `check-linked-issues` step
