@@ -16,6 +16,7 @@ from a2a_server.agent_card import create_agent_card
 from a2a_server.task_manager import InMemoryTaskManager
 from a2a_server.message_broker import MessageBroker, InMemoryMessageBroker
 from a2a_server.server import A2AServer, CustomA2AAgent
+from a2a_server.enhanced_server import EnhancedA2AServer, create_enhanced_agent_card
 from a2a_server.models import Message, Part
 
 
@@ -49,7 +50,8 @@ async def create_server(
     agent_name: str,
     agent_description: str,
     port: int,
-    use_redis: bool = False
+    use_redis: bool = False,
+    use_enhanced: bool = True
 ) -> A2AServer:
     """Create an A2A server instance."""
     # Create agent configuration
@@ -58,30 +60,6 @@ async def create_server(
         description=agent_description,
         port=port
     )
-    
-    # Create agent card
-    base_url = agent_config.base_url or f"http://localhost:{port}"
-    agent_card = (create_agent_card(
-        name=agent_config.name,
-        description=agent_config.description,
-        url=base_url,
-        organization=agent_config.organization,
-        organization_url=agent_config.organization_url
-    )
-    .with_streaming()
-    .with_push_notifications()
-    .with_skill(
-        skill_id="echo",
-        name="Echo Messages",
-        description="Echoes back messages with a prefix",
-        input_modes=["text"],
-        output_modes=["text"],
-        examples=[{
-            "input": {"type": "text", "content": "Hello!"},
-            "output": {"type": "text", "content": "Echo: Hello!"}
-        }]
-    )
-    .build())
     
     # Create components
     task_manager = InMemoryTaskManager()
@@ -99,13 +77,54 @@ async def create_server(
         def auth_callback(token: str) -> bool:
             return token in config.auth_tokens.values()
     
-    # Create and return server
-    return SimpleEchoAgent(
-        agent_card=agent_card,
-        task_manager=task_manager,
-        message_broker=message_broker,
-        auth_callback=auth_callback
-    )
+    if use_enhanced:
+        # Create enhanced agent card with MCP tool capabilities
+        agent_card = create_enhanced_agent_card()
+        agent_card.card.name = agent_config.name
+        agent_card.card.description = agent_config.description
+        agent_card.card.url = agent_config.base_url or f"http://localhost:{port}"
+        agent_card.card.provider.organization = agent_config.organization
+        agent_card.card.provider.url = agent_config.organization_url
+        
+        # Create and return enhanced server
+        return EnhancedA2AServer(
+            agent_card=agent_card,
+            task_manager=task_manager,
+            message_broker=message_broker,
+            auth_callback=auth_callback
+        )
+    else:
+        # Create basic agent card
+        base_url = agent_config.base_url or f"http://localhost:{port}"
+        agent_card = (create_agent_card(
+            name=agent_config.name,
+            description=agent_config.description,
+            url=base_url,
+            organization=agent_config.organization,
+            organization_url=agent_config.organization_url
+        )
+        .with_streaming()
+        .with_push_notifications()
+        .with_skill(
+            skill_id="echo",
+            name="Echo Messages",
+            description="Echoes back messages with a prefix",
+            input_modes=["text"],
+            output_modes=["text"],
+            examples=[{
+                "input": {"type": "text", "content": "Hello!"},
+                "output": {"type": "text", "content": "Echo: Hello!"}
+            }]
+        )
+        .build())
+        
+        # Create and return basic server
+        return SimpleEchoAgent(
+            agent_card=agent_card,
+            task_manager=task_manager,
+            message_broker=message_broker,
+            auth_callback=auth_callback
+        )
 
 
 async def run_server(args):
@@ -116,7 +135,8 @@ async def run_server(args):
         agent_name=args.name,
         agent_description=args.description,
         port=args.port,
-        use_redis=args.redis
+        use_redis=args.redis,
+        use_enhanced=args.enhanced
     )
     
     print(f"Starting A2A server '{args.name}' on port {args.port}")
@@ -135,9 +155,9 @@ async def run_multiple_servers():
     setup_logging("INFO")
     
     servers = [
-        await create_server("Echo Agent 1", "First echo agent", 8001, False),
-        await create_server("Echo Agent 2", "Second echo agent", 8002, False),
-        await create_server("Echo Agent 3", "Third echo agent", 8003, False),
+        await create_server("Enhanced Agent 1", "First enhanced agent with MCP tools", 8001, False, True),
+        await create_server("Enhanced Agent 2", "Second enhanced agent with MCP tools", 8002, False, True),
+        await create_server("Basic Echo Agent", "Basic echo agent", 8003, False, False),
     ]
     
     print("Starting multiple A2A servers:")
@@ -168,11 +188,13 @@ def main():
     
     # Single server command
     single_parser = subparsers.add_parser("run", help="Run a single A2A server")
-    single_parser.add_argument("--name", default="A2A Echo Agent", help="Agent name")
-    single_parser.add_argument("--description", default="An A2A agent that echoes messages", help="Agent description")
+    single_parser.add_argument("--name", default="Enhanced A2A Agent", help="Agent name")
+    single_parser.add_argument("--description", default="An A2A agent with MCP tool integration", help="Agent description")
     single_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     single_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     single_parser.add_argument("--redis", action="store_true", help="Use Redis message broker")
+    single_parser.add_argument("--enhanced", action="store_true", default=True, help="Use enhanced MCP-enabled agents")
+    single_parser.add_argument("--basic", dest="enhanced", action="store_false", help="Use basic echo agent only")
     single_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     
     # Multiple servers command
