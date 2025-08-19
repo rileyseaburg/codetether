@@ -15,7 +15,9 @@ from .models import (
     AgentCapabilities,
     AgentSkill,
     AuthenticationScheme,
-    AgentExtension
+    AgentExtension,
+    AdditionalInterfaces,
+    LiveKitInterface
 )
 
 
@@ -31,6 +33,7 @@ class AgentCard:
         capabilities: Optional[AgentCapabilities] = None,
         authentication: Optional[List[AuthenticationScheme]] = None,
         skills: Optional[List[AgentSkill]] = None,
+        additional_interfaces: Optional[AdditionalInterfaces] = None,
         version: str = "1.0"
     ):
         self.card = AgentCardModel(
@@ -41,6 +44,7 @@ class AgentCard:
             capabilities=capabilities or AgentCapabilities(),
             authentication=authentication or [],
             skills=skills or [],
+            additional_interfaces=additional_interfaces,
             version=version
         )
     
@@ -97,6 +101,40 @@ class AgentCard:
         if not self.card.capabilities:
             self.card.capabilities = AgentCapabilities()
         self.card.capabilities.state_transition_history = True
+        return self
+    
+    def enable_media(self) -> 'AgentCard':
+        """Enable media capability."""
+        if not self.card.capabilities:
+            self.card.capabilities = AgentCapabilities()
+        self.card.capabilities.media = True
+        return self
+    
+    def add_livekit_interface(
+        self,
+        token_endpoint: str,
+        join_url_template: Optional[str] = None,
+        server_managed: bool = True
+    ) -> 'AgentCard':
+        """Add LiveKit interface configuration.
+        
+        Args:
+            token_endpoint: Endpoint for obtaining LiveKit access tokens
+            join_url_template: Template for generating join URLs
+            server_managed: Whether the server manages LiveKit resources
+        """
+        if not self.card.additional_interfaces:
+            self.card.additional_interfaces = AdditionalInterfaces()
+        
+        self.card.additional_interfaces.livekit = LiveKitInterface(
+            token_endpoint=token_endpoint,
+            join_url_template=join_url_template,
+            server_managed=server_managed
+        )
+        
+        # Also enable media capability
+        self.enable_media()
+        
         return self
     
     def add_extension(
@@ -167,6 +205,7 @@ class AgentCardBuilder:
         self._capabilities: Optional[AgentCapabilities] = None
         self._authentication: List[AuthenticationScheme] = []
         self._skills: List[AgentSkill] = []
+        self._additional_interfaces: Optional[AdditionalInterfaces] = None
         self._version: str = "1.0"
     
     def name(self, name: str) -> 'AgentCardBuilder':
@@ -215,6 +254,34 @@ class AgentCardBuilder:
         if not self._capabilities:
             self._capabilities = AgentCapabilities()
         self._capabilities.state_transition_history = True
+        return self
+    
+    def with_media(self) -> 'AgentCardBuilder':
+        """Enable media capability."""
+        if not self._capabilities:
+            self._capabilities = AgentCapabilities()
+        self._capabilities.media = True
+        return self
+    
+    def with_livekit_interface(
+        self,
+        token_endpoint: str,
+        join_url_template: Optional[str] = None,
+        server_managed: bool = True
+    ) -> 'AgentCardBuilder':
+        """Add LiveKit interface configuration."""
+        if not self._additional_interfaces:
+            self._additional_interfaces = AdditionalInterfaces()
+        
+        self._additional_interfaces.livekit = LiveKitInterface(
+            token_endpoint=token_endpoint,
+            join_url_template=join_url_template,
+            server_managed=server_managed
+        )
+        
+        # Also enable media capability
+        self.with_media()
+        
         return self
     
     def with_extension(
@@ -289,6 +356,7 @@ class AgentCardBuilder:
             capabilities=self._capabilities,
             authentication=self._authentication,
             skills=self._skills,
+            additional_interfaces=self._additional_interfaces,
             version=self._version
         )
 

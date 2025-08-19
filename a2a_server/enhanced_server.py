@@ -118,6 +118,15 @@ def create_enhanced_agent_card() -> AgentCard:
         output_modes=["text"]
     )
     
+    # Add media skills
+    card.add_skill(
+        skill_id="media",
+        name="Real-Time Media Sessions",
+        description="Creates and manages real-time audio/video sessions using LiveKit",
+        input_modes=["text"],
+        output_modes=["text", "data"]
+    )
+    
     # Keep the original echo skill for compatibility
     card.add_skill(
         skill_id="echo",
@@ -125,6 +134,13 @@ def create_enhanced_agent_card() -> AgentCard:
         description="Echoes back received messages for testing and fallback",
         input_modes=["text"],
         output_modes=["text"]
+    )
+    
+    # Enable media capability and add LiveKit interface
+    card.enable_media()
+    card.add_livekit_interface(
+        token_endpoint="/v1/livekit/token",
+        server_managed=True
     )
     
     return card

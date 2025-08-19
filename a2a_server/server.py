@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 from typing import Dict, Any, Optional, Callable, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from fastapi import FastAPI, Request, Response, HTTPException, Depends
@@ -24,11 +24,13 @@ from .models import (
     GetTaskRequest, GetTaskResponse,
     CancelTaskRequest, CancelTaskResponse,
     StreamMessageRequest, TaskStatusUpdateEvent,
-    Task, TaskStatus, Message, Part
+    Task, TaskStatus, Message, Part,
+    LiveKitTokenRequest, LiveKitTokenResponse
 )
 from .task_manager import TaskManager, InMemoryTaskManager
 from .message_broker import MessageBroker, InMemoryMessageBroker
 from .agent_card import AgentCard
+from .livekit_bridge import create_livekit_bridge, LiveKitBridge
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,17 @@ class A2AServer:
         self.task_manager = task_manager or InMemoryTaskManager()
         self.message_broker = message_broker or InMemoryMessageBroker()
         self.auth_callback = auth_callback
+        
+        # Initialize LiveKit bridge if available
+        try:
+            self.livekit_bridge = create_livekit_bridge()
+            if self.livekit_bridge:
+                logger.info("LiveKit bridge initialized successfully")
+            else:
+                logger.info("LiveKit bridge not configured - media features disabled")
+        except Exception as e:
+            logger.warning(f"Failed to initialize LiveKit bridge: {e}")
+            self.livekit_bridge = None
         
         # Create FastAPI app
         self.app = FastAPI(
@@ -106,6 +119,14 @@ class A2AServer:
             """Discover other agents through the message broker."""
             agents = await self.message_broker.discover_agents()
             return [agent.model_dump() for agent in agents]
+        
+        @self.app.post("/v1/livekit/token", response_model=LiveKitTokenResponse)
+        async def get_livekit_token(
+            token_request: LiveKitTokenRequest,
+            credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+        ):
+            """Get a LiveKit access token for media sessions."""
+            return await self._handle_livekit_token_request(token_request, credentials)
     
     async def _handle_jsonrpc_request(
         self,
@@ -392,6 +413,61 @@ class A2AServer:
             await self.task_manager.update_task_status(
                 task.id, TaskStatus.FAILED, final=True
             )
+    
+    def _validate_auth(self, credentials: Optional[HTTPAuthorizationCredentials]) -> bool:
+        """Validate authentication credentials."""
+        if self.agent_card.card.authentication and self.auth_callback:
+            if not credentials or not self.auth_callback(credentials.credentials):
+                return False
+        return True
+    
+    async def _handle_livekit_token_request(
+        self,
+        token_request: LiveKitTokenRequest,
+        credentials: Optional[HTTPAuthorizationCredentials]
+    ) -> LiveKitTokenResponse:
+        """Handle LiveKit token request with A2A authentication."""
+        # Validate authentication
+        if not self._validate_auth(credentials):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Check if LiveKit bridge is available
+        if not self.livekit_bridge:
+            raise HTTPException(
+                status_code=503,
+                detail="LiveKit functionality not available - bridge not configured"
+            )
+        
+        try:
+            # Mint access token using LiveKit bridge
+            access_token = self.livekit_bridge.mint_access_token(
+                identity=token_request.identity,
+                room_name=token_request.room_name,
+                a2a_role=token_request.role,
+                metadata=token_request.metadata,
+                ttl_minutes=token_request.ttl_minutes
+            )
+            
+            # Generate join URL
+            join_url = self.livekit_bridge.generate_join_url(
+                token_request.room_name,
+                access_token
+            )
+            
+            # Calculate expiration time
+            expires_at = datetime.now() + timedelta(minutes=token_request.ttl_minutes)
+            
+            logger.info(f"Minted LiveKit token for {token_request.identity} in room {token_request.room_name}")
+            
+            return LiveKitTokenResponse(
+                access_token=access_token,
+                join_url=join_url,
+                expires_at=expires_at
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to mint LiveKit token: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate token: {str(e)}")
     
     async def start(self, host: str = "0.0.0.0", port: int = 8000) -> None:
         """Start the A2A server."""
