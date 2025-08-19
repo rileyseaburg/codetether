@@ -10,23 +10,67 @@ A complete implementation of the Agent2Agent (A2A) protocol with message broker 
 - **Message Broker**: Redis-based pub/sub for agent coordination
 - **Task Management**: Comprehensive task lifecycle handling
 - **Security**: HTTP authentication and authorization support
+- **Enterprise-Ready**: Kubernetes deployment with Helm chart
+- **Production Features**: Health checks, monitoring, autoscaling, network policies
 - **Extensible**: Easy to customize with your own agent logic
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Option 1: Kubernetes Deployment (Recommended)
+
+Deploy using the included Helm chart for a production-ready setup:
+
+```bash
+# Add Helm repository and build dependencies
+helm repo add bitnami https://charts.bitnami.com/bitnami
+cd chart/a2a-server
+helm dependency build
+cd ../..
+
+# Development deployment
+helm install a2a-dev chart/a2a-server/ \
+  --values chart/a2a-server/examples/values-dev.yaml \
+  --namespace a2a-dev --create-namespace
+
+# Production deployment
+helm install a2a-prod chart/a2a-server/ \
+  --values chart/a2a-server/examples/values-prod.yaml \
+  --namespace production --create-namespace
+```
+
+See the [Helm Chart README](chart/README.md) for detailed configuration options.
+
+### Option 2: Docker Deployment
+
+```bash
+# Build the image
+docker build -t a2a-server .
+
+# Run with default configuration
+docker run -p 8000:8000 a2a-server
+
+# Run with custom environment
+docker run -p 8000:8000 \
+  -e A2A_AGENT_NAME="My Agent" \
+  -e A2A_LOG_LEVEL="DEBUG" \
+  a2a-server
+```
+
+### Option 3: Local Development
+
+#### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run a Simple Echo Agent
+#### 2. Run a Simple Echo Agent
 
 ```bash
 python run_server.py run --name "My Echo Agent" --port 8000
 ```
 
-### 3. Test the Agent
+#### 3. Test the Agent
 
 ```bash
 # View agent card
@@ -236,6 +280,50 @@ python run_server.py run --port 8001
 ### Authentication Errors
 
 Check your auth token configuration and ensure the token is included in requests.
+
+## Deployment Environments
+
+The Helm chart supports multiple deployment configurations:
+
+### Development Environment
+- Single replica with minimal resources
+- Included Redis instance
+- NodePort service for easy access
+- Debug logging enabled
+- No authentication required
+
+```bash
+helm install a2a-dev chart/a2a-server/ \
+  --values chart/a2a-server/examples/values-dev.yaml
+```
+
+### Staging Environment
+- Two replicas for testing reliability
+- Persistent Redis storage
+- Ingress with staging TLS certificates
+- Authentication enabled
+- Production-like monitoring
+
+```bash
+helm install a2a-staging chart/a2a-server/ \
+  --values chart/a2a-server/examples/values-staging.yaml
+```
+
+### Production Environment
+- High availability with 3+ replicas
+- External Redis cluster
+- Production TLS certificates
+- Full authentication and authorization
+- Comprehensive monitoring and alerting
+- Network policies and security controls
+- Horizontal pod autoscaling
+
+```bash
+helm install a2a-prod chart/a2a-server/ \
+  --values chart/a2a-server/examples/values-prod.yaml
+```
+
+For detailed configuration options, see the [Helm Chart Documentation](chart/README.md).
 
 ## Contributing
 
