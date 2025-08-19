@@ -518,7 +518,8 @@ class MediaAgent(EnhancedAgent):
             return None
         
         # Generate a random room name if none specified
-        return f"room-{uuid.uuid4().hex[:8]}"
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        return f"room-{timestamp}-{uuid.uuid4().hex[:16]}"
     
     def _extract_role(self, text: str) -> str:
         """Extract role from text."""
