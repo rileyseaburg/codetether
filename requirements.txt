@@ -1,0 +1,31 @@
+# Core web framework and ASGI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# JSON-RPC implementation
+jsonrpcserver>=5.0.0
+
+# Message broker support
+redis>=5.0.0
+
+# HTTP client for agent communication
+httpx>=0.25.0
+
+# Data validation and serialization
+pydantic>=2.5.0
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Logging and monitoring
+structlog>=23.2.0
+
+# Configuration management
+python-dotenv>=1.0.0
+
+# Utility libraries
+python-multipart>=0.0.6
+
+# MCP (Model Context Protocol) support
+mcp>=1.13.0
