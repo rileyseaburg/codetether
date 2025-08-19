@@ -555,7 +555,7 @@ class MediaAgent(EnhancedAgent):
             return str(message.metadata["user_id"])
         
         # Generate a random identity
-        return f"user-{uuid.uuid4().hex[:8]}"
+        return f"user-{uuid.uuid4().hex}"
     
     async def _handle_media_request(self, action: Dict[str, Any], message: Message) -> Message:
         """Handle request to create a new media session."""
