@@ -24,11 +24,24 @@ class AgentExtension(BaseModel):
     required: bool = Field(False, description="If true, the client must understand and comply with the extension's requirements")
 
 
+class LiveKitInterface(BaseModel):
+    """Configuration for LiveKit media interface."""
+    token_endpoint: str = Field(..., description="Endpoint for obtaining LiveKit access tokens")
+    join_url_template: Optional[str] = Field(None, description="Template for generating join URLs")
+    server_managed: bool = Field(True, description="Whether the server manages LiveKit resources")
+
+
+class AdditionalInterfaces(BaseModel):
+    """Additional interfaces supported by the agent beyond core A2A."""
+    livekit: Optional[LiveKitInterface] = Field(None, description="LiveKit real-time media interface configuration")
+
+
 class AgentCapabilities(BaseModel):
     """Defines optional capabilities supported by an agent."""
     streaming: Optional[bool] = Field(None, description="Indicates if the agent supports Server-Sent Events (SSE) for streaming responses")
     push_notifications: Optional[bool] = Field(None, description="Indicates if the agent supports sending push notifications for asynchronous task updates")
     state_transition_history: Optional[bool] = Field(None, description="Indicates if the agent provides a history of state transitions for a task")
+    media: Optional[bool] = Field(None, description="Indicates if the agent supports real-time media sessions")
     extensions: Optional[List[AgentExtension]] = Field(None, description="A list of protocol extensions supported by the agent")
 
 
@@ -57,6 +70,7 @@ class AgentCard(BaseModel):
     capabilities: Optional[AgentCapabilities] = Field(None, description="Optional capabilities supported by the agent")
     authentication: List[AuthenticationScheme] = Field(default_factory=list, description="Authentication schemes required to interact with the agent")
     skills: List[AgentSkill] = Field(default_factory=list, description="List of skills the agent can perform")
+    additional_interfaces: Optional[AdditionalInterfaces] = Field(None, description="Additional interfaces supported beyond core A2A")
     version: str = Field("1.0", description="Version of the agent card format")
 
 
@@ -168,3 +182,56 @@ class TaskStatusUpdateEvent(BaseModel):
 class StreamingMessageResponse(BaseModel):
     """Response for streaming message operations."""
     event: TaskStatusUpdateEvent = Field(..., description="The task status update event")
+
+
+# Media-specific request/response models
+class MediaRequestRequest(BaseModel):
+    """Request to create or join a media session."""
+    room_name: Optional[str] = Field(None, description="Specific room name to create/join (auto-generated if not provided)")
+    participant_identity: str = Field(..., description="Identity of the participant")
+    role: str = Field("participant", description="Role for the participant (admin, moderator, publisher, participant, viewer)")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata for the room or participant")
+    max_participants: int = Field(50, description="Maximum number of participants (only used when creating new rooms)")
+
+
+class MediaRequestResponse(BaseModel):
+    """Response containing media session information."""
+    task: Task = Field(..., description="The task managing this media session")
+    room_name: str = Field(..., description="Name of the LiveKit room")
+    room_sid: Optional[str] = Field(None, description="LiveKit room SID")
+    join_url: str = Field(..., description="URL to join the media session")
+    access_token: str = Field(..., description="LiveKit access token")
+    participant_identity: str = Field(..., description="Identity of the participant")
+    expires_at: datetime = Field(..., description="When the access token expires")
+
+
+class MediaJoinRequest(BaseModel):
+    """Request to join an existing media session."""
+    room_name: str = Field(..., description="Name of the room to join")
+    participant_identity: str = Field(..., description="Identity of the participant")
+    role: str = Field("participant", description="Role for the participant")
+    metadata: Optional[str] = Field(None, description="Optional metadata for the participant")
+
+
+class MediaJoinResponse(BaseModel):
+    """Response for joining a media session."""
+    join_url: str = Field(..., description="URL to join the media session")
+    access_token: str = Field(..., description="LiveKit access token")
+    participant_identity: str = Field(..., description="Identity of the participant")
+    expires_at: datetime = Field(..., description="When the access token expires")
+
+
+class LiveKitTokenRequest(BaseModel):
+    """Request for a LiveKit access token."""
+    room_name: str = Field(..., description="Name of the room")
+    identity: str = Field(..., description="Identity of the participant")
+    role: str = Field("participant", description="Role for the participant")
+    metadata: Optional[str] = Field(None, description="Optional metadata for the participant")
+    ttl_minutes: int = Field(60, ge=1, le=1440, description="Token time-to-live in minutes (1-1440)")
+
+
+class LiveKitTokenResponse(BaseModel):
+    """Response containing LiveKit access token."""
+    access_token: str = Field(..., description="LiveKit JWT access token")
+    join_url: str = Field(..., description="URL to join the media session")
+    expires_at: datetime = Field(..., description="When the access token expires")
