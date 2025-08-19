@@ -1,0 +1,25 @@
+apiVersion: v2
+name: a2a-server
+description: A Helm chart for deploying A2A (Agent-to-Agent) Server with MCP support
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/rileyseaburg/A2A-Server-MCP
+sources:
+  - https://github.com/rileyseaburg/A2A-Server-MCP
+maintainers:
+  - name: A2A Server Team
+    url: https://github.com/rileyseaburg/A2A-Server-MCP
+keywords:
+  - a2a
+  - agent
+  - mcp
+  - ai
+  - protocol
+dependencies:
+  - name: redis
+    version: "~19.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+annotations:
+  category: AI/ML

@@ -1,0 +1,126 @@
+# Production environment configuration
+# Use this for production deployments
+
+# Application configuration
+app:
+  name: "Production A2A Agent"
+  description: "Production A2A agent with enterprise features"
+  logLevel: "INFO"
+  enhanced: true
+
+# Image configuration
+image:
+  repository: your-registry/a2a-server
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+
+# Ingress configuration for external access
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: a2a-api.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: a2a-server-tls
+      hosts:
+        - a2a-api.yourdomain.com
+
+# Production resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Redis configuration - use external Redis for production
+redis:
+  enabled: false
+
+externalRedis:
+  host: "redis-cluster.database.svc.cluster.local"
+  port: 6379
+  password: ""  # Use secret instead
+  database: 0
+
+# Authentication enabled for production
+auth:
+  enabled: true
+  tokens:
+    production-agent: "your-secure-token-here"
+
+# Environment variables from secrets
+envFromSecret:
+  A2A_AUTH_TOKENS: a2a-server-prod-auth
+
+# Monitoring enabled
+monitoring:
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    labels:
+      release: prometheus
+
+# Multiple replicas for high availability
+replicaCount: 3
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Affinity for pod distribution
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - a2a-server
+          topologyKey: kubernetes.io/hostname
+
+# Network policy for security
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000

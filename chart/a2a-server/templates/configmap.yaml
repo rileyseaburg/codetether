@@ -1,0 +1,32 @@
+{{- if .Values.configMap.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-config
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+  {{- with .Values.configMap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with include "a2a-server.annotations" . }}
+    {{- . | nindent 4 }}
+  {{- end }}
+data:
+  # Server configuration
+  A2A_HOST: {{ .Values.env.A2A_HOST | quote }}
+  A2A_PORT: {{ .Values.env.A2A_PORT | quote }}
+  A2A_LOG_LEVEL: {{ .Values.env.A2A_LOG_LEVEL | quote }}
+  
+  # Redis configuration
+  A2A_REDIS_URL: {{ include "a2a-server.redisUrl" . | quote }}
+  
+  # Agent configuration
+  A2A_AGENT_NAME: {{ .Values.env.A2A_AGENT_NAME | quote }}
+  A2A_AGENT_DESCRIPTION: {{ .Values.env.A2A_AGENT_DESCRIPTION | quote }}
+  A2A_AGENT_ORG: {{ .Values.env.A2A_AGENT_ORG | quote }}
+  A2A_AGENT_ORG_URL: {{ .Values.env.A2A_AGENT_ORG_URL | quote }}
+  
+  # Authentication enabled flag
+  A2A_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
+{{- end }}

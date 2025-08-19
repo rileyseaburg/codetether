@@ -1,0 +1,243 @@
+# Default values for a2a-server.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Application configuration
+app:
+  name: "Enhanced A2A Agent"
+  description: "An A2A agent with MCP tool integration"
+  logLevel: "INFO"
+  enhanced: true
+
+# Image configuration
+image:
+  repository: a2a-server
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Deployment configuration
+replicaCount: 1
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: a2a-server.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: a2a-server-tls
+  #    hosts:
+  #      - a2a-server.local
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /.well-known/agent-card.json
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /.well-known/agent-card.json
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Startup probe for slow starting containers
+startupProbe:
+  httpGet:
+    path: /.well-known/agent-card.json
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volume mounts
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Environment variables
+env:
+  # Basic server configuration
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+  
+  # Application configuration
+  A2A_AGENT_NAME: "Enhanced A2A Agent"
+  A2A_AGENT_DESCRIPTION: "An A2A agent with MCP tool integration"
+  A2A_AGENT_ORG: "A2A Server MCP"
+  A2A_AGENT_ORG_URL: "https://github.com/rileyseaburg/A2A-Server-MCP"
+
+# Environment variables from secrets
+envFromSecret: {}
+# Example:
+# envFromSecret:
+#   A2A_AUTH_TOKENS: a2a-server-auth-tokens
+
+# Authentication configuration
+auth:
+  enabled: false
+  tokens: {}
+  # Example:
+  # tokens:
+  #   agent1: "secret123"
+  #   agent2: "secret456"
+
+# Redis configuration
+redis:
+  enabled: true
+  # When enabled: true, uses the included Redis chart
+  # When enabled: false, connects to external Redis
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 128Mi
+  replica:
+    replicaCount: 0
+
+# External Redis configuration (when redis.enabled: false)
+externalRedis:
+  host: "redis-master"
+  port: 6379
+  password: ""
+  database: 0
+
+# ConfigMap configuration
+configMap:
+  create: true
+  annotations: {}
+
+# Secret configuration
+secret:
+  create: true
+  annotations: {}
+
+# Network policies
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+  ingress: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Monitoring and observability
+monitoring:
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+  
+  prometheusRule:
+    enabled: false
+    namespace: ""
+    labels: {}
+    annotations: {}
+    rules: []
+
+# Additional labels to apply to all resources
+commonLabels: {}
+
+# Additional annotations to apply to all resources  
+commonAnnotations: {}
+
+# Extra manifests to deploy as an array
+extraDeploy: []
