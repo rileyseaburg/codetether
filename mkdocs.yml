@@ -3,6 +3,7 @@ site_name: Agent2Agent (A2A) Protocol
 site_url: https://a2a-protocol.org/
 site_description: >-
   An open protocol enabling communication and interoperability between opaque agentic applications.
+site_author: The Linux Foundation
 site_dir: site
 
 extra:
