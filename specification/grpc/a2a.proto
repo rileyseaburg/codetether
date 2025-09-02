@@ -198,6 +198,7 @@ message Part {
     FilePart file = 2;
     DataPart data = 3;
   }
+  // Optional metadata associated with this part.
   google.protobuf.Struct metadata = 4;
 }
 
