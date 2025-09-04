@@ -1,0 +1,10 @@
+rules:
+  unpinned-uses:
+    ignore:
+      - '.github/workflows/*.yml'
+      - '.github/workflows/*.yaml'
+
+  artipacked:
+    ignore:
+      - '.github/workflows/*.yml'
+      - '.github/workflows/*.yaml'
