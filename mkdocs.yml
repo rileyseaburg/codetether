@@ -28,15 +28,7 @@ nav:
   - Community: community.md
   - Partners: partners.md
   - Python SDK Reference: sdk/python/api/index.html
-  - Tutorial:
-    - Introduction: tutorials/python/1-introduction.md
-    - Setup: tutorials/python/2-setup.md
-    - Agent Skills & Agent Card: tutorials/python/3-agent-skills-and-card.md
-    - Agent Executor: tutorials/python/4-agent-executor.md
-    - Start Server: tutorials/python/5-start-server.md
-    - Interact with Server: tutorials/python/6-interact-with-server.md
-    - Streaming & Multiturn: tutorials/python/7-streaming-and-multiturn.md
-    - Next Steps: tutorials/python/8-next-steps.md
+  - Tutorials: tutorials/index.md
   - Roadmap: roadmap.md
 
 # Repository
@@ -149,7 +141,6 @@ plugins:
         "topics/index.md": "topics/what-is-a2a.md"
         "topics/roadmap.md": "roadmap.md"
         # Tutorial
-        "tutorials/index.md": "tutorials/python/1-introduction.md"
         "tutorials/python/index.md": "tutorials/python/1-introduction.md"
         "tutorials/python/1_introduction.md": "tutorials/python/1-introduction.md"
         "tutorials/python/3-create-project.md": "tutorials/python/2-setup.md"
