@@ -1,8 +1,3 @@
----
-hide:
-  - navigation
----
-
 # Partners
 
 Below is a list of partners (and a link to their A2A announcement or blog post,
@@ -21,11 +16,11 @@ collaborate effectively with each other and with users.
 - [AI21 Labs](https://www.ai21.com/)
 - [AI71](https://ai71.ai/)
 - [Aisera](https://aisera.com/)
-- [Almawave.it](http://www.almawave.it)
+- [Almawave.it](https://www.almawave.com/it/)
 - [AliCloud](http://www.alibabacloud.com)
 - [ArcBlock](http://www.arcblock.io)
 - [Arize](https://arize.com/blog/arize-ai-and-future-of-agent-interoperability-embracing-googles-a2a-protocol/)
-- [Articul8](https://www.articul8.ai/news/unleashing-the-next-frontier-of-enterprise-ai-introducing-model-mesh-dock-and-inter-lock-and-our-a2-a-partnership-with-google)
+- [Articul8](https://www.articul8.ai/blog/unleashing-the-next-frontier-of-enterprise-ai-introducing-model-mesh-dock-and-inter-lock-and-our-a2-a-partnership-with-google)
 - [ask-ai.com](https://ask-ai.com)
 - [Atlassian](https://www.atlassian.com)
 - [Auth0](https://auth0.com/blog/auth0-google-a2a/)
@@ -34,7 +29,7 @@ collaborate effectively with each other and with users.
 - [Beekeeper](http://beekeeper.io)
 - [BCG](https://www.bcg.com)
 - [Block Inc](https://block.xyz/)
-- [Bloomberg LP](http://techatbloomberg.com/)
+- [Bloomberg LP](https://techatbloomberg.com/)
 - [BLUEISH Inc](https://www.blueish.co.jp/)
 - [BMC Software Inc](https://www.bmc.com/it-solutions/bmc-helix.html)
 - [Boomi](https://boomi.com/)
@@ -81,7 +76,9 @@ collaborate effectively with each other and with users.
 - [Hellotars](https://hellotars.com)
 - [Hexaware](https://hexaware.com/)
 - [HUMAN](https://www.humansecurity.com/)
+- [IBM Research](https://lfaidata.foundation/communityblog/2025/08/29/acp-joins-forces-with-a2a-under-the-linux-foundations-lf-ai-data/)
 - [Incorta](https://www.incorta.com)
+- [Infinitus](https://www.infinitus.ai/)
 - [InfoSys](https://www.infosys.com)
 - [Intuit](https://www.intuit.com)
 - [Iron Mountain](https://www.ironmountain.com/)
@@ -101,6 +98,7 @@ collaborate effectively with each other and with users.
 - [Lyzr.ai](https://lyzr.ai)
 - [Magyar Telekom](https://www.telekom.hu/)
 - [Microsoft](https://www.microsoft.com/en-us/microsoft-cloud/blog/2025/05/07/empowering-multi-agent-apps-with-the-open-agent2agent-a2a-protocol/)
+- [MindsDB](https://mindsdb.com/blog/mindsdb-now-supports-the-agent2agent-(a2a)-protocol)
 - [McKinsey](https://www.mckinsey.com)
 - [MongoDB](https://www.mongodb.com)
 - [Monite](https://monite.com/)
