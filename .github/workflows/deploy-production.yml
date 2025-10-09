@@ -1,258 +1,258 @@
 name: Deploy to Production (acp.quantum-forge.net)
 
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Image version to deploy (e.g., v1.0.0, main, sha-abc123)'
-        required: true
-        default: 'latest'
-      skip_tests:
-        description: 'Skip pre-deployment tests'
-        required: false
-        type: boolean
-        default: false
+"on":
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Image version to deploy (e.g., v1.0.0, main, sha-abc123)"
+                required: true
+                default: "latest"
+            skip_tests:
+                description: "Skip pre-deployment tests"
+                required: false
+                type: boolean
+                default: false
 
 env:
-  REGISTRY: registry.quantum-forge.net
-  PROJECT: library
-  IMAGE_NAME: a2a-server
-  DOMAIN: acp.quantum-forge.net
-  NAMESPACE: a2a-system
-  CHART_VERSION: 0.1.0
+    REGISTRY: registry.quantum-forge.net
+    PROJECT: library
+    IMAGE_NAME: a2a-server
+    DOMAIN: acp.quantum-forge.net
+    NAMESPACE: a2a-system
+    CHART_VERSION: 0.1.0
 
 jobs:
-  pre-deploy-tests:
-    name: Pre-Deployment Tests
-    runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_tests }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    pre-deploy-tests:
+        name: Pre-Deployment Tests
+        runs-on: ubuntu-latest
+        if: ${{ !inputs.skip_tests }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.12"
+                  cache: "pip"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install -r requirements-test.txt
 
-      - name: Run tests
-        run: |
-          python -m pytest tests/ -v
+            - name: Run tests
+              run: |
+                  python -m pytest tests/ -v
 
-  deploy:
-    name: Deploy to Kubernetes
-    runs-on: ubuntu-latest
-    needs: [pre-deploy-tests]
-    if: always() && (needs.pre-deploy-tests.result == 'success' || needs.pre-deploy-tests.result == 'skipped')
-    environment:
-      name: production
-      url: https://acp.quantum-forge.net
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    deploy:
+        name: Deploy to Kubernetes
+        runs-on: ubuntu-latest
+        needs: [pre-deploy-tests]
+        if: always() && (needs.pre-deploy-tests.result == 'success' || needs.pre-deploy-tests.result == 'skipped')
+        environment:
+            name: production
+            url: https://acp.quantum-forge.net
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: '3.14.0'
+            - name: Install Helm
+              uses: azure/setup-helm@v4
+              with:
+                  version: "3.14.0"
 
-      - name: Configure kubectl
-        uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+            - name: Configure kubectl
+              uses: azure/k8s-set-context@v4
+              with:
+                  method: kubeconfig
+                  kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
-      - name: Log in to Quantum Forge Registry (Helm)
-        run: |
-          echo "${{ secrets.QUANTUM_FORGE_PASSWORD }}" | helm registry login ${{ env.REGISTRY }} \
-            --username ${{ secrets.QUANTUM_FORGE_USERNAME }} \
-            --password-stdin
+            - name: Log in to Quantum Forge Registry (Helm)
+              run: |
+                  echo "${{ secrets.QUANTUM_FORGE_PASSWORD }}" | helm registry login ${{ env.REGISTRY }} \
+                    --username ${{ secrets.QUANTUM_FORGE_USERNAME }} \
+                    --password-stdin
 
-      - name: Create namespace
-        run: |
-          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+            - name: Create namespace
+              run: |
+                  kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Generate Redis password
-        id: redis
-        run: |
-          REDIS_PASSWORD=$(openssl rand -hex 16)
-          echo "::add-mask::$REDIS_PASSWORD"
-          echo "password=$REDIS_PASSWORD" >> $GITHUB_OUTPUT
+            - name: Generate Redis password
+              id: redis
+              run: |
+                  REDIS_PASSWORD=$(openssl rand -hex 16)
+                  echo "::add-mask::$REDIS_PASSWORD"
+                  echo "password=$REDIS_PASSWORD" >> $GITHUB_OUTPUT
 
-      - name: Create production values file
-        run: |
-          cat > production-values.yaml <<EOF
-          image:
-            repository: ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}
-            tag: "${{ inputs.version }}"
-            pullPolicy: Always
+            - name: Create production values file
+              run: |
+                  cat > production-values.yaml <<EOF
+                  image:
+                    repository: ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}
+                    tag: "${{ inputs.version }}"
+                    pullPolicy: Always
 
-          replicaCount: 3
+                  replicaCount: 3
 
-          service:
-            type: LoadBalancer
-            port: 8000
-            mcp:
-              enabled: true
-              port: 9000
+                  service:
+                    type: LoadBalancer
+                    port: 8000
+                    mcp:
+                      enabled: true
+                      port: 9000
 
-          ingress:
-            enabled: true
-            className: "nginx"
-            annotations:
-              cert-manager.io/cluster-issuer: "letsencrypt-prod"
-              nginx.ingress.kubernetes.io/ssl-redirect: "true"
-              nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-            hosts:
-              - host: ${{ env.DOMAIN }}
-                paths:
-                  - path: /
-                    pathType: Prefix
-            tls:
-              - secretName: acp-quantum-forge-tls
-                hosts:
-                  - ${{ env.DOMAIN }}
+                  ingress:
+                    enabled: true
+                    className: "nginx"
+                    annotations:
+                      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+                      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+                      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+                    hosts:
+                      - host: ${{ env.DOMAIN }}
+                        paths:
+                          - path: /
+                            pathType: Prefix
+                    tls:
+                      - secretName: acp-quantum-forge-tls
+                        hosts:
+                          - ${{ env.DOMAIN }}
 
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 2Gi
-            requests:
-              cpu: 500m
-              memory: 512Mi
+                  resources:
+                    limits:
+                      cpu: 2000m
+                      memory: 2Gi
+                    requests:
+                      cpu: 500m
+                      memory: 512Mi
 
-          autoscaling:
-            enabled: true
-            minReplicas: 2
-            maxReplicas: 10
-            targetCPUUtilizationPercentage: 70
+                  autoscaling:
+                    enabled: true
+                    minReplicas: 2
+                    maxReplicas: 10
+                    targetCPUUtilizationPercentage: 70
 
-          redis:
-            enabled: true
-            auth:
-              enabled: true
-              password: "${{ steps.redis.outputs.password }}"
-            master:
-              persistence:
-                enabled: true
-                size: 8Gi
+                  redis:
+                    enabled: true
+                    auth:
+                      enabled: true
+                      password: "${{ steps.redis.outputs.password }}"
+                    master:
+                      persistence:
+                        enabled: true
+                        size: 8Gi
 
-          env:
-            A2A_HOST: "0.0.0.0"
-            A2A_PORT: "8000"
-            A2A_LOG_LEVEL: "INFO"
-            MCP_HTTP_ENABLED: "true"
-            MCP_HTTP_HOST: "0.0.0.0"
-            MCP_HTTP_PORT: "9000"
-            A2A_AGENT_NAME: "ACP Quantum Forge Agent"
-            A2A_AGENT_DESCRIPTION: "Production A2A agent with MCP integration at acp.quantum-forge.net"
+                  env:
+                    A2A_HOST: "0.0.0.0"
+                    A2A_PORT: "8000"
+                    A2A_LOG_LEVEL: "INFO"
+                    MCP_HTTP_ENABLED: "true"
+                    MCP_HTTP_HOST: "0.0.0.0"
+                    MCP_HTTP_PORT: "9000"
+                    A2A_AGENT_NAME: "ACP Quantum Forge Agent"
+                    A2A_AGENT_DESCRIPTION: "Production A2A agent with MCP integration at acp.quantum-forge.net"
 
-          monitoring:
-            serviceMonitor:
-              enabled: true
-              interval: 30s
+                  monitoring:
+                    serviceMonitor:
+                      enabled: true
+                      interval: 30s
 
-          networkPolicy:
-            enabled: true
+                  networkPolicy:
+                    enabled: true
 
-          podDisruptionBudget:
-            enabled: true
-            minAvailable: 1
-          EOF
+                  podDisruptionBudget:
+                    enabled: true
+                    minAvailable: 1
+                  EOF
 
-      - name: Deploy with Helm
-        run: |
-          helm upgrade --install a2a-server \
-            oci://${{ env.REGISTRY }}/${{ env.PROJECT }}/a2a-server \
-            --version ${{ env.CHART_VERSION }} \
-            --namespace ${{ env.NAMESPACE }} \
-            --values production-values.yaml \
-            --wait \
-            --timeout 10m
+            - name: Deploy with Helm
+              run: |
+                  helm upgrade --install a2a-server \
+                    oci://${{ env.REGISTRY }}/${{ env.PROJECT }}/a2a-server \
+                    --version ${{ env.CHART_VERSION }} \
+                    --namespace ${{ env.NAMESPACE }} \
+                    --values production-values.yaml \
+                    --wait \
+                    --timeout 10m
 
-      - name: Verify deployment
-        run: |
-          echo "Waiting for pods to be ready..."
-          kubectl wait --for=condition=ready pod \
-            -l app.kubernetes.io/name=a2a-server \
-            -n ${{ env.NAMESPACE }} \
-            --timeout=300s
-          
-          echo "Deployment status:"
-          kubectl get pods -n ${{ env.NAMESPACE }} -l app.kubernetes.io/name=a2a-server
-          
-          echo "Service status:"
-          kubectl get svc -n ${{ env.NAMESPACE }} a2a-server
+            - name: Verify deployment
+              run: |
+                  echo "Waiting for pods to be ready..."
+                  kubectl wait --for=condition=ready pod \
+                    -l app.kubernetes.io/name=a2a-server \
+                    -n ${{ env.NAMESPACE }} \
+                    --timeout=300s
 
-      - name: Get LoadBalancer IP
-        id: lb
-        run: |
-          echo "Waiting for LoadBalancer IP..."
-          for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc -n ${{ env.NAMESPACE }} a2a-server -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-            if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "null" ]; then
-              echo "LoadBalancer IP: $EXTERNAL_IP"
-              echo "ip=$EXTERNAL_IP" >> $GITHUB_OUTPUT
-              break
-            fi
-            echo "Attempt $i/30: Waiting for IP..."
-            sleep 10
-          done
+                  echo "Deployment status:"
+                  kubectl get pods -n ${{ env.NAMESPACE }} -l app.kubernetes.io/name=a2a-server
 
-      - name: Create deployment summary
-        run: |
-          echo "# 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Deployment Details" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
-          echo "- **Domain:** ${{ env.DOMAIN }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Namespace:** ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chart Version:** ${{ env.CHART_VERSION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **LoadBalancer IP:** ${{ steps.lb.outputs.ip }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Configure DNS:** Point \`${{ env.DOMAIN }}\` to IP \`${{ steps.lb.outputs.ip }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Wait for TLS:** Certificate will auto-provision (2-5 minutes)" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Verify Health:** \`curl https://${{ env.DOMAIN }}/health\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Production Endpoints" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 **Monitoring UI:** https://${{ env.DOMAIN }}/v1/monitor/" >> $GITHUB_STEP_SUMMARY
-          echo "- 📡 **Agent Card:** https://${{ env.DOMAIN }}/.well-known/agent-card.json" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔧 **MCP Tools:** https://${{ env.DOMAIN }}:9000/mcp/v1/tools" >> $GITHUB_STEP_SUMMARY
-          echo "- ❤️ **Health Check:** https://${{ env.DOMAIN }}/health" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Monitoring Commands" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "# Watch pods" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl get pods -n ${{ env.NAMESPACE }} -w" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# View logs" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl logs -n ${{ env.NAMESPACE }} -l app.kubernetes.io/name=a2a-server -f" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Check ingress" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl get ingress -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Check certificate" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl get certificate -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+                  echo "Service status:"
+                  kubectl get svc -n ${{ env.NAMESPACE }} a2a-server
 
-      - name: Post deployment notification
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Deployment to ${{ env.DOMAIN }} completed successfully"
-          else
-            echo "❌ Deployment to ${{ env.DOMAIN }} failed"
-          fi
+            - name: Get LoadBalancer IP
+              id: lb
+              run: |
+                  echo "Waiting for LoadBalancer IP..."
+                  for i in {1..30}; do
+                    EXTERNAL_IP=$(kubectl get svc -n ${{ env.NAMESPACE }} a2a-server -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+                    if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "null" ]; then
+                      echo "LoadBalancer IP: $EXTERNAL_IP"
+                      echo "ip=$EXTERNAL_IP" >> $GITHUB_OUTPUT
+                      break
+                    fi
+                    echo "Attempt $i/30: Waiting for IP..."
+                    sleep 10
+                  done
+
+            - name: Create deployment summary
+              run: |
+                  echo "# 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "## Deployment Details" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Domain:** ${{ env.DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Namespace:** ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Image Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Chart Version:** ${{ env.CHART_VERSION }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **LoadBalancer IP:** ${{ steps.lb.outputs.ip }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "1. **Configure DNS:** Point \`${{ env.DOMAIN }}\` to IP \`${{ steps.lb.outputs.ip }}\`" >> $GITHUB_STEP_SUMMARY
+                  echo "2. **Wait for TLS:** Certificate will auto-provision (2-5 minutes)" >> $GITHUB_STEP_SUMMARY
+                  echo "3. **Verify Health:** \`curl https://${{ env.DOMAIN }}/health\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "## Production Endpoints" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "- 🌐 **Monitoring UI:** https://${{ env.DOMAIN }}/v1/monitor/" >> $GITHUB_STEP_SUMMARY
+                  echo "- 📡 **Agent Card:** https://${{ env.DOMAIN }}/.well-known/agent-card.json" >> $GITHUB_STEP_SUMMARY
+                  echo "- 🔧 **MCP Tools:** https://${{ env.DOMAIN }}:9000/mcp/v1/tools" >> $GITHUB_STEP_SUMMARY
+                  echo "- ❤️ **Health Check:** https://${{ env.DOMAIN }}/health" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "## Monitoring Commands" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo '```bash' >> $GITHUB_STEP_SUMMARY
+                  echo "# Watch pods" >> $GITHUB_STEP_SUMMARY
+                  echo "kubectl get pods -n ${{ env.NAMESPACE }} -w" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "# View logs" >> $GITHUB_STEP_SUMMARY
+                  echo "kubectl logs -n ${{ env.NAMESPACE }} -l app.kubernetes.io/name=a2a-server -f" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "# Check ingress" >> $GITHUB_STEP_SUMMARY
+                  echo "kubectl get ingress -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "# Check certificate" >> $GITHUB_STEP_SUMMARY
+                  echo "kubectl get certificate -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+
+            - name: Post deployment notification
+              if: always()
+              run: |
+                  if [ "${{ job.status }}" == "success" ]; then
+                    echo "✅ Deployment to ${{ env.DOMAIN }} completed successfully"
+                  else
+                    echo "❌ Deployment to ${{ env.DOMAIN }} failed"
+                  fi
