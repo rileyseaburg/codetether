@@ -169,7 +169,11 @@ async def test_integration_with_mock_server():
         )
         
         # Test room creation
-        room_info = await bridge.create_room("test-room")
+        result = bridge.create_room("test-room")
+        if asyncio.iscoroutine(result):
+            room_info = await result
+        else:
+            room_info = result
         assert room_info["name"] == "test-room"
         assert room_info["sid"] == "room-123"
         

@@ -51,6 +51,9 @@ jobs:
         runs-on: ubuntu-latest
         needs: [pre-deploy-tests]
         if: always() && (needs.pre-deploy-tests.result == 'success' || needs.pre-deploy-tests.result == 'skipped')
+        permissions:
+            contents: read
+            id-token: write
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
