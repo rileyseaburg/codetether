@@ -32,4 +32,5 @@ mcp>=1.13.0
 
 # LiveKit integration for real-time media
 livekit>=0.15.0
+livekit-api>=1.0.0
 PyJWT>=2.8.0

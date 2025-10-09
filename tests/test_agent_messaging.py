@@ -25,8 +25,8 @@ class TestAgent(EnhancedAgent):
         """Store received messages without echoing back."""
         text = self._extract_text_content(message)
         self.received_messages.append(text)
-        # Return empty response to prevent message loops
-        return Message(parts=[Part(type="text", content="ok")])
+        # Return None to prevent message loops
+        return None
 
     async def handle_event(self, event_type: str, data: dict):
         """Store received events."""
@@ -90,13 +90,10 @@ async def test_event_publishing():
     # Verify subscriber received the event
     assert len(subscriber.received_events) == 1
     event_data = subscriber.received_events[0]
-    # Event data is directly in the dict
-    if "data" in event_data:
-        assert event_data["data"]["key"] == "value"
-        assert event_data["data"]["number"] == 42
-    else:
-        # Data might be at root level
-        assert event_data.get("key") == "value" or "key" in str(event_data)
+    # Event data structure has nested data: {"event_type": "agent.Publisher.test.event", "data": {"agent": ..., "data": {...}}}
+    assert event_data["event_type"] == "agent.Publisher.test.event"
+    assert event_data["data"]["data"]["key"] == "value"
+    assert event_data["data"]["data"]["number"] == 42
 
     await broker.stop()
 
