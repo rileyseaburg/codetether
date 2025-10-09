@@ -78,7 +78,7 @@ print_info "  - $LATEST_IMAGE_NAME"
 # Step 4: Push Docker images
 print_step "Pushing Docker images to Quantum Forge..."
 print_info "Pushing versioned image..."
-docker push $FULL_IMAGE_NAME || { 
+docker push $FULL_IMAGE_NAME || {
     print_error "Failed to push $FULL_IMAGE_NAME"
     print_warning "Make sure you're logged in: docker login $REGISTRY"
     exit 1

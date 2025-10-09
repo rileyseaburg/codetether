@@ -4,7 +4,7 @@
 
 Ensure you have:
 - ✅ Docker installed and running
-- ✅ Helm 3.8+ installed  
+- ✅ Helm 3.8+ installed
 - ✅ kubectl configured
 - ✅ Access to registry.quantum-forge.net
 - ✅ Kubernetes cluster with ingress-nginx and cert-manager
@@ -15,7 +15,7 @@ Ensure you have:
 # Docker login
 docker login registry.quantum-forge.net
 
-# Helm login  
+# Helm login
 helm registry login registry.quantum-forge.net
 ```
 

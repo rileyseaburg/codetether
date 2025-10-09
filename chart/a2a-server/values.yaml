@@ -43,7 +43,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: false
   runAsNonRoot: true
   runAsUser: 1000
@@ -151,12 +151,12 @@ env:
   A2A_HOST: "0.0.0.0"
   A2A_PORT: "8000"
   A2A_LOG_LEVEL: "INFO"
-  
+
   # MCP HTTP server configuration
   MCP_HTTP_ENABLED: "true"
   MCP_HTTP_HOST: "0.0.0.0"
   MCP_HTTP_PORT: "9000"
-  
+
   # Application configuration
   A2A_AGENT_NAME: "Enhanced A2A Agent"
   A2A_AGENT_DESCRIPTION: "An A2A agent with MCP tool integration"
@@ -235,7 +235,7 @@ monitoring:
     scrapeTimeout: 10s
     labels: {}
     annotations: {}
-  
+
   prometheusRule:
     enabled: false
     namespace: ""
@@ -246,7 +246,7 @@ monitoring:
 # Additional labels to apply to all resources
 commonLabels: {}
 
-# Additional annotations to apply to all resources  
+# Additional annotations to apply to all resources
 commonAnnotations: {}
 
 # Extra manifests to deploy as an array

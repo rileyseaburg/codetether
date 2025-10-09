@@ -3,7 +3,7 @@
 ## 🎯 Objective
 Deploy the A2A Server to **acp.quantum-forge.net** with full production features:
 - A2A Protocol Server
-- MCP HTTP Server for agent synchronization  
+- MCP HTTP Server for agent synchronization
 - Real-time monitoring UI with human intervention
 - TLS, autoscaling, and enterprise features
 
@@ -439,7 +439,7 @@ After deployment:
 
 **Issues**: https://github.com/rileyseaburg/A2A-Server-MCP/issues
 
-**Logs**: 
+**Logs**:
 ```bash
 kubectl logs -n a2a-system -l app.kubernetes.io/name=a2a-server -f
 ```

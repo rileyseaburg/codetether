@@ -71,7 +71,7 @@ class EnhancedA2AServer(A2AServer):
         """Start the enhanced A2A server with proper initialization."""
         # Initialize agents and message broker first
         await self.initialize_agents()
-        
+
         # Now call parent start method
         await super().start(host=host, port=port)
 
@@ -161,7 +161,7 @@ def create_enhanced_agent_card() -> AgentCard:
         token_endpoint="/v1/livekit/token",
         server_managed=True
     )
-    
+
     # Add MCP interface for external agent synchronization
     card.add_mcp_interface(
         endpoint="http://localhost:9000/mcp/v1/rpc",

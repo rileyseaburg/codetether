@@ -235,7 +235,7 @@ class MonitorAgent(DistributedAgent):
             'timestamp': datetime.now().isoformat()
         }
         self.event_log.append(event_entry)
-        
+
         # Extract agent name from data if available
         agent = data.get('agent', data.get('worker', 'unknown'))
         logger.info(f"📊 Monitor logged: {agent} -> {event_type}")
@@ -334,14 +334,14 @@ async def run_distributed_server(
         organization="Distributed A2A Network",
         url="https://github.com/rileyseaburg/A2A-Server-MCP"
     )
-    
+
     agent_card = AgentCard(
         name=name,
         description=f"Distributed A2A server with {len(agents)} agents",
         url=f"http://localhost:{port}",
         provider=provider
     )
-    
+
     # Add skills for each agent
     for agent in agents:
         agent_card.add_skill(

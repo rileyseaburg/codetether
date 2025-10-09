@@ -91,11 +91,11 @@ This runs 5 comprehensive tests showing:
 
 ## What Makes This "True A2A"?
 
-✅ **Multiple servers** - Each running in its own process  
-✅ **Agent discovery** - Agents find each other via agent cards  
-✅ **Peer communication** - Servers talk as equals, not client/server  
-✅ **Event federation** - Events published on one server visible to others  
-✅ **Distributed coordination** - Agents orchestrate work across the network  
+✅ **Multiple servers** - Each running in its own process
+✅ **Agent discovery** - Agents find each other via agent cards
+✅ **Peer communication** - Servers talk as equals, not client/server
+✅ **Event federation** - Events published on one server visible to others
+✅ **Distributed coordination** - Agents orchestrate work across the network
 
 ## Compare to Local A2A
 

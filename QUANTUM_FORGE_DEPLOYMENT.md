@@ -361,12 +361,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Login to Quantum Forge
         run: |
           echo "${{ secrets.QUANTUM_FORGE_PASSWORD }}" | docker login registry.quantum-forge.net -u "${{ secrets.QUANTUM_FORGE_USERNAME }}" --password-stdin
           echo "${{ secrets.QUANTUM_FORGE_PASSWORD }}" | helm registry login registry.quantum-forge.net -u "${{ secrets.QUANTUM_FORGE_USERNAME }}" --password-stdin
-      
+
       - name: Deploy to Quantum Forge
         run: |
           VERSION="${GITHUB_REF#refs/tags/}" ./deploy-to-quantum-forge.sh

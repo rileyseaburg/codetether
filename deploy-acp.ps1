@@ -4,25 +4,25 @@
 param(
     [Parameter(Mandatory=$false)]
     [string]$Version = "v1.0.0",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Registry = "registry.quantum-forge.net",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Project = "library",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$ImageName = "a2a-server",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Domain = "acp.quantum-forge.net",
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$SkipBuild,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$SkipTests,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$Production
 )
@@ -110,11 +110,11 @@ try {
     Write-Info "Pushing versioned image..."
     docker push $FullImageName
     if ($LASTEXITCODE -ne 0) { throw "Failed to push $FullImageName" }
-    
+
     Write-Info "Pushing latest tag..."
     docker push $LatestImageName
     if ($LASTEXITCODE -ne 0) { throw "Failed to push $LatestImageName" }
-    
+
     Write-Success "Docker images pushed successfully"
 }
 catch {
@@ -128,11 +128,11 @@ Write-Step "Updating Helm chart values..."
 try {
     $ValuesPath = "$ChartPath/values.yaml"
     $content = Get-Content $ValuesPath -Raw
-    
+
     # Update image repository and tag
     $content = $content -replace 'repository:\s*a2a-server', "repository: $Registry/$Project/$ImageName"
     $content = $content -replace 'tag:\s*"[^"]*"', "tag: `"$Version`""
-    
+
     Set-Content $ValuesPath $content
     Write-Success "Chart values updated"
 }
@@ -161,7 +161,7 @@ Write-Step "Packaging Helm chart..."
 try {
     helm package $ChartPath
     if ($LASTEXITCODE -ne 0) { throw "Helm package failed" }
-    
+
     $ChartPackage = "a2a-server-$ChartVersion.tgz"
     Write-Success "Helm chart packaged: $ChartPackage"
 }
@@ -176,7 +176,7 @@ try {
     helm push a2a-server-$ChartVersion.tgz oci://$Registry/$Project
     if ($LASTEXITCODE -ne 0) { throw "Helm push failed" }
     Write-Success "Helm chart pushed to oci://$Registry/$Project/a2a-server:$ChartVersion"
-    
+
     # Cleanup
     Remove-Item a2a-server-$ChartVersion.tgz -Force
 }
@@ -274,7 +274,7 @@ $ProductionValues | Set-Content $ValuesFile
 try {
     # Create namespace if it doesn't exist
     kubectl create namespace $Namespace --dry-run=client -o yaml | kubectl apply -f -
-    
+
     # Install or upgrade the release
     Write-Info "Installing/upgrading release..."
     helm upgrade --install a2a-server `
@@ -284,7 +284,7 @@ try {
         --values $ValuesFile `
         --wait `
         --timeout 10m
-    
+
     if ($LASTEXITCODE -ne 0) { throw "Helm install/upgrade failed" }
     Write-Success "Successfully deployed to Kubernetes"
 }
@@ -297,24 +297,24 @@ catch {
 Write-Step "Verifying deployment..."
 try {
     Start-Sleep -Seconds 5
-    
+
     $pods = kubectl get pods -n $Namespace -l app.kubernetes.io/name=a2a-server -o json | ConvertFrom-Json
     $runningPods = ($pods.items | Where-Object { $_.status.phase -eq "Running" }).Count
-    
+
     Write-Info "Running pods: $runningPods"
-    
+
     if ($runningPods -gt 0) {
         Write-Success "Deployment verified - $runningPods pod(s) running"
     } else {
         Write-Warning "No running pods found yet"
     }
-    
+
     # Get service info
     $service = kubectl get svc -n $Namespace a2a-server -o json | ConvertFrom-Json
     $serviceType = $service.spec.type
-    
+
     Write-Info "Service type: $serviceType"
-    
+
     if ($service.status.loadBalancer.ingress) {
         $externalIP = $service.status.loadBalancer.ingress[0].ip
         Write-Info "External IP: $externalIP"

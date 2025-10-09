@@ -337,11 +337,11 @@ from a2a_mcp_client import A2AMCPClient
 
 async def main():
     client = A2AMCPClient(endpoint="http://a2a.example.com:9000/mcp/v1/rpc")
-    
+
     # List available tools
     tools = await client.list_tools()
     print(f"Available tools: {tools}")
-    
+
     # Call calculator
     result = await client.call_tool("calculator", {
         "operation": "add",
@@ -349,7 +349,7 @@ async def main():
         "b": 5
     })
     print(f"10 + 5 = {result}")
-    
+
     await client.close()
 
 asyncio.run(main())

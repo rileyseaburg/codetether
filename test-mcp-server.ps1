@@ -79,7 +79,7 @@ try {
         -Method Post `
         -ContentType "application/json" `
         -Body $body
-    
+
     $response | ConvertTo-Json -Depth 10
 } catch {
     Write-Host "Failed to call calculator: $_" -ForegroundColor Red

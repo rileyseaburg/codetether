@@ -25,10 +25,10 @@ class AgentMonitor {
 
     connectToServer() {
         const serverUrl = this.getServerUrl();
-        
+
         // Connect to SSE endpoint for real-time updates
         this.eventSource = new EventSource(`${serverUrl}/v1/monitor/stream`);
-        
+
         this.eventSource.onopen = () => {
             console.log('Connected to A2A server');
             this.updateConnectionStatus(true);
@@ -37,7 +37,7 @@ class AgentMonitor {
         this.eventSource.onerror = (error) => {
             console.error('SSE error:', error);
             this.updateConnectionStatus(false);
-            
+
             // Attempt to reconnect after 5 seconds
             setTimeout(() => this.connectToServer(), 5000);
         };
@@ -76,7 +76,7 @@ class AgentMonitor {
         } catch (error) {
             console.error('Failed to fetch agent list:', error);
         }
-        
+
         // Poll every 5 seconds
         setTimeout(() => this.pollAgentList(), 5000);
     }
@@ -123,7 +123,7 @@ class AgentMonitor {
 
     displayMessage(message) {
         const container = document.getElementById('messagesContainer');
-        
+
         // Check filter
         if (this.currentFilter !== 'all' && message.type !== this.currentFilter) {
             return;
@@ -135,7 +135,7 @@ class AgentMonitor {
         messageEl.dataset.messageType = message.type;
 
         const timeStr = message.timestamp.toLocaleTimeString();
-        
+
         messageEl.innerHTML = `
             <div class="message-header">
                 <div class="message-meta">
@@ -153,7 +153,7 @@ class AgentMonitor {
         `;
 
         container.appendChild(messageEl);
-        
+
         // Auto-scroll to bottom
         container.scrollTop = container.scrollHeight;
 
@@ -214,7 +214,7 @@ class AgentMonitor {
 
         const listEl = document.getElementById('agentList');
         const selectEl = document.getElementById('targetAgent');
-        
+
         listEl.innerHTML = '';
         selectEl.innerHTML = '<option value="">Select Agent...</option>';
 
@@ -242,7 +242,7 @@ class AgentMonitor {
     updateConnectionStatus(connected) {
         const statusEl = document.getElementById('connectionStatus');
         const indicator = document.querySelector('.status-indicator');
-        
+
         if (connected) {
             statusEl.textContent = 'Connected';
             indicator.className = 'status-indicator active';
@@ -272,10 +272,10 @@ class AgentMonitor {
 
     async sendIntervention(event) {
         event.preventDefault();
-        
+
         const agentId = document.getElementById('targetAgent').value;
         const message = document.getElementById('interventionMessage').value;
-        
+
         if (!agentId || !message) {
             alert('Please select an agent and enter a message');
             return;
@@ -298,7 +298,7 @@ class AgentMonitor {
             if (response.ok) {
                 this.stats.interventions++;
                 this.updateStatsDisplay();
-                
+
                 // Add intervention to messages
                 this.handleMessage({
                     type: 'human',
@@ -309,7 +309,7 @@ class AgentMonitor {
 
                 // Clear form
                 document.getElementById('interventionMessage').value = '';
-                
+
                 this.showToast('Intervention sent successfully', 'success');
             } else {
                 throw new Error('Failed to send intervention');
@@ -324,13 +324,13 @@ class AgentMonitor {
         // Filter messages
         window.filterMessages = (type) => {
             this.currentFilter = type;
-            
+
             // Update button states
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
-            
+
             // Show/hide messages
             document.querySelectorAll('.message').forEach(msg => {
                 if (type === 'all' || msg.dataset.messageType === type) {
@@ -419,7 +419,7 @@ class AgentMonitor {
             mimeType = 'application/json';
         } else if (format === 'csv') {
             const headers = 'Timestamp,Type,Agent,Content\n';
-            const rows = data.map(row => 
+            const rows = data.map(row =>
                 `"${row.timestamp}","${row.type}","${row.agent}","${row.content}"`
             ).join('\n');
             content = headers + rows;
@@ -492,7 +492,7 @@ class AgentMonitor {
         toast.textContent = message;
         toast.style.background = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8';
         document.body.appendChild(toast);
-        
+
         setTimeout(() => {
             toast.remove();
         }, 3000);

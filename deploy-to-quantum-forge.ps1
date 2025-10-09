@@ -4,25 +4,25 @@
 param(
     [Parameter(Mandatory=$false)]
     [string]$Version = "latest",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Registry = "registry.quantum-forge.net",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Project = "library",
-    
+
     [Parameter(Mandatory=$false)]
     [string]$ImageName = "a2a-server",
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$SkipBuild,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$SkipDocker,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$SkipHelm,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$DryRun
 )
@@ -122,18 +122,18 @@ if (-not $SkipHelm) {
             Set-Content $ValuesPath $content
             Write-Success "Chart values updated"
         }
-        
+
         # Build dependencies
         Write-Info "Building chart dependencies..."
         Push-Location $ChartPath
         helm dependency build
         if ($LASTEXITCODE -ne 0) { throw "Helm dependency build failed" }
         Pop-Location
-        
+
         # Package the chart
         helm package $ChartPath
         if ($LASTEXITCODE -ne 0) { throw "Helm package failed" }
-        
+
         $ChartPackage = "a2a-server-$ChartVersion.tgz"
         Write-Success "Helm chart packaged: $ChartPackage"
     }
@@ -154,11 +154,11 @@ if (-not $SkipHelm) {
             $ChartPackage = "a2a-server-$ChartVersion.tgz"
             Write-Host "Pushing chart: $ChartPackage" -ForegroundColor Yellow
             Write-Host "To registry: oci://$Registry/$Project" -ForegroundColor Yellow
-            
+
             helm push $ChartPackage oci://$Registry/$Project
             if ($LASTEXITCODE -ne 0) { throw "Helm push failed" }
             Write-Success "Helm chart pushed successfully"
-            
+
             # Cleanup package
             if (Test-Path $ChartPackage) {
                 Remove-Item $ChartPackage

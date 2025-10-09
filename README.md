@@ -1327,7 +1327,7 @@ Full production deployment with monitoring, autoscaling, and MCP synchronization
 # Windows PowerShell
 .\quick-deploy-acp.ps1
 
-# Linux/macOS  
+# Linux/macOS
 ./quick-deploy-acp.sh
 ```
 

@@ -211,9 +211,9 @@ The monitoring UI should be protected in production:
    ```python
    # In a2a_server/monitor_api.py
    from fastapi.security import HTTPBasic, HTTPBasicCredentials
-   
+
    security = HTTPBasic()
-   
+
    @monitor_router.get("/")
    async def serve_monitor_ui(credentials: HTTPBasicCredentials = Depends(security)):
        # Verify credentials

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,8 +89,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
 
         .main-content {
@@ -164,6 +172,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -423,6 +432,7 @@
                 transform: translateX(400px);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -455,6 +465,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -541,7 +552,8 @@
                         <select id="targetAgent" required>
                             <option value="">Select Agent...</option>
                         </select>
-                        <textarea id="interventionMessage" placeholder="Enter your message or instruction..." required></textarea>
+                        <textarea id="interventionMessage" placeholder="Enter your message or instruction..."
+                            required></textarea>
                         <button type="submit" class="btn-primary">Send Intervention</button>
                     </form>
                 </div>
@@ -564,4 +576,5 @@
 
     <script src="monitor.js"></script>
 </body>
+
 </html>

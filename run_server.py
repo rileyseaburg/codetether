@@ -24,7 +24,7 @@ from a2a_server.mcp_http_server import run_mcp_http_server
 
 class SimpleEchoAgent(CustomA2AAgent):
     """Simple echo agent implementation."""
-    
+
     async def _process_message(self, message: Message, skill_id: Optional[str] = None) -> Message:
         """Echo messages back with a prefix."""
         response_parts = []
@@ -36,7 +36,7 @@ class SimpleEchoAgent(CustomA2AAgent):
                 ))
             else:
                 response_parts.append(part)
-        
+
         return Message(parts=response_parts)
 
 
@@ -62,23 +62,23 @@ async def create_server(
         description=agent_description,
         port=port
     )
-    
+
     # Create components
     task_manager = InMemoryTaskManager()
-    
+
     if use_redis:
         config = load_config()
         message_broker = MessageBroker(config.redis_url)
     else:
         message_broker = InMemoryMessageBroker()
-    
+
     # Create authentication callback if needed
     config = load_config()
     auth_callback = None
     if config.auth_enabled and config.auth_tokens:
         def auth_callback(token: str) -> bool:
             return token in config.auth_tokens.values()
-    
+
     if use_enhanced:
         # Create enhanced agent card with MCP tool capabilities
         agent_card = create_enhanced_agent_card()
@@ -87,7 +87,7 @@ async def create_server(
         agent_card.card.url = agent_config.base_url or f"http://localhost:{port}"
         agent_card.card.provider.organization = agent_config.organization
         agent_card.card.provider.url = agent_config.organization_url
-        
+
         # Create and return enhanced server
         return EnhancedA2AServer(
             agent_card=agent_card,
@@ -119,7 +119,7 @@ async def create_server(
             }]
         )
         .build())
-        
+
         # Create and return basic server
         return SimpleEchoAgent(
             agent_card=agent_card,
@@ -132,12 +132,12 @@ async def create_server(
 async def run_server(args):
     """Run a single server instance with optional MCP HTTP server."""
     setup_logging(args.log_level)
-    
+
     # Get MCP configuration from environment or args
     mcp_enabled = os.environ.get("MCP_HTTP_ENABLED", "true").lower() == "true"
     mcp_host = os.environ.get("MCP_HTTP_HOST", args.host)
     mcp_port = int(os.environ.get("MCP_HTTP_PORT", "9000"))
-    
+
     server = await create_server(
         agent_name=args.name,
         agent_description=args.description,
@@ -145,16 +145,16 @@ async def run_server(args):
         use_redis=args.redis,
         use_enhanced=args.enhanced
     )
-    
+
     print(f"Starting A2A server '{args.name}' on port {args.port}")
     print(f"Agent card: http://localhost:{args.port}/.well-known/agent-card.json")
-    
+
     tasks = []
-    
+
     # Start A2A server
     a2a_task = asyncio.create_task(server.start(host=args.host, port=args.port))
     tasks.append(a2a_task)
-    
+
     # Start MCP HTTP server if enabled and enhanced mode
     if mcp_enabled and args.enhanced:
         print(f"Starting MCP HTTP server on port {mcp_port}")
@@ -162,9 +162,9 @@ async def run_server(args):
         print(f"MCP tools: http://localhost:{mcp_port}/mcp/v1/tools")
         mcp_task = asyncio.create_task(run_mcp_http_server(host=mcp_host, port=mcp_port))
         tasks.append(mcp_task)
-    
+
     print("Press Ctrl+C to stop")
-    
+
     try:
         await asyncio.gather(*tasks)
     except KeyboardInterrupt:
@@ -177,20 +177,20 @@ async def run_server(args):
 async def run_multiple_servers():
     """Run multiple example servers concurrently."""
     setup_logging("INFO")
-    
+
     servers = [
         await create_server("Enhanced Agent 1", "First enhanced agent with MCP tools", 8001, False, True),
         await create_server("Enhanced Agent 2", "Second enhanced agent with MCP tools", 8002, False, True),
         await create_server("Basic Echo Agent", "Basic echo agent", 8003, False, False),
     ]
-    
+
     print("Starting multiple A2A servers:")
     for i, server in enumerate(servers, 1):
         port = 8000 + i
         print(f"  Agent {i}: http://localhost:{port}/.well-known/agent-card.json")
-    
+
     print("Press Ctrl+C to stop all servers")
-    
+
     try:
         # Start all servers concurrently
         tasks = []
@@ -198,7 +198,7 @@ async def run_multiple_servers():
             port = 8000 + i
             task = asyncio.create_task(server.start(host="0.0.0.0", port=port))
             tasks.append(task)
-        
+
         await asyncio.gather(*tasks)
     except KeyboardInterrupt:
         print("\nShutting down all servers...")
@@ -209,7 +209,7 @@ async def run_multiple_servers():
 def main():
     parser = argparse.ArgumentParser(description="A2A Server Runner")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
     # Single server command
     single_parser = subparsers.add_parser("run", help="Run a single A2A server")
     single_parser.add_argument("--name", default="Enhanced A2A Agent", help="Agent name")
@@ -220,15 +220,15 @@ def main():
     single_parser.add_argument("--enhanced", action="store_true", default=True, help="Use enhanced MCP-enabled agents")
     single_parser.add_argument("--basic", dest="enhanced", action="store_false", help="Use basic echo agent only")
     single_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
-    
+
     # Multiple servers command
     multi_parser = subparsers.add_parser("multi", help="Run multiple example servers")
-    
+
     # Example configurations
     examples_parser = subparsers.add_parser("examples", help="Show example configurations")
-    
+
     args = parser.parse_args()
-    
+
     if args.command == "run":
         asyncio.run(run_server(args))
     elif args.command == "multi":

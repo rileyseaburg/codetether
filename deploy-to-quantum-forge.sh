@@ -92,7 +92,7 @@ fi
 # Step 4: Package Helm Chart
 if [ "$SKIP_HELM" != "true" ]; then
     info "Step 4: Packaging Helm chart..."
-    
+
     # Update chart values with Quantum Forge image
     VALUES_PATH="$CHART_PATH/values.yaml"
     if [ -f "$VALUES_PATH" ]; then
@@ -102,11 +102,11 @@ if [ "$SKIP_HELM" != "true" ]; then
         rm -f "$VALUES_PATH.bak"
         success "Chart values updated"
     fi
-    
+
     # Build dependencies
     info "Building chart dependencies..."
     (cd $CHART_PATH && helm dependency build)
-    
+
     # Package the chart
     if helm package $CHART_PATH; then
         CHART_PACKAGE="a2a-server-$CHART_VERSION.tgz"
@@ -125,10 +125,10 @@ if [ "$SKIP_HELM" != "true" ]; then
         CHART_PACKAGE="a2a-server-$CHART_VERSION.tgz"
         echo -e "${YELLOW}Pushing chart: $CHART_PACKAGE${NC}"
         echo -e "${YELLOW}To registry: oci://$REGISTRY/$PROJECT${NC}"
-        
+
         if helm push $CHART_PACKAGE oci://$REGISTRY/$PROJECT; then
             success "Helm chart pushed successfully"
-            
+
             # Cleanup package
             if [ -f "$CHART_PACKAGE" ]; then
                 rm -f $CHART_PACKAGE

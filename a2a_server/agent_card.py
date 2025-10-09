@@ -23,7 +23,7 @@ from .models import (
 
 class AgentCard:
     """Helper class for creating and managing A2A Agent Cards."""
-    
+
     def __init__(
         self,
         name: str,
@@ -47,7 +47,7 @@ class AgentCard:
             additional_interfaces=additional_interfaces,
             version=version
         )
-    
+
     def add_skill(
         self,
         skill_id: str,
@@ -68,7 +68,7 @@ class AgentCard:
         )
         self.card.skills.append(skill)
         return self
-    
+
     def add_authentication(
         self,
         scheme: str,
@@ -81,35 +81,35 @@ class AgentCard:
         )
         self.card.authentication.append(auth)
         return self
-    
+
     def enable_streaming(self) -> 'AgentCard':
         """Enable streaming capability."""
         if not self.card.capabilities:
             self.card.capabilities = AgentCapabilities()
         self.card.capabilities.streaming = True
         return self
-    
+
     def enable_push_notifications(self) -> 'AgentCard':
         """Enable push notifications capability."""
         if not self.card.capabilities:
             self.card.capabilities = AgentCapabilities()
         self.card.capabilities.push_notifications = True
         return self
-    
+
     def enable_state_history(self) -> 'AgentCard':
         """Enable state transition history capability."""
         if not self.card.capabilities:
             self.card.capabilities = AgentCapabilities()
         self.card.capabilities.state_transition_history = True
         return self
-    
+
     def enable_media(self) -> 'AgentCard':
         """Enable media capability."""
         if not self.card.capabilities:
             self.card.capabilities = AgentCapabilities()
         self.card.capabilities.media = True
         return self
-    
+
     def add_livekit_interface(
         self,
         token_endpoint: str,
@@ -117,7 +117,7 @@ class AgentCard:
         server_managed: bool = True
     ) -> 'AgentCard':
         """Add LiveKit interface configuration.
-        
+
         Args:
             token_endpoint: Endpoint for obtaining LiveKit access tokens
             join_url_template: Template for generating join URLs
@@ -125,18 +125,18 @@ class AgentCard:
         """
         if not self.card.additional_interfaces:
             self.card.additional_interfaces = AdditionalInterfaces()
-        
+
         self.card.additional_interfaces.livekit = LiveKitInterface(
             token_endpoint=token_endpoint,
             join_url_template=join_url_template,
             server_managed=server_managed
         )
-        
+
         # Also enable media capability
         self.enable_media()
-        
+
         return self
-    
+
     def add_mcp_interface(
         self,
         endpoint: str,
@@ -144,7 +144,7 @@ class AgentCard:
         description: Optional[str] = None
     ) -> 'AgentCard':
         """Add MCP (Model Context Protocol) interface for agent synchronization.
-        
+
         Args:
             endpoint: HTTP endpoint for MCP JSON-RPC (e.g., http://localhost:9000/mcp/v1/rpc)
             protocol: Protocol type (http, stdio, sse)
@@ -152,7 +152,7 @@ class AgentCard:
         """
         if not self.card.additional_interfaces:
             self.card.additional_interfaces = AdditionalInterfaces()
-        
+
         # Add MCP interface as custom field
         if not hasattr(self.card.additional_interfaces, 'mcp'):
             # Store as extra field in additional_interfaces
@@ -165,9 +165,9 @@ class AgentCard:
             if not self.card.additional_interfaces.model_extra:
                 self.card.additional_interfaces.model_extra = {}
             self.card.additional_interfaces.model_extra["mcp"] = mcp_info
-        
+
         return self
-    
+
     def add_extension(
         self,
         uri: str,
@@ -179,7 +179,7 @@ class AgentCard:
             self.card.capabilities = AgentCapabilities()
         if not self.card.capabilities.extensions:
             self.card.capabilities.extensions = []
-        
+
         extension = AgentExtension(
             uri=uri,
             description=description,
@@ -187,23 +187,23 @@ class AgentCard:
         )
         self.card.capabilities.extensions.append(extension)
         return self
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the agent card to a dictionary."""
         return self.card.model_dump(exclude_none=True)
-    
+
     def to_json(self, indent: Optional[int] = 2) -> str:
         """Convert the agent card to JSON."""
         return self.card.model_dump_json(exclude_none=True, indent=indent)
-    
+
     def save_to_file(self, file_path: str) -> None:
         """Save the agent card to a JSON file."""
         path = Path(file_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(path, 'w', encoding='utf-8') as f:
             f.write(self.to_json())
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AgentCard':
         """Create an AgentCard from a dictionary."""
@@ -211,13 +211,13 @@ class AgentCard:
         instance = cls.__new__(cls)
         instance.card = card_model
         return instance
-    
+
     @classmethod
     def from_json(cls, json_str: str) -> 'AgentCard':
         """Create an AgentCard from a JSON string."""
         data = json.loads(json_str)
         return cls.from_dict(data)
-    
+
     @classmethod
     def from_file(cls, file_path: str) -> 'AgentCard':
         """Load an AgentCard from a JSON file."""
@@ -227,7 +227,7 @@ class AgentCard:
 
 class AgentCardBuilder:
     """Fluent builder for creating Agent Cards."""
-    
+
     def __init__(self):
         self._name: Optional[str] = None
         self._description: Optional[str] = None
@@ -238,22 +238,22 @@ class AgentCardBuilder:
         self._skills: List[AgentSkill] = []
         self._additional_interfaces: Optional[AdditionalInterfaces] = None
         self._version: str = "1.0"
-    
+
     def name(self, name: str) -> 'AgentCardBuilder':
         """Set the agent name."""
         self._name = name
         return self
-    
+
     def description(self, description: str) -> 'AgentCardBuilder':
         """Set the agent description."""
         self._description = description
         return self
-    
+
     def url(self, url: str) -> 'AgentCardBuilder':
         """Set the agent URL."""
         self._url = url
         return self
-    
+
     def provider(
         self,
         organization: str,
@@ -265,35 +265,35 @@ class AgentCardBuilder:
             url=url
         )
         return self
-    
+
     def with_streaming(self) -> 'AgentCardBuilder':
         """Enable streaming capability."""
         if not self._capabilities:
             self._capabilities = AgentCapabilities()
         self._capabilities.streaming = True
         return self
-    
+
     def with_push_notifications(self) -> 'AgentCardBuilder':
         """Enable push notifications capability."""
         if not self._capabilities:
             self._capabilities = AgentCapabilities()
         self._capabilities.push_notifications = True
         return self
-    
+
     def with_state_history(self) -> 'AgentCardBuilder':
         """Enable state transition history capability."""
         if not self._capabilities:
             self._capabilities = AgentCapabilities()
         self._capabilities.state_transition_history = True
         return self
-    
+
     def with_media(self) -> 'AgentCardBuilder':
         """Enable media capability."""
         if not self._capabilities:
             self._capabilities = AgentCapabilities()
         self._capabilities.media = True
         return self
-    
+
     def with_livekit_interface(
         self,
         token_endpoint: str,
@@ -303,18 +303,18 @@ class AgentCardBuilder:
         """Add LiveKit interface configuration."""
         if not self._additional_interfaces:
             self._additional_interfaces = AdditionalInterfaces()
-        
+
         self._additional_interfaces.livekit = LiveKitInterface(
             token_endpoint=token_endpoint,
             join_url_template=join_url_template,
             server_managed=server_managed
         )
-        
+
         # Also enable media capability
         self.with_media()
-        
+
         return self
-    
+
     def with_extension(
         self,
         uri: str,
@@ -326,7 +326,7 @@ class AgentCardBuilder:
             self._capabilities = AgentCapabilities()
         if not self._capabilities.extensions:
             self._capabilities.extensions = []
-        
+
         extension = AgentExtension(
             uri=uri,
             description=description,
@@ -334,7 +334,7 @@ class AgentCardBuilder:
         )
         self._capabilities.extensions.append(extension)
         return self
-    
+
     def with_authentication(
         self,
         scheme: str,
@@ -347,7 +347,7 @@ class AgentCardBuilder:
         )
         self._authentication.append(auth)
         return self
-    
+
     def with_skill(
         self,
         skill_id: str,
@@ -368,17 +368,17 @@ class AgentCardBuilder:
         )
         self._skills.append(skill)
         return self
-    
+
     def version(self, version: str) -> 'AgentCardBuilder':
         """Set the agent card version."""
         self._version = version
         return self
-    
+
     def build(self) -> AgentCard:
         """Build the agent card."""
         if not all([self._name, self._description, self._url, self._provider]):
             raise ValueError("Name, description, URL, and provider are required")
-        
+
         return AgentCard(
             name=self._name,
             description=self._description,

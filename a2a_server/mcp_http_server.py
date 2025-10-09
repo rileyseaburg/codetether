@@ -38,17 +38,17 @@ class MCPResponse(BaseModel):
 
 class MCPHTTPServer:
     """HTTP-based MCP server for external agent connections."""
-    
+
     def __init__(self, host: str = "0.0.0.0", port: int = 9000):
         self.host = host
         self.port = port
         self.app = FastAPI(title="MCP HTTP Server", version="1.0.0")
         self._memory: Dict[str, str] = {}
         self._setup_routes()
-        
+
     def _setup_routes(self):
         """Set up HTTP routes for MCP."""
-        
+
         @self.app.get("/")
         async def root():
             """Health check endpoint."""
@@ -62,7 +62,7 @@ class MCPHTTPServer:
                     "health": "/"
                 }
             }
-        
+
         @self.app.get("/mcp/v1/tools")
         async def list_tools():
             """List available MCP tools."""
@@ -143,7 +143,7 @@ class MCPHTTPServer:
                 }
             ]
             return {"tools": tools}
-        
+
         @self.app.post("/mcp/v1/rpc")
         async def handle_rpc(request: MCPRequest):
             """Handle MCP JSON-RPC requests."""
@@ -154,16 +154,16 @@ class MCPHTTPServer:
                         id=request.id,
                         result=tools_response
                     )
-                
+
                 elif request.method == "tools/call":
                     if not request.params:
                         raise HTTPException(status_code=400, detail="Missing params")
-                    
+
                     tool_name = request.params.get("name")
                     arguments = request.params.get("arguments", {})
-                    
+
                     result = await self._call_tool(tool_name, arguments)
-                    
+
                     return MCPResponse(
                         id=request.id,
                         result={
@@ -175,7 +175,7 @@ class MCPHTTPServer:
                             ]
                         }
                     )
-                
+
                 else:
                     return MCPResponse(
                         id=request.id,
@@ -184,7 +184,7 @@ class MCPHTTPServer:
                             "message": f"Method not found: {request.method}"
                         }
                     )
-                    
+
             except Exception as e:
                 logger.error(f"Error handling RPC: {e}")
                 return MCPResponse(
@@ -194,10 +194,10 @@ class MCPHTTPServer:
                         "message": f"Internal error: {str(e)}"
                     }
                 )
-    
+
     async def _call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a tool with the given arguments."""
-        
+
         if tool_name == "calculator":
             return await self._calculator(arguments)
         elif tool_name == "weather_info":
@@ -208,13 +208,13 @@ class MCPHTTPServer:
             return await self._memory_store(arguments)
         else:
             return {"error": f"Unknown tool: {tool_name}"}
-    
+
     async def _calculator(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Calculator tool implementation."""
         operation = args.get("operation")
         a = args.get("a")
         b = args.get("b")
-        
+
         try:
             if operation == "add":
                 if b is None:
@@ -242,20 +242,20 @@ class MCPHTTPServer:
                 result = math.sqrt(a)
             else:
                 return {"error": f"Unknown operation: {operation}"}
-            
+
             return {
                 "result": result,
                 "operation": operation,
                 "inputs": {"a": a, "b": b}
             }
-            
+
         except Exception as e:
             return {"error": f"Calculation error: {str(e)}"}
-    
+
     async def _weather_info(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Weather info tool implementation."""
         location = args.get("location")
-        
+
         return {
             "location": location,
             "temperature": "22°C",
@@ -264,16 +264,16 @@ class MCPHTTPServer:
             "wind": "10 km/h SW",
             "timestamp": datetime.now().isoformat()
         }
-    
+
     async def _text_analyzer(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Text analyzer tool implementation."""
         text = args.get("text", "")
-        
+
         words = text.split()
         sentences = text.split('.')
         chars = len(text)
         chars_no_spaces = len(text.replace(' ', ''))
-        
+
         return {
             "text": text,
             "word_count": len(words),
@@ -283,20 +283,20 @@ class MCPHTTPServer:
             "average_word_length": sum(len(word) for word in words) / len(words) if words else 0,
             "timestamp": datetime.now().isoformat()
         }
-    
+
     async def _memory_store(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Memory store tool implementation."""
         action = args.get("action")
         key = args.get("key")
         value = args.get("value")
-        
+
         try:
             if action == "store":
                 if key is None or value is None:
                     return {"error": "Store action requires both key and value"}
                 self._memory[key] = value
                 return {"action": "store", "key": key, "value": value, "success": True}
-            
+
             elif action == "retrieve":
                 if key is None:
                     return {"error": "Retrieve action requires a key"}
@@ -304,11 +304,11 @@ class MCPHTTPServer:
                 if value is None:
                     return {"action": "retrieve", "key": key, "found": False}
                 return {"action": "retrieve", "key": key, "value": value, "found": True}
-            
+
             elif action == "list":
                 keys = list(self._memory.keys())
                 return {"action": "list", "keys": keys, "count": len(keys)}
-            
+
             elif action == "delete":
                 if key is None:
                     return {"error": "Delete action requires a key"}
@@ -316,13 +316,13 @@ class MCPHTTPServer:
                     del self._memory[key]
                     return {"action": "delete", "key": key, "success": True}
                 return {"action": "delete", "key": key, "success": False, "error": "Key not found"}
-            
+
             else:
                 return {"error": f"Unknown action: {action}"}
-                
+
         except Exception as e:
             return {"error": f"Memory operation error: {str(e)}"}
-    
+
     async def start(self):
         """Start the HTTP MCP server."""
         logger.info(f"Starting MCP HTTP server on {self.host}:{self.port}")

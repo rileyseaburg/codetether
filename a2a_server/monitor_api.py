@@ -45,7 +45,7 @@ class InterventionRequest(BaseModel):
 
 class MonitoringService:
     """Service for monitoring agent conversations and enabling human intervention."""
-    
+
     def __init__(self):
         self.messages = deque(maxlen=1000)  # Keep last 1000 messages
         self.active_agents = {}
@@ -58,7 +58,7 @@ class MonitoringService:
             "response_times": deque(maxlen=100)
         }
         self.subscribers = []
-        
+
     async def log_message(
         self,
         agent_name: str,
@@ -81,10 +81,10 @@ class MonitoringService:
             tokens=tokens,
             error=error
         )
-        
+
         self.messages.append(message)
         self.stats["total_messages"] += 1
-        
+
         if message_type == "tool":
             self.stats["tool_calls"] += 1
         if error:
@@ -93,12 +93,12 @@ class MonitoringService:
             self.stats["tokens"] += tokens
         if response_time:
             self.stats["response_times"].append(response_time)
-        
+
         # Broadcast to all subscribers
         await self.broadcast_message(message)
-        
+
         logger.info(f"Logged message from {agent_name}: {content[:100]}")
-    
+
     async def broadcast_message(self, message: MonitorMessage):
         """Broadcast a message to all SSE subscribers."""
         data = {
@@ -111,19 +111,19 @@ class MonitoringService:
             "error": message.error,
             "timestamp": message.timestamp.isoformat()
         }
-        
+
         message_json = json.dumps(data)
-        
+
         # Remove disconnected subscribers
         self.subscribers = [sub for sub in self.subscribers if not sub.done()]
-        
+
         # Send to all active subscribers
         for queue in self.subscribers:
             try:
                 await queue.put(f"data: {message_json}\n\n")
             except:
                 pass
-    
+
     def register_agent(self, agent_id: str, agent_name: str):
         """Register an active agent."""
         self.active_agents[agent_id] = {
@@ -133,13 +133,13 @@ class MonitoringService:
             "messages_count": 0,
             "last_seen": datetime.now()
         }
-    
+
     def update_agent_status(self, agent_id: str, status: str):
         """Update agent status."""
         if agent_id in self.active_agents:
             self.active_agents[agent_id]["status"] = status
             self.active_agents[agent_id]["last_seen"] = datetime.now()
-    
+
     async def handle_intervention(self, agent_id: str, message: str):
         """Handle human intervention for an agent."""
         intervention = {
@@ -147,9 +147,9 @@ class MonitoringService:
             "message": message,
             "timestamp": datetime.now().isoformat()
         }
-        
+
         self.interventions.append(intervention)
-        
+
         # Log the intervention as a message
         agent_name = self.active_agents.get(agent_id, {}).get("name", "Unknown")
         await self.log_message(
@@ -158,24 +158,24 @@ class MonitoringService:
             message_type="human",
             metadata={"intervention": True, "target_agent": agent_id}
         )
-        
+
         return intervention
-    
+
     def get_messages(self, limit: int = 100, message_type: Optional[str] = None) -> List[Dict]:
         """Get recent messages."""
         messages = list(self.messages)
-        
+
         if message_type:
             messages = [m for m in messages if m.type == message_type]
-        
+
         return [asdict(m) for m in messages[-limit:]]
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get monitoring statistics."""
         avg_response_time = 0
         if self.stats["response_times"]:
             avg_response_time = sum(self.stats["response_times"]) / len(self.stats["response_times"])
-        
+
         return {
             "total_messages": self.stats["total_messages"],
             "tool_calls": self.stats["tool_calls"],
@@ -207,34 +207,34 @@ async def monitor_stream(request: Request):
         # Create a queue for this subscriber
         queue = asyncio.Queue()
         monitoring_service.subscribers.append(asyncio.create_task(queue_consumer(queue)))
-        
+
         async def queue_consumer(q):
             while True:
                 await q.get()
-        
+
         try:
             # Send initial connection message
             yield f"data: {json.dumps({'type': 'connected', 'timestamp': datetime.now().isoformat()})}\n\n"
-            
+
             # Keep connection alive and send any queued messages
             while True:
                 if await request.is_disconnected():
                     break
-                
+
                 try:
                     # Send a heartbeat every 30 seconds
                     await asyncio.sleep(30)
                     yield f": heartbeat\n\n"
                 except asyncio.CancelledError:
                     break
-                    
+
         finally:
             # Cleanup
             monitoring_service.subscribers = [
-                sub for sub in monitoring_service.subscribers 
+                sub for sub in monitoring_service.subscribers
                 if sub != asyncio.current_task()
             ]
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -300,10 +300,10 @@ async def export_json(limit: int = 1000):
 async def export_csv(limit: int = 1000):
     """Export messages as CSV."""
     messages = monitoring_service.get_messages(limit=limit)
-    
+
     # Create CSV content
     csv_lines = ["Timestamp,Type,Agent,Content,Response Time,Tokens,Error"]
-    
+
     for msg in messages:
         timestamp = msg.get("timestamp", "")
         msg_type = msg.get("type", "")
@@ -312,11 +312,11 @@ async def export_csv(limit: int = 1000):
         response_time = msg.get("response_time", "")
         tokens = msg.get("tokens", "")
         error = msg.get("error", "")
-        
+
         csv_lines.append(f'"{timestamp}","{msg_type}","{agent}","{content}","{response_time}","{tokens}","{error}"')
-    
+
     csv_content = "\n".join(csv_lines)
-    
+
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",

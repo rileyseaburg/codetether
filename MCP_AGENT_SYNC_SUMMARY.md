@@ -254,13 +254,13 @@ curl -X POST http://localhost:9000/mcp/v1/rpc \
 
 ## Benefits
 
-✅ **Agent Interoperability**: External agents can use A2A server tools  
-✅ **Centralized Coordination**: Shared memory for multi-agent tasks  
-✅ **Standard Protocol**: Uses MCP JSON-RPC 2.0 standard  
-✅ **Auto-Discovery**: Agents discover MCP via agent card  
-✅ **Production Ready**: Full Kubernetes/Helm support  
-✅ **Easy Integration**: Drop-in config for Cline/Claude Dev  
-✅ **Scalable**: Runs alongside A2A protocol on same deployment  
+✅ **Agent Interoperability**: External agents can use A2A server tools
+✅ **Centralized Coordination**: Shared memory for multi-agent tasks
+✅ **Standard Protocol**: Uses MCP JSON-RPC 2.0 standard
+✅ **Auto-Discovery**: Agents discover MCP via agent card
+✅ **Production Ready**: Full Kubernetes/Helm support
+✅ **Easy Integration**: Drop-in config for Cline/Claude Dev
+✅ **Scalable**: Runs alongside A2A protocol on same deployment
 
 ---
 

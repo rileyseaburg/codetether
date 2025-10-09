@@ -4,9 +4,9 @@ Get your A2A Server deployed to Quantum Forge in under 5 minutes!
 
 ## Prerequisites
 
-✅ Docker installed  
-✅ Helm 3.8+ installed  
-✅ Access to `registry.quantum-forge.net`  
+✅ Docker installed
+✅ Helm 3.8+ installed
+✅ Access to `registry.quantum-forge.net`
 
 ## Step 1: Login
 
