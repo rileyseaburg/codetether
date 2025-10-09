@@ -50,15 +50,7 @@ jobs:
 
             - name: Run pytest
               run: |
-                  python -m pytest tests/ -v --cov=a2a_server --cov-report=xml --cov-report=term
-
-            - name: Upload coverage
-              uses: codecov/codecov-action@v4
-              if: always()
-              with:
-                  file: ./coverage.xml
-                  flags: unittests
-                  name: codecov-umbrella
+                  python -m pytest tests/ -v
 
     build-and-push:
         name: Build and Push Docker Image
