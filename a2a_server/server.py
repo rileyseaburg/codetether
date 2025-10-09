@@ -31,6 +31,7 @@ from .task_manager import TaskManager, InMemoryTaskManager
 from .message_broker import MessageBroker, InMemoryMessageBroker
 from .agent_card import AgentCard
 from .livekit_bridge import create_livekit_bridge, LiveKitBridge
+from .monitor_api import monitor_router, monitoring_service, log_agent_message
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,11 @@ class A2AServer:
         # Active streaming connections
         self._streaming_connections: Dict[str, List[asyncio.Queue]] = {}
         
+        # Register with monitoring service
+        agent_id = str(uuid.uuid4())
+        monitoring_service.register_agent(agent_id, agent_card.card.name)
+        self.agent_id = agent_id
+        
         self._setup_routes()
     
     def _setup_routes(self) -> None:
@@ -127,6 +133,9 @@ class A2AServer:
         ):
             """Get a LiveKit access token for media sessions."""
             return await self._handle_livekit_token_request(token_request, credentials)
+        
+        # Include monitoring API routes
+        self.app.include_router(monitor_router)
     
     async def _handle_jsonrpc_request(
         self,
@@ -205,10 +214,21 @@ class A2AServer:
     
     async def _handle_send_message(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle message/send method."""
+        start_time = datetime.now()
+        
         try:
             request = SendMessageRequest.model_validate(params)
         except Exception as e:
             raise ValueError(f"Invalid parameters: {e}")
+        
+        # Log incoming message to monitoring
+        message_text = " ".join([p.content for p in request.message.parts if p.type == "text"])
+        await log_agent_message(
+            agent_name="External Client",
+            content=message_text,
+            message_type="human",
+            metadata={"task_id": request.task_id, "skill_id": request.skill_id}
+        )
         
         # Create or get task
         if request.task_id:
@@ -228,6 +248,19 @@ class A2AServer:
         
         # Process the message (this would be implemented by specific agents)
         response_message = await self._process_message(request.message, request.skill_id)
+        
+        # Calculate response time
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Log agent response to monitoring
+        response_text = " ".join([p.content for p in response_message.parts if p.type == "text"])
+        await log_agent_message(
+            agent_name=self.agent_card.card.name,
+            content=response_text,
+            message_type="agent",
+            metadata={"task_id": task.id, "skill_id": request.skill_id},
+            response_time=response_time
+        )
         
         # Update task as completed
         await self.task_manager.update_task_status(

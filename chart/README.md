@@ -2,9 +2,16 @@
 
 This Helm chart deploys the A2A (Agent-to-Agent) Server with MCP (Model Context Protocol) support on Kubernetes.
 
+## 🚀 Quick Links
+
+- **[Complete OCI Deployment Guide](../HELM_OCI_DEPLOYMENT.md)** - Push to OCI registry and enable agent synchronization
+- **[MCP Configuration Guide](../QUICK_REFERENCE_MCP_CONFIG.md)** - Configure Cline/Claude Dev to connect
+- **[MCP Agent Sync Summary](../MCP_AGENT_SYNC_SUMMARY.md)** - Overview of MCP capabilities
+
 ## Features
 
 - **Full A2A Server deployment** with enhanced MCP capabilities
+- **MCP HTTP Server** on port 9000 for external agent synchronization
 - **Redis integration** (included or external)
 - **Authentication support** with configurable tokens
 - **Enterprise-ready features**:
@@ -26,29 +33,66 @@ This Helm chart deploys the A2A (Agent-to-Agent) Server with MCP (Model Context 
 
 ## Quick Start
 
-### 1. Add Dependencies
+### Option 1: Install from Local Chart
 
 ```bash
+# Add dependencies
 cd chart/a2a-server
 helm dependency build
-```
 
-### 2. Development Deployment
-
-```bash
 # Deploy with development configuration
-helm install a2a-dev chart/a2a-server/ \
-  --values chart/a2a-server/examples/values-dev.yaml \
+helm install a2a-dev ../../chart/a2a-server/ \
+  --values examples/values-dev.yaml \
   --namespace a2a-dev \
   --create-namespace
 ```
 
-### 3. Production Deployment
+### Option 2: Install from OCI Registry (Recommended)
+
+See **[HELM_OCI_DEPLOYMENT.md](../HELM_OCI_DEPLOYMENT.md)** for complete instructions.
 
 ```bash
-# Deploy with production configuration
-helm install a2a-prod chart/a2a-server/ \
-  --values chart/a2a-server/examples/values-prod.yaml \
+# Package and push to OCI registry
+helm package chart/a2a-server
+helm push a2a-server-0.1.0.tgz oci://ghcr.io/YOUR_USERNAME/charts
+
+# Install from OCI registry
+helm install a2a-server oci://ghcr.io/YOUR_USERNAME/charts/a2a-server \
+  --version 0.1.0 \
+  --namespace a2a-system \
+  --create-namespace
+```
+
+## MCP Agent Synchronization
+
+The chart now includes MCP HTTP server support (port 9000) for external agent synchronization:
+
+```yaml
+# values.yaml
+service:
+  mcp:
+    enabled: true    # Enable MCP HTTP server
+    port: 9000       # MCP service port
+    targetPort: 9000 # MCP container port
+
+env:
+  MCP_HTTP_ENABLED: "true"
+  MCP_HTTP_PORT: "9000"
+```
+
+**Test MCP Connection:**
+
+```bash
+# Port-forward MCP service
+kubectl port-forward -n a2a-system svc/a2a-server 9000:9000
+
+# List available tools
+curl http://localhost:9000/mcp/v1/tools
+```
+
+**Configure External Agents:**
+
+See [QUICK_REFERENCE_MCP_CONFIG.md](../QUICK_REFERENCE_MCP_CONFIG.md) for Cline/Claude Dev configuration.
   --namespace a2a-prod \
   --create-namespace
 ```

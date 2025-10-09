@@ -9,6 +9,7 @@ import asyncio
 import logging
 import sys
 import argparse
+import os
 from typing import Optional
 
 from a2a_server.config import load_config, create_agent_config
@@ -18,6 +19,7 @@ from a2a_server.message_broker import MessageBroker, InMemoryMessageBroker
 from a2a_server.server import A2AServer, CustomA2AAgent
 from a2a_server.enhanced_server import EnhancedA2AServer, create_enhanced_agent_card
 from a2a_server.models import Message, Part
+from a2a_server.mcp_http_server import run_mcp_http_server
 
 
 class SimpleEchoAgent(CustomA2AAgent):
@@ -128,8 +130,13 @@ async def create_server(
 
 
 async def run_server(args):
-    """Run a single server instance."""
+    """Run a single server instance with optional MCP HTTP server."""
     setup_logging(args.log_level)
+    
+    # Get MCP configuration from environment or args
+    mcp_enabled = os.environ.get("MCP_HTTP_ENABLED", "true").lower() == "true"
+    mcp_host = os.environ.get("MCP_HTTP_HOST", args.host)
+    mcp_port = int(os.environ.get("MCP_HTTP_PORT", "9000"))
     
     server = await create_server(
         agent_name=args.name,
@@ -141,13 +148,30 @@ async def run_server(args):
     
     print(f"Starting A2A server '{args.name}' on port {args.port}")
     print(f"Agent card: http://localhost:{args.port}/.well-known/agent-card.json")
+    
+    tasks = []
+    
+    # Start A2A server
+    a2a_task = asyncio.create_task(server.start(host=args.host, port=args.port))
+    tasks.append(a2a_task)
+    
+    # Start MCP HTTP server if enabled and enhanced mode
+    if mcp_enabled and args.enhanced:
+        print(f"Starting MCP HTTP server on port {mcp_port}")
+        print(f"MCP endpoint: http://localhost:{mcp_port}/mcp/v1/rpc")
+        print(f"MCP tools: http://localhost:{mcp_port}/mcp/v1/tools")
+        mcp_task = asyncio.create_task(run_mcp_http_server(host=mcp_host, port=mcp_port))
+        tasks.append(mcp_task)
+    
     print("Press Ctrl+C to stop")
     
     try:
-        await server.start(host=args.host, port=args.port)
+        await asyncio.gather(*tasks)
     except KeyboardInterrupt:
         print("\nShutting down...")
         await server.stop()
+        for task in tasks:
+            task.cancel()
 
 
 async def run_multiple_servers():

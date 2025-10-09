@@ -1,0 +1,56 @@
+{
+  "_comment": "Example MCP configuration for Cline/Claude Dev to connect to deployed A2A Server",
+  "mcpServers": {
+    "a2a-server-production": {
+      "command": "python",
+      "args": [
+        "examples/mcp_external_client.py",
+        "--endpoint",
+        "http://a2a.example.com:9000/mcp/v1/rpc"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "calculator",
+        "text_analyzer",
+        "weather_info"
+      ],
+      "description": "Production A2A Server with MCP tools for agent coordination"
+    },
+    "a2a-server-local": {
+      "command": "python",
+      "args": [
+        "examples/mcp_external_client.py",
+        "--endpoint",
+        "http://localhost:9000/mcp/v1/rpc"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "calculator",
+        "text_analyzer"
+      ],
+      "description": "Local development A2A Server (use with port-forwarding)"
+    },
+    "a2a-server-kubernetes": {
+      "command": "python",
+      "args": [
+        "examples/mcp_external_client.py",
+        "--endpoint",
+        "http://a2a-server.a2a-system.svc.cluster.local:9000/mcp/v1/rpc"
+      ],
+      "disabled": true,
+      "autoApprove": [],
+      "description": "A2A Server running in Kubernetes (for in-cluster agents)"
+    },
+    "a2a-server-staging": {
+      "command": "python",
+      "args": [
+        "examples/mcp_external_client.py",
+        "--endpoint",
+        "https://a2a-staging.example.com/mcp/v1/rpc"
+      ],
+      "disabled": false,
+      "autoApprove": [],
+      "description": "Staging environment A2A Server"
+    }
+  }
+}

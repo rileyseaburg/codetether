@@ -54,6 +54,11 @@ service:
   port: 8000
   targetPort: 8000
   annotations: {}
+  # MCP HTTP server configuration
+  mcp:
+    enabled: true
+    port: 9000
+    targetPort: 9000
 
 # Ingress configuration
 ingress:
@@ -146,6 +151,11 @@ env:
   A2A_HOST: "0.0.0.0"
   A2A_PORT: "8000"
   A2A_LOG_LEVEL: "INFO"
+  
+  # MCP HTTP server configuration
+  MCP_HTTP_ENABLED: "true"
+  MCP_HTTP_HOST: "0.0.0.0"
+  MCP_HTTP_PORT: "9000"
   
   # Application configuration
   A2A_AGENT_NAME: "Enhanced A2A Agent"

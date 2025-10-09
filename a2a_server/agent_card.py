@@ -137,6 +137,37 @@ class AgentCard:
         
         return self
     
+    def add_mcp_interface(
+        self,
+        endpoint: str,
+        protocol: str = "http",
+        description: Optional[str] = None
+    ) -> 'AgentCard':
+        """Add MCP (Model Context Protocol) interface for agent synchronization.
+        
+        Args:
+            endpoint: HTTP endpoint for MCP JSON-RPC (e.g., http://localhost:9000/mcp/v1/rpc)
+            protocol: Protocol type (http, stdio, sse)
+            description: Optional description of available MCP tools
+        """
+        if not self.card.additional_interfaces:
+            self.card.additional_interfaces = AdditionalInterfaces()
+        
+        # Add MCP interface as custom field
+        if not hasattr(self.card.additional_interfaces, 'mcp'):
+            # Store as extra field in additional_interfaces
+            mcp_info = {
+                "endpoint": endpoint,
+                "protocol": protocol,
+                "description": description or "MCP tools for agent synchronization and coordination"
+            }
+            # Store in model_extra or as a custom extension
+            if not self.card.additional_interfaces.model_extra:
+                self.card.additional_interfaces.model_extra = {}
+            self.card.additional_interfaces.model_extra["mcp"] = mcp_info
+        
+        return self
+    
     def add_extension(
         self,
         uri: str,
