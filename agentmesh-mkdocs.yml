@@ -1,0 +1,170 @@
+# AgentMesh Server Documentation
+site_name: AgentMesh Server
+site_url: https://docs.agentmesh.run/
+site_description: >-
+  AgentMesh Server is a production-ready implementation of the A2A (Agent-to-Agent) Protocol.
+  Turn AI agents into production systems with real-time coordination, distributed workers, and enterprise-grade security.
+site_author: AgentMesh
+site_dir: agentmesh-site
+
+extra:
+  version: '1.0.0'
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rileyseaburg/A2A-Server-MCP
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/agentmesh
+  generator: false
+
+# Navigation
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - Core Concepts:
+    - Architecture: concepts/architecture.md
+    - A2A Protocol: concepts/a2a-protocol.md
+    - Message Broker: concepts/message-broker.md
+    - Task Management: concepts/task-management.md
+  - Features:
+    - OpenCode Integration: features/opencode.md
+    - Distributed Workers: features/distributed-workers.md
+    - Session Management: features/sessions.md
+    - Real-time Streaming: features/streaming.md
+    - Agent Messaging: features/agent-messaging.md
+    - MCP Tools: features/mcp-tools.md
+    - Monitor UI: features/monitor-ui.md
+  - API Reference:
+    - Overview: api/overview.md
+    - JSON-RPC Methods: api/jsonrpc.md
+    - REST Endpoints: api/rest.md
+    - OpenCode API: api/opencode.md
+    - SSE Events: api/sse.md
+  - Authentication:
+    - Overview: auth/overview.md
+    - Keycloak Setup: auth/keycloak.md
+    - API Tokens: auth/tokens.md
+  - Deployment:
+    - Docker: deployment/docker.md
+    - Kubernetes: deployment/kubernetes.md
+    - Helm Charts: deployment/helm.md
+    - Production Checklist: deployment/production.md
+  - Reference:
+    - Environment Variables: reference/environment-variables.md
+    - CLI Reference: reference/cli.md
+    - Error Codes: reference/errors.md
+  - A2A Protocol Spec: https://a2a-protocol.org/
+
+# Repository
+repo_name: rileyseaburg/A2A-Server-MCP
+repo_url: https://github.com/rileyseaburg/A2A-Server-MCP
+
+# Copyright
+copyright: Copyright 2025 AgentMesh. Apache License 2.0.
+
+# Custom CSS
+extra_css:
+  - stylesheets/custom.css
+
+# Configuration
+theme:
+  name: material
+  # custom_dir: .overrides  # Uncomment when overrides are added
+  font:
+    text: Inter
+    code: JetBrains Mono
+  logo: assets/agentmesh-logo.svg
+  favicon: assets/agentmesh-favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+    admonition:
+      note: fontawesome/solid/note-sticky
+      abstract: fontawesome/solid/book
+      info: fontawesome/solid/circle-info
+      tip: fontawesome/solid/lightbulb
+      success: fontawesome/solid/check
+      question: fontawesome/solid/circle-question
+      warning: fontawesome/solid/triangle-exclamation
+      failure: fontawesome/solid/xmark
+      danger: fontawesome/solid/skull
+      bug: fontawesome/solid/bug
+      example: fontawesome/solid/flask
+      quote: fontawesome/solid/quote-left
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - announce.dismiss
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+
+# Extensions
+markdown_extensions:
+  - meta
+  - footnotes
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.snippets:
+      url_download: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: true
+
+# Plugins
+plugins:
+  - search
+  - tags

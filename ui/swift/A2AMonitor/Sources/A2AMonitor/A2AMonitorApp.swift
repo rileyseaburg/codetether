@@ -200,7 +200,7 @@ struct SidebarView: View {
 struct SettingsView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @EnvironmentObject var authService: AuthService
-    @AppStorage("serverURL") private var serverURL = "https://a2a.quantum-forge.net"
+    @AppStorage("serverURL") private var serverURL = "https://api.codetether.run"
     @AppStorage("autoReconnect") private var autoReconnect = true
     @AppStorage("refreshInterval") private var refreshInterval = 5.0
     

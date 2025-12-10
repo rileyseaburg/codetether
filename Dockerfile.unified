@@ -1,0 +1,98 @@
+# Multi-Stage Dockerfile for A2A Server Services
+# Supports building different services using build arguments
+
+ARG BASE_IMAGE=python:3.12-slim
+FROM ${BASE_IMAGE} as base
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        g++ \
+        curl \
+        nginx \
+        && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# A2A Server stage
+FROM base as a2a-server
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+RUN groupadd -r a2a && useradd -r -g a2a a2a
+RUN chown -R a2a:a2a /app
+USER a2a
+EXPOSE 8000 9000
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+# OpenCode host configuration - connect to host VM's opencode API
+# Use 'host.docker.internal' on Docker Desktop (Mac/Windows)
+# Use host's actual IP or hostname on Linux
+ENV OPENCODE_HOST=host.docker.internal
+ENV OPENCODE_PORT=9777
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/.well-known/agent-card.json')" || exit 1
+CMD ["python", "run_server.py", "run", "--host", "0.0.0.0", "--port", "8000"]
+
+# Documentation stage
+FROM squidfunk/mkdocs-material:9.5 as docs-builder
+RUN pip install \
+    mkdocs-macros-plugin \
+    mkdocs-redirects
+WORKDIR /docs
+COPY agentmesh-mkdocs.yml /docs/mkdocs.yml
+COPY agentmesh-docs /docs/docs
+RUN mkdocs build -f mkdocs.yml -d /site
+
+FROM nginx:alpine as docs
+COPY --from=docs-builder /site /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+# Marketing site stage
+FROM node:20-alpine as marketing-builder
+WORKDIR /app
+COPY marketing-site/package*.json ./
+RUN npm install --legacy-peer-deps
+COPY marketing-site/ .
+RUN mkdir -p public
+ARG AUTH_SECRET
+ARG KEYCLOAK_CLIENT_ID=a2a-monitor
+ARG KEYCLOAK_CLIENT_SECRET
+ARG KEYCLOAK_ISSUER=https://auth.quantum-forge.io/realms/quantum-forge
+ARG NEXTAUTH_URL=https://a2a.quantum-forge.net
+ENV AUTH_SECRET=$AUTH_SECRET
+ENV KEYCLOAK_CLIENT_ID=$KEYCLOAK_CLIENT_ID
+ENV KEYCLOAK_CLIENT_SECRET=$KEYCLOAK_CLIENT_SECRET
+ENV KEYCLOAK_ISSUER=$KEYCLOAK_ISSUER
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
+RUN npm run build
+
+FROM node:20-alpine as marketing
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV NEXTAUTH_URL=https://a2a.quantum-forge.net
+ENV KEYCLOAK_ISSUER=https://auth.quantum-forge.io/realms/quantum-forge
+ENV KEYCLOAK_CLIENT_ID=a2a-monitor
+ENV AUTH_SECRET=Gzez2UkA76TcFpnUEXUmT16+/G3UX2RmoGxyByfAJO4=
+ENV KEYCLOAK_CLIENT_SECRET=Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+COPY --from=marketing-builder /app/public ./public
+COPY --from=marketing-builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=marketing-builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+# OpenCode stage - lightweight client that connects to host VM's opencode API
+FROM alpine as opencode
+ARG BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
+ENV BUN_RUNTIME_TRANSPILER_CACHE_PATH=${BUN_RUNTIME_TRANSPILER_CACHE_PATH}
+
+RUN apk add libgcc libstdc++
+COPY opencode/packages/opencode/dist/opencode-linux-x64-baseline-musl/bin/opencode /usr/local/bin/opencode
+RUN opencode --version
+ENTRYPOINT ["opencode"]

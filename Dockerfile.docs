@@ -1,0 +1,23 @@
+# Dockerfile for AgentMesh Documentation Site
+FROM squidfunk/mkdocs-material:9.5
+
+# Install additional plugins
+RUN pip install \
+    mkdocs-macros-plugin \
+    mkdocs-redirects
+
+# Set working directory
+WORKDIR /docs
+
+# Copy documentation files
+COPY agentmesh-mkdocs.yml /docs/mkdocs.yml
+COPY agentmesh-docs /docs/docs
+
+# Build static site
+RUN mkdocs build -f mkdocs.yml -d /site
+
+# Use nginx to serve static files
+FROM nginx:alpine
+COPY --from=0 /site /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

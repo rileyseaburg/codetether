@@ -29,6 +29,12 @@ DEFAULT_OPENCODE_DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), '..', 'data', 'opencode.db'),
 )
 
+# OpenCode host configuration - allows container to connect to host VM's opencode
+# Use 'host.docker.internal' when running in Docker on Linux/Mac/Windows
+# Use the actual host IP when host.docker.internal is not available
+OPENCODE_HOST = os.environ.get('OPENCODE_HOST', 'localhost')
+OPENCODE_DEFAULT_PORT = int(os.environ.get('OPENCODE_PORT', '9777'))
+
 
 class AgentStatus(str, Enum):
     """Status of an OpenCode agent instance."""
@@ -165,9 +171,10 @@ class OpenCodeBridge:
     def __init__(
         self,
         opencode_bin: Optional[str] = None,
-        default_port: int = 9777,
+        default_port: int = None,
         auto_start: bool = True,
         db_path: Optional[str] = None,
+        opencode_host: Optional[str] = None,
     ):
         """
         Initialize the OpenCode bridge.
@@ -177,10 +184,13 @@ class OpenCodeBridge:
             default_port: Default port for OpenCode server
             auto_start: Whether to auto-start OpenCode when triggering
             db_path: Path to SQLite database for persistence
+            opencode_host: Host where OpenCode API is running (for container->host)
         """
         self.opencode_bin = opencode_bin or self._find_opencode_binary()
-        self.default_port = default_port
+        self.default_port = default_port or OPENCODE_DEFAULT_PORT
         self.auto_start = auto_start
+        # OpenCode host - allows container to connect to host VM's opencode
+        self.opencode_host = opencode_host or OPENCODE_HOST
 
         # Database persistence
         self.db_path = db_path or DEFAULT_OPENCODE_DB_PATH
@@ -218,7 +228,17 @@ class OpenCodeBridge:
         self._session: Optional[aiohttp.ClientSession] = None
 
         logger.info(f"OpenCode bridge initialized with binary: {self.opencode_bin}")
+        logger.info(f"OpenCode host: {self.opencode_host}:{self.default_port}")
         logger.info(f"Using database: {self.db_path} (sqlite={self._use_sqlite})")
+
+    def _get_opencode_base_url(self, port: Optional[int] = None) -> str:
+        """
+        Get the base URL for OpenCode API.
+
+        Uses configured opencode_host to allow container->host communication.
+        """
+        p = port or self.default_port
+        return f"http://{self.opencode_host}:{p}"
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local database connection."""
@@ -738,8 +758,8 @@ class OpenCodeBridge:
                         error="OpenCode server not running and auto_start is disabled",
                     )
 
-            # Build API URL
-            base_url = f"http://localhost:{codebase.opencode_port}"
+            # Build API URL - use configured host for container->host communication
+            base_url = self._get_opencode_base_url(codebase.opencode_port)
 
             session = await self._get_session()
 
@@ -824,7 +844,7 @@ class OpenCodeBridge:
         if codebase.opencode_port and codebase.session_id:
             try:
                 session = await self._get_session()
-                base_url = f"http://localhost:{codebase.opencode_port}"
+                base_url = self._get_opencode_base_url(codebase.opencode_port)
 
                 async with session.get(
                     f"{base_url}/session/{codebase.session_id}/message",
@@ -861,7 +881,7 @@ class OpenCodeBridge:
 
         try:
             session = await self._get_session()
-            base_url = f"http://localhost:{codebase.opencode_port}"
+            base_url = self._get_opencode_base_url(codebase.opencode_port)
 
             payload = {
                 "sessionID": codebase.session_id,
@@ -904,7 +924,7 @@ class OpenCodeBridge:
 
         try:
             session = await self._get_session()
-            base_url = f"http://localhost:{codebase.opencode_port}"
+            base_url = self._get_opencode_base_url(codebase.opencode_port)
 
             async with session.post(
                 f"{base_url}/session/{codebase.session_id}/interrupt"
@@ -1252,7 +1272,7 @@ class OpenCodeBridge:
         if not codebase.opencode_port or not task.session_id:
             return
 
-        base_url = f"http://localhost:{codebase.opencode_port}"
+        base_url = self._get_opencode_base_url(codebase.opencode_port)
         session = await self._get_session()
 
         start_time = datetime.utcnow()
@@ -1317,14 +1337,16 @@ def get_bridge() -> OpenCodeBridge:
 
 def init_bridge(
     opencode_bin: Optional[str] = None,
-    default_port: int = 9777,
+    default_port: int = None,
     auto_start: bool = True,
+    opencode_host: Optional[str] = None,
 ) -> OpenCodeBridge:
     """Initialize the global OpenCode bridge instance."""
     global _bridge
     _bridge = OpenCodeBridge(
         opencode_bin=opencode_bin,
-        default_port=default_port,
+        default_port=default_port or OPENCODE_DEFAULT_PORT,
         auto_start=auto_start,
+        opencode_host=opencode_host,
     )
     return _bridge

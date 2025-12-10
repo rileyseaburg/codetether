@@ -19,6 +19,9 @@ class ServerConfig(BaseModel):
     auth_enabled: bool = False
     auth_tokens: Optional[Dict[str, str]] = None
     log_level: str = "INFO"
+    # OpenCode host configuration - use host.docker.internal for container->host communication
+    opencode_host: str = "localhost"
+    opencode_port: int = 9777
 
 
 class AgentConfig(BaseModel):
@@ -41,7 +44,10 @@ def load_config() -> ServerConfig:
         redis_url=os.getenv("A2A_REDIS_URL", "redis://localhost:6379"),
         auth_enabled=os.getenv("A2A_AUTH_ENABLED", "false").lower() == "true",
         auth_tokens=_parse_auth_tokens(os.getenv("A2A_AUTH_TOKENS")),
-        log_level=os.getenv("A2A_LOG_LEVEL", "INFO")
+        log_level=os.getenv("A2A_LOG_LEVEL", "INFO"),
+        # OpenCode host - use host.docker.internal when running in container
+        opencode_host=os.getenv("OPENCODE_HOST", "localhost"),
+        opencode_port=int(os.getenv("OPENCODE_PORT", "9777"))
     )
 
 
@@ -49,13 +55,13 @@ def _parse_auth_tokens(tokens_str: Optional[str]) -> Optional[Dict[str, str]]:
     """Parse auth tokens from environment variable."""
     if not tokens_str:
         return None
-    
+
     tokens = {}
     for token_pair in tokens_str.split(","):
         if ":" in token_pair:
             name, token = token_pair.split(":", 1)
             tokens[name.strip()] = token.strip()
-    
+
     return tokens if tokens else None
 
 
@@ -71,7 +77,7 @@ def create_agent_config(
         base_url = f"http://localhost:{port}"
     else:
         base_url = None
-    
+
     return AgentConfig(
         name=name,
         description=description,

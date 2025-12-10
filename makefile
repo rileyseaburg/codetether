@@ -1,4 +1,4 @@
-# A2A Server MCP Makefile
+# CodeTether Server Makefile
 # Variables
 DOCKER_IMAGE_NAME = a2a-server-mcp
 DOCKER_TAG ?= latest
@@ -6,6 +6,9 @@ DOCKER_REGISTRY ?= registry.quantum-forge.net/library
 OCI_REGISTRY = registry.quantum-forge.net/library
 PORT ?= 8000
 CHART_PATH = chart/a2a-server
+CHART_VERSION ?= 0.3.0
+NAMESPACE ?= a2a-server
+VALUES_FILE ?= chart/codetether-values.yaml
 
 # Default target
 .PHONY: help
@@ -258,4 +261,106 @@ one-command-deploy: ## Build image, load/push depending on environment, and depl
 	echo "Deploying Helm chart with image=$$IMAGE_REF"; \
 	helm upgrade --install a2a-server ./chart/a2a-server --namespace spotlessbinco --create-namespace \
 		--set image.repository=$$(echo $$IMAGE_REF | sed -e 's/:.*$$//') --set image.tag=$$(echo $$IMAGE_REF | sed -e 's/^.*://')
+
+# =============================================================================
+# Blue-Green Deployment Targets
+# =============================================================================
+
+.PHONY: deploy-blue
+deploy-blue: ## Deploy to blue slot
+	@./scripts/blue-green-deploy.sh blue $(CHART_VERSION) deploy
+
+.PHONY: deploy-green
+deploy-green: ## Deploy to green slot
+	@./scripts/blue-green-deploy.sh green $(CHART_VERSION) deploy
+
+.PHONY: rollback-blue
+rollback-blue: ## Rollback to blue slot
+	@./scripts/blue-green-deploy.sh blue $(CHART_VERSION) rollback
+
+.PHONY: rollback-green
+rollback-green: ## Rollback to green slot
+	@./scripts/blue-green-deploy.sh green $(CHART_VERSION) rollback
+
+.PHONY: cleanup-blue
+cleanup-blue: ## Cleanup blue slot deployment
+	@./scripts/blue-green-deploy.sh blue $(CHART_VERSION) cleanup
+
+.PHONY: cleanup-green
+cleanup-green: ## Cleanup green slot deployment
+	@./scripts/blue-green-deploy.sh green $(CHART_VERSION) cleanup
+
+.PHONY: deploy-status
+deploy-status: ## Show blue-green deployment status
+	@./scripts/blue-green-deploy.sh blue $(CHART_VERSION) status
+
+# =============================================================================
+# CodeTether Deployment Targets
+# =============================================================================
+
+.PHONY: codetether-deploy
+codetether-deploy: ## Deploy CodeTether with values file
+	helm upgrade --install a2a-marketing oci://$(OCI_REGISTRY)/a2a-server \
+		--version $(CHART_VERSION) \
+		-n $(NAMESPACE) \
+		-f $(VALUES_FILE)
+
+.PHONY: codetether-build-marketing
+codetether-build-marketing: ## Build and push marketing site
+	cd marketing-site && docker build -t $(OCI_REGISTRY)/a2a-marketing:latest -t $(OCI_REGISTRY)/a2a-marketing:$(CHART_VERSION) .
+	docker push $(OCI_REGISTRY)/a2a-marketing:latest
+	docker push $(OCI_REGISTRY)/a2a-marketing:$(CHART_VERSION)
+
+.PHONY: codetether-build-docs
+codetether-build-docs: ## Build and push docs site
+	docker build -t $(OCI_REGISTRY)/agentmesh-docs:latest -t $(OCI_REGISTRY)/agentmesh-docs:$(CHART_VERSION) -f Dockerfile.docs .
+	docker push $(OCI_REGISTRY)/agentmesh-docs:latest
+	docker push $(OCI_REGISTRY)/agentmesh-docs:$(CHART_VERSION)
+
+.PHONY: codetether-build-all
+codetether-build-all: codetether-build-marketing codetether-build-docs docker-build docker-push ## Build and push all CodeTether images
+
+.PHONY: codetether-restart-marketing
+codetether-restart-marketing: ## Restart marketing deployment
+	kubectl rollout restart deployment a2a-marketing-a2a-server-marketing -n $(NAMESPACE)
+	kubectl rollout status deployment a2a-marketing-a2a-server-marketing -n $(NAMESPACE) --timeout=120s
+
+.PHONY: codetether-restart-docs
+codetether-restart-docs: ## Restart docs deployment
+	kubectl rollout restart deployment a2a-marketing-a2a-server-docs -n $(NAMESPACE)
+	kubectl rollout status deployment a2a-marketing-a2a-server-docs -n $(NAMESPACE) --timeout=120s
+
+.PHONY: codetether-restart-api
+codetether-restart-api: ## Restart API deployment
+	kubectl rollout restart deployment a2a-marketing-a2a-server -n $(NAMESPACE)
+	kubectl rollout status deployment a2a-marketing-a2a-server -n $(NAMESPACE) --timeout=120s
+
+.PHONY: codetether-restart-all
+codetether-restart-all: codetether-restart-marketing codetether-restart-docs codetether-restart-api ## Restart all deployments
+
+.PHONY: codetether-logs-marketing
+codetether-logs-marketing: ## Show marketing site logs
+	kubectl logs -f deployment/a2a-marketing-a2a-server-marketing -n $(NAMESPACE)
+
+.PHONY: codetether-logs-api
+codetether-logs-api: ## Show API server logs
+	kubectl logs -f deployment/a2a-marketing-a2a-server -n $(NAMESPACE)
+
+.PHONY: codetether-status
+codetether-status: ## Show CodeTether deployment status
+	@echo "=== Deployments ==="
+	kubectl get deployments -n $(NAMESPACE)
+	@echo ""
+	@echo "=== Pods ==="
+	kubectl get pods -n $(NAMESPACE)
+	@echo ""
+	@echo "=== Ingresses ==="
+	kubectl get ingress -n $(NAMESPACE)
+	@echo ""
+	@echo "=== Certificates ==="
+	kubectl get certificates -n $(NAMESPACE)
+
+.PHONY: codetether-full-deploy
+codetether-full-deploy: codetether-build-all helm-package helm-push codetether-deploy ## Full build and deploy pipeline
+
 

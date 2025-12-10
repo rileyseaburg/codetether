@@ -1,13 +1,19 @@
-# Default values for a2a-server.
+# Default values for a2a-server (AgentMesh Server).
+# Documentation: https://docs.codetether.run
+# A2A Protocol: https://a2a-protocol.org
+#
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 # Application configuration
 app:
-  name: "Enhanced A2A Agent"
-  description: "An A2A agent with MCP tool integration"
+  name: "AgentMesh Server"
+  description: "Production A2A coordination server"
   logLevel: "INFO"
   enhanced: true
+  # Documentation and support URLs
+  docs: "https://docs.codetether.run"
+  support: "https://github.com/rileyseaburg/A2A-Server-MCP/issues"
 
 # Image configuration
 image:
@@ -162,11 +168,12 @@ env:
   MCP_HTTP_PORT: "9000"
 
   # Application configuration
-  A2A_AGENT_NAME: "Enhanced A2A Agent"
-  A2A_AGENT_DESCRIPTION: "An A2A agent with MCP tool integration"
-  A2A_AGENT_ORG: "A2A Server MCP"
-  A2A_AGENT_ORG_URL: "https://github.com/rileyseaburg/A2A-Server-MCP"
-  A2A_AGENT_URL: "https://a2a.quantum-forge.net"
+  A2A_AGENT_NAME: "AgentMesh Server"
+  A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
 
 # Environment variables from secrets
 envFromSecret: {}
@@ -310,9 +317,9 @@ marketing:
     annotations:
       cert-manager.io/cluster-issuer: "cloudflare-issuer"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    host: a2a-marketing.quantum-forge.net
+    host: codetether.run
     tls:
-      secretName: a2a-marketing-tls
+      secretName: codetether-marketing-tls
   resources:
     limits:
       cpu: 200m
@@ -320,3 +327,32 @@ marketing:
     requests:
       cpu: 50m
       memory: 128Mi
+
+# Documentation site configuration
+docs:
+  enabled: false
+  image:
+    repository: registry.quantum-forge.net/library/agentmesh-docs
+    pullPolicy: Always
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: docs.codetether.run
+    tls:
+      secretName: codetether-docs-tls
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

@@ -1,9 +1,14 @@
-# A2A Server Helm Chart
+# AgentMesh Server Helm Chart
 
-This Helm chart deploys the A2A (Agent-to-Agent) Server with MCP (Model Context Protocol) support on Kubernetes.
+This Helm chart deploys **[AgentMesh Server](https://agentmesh.run)** - a production-ready implementation of the [A2A Protocol](https://a2a-protocol.org/) (Linux Foundation standard) with MCP (Model Context Protocol) support on Kubernetes.
+
+## 📚 Documentation
+
+**Full documentation available at: [docs.agentmesh.run](https://docs.agentmesh.run)**
 
 ## 🚀 Quick Links
 
+- **[Documentation Site](https://docs.agentmesh.run)** - Complete guides, API reference, and tutorials
 - **[Complete OCI Deployment Guide](../HELM_OCI_DEPLOYMENT.md)** - Push to OCI registry and enable agent synchronization
 - **[MCP Configuration Guide](../QUICK_REFERENCE_MCP_CONFIG.md)** - Configure Cline/Claude Dev to connect
 - **[MCP Agent Sync Summary](../MCP_AGENT_SYNC_SUMMARY.md)** - Overview of MCP capabilities
@@ -387,9 +392,10 @@ helm dependency build
 ## Support
 
 For issues and questions:
-- [GitHub Issues](https://github.com/rileyseaburg/A2A-Server-MCP/issues)
-- [A2A Protocol Documentation](https://a2aproject.github.io/A2A)
+- **[Documentation](https://docs.agentmesh.run)** - Comprehensive guides and API reference
+- **[GitHub Issues](https://github.com/rileyseaburg/A2A-Server-MCP/issues)** - Bug reports and feature requests
+- **[A2A Protocol Specification](https://a2a-protocol.org/)** - Linux Foundation standard we implement
 
 ## License
 
-This chart is licensed under the same license as the A2A Server project.
+This chart is licensed under the same license as the AgentMesh Server project.

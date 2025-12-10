@@ -99,7 +99,7 @@ class AuthService: ObservableObject {
     
     // MARK: - Init
     
-    init(baseURL: String = "https://a2a.quantum-forge.net") {
+    init(baseURL: String = "https://api.codetether.run") {
         self.baseURL = URL(string: baseURL)!
         
         let config = URLSessionConfiguration.default

@@ -1,0 +1,95 @@
+# CodeTether deployment values
+app:
+  name: "CodeTether Server"
+  description: "Production A2A coordination server"
+  docs: "https://docs.codetether.run"
+
+env:
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+
+# Marketing site
+marketing:
+  enabled: true
+  image:
+    repository: registry.quantum-forge.net/library/a2a-marketing
+    pullPolicy: Always
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: codetether.run
+    tls:
+      secretName: codetether-marketing-tls
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# Documentation site
+docs:
+  enabled: true
+  image:
+    repository: registry.quantum-forge.net/library/agentmesh-docs
+    pullPolicy: Always
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: docs.codetether.run
+    tls:
+      secretName: codetether-docs-tls
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# API server ingress
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: api.codetether.run
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8000
+        - path: /mcp
+          pathType: Prefix
+          port: 9000
+  tls:
+    - secretName: codetether-api-tls
+      hosts:
+        - api.codetether.run

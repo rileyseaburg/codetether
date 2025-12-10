@@ -1611,7 +1611,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
     async def event_generator():
         """Proxy events from OpenCode SSE endpoint."""
-        base_url = f'http://localhost:{codebase.opencode_port}'
+        base_url = bridge._get_opencode_base_url(codebase.opencode_port)
 
         yield f'event: connected\ndata: {json.dumps({"codebase_id": codebase_id, "status": "connected"})}\n\n'
 
@@ -1812,7 +1812,7 @@ async def get_session_messages(codebase_id: str, limit: int = 50):
         return {'messages': [], 'session_id': None}
 
     try:
-        base_url = f'http://localhost:{codebase.opencode_port}'
+        base_url = bridge._get_opencode_base_url(codebase.opencode_port)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f'{base_url}/session/{codebase.session_id}/message',
@@ -1990,7 +1990,7 @@ async def list_sessions(codebase_id: str):
     # If there's a running OpenCode instance, query its API
     if codebase.opencode_port:
         try:
-            base_url = f'http://localhost:{codebase.opencode_port}'
+            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/session',
@@ -2090,7 +2090,7 @@ async def get_session(codebase_id: str, session_id: str):
     # If there's a running OpenCode instance, query its API
     if codebase.opencode_port:
         try:
-            base_url = f'http://localhost:{codebase.opencode_port}'
+            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/session/{session_id}',
@@ -2100,7 +2100,7 @@ async def get_session(codebase_id: str, session_id: str):
                         session_data = await resp.json()
                         return session_data
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}')
+            logger.warning(f'Failed to query OpenCode API: {e}'))
 
     # Fallback: Read from local state
     session_data = await _read_local_session(codebase.path, session_id)
@@ -2133,7 +2133,7 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
     # If there's a running OpenCode instance, query its API
     if codebase.opencode_port:
         try:
-            base_url = f'http://localhost:{codebase.opencode_port}'
+            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/session/{session_id}/message',
@@ -2143,7 +2143,7 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
                         messages = await resp.json()
                         return {'messages': messages, 'session_id': session_id}
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}')
+            logger.warning(f'Failed to query OpenCode API: {e}'))
 
     # Fallback: Read from local state
     messages = await _read_local_session_messages(codebase.path, session_id)
@@ -2187,7 +2187,7 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
     # For local codebases with running OpenCode, use the API
     if codebase.opencode_port:
         try:
-            base_url = f'http://localhost:{codebase.opencode_port}'
+            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
                 # First, initialize the session
                 async with session.post(

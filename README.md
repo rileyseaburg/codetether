@@ -105,6 +105,33 @@ docker run -p 8000:8000 a2a-server:latest
 curl http://localhost:8000/.well-known/agent-card.json
 ```
 
+**Connecting to Host VM's OpenCode:**
+
+When running the A2A server in Docker, you can connect to OpenCode running on your host machine:
+
+```bash
+# Docker Desktop (Mac/Windows) - uses host.docker.internal automatically
+docker run -p 8000:8000 \
+  -e OPENCODE_HOST=host.docker.internal \
+  -e OPENCODE_PORT=9777 \
+  a2a-server:latest
+
+# Linux - add host.docker.internal or use host IP
+docker run -p 8000:8000 \
+  --add-host=host.docker.internal:host-gateway \
+  -e OPENCODE_HOST=host.docker.internal \
+  -e OPENCODE_PORT=9777 \
+  a2a-server:latest
+
+# Alternative: use your host's actual IP address
+docker run -p 8000:8000 \
+  -e OPENCODE_HOST=192.168.1.100 \
+  -e OPENCODE_PORT=9777 \
+  a2a-server:latest
+```
+
+This allows the containerized A2A server to access OpenCode sessions from the host VM via the OpenCode HTTP API.
+
 ### ☸️ Kubernetes Deployment (Production)
 
 Deploy to Kubernetes using the included Helm chart. For complete OCI registry deployment and external agent synchronization, see **[HELM_OCI_DEPLOYMENT.md](HELM_OCI_DEPLOYMENT.md)**.
@@ -317,6 +344,14 @@ A2A_AGENT_ORG=Your Organization
 # MCP Configuration
 MCP_SERVER_URLS=http://localhost:3001,http://localhost:3002
 MCP_TIMEOUT=30
+
+# OpenCode Configuration
+# Host where OpenCode API is running (for container->host communication)
+# Use 'localhost' for local development
+# Use 'host.docker.internal' for Docker Desktop (Mac/Windows)
+# Use actual host IP for Docker on Linux
+OPENCODE_HOST=localhost
+OPENCODE_PORT=9777
 
 # Redis Configuration (for message broker)
 REDIS_URL=redis://localhost:6379/0

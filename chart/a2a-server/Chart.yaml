@@ -1,21 +1,25 @@
 apiVersion: v2
 name: a2a-server
-description: A Helm chart for deploying A2A (Agent-to-Agent) Server with MCP support
+description: CodeTether Server - Production A2A (Agent-to-Agent) Protocol implementation with MCP support
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
-home: https://github.com/rileyseaburg/A2A-Server-MCP
+version: 0.3.0
+appVersion: "1.1.0"
+home: https://codetether.run
+icon: https://codetether.run/icon.png
 sources:
   - https://github.com/rileyseaburg/A2A-Server-MCP
 maintainers:
-  - name: A2A Server Team
-    url: https://github.com/rileyseaburg/A2A-Server-MCP
+  - name: CodeTether Team
+    email: support@codetether.run
+    url: https://codetether.run
 keywords:
   - a2a
+  - codetether
   - agent
   - mcp
   - ai
   - protocol
+  - agent-to-agent
 dependencies:
   - name: redis
     version: "~19.0.0"
@@ -23,3 +27,10 @@ dependencies:
     condition: redis.enabled
 annotations:
   category: AI/ML
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://docs.codetether.run
+    - name: A2A Protocol Spec
+      url: https://a2a-protocol.org
+    - name: Support
+      url: https://github.com/rileyseaburg/A2A-Server-MCP/issues

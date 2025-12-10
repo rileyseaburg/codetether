@@ -1,0 +1,31 @@
+import { auth } from '@/auth'
+import { NextResponse } from 'next/server'
+
+export default auth((req) => {
+    const { pathname } = req.nextUrl
+
+    // Protected routes that require authentication
+    const protectedRoutes = ['/dashboard']
+
+    const isProtectedRoute = protectedRoutes.some(route =>
+        pathname.startsWith(route)
+    )
+
+    if (isProtectedRoute && !req.auth) {
+        // Redirect to login if not authenticated
+        const loginUrl = new URL('/login', req.url)
+        loginUrl.searchParams.set('callbackUrl', pathname)
+        return NextResponse.redirect(loginUrl)
+    }
+
+    return NextResponse.next()
+})
+
+export const config = {
+    matcher: [
+        // Match all dashboard routes
+        '/dashboard/:path*',
+        // Skip static files and API routes
+        '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    ],
+}

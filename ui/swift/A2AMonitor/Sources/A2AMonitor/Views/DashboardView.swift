@@ -43,7 +43,7 @@ struct DashboardView: View {
             }
 
             ToolbarItem(placement: .automatic) {
-                Link(destination: URL(string: "https://docs.agentmesh.run")!) {
+                Link(destination: URL(string: "https://docs.codetether.run")!) {
                     Image(systemName: "book")
                 }
             }

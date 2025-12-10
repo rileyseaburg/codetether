@@ -1,0 +1,98 @@
+# Configuration file for MkDocs
+
+site_name: CodeTether Documentation
+site_description: Documentation for CodeTether AI-powered development platform
+site_author: CodeTether Team
+site_url: https://docs.codetether.run
+
+nav:
+  - Home: index.md
+  - Concepts:
+    - What is CodeTether?: what-is-a2a.md
+    - Key Concepts: key-concepts.md
+  - Tutorials:
+    - Python Tutorial: tutorials/python/index.md
+  - Topics:
+    - A2A and MCP: a2a-and-mcp.md
+    - Agent Discovery: agent-discovery.md
+  - Reference:
+    - Specification: specification.md
+  - Community:
+    - Community: community.md
+    - Partners: partners.md
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: deep purple
+  favicon: assets/a2a-logo-black.svg
+  logo: assets/a2a-logo-black.svg
+  icon:
+    repo: fontawesome/brands/github
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  extra_css:
+    - stylesheets/custom.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - codehilite
+  - footnotes
+  - md_in_html
+  - pymdownx.arithmatex
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist
+  - pymdownx.tilde
+  - tables
+  - toc
+  - pymdownx.snippets
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        - python
+  - redirects:
+      - from: /docs
+        to: https://docs.codetether.run
+      - from: /api
+        to: https://api.codetether.run
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rileyseaburg/A2A-Server-MCP
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/codetether
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/codetether
+
+copyright: Copyright &copy; 2024 CodeTether Team
+
+# Custom footer
+extra_footer: |
+  <div class="md-footer-copyright">
+    Made with <i class="fa fa-heart"></i> by the CodeTether Team
+  </div>

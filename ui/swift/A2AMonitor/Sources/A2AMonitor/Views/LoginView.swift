@@ -13,7 +13,7 @@ struct LoginView: View {
     @State private var showError = false
     @State private var rememberMe = true
     
-    @AppStorage("serverURL") private var serverURL = "https://a2a.quantum-forge.net"
+    @AppStorage("serverURL") private var serverURL = "https://api.codetether.run"
     @AppStorage("lastUsername") private var lastUsername = ""
     @State private var showServerSettings = false
     
@@ -386,7 +386,7 @@ struct ServerSettingsSheet: View {
                 .foregroundColor(.white.opacity(0.8))
             
             HStack {
-                TextField("https://a2a.quantum-forge.net", text: $tempURL)
+                TextField("https://api.codetether.run", text: $tempURL)
                     .foregroundColor(.white)
                     #if os(iOS)
                     .keyboardType(.URL)
@@ -453,8 +453,8 @@ struct ServerSettingsSheet: View {
                 PresetButton(title: "Docker", icon: "shippingbox") {
                     tempURL = "http://localhost:9000"
                 }
-                PresetButton(title: "Quantum Forge", icon: "cloud") {
-                    tempURL = "https://a2a.quantum-forge.net"
+                PresetButton(title: "CodeTether", icon: "cloud") {
+                    tempURL = "https://api.codetether.run"
                 }
             }
         }
