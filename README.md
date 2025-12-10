@@ -14,9 +14,12 @@ This repository provides a complete A2A protocol server that bridges the gap bet
 - **🔗 Full A2A Protocol Support**: Complete implementation of Agent2Agent communication standard
 - **🛠️ MCP Tool Integration**: Access external tools and resources through Model Context Protocol
 - **🤖 LLM Integration**: Connect Claude or other LLMs for intelligent agent coordination
-- **� OpenCode Integration**: Trigger AI coding agents from the web UI on registered codebases
-- **�📡 Real-time Communication**: Server-Sent Events (SSE) for streaming responses
+- **💻 OpenCode Integration**: Trigger AI coding agents from the web UI on registered codebases
+- **📡 Real-time Communication**: Server-Sent Events (SSE) for streaming responses
 - **💬 Agent-to-Agent Messaging**: Publish/subscribe and direct messaging between agents
+- **👁️ Real-time Monitor UI**: Web-based dashboard for agent supervision and human intervention
+- **📱 Swift Liquid Glass UI**: Native iOS/macOS app with Apple-style glassmorphism design
+- **🔄 Distributed Workers**: Remote agent workers with task queues and watch mode
 - **🚀 Production Ready**: Kubernetes deployment with Helm charts
 - **🔐 Enterprise Security**: Authentication, authorization, and network policies
 - **📊 Observability**: Built-in monitoring, health checks, and metrics
@@ -1310,6 +1313,90 @@ export USE_REDIS=true
 export REDIS_URL=redis://localhost:6379/0
 ```
 
+## Monitor UI
+
+The A2A Server includes a powerful real-time monitoring dashboard for agent supervision:
+
+### Web Monitor UI
+
+Access at `http://localhost:8000/v1/monitor/` when the server is running.
+
+**Features:**
+- Real-time message streaming via SSE
+- Agent status monitoring with live updates
+- Task queue management
+- Human intervention capability
+- Message search and filtering
+- Export to JSON/CSV
+- OpenCode agent integration panel
+
+### Swift Liquid Glass UI (iOS/macOS)
+
+Native Apple platform app with a beautiful "Liquid Glass" aesthetic:
+
+```bash
+# Build for iOS/macOS
+cd ui/swift/A2AMonitor
+swift build -c release
+```
+
+**Features:**
+- Frosted glass UI with animated gradients
+- Real-time agent output streaming
+- Codebase registration and management
+- Task queue with priority levels
+- Watch mode for continuous agent operation
+- Human intervention support
+
+See [ui/swift/README.md](ui/swift/README.md) for full documentation.
+
+## Distributed Agent Workers
+
+Deploy remote agent workers that poll for tasks and execute them autonomously:
+
+### Worker Setup
+
+```bash
+# Install on remote machine
+cd agent_worker
+./install.sh
+
+# Configure worker
+cp config.example.json config.json
+# Edit config.json with your settings
+
+# Run worker
+python worker.py --config config.json
+```
+
+### Register Remote Codebases
+
+```python
+# Register a codebase on a remote worker
+from a2a_server.opencode_bridge import get_bridge
+
+bridge = get_bridge()
+codebase = bridge.register_codebase(
+    name="My Project",
+    path="/path/to/project",
+    description="Project description",
+    worker_id="worker-1"  # Associate with remote worker
+)
+```
+
+### Watch Mode
+
+Enable watch mode for continuous task processing:
+
+```bash
+# Via API
+curl -X POST http://localhost:8000/v1/opencode/codebases/{id}/watch/start \
+  -H "Content-Type: application/json" \
+  -d '{"interval": 5}'
+```
+
+Tasks are automatically picked up and executed by the associated worker.
+
 ## Additional Resources
 
 - 📖 [Agent-to-Agent Messaging Quick Start Guide](docs/agent-messaging-quickstart.md)
@@ -1317,6 +1404,8 @@ export REDIS_URL=redis://localhost:6379/0
 - 💡 [Agent-to-Agent Messaging Examples](examples/agent_to_agent_messaging.py)
 - 🤖 [Claude LLM Integration Guide](docs/claude-llm-integration.md)
 - 🧪 [Agent Messaging Tests](tests/test_agent_messaging.py)
+- 📱 [Swift Liquid Glass UI](ui/swift/README.md)
+- 🖥️ [Web Monitor UI](ui/README.md)
 
 ## 🚀 Production Deployment
 

@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100 dark:bg-gray-900">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A2A Agent Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            300: '#a5b4fc',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.1);
+            }
+        }
+
+        .pulse-dot {
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+
+<body class="h-full">
+    <div class="min-h-full">
+        <!-- Header -->
+        <header class="bg-primary-600 dark:bg-primary-800 pb-24">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="relative flex items-center justify-between py-5">
+                    <!-- Logo -->
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+                            <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-white">A2A Agent Monitor</h1>
+                            <p class="text-sm text-primary-200">Real-time Agent Orchestration</p>
+                        </div>
+                    </div>
+
+                    <!-- Status indicators -->
+                    <div class="hidden md:flex items-center gap-6">
+                        <div class="flex items-center gap-2">
+                            <span id="connection-dot" class="h-2.5 w-2.5 rounded-full bg-green-400 pulse-dot"></span>
+                            <span id="connection-status" class="text-sm text-primary-100">Connected</span>
+                        </div>
+                        <div class="text-sm text-primary-200">
+                            <span id="active-agents-count">0</span> Active Agents
+                        </div>
+                        <div class="text-sm text-primary-200">
+                            <span id="total-tasks-count">0</span> Tasks
+                        </div>
+                    </div>
+
+                    <!-- Right actions -->
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleDarkMode()"
+                            class="rounded-full p-2 text-primary-200 hover:bg-white/10 hover:text-white">
+                            <svg id="dark-icon" class="h-5 w-5 hidden dark:block" fill="currentColor"
+                                viewBox="0 0 20 20">
+                                <path
+                                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" />
+                            </svg>
+                            <svg id="light-icon" class="h-5 w-5 block dark:hidden" fill="currentColor"
+                                viewBox="0 0 20 20">
+                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                            </svg>
+                        </button>
+                        <button onclick="openSettingsModal()"
+                            class="rounded-full p-2 text-primary-200 hover:bg-white/10 hover:text-white">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation tabs -->
+                <div class="border-t border-white/20 dark:border-white/10">
+                    <nav class="flex gap-4 py-4">
+                        <button onclick="switchTab('codebases')" id="tab-codebases"
+                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-white bg-white/10">
+                            Codebases
+                        </button>
+                        <button onclick="switchTab('tasks')" id="tab-tasks"
+                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            Task Queue
+                        </button>
+                        <button onclick="switchTab('output')" id="tab-output"
+                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            Agent Output
+                        </button>
+                        <button onclick="switchTab('activity')" id="tab-activity"
+                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            Activity Feed
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main class="-mt-24 pb-8">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+
+                    <!-- Left sidebar - Codebases -->
+                    <div class="lg:col-span-1">
+                        <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between">
+                                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Codebases</h2>
+                                    <button onclick="openRegisterModal()"
+                                        class="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-500">
+                                        + Add
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="codebases-list"
+                                class="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-300px)] overflow-y-auto scrollbar-thin">
+                                <!-- Codebases will be rendered here -->
+                                <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                    </svg>
+                                    <p class="mt-2 text-sm">No codebases registered</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main content area -->
+                    <div class="lg:col-span-2">
+                        <!-- Codebases tab content -->
+                        <div id="content-codebases" class="tab-content">
+                            <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Trigger Agent</h2>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Select a codebase and run an AI
+                                        agent</p>
+                                </div>
+                                <div class="p-6">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label
+                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Codebase</label>
+                                            <select id="trigger-codebase"
+                                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                                <option value="">Select a codebase...</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agent
+                                                Type</label>
+                                            <select id="trigger-agent"
+                                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                                <option value="build">🔧 Build - Full access agent</option>
+                                                <option value="plan">📋 Plan - Read-only analysis</option>
+                                                <option value="coder">💻 Coder - Code writing focused</option>
+                                                <option value="explore">🔍 Explore - Codebase search</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+                                            <select id="trigger-model"
+                                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                                <option value="">🤖 Default Model</option>
+                                                <optgroup label="Anthropic">
+                                                    <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4
+                                                    </option>
+                                                    <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5
+                                                        Sonnet</option>
+                                                    <option value="anthropic/claude-3-5-haiku-20241022">Claude 3.5 Haiku
+                                                    </option>
+                                                </optgroup>
+                                                <optgroup label="OpenAI">
+                                                    <option value="openai/gpt-4o">GPT-4o</option>
+                                                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                                                    <option value="openai/o1">o1</option>
+                                                    <option value="openai/o1-mini">o1 Mini</option>
+                                                </optgroup>
+                                                <optgroup label="Google">
+                                                    <option value="google/gemini-2.0-flash">Gemini 2.0 Flash</option>
+                                                    <option value="google/gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                                </optgroup>
+                                                <optgroup label="DeepSeek">
+                                                    <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                                                    <option value="deepseek/deepseek-reasoner">DeepSeek Reasoner
+                                                    </option>
+                                                </optgroup>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
+                                            <textarea id="trigger-prompt" rows="4"
+                                                placeholder="Enter your instructions for the AI agent..."
+                                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 placeholder-gray-400"></textarea>
+                                        </div>
+                                        <button onclick="triggerAgent()"
+                                            class="w-full rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600">
+                                            🚀 Run Agent
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tasks tab content -->
+                        <div id="content-tasks" class="tab-content hidden">
+                            <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Task Queue</h2>
+                                        <div class="flex gap-2">
+                                            <button onclick="filterTasks('all')"
+                                                class="task-filter-btn rounded-md px-3 py-1 text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300"
+                                                data-filter="all">All</button>
+                                            <button onclick="filterTasks('pending')"
+                                                class="task-filter-btn rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                                data-filter="pending">Pending</button>
+                                            <button onclick="filterTasks('running')"
+                                                class="task-filter-btn rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                                data-filter="running">Running</button>
+                                            <button onclick="filterTasks('completed')"
+                                                class="task-filter-btn rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                                data-filter="completed">Completed</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="tasks-list"
+                                    class="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-350px)] overflow-y-auto scrollbar-thin">
+                                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                        </svg>
+                                        <p class="mt-2 text-sm">No tasks in queue</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Output tab content -->
+                        <div id="content-output" class="tab-content hidden">
+                            <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Agent Output
+                                        </h2>
+                                        <select id="output-codebase-select" onchange="selectOutputCodebase(this.value)"
+                                            class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                            <option value="">Select codebase...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div id="output-container"
+                                    class="p-4 max-h-[calc(100vh-350px)] overflow-y-auto scrollbar-thin font-mono text-sm">
+                                    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                                d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <p class="mt-2">Select a codebase to view agent output</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Activity tab content -->
+                        <div id="content-activity" class="tab-content hidden">
+                            <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Activity Feed</h2>
+                                </div>
+                                <div id="activity-feed"
+                                    class="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-350px)] overflow-y-auto scrollbar-thin">
+                                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                                        <p class="text-sm">No recent activity</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right sidebar - Stats & Quick Actions -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Stats -->
+                        <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Statistics</h3>
+                            </div>
+                            <div class="p-4 grid grid-cols-2 gap-4">
+                                <div class="text-center">
+                                    <div id="stat-codebases"
+                                        class="text-2xl font-bold text-primary-600 dark:text-primary-400">0</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">Codebases</div>
+                                </div>
+                                <div class="text-center">
+                                    <div id="stat-tasks"
+                                        class="text-2xl font-bold text-primary-600 dark:text-primary-400">0</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">Tasks</div>
+                                </div>
+                                <div class="text-center">
+                                    <div id="stat-completed"
+                                        class="text-2xl font-bold text-green-600 dark:text-green-400">0</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">Completed</div>
+                                </div>
+                                <div class="text-center">
+                                    <div id="stat-running" class="text-2xl font-bold text-blue-600 dark:text-blue-400">0
+                                    </div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">Running</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
+                            </div>
+                            <div class="p-4 space-y-2">
+                                <button onclick="openRegisterModal()"
+                                    class="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                    <span>📁</span> Register Codebase
+                                </button>
+                                <button onclick="refreshAll()"
+                                    class="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                    <span>🔄</span> Refresh All
+                                </button>
+                                <button onclick="openCreateTaskModal()"
+                                    class="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                    <span>📝</span> Create Task
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Workers -->
+                        <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Connected Workers</h3>
+                            </div>
+                            <div id="workers-list" class="p-4">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 text-center">No workers connected</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Register Codebase Modal -->
+    <div id="register-modal" class="hidden fixed inset-0 z-50">
+        <div class="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75" onclick="closeRegisterModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Codebase</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                                <input id="register-name" type="text" placeholder="my-project"
+                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Path</label>
+                                <input id="register-path" type="text" placeholder="/home/user/projects/my-project"
+                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description
+                                    (optional)</label>
+                                <input id="register-description" type="text" placeholder="A brief description"
+                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Worker ID
+                                    (optional)</label>
+                                <input id="register-worker" type="text" placeholder="For remote codebases"
+                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                            </div>
+                        </div>
+                        <div class="mt-6 flex gap-3 justify-end">
+                            <button onclick="closeRegisterModal()"
+                                class="rounded-md px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+                            <button onclick="registerCodebase()"
+                                class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500">Register</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <script>
+        // State
+        const state = {
+            serverUrl: 'https://a2a.quantum-forge.net',
+            codebases: [],
+            tasks: [],
+            workers: [],
+            currentOutputCodebase: null,
+            agentOutputs: new Map(),
+            eventStreams: new Map(),
+            darkMode: localStorage.getItem('darkMode') === 'true',
+            taskFilter: 'all'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            if (state.darkMode) {
+                document.documentElement.classList.add('dark');
+            }
+            init();
+        });
+
+        async function init() {
+            await loadCodebases();
+            await loadTasks();
+            await loadWorkers();
+            startPolling();
+        }
+
+        function startPolling() {
+            setInterval(loadCodebases, 10000);
+            setInterval(loadTasks, 5000);
+            setInterval(loadWorkers, 30000);
+        }
+
+        // Dark mode
+        function toggleDarkMode() {
+            state.darkMode = !state.darkMode;
+            localStorage.setItem('darkMode', state.darkMode);
+            document.documentElement.classList.toggle('dark');
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-white/10', 'text-white');
+                btn.classList.add('text-primary-100');
+            });
+            document.getElementById(`tab-${tab}`).classList.add('bg-white/10', 'text-white');
+            document.getElementById(`tab-${tab}`).classList.remove('text-primary-100');
+
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+        }
+
+        // API calls
+        async function loadCodebases() {
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases`);
+                state.codebases = await response.json();
+                renderCodebases();
+                updateCodebaseSelects();
+                updateStats();
+            } catch (error) {
+                console.error('Failed to load codebases:', error);
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/tasks`);
+                state.tasks = await response.json();
+                renderTasks();
+                updateStats();
+            } catch (error) {
+                console.error('Failed to load tasks:', error);
+            }
+        }
+
+        async function loadWorkers() {
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/workers`);
+                if (response.ok) {
+                    state.workers = await response.json();
+                    renderWorkers();
+                }
+            } catch (error) {
+                console.error('Failed to load workers:', error);
+            }
+        }
+
+        // Render functions
+        function renderCodebases() {
+            const container = document.getElementById('codebases-list');
+            if (state.codebases.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                        <p class="mt-2 text-sm">No codebases registered</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = state.codebases.map(cb => `
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="selectCodebase('${cb.id}')">
+                    <div class="flex items-start justify-between">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${escapeHtml(cb.name)}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${escapeHtml(cb.path)}</p>
+                        </div>
+                        <span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(cb.status)}">
+                            ${cb.status}
+                        </span>
+                    </div>
+                    ${cb.worker_id ? `<p class="mt-1 text-xs text-gray-400">Worker: ${cb.worker_id}</p>` : ''}
+                    <div class="mt-2 flex gap-2">
+                        <button onclick="event.stopPropagation(); startWatchMode('${cb.id}')" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                            ${cb.status === 'watching' ? '⏹️ Stop' : '👁️ Watch'}
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteCodebase('${cb.id}')" class="text-xs text-red-600 dark:text-red-400 hover:underline">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-list');
+            let filteredTasks = state.tasks;
+
+            if (state.taskFilter !== 'all') {
+                filteredTasks = state.tasks.filter(t => t.status === state.taskFilter);
+            }
+
+            if (filteredTasks.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <p class="mt-2 text-sm">No tasks found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredTasks.map(task => `
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <div class="flex items-start justify-between">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(task.title || task.prompt?.substring(0, 50) || 'Untitled')}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${task.agent_type} • ${new Date(task.created_at).toLocaleTimeString()}</p>
+                        </div>
+                        <span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(task.status)}">
+                            ${task.status}
+                        </span>
+                    </div>
+                    ${task.result ? `
+                        <button onclick="viewTaskResult('${task.id}')" class="mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                            View Result
+                        </button>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderWorkers() {
+            const container = document.getElementById('workers-list');
+            if (state.workers.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 dark:text-gray-400 text-center">No workers connected</p>`;
+                return;
+            }
+
+            container.innerHTML = state.workers.map(w => `
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(w.name)}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${w.id?.substring(0, 8)}</p>
+                    </div>
+                    <span class="h-2 w-2 rounded-full bg-green-400"></span>
+                </div>
+            `).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('stat-codebases').textContent = state.codebases.length;
+            document.getElementById('stat-tasks').textContent = state.tasks.length;
+            document.getElementById('stat-completed').textContent = state.tasks.filter(t => t.status === 'completed').length;
+            document.getElementById('stat-running').textContent = state.tasks.filter(t => t.status === 'running').length;
+            document.getElementById('total-tasks-count').textContent = state.tasks.length;
+            document.getElementById('active-agents-count').textContent = state.codebases.filter(c => c.status === 'running' || c.status === 'watching').length;
+        }
+
+        function updateCodebaseSelects() {
+            const options = state.codebases.map(cb => `<option value="${cb.id}">${escapeHtml(cb.name)}</option>`).join('');
+            document.getElementById('trigger-codebase').innerHTML = `<option value="">Select a codebase...</option>${options}`;
+            document.getElementById('output-codebase-select').innerHTML = `<option value="">Select codebase...</option>${options}`;
+        }
+
+        // Actions
+        async function triggerAgent() {
+            const codebaseId = document.getElementById('trigger-codebase').value;
+            const agent = document.getElementById('trigger-agent').value;
+            const model = document.getElementById('trigger-model').value;
+            const prompt = document.getElementById('trigger-prompt').value;
+
+            if (!codebaseId) {
+                showToast('Please select a codebase', 'error');
+                return;
+            }
+            if (!prompt.trim()) {
+                showToast('Please enter a prompt', 'error');
+                return;
+            }
+
+            try {
+                const payload = { prompt, agent };
+                if (model) payload.model = model;
+
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases/${codebaseId}/trigger`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Agent triggered successfully!', 'success');
+                    document.getElementById('trigger-prompt').value = '';
+                    await loadTasks();
+                    switchTab('tasks');
+                } else {
+                    showToast(result.error || 'Failed to trigger agent', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to trigger agent', 'error');
+            }
+        }
+
+        async function registerCodebase() {
+            const name = document.getElementById('register-name').value;
+            const path = document.getElementById('register-path').value;
+            const description = document.getElementById('register-description').value;
+            const workerId = document.getElementById('register-worker').value;
+
+            if (!name || !path) {
+                showToast('Name and path are required', 'error');
+                return;
+            }
+
+            try {
+                const payload = { name, path };
+                if (description) payload.description = description;
+                if (workerId) payload.worker_id = workerId;
+
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showToast('Codebase registered!', 'success');
+                    closeRegisterModal();
+                    await loadCodebases();
+                } else {
+                    const error = await response.json();
+                    showToast(error.detail || 'Failed to register', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to register codebase', 'error');
+            }
+        }
+
+        async function deleteCodebase(id) {
+            if (!confirm('Delete this codebase?')) return;
+            try {
+                await fetch(`${state.serverUrl}/v1/opencode/codebases/${id}`, { method: 'DELETE' });
+                showToast('Codebase deleted', 'success');
+                await loadCodebases();
+            } catch (error) {
+                showToast('Failed to delete', 'error');
+            }
+        }
+
+        async function startWatchMode(id) {
+            const codebase = state.codebases.find(c => c.id === id);
+            const endpoint = codebase?.status === 'watching' ? 'stop' : 'start';
+            try {
+                await fetch(`${state.serverUrl}/v1/opencode/codebases/${id}/watch/${endpoint}`, { method: 'POST' });
+                showToast(`Watch mode ${endpoint}ed`, 'success');
+                await loadCodebases();
+            } catch (error) {
+                showToast('Failed to toggle watch mode', 'error');
+            }
+        }
+
+        function selectCodebase(id) {
+            document.getElementById('trigger-codebase').value = id;
+            showToast('Codebase selected', 'info');
+        }
+
+        function selectOutputCodebase(id) {
+            state.currentOutputCodebase = id;
+            if (id) {
+                connectEventStream(id);
+            }
+        }
+
+        function connectEventStream(codebaseId) {
+            if (state.eventStreams.has(codebaseId)) {
+                state.eventStreams.get(codebaseId).close();
+            }
+
+            const container = document.getElementById('output-container');
+            container.innerHTML = '<div class="text-gray-500 dark:text-gray-400">Connecting to event stream...</div>';
+
+            const eventSource = new EventSource(`${state.serverUrl}/v1/opencode/codebases/${codebaseId}/events`);
+            state.eventStreams.set(codebaseId, eventSource);
+
+            eventSource.onopen = () => {
+                container.innerHTML = '';
+            };
+
+            eventSource.addEventListener('connected', (e) => {
+                addOutput('status', 'Connected to agent stream');
+            });
+
+            eventSource.addEventListener('message', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'text' && data.content) {
+                        // Parse nested JSON events
+                        const lines = data.content.split('\n').filter(l => l.trim());
+                        for (const line of lines) {
+                            try {
+                                const event = JSON.parse(line);
+                                processEvent(event);
+                            } catch {
+                                addOutput('text', line);
+                            }
+                        }
+                    } else {
+                        processEvent(data);
+                    }
+                } catch {
+                    addOutput('text', e.data);
+                }
+            });
+
+            eventSource.addEventListener('status', (e) => {
+                const data = JSON.parse(e.data);
+                addOutput('status', data.message || data.status);
+            });
+
+            eventSource.onerror = () => {
+                addOutput('error', 'Event stream disconnected');
+            };
+        }
+
+        function processEvent(event) {
+            const type = event.type;
+            const part = event.part || {};
+
+            switch (type) {
+                case 'text':
+                    if (part.text) addOutput('text', part.text);
+                    break;
+                case 'tool_use':
+                    const state_info = part.state || {};
+                    addOutput('tool', `Tool: ${part.tool} - ${state_info.title || ''}\n${state_info.output || ''}`);
+                    break;
+                case 'step_start':
+                    addOutput('status', '--- Step started ---');
+                    break;
+                case 'step_finish':
+                    const tokens = part.tokens;
+                    if (tokens) {
+                        addOutput('status', `Step finished (${tokens.input + tokens.output} tokens)`);
+                    }
+                    break;
+            }
+        }
+
+        function addOutput(type, content) {
+            const container = document.getElementById('output-container');
+            const colors = {
+                text: 'text-gray-900 dark:text-gray-100',
+                status: 'text-blue-600 dark:text-blue-400',
+                error: 'text-red-600 dark:text-red-400',
+                tool: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-2 rounded'
+            };
+            const div = document.createElement('div');
+            div.className = `${colors[type] || colors.text} mb-2 whitespace-pre-wrap`;
+            div.textContent = content;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function viewTaskResult(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task?.result) {
+                // Try to parse and format the result
+                try {
+                    const lines = task.result.split('\n').filter(l => l.trim());
+                    let output = [];
+                    for (const line of lines) {
+                        try {
+                            const event = JSON.parse(line);
+                            if (event.type === 'text' && event.part?.text) {
+                                output.push(event.part.text);
+                            } else if (event.type === 'tool_use') {
+                                output.push(`[Tool: ${event.part?.tool}] ${event.part?.state?.output || ''}`);
+                            }
+                        } catch {
+                            output.push(line);
+                        }
+                    }
+                    alert(output.join('\n\n') || task.result);
+                } catch {
+                    alert(task.result);
+                }
+            }
+        }
+
+        function filterTasks(filter) {
+            state.taskFilter = filter;
+            document.querySelectorAll('.task-filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.className = 'task-filter-btn rounded-md px-3 py-1 text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300';
+                } else {
+                    btn.className = 'task-filter-btn rounded-md px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700';
+                }
+            });
+            renderTasks();
+        }
+
+        function refreshAll() {
+            loadCodebases();
+            loadTasks();
+            loadWorkers();
+            showToast('Refreshed', 'success');
+        }
+
+        // Modals
+        function openRegisterModal() {
+            document.getElementById('register-modal').classList.remove('hidden');
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('register-modal').classList.add('hidden');
+            document.getElementById('register-name').value = '';
+            document.getElementById('register-path').value = '';
+            document.getElementById('register-description').value = '';
+            document.getElementById('register-worker').value = '';
+        }
+
+        function openSettingsModal() {
+            showToast('Settings coming soon', 'info');
+        }
+
+        function openCreateTaskModal() {
+            switchTab('codebases');
+            showToast('Use the Trigger Agent form to create tasks', 'info');
+        }
+
+        // Helpers
+        function getStatusClasses(status) {
+            const classes = {
+                idle: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+                running: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+                watching: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+                completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+                failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+                pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+                error: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+            };
+            return classes[status] || classes.idle;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            const toast = document.createElement('div');
+            toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg text-sm transform transition-all duration-300`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-4');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>

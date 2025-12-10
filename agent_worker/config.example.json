@@ -1,0 +1,19 @@
+{
+    "server_url": "https://a2a.quantum-forge.net",
+    "worker_name": "dev-vm-worker",
+    "poll_interval": 5,
+    "opencode_bin": null,
+    "codebases": [
+        {
+            "name": "spotlessbinco",
+            "path": "/home/riley/spotlessbinco",
+            "description": "Spotless Bin Co website"
+        }
+    ],
+    "capabilities": [
+        "opencode",
+        "build",
+        "deploy",
+        "test"
+    ]
+}

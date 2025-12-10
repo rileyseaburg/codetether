@@ -173,11 +173,36 @@ class AgentMonitor {
             const data = JSON.parse(e.data);
             this.addOutputEntry(codebaseId, {
                 type: 'status',
-                content: `Status: ${data.status}${data.agent ? ` (${data.agent})` : ''}`,
+                content: `Status: ${data.status}${data.agent ? ` (${data.agent})` : ''}${data.message ? ` - ${data.message}` : ''}`,
                 timestamp: new Date().toISOString()
             });
             // Update codebase status
             this.loadCodebases();
+        });
+
+        // Handle message events from remote workers (task results)
+        eventSource.addEventListener('message', (e) => {
+            const data = JSON.parse(e.data);
+            // Parse nested JSON if content is a string containing JSON events
+            if (data.type === 'text' && data.content) {
+                try {
+                    // Content may be newline-separated JSON events from OpenCode
+                    const lines = data.content.split('\n').filter(l => l.trim());
+                    for (const line of lines) {
+                        const event = JSON.parse(line);
+                        this.processOpenCodeEvent(codebaseId, event);
+                    }
+                } catch {
+                    // Not JSON, show as plain text
+                    this.addOutputEntry(codebaseId, {
+                        type: 'text',
+                        content: data.content,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } else if (data.type) {
+                this.processOpenCodeEvent(codebaseId, data);
+            }
         });
 
         eventSource.addEventListener('idle', (e) => {
@@ -231,13 +256,77 @@ class AgentMonitor {
         });
 
         eventSource.addEventListener('error', (e) => {
-            const data = JSON.parse(e.data);
-            this.addOutputEntry(codebaseId, {
-                type: 'error',
-                content: `Error: ${data.error}`,
-                timestamp: new Date().toISOString()
-            });
+            // Only parse if we have data (SSE error event vs connection error)
+            if (e.data) {
+                try {
+                    const data = JSON.parse(e.data);
+                    this.addOutputEntry(codebaseId, {
+                        type: 'error',
+                        content: `Error: ${data.error}`,
+                        timestamp: new Date().toISOString()
+                    });
+                } catch (parseErr) {
+                    console.warn('Could not parse error data:', e.data);
+                }
+            }
         });
+    }
+
+    processOpenCodeEvent(codebaseId, event) {
+        // Process OpenCode event format from task results
+        const type = event.type;
+        const part = event.part || {};
+
+        switch (type) {
+            case 'text':
+                if (part.text) {
+                    this.addOutputEntry(codebaseId, {
+                        type: 'text',
+                        content: part.text,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                break;
+            case 'tool_use':
+                if (part.tool) {
+                    const state = part.state || {};
+                    this.addOutputEntry(codebaseId, {
+                        type: 'tool',
+                        tool: part.tool,
+                        status: state.status || 'completed',
+                        title: state.title || state.input?.description || part.tool,
+                        input: state.input,
+                        output: state.output || state.metadata?.output,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                break;
+            case 'step_start':
+                this.addOutputEntry(codebaseId, {
+                    type: 'step-start',
+                    content: 'Step started',
+                    timestamp: new Date().toISOString()
+                });
+                break;
+            case 'step_finish':
+                this.addOutputEntry(codebaseId, {
+                    type: 'step-finish',
+                    content: `Step finished: ${part.reason || 'complete'}`,
+                    tokens: part.tokens,
+                    cost: part.cost,
+                    timestamp: new Date().toISOString()
+                });
+                break;
+            default:
+                // Unknown event type, show raw if it has content
+                if (part.text || event.content) {
+                    this.addOutputEntry(codebaseId, {
+                        type: 'info',
+                        content: part.text || event.content,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+        }
     }
 
     handleTextPart(codebaseId, data) {
@@ -776,6 +865,20 @@ class AgentMonitor {
                     <option value="general">🔄 General (Multi-step tasks)</option>
                     <option value="explore">🔍 Explore (Codebase search)</option>
                 </select>
+                <select id="trigger-model-${codebase.id}" class="model-selector">
+                    <option value="">🤖 Default Model</option>
+                    <option value="anthropic/claude-sonnet-4-20250514">Anthropic Claude Sonnet 4</option>
+                    <option value="anthropic/claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
+                    <option value="anthropic/claude-3-5-haiku-20241022">Anthropic Claude 3.5 Haiku</option>
+                    <option value="openai/gpt-4o">OpenAI GPT-4o</option>
+                    <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
+                    <option value="openai/o1">OpenAI o1</option>
+                    <option value="openai/o1-mini">OpenAI o1 Mini</option>
+                    <option value="google/gemini-2.0-flash">Google Gemini 2.0 Flash</option>
+                    <option value="google/gemini-1.5-pro">Google Gemini 1.5 Pro</option>
+                    <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                    <option value="deepseek/deepseek-reasoner">DeepSeek Reasoner</option>
+                </select>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" onclick="monitor.triggerAgent('${codebase.id}')" style="flex: 1;">🚀 Start Agent</button>
                     <button class="btn-secondary" onclick="monitor.hideTriggerForm('${codebase.id}')" style="flex: 1;">Cancel</button>
@@ -814,6 +917,7 @@ class AgentMonitor {
     async triggerAgent(codebaseId) {
         const prompt = document.getElementById(`trigger-prompt-${codebaseId}`).value;
         const agent = document.getElementById(`trigger-agent-${codebaseId}`).value;
+        const model = document.getElementById(`trigger-model-${codebaseId}`).value;
 
         if (!prompt.trim()) {
             this.showToast('Please enter a prompt', 'error');
@@ -822,13 +926,17 @@ class AgentMonitor {
 
         try {
             const serverUrl = this.getServerUrl();
+            const payload = {
+                prompt: prompt,
+                agent: agent,
+            };
+            if (model) {
+                payload.model = model;
+            }
             const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/trigger`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: prompt,
-                    agent: agent,
-                })
+                body: JSON.stringify(payload)
             });
 
             const result = await response.json();

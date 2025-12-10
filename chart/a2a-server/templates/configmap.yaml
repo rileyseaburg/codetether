@@ -17,19 +17,19 @@ data:
   A2A_HOST: {{ .Values.env.A2A_HOST | quote }}
   A2A_PORT: {{ .Values.env.A2A_PORT | quote }}
   A2A_LOG_LEVEL: {{ .Values.env.A2A_LOG_LEVEL | quote }}
-  
+
   # Redis configuration
   A2A_REDIS_URL: {{ include "a2a-server.redisUrl" . | quote }}
-  
+
   # Agent configuration
   A2A_AGENT_NAME: {{ .Values.env.A2A_AGENT_NAME | quote }}
   A2A_AGENT_DESCRIPTION: {{ .Values.env.A2A_AGENT_DESCRIPTION | quote }}
   A2A_AGENT_ORG: {{ .Values.env.A2A_AGENT_ORG | quote }}
   A2A_AGENT_ORG_URL: {{ .Values.env.A2A_AGENT_ORG_URL | quote }}
-  
+
   # Authentication enabled flag
   A2A_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
-  
+
   # Database persistence paths (use mounted volume for persistence across restarts)
   {{- if .Values.persistence.enabled }}
   MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"

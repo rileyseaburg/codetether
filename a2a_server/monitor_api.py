@@ -886,13 +886,34 @@ monitoring_service = MonitoringService()
 @monitor_router.get('/')
 async def serve_monitor_ui():
     """Serve the monitoring UI."""
+    # Try new Tailwind UI first
+    ui_path = os.path.join(
+        os.path.dirname(__file__), '..', 'ui', 'monitor-tailwind.html'
+    )
+    if os.path.exists(ui_path):
+        return FileResponse(ui_path, media_type='text/html')
+    # Fallback to old UI
     ui_path = os.path.join(
         os.path.dirname(__file__), '..', 'ui', 'monitor.html'
     )
     if os.path.exists(ui_path):
         return FileResponse(ui_path, media_type='text/html')
     return HTMLResponse(
-        content='<h1>Monitor UI not found. Please ensure ui/monitor.html exists.</h1>',
+        content='<h1>Monitor UI not found. Please ensure ui/monitor-tailwind.html exists.</h1>',
+        status_code=404,
+    )
+
+
+@monitor_router.get('/classic')
+async def serve_classic_ui():
+    """Serve the classic monitoring UI."""
+    ui_path = os.path.join(
+        os.path.dirname(__file__), '..', 'ui', 'monitor.html'
+    )
+    if os.path.exists(ui_path):
+        return FileResponse(ui_path, media_type='text/html')
+    return HTMLResponse(
+        content='<h1>Classic UI not found.</h1>',
         status_code=404,
     )
 
@@ -1091,6 +1112,7 @@ class CodebaseRegistration(BaseModel):
     path: str
     description: str = ""
     agent_config: Dict[str, Any] = {}
+    worker_id: Optional[str] = None  # Associate with a specific worker
 
 
 class AgentTrigger(BaseModel):
@@ -1146,6 +1168,76 @@ async def opencode_status():
     }
 
 
+@opencode_router.get('/models')
+async def list_models():
+    """List available AI models from OpenCode configuration."""
+    import os
+    import json
+    
+    models = []
+    
+    # Default models always available
+    default_models = [
+        # Anthropic
+        {"id": "anthropic/claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "provider": "Anthropic"},
+        {"id": "anthropic/claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
+        {"id": "anthropic/claude-3-5-haiku-20241022", "name": "Claude 3.5 Haiku", "provider": "Anthropic"},
+        # OpenAI
+        {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
+        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
+        {"id": "openai/o1", "name": "o1", "provider": "OpenAI"},
+        {"id": "openai/o1-mini", "name": "o1 Mini", "provider": "OpenAI"},
+        {"id": "openai/o3-mini", "name": "o3 Mini", "provider": "OpenAI"},
+        # Google
+        {"id": "google/gemini-2.0-flash", "name": "Gemini 2.0 Flash", "provider": "Google"},
+        {"id": "google/gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"},
+        {"id": "google/gemini-2.5-pro", "name": "Gemini 2.5 Pro", "provider": "Google"},
+        # DeepSeek
+        {"id": "deepseek/deepseek-chat", "name": "DeepSeek Chat", "provider": "DeepSeek"},
+        {"id": "deepseek/deepseek-reasoner", "name": "DeepSeek Reasoner", "provider": "DeepSeek"},
+        # xAI
+        {"id": "xai/grok-2", "name": "Grok 2", "provider": "xAI"},
+        {"id": "xai/grok-3", "name": "Grok 3", "provider": "xAI"},
+    ]
+    
+    # Try to read OpenCode config for custom providers
+    config_paths = [
+        os.path.expanduser("~/.config/opencode/opencode.json"),
+        os.path.expanduser("~/.opencode.json"),
+        "/app/.config/opencode/opencode.json",
+    ]
+    
+    custom_models = []
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    
+                providers = config.get("provider", {})
+                for provider_id, provider_config in providers.items():
+                    provider_name = provider_config.get("name", provider_id)
+                    provider_models = provider_config.get("models", {})
+                    
+                    for model_id, model_config in provider_models.items():
+                        custom_models.append({
+                            "id": f"{provider_id}/{model_id}",
+                            "name": model_config.get("name", model_id),
+                            "provider": provider_name,
+                            "custom": True,
+                            "capabilities": {
+                                "reasoning": model_config.get("reasoning", False),
+                                "attachment": model_config.get("attachment", False),
+                                "tool_call": model_config.get("tool_call", False),
+                            }
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to read OpenCode config from {config_path}: {e}")
+    
+    # Custom models first, then defaults
+    return {"models": custom_models + default_models, "default": custom_models[0]["id"] if custom_models else "anthropic/claude-sonnet-4-20250514"}
+
+
 @opencode_router.get('/codebases')
 async def list_codebases():
     """List all registered codebases."""
@@ -1169,14 +1261,16 @@ async def register_codebase(registration: CodebaseRegistration):
             path=registration.path,
             description=registration.description,
             agent_config=registration.agent_config,
+            worker_id=registration.worker_id,
         )
 
         # Log the registration
+        worker_info = f" (worker: {registration.worker_id})" if registration.worker_id else ""
         await monitoring_service.log_message(
             agent_name="OpenCode Bridge",
-            content=f"Registered codebase: {registration.name} at {registration.path}",
+            content=f"Registered codebase: {registration.name} at {registration.path}{worker_info}",
             message_type="system",
-            metadata={"codebase_id": codebase.id, "path": registration.path},
+            metadata={"codebase_id": codebase.id, "path": registration.path, "worker_id": registration.worker_id},
         )
 
         return {"success": True, "codebase": codebase.to_dict()}
@@ -1358,6 +1452,41 @@ async def stream_agent_events(codebase_id: str, request: Request):
     codebase = bridge._codebases.get(codebase_id)
     if not codebase:
         raise HTTPException(status_code=404, detail="Codebase not found")
+
+    # For remote workers, check if there are pending tasks and return task-based events
+    if codebase.worker_id and not codebase.opencode_port:
+        async def remote_event_generator():
+            """Stream events for remote worker codebases from completed tasks."""
+            yield f"event: connected\ndata: {json.dumps({'codebase_id': codebase_id, 'status': 'connected', 'remote': True, 'worker_id': codebase.worker_id})}\n\n"
+
+            # Check for recent completed tasks and stream their results
+            all_tasks = bridge.list_tasks(codebase_id=codebase_id)
+            tasks = [{'status': t.status.value, 'result': t.result, 'title': t.title} for t in all_tasks[:10]]
+            for task in tasks:
+                if task.get('status') == 'completed' and task.get('result'):
+                    try:
+                        # Parse and stream stored task results as events
+                        result_data = json.loads(task['result']) if isinstance(task['result'], str) else task['result']
+                        if isinstance(result_data, list):
+                            for event in result_data:
+                                event_type = event.get('type', 'message')
+                                yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+                        else:
+                            yield f"event: message\ndata: {json.dumps(result_data)}\n\n"
+                    except (json.JSONDecodeError, TypeError):
+                        yield f"event: message\ndata: {json.dumps({'type': 'text', 'content': str(task['result'])})}\n\n"
+
+            yield f"event: status\ndata: {json.dumps({'status': 'idle', 'message': 'Remote worker codebase - results from completed tasks'})}\n\n"
+
+        return StreamingResponse(
+            remote_event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     if not codebase.opencode_port:
         raise HTTPException(status_code=400, detail="Agent not running")
@@ -1798,6 +1927,150 @@ async def log_agent_message(
     await monitoring_service.log_message(
         agent_name=agent_name, content=message_content, **kwargs
     )
+
+
+# ========================================
+# Worker Registration & Management
+# ========================================
+
+# In-memory worker registry (workers are transient - they re-register on start)
+_registered_workers: Dict[str, Dict[str, Any]] = {}
+
+
+class WorkerRegistration(BaseModel):
+    """Worker registration request."""
+    worker_id: str
+    name: str
+    capabilities: List[str] = []
+    hostname: Optional[str] = None
+
+
+class TaskStatusUpdate(BaseModel):
+    """Task status update from worker."""
+    status: str
+    worker_id: str
+    result: Optional[str] = None
+    error: Optional[str] = None
+
+
+@opencode_router.post('/workers/register')
+async def register_worker(registration: WorkerRegistration):
+    """Register a worker with the A2A server."""
+    worker_info = {
+        "worker_id": registration.worker_id,
+        "name": registration.name,
+        "capabilities": registration.capabilities,
+        "hostname": registration.hostname,
+        "registered_at": datetime.utcnow().isoformat(),
+        "last_seen": datetime.utcnow().isoformat(),
+        "status": "active",
+    }
+
+    _registered_workers[registration.worker_id] = worker_info
+
+    logger.info(f"Worker registered: {registration.name} (ID: {registration.worker_id})")
+
+    await monitoring_service.log_message(
+        agent_name="Worker Registry",
+        content=f"Worker '{registration.name}' connected from {registration.hostname}",
+        message_type="system",
+        metadata=worker_info,
+    )
+
+    return {"success": True, "worker": worker_info}
+
+
+@opencode_router.post('/workers/{worker_id}/unregister')
+async def unregister_worker(worker_id: str):
+    """Unregister a worker."""
+    if worker_id in _registered_workers:
+        worker_info = _registered_workers.pop(worker_id)
+        logger.info(f"Worker unregistered: {worker_info.get('name')} (ID: {worker_id})")
+
+        await monitoring_service.log_message(
+            agent_name="Worker Registry",
+            content=f"Worker '{worker_info.get('name')}' disconnected",
+            message_type="system",
+        )
+
+        return {"success": True, "message": "Worker unregistered"}
+
+    return {"success": False, "message": "Worker not found"}
+
+
+@opencode_router.get('/workers')
+async def list_workers():
+    """List all registered workers."""
+    return list(_registered_workers.values())
+
+
+@opencode_router.get('/workers/{worker_id}')
+async def get_worker(worker_id: str):
+    """Get worker details."""
+    if worker_id in _registered_workers:
+        return _registered_workers[worker_id]
+    raise HTTPException(status_code=404, detail="Worker not found")
+
+
+@opencode_router.post('/workers/{worker_id}/heartbeat')
+async def worker_heartbeat(worker_id: str):
+    """Update worker last-seen timestamp."""
+    if worker_id in _registered_workers:
+        _registered_workers[worker_id]["last_seen"] = datetime.utcnow().isoformat()
+        return {"success": True}
+    raise HTTPException(status_code=404, detail="Worker not found")
+
+
+@opencode_router.put('/tasks/{task_id}/status')
+async def update_task_status(task_id: str, update: TaskStatusUpdate):
+    """Update task status (called by workers)."""
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+
+    from .opencode_bridge import AgentTaskStatus
+
+    try:
+        status = AgentTaskStatus(update.status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {update.status}")
+
+    task = bridge.update_task_status(
+        task_id=task_id,
+        status=status,
+        result=update.result,
+        error=update.error,
+    )
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Update worker last-seen
+    if update.worker_id in _registered_workers:
+        _registered_workers[update.worker_id]["last_seen"] = datetime.utcnow().isoformat()
+
+    await monitoring_service.log_message(
+        agent_name="Task Manager",
+        content=f"Task '{task.title}' status: {update.status}",
+        message_type="system",
+        metadata={"task_id": task_id, "status": update.status, "worker_id": update.worker_id},
+    )
+
+    return {"success": True, "task": task.to_dict()}
+
+
+@opencode_router.post('/tasks/{task_id}/cancel')
+async def cancel_task(task_id: str):
+    """Cancel a pending task."""
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+
+    success = bridge.cancel_task(task_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot cancel task (may already be completed or not found)")
+
+    return {"success": True, "message": "Task cancelled"}
 
 
 # Export the monitoring service, routers and helpers

@@ -102,6 +102,7 @@ class RegisteredCodebase:
     session_id: Optional[str] = None
     watch_mode: bool = False  # Whether agent is in watch mode
     watch_interval: int = 5  # Seconds between task checks
+    worker_id: Optional[str] = None  # ID of the worker that owns this codebase
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -117,6 +118,7 @@ class RegisteredCodebase:
             "session_id": self.session_id,
             "watch_mode": self.watch_mode,
             "watch_interval": self.watch_interval,
+            "worker_id": self.worker_id,
         }
 
 
@@ -250,9 +252,16 @@ class OpenCodeBridge:
                     opencode_port INTEGER,
                     session_id TEXT,
                     watch_mode INTEGER DEFAULT 0,
-                    watch_interval INTEGER DEFAULT 5
+                    watch_interval INTEGER DEFAULT 5,
+                    worker_id TEXT
                 )
             ''')
+
+            # Try to add worker_id column if table already exists (migration)
+            try:
+                cursor.execute('ALTER TABLE codebases ADD COLUMN worker_id TEXT')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
             # Tasks table
             cursor.execute('''
@@ -318,6 +327,7 @@ class OpenCodeBridge:
                     session_id=row['session_id'],
                     watch_mode=bool(row['watch_mode']),
                     watch_interval=row['watch_interval'] or 5,
+                    worker_id=row['worker_id'] if 'worker_id' in row.keys() else None,
                 )
                 self._codebases[codebase.id] = codebase
 
@@ -364,8 +374,8 @@ class OpenCodeBridge:
                 cursor.execute('''
                     INSERT OR REPLACE INTO codebases
                     (id, name, path, description, registered_at, agent_config,
-                     last_triggered, status, opencode_port, session_id, watch_mode, watch_interval)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     last_triggered, status, opencode_port, session_id, watch_mode, watch_interval, worker_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     codebase.id,
                     codebase.name,
@@ -379,6 +389,7 @@ class OpenCodeBridge:
                     codebase.session_id,
                     1 if codebase.watch_mode else 0,
                     codebase.watch_interval,
+                    codebase.worker_id,
                 ))
                 conn.commit()
         except Exception as e:
@@ -495,25 +506,54 @@ class OpenCodeBridge:
         path: str,
         description: str = "",
         agent_config: Optional[Dict[str, Any]] = None,
+        worker_id: Optional[str] = None,
     ) -> RegisteredCodebase:
         """
         Register a codebase for agent work.
 
         Args:
             name: Display name for the codebase
-            path: Absolute path to the codebase directory
+            path: Absolute path to the codebase directory (on worker machine)
             description: Optional description
             agent_config: Optional OpenCode agent configuration
+            worker_id: ID of the worker that owns this codebase (for remote execution)
 
         Returns:
             The registered codebase entry
+
+        Note: Path validation is skipped when a worker_id is provided, as the path
+        exists on the remote worker machine, not on the A2A server.
         """
-        # Validate path
+        # Normalize path
         path = os.path.abspath(os.path.expanduser(path))
-        if not os.path.isdir(path):
+
+        # Only validate path if no worker (local execution mode)
+        if not worker_id and not os.path.isdir(path):
             raise ValueError(f"Codebase path does not exist: {path}")
 
-        # Generate ID
+        # Check for existing codebase with same path - update instead of duplicate
+        existing_id = None
+        for cid, cb in self._codebases.items():
+            if cb.path == path:
+                existing_id = cid
+                break
+
+        if existing_id:
+            # Update existing codebase instead of creating duplicate
+            codebase = self._codebases[existing_id]
+            codebase.name = name
+            codebase.description = description
+            codebase.agent_config = agent_config or {}
+            if worker_id:
+                codebase.worker_id = worker_id
+            codebase.status = AgentStatus.IDLE
+            self._save_codebase(codebase)  # Persist update
+
+            worker_info = f" (worker: {worker_id})" if worker_id else ""
+            logger.info(f"Updated existing codebase: {name} ({existing_id}) at {path}{worker_info}")
+            return codebase
+
+        # Generate ID for new codebase
         codebase_id = str(uuid.uuid4())[:8]
 
         codebase = RegisteredCodebase(
@@ -522,11 +562,14 @@ class OpenCodeBridge:
             path=path,
             description=description,
             agent_config=agent_config or {},
+            worker_id=worker_id,
         )
 
         self._codebases[codebase_id] = codebase
         self._save_codebase(codebase)  # Persist to database
-        logger.info(f"Registered codebase: {name} ({codebase_id}) at {path}")
+
+        worker_info = f" (worker: {worker_id})" if worker_id else ""
+        logger.info(f"Registered codebase: {name} ({codebase_id}) at {path}{worker_info}")
 
         return codebase
 
@@ -656,8 +699,36 @@ class OpenCodeBridge:
                 error=f"Codebase not found: {request.codebase_id}",
             )
 
+        # For remote workers, create a task instead of local execution
+        if codebase.worker_id:
+            task = self.create_task(
+                codebase_id=request.codebase_id,
+                title=request.prompt[:80] + ("..." if len(request.prompt) > 80 else ""),
+                prompt=request.prompt,
+                agent_type=request.agent,
+                metadata={
+                    "model": request.model,
+                    "files": request.files,
+                    **request.metadata,
+                },
+            )
+            if task:
+                logger.info(f"Created task {task.id} for remote worker {codebase.worker_id}")
+                return AgentTriggerResponse(
+                    success=True,
+                    session_id=task.id,  # Use task ID as session ID for tracking
+                    message=f"Task queued for remote worker (task: {task.id})",
+                    codebase_id=request.codebase_id,
+                    agent=request.agent,
+                )
+            else:
+                return AgentTriggerResponse(
+                    success=False,
+                    error="Failed to create task for remote worker",
+                )
+
         try:
-            # Ensure OpenCode server is running
+            # Local execution: Ensure OpenCode server is running
             if not codebase.opencode_port or codebase.status != AgentStatus.RUNNING:
                 if self.auto_start:
                     await self._start_opencode_server(codebase)
@@ -1031,7 +1102,16 @@ class OpenCodeBridge:
             logger.warning(f"Watch mode already running for {codebase.name}")
             return True
 
-        # Start the OpenCode server if not running
+        # For remote workers, watch mode is just a flag - the worker polls automatically
+        if codebase.worker_id:
+            codebase.watch_mode = True
+            codebase.watch_interval = interval
+            self._update_codebase_status(codebase, AgentStatus.WATCHING)
+            logger.info(f"Watch mode enabled for {codebase.name} (remote worker: {codebase.worker_id})")
+            await self._notify_status_change(codebase)
+            return True
+
+        # For local execution, start the OpenCode server if not running
         if not codebase.opencode_port or codebase.status in (AgentStatus.IDLE, AgentStatus.STOPPED):
             try:
                 await self._start_opencode_server(codebase)
@@ -1043,7 +1123,7 @@ class OpenCodeBridge:
         codebase.watch_interval = interval
         self._update_codebase_status(codebase, AgentStatus.WATCHING)
 
-        # Start background task
+        # Start background task for local execution
         watch_task = asyncio.create_task(self._watch_loop(codebase_id))
         self._watch_tasks[codebase_id] = watch_task
 
@@ -1058,7 +1138,15 @@ class OpenCodeBridge:
         if not codebase:
             return False
 
-        # Cancel watch task
+        # For remote workers, just update the flag
+        if codebase.worker_id:
+            codebase.watch_mode = False
+            self._update_codebase_status(codebase, AgentStatus.IDLE)
+            logger.info(f"Watch mode disabled for {codebase.name} (remote worker)")
+            await self._notify_status_change(codebase)
+            return True
+
+        # Cancel local watch task
         watch_task = self._watch_tasks.get(codebase_id)
         if watch_task:
             watch_task.cancel()

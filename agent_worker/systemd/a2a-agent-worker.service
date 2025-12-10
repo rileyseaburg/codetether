@@ -1,0 +1,47 @@
+[Unit]
+Description=A2A Agent Worker - OpenCode task executor
+Documentation=https://github.com/rileyseaburg/A2A-Server-MCP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=a2a-worker
+Group=a2a-worker
+
+# Environment
+Environment=A2A_SERVER_URL=https://a2a.quantum-forge.net
+Environment=A2A_WORKER_NAME=%H
+Environment=A2A_POLL_INTERVAL=5
+EnvironmentFile=-/etc/a2a-worker/env
+
+# Working directory
+WorkingDirectory=/opt/a2a-worker
+
+# Command
+ExecStart=/opt/a2a-worker/venv/bin/python /opt/a2a-worker/worker.py --config /etc/a2a-worker/config.json
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home /opt/a2a-worker
+PrivateTmp=true
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=a2a-worker
+
+[Install]
+WantedBy=multi-user.target
