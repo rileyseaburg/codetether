@@ -880,32 +880,29 @@ async def get_agent(agent_type: str, message_broker=None) -> Optional[EnhancedAg
 
 
 async def route_message_to_agent(message: Message, message_broker=None) -> Message:
-    """Route a message to the appropriate agent based on content."""
-    text = " ".join(part.content for part in message.parts if part.type == "text").lower()
+    """Route a message to the appropriate agent based on content.
 
-    # Route based on content keywords
-    if any(word in text for word in ["add", "subtract", "multiply", "divide", "calculate", "math", "square", "sqrt", "+", "-", "*", "/"]):
-        agent = await get_agent("calculator", message_broker)
-        if agent:
-            return await agent.process_message(message)
+    For agent-to-agent communication, we simply acknowledge receipt and store the message.
+    Agents can retrieve messages using get_messages MCP tool.
+    """
+    text = " ".join(part.content for part in message.parts if part.type == "text")
 
-    elif any(word in text for word in ["weather", "analyze", "analysis"]):
-        agent = await get_agent("analysis", message_broker)
-        if agent:
-            return await agent.process_message(message)
+    # Simple acknowledgment response for agent communication
+    response_text = f"Message received and logged. Agents can retrieve it using get_messages."
 
-    elif any(word in text for word in ["store", "save", "remember", "retrieve", "get", "recall", "list", "delete", "remove", "forget", "memory"]):
-        agent = await get_agent("memory", message_broker)
-        if agent:
-            return await agent.process_message(message)
+    # If message broker is available, publish it for other agents to see
+    if message_broker:
+        try:
+            await message_broker.publish_event("agent.message.broadcast", {
+                "content": text,
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_id": str(uuid.uuid4())
+            })
+            logger.info(f"Message broadcast to agent network: {text[:50]}...")
+        except Exception as e:
+            logger.error(f"Failed to broadcast message: {e}")
 
-    elif any(phrase in text for phrase in ["media", "video", "audio", "room", "join", "create session", "video call", "audio call", "livekit"]):
-        agent = await get_agent("media", message_broker)
-        if agent:
-            return await agent.process_message(message)
-
-    # Default to echo behavior
-    return Message(parts=[Part(type="text", content=f"Echo: {' '.join(part.content for part in message.parts if part.type == 'text')}")])
+    return Message(parts=[Part(type="text", content=response_text)])
 
 
 async def initialize_all_agents(message_broker=None):

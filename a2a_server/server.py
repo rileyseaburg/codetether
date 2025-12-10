@@ -30,8 +30,15 @@ from .models import (
 from .task_manager import TaskManager, InMemoryTaskManager
 from .message_broker import MessageBroker, InMemoryMessageBroker
 from .agent_card import AgentCard
-from .livekit_bridge import create_livekit_bridge, LiveKitBridge
-from .monitor_api import monitor_router, monitoring_service, log_agent_message
+from .monitor_api import monitor_router, opencode_router, monitoring_service, log_agent_message
+
+try:
+    from .livekit_bridge import create_livekit_bridge, LiveKitBridge
+    LIVEKIT_AVAILABLE = True
+except ImportError:
+    LIVEKIT_AVAILABLE = False
+    create_livekit_bridge = None
+    LiveKitBridge = None
 
 
 logger = logging.getLogger(__name__)
@@ -54,15 +61,18 @@ class A2AServer:
         self.auth_callback = auth_callback
 
         # Initialize LiveKit bridge if available
-        try:
-            self.livekit_bridge = create_livekit_bridge()
-            if self.livekit_bridge:
-                logger.info("LiveKit bridge initialized successfully")
-            else:
-                logger.info("LiveKit bridge not configured - media features disabled")
-        except Exception as e:
-            logger.warning(f"Failed to initialize LiveKit bridge: {e}")
-            self.livekit_bridge = None
+        self.livekit_bridge = None
+        if LIVEKIT_AVAILABLE and create_livekit_bridge:
+            try:
+                self.livekit_bridge = create_livekit_bridge()
+                if self.livekit_bridge:
+                    logger.info("LiveKit bridge initialized successfully")
+                else:
+                    logger.info("LiveKit bridge not configured - media features disabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize LiveKit bridge: {e}")
+        else:
+            logger.info("LiveKit not available - media features disabled")
 
         # Create FastAPI app
         self.app = FastAPI(
@@ -92,12 +102,16 @@ class A2AServer:
         # Active streaming connections
         self._streaming_connections: Dict[str, List[asyncio.Queue]] = {}
 
-        # Register with monitoring service
-        agent_id = str(uuid.uuid4())
-        monitoring_service.register_agent(agent_id, agent_card.card.name)
-        self.agent_id = agent_id
+        # Store agent info for deferred registration
+        self.agent_id = str(uuid.uuid4())
+        self._agent_name = agent_card.card.name
 
         self._setup_routes()
+
+        # Register agent on startup (async)
+        @self.app.on_event("startup")
+        async def register_with_monitoring():
+            await monitoring_service.register_agent(self.agent_id, self._agent_name)
 
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
@@ -136,6 +150,9 @@ class A2AServer:
 
         # Include monitoring API routes
         self.app.include_router(monitor_router)
+
+        # Include OpenCode integration routes
+        self.app.include_router(opencode_router)
 
     async def _handle_jsonrpc_request(
         self,

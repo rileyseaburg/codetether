@@ -102,7 +102,7 @@
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 400px;
+            grid-template-columns: 280px 1fr 1fr 280px 350px;
             gap: 0;
             height: calc(100vh - 300px);
         }
@@ -414,6 +414,88 @@
             border-color: #667eea;
         }
 
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .search-box input {
+            flex: 1;
+        }
+
+        .btn-search {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .btn-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-results {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .search-results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .search-results-header h3 {
+            margin: 0;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+
+        #searchResultsContent {
+            padding: 15px;
+        }
+
+        .search-result-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .search-result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .storage-info {
+            font-size: 0.9em;
+            color: #28a745;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #d4edda;
+            border-radius: 8px;
+        }
+
         .toast {
             position: fixed;
             bottom: 20px;
@@ -463,6 +545,886 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        /* OpenCode Agent Panel Styles */
+        .opencode-panel {
+            padding: 20px;
+            overflow-y: auto;
+            background: #f0f4ff;
+            border-right: 2px solid #e9ecef;
+            max-height: calc(100vh - 300px);
+        }
+
+        .codebase-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+
+        .codebase-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .codebase-item.idle {
+            border-left-color: #6c757d;
+        }
+
+        .codebase-item.running {
+            border-left-color: #28a745;
+        }
+
+        .codebase-item.watching {
+            border-left-color: #17a2b8;
+            animation: pulse-border-cyan 2s infinite;
+        }
+
+        @keyframes pulse-border-cyan {
+
+            0%,
+            100% {
+                border-left-color: #17a2b8;
+            }
+
+            50% {
+                border-left-color: #138496;
+            }
+        }
+
+        .codebase-item.busy {
+            border-left-color: #ffc107;
+            animation: pulse-border 2s infinite;
+        }
+
+        .codebase-item.error {
+            border-left-color: #dc3545;
+        }
+
+        @keyframes pulse-border {
+
+            0%,
+            100% {
+                border-left-color: #ffc107;
+            }
+
+            50% {
+                border-left-color: #ff9800;
+            }
+        }
+
+        .codebase-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .codebase-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #343a40;
+        }
+
+        .codebase-path {
+            font-size: 0.85em;
+            color: #6c757d;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .codebase-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .codebase-status.idle {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .codebase-status.running {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .codebase-status.watching {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .codebase-status.busy {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .codebase-status.error {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .codebase-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .codebase-actions button {
+            flex: 1;
+            min-width: 80px;
+        }
+
+        .trigger-form {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .trigger-form.show {
+            display: block;
+        }
+
+        .trigger-form textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 10px;
+        }
+
+        .trigger-form select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-family: inherit;
+            margin-bottom: 10px;
+        }
+
+        /* Task Queue Styles */
+        .codebase-tasks {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .tasks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .tasks-header h4 {
+            margin: 0;
+            font-size: 0.9em;
+            color: #495057;
+        }
+
+        .task-count {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+        }
+
+        .task-item {
+            padding: 10px;
+            margin-bottom: 6px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #6c757d;
+            font-size: 0.9em;
+        }
+
+        .task-item.pending {
+            border-left-color: #ffc107;
+        }
+
+        .task-item.running {
+            border-left-color: #17a2b8;
+            background: #e3f2fd;
+        }
+
+        .task-item.completed {
+            border-left-color: #28a745;
+            background: #e8f5e9;
+        }
+
+        .task-item.failed {
+            border-left-color: #dc3545;
+            background: #ffebee;
+        }
+
+        .task-title {
+            font-weight: 600;
+            color: #343a40;
+            margin-bottom: 4px;
+        }
+
+        .task-meta {
+            font-size: 0.8em;
+            color: #6c757d;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .watch-controls {
+            margin-top: 12px;
+            padding: 12px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .watch-controls.active {
+            background: #c8e6c9;
+        }
+
+        .watch-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #6c757d;
+        }
+
+        .watch-indicator.active {
+            background: #28a745;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Task Modal Styles */
+        .task-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .task-modal.show {
+            display: flex;
+        }
+
+        .task-form {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 550px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .task-form h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #343a40;
+        }
+
+        .task-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .task-form input,
+        .task-form textarea,
+        .task-form select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+
+        .task-form input:focus,
+        .task-form textarea:focus,
+        .task-form select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .task-form textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .priority-select {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .priority-option {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .priority-option:hover {
+            border-color: #667eea;
+        }
+
+        .priority-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        /* Agent Output Panel Styles */
+        .agent-output-panel {
+            padding: 20px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            max-height: calc(100vh - 300px);
+        }
+
+        .agent-output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .agent-output-header h2 {
+            color: #fff;
+            margin: 0;
+        }
+
+        .output-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .output-controls button {
+            padding: 6px 12px;
+            background: #333;
+            color: #d4d4d4;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+
+        .output-controls button:hover {
+            background: #444;
+        }
+
+        .output-controls button.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .agent-selector {
+            padding: 10px;
+            background: #252526;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .agent-selector select {
+            width: 100%;
+            padding: 8px;
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+
+        #agentOutputContainer {
+            overflow-y: auto;
+            max-height: calc(100vh - 450px);
+        }
+
+        .output-entry {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: #252526;
+            border-left: 3px solid #6c757d;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .output-entry.text {
+            border-left-color: #4ec9b0;
+        }
+
+        .output-entry.reasoning {
+            border-left-color: #dcdcaa;
+            background: #2d2d30;
+        }
+
+        .output-entry.tool-pending {
+            border-left-color: #569cd6;
+        }
+
+        .output-entry.tool-running {
+            border-left-color: #ce9178;
+            animation: pulse-bg 1.5s infinite;
+        }
+
+        @keyframes pulse-bg {
+
+            0%,
+            100% {
+                background: #252526;
+            }
+
+            50% {
+                background: #2d2a2e;
+            }
+        }
+
+        .output-entry.tool-completed {
+            border-left-color: #4ec9b0;
+        }
+
+        .output-entry.tool-error {
+            border-left-color: #f14c4c;
+            background: #3b2424;
+        }
+
+        .output-entry.step-finish {
+            border-left-color: #c586c0;
+            background: #2d282d;
+        }
+
+        .output-entry.file-edit {
+            border-left-color: #b5cea8;
+        }
+
+        .output-entry.command {
+            border-left-color: #d7ba7d;
+        }
+
+        .output-entry.status {
+            border-left-color: #9cdcfe;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .output-meta {
+            font-size: 0.75em;
+            color: #858585;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .output-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+
+        .output-content.streaming {
+            border-right: 2px solid #d4d4d4;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                border-color: #d4d4d4;
+            }
+
+            50% {
+                border-color: transparent;
+            }
+        }
+
+        .tool-input,
+        .tool-output {
+            margin-top: 8px;
+            padding: 8px;
+            background: #1e1e1e;
+            border-radius: 4px;
+            font-size: 0.85em;
+            overflow-x: auto;
+        }
+
+        .tool-input {
+            border: 1px dashed #569cd6;
+        }
+
+        .tool-output {
+            border: 1px dashed #4ec9b0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .tool-output.error {
+            border-color: #f14c4c;
+            color: #f14c4c;
+        }
+
+        .tool-title {
+            font-weight: bold;
+            color: #9cdcfe;
+            margin-bottom: 4px;
+        }
+
+        .tokens-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #333;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin-left: 8px;
+        }
+
+        .cost-badge {
+            color: #b5cea8;
+        }
+
+        .empty-output {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .empty-output-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .register-codebase-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .register-codebase-modal.show {
+            display: flex;
+        }
+
+        .register-form {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+        }
+
+        .register-form input,
+        .register-form textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+
+        .register-form input:focus,
+        .register-form textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .task-queue-panel {
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+            border-right: 2px solid #e9ecef;
+        }
+
+        .task-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .task-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .task-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .task-item.pending {
+            border-left-color: #ffc107;
+        }
+
+        .task-item.working {
+            border-left-color: #2196f3;
+        }
+
+        .task-item.completed {
+            border-left-color: #4caf50;
+            opacity: 0.7;
+        }
+
+        .task-item.failed {
+            border-left-color: #dc3545;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .task-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #343a40;
+            margin-bottom: 5px;
+        }
+
+        .task-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .task-status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .task-status.working {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .task-status.completed {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .task-status.failed {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .task-description {
+            color: #6c757d;
+            font-size: 0.95em;
+            line-height: 1.5;
+            margin-bottom: 10px;
+            max-height: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .task-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        /* Task Badges */
+        .task-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .task-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .task-badge.working {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .codebase-tasks {
+            display: flex;
+            gap: 8px;
+            margin: 8px 0;
+            flex-wrap: wrap;
+        }
+
+        /* Watch Indicator */
+        .watch-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0, 200, 200, 0.1);
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #00c8c8;
+        }
+
+        .watch-indicator.active .watch-dot {
+            width: 10px;
+            height: 10px;
+            background: #00c8c8;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        /* Button Small */
+        .btn-small {
+            padding: 6px 12px !important;
+            font-size: 0.85em !important;
+        }
+
+        .btn-danger {
+            background: #dc3545 !important;
+            color: white !important;
+        }
+
+        .btn-danger:hover {
+            background: #c82333 !important;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .task-detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .task-detail-modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .close-modal:hover {
+            color: #343a40;
+        }
     </style>
 </head>
 
@@ -486,8 +1448,12 @@
                 <div class="status-value" id="activeAgents">0</div>
             </div>
             <div class="status-item">
-                <div class="status-label">Messages</div>
+                <div class="status-label">Messages (Session)</div>
                 <div class="status-value" id="messageCount">0</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Total Stored</div>
+                <div class="status-value" id="totalStoredMessages">0</div>
             </div>
             <div class="status-item">
                 <div class="status-label">Interventions</div>
@@ -496,6 +1462,54 @@
         </div>
 
         <div class="main-content">
+            <!-- OpenCode Codebases Panel -->
+            <div class="opencode-panel">
+                <div class="conversation-header">
+                    <h2>🚀 OpenCode Agents</h2>
+                    <button class="btn-primary" onclick="openRegisterModal()">➕ Register Codebase</button>
+                </div>
+
+                <div id="opencodeStatus" class="storage-info" style="margin-bottom: 15px;">
+                    Checking OpenCode status...
+                </div>
+
+                <div id="codebasesContainer">
+                    <!-- Registered codebases will be added here dynamically -->
+                    <div class="empty-state" id="noCodebasesMessage">
+                        <div class="empty-state-icon">📂</div>
+                        <p>No codebases registered</p>
+                        <p style="font-size: 0.9em; margin-top: 10px;">Click "Register Codebase" to add a project</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Output Panel - Shows detailed logs, traces, and tool calls -->
+            <div class="agent-output-panel">
+                <div class="agent-output-header">
+                    <h2>🔬 Agent Output</h2>
+                    <div class="output-controls">
+                        <button id="btnAutoScroll" class="active" onclick="toggleAutoScroll()">📜 Auto-scroll</button>
+                        <button onclick="clearAgentOutput()">🗑️ Clear</button>
+                        <button onclick="downloadAgentOutput()">💾 Export</button>
+                    </div>
+                </div>
+
+                <div class="agent-selector">
+                    <select id="outputAgentSelect" onchange="switchAgentOutput()">
+                        <option value="">Select an agent to view output...</option>
+                    </select>
+                </div>
+
+                <div id="agentOutputContainer">
+                    <div class="empty-output" id="noOutputMessage">
+                        <div class="empty-output-icon">📋</div>
+                        <p>No agent output yet</p>
+                        <p style="font-size: 0.9em; margin-top: 10px;">Trigger an agent to see logs, tool calls, and
+                            traces</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="conversation-panel">
                 <div class="conversation-header">
                     <h2>💬 Live Conversation</h2>
@@ -509,10 +1523,40 @@
 
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="🔍 Search messages..." onkeyup="searchMessages()">
+                    <button class="btn-search" onclick="searchPersistent()">🔎 Search All History</button>
+                </div>
+
+                <div id="searchResults" class="search-results" style="display: none;">
+                    <div class="search-results-header">
+                        <h3>Search Results</h3>
+                        <button class="btn-close" onclick="closeSearchResults()">×</button>
+                    </div>
+                    <div id="searchResultsContent"></div>
                 </div>
 
                 <div id="messagesContainer">
                     <!-- Messages will be added here dynamically -->
+                </div>
+            </div>
+
+            <div class="task-queue-panel">
+                <div class="conversation-header">
+                    <h2>📋 Task Queue</h2>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" onclick="filterTasks('all')">All</button>
+                        <button class="filter-btn" onclick="filterTasks('pending')">Pending</button>
+                        <button class="filter-btn" onclick="filterTasks('working')">Working</button>
+                        <button class="filter-btn" onclick="filterTasks('completed')">Completed</button>
+                    </div>
+                </div>
+
+                <div class="task-controls">
+                    <button class="btn-primary" onclick="createNewTask()">➕ Create Task</button>
+                    <button class="btn-secondary" onclick="refreshTasks()">🔄 Refresh</button>
+                </div>
+
+                <div id="tasksContainer">
+                    <!-- Tasks will be added here dynamically -->
                 </div>
             </div>
 
@@ -560,16 +1604,109 @@
 
                 <div class="control-section">
                     <h3>💾 Export & Logs</h3>
+                    <p class="storage-info">📊 All logs are <strong>permanently stored</strong> in the database.</p>
                     <div class="export-section">
-                        <button class="btn-secondary" onclick="exportJSON()">Export JSON</button>
-                        <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
-                        <button class="btn-secondary" onclick="exportHTML()">Export HTML</button>
+                        <button class="btn-secondary" onclick="exportJSON()">Export JSON (Recent)</button>
+                        <button class="btn-secondary" onclick="exportAllJSON()">Export All JSON</button>
+                        <button class="btn-secondary" onclick="exportCSV()">Export CSV (Recent)</button>
+                        <button class="btn-secondary" onclick="exportAllCSV()">Export All CSV</button>
                     </div>
                     <div class="log-controls">
-                        <button class="btn-secondary" onclick="clearLogs()">Clear Logs</button>
+                        <button class="btn-secondary" onclick="loadHistoricalMessages()">📜 Load History</button>
+                        <button class="btn-secondary" onclick="clearLogs()">Clear View</button>
                         <button class="btn-secondary" onclick="pauseMonitoring()">Pause</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Codebase Modal -->
+    <div id="registerCodebaseModal" class="register-codebase-modal">
+        <div class="register-form">
+            <div class="modal-header" style="margin-bottom: 20px;">
+                <h2>📂 Register Codebase</h2>
+                <button class="close-modal" onclick="closeRegisterModal()">×</button>
+            </div>
+            <form onsubmit="registerCodebase(event)">
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Codebase Name *</label>
+                <input type="text" id="codebaseName" placeholder="My Project" required>
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Absolute Path *</label>
+                <input type="text" id="codebasePath" placeholder="/home/user/projects/myproject" required>
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Description</label>
+                <textarea id="codebaseDescription" placeholder="Brief description of the project..."
+                    rows="3"></textarea>
+
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button type="submit" class="btn-primary" style="flex: 1;">Register</button>
+                    <button type="button" class="btn-secondary" style="flex: 1;"
+                        onclick="closeRegisterModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Task Creation Modal -->
+    <div id="taskModal" class="task-modal">
+        <div class="task-form">
+            <div class="modal-header" style="margin-bottom: 20px;">
+                <h2>📋 Create Task</h2>
+                <button class="close-modal" onclick="closeTaskModal()">×</button>
+            </div>
+            <form onsubmit="submitTask(event)">
+                <input type="hidden" id="taskCodebaseId" value="">
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Assign to Agent *</label>
+                <select id="taskAgent" class="priority-select" required>
+                    <option value="">Select an agent...</option>
+                </select>
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Task Title *</label>
+                <input type="text" id="taskTitle" placeholder="e.g., Add user authentication" required>
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Task Description *</label>
+                <textarea id="taskDescription" placeholder="Describe what you want the agent to do..." rows="4"
+                    required></textarea>
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Priority</label>
+                <select id="taskPriority" class="priority-select">
+                    <option value="1" class="priority-option priority-low">🟢 Low</option>
+                    <option value="2" class="priority-option priority-normal" selected>🟡 Normal</option>
+                    <option value="3" class="priority-option priority-high">🟠 High</option>
+                    <option value="4" class="priority-option priority-urgent">🔴 Urgent</option>
+                </select>
+
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Additional Context
+                    (Optional)</label>
+                <textarea id="taskContext" placeholder="Any additional files, requirements, or context..."
+                    rows="3"></textarea>
+
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="submit" class="btn-primary" style="flex: 1;">🚀 Create Task</button>
+                    <button type="button" class="btn-secondary" style="flex: 1;"
+                        onclick="closeTaskModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Agent Output Modal -->
+    <div id="agentOutputModal" class="task-modal">
+        <div class="task-form" style="max-width: 900px; width: 90%;">
+            <div class="modal-header" style="margin-bottom: 20px;">
+                <h2>🤖 Agent Output</h2>
+                <button class="close-modal" onclick="closeAgentOutputModal()">×</button>
+            </div>
+            <div id="agentOutputContent"
+                style="max-height: 500px; overflow-y: auto; background: #1a1a2e; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px;">
+                <div class="loading">Waiting for agent output...</div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-secondary" onclick="clearAgentOutput()">Clear Output</button>
+                <button class="btn-secondary" onclick="exportAgentOutput()">Export Log</button>
+                <button class="btn-primary" onclick="closeAgentOutputModal()">Close</button>
             </div>
         </div>
     </div>

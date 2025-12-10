@@ -33,6 +33,8 @@ class LiveKitInterface(BaseModel):
 
 class AdditionalInterfaces(BaseModel):
     """Additional interfaces supported by the agent beyond core A2A."""
+    model_config = {"extra": "allow"}
+
     livekit: Optional[LiveKitInterface] = Field(None, description="LiveKit real-time media interface configuration")
 
 

@@ -29,4 +29,11 @@ data:
   
   # Authentication enabled flag
   A2A_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
+  
+  # Database persistence paths (use mounted volume for persistence across restarts)
+  {{- if .Values.persistence.enabled }}
+  MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"
+  SESSIONS_DB_PATH: "{{ .Values.persistence.mountPath }}/sessions.db"
+  OPENCODE_DB_PATH: "{{ .Values.persistence.mountPath }}/opencode.db"
+  {{- end }}
 {{- end }}

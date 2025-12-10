@@ -161,10 +161,10 @@ class AgentCard:
                 "protocol": protocol,
                 "description": description or "MCP tools for agent synchronization and coordination"
             }
-            # Store in model_extra or as a custom extension
-            if not self.card.additional_interfaces.model_extra:
-                self.card.additional_interfaces.model_extra = {}
-            self.card.additional_interfaces.model_extra["mcp"] = mcp_info
+            # Store as an extra field (allowed by model_config)
+            if not hasattr(self.card.additional_interfaces, '__pydantic_extra__'):
+                self.card.additional_interfaces.__pydantic_extra__ = {}
+            self.card.additional_interfaces.__pydantic_extra__["mcp"] = mcp_info
 
         return self
 

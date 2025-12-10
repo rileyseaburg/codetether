@@ -14,7 +14,8 @@ This repository provides a complete A2A protocol server that bridges the gap bet
 - **🔗 Full A2A Protocol Support**: Complete implementation of Agent2Agent communication standard
 - **🛠️ MCP Tool Integration**: Access external tools and resources through Model Context Protocol
 - **🤖 LLM Integration**: Connect Claude or other LLMs for intelligent agent coordination
-- **📡 Real-time Communication**: Server-Sent Events (SSE) for streaming responses
+- **� OpenCode Integration**: Trigger AI coding agents from the web UI on registered codebases
+- **�📡 Real-time Communication**: Server-Sent Events (SSE) for streaming responses
 - **💬 Agent-to-Agent Messaging**: Publish/subscribe and direct messaging between agents
 - **🚀 Production Ready**: Kubernetes deployment with Helm charts
 - **🔐 Enterprise Security**: Authentication, authorization, and network policies

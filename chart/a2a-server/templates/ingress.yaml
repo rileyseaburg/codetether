@@ -40,7 +40,7 @@ spec:
               service:
                 name: {{ include "a2a-server.fullname" $ }}
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: {{ .port | default $.Values.service.port }}
           {{- end }}
     {{- end }}
 {{- end }}

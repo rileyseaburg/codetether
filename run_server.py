@@ -15,9 +15,11 @@ from typing import Optional
 from a2a_server.config import load_config, create_agent_config
 from a2a_server.agent_card import create_agent_card
 from a2a_server.task_manager import InMemoryTaskManager
+from a2a_server.redis_task_manager import RedisTaskManager
 from a2a_server.message_broker import MessageBroker, InMemoryMessageBroker
 from a2a_server.server import A2AServer, CustomA2AAgent
 from a2a_server.enhanced_server import EnhancedA2AServer, create_enhanced_agent_card
+from a2a_server.integrated_agents_server import IntegratedAgentsServer, create_integrated_agent_card
 from a2a_server.models import Message, Part
 from a2a_server.mcp_http_server import run_mcp_http_server
 
@@ -48,12 +50,17 @@ def setup_logging(level: str = "INFO"):
     )
 
 
+# Get logger after setup
+logger = logging.getLogger(__name__)
+
+
 async def create_server(
     agent_name: str,
     agent_description: str,
     port: int,
     use_redis: bool = False,
-    use_enhanced: bool = True
+    use_enhanced: bool = True,
+    use_agents_sdk: bool = False  # Disabled by default - requires OPENAI_API_KEY
 ) -> A2AServer:
     """Create an A2A server instance."""
     # Create agent configuration
@@ -63,23 +70,67 @@ async def create_server(
         port=port
     )
 
-    # Create components
-    task_manager = InMemoryTaskManager()
+    # Load config and auto-detect Redis availability
+    config = load_config()
 
-    if use_redis:
-        config = load_config()
+    # Auto-detect Redis: try to connect, fall back to in-memory if unavailable
+    redis_available = False
+    if config.redis_url:
+        try:
+            # Test if Redis is available
+            from a2a_server.redis_task_manager import RedisTaskManager, REDIS_AVAILABLE
+            if REDIS_AVAILABLE:
+                test_manager = RedisTaskManager(config.redis_url)
+                await test_manager.connect()
+                await test_manager.disconnect()
+                redis_available = True
+                print(f"✓ Redis detected and available at {config.redis_url}")
+        except Exception as e:
+            print(f"⚠ Redis not available ({e}), using in-memory storage")
+            redis_available = False
+
+    # Create components with Redis if available
+    if redis_available:
+        task_manager = RedisTaskManager(config.redis_url)
+        await task_manager.connect()
         message_broker = MessageBroker(config.redis_url)
+        print("✓ Using Redis for task persistence and message broker")
     else:
+        task_manager = InMemoryTaskManager()
         message_broker = InMemoryMessageBroker()
+        print("✓ Using in-memory task manager and message broker")
 
     # Create authentication callback if needed
-    config = load_config()
     auth_callback = None
     if config.auth_enabled and config.auth_tokens:
         def auth_callback(token: str) -> bool:
             return token in config.auth_tokens.values()
 
-    if use_enhanced:
+    # Check if OpenAI API key is available for agents SDK
+    if use_agents_sdk:
+        import os
+        if not os.getenv("OPENAI_API_KEY"):
+            print("⚠ OPENAI_API_KEY not set, falling back to enhanced server")
+            use_agents_sdk = False
+            use_enhanced = True
+
+    if use_agents_sdk:
+        # Use OpenAI Agents SDK integration (requires OPENAI_API_KEY)
+        print("✓ Using OpenAI Agents SDK integration")
+        agent_card = create_integrated_agent_card()
+        agent_card.card.name = agent_config.name
+        agent_card.card.description = agent_config.description
+        agent_card.card.url = agent_config.base_url or f"http://localhost:{port}"
+        agent_card.card.provider.organization = agent_config.organization
+        agent_card.card.provider.url = agent_config.organization_url
+
+        return IntegratedAgentsServer(
+            agent_card=agent_card,
+            task_manager=task_manager,
+            message_broker=message_broker,
+            auth_callback=auth_callback
+        )
+    elif use_enhanced:
         # Create enhanced agent card with MCP tool capabilities
         agent_card = create_enhanced_agent_card()
         agent_card.card.name = agent_config.name
@@ -143,7 +194,8 @@ async def run_server(args):
         agent_description=args.description,
         port=args.port,
         use_redis=args.redis,
-        use_enhanced=args.enhanced
+        use_enhanced=args.enhanced,
+        use_agents_sdk=args.agents_sdk if hasattr(args, 'agents_sdk') else True
     )
 
     print(f"Starting A2A server '{args.name}' on port {args.port}")
@@ -155,12 +207,13 @@ async def run_server(args):
     a2a_task = asyncio.create_task(server.start(host=args.host, port=args.port))
     tasks.append(a2a_task)
 
-    # Start MCP HTTP server if enabled and enhanced mode
-    if mcp_enabled and args.enhanced:
+    # Start MCP HTTP server if enabled (with enhanced or agents-sdk mode)
+    if mcp_enabled and (args.enhanced or (hasattr(args, 'agents_sdk') and args.agents_sdk)):
         print(f"Starting MCP HTTP server on port {mcp_port}")
         print(f"MCP endpoint: http://localhost:{mcp_port}/mcp/v1/rpc")
         print(f"MCP tools: http://localhost:{mcp_port}/mcp/v1/tools")
-        mcp_task = asyncio.create_task(run_mcp_http_server(host=mcp_host, port=mcp_port))
+        print(f"Monitor UI: http://localhost:{mcp_port}/v1/monitor/")
+        mcp_task = asyncio.create_task(run_mcp_http_server(host=mcp_host, port=mcp_port, a2a_server=server))
         tasks.append(mcp_task)
 
     print("Press Ctrl+C to stop")
@@ -212,12 +265,13 @@ def main():
 
     # Single server command
     single_parser = subparsers.add_parser("run", help="Run a single A2A server")
-    single_parser.add_argument("--name", default="Enhanced A2A Agent", help="Agent name")
-    single_parser.add_argument("--description", default="An A2A agent with MCP tool integration", help="Agent description")
+    single_parser.add_argument("--name", default="A2A Coordination Hub", help="Agent name")
+    single_parser.add_argument("--description", default="Agent-to-Agent communication and task coordination server", help="Agent description")
     single_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     single_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     single_parser.add_argument("--redis", action="store_true", help="Use Redis message broker")
-    single_parser.add_argument("--enhanced", action="store_true", default=True, help="Use enhanced MCP-enabled agents")
+    single_parser.add_argument("--enhanced", action="store_true", default=False, help="Use enhanced MCP-enabled agents (legacy)")
+    single_parser.add_argument("--agents-sdk", dest="agents_sdk", action="store_true", default=True, help="Use OpenAI Agents SDK (default, recommended)")
     single_parser.add_argument("--basic", dest="enhanced", action="store_false", help="Use basic echo agent only")
     single_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
 

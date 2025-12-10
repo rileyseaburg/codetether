@@ -2,8 +2,8 @@
 # Variables
 DOCKER_IMAGE_NAME = a2a-server-mcp
 DOCKER_TAG ?= latest
-DOCKER_REGISTRY ?= core.harbor.domain/library
-HARBOR_REGISTRY = core.harbor.domain/library
+DOCKER_REGISTRY ?= registry.quantum-forge.net/library
+OCI_REGISTRY = registry.quantum-forge.net/library
 PORT ?= 8000
 CHART_PATH = chart/a2a-server
 
@@ -16,7 +16,7 @@ help: ## Show this help message
 # Docker targets
 .PHONY: docker-build
 docker-build: ## Build Docker image
-	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) .
+	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) . --network=host
 
 .PHONY: docker-build-no-cache
 docker-build-no-cache: ## Build Docker image without cache
@@ -50,9 +50,9 @@ docker-shell: ## Open shell in running container
 	docker exec -it a2a-server /bin/bash
 
 .PHONY: docker-push
-docker-push: ## Push Docker image to Harbor registry
-	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) $(HARBOR_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
-	docker push $(HARBOR_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
+docker-push: ## Push Docker image to OCI registry
+	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) $(OCI_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
+	docker push $(OCI_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 
 .PHONY: docker-push-custom
 docker-push-custom: ## Push Docker image to custom registry
@@ -64,8 +64,8 @@ docker-push-custom: ## Push Docker image to custom registry
 	docker push $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 
 .PHONY: docker-pull
-docker-pull: ## Pull Docker image from Harbor registry
-	docker pull $(HARBOR_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
+docker-pull: ## Pull Docker image from OCI registry
+	docker pull $(OCI_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 
 .PHONY: docker-pull-custom
 docker-pull-custom: ## Pull Docker image from custom registry
@@ -81,13 +81,13 @@ helm-package: ## Package Helm chart
 	helm package $(CHART_PATH)
 
 .PHONY: helm-push
-helm-push: helm-package ## Package and push Helm chart to Harbor registry
+helm-push: helm-package ## Package and push Helm chart to OCI registry
 	@CHART_PACKAGE=$$(ls a2a-server-*.tgz | head -n1); \
 	if [ -z "$$CHART_PACKAGE" ]; then \
 		echo "Error: No chart package found. Run 'make helm-package' first."; \
 		exit 1; \
 	fi; \
-	helm push $$CHART_PACKAGE oci://$(HARBOR_REGISTRY)
+	helm push $$CHART_PACKAGE oci://$(OCI_REGISTRY)
 
 .PHONY: helm-install
 helm-install: ## Install Helm chart locally
@@ -123,13 +123,13 @@ podman-run: ## Run container with Podman
 	podman run -p $(PORT):8000 --name a2a-server $(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 
 .PHONY: podman-push
-podman-push: ## Push image to Harbor registry with Podman
+podman-push: ## Push image to OCI registry with Podman
 	@IMAGE_ID=$$(podman images -q $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) | head -n1); \
 	if [ -z "$$IMAGE_ID" ]; then \
 		echo "Error: Image not found. Run 'make podman-build' first."; \
 		exit 1; \
 	fi; \
-	podman push $$IMAGE_ID $(HARBOR_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
+	podman push $$IMAGE_ID $(OCI_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 
 .PHONY: podman-stop
 podman-stop: ## Stop Podman container
@@ -208,10 +208,10 @@ build: clean docker-build ## Clean and build Docker image
 rebuild: clean docker-build-no-cache ## Clean and rebuild Docker image without cache
 
 .PHONY: deploy
-deploy: docker-build docker-push ## Build and push Docker image to Harbor
+deploy: docker-build docker-push ## Build and push Docker image to OCI registry
 
 .PHONY: deploy-helm
-deploy-helm: helm-push ## Package and push Helm chart to Harbor
+deploy-helm: helm-push ## Package and push Helm chart to OCI registry
 
 .PHONY: deploy-all
 deploy-all: deploy deploy-helm ## Deploy both Docker image and Helm chart

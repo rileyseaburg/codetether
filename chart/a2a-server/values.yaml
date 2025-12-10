@@ -11,8 +11,8 @@ app:
 
 # Image configuration
 image:
-  repository: a2a-server
-  pullPolicy: IfNotPresent
+  repository: registry.quantum-forge.net/library/a2a-server
+  pullPolicy: Always
   tag: "latest"
 
 imagePullSecrets: []
@@ -62,20 +62,24 @@ service:
 
 # Ingress configuration
 ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
   hosts:
-    - host: a2a-server.local
+    - host: a2a.quantum-forge.net
       paths:
         - path: /
           pathType: Prefix
-  tls: []
-  #  - secretName: a2a-server-tls
-  #    hosts:
-  #      - a2a-server.local
+          port: 8000
+        - path: /mcp
+          pathType: Prefix
+          port: 9000
+  tls:
+    - secretName: a2a-server-tls
+      hosts:
+        - a2a.quantum-forge.net
 
 # Resource limits and requests
 resources:
@@ -162,6 +166,7 @@ env:
   A2A_AGENT_DESCRIPTION: "An A2A agent with MCP tool integration"
   A2A_AGENT_ORG: "A2A Server MCP"
   A2A_AGENT_ORG_URL: "https://github.com/rileyseaburg/A2A-Server-MCP"
+  A2A_AGENT_URL: "https://a2a.quantum-forge.net"
 
 # Environment variables from secrets
 envFromSecret: {}
@@ -183,6 +188,10 @@ redis:
   enabled: true
   # When enabled: true, uses the included Redis chart
   # When enabled: false, connects to external Redis
+  image:
+    registry: docker.io
+    repository: redis
+    tag: 7-alpine
   auth:
     enabled: false
   master:
@@ -202,6 +211,37 @@ externalRedis:
   port: 6379
   password: ""
   database: 0
+
+# Persistence configuration for SQLite monitor database
+persistence:
+  enabled: true
+  # Use existing PVC or create a new one
+  existingClaim: ""
+  # Storage class for dynamic provisioning
+  storageClass: ""
+  # Access mode (ReadWriteOnce for SQLite)
+  accessMode: ReadWriteOnce
+  # Storage size
+  size: 1Gi
+  # Mount path in container
+  mountPath: /app/data
+  # Annotations for the PVC
+  annotations: {}
+
+# MinIO/S3 storage configuration (alternative to SQLite persistence)
+minio:
+  enabled: false
+  # MinIO endpoint (e.g., "192.168.50.223:9000" or "minio.storage.svc:9000")
+  endpoint: ""
+  # Bucket name for storing monitor data
+  bucket: "a2a-monitor"
+  # Use HTTPS for MinIO connection
+  secure: false
+  # Credentials (can also use existing secret)
+  accessKey: ""
+  secretKey: ""
+  # Use existing secret for credentials (must have accessKey and secretKey keys)
+  existingSecret: ""
 
 # ConfigMap configuration
 configMap:

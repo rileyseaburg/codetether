@@ -14,7 +14,13 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 
-from livekit import api
+try:
+    from livekit import api
+    LIVEKIT_AVAILABLE = True
+except ImportError:
+    LIVEKIT_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("LiveKit SDK not installed. LiveKit features will be disabled.")
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +41,12 @@ class LiveKitBridge:
             api_secret: LiveKit API secret (defaults to LIVEKIT_API_SECRET env var)
             livekit_url: LiveKit server URL (defaults to LIVEKIT_URL env var)
         """
+        if not LIVEKIT_AVAILABLE:
+            raise ImportError(
+                "LiveKit SDK is not installed. "
+                "Install it with: pip install livekit"
+            )
+
         self.api_key = api_key or os.getenv("LIVEKIT_API_KEY")
         self.api_secret = api_secret or os.getenv("LIVEKIT_API_SECRET")
         self.livekit_url = livekit_url or os.getenv("LIVEKIT_URL", "https://live.quantum-forge.net/")
@@ -49,12 +61,12 @@ class LiveKitBridge:
         self.livekit_url = self.livekit_url.rstrip('/')
         if not self.livekit_url.startswith(('http://', 'https://')):
             self.livekit_url = f"https://{self.livekit_url}"
-        
+
         # Initialize LiveKit API client lazily (on first use) to avoid event loop issues
         self._livekit_api = None
-        
+
         logger.info(f"LiveKit bridge initialized with URL: {self.livekit_url}")
-    
+
     @property
     def livekit_api(self):
         """Lazy initialization of LiveKit API client."""
@@ -65,7 +77,7 @@ class LiveKitBridge:
                 api_secret=self.api_secret
             )
         return self._livekit_api
-    
+
     async def create_room(
         self,
         room_name: str,
@@ -118,10 +130,10 @@ class LiveKitBridge:
 
     async def get_room_info(self, room_name: str) -> Optional[Dict[str, Any]]:
         """Get information about an existing room using the SDK.
-        
+
         Args:
             room_name: Name of the room to get info for
-            
+
         Returns:
             Room information dictionary or None if room doesn't exist
         """
@@ -130,7 +142,7 @@ class LiveKitBridge:
             rooms = await self.livekit_api.room.list_rooms(
                 api.ListRoomsRequest(names=[room_name])
             )
-            
+
             if rooms and len(rooms) > 0:
                 room = rooms[0]
                 return {
@@ -144,11 +156,11 @@ class LiveKitBridge:
                     "metadata": room.metadata
                 }
             return None
-            
+
         except Exception as e:
             logger.error(f"Failed to get room info for {room_name}: {e}")
             return None
-    
+
     def mint_access_token(
         self,
         identity: str,
@@ -158,27 +170,27 @@ class LiveKitBridge:
         ttl_minutes: int = 60
     ) -> str:
         """Mint a short-lived access token for LiveKit room access using SDK.
-        
+
         Args:
             identity: Unique identity for the participant
             room_name: Name of the room to join
             a2a_role: A2A role (mapped to LiveKit grants)
             metadata: Optional metadata for the participant
             ttl_minutes: Token time-to-live in minutes
-            
+
         Returns:
             JWT access token string
         """
         try:
             # Map A2A role to LiveKit video grants
             grants = self._map_a2a_role_to_grants(a2a_role, room_name)
-            
+
             # Create access token using SDK
             token = api.AccessToken(self.api_key, self.api_secret)
             token.with_identity(identity)
             token.with_name(identity)
             token.with_ttl(timedelta(minutes=ttl_minutes))
-            
+
             # Set video grants
             token.with_grants(api.VideoGrants(
                 room_join=grants.get("roomJoin", True),
@@ -191,20 +203,20 @@ class LiveKitBridge:
                 hidden=grants.get("hidden", False),
                 recorder=grants.get("recorder", False)
             ))
-            
+
             if metadata:
                 token.with_metadata(metadata)
-            
+
             access_token_str = token.to_jwt()
-            
+
             logger.info(f"Minted access token for {identity} in room {room_name} with role {a2a_role}")
-            
+
             return access_token_str
-            
+
         except Exception as e:
             logger.error(f"Failed to mint access token for {identity}: {e}")
             raise
-    
+
     def _map_a2a_role_to_grants(self, a2a_role: str, room_name: str) -> Dict[str, Any]:
         """Map A2A roles to LiveKit video grants.
 

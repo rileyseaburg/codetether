@@ -86,76 +86,64 @@ class EnhancedA2AServer(A2AServer):
 
 
 def create_enhanced_agent_card() -> AgentCard:
-    """Create an enhanced agent card with MCP tool capabilities."""
+    """Create an enhanced agent card with A2A coordination capabilities."""
     from .agent_card import AgentCard
     from .models import AgentProvider
 
     provider = AgentProvider(
-        organization="A2A Server",
+        organization="A2A Protocol Server",
         url="https://github.com/rileyseaburg/A2A-Server-MCP"
     )
 
     card = AgentCard(
-        name="Enhanced A2A Agent",
-        description="An A2A agent with MCP tool integration for calculations, analysis, and memory management",
+        name="A2A Coordination Hub",
+        description="Agent-to-Agent communication and task coordination server enabling distributed agent collaboration",
         url="http://localhost:8000",
         provider=provider
     )
 
-    # Add calculator skills
+    # Core A2A coordination skills
     card.add_skill(
-        skill_id="calculator",
-        name="Mathematical Calculator",
-        description="Performs mathematical calculations including basic arithmetic, squares, and square roots",
-        input_modes=["text"],
-        output_modes=["text"]
-    )
-
-    # Add analysis skills
-    card.add_skill(
-        skill_id="text_analysis",
-        name="Text Analysis",
-        description="Analyzes text and provides statistics like word count, character count, and sentence count",
-        input_modes=["text"],
-        output_modes=["text"]
+        skill_id="task_delegation",
+        name="Task Delegation",
+        description="Delegate tasks to other agents in the network with status tracking",
+        input_modes=["text", "structured"],
+        output_modes=["text", "structured"]
     )
 
     card.add_skill(
-        skill_id="weather",
-        name="Weather Information",
-        description="Provides weather information for specified locations",
+        skill_id="agent_discovery",
+        name="Agent Discovery",
+        description="Discover available agents and their capabilities for task routing",
         input_modes=["text"],
-        output_modes=["text"]
+        output_modes=["structured"]
     )
 
-    # Add memory skills
     card.add_skill(
-        skill_id="memory",
-        name="Memory Management",
-        description="Stores, retrieves, and manages information for other agents and users",
-        input_modes=["text"],
-        output_modes=["text"]
+        skill_id="message_queue",
+        name="Inter-Agent Messaging",
+        description="Asynchronous message queue for agent-to-agent communication",
+        input_modes=["text", "structured"],
+        output_modes=["text", "structured"]
     )
 
-    # Add media skills
     card.add_skill(
-        skill_id="media",
-        name="Real-Time Media Sessions",
-        description="Creates and manages real-time audio/video sessions using LiveKit",
-        input_modes=["text"],
-        output_modes=["text", "data"]
+        skill_id="task_monitoring",
+        name="Task Status Monitoring",
+        description="Monitor and track task progress across distributed agents",
+        input_modes=["structured"],
+        output_modes=["structured", "streaming"]
     )
 
-    # Keep the original echo skill for compatibility
     card.add_skill(
-        skill_id="echo",
-        name="Echo Messages",
-        description="Echoes back received messages for testing and fallback",
-        input_modes=["text"],
-        output_modes=["text"]
+        skill_id="agent_registration",
+        name="Agent Registration",
+        description="Register new agents and their capabilities to the network",
+        input_modes=["structured"],
+        output_modes=["structured"]
     )
 
-    # Enable media capability and add LiveKit interface
+    # Enable media capability for real-time agent collaboration
     card.enable_media()
     card.add_livekit_interface(
         token_endpoint="/v1/livekit/token",
@@ -166,7 +154,7 @@ def create_enhanced_agent_card() -> AgentCard:
     card.add_mcp_interface(
         endpoint="http://localhost:9000/mcp/v1/rpc",
         protocol="http",
-        description="MCP tools including calculator, text analysis, weather info, and shared memory"
+        description="MCP interface for A2A task delegation, agent discovery, and message routing"
     )
 
     return card

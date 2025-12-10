@@ -14,9 +14,16 @@ from .agent_card import AgentCard
 from .message_broker import MessageBroker
 from .task_manager import TaskManager
 
+# Lazy import for opencode bridge to avoid dependency issues
+def get_opencode_bridge():
+    """Get the OpenCode bridge for triggering AI coding agents."""
+    from .opencode_bridge import get_bridge
+    return get_bridge()
+
 __all__ = [
     "A2AServer",
-    "AgentCard", 
+    "AgentCard",
     "MessageBroker",
     "TaskManager",
+    "get_opencode_bridge",
 ]
