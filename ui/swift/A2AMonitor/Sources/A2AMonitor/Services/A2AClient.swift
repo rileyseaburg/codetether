@@ -12,6 +12,31 @@ class A2AClient: ObservableObject {
     private var session: URLSession
     private var cancellables = Set<AnyCancellable>()
     
+    /// Shared JSON decoder configured for ISO 8601 dates from the server
+    private let jsonDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+            
+            // Try ISO 8601 with fractional seconds first
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+            
+            // Fall back to ISO 8601 without fractional seconds
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+            
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date: \(dateString)")
+        }
+        return decoder
+    }()
+    
     // Auth service reference for adding authorization headers
     weak var authService: AuthService?
     
@@ -83,12 +108,12 @@ class A2AClient: ObservableObject {
         switch event.event {
         case "message":
             if let data = event.data.data(using: .utf8),
-               let message = try? JSONDecoder().decode(Message.self, from: data) {
+               let message = try? jsonDecoder.decode(Message.self, from: data) {
                 onMessage?(message)
             }
         case "agent_status":
             if let data = event.data.data(using: .utf8),
-               let agent = try? JSONDecoder().decode(Agent.self, from: data) {
+               let agent = try? jsonDecoder.decode(Agent.self, from: data) {
                 onAgentStatus?(agent)
             }
         default:
@@ -102,7 +127,7 @@ class A2AClient: ObservableObject {
         let url = baseURL.appendingPathComponent("/v1/monitor/agents")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode([Agent].self, from: data)
+        return try jsonDecoder.decode([Agent].self, from: data)
     }
     
     func fetchMessages(limit: Int = 100) async throws -> [Message] {
@@ -111,13 +136,13 @@ class A2AClient: ObservableObject {
         
         let request = authenticatedRequest(for: components.url!)
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode([Message].self, from: data)
+        return try jsonDecoder.decode([Message].self, from: data)
     }
     
     func fetchMessageCount() async throws -> Int {
         let url = baseURL.appendingPathComponent("/v1/monitor/messages/count")
         let (data, _) = try await session.data(from: url)
-        let response = try JSONDecoder().decode(MessageCountResponse.self, from: data)
+        let response = try jsonDecoder.decode(MessageCountResponse.self, from: data)
         return response.total
     }
     
@@ -134,7 +159,7 @@ class A2AClient: ObservableObject {
             let results: [Message]
         }
         
-        let response = try JSONDecoder().decode(SearchResponse.self, from: data)
+        let response = try jsonDecoder.decode(SearchResponse.self, from: data)
         return response.results
     }
     
@@ -163,20 +188,20 @@ class A2AClient: ObservableObject {
     func fetchOpenCodeStatus() async throws -> OpenCodeStatus {
         let url = baseURL.appendingPathComponent("/v1/opencode/status")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode(OpenCodeStatus.self, from: data)
+        return try jsonDecoder.decode(OpenCodeStatus.self, from: data)
     }
     
     func fetchModels() async throws -> ModelsResponse {
         let url = baseURL.appendingPathComponent("/v1/opencode/models")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(ModelsResponse.self, from: data)
+        return try jsonDecoder.decode(ModelsResponse.self, from: data)
     }
     
     func fetchCodebases() async throws -> [Codebase] {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode([Codebase].self, from: data)
+        return try jsonDecoder.decode([Codebase].self, from: data)
     }
     
     func registerCodebase(name: String, path: String, description: String?) async throws -> Codebase {
@@ -202,7 +227,7 @@ class A2AClient: ObservableObject {
             let codebase: Codebase
         }
         
-        let response = try JSONDecoder().decode(CodebaseResponse.self, from: data)
+        let response = try jsonDecoder.decode(CodebaseResponse.self, from: data)
         return response.codebase
     }
     
@@ -234,7 +259,7 @@ class A2AClient: ObservableObject {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(TriggerResponse.self, from: data)
+        return try jsonDecoder.decode(TriggerResponse.self, from: data)
     }
     
     func interruptAgent(codebaseId: String) async throws {
@@ -278,7 +303,7 @@ class A2AClient: ObservableObject {
     func fetchTasks() async throws -> [AgentTask] {
         let url = baseURL.appendingPathComponent("/v1/opencode/tasks")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode([AgentTask].self, from: data)
+        return try jsonDecoder.decode([AgentTask].self, from: data)
     }
     
     func createTask(codebaseId: String, title: String, description: String, priority: TaskPriority, context: String?) async throws -> AgentTask {
@@ -298,7 +323,7 @@ class A2AClient: ObservableObject {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(AgentTask.self, from: data)
+        return try jsonDecoder.decode(AgentTask.self, from: data)
     }
     
     func cancelTask(taskId: String) async throws {
@@ -340,14 +365,14 @@ class A2AClient: ObservableObject {
             }
         }
         
-        let response = try JSONDecoder().decode(MessagesResponse.self, from: data)
+        let response = try jsonDecoder.decode(MessagesResponse.self, from: data)
         return response.messages
     }
     
     func fetchAgentStatus(codebaseId: String) async throws -> AgentStatusResponse {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/status")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode(AgentStatusResponse.self, from: data)
+        return try jsonDecoder.decode(AgentStatusResponse.self, from: data)
     }
     
     func sendAgentMessage(codebaseId: String, message: String, agent: String? = nil) async throws -> TriggerResponse {
@@ -363,7 +388,7 @@ class A2AClient: ObservableObject {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(TriggerResponse.self, from: data)
+        return try jsonDecoder.decode(TriggerResponse.self, from: data)
     }
     
     // MARK: - Worker API
@@ -371,7 +396,7 @@ class A2AClient: ObservableObject {
     func fetchWorkers() async throws -> [Worker] {
         let url = baseURL.appendingPathComponent("/v1/opencode/workers")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode([Worker].self, from: data)
+        return try jsonDecoder.decode([Worker].self, from: data)
     }
     
     func registerWorker(workerId: String, name: String, capabilities: [String], hostname: String?) async throws -> Worker {
@@ -397,7 +422,7 @@ class A2AClient: ObservableObject {
             let worker: Worker
         }
         
-        let response = try JSONDecoder().decode(WorkerResponse.self, from: data)
+        let response = try jsonDecoder.decode(WorkerResponse.self, from: data)
         return response.worker
     }
     
@@ -422,7 +447,7 @@ class A2AClient: ObservableObject {
     func fetchWatchStatus(codebaseId: String) async throws -> WatchStatus {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/watch/status")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode(WatchStatus.self, from: data)
+        return try jsonDecoder.decode(WatchStatus.self, from: data)
     }
     
     // MARK: - Monitor Stats
@@ -430,7 +455,7 @@ class A2AClient: ObservableObject {
     func fetchStats() async throws -> ServerStats {
         let url = baseURL.appendingPathComponent("/v1/monitor/stats")
         let (data, _) = try await session.data(from: url)
-        return try JSONDecoder().decode(ServerStats.self, from: data)
+        return try jsonDecoder.decode(ServerStats.self, from: data)
     }
     
     // MARK: - Export
