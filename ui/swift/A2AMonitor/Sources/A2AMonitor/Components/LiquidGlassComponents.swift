@@ -216,6 +216,8 @@ struct StatusIndicator: View {
         case .watching: return Color.liquidGlass.accent
         case .error: return Color.liquidGlass.error
         case .disconnected: return .gray
+        case .stopped: return .gray
+        case .unknown: return .gray
         }
     }
     
