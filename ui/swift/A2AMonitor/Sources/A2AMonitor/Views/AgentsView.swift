@@ -256,7 +256,9 @@ struct RegisterCodebaseSheet: View {
                     }
                 }
             }
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
         }
     }
     
@@ -376,7 +378,9 @@ struct TriggerAgentSheet: View {
                     }
                 }
             }
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
         }
     }
     

@@ -285,7 +285,9 @@ struct InterventionSheet: View {
                     }
                 }
             }
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .onAppear {
                 if let related = relatedMessage {
                     message = "Regarding: \"\(related.content.prefix(50))...\"\n\n"
