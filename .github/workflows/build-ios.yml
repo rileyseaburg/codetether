@@ -111,7 +111,7 @@ jobs:
               iOS: "17.0"
               macOS: "14.0"
           settings:
-            DEVELOPMENT_TEAM: ""
+            DEVELOPMENT_TEAM: "8WK8N255QG"
             CODE_SIGN_STYLE: Automatic
           targets:
             A2AMonitor:
