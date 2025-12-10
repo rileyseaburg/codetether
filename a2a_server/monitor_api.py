@@ -1173,11 +1173,13 @@ async def list_models():
     """List available AI models from OpenCode configuration."""
     import os
     import json
-    
+
     models = []
-    
+
     # Default models always available
     default_models = [
+        # Azure Anthropic (custom)
+        {"id": "azure-anthropic/claude-opus-4-5", "name": "Claude Opus 4.5 (Azure)", "provider": "Azure AI Foundry"},
         # Anthropic
         {"id": "anthropic/claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "provider": "Anthropic"},
         {"id": "anthropic/claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
@@ -1199,26 +1201,26 @@ async def list_models():
         {"id": "xai/grok-2", "name": "Grok 2", "provider": "xAI"},
         {"id": "xai/grok-3", "name": "Grok 3", "provider": "xAI"},
     ]
-    
+
     # Try to read OpenCode config for custom providers
     config_paths = [
         os.path.expanduser("~/.config/opencode/opencode.json"),
         os.path.expanduser("~/.opencode.json"),
         "/app/.config/opencode/opencode.json",
     ]
-    
+
     custom_models = []
     for config_path in config_paths:
         if os.path.exists(config_path):
             try:
                 with open(config_path, 'r') as f:
                     config = json.load(f)
-                    
+
                 providers = config.get("provider", {})
                 for provider_id, provider_config in providers.items():
                     provider_name = provider_config.get("name", provider_id)
                     provider_models = provider_config.get("models", {})
-                    
+
                     for model_id, model_config in provider_models.items():
                         custom_models.append({
                             "id": f"{provider_id}/{model_id}",
@@ -1233,9 +1235,9 @@ async def list_models():
                         })
             except Exception as e:
                 logger.warning(f"Failed to read OpenCode config from {config_path}: {e}")
-    
+
     # Custom models first, then defaults
-    return {"models": custom_models + default_models, "default": custom_models[0]["id"] if custom_models else "anthropic/claude-sonnet-4-20250514"}
+    return {"models": custom_models + default_models, "default": custom_models[0]["id"] if custom_models else "azure-anthropic/claude-opus-4-5"}
 
 
 @opencode_router.get('/codebases')

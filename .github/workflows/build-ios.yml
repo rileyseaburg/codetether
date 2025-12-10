@@ -50,10 +50,59 @@ jobs:
         run: |
           swift build -c release
 
+      - name: Create Info.plist
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          cat > Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDisplayName</key>
+              <string>A2A Monitor</string>
+              <key>CFBundleExecutable</key>
+              <string>$(EXECUTABLE_NAME)</string>
+              <key>CFBundleIdentifier</key>
+              <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+              <key>CFBundleName</key>
+              <string>$(PRODUCT_NAME)</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>UILaunchScreen</key>
+              <dict/>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array>
+                  <string>arm64</string>
+              </array>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+                  <string>UIInterfaceOrientationLandscapeLeft</string>
+                  <string>UIInterfaceOrientationLandscapeRight</string>
+              </array>
+              <key>UISupportedInterfaceOrientations~ipad</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+                  <string>UIInterfaceOrientationPortraitUpsideDown</string>
+                  <string>UIInterfaceOrientationLandscapeLeft</string>
+                  <string>UIInterfaceOrientationLandscapeRight</string>
+              </array>
+              <key>NSAppTransportSecurity</key>
+              <dict>
+                  <key>NSAllowsArbitraryLoads</key>
+                  <true/>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+
       - name: Create Xcode Project
         working-directory: ui/swift/A2AMonitor
         run: |
-          # Create an Xcode project from the Swift package for iOS building
           cat > project.yml << 'EOF'
           name: A2AMonitor
           options:
@@ -72,30 +121,13 @@ jobs:
                 - path: Sources/A2AMonitor
               settings:
                 PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
-                INFOPLIST_VALUES:
-                  CFBundleDisplayName: A2A Monitor
-                  CFBundleShortVersionString: "1.0.0"
-                  CFBundleVersion: "1"
-                  UILaunchScreen: {}
-                  UIRequiredDeviceCapabilities:
-                    - arm64
-                  UISupportedInterfaceOrientations:
-                    - UIInterfaceOrientationPortrait
-                    - UIInterfaceOrientationLandscapeLeft
-                    - UIInterfaceOrientationLandscapeRight
-                  UISupportedInterfaceOrientations~ipad:
-                    - UIInterfaceOrientationPortrait
-                    - UIInterfaceOrientationPortraitUpsideDown
-                    - UIInterfaceOrientationLandscapeLeft
-                    - UIInterfaceOrientationLandscapeRight
-                  NSAppTransportSecurity:
-                    NSAllowsArbitraryLoads: true
+                INFOPLIST_FILE: Info.plist
+                GENERATE_INFOPLIST_FILE: NO
           EOF
 
       - name: Generate Xcode Project with XcodeGen
         working-directory: ui/swift/A2AMonitor
         run: |
-          # Install xcodegen if not available
           which xcodegen || brew install xcodegen
           xcodegen generate
 

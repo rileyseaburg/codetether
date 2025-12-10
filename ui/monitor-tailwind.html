@@ -220,30 +220,7 @@
                                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
                                             <select id="trigger-model"
                                                 class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
-                                                <option value="">🤖 Default Model</option>
-                                                <optgroup label="Anthropic">
-                                                    <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4
-                                                    </option>
-                                                    <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5
-                                                        Sonnet</option>
-                                                    <option value="anthropic/claude-3-5-haiku-20241022">Claude 3.5 Haiku
-                                                    </option>
-                                                </optgroup>
-                                                <optgroup label="OpenAI">
-                                                    <option value="openai/gpt-4o">GPT-4o</option>
-                                                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-                                                    <option value="openai/o1">o1</option>
-                                                    <option value="openai/o1-mini">o1 Mini</option>
-                                                </optgroup>
-                                                <optgroup label="Google">
-                                                    <option value="google/gemini-2.0-flash">Gemini 2.0 Flash</option>
-                                                    <option value="google/gemini-1.5-pro">Gemini 1.5 Pro</option>
-                                                </optgroup>
-                                                <optgroup label="DeepSeek">
-                                                    <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
-                                                    <option value="deepseek/deepseek-reasoner">DeepSeek Reasoner
-                                                    </option>
-                                                </optgroup>
+                                                <option value="">🤖 Loading models...</option>
                                             </select>
                                         </div>
                                         <div>
@@ -465,6 +442,8 @@
             codebases: [],
             tasks: [],
             workers: [],
+            models: [],
+            defaultModel: '',
             currentOutputCodebase: null,
             agentOutputs: new Map(),
             eventStreams: new Map(),
@@ -481,10 +460,71 @@
         });
 
         async function init() {
+            await loadModels();
             await loadCodebases();
             await loadTasks();
             await loadWorkers();
             startPolling();
+        }
+
+        async function loadModels() {
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/models`);
+                const data = await response.json();
+                state.models = data.models || [];
+                state.defaultModel = data.default || '';
+                renderModelSelect();
+            } catch (error) {
+                console.error('Failed to load models:', error);
+                // Fallback to basic models
+                state.models = [
+                    { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Anthropic' },
+                    { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+                ];
+                renderModelSelect();
+            }
+        }
+
+        function renderModelSelect() {
+            const select = document.getElementById('trigger-model');
+            if (!select) return;
+
+            // Group models by provider
+            const byProvider = {};
+            state.models.forEach(m => {
+                const provider = m.provider || 'Other';
+                if (!byProvider[provider]) byProvider[provider] = [];
+                byProvider[provider].push(m);
+            });
+
+            let html = '<option value="">🤖 Default Model</option>';
+
+            // Custom models first (from config)
+            const customModels = state.models.filter(m => m.custom);
+            if (customModels.length > 0) {
+                html += '<optgroup label="⭐ Custom (from config)">';
+                customModels.forEach(m => {
+                    const selected = m.id === state.defaultModel ? 'selected' : '';
+                    const badge = m.capabilities?.reasoning ? ' 🧠' : '';
+                    html += `<option value="${m.id}" ${selected}>${m.name}${badge}</option>`;
+                });
+                html += '</optgroup>';
+            }
+
+            // Standard providers
+            const standardProviders = ['Anthropic', 'OpenAI', 'Google', 'DeepSeek', 'xAI'];
+            standardProviders.forEach(provider => {
+                const models = (byProvider[provider] || []).filter(m => !m.custom);
+                if (models.length > 0) {
+                    html += `<optgroup label="${provider}">`;
+                    models.forEach(m => {
+                        html += `<option value="${m.id}">${m.name}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+            });
+
+            select.innerHTML = html;
         }
 
         function startPolling() {
