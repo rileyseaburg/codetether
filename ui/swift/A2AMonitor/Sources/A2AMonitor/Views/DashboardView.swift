@@ -3,16 +3,16 @@ import SwiftUI
 /// Main Dashboard View - Overview of all A2A Monitor activity
 struct DashboardView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // Header
                 headerSection
-                
+
                 // Stats Grid
                 statsGrid
-                
+
                 // Main Content Grid
                 #if os(iOS)
                 VStack(spacing: 20) {
@@ -27,7 +27,7 @@ struct DashboardView: View {
                         taskQueueSection
                     }
                     .frame(maxWidth: .infinity)
-                    
+
                     recentMessagesSection
                         .frame(maxWidth: .infinity)
                 }
@@ -41,7 +41,13 @@ struct DashboardView: View {
             ToolbarItem(placement: .automatic) {
                 ConnectionStatusBadge()
             }
-            
+
+            ToolbarItem(placement: .automatic) {
+                Link(destination: URL(string: "https://docs.agentmesh.run")!) {
+                    Image(systemName: "book")
+                }
+            }
+
             ToolbarItem(placement: .automatic) {
                 Button {
                     Task {
@@ -53,9 +59,9 @@ struct DashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Header Section
-    
+
     var headerSection: some View {
         GlassCard(cornerRadius: 24, padding: 24) {
             HStack(spacing: 20) {
@@ -64,27 +70,27 @@ struct DashboardView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Text("Real-time Agent Conversation Auditing & Control")
                         .font(.subheadline)
                         .foregroundColor(Color.liquidGlass.textSecondary)
                 }
-                
+
                 Spacer()
-                
+
                 // OpenCode Status
                 if let status = viewModel.openCodeStatus {
                     HStack(spacing: 8) {
                         Circle()
                             .fill(status.available ? Color.liquidGlass.success : Color.liquidGlass.warning)
                             .frame(width: 10, height: 10)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text("OpenCode")
                                 .font(.caption)
                                 .fontWeight(.semibold)
                                 .foregroundColor(Color.liquidGlass.textPrimary)
-                            
+
                             Text(status.available ? "Ready" : "Unavailable")
                                 .font(.caption2)
                                 .foregroundColor(Color.liquidGlass.textMuted)
@@ -98,9 +104,9 @@ struct DashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Stats Grid
-    
+
     var statsGrid: some View {
         LazyVGrid(columns: [
             GridItem(.flexible()),
@@ -115,28 +121,28 @@ struct DashboardView: View {
                 icon: "cpu",
                 color: Color.liquidGlass.primary
             )
-            
+
             StatCard(
                 title: "Messages",
                 value: formatNumber(viewModel.stats.totalMessages),
                 icon: "bubble.left.and.bubble.right",
                 color: Color.liquidGlass.info
             )
-            
+
             StatCard(
                 title: "Total Stored",
                 value: formatNumber(viewModel.totalStoredMessages),
                 icon: "cylinder",
                 color: Color.liquidGlass.accent
             )
-            
+
             StatCard(
                 title: "Tool Calls",
                 value: "\(viewModel.stats.toolCalls)",
                 icon: "wrench.and.screwdriver",
                 color: Color.liquidGlass.success
             )
-            
+
             StatCard(
                 title: "Interventions",
                 value: "\(viewModel.stats.interventions)",
@@ -145,9 +151,9 @@ struct DashboardView: View {
             )
         }
     }
-    
+
     // MARK: - Active Agents Section
-    
+
     var activeAgentsSection: some View {
         GlassCard(cornerRadius: 20, padding: 20) {
             VStack(alignment: .leading, spacing: 16) {
@@ -157,14 +163,14 @@ struct DashboardView: View {
                     Text("OpenCode Agents")
                         .font(.headline)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Spacer()
-                    
+
                     GlassButton("Register", icon: "plus", style: .secondary) {
                         viewModel.showingRegisterSheet = true
                     }
                 }
-                
+
                 if viewModel.codebases.isEmpty {
                     EmptyStateView(
                         icon: "folder",
@@ -184,9 +190,9 @@ struct DashboardView: View {
             RegisterCodebaseSheet()
         }
     }
-    
+
     // MARK: - Recent Messages Section
-    
+
     var recentMessagesSection: some View {
         GlassCard(cornerRadius: 20, padding: 20) {
             VStack(alignment: .leading, spacing: 16) {
@@ -196,16 +202,16 @@ struct DashboardView: View {
                     Text("Recent Activity")
                         .font(.headline)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Spacer()
-                    
+
                     NavigationLink(destination: MessagesView()) {
                         Text("View All")
                             .font(.caption)
                             .foregroundColor(Color.liquidGlass.primary)
                     }
                 }
-                
+
                 if viewModel.messages.isEmpty {
                     EmptyStateView(
                         icon: "bubble.left.and.bubble.right",
@@ -220,9 +226,9 @@ struct DashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Task Queue Section
-    
+
     var taskQueueSection: some View {
         GlassCard(cornerRadius: 20, padding: 20) {
             VStack(alignment: .leading, spacing: 16) {
@@ -232,9 +238,9 @@ struct DashboardView: View {
                     Text("Task Queue")
                         .font(.headline)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Spacer()
-                    
+
                     HStack(spacing: 8) {
                         GlassBadge(
                             text: "\(viewModel.tasks.filter { $0.status == .pending }.count) pending",
@@ -246,7 +252,7 @@ struct DashboardView: View {
                         )
                     }
                 }
-                
+
                 if viewModel.tasks.isEmpty {
                     EmptyStateView(
                         icon: "checklist",
@@ -261,9 +267,9 @@ struct DashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Helpers
-    
+
     func formatNumber(_ num: Int) -> String {
         if num >= 1_000_000 {
             return String(format: "%.1fM", Double(num) / 1_000_000)
@@ -279,30 +285,30 @@ struct DashboardView: View {
 struct CodebaseRow: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     let codebase: Codebase
-    
+
     var body: some View {
         HStack(spacing: 12) {
             StatusIndicator(status: codebase.status, showLabel: false, size: 10)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(codebase.name)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(Color.liquidGlass.textPrimary)
-                
+
                 Text(codebase.path)
                     .font(.caption2)
                     .foregroundColor(Color.liquidGlass.textMuted)
                     .lineLimit(1)
             }
-            
+
             Spacer()
-            
+
             // Task badges
             if codebase.pendingTasks > 0 {
                 GlassBadge(text: "\(codebase.pendingTasks)", color: Color.liquidGlass.warning)
             }
-            
+
             // Quick actions
             Button {
                 viewModel.selectedCodebase = codebase
@@ -328,7 +334,7 @@ struct CodebaseRow: View {
 
 struct MessageRow: View {
     let message: Message
-    
+
     var typeColor: Color {
         switch message.type {
         case .agent: return Color.liquidGlass.info
@@ -337,27 +343,27 @@ struct MessageRow: View {
         case .tool: return Color.liquidGlass.success
         }
     }
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: message.type.icon)
                 .foregroundColor(typeColor)
                 .frame(width: 24)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(message.agentName)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Spacer()
-                    
+
                     Text(message.timestamp, style: .time)
                         .font(.caption2)
                         .foregroundColor(Color.liquidGlass.textMuted)
                 }
-                
+
                 Text(message.content)
                     .font(.caption)
                     .foregroundColor(Color.liquidGlass.textSecondary)
@@ -374,7 +380,7 @@ struct MessageRow: View {
 
 struct TaskRow: View {
     let task: AgentTask
-    
+
     var statusColor: Color {
         switch task.status {
         case .pending: return Color.liquidGlass.warning
@@ -384,28 +390,28 @@ struct TaskRow: View {
         case .cancelled: return .gray
         }
     }
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: task.status.icon)
                 .foregroundColor(statusColor)
                 .frame(width: 24)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title)
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(Color.liquidGlass.textPrimary)
                     .lineLimit(1)
-                
+
                 Text(task.description)
                     .font(.caption2)
                     .foregroundColor(Color.liquidGlass.textMuted)
                     .lineLimit(1)
             }
-            
+
             Spacer()
-            
+
             GlassBadge(text: task.status.rawValue, color: statusColor)
         }
         .padding(10)
