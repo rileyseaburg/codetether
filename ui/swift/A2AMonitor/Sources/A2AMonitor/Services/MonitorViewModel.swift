@@ -76,6 +76,12 @@ class MonitorViewModel: ObservableObject {
         client.updateBaseURL(serverURL)
     }
     
+    /// Update server URL from login/settings
+    func updateServerURL(_ url: String) {
+        serverURL = url
+        client.updateBaseURL(url)
+    }
+    
     // MARK: - Setup
     
     private func setupCallbacks() {

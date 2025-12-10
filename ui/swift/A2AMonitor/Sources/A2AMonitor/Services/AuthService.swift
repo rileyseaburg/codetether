@@ -14,6 +14,7 @@ class AuthService: ObservableObject {
     
     @Published var isAuthenticated = false
     @Published var isLoading = false
+    @Published var isGuestMode = false
     @Published var currentUser: UserSession?
     @Published var syncState: SyncState?
     @Published var error: String?
@@ -248,6 +249,7 @@ class AuthService: ObservableObject {
         syncState = nil
         tokenExpiresAt = nil
         isAuthenticated = false
+        isGuestMode = false
         
         // Clear keychain
         clearKeychain()
@@ -255,6 +257,22 @@ class AuthService: ObservableObject {
         // Cancel refresh task
         refreshTask?.cancel()
         refreshTask = nil
+    }
+    
+    // MARK: - Guest Mode
+    
+    /// Enable guest mode (no authentication, local-only)
+    func enableGuestMode() {
+        isGuestMode = true
+        isAuthenticated = true
+        currentUser = nil
+        syncState = nil
+    }
+    
+    /// Disable guest mode (return to login screen)
+    func disableGuestMode() {
+        isGuestMode = false
+        isAuthenticated = false
     }
     
     // MARK: - Sync State
