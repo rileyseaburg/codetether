@@ -8,6 +8,7 @@ This worker:
 3. Polls for tasks assigned to its codebases
 4. Executes tasks using OpenCode
 5. Reports results back to the server
+6. Reports OpenCode session history to the server
 
 Usage:
     python worker.py --server https://a2a.quantum-forge.net --name "dev-vm-worker"
@@ -15,6 +16,7 @@ Usage:
 
 import argparse
 import asyncio
+import glob
 import json
 import logging
 import os
@@ -128,6 +130,10 @@ class AgentWorker:
                 description=cb_config.get("description", ""),
             )
 
+        # Immediately sync sessions on startup
+        logger.info("Syncing sessions with server...")
+        await self.report_sessions_to_server()
+
         # Start polling loop
         await self.poll_loop()
 
@@ -238,6 +244,9 @@ class AgentWorker:
         """Main loop - poll for tasks and execute them."""
         logger.info(f"Starting poll loop (interval: {self.config.poll_interval}s)")
 
+        session_sync_counter = 0
+        session_sync_interval = 12  # Sync sessions every 12 poll cycles (60s at 5s interval)
+
         while self.running:
             try:
                 # Get pending tasks for our codebases
@@ -251,6 +260,12 @@ class AgentWorker:
                     codebase_id = task.get("codebase_id")
                     if codebase_id in self.codebases:
                         await self.execute_task(task)
+
+                # Periodically sync sessions
+                session_sync_counter += 1
+                if session_sync_counter >= session_sync_interval:
+                    session_sync_counter = 0
+                    await self.report_sessions_to_server()
 
             except asyncio.CancelledError:
                 break
@@ -308,6 +323,7 @@ class AgentWorker:
             agent_type = task.get("agent_type", "build")
             metadata = task.get("metadata", {})
             model = metadata.get("model")  # e.g., "anthropic/claude-sonnet-4-20250514"
+            resume_session_id = metadata.get("resume_session_id")  # Session to resume
 
             # Run OpenCode
             result = await self.run_opencode(
@@ -316,6 +332,7 @@ class AgentWorker:
                 agent_type=agent_type,
                 task_id=task_id,
                 model=model,
+                session_id=resume_session_id,
             )
 
             if result["success"]:
@@ -344,6 +361,7 @@ class AgentWorker:
         agent_type: str = "build",
         task_id: Optional[str] = None,
         model: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run OpenCode agent on a codebase."""
 
@@ -363,32 +381,73 @@ class AgentWorker:
         if model:
             cmd.extend(["--model", model])
 
+        # Add session resumption if specified
+        if session_id:
+            cmd.extend(["--session", session_id])
+            logger.info(f"Resuming session: {session_id}")
+
         # Add the prompt as the last argument
         cmd.append(prompt)
 
         log_model = f" --model {model}" if model else ""
-        logger.info(f"Running: {self.opencode_bin} run --agent {agent_type}{log_model} ...")
+        log_session = f" --session {session_id}" if session_id else ""
+        logger.info(f"Running: {self.opencode_bin} run --agent {agent_type}{log_model}{log_session} ...")
 
         try:
-            # Run the process
+            # Run the process with line-buffered output for streaming
             process = subprocess.Popen(
                 cmd,
                 cwd=codebase_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                bufsize=1,  # Line buffered
                 env={**os.environ, "NO_COLOR": "1"},
             )
 
             if task_id:
                 self.active_processes[task_id] = process
 
-            # Wait for completion with timeout
+            # Stream output in real-time
+            output_lines = []
             try:
-                stdout, stderr = process.communicate(timeout=600)  # 10 min timeout
+                # Use select to read from both stdout and stderr
+                import select
+                import asyncio
+
+                while True:
+                    # Check if process is done
+                    ret = process.poll()
+
+                    # Read available output
+                    if process.stdout:
+                        line = process.stdout.readline()
+                        if line:
+                            output_lines.append(line)
+                            # Stream output to server
+                            if task_id:
+                                await self.stream_task_output(task_id, line.strip())
+
+                    if ret is not None:
+                        # Process finished, read remaining output
+                        if process.stdout:
+                            remaining = process.stdout.read()
+                            if remaining:
+                                output_lines.append(remaining)
+                                if task_id:
+                                    await self.stream_task_output(task_id, remaining.strip())
+                        break
+
+                    # Small sleep to prevent busy loop
+                    await asyncio.sleep(0.05)
+
+                stdout = "".join(output_lines)
+                stderr = process.stderr.read() if process.stderr else ""
+
             except subprocess.TimeoutExpired:
                 process.kill()
-                stdout, stderr = process.communicate()
+                stdout = "".join(output_lines)
+                stderr = process.stderr.read() if process.stderr else ""
                 return {"success": False, "error": "Task timed out after 10 minutes"}
             finally:
                 if task_id and task_id in self.active_processes:
@@ -398,6 +457,29 @@ class AgentWorker:
                 return {"success": True, "output": stdout}
             else:
                 return {"success": False, "error": stderr or f"Exit code: {process.returncode}"}
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def stream_task_output(self, task_id: str, output: str):
+        """Stream output chunk to the server."""
+        if not output:
+            return
+        try:
+            session = await self._get_session()
+            url = f"{self.config.server_url}/v1/opencode/tasks/{task_id}/output"
+
+            payload = {
+                "worker_id": self.config.worker_id,
+                "output": output,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            async with session.post(url, json=payload) as resp:
+                if resp.status != 200:
+                    logger.debug(f"Failed to stream output: {resp.status}")
+        except Exception as e:
+            logger.debug(f"Failed to stream output: {e}")
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -430,6 +512,134 @@ class AgentWorker:
 
         except Exception as e:
             logger.error(f"Failed to update task status: {e}")
+
+    def _get_opencode_storage_path(self) -> Path:
+        """Get the OpenCode global storage path."""
+        # Check XDG_DATA_HOME first
+        xdg_data = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))
+        return Path(xdg_data) / "opencode" / "storage"
+
+    def _get_project_id_for_path(self, codebase_path: str) -> Optional[str]:
+        """Get the OpenCode project ID (hash) for a given codebase path."""
+        storage_path = self._get_opencode_storage_path()
+        project_dir = storage_path / "project"
+
+        if not project_dir.exists():
+            return None
+
+        # Read all project files to find the matching worktree
+        for project_file in project_dir.glob("*.json"):
+            if project_file.stem == "global":
+                continue
+            try:
+                with open(project_file) as f:
+                    project = json.load(f)
+                    if project.get("worktree") == codebase_path:
+                        return project.get("id")
+            except Exception:
+                continue
+
+        return None
+
+    def get_sessions_for_codebase(self, codebase_path: str) -> List[Dict[str, Any]]:
+        """Get all OpenCode sessions for a codebase."""
+        project_id = self._get_project_id_for_path(codebase_path)
+        if not project_id:
+            logger.debug(f"No OpenCode project ID found for {codebase_path}")
+            return []
+
+        storage_path = self._get_opencode_storage_path()
+        session_dir = storage_path / "session" / project_id
+
+        if not session_dir.exists():
+            return []
+
+        sessions = []
+        for session_file in session_dir.glob("ses_*.json"):
+            try:
+                with open(session_file) as f:
+                    session_data = json.load(f)
+                    # Convert timestamps from milliseconds to ISO format
+                    time_data = session_data.get("time", {})
+                    created_ms = time_data.get("created", 0)
+                    updated_ms = time_data.get("updated", 0)
+
+                    sessions.append({
+                        "id": session_data.get("id"),
+                        "title": session_data.get("title", "Untitled"),
+                        "directory": session_data.get("directory"),
+                        "project_id": project_id,
+                        "created_at": datetime.fromtimestamp(created_ms / 1000).isoformat() if created_ms else None,
+                        "updated_at": datetime.fromtimestamp(updated_ms / 1000).isoformat() if updated_ms else None,
+                        "summary": session_data.get("summary", {}),
+                        "version": session_data.get("version"),
+                    })
+            except Exception as e:
+                logger.debug(f"Error reading session file {session_file}: {e}")
+                continue
+
+        # Sort by updated time descending
+        sessions.sort(key=lambda s: s.get("updated_at") or "", reverse=True)
+        return sessions
+
+    def get_session_messages(self, session_id: str) -> List[Dict[str, Any]]:
+        """Get messages for a specific session."""
+        storage_path = self._get_opencode_storage_path()
+        message_dir = storage_path / "message" / session_id
+
+        if not message_dir.exists():
+            return []
+
+        messages = []
+        for msg_file in message_dir.glob("msg_*.json"):
+            try:
+                with open(msg_file) as f:
+                    msg_data = json.load(f)
+                    time_data = msg_data.get("time", {})
+                    created_ms = time_data.get("created", 0)
+
+                    messages.append({
+                        "id": msg_data.get("id"),
+                        "session_id": msg_data.get("sessionID"),
+                        "role": msg_data.get("role"),
+                        "created_at": datetime.fromtimestamp(created_ms / 1000).isoformat() if created_ms else None,
+                        "summary": msg_data.get("summary", {}),
+                        "agent": msg_data.get("agent"),
+                        "model": msg_data.get("model", {}),
+                    })
+            except Exception as e:
+                logger.debug(f"Error reading message file {msg_file}: {e}")
+                continue
+
+        # Sort by created time ascending
+        messages.sort(key=lambda m: m.get("created_at") or "")
+        return messages
+
+    async def report_sessions_to_server(self):
+        """Report all sessions for registered codebases to the server."""
+        for codebase_id, codebase in self.codebases.items():
+            try:
+                sessions = self.get_sessions_for_codebase(codebase.path)
+                if not sessions:
+                    continue
+
+                session = await self._get_session()
+                url = f"{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/sync"
+
+                payload = {
+                    "worker_id": self.config.worker_id,
+                    "sessions": sessions,
+                }
+
+                async with session.post(url, json=payload) as resp:
+                    if resp.status == 200:
+                        logger.debug(f"Synced {len(sessions)} sessions for {codebase.name}")
+                    else:
+                        text = await resp.text()
+                        logger.debug(f"Session sync returned {resp.status}: {text}")
+
+            except Exception as e:
+                logger.debug(f"Failed to sync sessions for {codebase.name}: {e}")
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:

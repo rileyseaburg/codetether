@@ -52,7 +52,7 @@ class MonitorViewModel: ObservableObject {
     
     // MARK: - Settings
     
-    @AppStorage("serverURL") var serverURL = "http://localhost:8000" {
+    @AppStorage("serverURL") var serverURL = "https://a2a.quantum-forge.net" {
         didSet {
             client.updateBaseURL(serverURL)
         }
@@ -63,7 +63,7 @@ class MonitorViewModel: ObservableObject {
     // MARK: - Init
     
     init() {
-        self.client = A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "http://localhost:8000")
+        self.client = A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "https://a2a.quantum-forge.net")
         setupCallbacks()
     }
     

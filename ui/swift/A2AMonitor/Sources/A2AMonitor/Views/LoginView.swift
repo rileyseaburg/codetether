@@ -13,7 +13,7 @@ struct LoginView: View {
     @State private var showError = false
     @State private var rememberMe = true
     
-    @AppStorage("serverURL") private var serverURL = "http://localhost:8000"
+    @AppStorage("serverURL") private var serverURL = "https://a2a.quantum-forge.net"
     @AppStorage("lastUsername") private var lastUsername = ""
     @State private var showServerSettings = false
     

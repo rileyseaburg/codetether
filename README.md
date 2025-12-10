@@ -20,7 +20,11 @@ This repository provides a complete A2A protocol server that bridges the gap bet
 - **👁️ Real-time Monitor UI**: Web-based dashboard for agent supervision and human intervention
 - **📱 Swift Liquid Glass UI**: Native iOS/macOS app with Apple-style glassmorphism design
 - **🔄 Distributed Workers**: Remote agent workers with task queues and watch mode
-- **🚀 Production Ready**: Kubernetes deployment with Helm charts
+- **� Session History**: Browse and resume past OpenCode sessions from any device
+- **⏯️ Session Resumption**: Continue conversations with AI agents from where you left off
+- **📊 Real-time Output Streaming**: See agent responses as they happen via SSE
+- **🔐 Keycloak Authentication**: Enterprise SSO with OAuth2/OIDC via Keycloak
+- **�🚀 Production Ready**: Kubernetes deployment with Helm charts
 - **🔐 Enterprise Security**: Authentication, authorization, and network policies
 - **📊 Observability**: Built-in monitoring, health checks, and metrics
 - **⚡ Scalable**: Redis-based message broker with horizontal scaling
@@ -351,6 +355,44 @@ The A2A server uses **JSON-RPC 2.0** over HTTP. All method calls are sent to the
 - **`GET /agents`** - List all registered agents (when using message broker)
 - **`GET /health`** - Health check endpoint
 - **`POST /v1/livekit/token`** - Get LiveKit token for media sessions
+
+### OpenCode Integration Endpoints
+
+The server provides REST endpoints for OpenCode agent management:
+
+**Codebases:**
+- **`GET /v1/opencode/codebases`** - List all registered codebases
+- **`POST /v1/opencode/codebases`** - Register a new codebase
+- **`GET /v1/opencode/codebases/{id}`** - Get codebase details
+- **`DELETE /v1/opencode/codebases/{id}`** - Unregister a codebase
+
+**Tasks:**
+- **`GET /v1/opencode/tasks`** - List all tasks (filter by status, worker_id)
+- **`POST /v1/opencode/tasks`** - Create a new task
+- **`GET /v1/opencode/tasks/{id}`** - Get task details
+- **`PUT /v1/opencode/tasks/{id}/status`** - Update task status
+- **`POST /v1/opencode/tasks/{id}/output`** - Stream output to task (workers)
+- **`GET /v1/opencode/tasks/{id}/output`** - Get task output
+- **`GET /v1/opencode/tasks/{id}/output/stream`** - SSE stream for real-time output
+
+**Sessions:**
+- **`GET /v1/opencode/codebases/{id}/sessions`** - List sessions for a codebase
+- **`POST /v1/opencode/codebases/{id}/sessions/sync`** - Sync sessions from worker
+- **`GET /v1/opencode/codebases/{id}/sessions/{session_id}/messages`** - Get session messages
+- **`POST /v1/opencode/codebases/{id}/sessions/{session_id}/resume`** - Resume a session
+
+**Workers:**
+- **`POST /v1/opencode/workers/register`** - Register a worker
+- **`POST /v1/opencode/workers/{id}/unregister`** - Unregister a worker
+
+### Authentication Endpoints
+
+When Keycloak is configured:
+
+- **`POST /v1/auth/login`** - Authenticate with username/password
+- **`POST /v1/auth/refresh`** - Refresh access token
+- **`GET /v1/auth/userinfo`** - Get current user info
+- **`POST /v1/auth/logout`** - Invalidate session
 
 ### A2A Protocol Methods
 
@@ -915,33 +957,48 @@ ingress:
 ```
 a2a_server/
 ├── __init__.py              # Package exports
-├── agent_card.py           # Agent discovery and cards
-├── config.py               # Configuration management
-├── enhanced_agents.py      # Enhanced agent implementations
-├── enhanced_server.py      # Main A2A server with MCP
-├── livekit_bridge.py       # Real-time communication
-├── mcp_client.py           # MCP protocol client
-├── mcp_server.py           # MCP server implementation
-├── message_broker.py       # Redis pub/sub broker
-├── mock_mcp.py            # MCP mocking for tests
-├── models.py              # Pydantic data models
-├── server.py              # Core A2A server
-└── task_manager.py        # Task lifecycle management
+├── agent_card.py            # Agent discovery and cards
+├── config.py                # Configuration management
+├── enhanced_agents.py       # Enhanced agent implementations
+├── enhanced_server.py       # Main A2A server with MCP
+├── keycloak_auth.py         # Keycloak authentication service
+├── livekit_bridge.py        # Real-time communication
+├── mcp_client.py            # MCP protocol client
+├── mcp_server.py            # MCP server implementation
+├── message_broker.py        # Redis pub/sub broker
+├── mock_mcp.py              # MCP mocking for tests
+├── models.py                # Pydantic data models
+├── monitor_api.py           # Monitoring & OpenCode API endpoints
+├── server.py                # Core A2A server
+└── task_manager.py          # Task lifecycle management
+
+agent_worker/
+├── worker.py                # Distributed worker implementation
+├── install.sh               # Worker installation script
+└── config.example.json      # Example worker configuration
 
 examples/
-├── a2a_cli.py             # Command-line client
-├── example_agents.py      # Sample implementations
-└── livekit_demo.py        # Real-time communication demo
+├── a2a_cli.py               # Command-line client
+├── agent_to_agent_messaging.py  # Agent communication demo
+├── connect_remote_agent.py  # Remote agent connection
+├── claude_agent.py          # Claude LLM integration
+└── livekit_demo.py          # Real-time communication demo
+
+ui/
+├── monitor-tailwind.html    # Web monitoring UI
+└── swift/                   # Swift iOS/macOS app
+    └── A2AMonitor/
 
 tests/
-├── test_a2a_server.py     # Core server tests
+├── test_a2a_server.py       # Core server tests
+├── test_agent_messaging.py  # Agent communication tests
 └── test_livekit_integration.py  # LiveKit tests
 
 chart/
-└── a2a-server/            # Kubernetes Helm chart
+└── a2a-server/              # Kubernetes Helm chart
     ├── Chart.yaml
     ├── values.yaml
-    └── templates/         # K8s resource templates
+    └── templates/           # K8s resource templates
 ```
 
 ### Custom Agent Development
@@ -1324,11 +1381,27 @@ Access at `http://localhost:8000/v1/monitor/` when the server is running.
 **Features:**
 - Real-time message streaming via SSE
 - Agent status monitoring with live updates
-- Task queue management
+- Task queue management with priority levels
 - Human intervention capability
 - Message search and filtering
 - Export to JSON/CSV
 - OpenCode agent integration panel
+- Session history browser
+- Session resumption with context preservation
+- Real-time output streaming from running tasks
+- Keycloak authentication support
+
+### Navigation
+
+The monitor UI features a responsive sidebar navigation:
+
+- **Dashboard**: Overview of agents, tasks, and system status
+- **Agents**: List of registered agents with status indicators
+- **Tasks**: Task queue with create, view, and manage capabilities
+- **Sessions**: Browse and resume past OpenCode sessions
+- **Codebases**: Registered codebases and their workers
+- **Messages**: Real-time message log with search
+- **Settings**: Configuration and preferences
 
 ### Swift Liquid Glass UI (iOS/macOS)
 
@@ -1342,17 +1415,43 @@ swift build -c release
 
 **Features:**
 - Frosted glass UI with animated gradients
-- Real-time agent output streaming
+- Real-time agent output streaming via SSE
+- Session history with resume support
 - Codebase registration and management
 - Task queue with priority levels
 - Watch mode for continuous agent operation
 - Human intervention support
+- Keycloak authentication integration
 
 See [ui/swift/README.md](ui/swift/README.md) for full documentation.
 
 ## Distributed Agent Workers
 
 Deploy remote agent workers that poll for tasks and execute them autonomously:
+
+### Worker Architecture
+
+The A2A server supports a distributed architecture where worker agents run on remote machines with access to codebases:
+
+```
+┌─────────────────────┐       ┌──────────────────────────┐
+│   A2A Server        │       │   Agent Worker (VM)      │
+│   (Kubernetes)      │◄─────►│   - OpenCode runtime     │
+│                     │ HTTP  │   - Local codebases      │
+│   - Task Queue      │       │   - Session sync         │
+│   - Session Store   │       │   - Output streaming     │
+│   - Auth (Keycloak) │       └──────────────────────────┘
+│   - Monitor API     │              ▲
+└─────────────────────┘              │
+         ▲                     ┌─────┴────────────────────┐
+         │                     │   OpenCode Sessions      │
+    ┌────┴────┐                │   ~/.local/share/opencode│
+    │  Web UI │                │   └── storage/           │
+    │  iOS/   │                │       ├── project/       │
+    │  macOS  │                │       ├── session/       │
+    └─────────┘                │       └── message/       │
+                               └──────────────────────────┘
+```
 
 ### Worker Setup
 
@@ -1369,19 +1468,74 @@ cp config.example.json config.json
 python worker.py --config config.json
 ```
 
-### Register Remote Codebases
+**Example config.json:**
+```json
+{
+  "server_url": "https://a2a.quantum-forge.net",
+  "worker_name": "dev-vm-worker",
+  "codebases": [
+    {
+      "name": "my-project",
+      "path": "/home/user/projects/my-project",
+      "description": "Main application codebase"
+    }
+  ],
+  "poll_interval": 5,
+  "opencode_bin": "/home/user/.local/bin/opencode"
+}
+```
+
+### Session History & Resumption
+
+Workers automatically sync OpenCode session history to the server, enabling:
+
+- **Cross-Device Access**: View all past coding sessions from any device
+- **Session Resumption**: Continue a conversation from where you left off
+- **Real-time Output**: See agent responses as they stream in
+
+**API Endpoints:**
+
+```bash
+# List all sessions for a codebase
+curl https://a2a.quantum-forge.net/v1/opencode/codebases/{id}/sessions
+
+# Get messages for a specific session
+curl https://a2a.quantum-forge.net/v1/opencode/codebases/{id}/sessions/{session_id}/messages
+
+# Resume a session (creates a new task)
+curl -X POST https://a2a.quantum-forge.net/v1/opencode/codebases/{id}/sessions/{session_id}/resume \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Continue with the refactoring"}'
+
+# Stream task output (SSE)
+curl https://a2a.quantum-forge.net/v1/opencode/tasks/{task_id}/output/stream
+```
+
+### Real-time Output Streaming
+
+When a task is running, you can subscribe to real-time output:
 
 ```python
-# Register a codebase on a remote worker
-from a2a_server.opencode_bridge import get_bridge
+import httpx
+import asyncio
 
-bridge = get_bridge()
-codebase = bridge.register_codebase(
-    name="My Project",
-    path="/path/to/project",
-    description="Project description",
-    worker_id="worker-1"  # Associate with remote worker
-)
+async def stream_output(server_url: str, task_id: str):
+    """Subscribe to real-time task output via SSE."""
+    url = f"{server_url}/v1/opencode/tasks/{task_id}/output/stream"
+
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("GET", url) as response:
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data = json.loads(line[6:])
+                    if data["type"] == "output":
+                        print(data["content"], end="")
+                    elif data["type"] == "done":
+                        print("\n--- Task completed ---")
+                        break
+
+# Usage
+asyncio.run(stream_output("https://a2a.quantum-forge.net", "task-123"))
 ```
 
 ### Watch Mode
@@ -1397,6 +1551,55 @@ curl -X POST http://localhost:8000/v1/opencode/codebases/{id}/watch/start \
 
 Tasks are automatically picked up and executed by the associated worker.
 
+## Authentication
+
+### Keycloak Integration
+
+The A2A server supports enterprise authentication via Keycloak:
+
+```bash
+# Login with username/password
+curl -X POST https://a2a.quantum-forge.net/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "user@example.com", "password": "secret"}'
+
+# Response includes JWT tokens
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "expires_in": 300,
+  "user": {
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "roles": ["a2a-user", "a2a-admin"]
+  }
+}
+
+# Refresh token when expired
+curl -X POST https://a2a.quantum-forge.net/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "eyJ..."}'
+```
+
+**Environment Configuration:**
+
+```bash
+# Keycloak settings
+KEYCLOAK_URL=https://auth.example.com
+KEYCLOAK_REALM=my-realm
+KEYCLOAK_CLIENT_ID=a2a-monitor
+KEYCLOAK_CLIENT_SECRET=your-secret
+```
+
+### Protected Endpoints
+
+Include the access token in requests:
+
+```bash
+curl https://a2a.quantum-forge.net/v1/opencode/codebases \
+  -H "Authorization: Bearer eyJ..."
+```
+
 ## Additional Resources
 
 - 📖 [Agent-to-Agent Messaging Quick Start Guide](docs/agent-messaging-quickstart.md)
@@ -1406,23 +1609,26 @@ Tasks are automatically picked up and executed by the associated worker.
 - 🧪 [Agent Messaging Tests](tests/test_agent_messaging.py)
 - 📱 [Swift Liquid Glass UI](ui/swift/README.md)
 - 🖥️ [Web Monitor UI](ui/README.md)
+- 🔄 [Distributed A2A Guide](DISTRIBUTED_A2A_GUIDE.md)
+- ⚡ [Distributed A2A Quickstart](DISTRIBUTED_A2A_QUICKSTART.md)
+- 🔐 [Keycloak Auth Integration](a2a_server/keycloak_auth.py)
 
 ## 🚀 Production Deployment
 
-### Deploy to acp.quantum-forge.net
+### Deploy to a2a.quantum-forge.net
 
 Full production deployment with monitoring, autoscaling, and MCP synchronization:
 
 ```powershell
 # Windows PowerShell
-.\quick-deploy-acp.ps1
+.\deploy-to-quantum-forge.ps1
 
 # Linux/macOS
-./quick-deploy-acp.sh
+./deploy-to-quantum-forge.sh
 ```
 
 **Features:**
-- ✅ Domain: `acp.quantum-forge.net`
+- ✅ Domain: `a2a.quantum-forge.net`
 - ✅ TLS with Let's Encrypt
 - ✅ Horizontal autoscaling (2-10 pods)
 - ✅ Redis message broker
@@ -1431,26 +1637,35 @@ Full production deployment with monitoring, autoscaling, and MCP synchronization
 - ✅ Human intervention capability
 - ✅ Complete audit logs
 - ✅ Prometheus metrics
+- ✅ Keycloak authentication
+- ✅ Session history & resumption
+- ✅ Real-time output streaming
+- ✅ Distributed worker support
 
 **Guides:**
-- 📘 [ACP Deployment Guide](ACP_DEPLOYMENT.md) - Complete deployment documentation
-- 🚀 [Quick Start](QUICKSTART_ACP.md) - Get started in 5 minutes
+- 📘 [Quantum Forge Deployment](QUANTUM_FORGE_DEPLOYMENT.md) - Complete deployment documentation
+- 🚀 [Quick Start](QUANTUM_FORGE_QUICKSTART.md) - Get started in 5 minutes
 - 👁️ [Monitoring UI Guide](ui/README.md) - Human oversight and intervention
 - 🔧 [MCP Configuration](QUICK_REFERENCE_MCP_CONFIG.md) - Cline/external agent setup
+- 🔄 [Distributed A2A Guide](DISTRIBUTED_A2A_GUIDE.md) - Multi-worker setup
 
 **Access Production Services:**
 ```bash
 # Monitoring dashboard
-https://acp.quantum-forge.net/v1/monitor/
+https://a2a.quantum-forge.net/v1/monitor/
 
 # Agent discovery
-https://acp.quantum-forge.net/.well-known/agent-card.json
+https://a2a.quantum-forge.net/.well-known/agent-card.json
 
-# MCP tools endpoint
-https://acp.quantum-forge.net:9000/mcp/v1/tools
+# OpenCode API
+https://a2a.quantum-forge.net/v1/opencode/codebases
+
+# Login (Keycloak)
+curl -X POST https://a2a.quantum-forge.net/v1/auth/login \
+  -d '{"username": "user@example.com", "password": "secret"}'
 
 # Health check
-https://acp.quantum-forge.net/health
+https://a2a.quantum-forge.net/health
 ```
 
 ---
@@ -1465,3 +1680,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - Integrates with the [Model Context Protocol](https://modelcontextprotocol.io) for tool access
 - Uses [FastAPI](https://fastapi.tiangolo.com/) for high-performance web services
 - Deployed with [Kubernetes](https://kubernetes.io/) and [Helm](https://helm.sh/) for scalability
+- Authentication via [Keycloak](https://www.keycloak.org/) for enterprise SSO

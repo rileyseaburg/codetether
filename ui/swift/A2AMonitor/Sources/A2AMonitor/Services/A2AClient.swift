@@ -19,7 +19,7 @@ class A2AClient: ObservableObject {
     var onAgentStatus: ((Agent) -> Void)?
     var onStats: ((MonitorStats) -> Void)?
     
-    init(baseURL: String = "http://localhost:8000") {
+    init(baseURL: String = "https://a2a.quantum-forge.net") {
         self.baseURL = URL(string: baseURL)!
         
         let config = URLSessionConfiguration.default

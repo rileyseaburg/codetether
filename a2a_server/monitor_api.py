@@ -1103,6 +1103,8 @@ _opencode_bridge = None
 _worker_sessions: Dict[str, List[Dict[str, Any]]] = {}
 # Worker-synced messages: {session_id: [message_dicts]}
 _worker_messages: Dict[str, List[Dict[str, Any]]] = {}
+# Real-time task output streams: {task_id: [output_lines]}
+_task_output_streams: Dict[str, List[Dict[str, Any]]] = {}
 
 
 def get_opencode_bridge():
@@ -2598,6 +2600,96 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
     )
 
     return {'success': True, 'task': task.to_dict()}
+
+
+class TaskOutputChunk(BaseModel):
+    """Model for streaming task output."""
+    worker_id: str
+    output: str
+    timestamp: Optional[str] = None
+
+
+@opencode_router.post('/tasks/{task_id}/output')
+async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
+    """Receive streaming output from a worker (called by workers)."""
+    if task_id not in _task_output_streams:
+        _task_output_streams[task_id] = []
+
+    _task_output_streams[task_id].append({
+        'output': chunk.output,
+        'timestamp': chunk.timestamp or datetime.utcnow().isoformat(),
+        'worker_id': chunk.worker_id,
+    })
+
+    # Keep only last 1000 lines per task
+    if len(_task_output_streams[task_id]) > 1000:
+        _task_output_streams[task_id] = _task_output_streams[task_id][-1000:]
+
+    # Also broadcast to any SSE listeners
+    await monitoring_service.log_message(
+        agent_name='Agent Output',
+        content=chunk.output,
+        message_type='agent',
+        metadata={
+            'task_id': task_id,
+            'worker_id': chunk.worker_id,
+            'streaming': True,
+        },
+    )
+
+    return {'success': True}
+
+
+@opencode_router.get('/tasks/{task_id}/output')
+async def get_task_output(task_id: str, since: Optional[int] = None):
+    """Get streaming output for a task."""
+    outputs = _task_output_streams.get(task_id, [])
+
+    if since is not None and since < len(outputs):
+        outputs = outputs[since:]
+
+    return {
+        'task_id': task_id,
+        'outputs': outputs,
+        'total': len(_task_output_streams.get(task_id, [])),
+    }
+
+
+@opencode_router.get('/tasks/{task_id}/output/stream')
+async def stream_task_output_sse(task_id: str, request: Request):
+    """SSE stream for real-time task output."""
+    from sse_starlette.sse import EventSourceResponse
+
+    async def event_generator():
+        last_index = 0
+        while True:
+            # Check if client disconnected
+            if await request.is_disconnected():
+                break
+
+            outputs = _task_output_streams.get(task_id, [])
+            if len(outputs) > last_index:
+                for output in outputs[last_index:]:
+                    yield {
+                        'event': 'output',
+                        'data': json.dumps(output),
+                    }
+                last_index = len(outputs)
+
+            # Check task status
+            bridge = get_opencode_bridge()
+            if bridge:
+                task = bridge.get_task(task_id)
+                if task and task.status.value in ('completed', 'failed', 'cancelled'):
+                    yield {
+                        'event': 'done',
+                        'data': json.dumps({'status': task.status.value}),
+                    }
+                    break
+
+            await asyncio.sleep(0.1)
+
+    return EventSourceResponse(event_generator())
 
 
 @opencode_router.post('/tasks/{task_id}/cancel')

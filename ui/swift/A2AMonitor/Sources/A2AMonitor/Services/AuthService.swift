@@ -99,7 +99,7 @@ class AuthService: ObservableObject {
     
     // MARK: - Init
     
-    init(baseURL: String = "http://localhost:8000") {
+    init(baseURL: String = "https://a2a.quantum-forge.net") {
         self.baseURL = URL(string: baseURL)!
         
         let config = URLSessionConfiguration.default
