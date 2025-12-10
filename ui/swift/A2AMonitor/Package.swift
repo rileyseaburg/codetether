@@ -10,18 +10,15 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(
+        .executable(
             name: "A2AMonitor",
             targets: ["A2AMonitor"]),
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "A2AMonitor",
             dependencies: [],
             path: "Sources/A2AMonitor"
         ),
-        .testTarget(
-            name: "A2AMonitorTests",
-            dependencies: ["A2AMonitor"]),
     ]
 )
