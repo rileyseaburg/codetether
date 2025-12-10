@@ -905,13 +905,10 @@ class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
         
         for i in 0..<(chunks.count - 1) {
             let chunk = chunks[i]
-            var eventType = ""
             var eventData = ""
             
             for line in chunk.components(separatedBy: "\n") {
-                if line.hasPrefix("event:") {
-                    eventType = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                } else if line.hasPrefix("data:") {
+                if line.hasPrefix("data:") {
                     eventData = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
                 }
             }

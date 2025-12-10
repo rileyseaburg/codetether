@@ -211,8 +211,12 @@ events.addEventListener('complete', () => {
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `OPENCODE_HOST` | `localhost` | Host where OpenCode API is running |
+| `OPENCODE_PORT` | `9777` | OpenCode API port |
 | `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database for sessions |
 | `OPENCODE_AUTO_START` | `true` | Auto-start agents on trigger |
+
+!!! tip \"Docker Container Configuration\"\n    When running AgentMesh in Docker and connecting to OpenCode on your host:\n    \n    ```bash\n    # Docker Desktop (Mac/Windows)\n    docker run -e OPENCODE_HOST=host.docker.internal ...\n    \n    # Linux\n    docker run --add-host=host.docker.internal:host-gateway \\\n      -e OPENCODE_HOST=host.docker.internal ...\n    ```
 
 ### Codebase Configuration
 

@@ -140,7 +140,7 @@ The MCP (Model Context Protocol) server provides tool integration.
 
 !!! tip "Docker Container Configuration"
     When running AgentMesh in Docker and connecting to OpenCode on your host:
-    
+
     - **Docker Desktop (Mac/Windows)**: Use `OPENCODE_HOST=host.docker.internal`
     - **Linux**: Use `--add-host=host.docker.internal:host-gateway` and `OPENCODE_HOST=host.docker.internal`
     - **Alternative**: Use your host machine's actual IP address

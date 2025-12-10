@@ -59,16 +59,16 @@ struct SessionsView: View {
                     )
                     
                     StatCard(
-                        title: "Active",
-                        value: "\(viewModel.sessions.filter { $0.status == .running }.count)",
-                        icon: "play.fill",
+                        title: "With Messages",
+                        value: "\(viewModel.sessions.filter { $0.parts != nil && !($0.parts?.isEmpty ?? true) }.count)",
+                        icon: "text.bubble",
                         color: Color.liquidGlass.success
                     )
                     
                     StatCard(
-                        title: "Completed",
-                        value: "\(viewModel.sessions.filter { $0.status == .completed }.count)",
-                        icon: "checkmark.circle.fill",
+                        title: "Recent",
+                        value: "\(min(viewModel.sessions.count, 10))",
+                        icon: "clock.fill",
                         color: Color.liquidGlass.info
                     )
                 }

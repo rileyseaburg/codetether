@@ -220,7 +220,7 @@ struct AgentOutputView: View {
     func exportOutput() {
         guard !viewModel.currentOutput.isEmpty,
               let codebaseId = viewModel.selectedCodebaseForOutput,
-              let codebase = viewModel.codebases.first(where: { $0.id == codebaseId }) else {
+              let _ = viewModel.codebases.first(where: { $0.id == codebaseId }) else {
             return
         }
         
