@@ -19,16 +19,38 @@ class A2AClient: ObservableObject {
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
             
-            // Try ISO 8601 with fractional seconds first
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = formatter.date(from: dateString) {
+            // Python's isoformat() produces dates like "2024-01-15T10:30:00.123456" (no timezone)
+            // We need to handle multiple formats
+            
+            let dateFormats = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",  // Python isoformat with microseconds
+                "yyyy-MM-dd'T'HH:mm:ss.SSS",      // With milliseconds
+                "yyyy-MM-dd'T'HH:mm:ss",          // Without fractional seconds
+                "yyyy-MM-dd'T'HH:mm:ssZ",         // With Z timezone
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",  // With microseconds and Z
+                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // With milliseconds and Z
+            ]
+            
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            
+            for format in dateFormats {
+                formatter.dateFormat = format
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+            }
+            
+            // Also try ISO8601DateFormatter as fallback
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = isoFormatter.date(from: dateString) {
                 return date
             }
             
-            // Fall back to ISO 8601 without fractional seconds
-            formatter.formatOptions = [.withInternetDateTime]
-            if let date = formatter.date(from: dateString) {
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            if let date = isoFormatter.date(from: dateString) {
                 return date
             }
             

@@ -25,6 +25,8 @@ enum AgentStatus: String, Codable, CaseIterable {
     case watching
     case error
     case disconnected
+    case stopped
+    case unknown
     
     var color: String {
         switch self {
@@ -34,6 +36,8 @@ enum AgentStatus: String, Codable, CaseIterable {
         case .watching: return "cyan"
         case .error: return "red"
         case .disconnected: return "gray"
+        case .stopped: return "gray"
+        case .unknown: return "gray"
         }
     }
     
@@ -45,7 +49,16 @@ enum AgentStatus: String, Codable, CaseIterable {
         case .watching: return "eye.fill"
         case .error: return "exclamationmark.circle.fill"
         case .disconnected: return "wifi.slash"
+        case .stopped: return "stop.circle"
+        case .unknown: return "questionmark.circle"
         }
+    }
+    
+    // Handle unknown status values gracefully
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = AgentStatus(rawValue: rawValue) ?? .unknown
     }
 }
 
