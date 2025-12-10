@@ -13,6 +13,8 @@ class MonitorViewModel: ObservableObject {
     // OpenCode
     @Published var openCodeStatus: OpenCodeStatus?
     @Published var codebases: [Codebase] = []
+    @Published var availableModels: [AIModel] = []
+    @Published var defaultModel: String?
     
     // Agents
     @Published var agents: [Agent] = []
@@ -63,6 +65,15 @@ class MonitorViewModel: ObservableObject {
     init() {
         self.client = A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "http://localhost:8000")
         setupCallbacks()
+    }
+    
+    // MARK: - Auth Integration
+    
+    /// Set the auth service to enable authenticated requests
+    func setAuthService(_ authService: AuthService) {
+        client.authService = authService
+        // Also sync the base URL
+        client.updateBaseURL(serverURL)
     }
     
     // MARK: - Setup
@@ -130,18 +141,20 @@ class MonitorViewModel: ObservableObject {
         
         async let openCodeTask: () = loadOpenCodeStatus()
         async let codebasesTask: () = loadCodebases()
+        async let modelsTask: () = loadModels()
         async let agentsTask: () = loadAgents()
         async let messagesTask: () = loadMessages()
         async let tasksTask: () = loadTasks()
         async let countTask: () = loadMessageCount()
         
-        _ = await (openCodeTask, codebasesTask, agentsTask, messagesTask, tasksTask, countTask)
+        _ = await (openCodeTask, codebasesTask, modelsTask, agentsTask, messagesTask, tasksTask, countTask)
         
         isLoading = false
     }
     
     func refreshData() async {
         await loadCodebases()
+        await loadModels()
         await loadAgents()
         await loadTasks()
         await loadMessageCount()
@@ -165,6 +178,22 @@ class MonitorViewModel: ObservableObject {
         }
     }
     
+    func loadModels() async {
+        do {
+            let response = try await client.fetchModels()
+            availableModels = response.models
+            defaultModel = response.default
+        } catch {
+            print("Failed to load models: \(error)")
+            // Fallback models
+            availableModels = [
+                AIModel(id: "azure-anthropic/claude-opus-4-5", name: "Claude Opus 4.5", provider: "Azure AI Foundry", custom: true, capabilities: nil),
+                AIModel(id: "anthropic/claude-sonnet-4-20250514", name: "Claude Sonnet 4", provider: "Anthropic", custom: nil, capabilities: nil),
+                AIModel(id: "glm/glm-4.6", name: "GLM-4.6", provider: "Z.AI", custom: nil, capabilities: nil),
+            ]
+        }
+    }
+    
     func registerCodebase(name: String, path: String, description: String?) async throws {
         let codebase = try await client.registerCodebase(name: name, path: path, description: description)
         codebases.append(codebase)
@@ -175,8 +204,8 @@ class MonitorViewModel: ObservableObject {
         codebases.removeAll { $0.id == codebase.id }
     }
     
-    func triggerAgent(codebase: Codebase, prompt: String, agent: String = "build") async throws {
-        let response = try await client.triggerAgent(codebaseId: codebase.id, prompt: prompt, agent: agent)
+    func triggerAgent(codebase: Codebase, prompt: String, agent: String = "build", model: String? = nil) async throws {
+        let response = try await client.triggerAgent(codebaseId: codebase.id, prompt: prompt, agent: agent, model: model)
         if !response.success {
             throw A2AError.interventionFailed
         }

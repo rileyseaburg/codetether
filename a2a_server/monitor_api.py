@@ -13,6 +13,7 @@ import json
 import logging
 import sqlite3
 import threading
+import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from collections import deque
@@ -776,7 +777,9 @@ class MonitoringService:
             'messages_count': agent_data.get('messages_count', 0),
         }
         message_json = json.dumps(data)
-        logger.info(f'Broadcasting agent status to {len(self.subscribers)} subscribers: {agent_id} - {data["name"]}')
+        logger.info(
+            f'Broadcasting agent status to {len(self.subscribers)} subscribers: {agent_id} - {data["name"]}'
+        )
 
         # SSE event format with event type
         sse_message = f'event: agent_status\ndata: {message_json}\n\n'
@@ -796,10 +799,14 @@ class MonitoringService:
             'messages_count': 0,
             'last_seen': datetime.now(),
         }
-        logger.info(f'Registered agent {agent_name} ({agent_id}), total active: {len(self.active_agents)}')
+        logger.info(
+            f'Registered agent {agent_name} ({agent_id}), total active: {len(self.active_agents)}'
+        )
 
         # Broadcast to UI subscribers
-        await self.broadcast_agent_status(agent_id, self.active_agents[agent_id])
+        await self.broadcast_agent_status(
+            agent_id, self.active_agents[agent_id]
+        )
 
     def update_agent_status(self, agent_id: str, status: str):
         """Update agent status."""
@@ -1092,33 +1099,42 @@ async def export_csv(limit: int = 10000, all_messages: bool = False):
 # Import OpenCode bridge (lazy load to avoid circular imports)
 _opencode_bridge = None
 
+# Worker-synced session data: {codebase_id: [session_dicts]}
+_worker_sessions: Dict[str, List[Dict[str, Any]]] = {}
+# Worker-synced messages: {session_id: [message_dicts]}
+_worker_messages: Dict[str, List[Dict[str, Any]]] = {}
+
+
 def get_opencode_bridge():
     """Get or create the OpenCode bridge instance."""
     global _opencode_bridge
     if _opencode_bridge is None:
         try:
             from .opencode_bridge import OpenCodeBridge
+
             _opencode_bridge = OpenCodeBridge()
-            logger.info("OpenCode bridge initialized")
+            logger.info('OpenCode bridge initialized')
         except Exception as e:
-            logger.warning(f"Failed to initialize OpenCode bridge: {e}")
+            logger.warning(f'Failed to initialize OpenCode bridge: {e}')
             _opencode_bridge = None
     return _opencode_bridge
 
 
 class CodebaseRegistration(BaseModel):
     """Request model for registering a codebase."""
+
     name: str
     path: str
-    description: str = ""
+    description: str = ''
     agent_config: Dict[str, Any] = {}
     worker_id: Optional[str] = None  # Associate with a specific worker
 
 
 class AgentTrigger(BaseModel):
     """Request model for triggering an agent."""
+
     prompt: str
-    agent: str = "build"
+    agent: str = 'build'
     model: Optional[str] = None
     files: List[str] = []
     metadata: Dict[str, Any] = {}
@@ -1126,21 +1142,24 @@ class AgentTrigger(BaseModel):
 
 class AgentMessage(BaseModel):
     """Request model for sending a message to an agent."""
+
     message: str
     agent: Optional[str] = None
 
 
 class AgentTaskCreate(BaseModel):
     """Request model for creating an agent task."""
+
     title: str
     prompt: str
-    agent_type: str = "build"
+    agent_type: str = 'build'
     priority: int = 0
     metadata: Dict[str, Any] = {}
 
 
 class WatchModeConfig(BaseModel):
     """Request model for configuring watch mode."""
+
     interval: int = 5  # Seconds between task checks
 
 
@@ -1154,17 +1173,17 @@ async def opencode_status():
     bridge = get_opencode_bridge()
     if bridge is None:
         return {
-            "available": False,
-            "message": "OpenCode bridge not available",
-            "opencode_binary": None,
+            'available': False,
+            'message': 'OpenCode bridge not available',
+            'opencode_binary': None,
         }
 
     return {
-        "available": True,
-        "message": "OpenCode integration ready",
-        "opencode_binary": bridge.opencode_bin,
-        "registered_codebases": len(bridge.list_codebases()),
-        "auto_start": bridge.auto_start,
+        'available': True,
+        'message': 'OpenCode integration ready',
+        'opencode_binary': bridge.opencode_bin,
+        'registered_codebases': len(bridge.list_codebases()),
+        'auto_start': bridge.auto_start,
     }
 
 
@@ -1179,34 +1198,77 @@ async def list_models():
     # Default models always available
     default_models = [
         # Azure Anthropic (custom)
-        {"id": "azure-anthropic/claude-opus-4-5", "name": "Claude Opus 4.5 (Azure)", "provider": "Azure AI Foundry"},
+        {
+            'id': 'azure-anthropic/claude-opus-4-5',
+            'name': 'Claude Opus 4.5 (Azure)',
+            'provider': 'Azure AI Foundry',
+        },
         # Anthropic
-        {"id": "anthropic/claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "provider": "Anthropic"},
-        {"id": "anthropic/claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
-        {"id": "anthropic/claude-3-5-haiku-20241022", "name": "Claude 3.5 Haiku", "provider": "Anthropic"},
+        {
+            'id': 'anthropic/claude-sonnet-4-20250514',
+            'name': 'Claude Sonnet 4',
+            'provider': 'Anthropic',
+        },
+        {
+            'id': 'anthropic/claude-3-5-sonnet-20241022',
+            'name': 'Claude 3.5 Sonnet',
+            'provider': 'Anthropic',
+        },
+        {
+            'id': 'anthropic/claude-3-5-haiku-20241022',
+            'name': 'Claude 3.5 Haiku',
+            'provider': 'Anthropic',
+        },
         # OpenAI
-        {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
-        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
-        {"id": "openai/o1", "name": "o1", "provider": "OpenAI"},
-        {"id": "openai/o1-mini", "name": "o1 Mini", "provider": "OpenAI"},
-        {"id": "openai/o3-mini", "name": "o3 Mini", "provider": "OpenAI"},
+        {'id': 'openai/gpt-4o', 'name': 'GPT-4o', 'provider': 'OpenAI'},
+        {
+            'id': 'openai/gpt-4o-mini',
+            'name': 'GPT-4o Mini',
+            'provider': 'OpenAI',
+        },
+        {'id': 'openai/o1', 'name': 'o1', 'provider': 'OpenAI'},
+        {'id': 'openai/o1-mini', 'name': 'o1 Mini', 'provider': 'OpenAI'},
+        {'id': 'openai/o3-mini', 'name': 'o3 Mini', 'provider': 'OpenAI'},
         # Google
-        {"id": "google/gemini-2.0-flash", "name": "Gemini 2.0 Flash", "provider": "Google"},
-        {"id": "google/gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"},
-        {"id": "google/gemini-2.5-pro", "name": "Gemini 2.5 Pro", "provider": "Google"},
+        {
+            'id': 'google/gemini-2.0-flash',
+            'name': 'Gemini 2.0 Flash',
+            'provider': 'Google',
+        },
+        {
+            'id': 'google/gemini-1.5-pro',
+            'name': 'Gemini 1.5 Pro',
+            'provider': 'Google',
+        },
+        {
+            'id': 'google/gemini-2.5-pro',
+            'name': 'Gemini 2.5 Pro',
+            'provider': 'Google',
+        },
         # DeepSeek
-        {"id": "deepseek/deepseek-chat", "name": "DeepSeek Chat", "provider": "DeepSeek"},
-        {"id": "deepseek/deepseek-reasoner", "name": "DeepSeek Reasoner", "provider": "DeepSeek"},
+        {
+            'id': 'deepseek/deepseek-chat',
+            'name': 'DeepSeek Chat',
+            'provider': 'DeepSeek',
+        },
+        {
+            'id': 'deepseek/deepseek-reasoner',
+            'name': 'DeepSeek Reasoner',
+            'provider': 'DeepSeek',
+        },
         # xAI
-        {"id": "xai/grok-2", "name": "Grok 2", "provider": "xAI"},
-        {"id": "xai/grok-3", "name": "Grok 3", "provider": "xAI"},
+        {'id': 'xai/grok-2', 'name': 'Grok 2', 'provider': 'xAI'},
+        {'id': 'xai/grok-3', 'name': 'Grok 3', 'provider': 'xAI'},
+        # Z.AI (GLM Coding Plan)
+        {'id': 'glm/glm-4.6', 'name': 'GLM-4.6', 'provider': 'Z.AI'},
+        {'id': 'glm/glm-4.5', 'name': 'GLM-4.5', 'provider': 'Z.AI'},
     ]
 
     # Try to read OpenCode config for custom providers
     config_paths = [
-        os.path.expanduser("~/.config/opencode/opencode.json"),
-        os.path.expanduser("~/.opencode.json"),
-        "/app/.config/opencode/opencode.json",
+        os.path.expanduser('~/.config/opencode/opencode.json'),
+        os.path.expanduser('~/.opencode.json'),
+        '/app/.config/opencode/opencode.json',
     ]
 
     custom_models = []
@@ -1216,28 +1278,43 @@ async def list_models():
                 with open(config_path, 'r') as f:
                     config = json.load(f)
 
-                providers = config.get("provider", {})
+                providers = config.get('provider', {})
                 for provider_id, provider_config in providers.items():
-                    provider_name = provider_config.get("name", provider_id)
-                    provider_models = provider_config.get("models", {})
+                    provider_name = provider_config.get('name', provider_id)
+                    provider_models = provider_config.get('models', {})
 
                     for model_id, model_config in provider_models.items():
-                        custom_models.append({
-                            "id": f"{provider_id}/{model_id}",
-                            "name": model_config.get("name", model_id),
-                            "provider": provider_name,
-                            "custom": True,
-                            "capabilities": {
-                                "reasoning": model_config.get("reasoning", False),
-                                "attachment": model_config.get("attachment", False),
-                                "tool_call": model_config.get("tool_call", False),
+                        custom_models.append(
+                            {
+                                'id': f'{provider_id}/{model_id}',
+                                'name': model_config.get('name', model_id),
+                                'provider': provider_name,
+                                'custom': True,
+                                'capabilities': {
+                                    'reasoning': model_config.get(
+                                        'reasoning', False
+                                    ),
+                                    'attachment': model_config.get(
+                                        'attachment', False
+                                    ),
+                                    'tool_call': model_config.get(
+                                        'tool_call', False
+                                    ),
+                                },
                             }
-                        })
+                        )
             except Exception as e:
-                logger.warning(f"Failed to read OpenCode config from {config_path}: {e}")
+                logger.warning(
+                    f'Failed to read OpenCode config from {config_path}: {e}'
+                )
 
     # Custom models first, then defaults
-    return {"models": custom_models + default_models, "default": custom_models[0]["id"] if custom_models else "azure-anthropic/claude-opus-4-5"}
+    return {
+        'models': custom_models + default_models,
+        'default': custom_models[0]['id']
+        if custom_models
+        else 'azure-anthropic/claude-opus-4-5',
+    }
 
 
 @opencode_router.get('/codebases')
@@ -1245,7 +1322,9 @@ async def list_codebases():
     """List all registered codebases."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     return [cb.to_dict() for cb in bridge.list_codebases()]
 
@@ -1255,7 +1334,9 @@ async def register_codebase(registration: CodebaseRegistration):
     """Register a new codebase for agent work."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     try:
         codebase = bridge.register_codebase(
@@ -1267,15 +1348,23 @@ async def register_codebase(registration: CodebaseRegistration):
         )
 
         # Log the registration
-        worker_info = f" (worker: {registration.worker_id})" if registration.worker_id else ""
+        worker_info = (
+            f' (worker: {registration.worker_id})'
+            if registration.worker_id
+            else ''
+        )
         await monitoring_service.log_message(
-            agent_name="OpenCode Bridge",
-            content=f"Registered codebase: {registration.name} at {registration.path}{worker_info}",
-            message_type="system",
-            metadata={"codebase_id": codebase.id, "path": registration.path, "worker_id": registration.worker_id},
+            agent_name='OpenCode Bridge',
+            content=f'Registered codebase: {registration.name} at {registration.path}{worker_info}',
+            message_type='system',
+            metadata={
+                'codebase_id': codebase.id,
+                'path': registration.path,
+                'worker_id': registration.worker_id,
+            },
         )
 
-        return {"success": True, "codebase": codebase.to_dict()}
+        return {'success': True, 'codebase': codebase.to_dict()}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1285,11 +1374,13 @@ async def get_codebase(codebase_id: str):
     """Get details of a registered codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     return codebase.to_dict()
 
@@ -1299,23 +1390,25 @@ async def unregister_codebase(codebase_id: str):
     """Unregister a codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     success = bridge.unregister_codebase(codebase_id)
 
     if success:
         await monitoring_service.log_message(
-            agent_name="OpenCode Bridge",
-            content=f"Unregistered codebase: {codebase.name}",
-            message_type="system",
-            metadata={"codebase_id": codebase_id},
+            agent_name='OpenCode Bridge',
+            content=f'Unregistered codebase: {codebase.name}',
+            message_type='system',
+            metadata={'codebase_id': codebase_id},
         )
 
-    return {"success": success}
+    return {'success': success}
 
 
 @opencode_router.post('/codebases/{codebase_id}/trigger')
@@ -1323,14 +1416,17 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     """Trigger an OpenCode agent to work on a codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     # Create trigger request
     from .opencode_bridge import AgentTriggerRequest
+
     request = AgentTriggerRequest(
         codebase_id=codebase_id,
         prompt=trigger.prompt,
@@ -1346,13 +1442,13 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     # Log the trigger
     if response.success:
         await monitoring_service.log_message(
-            agent_name="OpenCode Bridge",
+            agent_name='OpenCode Bridge',
             content=f"Triggered agent '{trigger.agent}' on {codebase.name}: {trigger.prompt[:100]}...",
-            message_type="system",
+            message_type='system',
             metadata={
-                "codebase_id": codebase_id,
-                "agent": trigger.agent,
-                "session_id": response.session_id,
+                'codebase_id': codebase_id,
+                'agent': trigger.agent,
+                'session_id': response.session_id,
             },
         )
 
@@ -1364,11 +1460,13 @@ async def send_agent_message(codebase_id: str, msg: AgentMessage):
     """Send a follow-up message to an active agent session."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     response = await bridge.send_message(
         codebase_id=codebase_id,
@@ -1384,20 +1482,22 @@ async def interrupt_agent(codebase_id: str):
     """Interrupt the current agent task."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     success = await bridge.interrupt_agent(codebase_id)
 
     if success:
         codebase = bridge.get_codebase(codebase_id)
         await monitoring_service.log_message(
-            agent_name="OpenCode Bridge",
-            content=f"Interrupted agent on {codebase.name if codebase else codebase_id}",
-            message_type="system",
-            metadata={"codebase_id": codebase_id},
+            agent_name='OpenCode Bridge',
+            content=f'Interrupted agent on {codebase.name if codebase else codebase_id}',
+            message_type='system',
+            metadata={'codebase_id': codebase_id},
         )
 
-    return {"success": success}
+    return {'success': success}
 
 
 @opencode_router.post('/codebases/{codebase_id}/stop')
@@ -1405,20 +1505,22 @@ async def stop_agent(codebase_id: str):
     """Stop the OpenCode agent for a codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     success = await bridge.stop_agent(codebase_id)
 
     if success:
         codebase = bridge.get_codebase(codebase_id)
         await monitoring_service.log_message(
-            agent_name="OpenCode Bridge",
-            content=f"Stopped agent for {codebase.name if codebase else codebase_id}",
-            message_type="system",
-            metadata={"codebase_id": codebase_id},
+            agent_name='OpenCode Bridge',
+            content=f'Stopped agent for {codebase.name if codebase else codebase_id}',
+            message_type='system',
+            metadata={'codebase_id': codebase_id},
         )
 
-    return {"success": success}
+    return {'success': success}
 
 
 @opencode_router.get('/codebases/{codebase_id}/status')
@@ -1426,11 +1528,13 @@ async def get_agent_status(codebase_id: str):
     """Get the current status of an agent."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     status = await bridge.get_agent_status(codebase_id)
     if not status:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     return status
 
@@ -1449,65 +1553,75 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge._codebases.get(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     # For remote workers, check if there are pending tasks and return task-based events
     if codebase.worker_id and not codebase.opencode_port:
+
         async def remote_event_generator():
             """Stream events for remote worker codebases from completed tasks."""
-            yield f"event: connected\ndata: {json.dumps({'codebase_id': codebase_id, 'status': 'connected', 'remote': True, 'worker_id': codebase.worker_id})}\n\n"
+            yield f'event: connected\ndata: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": True, "worker_id": codebase.worker_id})}\n\n'
 
             # Check for recent completed tasks and stream their results
             all_tasks = bridge.list_tasks(codebase_id=codebase_id)
-            tasks = [{'status': t.status.value, 'result': t.result, 'title': t.title} for t in all_tasks[:10]]
+            tasks = [
+                {'status': t.status.value, 'result': t.result, 'title': t.title}
+                for t in all_tasks[:10]
+            ]
             for task in tasks:
                 if task.get('status') == 'completed' and task.get('result'):
                     try:
                         # Parse and stream stored task results as events
-                        result_data = json.loads(task['result']) if isinstance(task['result'], str) else task['result']
+                        result_data = (
+                            json.loads(task['result'])
+                            if isinstance(task['result'], str)
+                            else task['result']
+                        )
                         if isinstance(result_data, list):
                             for event in result_data:
                                 event_type = event.get('type', 'message')
-                                yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+                                yield f'event: {event_type}\ndata: {json.dumps(event)}\n\n'
                         else:
-                            yield f"event: message\ndata: {json.dumps(result_data)}\n\n"
+                            yield f'event: message\ndata: {json.dumps(result_data)}\n\n'
                     except (json.JSONDecodeError, TypeError):
-                        yield f"event: message\ndata: {json.dumps({'type': 'text', 'content': str(task['result'])})}\n\n"
+                        yield f'event: message\ndata: {json.dumps({"type": "text", "content": str(task["result"])})}\n\n'
 
-            yield f"event: status\ndata: {json.dumps({'status': 'idle', 'message': 'Remote worker codebase - results from completed tasks'})}\n\n"
+            yield f'event: status\ndata: {json.dumps({"status": "idle", "message": "Remote worker codebase - results from completed tasks"})}\n\n'
 
         return StreamingResponse(
             remote_event_generator(),
-            media_type="text/event-stream",
+            media_type='text/event-stream',
             headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
             },
         )
 
     if not codebase.opencode_port:
-        raise HTTPException(status_code=400, detail="Agent not running")
+        raise HTTPException(status_code=400, detail='Agent not running')
 
     async def event_generator():
         """Proxy events from OpenCode SSE endpoint."""
-        base_url = f"http://localhost:{codebase.opencode_port}"
+        base_url = f'http://localhost:{codebase.opencode_port}'
 
-        yield f"event: connected\ndata: {json.dumps({'codebase_id': codebase_id, 'status': 'connected'})}\n\n"
+        yield f'event: connected\ndata: {json.dumps({"codebase_id": codebase_id, "status": "connected"})}\n\n'
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    f"{base_url}/event",
-                    params={"directory": codebase.path},
+                    f'{base_url}/event',
+                    params={'directory': codebase.path},
                     timeout=aiohttp.ClientTimeout(total=None),
                 ) as resp:
                     if resp.status != 200:
-                        yield f"event: error\ndata: {json.dumps({'error': 'Failed to connect to OpenCode'})}\n\n"
+                        yield f'event: error\ndata: {json.dumps({"error": "Failed to connect to OpenCode"})}\n\n'
                         return
 
                     async for line in resp.content:
@@ -1519,32 +1633,36 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             try:
                                 event_data = json.loads(line_text[5:].strip())
                                 # Transform and forward the event
-                                transformed = transform_opencode_event(event_data, codebase_id)
+                                transformed = transform_opencode_event(
+                                    event_data, codebase_id
+                                )
                                 if transformed:
-                                    yield f"event: {transformed['event_type']}\ndata: {json.dumps(transformed)}\n\n"
+                                    yield f'event: {transformed["event_type"]}\ndata: {json.dumps(transformed)}\n\n'
                             except json.JSONDecodeError:
                                 pass
                         elif line_text:
-                            yield f"data: {line_text}\n\n"
+                            yield f'data: {line_text}\n\n'
 
         except asyncio.CancelledError:
-            logger.info(f"Event stream cancelled for {codebase_id}")
+            logger.info(f'Event stream cancelled for {codebase_id}')
         except Exception as e:
-            logger.error(f"Error streaming events: {e}")
-            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+            logger.error(f'Error streaming events: {e}')
+            yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/event-stream",
+        media_type='text/event-stream',
         headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
         },
     )
 
 
-def transform_opencode_event(event: Dict[str, Any], codebase_id: str) -> Optional[Dict[str, Any]]:
+def transform_opencode_event(
+    event: Dict[str, Any], codebase_id: str
+) -> Optional[Dict[str, Any]]:
     """Transform OpenCode events into UI-friendly format."""
     event_type = event.get('type', '')
     properties = event.get('properties', {})
@@ -1680,33 +1798,39 @@ async def get_session_messages(codebase_id: str, limit: int = 50):
 
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge._codebases.get(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     if not codebase.opencode_port or not codebase.session_id:
-        return {"messages": [], "session_id": None}
+        return {'messages': [], 'session_id': None}
 
     try:
-        base_url = f"http://localhost:{codebase.opencode_port}"
+        base_url = f'http://localhost:{codebase.opencode_port}'
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"{base_url}/session/{codebase.session_id}/message",
-                params={"limit": limit, "directory": codebase.path},
+                f'{base_url}/session/{codebase.session_id}/message',
+                params={'limit': limit, 'directory': codebase.path},
             ) as resp:
                 if resp.status == 200:
                     messages = await resp.json()
-                    return {"messages": messages, "session_id": codebase.session_id}
-                return {"messages": [], "error": f"Status {resp.status}"}
+                    return {
+                        'messages': messages,
+                        'session_id': codebase.session_id,
+                    }
+                return {'messages': [], 'error': f'Status {resp.status}'}
     except Exception as e:
-        return {"messages": [], "error": str(e)}
+        return {'messages': [], 'error': str(e)}
 
 
 # ========================================
 # Agent Task Management Endpoints
 # ========================================
+
 
 @opencode_router.get('/tasks')
 async def list_all_tasks(
@@ -1716,7 +1840,9 @@ async def list_all_tasks(
     """List all agent tasks, optionally filtered by codebase or status."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     from .opencode_bridge import AgentTaskStatus
 
@@ -1725,7 +1851,9 @@ async def list_all_tasks(
         try:
             task_status = AgentTaskStatus(status)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+            raise HTTPException(
+                status_code=400, detail=f'Invalid status: {status}'
+            )
 
     tasks = bridge.list_tasks(codebase_id=codebase_id, status=task_status)
     return [t.to_dict() for t in tasks]
@@ -1736,11 +1864,13 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
     """Create a new task for an agent to work on."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     task = bridge.create_task(
         codebase_id=codebase_id,
@@ -1752,17 +1882,17 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
     )
 
     if not task:
-        raise HTTPException(status_code=500, detail="Failed to create task")
+        raise HTTPException(status_code=500, detail='Failed to create task')
 
     # Log the task creation
     await monitoring_service.log_message(
-        agent_name="OpenCode Bridge",
-        content=f"Task created: {task_data.title}",
-        message_type="system",
-        metadata={"task_id": task.id, "codebase_id": codebase_id},
+        agent_name='OpenCode Bridge',
+        content=f'Task created: {task_data.title}',
+        message_type='system',
+        metadata={'task_id': task.id, 'codebase_id': codebase_id},
     )
 
-    return {"success": True, "task": task.to_dict()}
+    return {'success': True, 'task': task.to_dict()}
 
 
 @opencode_router.get('/codebases/{codebase_id}/tasks')
@@ -1770,7 +1900,9 @@ async def list_codebase_tasks(codebase_id: str, status: Optional[str] = None):
     """List all tasks for a specific codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     from .opencode_bridge import AgentTaskStatus
 
@@ -1779,7 +1911,9 @@ async def list_codebase_tasks(codebase_id: str, status: Optional[str] = None):
         try:
             task_status = AgentTaskStatus(status)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+            raise HTTPException(
+                status_code=400, detail=f'Invalid status: {status}'
+            )
 
     tasks = bridge.list_tasks(codebase_id=codebase_id, status=task_status)
     return [t.to_dict() for t in tasks]
@@ -1790,11 +1924,13 @@ async def get_task(task_id: str):
     """Get details of a specific task."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     task = bridge.get_task(task_id)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail='Task not found')
 
     return task.to_dict()
 
@@ -1804,21 +1940,381 @@ async def cancel_task(task_id: str):
     """Cancel a pending task."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     success = bridge.cancel_task(task_id)
     if not success:
-        raise HTTPException(status_code=400, detail="Cannot cancel task (may already be running or completed)")
+        raise HTTPException(
+            status_code=400,
+            detail='Cannot cancel task (may already be running or completed)',
+        )
 
-    return {"success": True, "message": "Task cancelled"}
+    return {'success': True, 'message': 'Task cancelled'}
+
+
+# ========================================
+# Session Management Endpoints
+# ========================================
+
+
+class SessionResumeRequest(BaseModel):
+    """Request to resume a session."""
+    prompt: Optional[str] = None
+    agent: str = "build"
+    model: Optional[str] = None
+
+
+@opencode_router.get('/codebases/{codebase_id}/sessions')
+async def list_sessions(codebase_id: str):
+    """List all sessions for a codebase from OpenCode's local storage or worker sync."""
+    import aiohttp
+
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # Check if we have worker-synced sessions first (for remote codebases)
+    if codebase_id in _worker_sessions and _worker_sessions[codebase_id]:
+        return {'sessions': _worker_sessions[codebase_id], 'source': 'worker_sync'}
+
+    # If there's a running OpenCode instance, query its API
+    if codebase.opencode_port:
+        try:
+            base_url = f'http://localhost:{codebase.opencode_port}'
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f'{base_url}/session',
+                    params={'directory': codebase.path},
+                ) as resp:
+                    if resp.status == 200:
+                        sessions = await resp.json()
+                        return {'sessions': sessions, 'source': 'opencode_api'}
+        except Exception as e:
+            logger.warning(f'Failed to query OpenCode API: {e}')
+
+    # Fallback: Read sessions from OpenCode's local state directory
+    sessions = await _read_local_sessions(codebase.path)
+    return {'sessions': sessions, 'source': 'local_state'}
+
+
+class SessionSyncRequest(BaseModel):
+    """Request model for syncing sessions from a worker."""
+    worker_id: str
+    sessions: List[Dict[str, Any]]
+
+
+@opencode_router.post('/codebases/{codebase_id}/sessions/sync')
+async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
+    """Receive synced sessions from a worker."""
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # Verify worker_id matches
+    if codebase.worker_id and codebase.worker_id != request.worker_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f'Worker {request.worker_id} not authorized for codebase {codebase_id}'
+        )
+
+    # Store the synced sessions
+    _worker_sessions[codebase_id] = request.sessions
+
+    logger.info(f'Synced {len(request.sessions)} sessions for codebase {codebase_id} from worker {request.worker_id}')
+    return {'success': True, 'sessions_count': len(request.sessions)}
+
+
+class MessageSyncRequest(BaseModel):
+    """Request model for syncing messages from a worker."""
+    worker_id: str
+    messages: List[Dict[str, Any]]
+
+
+@opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/messages/sync')
+async def sync_session_messages(codebase_id: str, session_id: str, request: MessageSyncRequest):
+    """Receive synced messages from a worker."""
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # Verify worker_id matches
+    if codebase.worker_id and codebase.worker_id != request.worker_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f'Worker {request.worker_id} not authorized for codebase {codebase_id}'
+        )
+
+    # Store the synced messages
+    _worker_messages[session_id] = request.messages
+
+    return {'success': True, 'messages_count': len(request.messages)}
+
+
+@opencode_router.get('/codebases/{codebase_id}/sessions/{session_id}')
+async def get_session(codebase_id: str, session_id: str):
+    """Get details of a specific session."""
+    import aiohttp
+
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # If there's a running OpenCode instance, query its API
+    if codebase.opencode_port:
+        try:
+            base_url = f'http://localhost:{codebase.opencode_port}'
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f'{base_url}/session/{session_id}',
+                    params={'directory': codebase.path},
+                ) as resp:
+                    if resp.status == 200:
+                        session_data = await resp.json()
+                        return session_data
+        except Exception as e:
+            logger.warning(f'Failed to query OpenCode API: {e}')
+
+    # Fallback: Read from local state
+    session_data = await _read_local_session(codebase.path, session_id)
+    if session_data:
+        return session_data
+
+    raise HTTPException(status_code=404, detail='Session not found')
+
+
+@opencode_router.get('/codebases/{codebase_id}/sessions/{session_id}/messages')
+async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: int = 100):
+    """Get messages from a specific session."""
+    import aiohttp
+
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # Check if we have worker-synced messages
+    if session_id in _worker_messages and _worker_messages[session_id]:
+        messages = _worker_messages[session_id][:limit]
+        return {'messages': messages, 'session_id': session_id, 'source': 'worker_sync'}
+
+    # If there's a running OpenCode instance, query its API
+    if codebase.opencode_port:
+        try:
+            base_url = f'http://localhost:{codebase.opencode_port}'
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f'{base_url}/session/{session_id}/message',
+                    params={'directory': codebase.path, 'limit': limit},
+                ) as resp:
+                    if resp.status == 200:
+                        messages = await resp.json()
+                        return {'messages': messages, 'session_id': session_id}
+        except Exception as e:
+            logger.warning(f'Failed to query OpenCode API: {e}')
+
+    # Fallback: Read from local state
+    messages = await _read_local_session_messages(codebase.path, session_id)
+    return {'messages': messages, 'session_id': session_id, 'source': 'local_state'}
+
+
+@opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/resume')
+async def resume_session(codebase_id: str, session_id: str, request: SessionResumeRequest):
+    """Resume an old session and optionally send a new prompt."""
+    import aiohttp
+
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # For remote workers, create a task with the session_id in metadata
+    if codebase.worker_id and not codebase.opencode_port:
+        task = bridge.create_task(
+            codebase_id=codebase_id,
+            title=f"Resume session: {request.prompt[:50] if request.prompt else 'Continue'}",
+            prompt=request.prompt or "Continue where we left off",
+            agent_type=request.agent,
+            metadata={
+                'resume_session_id': session_id,
+                'model': request.model,
+            }
+        )
+        return {
+            'success': True,
+            'message': f'Task queued to resume session {session_id}',
+            'task_id': task.id if task else None,
+            'session_id': session_id,
+        }
+
+    # For local codebases with running OpenCode, use the API
+    if codebase.opencode_port:
+        try:
+            base_url = f'http://localhost:{codebase.opencode_port}'
+            async with aiohttp.ClientSession() as session:
+                # First, initialize the session
+                async with session.post(
+                    f'{base_url}/session/{session_id}/init',
+                    params={'directory': codebase.path},
+                ) as resp:
+                    if resp.status != 200:
+                        error = await resp.text()
+                        raise HTTPException(status_code=resp.status, detail=f'Failed to init session: {error}')
+
+                # If there's a prompt, send a message
+                if request.prompt:
+                    async with session.post(
+                        f'{base_url}/session/{session_id}/message',
+                        params={'directory': codebase.path},
+                        json={'content': request.prompt, 'agent': request.agent},
+                    ) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            # Update codebase session_id
+                            codebase.session_id = session_id
+                            return {
+                                'success': True,
+                                'message': 'Session resumed',
+                                'session_id': session_id,
+                                'response': result,
+                            }
+                else:
+                    # Update codebase session_id
+                    codebase.session_id = session_id
+                    return {
+                        'success': True,
+                        'message': 'Session initialized',
+                        'session_id': session_id,
+                    }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f'Failed to resume session: {e}')
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # If no running OpenCode, start one with the session
+    from .opencode_bridge import AgentTriggerRequest
+
+    trigger_request = AgentTriggerRequest(
+        codebase_id=codebase_id,
+        prompt=request.prompt or "Continue the conversation",
+        agent=request.agent,
+        model=request.model,
+        metadata={'resume_session_id': session_id},
+    )
+
+    response = await bridge.trigger_agent(trigger_request)
+    return {
+        'success': response.success,
+        'message': 'Session resumed with new OpenCode instance',
+        'session_id': session_id,
+        'new_session_id': response.session_id,
+        'error': response.error,
+    }
+
+
+async def _read_local_sessions(codebase_path: str) -> List[Dict[str, Any]]:
+    """Read sessions from OpenCode's local state directory."""
+    import glob
+
+    sessions = []
+    # OpenCode stores state in .opencode directory
+    state_dir = os.path.join(codebase_path, '.opencode', 'state')
+
+    if not os.path.exists(state_dir):
+        return sessions
+
+    # Look for session files
+    session_files = glob.glob(os.path.join(state_dir, 'session', '*.json'))
+
+    for session_file in session_files:
+        try:
+            with open(session_file, 'r') as f:
+                session_data = json.load(f)
+                sessions.append({
+                    'id': session_data.get('id', os.path.basename(session_file).replace('.json', '')),
+                    'created': session_data.get('created'),
+                    'updated': session_data.get('updated'),
+                    'title': session_data.get('title', 'Untitled Session'),
+                    'agent': session_data.get('agent'),
+                    'model': session_data.get('model'),
+                    'messageCount': len(session_data.get('messages', [])),
+                })
+        except Exception as e:
+            logger.warning(f'Failed to read session file {session_file}: {e}')
+
+    # Sort by updated time, most recent first
+    sessions.sort(key=lambda s: s.get('updated', ''), reverse=True)
+    return sessions
+
+
+async def _read_local_session(codebase_path: str, session_id: str) -> Optional[Dict[str, Any]]:
+    """Read a specific session from OpenCode's local state directory."""
+    session_file = os.path.join(codebase_path, '.opencode', 'state', 'session', f'{session_id}.json')
+
+    if not os.path.exists(session_file):
+        return None
+
+    try:
+        with open(session_file, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f'Failed to read session file {session_file}: {e}')
+        return None
+
+
+async def _read_local_session_messages(codebase_path: str, session_id: str) -> List[Dict[str, Any]]:
+    """Read messages from a session's local state."""
+    session_data = await _read_local_session(codebase_path, session_id)
+    if session_data:
+        return session_data.get('messages', [])
+    return []
 
 
 # ========================================
 # Watch Mode Endpoints (Persistent Workers)
 # ========================================
 
+
 @opencode_router.post('/codebases/{codebase_id}/watch/start')
-async def start_watch_mode(codebase_id: str, config: Optional[WatchModeConfig] = None):
+async def start_watch_mode(
+    codebase_id: str, config: Optional[WatchModeConfig] = None
+):
     """
     Start watch mode for a codebase - agent will automatically process tasks.
 
@@ -1826,29 +2322,33 @@ async def start_watch_mode(codebase_id: str, config: Optional[WatchModeConfig] =
     """
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     interval = config.interval if config else 5
 
     success = await bridge.start_watch_mode(codebase_id, interval=interval)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to start watch mode")
+        raise HTTPException(
+            status_code=500, detail='Failed to start watch mode'
+        )
 
     await monitoring_service.log_message(
-        agent_name="OpenCode Bridge",
-        content=f"Watch mode started for {codebase.name} (interval: {interval}s)",
-        message_type="system",
-        metadata={"codebase_id": codebase_id, "interval": interval},
+        agent_name='OpenCode Bridge',
+        content=f'Watch mode started for {codebase.name} (interval: {interval}s)',
+        message_type='system',
+        metadata={'codebase_id': codebase_id, 'interval': interval},
     )
 
     return {
-        "success": True,
-        "message": f"Watch mode started for {codebase.name}",
-        "interval": interval,
+        'success': True,
+        'message': f'Watch mode started for {codebase.name}',
+        'interval': interval,
     }
 
 
@@ -1857,24 +2357,29 @@ async def stop_watch_mode(codebase_id: str):
     """Stop watch mode for a codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
     success = await bridge.stop_watch_mode(codebase_id)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to stop watch mode")
+        raise HTTPException(status_code=500, detail='Failed to stop watch mode')
 
     await monitoring_service.log_message(
-        agent_name="OpenCode Bridge",
-        content=f"Watch mode stopped for {codebase.name}",
-        message_type="system",
-        metadata={"codebase_id": codebase_id},
+        agent_name='OpenCode Bridge',
+        content=f'Watch mode stopped for {codebase.name}',
+        message_type='system',
+        metadata={'codebase_id': codebase_id},
     )
 
-    return {"success": True, "message": f"Watch mode stopped for {codebase.name}"}
+    return {
+        'success': True,
+        'message': f'Watch mode stopped for {codebase.name}',
+    }
 
 
 @opencode_router.get('/codebases/{codebase_id}/watch/status')
@@ -1882,25 +2387,41 @@ async def get_watch_status(codebase_id: str):
     """Get watch mode status for a codebase."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
-        raise HTTPException(status_code=404, detail="Codebase not found")
+        raise HTTPException(status_code=404, detail='Codebase not found')
 
-    pending_tasks = bridge.list_tasks(codebase_id=codebase_id, status=bridge._tasks.__class__.PENDING if hasattr(bridge._tasks, '__class__') else None)
+    pending_tasks = bridge.list_tasks(
+        codebase_id=codebase_id,
+        status=bridge._tasks.__class__.PENDING
+        if hasattr(bridge._tasks, '__class__')
+        else None,
+    )
     from .opencode_bridge import AgentTaskStatus
-    pending_count = len(bridge.list_tasks(codebase_id=codebase_id, status=AgentTaskStatus.PENDING))
-    running_count = len(bridge.list_tasks(codebase_id=codebase_id, status=AgentTaskStatus.RUNNING))
+
+    pending_count = len(
+        bridge.list_tasks(
+            codebase_id=codebase_id, status=AgentTaskStatus.PENDING
+        )
+    )
+    running_count = len(
+        bridge.list_tasks(
+            codebase_id=codebase_id, status=AgentTaskStatus.RUNNING
+        )
+    )
 
     return {
-        "codebase_id": codebase_id,
-        "name": codebase.name,
-        "watch_mode": codebase.watch_mode,
-        "status": codebase.status.value,
-        "interval": codebase.watch_interval,
-        "pending_tasks": pending_count,
-        "running_tasks": running_count,
+        'codebase_id': codebase_id,
+        'name': codebase.name,
+        'watch_mode': codebase.watch_mode,
+        'status': codebase.status.value,
+        'interval': codebase.watch_interval,
+        'pending_tasks': pending_count,
+        'running_tasks': running_count,
     }
 
 
@@ -1941,6 +2462,7 @@ _registered_workers: Dict[str, Dict[str, Any]] = {}
 
 class WorkerRegistration(BaseModel):
     """Worker registration request."""
+
     worker_id: str
     name: str
     capabilities: List[str] = []
@@ -1949,6 +2471,7 @@ class WorkerRegistration(BaseModel):
 
 class TaskStatusUpdate(BaseModel):
     """Task status update from worker."""
+
     status: str
     worker_id: str
     result: Optional[str] = None
@@ -1959,27 +2482,29 @@ class TaskStatusUpdate(BaseModel):
 async def register_worker(registration: WorkerRegistration):
     """Register a worker with the A2A server."""
     worker_info = {
-        "worker_id": registration.worker_id,
-        "name": registration.name,
-        "capabilities": registration.capabilities,
-        "hostname": registration.hostname,
-        "registered_at": datetime.utcnow().isoformat(),
-        "last_seen": datetime.utcnow().isoformat(),
-        "status": "active",
+        'worker_id': registration.worker_id,
+        'name': registration.name,
+        'capabilities': registration.capabilities,
+        'hostname': registration.hostname,
+        'registered_at': datetime.utcnow().isoformat(),
+        'last_seen': datetime.utcnow().isoformat(),
+        'status': 'active',
     }
 
     _registered_workers[registration.worker_id] = worker_info
 
-    logger.info(f"Worker registered: {registration.name} (ID: {registration.worker_id})")
+    logger.info(
+        f'Worker registered: {registration.name} (ID: {registration.worker_id})'
+    )
 
     await monitoring_service.log_message(
-        agent_name="Worker Registry",
+        agent_name='Worker Registry',
         content=f"Worker '{registration.name}' connected from {registration.hostname}",
-        message_type="system",
+        message_type='system',
         metadata=worker_info,
     )
 
-    return {"success": True, "worker": worker_info}
+    return {'success': True, 'worker': worker_info}
 
 
 @opencode_router.post('/workers/{worker_id}/unregister')
@@ -1987,17 +2512,19 @@ async def unregister_worker(worker_id: str):
     """Unregister a worker."""
     if worker_id in _registered_workers:
         worker_info = _registered_workers.pop(worker_id)
-        logger.info(f"Worker unregistered: {worker_info.get('name')} (ID: {worker_id})")
-
-        await monitoring_service.log_message(
-            agent_name="Worker Registry",
-            content=f"Worker '{worker_info.get('name')}' disconnected",
-            message_type="system",
+        logger.info(
+            f'Worker unregistered: {worker_info.get("name")} (ID: {worker_id})'
         )
 
-        return {"success": True, "message": "Worker unregistered"}
+        await monitoring_service.log_message(
+            agent_name='Worker Registry',
+            content=f"Worker '{worker_info.get('name')}' disconnected",
+            message_type='system',
+        )
 
-    return {"success": False, "message": "Worker not found"}
+        return {'success': True, 'message': 'Worker unregistered'}
+
+    return {'success': False, 'message': 'Worker not found'}
 
 
 @opencode_router.get('/workers')
@@ -2011,16 +2538,18 @@ async def get_worker(worker_id: str):
     """Get worker details."""
     if worker_id in _registered_workers:
         return _registered_workers[worker_id]
-    raise HTTPException(status_code=404, detail="Worker not found")
+    raise HTTPException(status_code=404, detail='Worker not found')
 
 
 @opencode_router.post('/workers/{worker_id}/heartbeat')
 async def worker_heartbeat(worker_id: str):
     """Update worker last-seen timestamp."""
     if worker_id in _registered_workers:
-        _registered_workers[worker_id]["last_seen"] = datetime.utcnow().isoformat()
-        return {"success": True}
-    raise HTTPException(status_code=404, detail="Worker not found")
+        _registered_workers[worker_id]['last_seen'] = (
+            datetime.utcnow().isoformat()
+        )
+        return {'success': True}
+    raise HTTPException(status_code=404, detail='Worker not found')
 
 
 @opencode_router.put('/tasks/{task_id}/status')
@@ -2028,14 +2557,18 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
     """Update task status (called by workers)."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     from .opencode_bridge import AgentTaskStatus
 
     try:
         status = AgentTaskStatus(update.status)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {update.status}")
+        raise HTTPException(
+            status_code=400, detail=f'Invalid status: {update.status}'
+        )
 
     task = bridge.update_task_status(
         task_id=task_id,
@@ -2045,20 +2578,26 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
     )
 
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail='Task not found')
 
     # Update worker last-seen
     if update.worker_id in _registered_workers:
-        _registered_workers[update.worker_id]["last_seen"] = datetime.utcnow().isoformat()
+        _registered_workers[update.worker_id]['last_seen'] = (
+            datetime.utcnow().isoformat()
+        )
 
     await monitoring_service.log_message(
-        agent_name="Task Manager",
+        agent_name='Task Manager',
         content=f"Task '{task.title}' status: {update.status}",
-        message_type="system",
-        metadata={"task_id": task_id, "status": update.status, "worker_id": update.worker_id},
+        message_type='system',
+        metadata={
+            'task_id': task_id,
+            'status': update.status,
+            'worker_id': update.worker_id,
+        },
     )
 
-    return {"success": True, "task": task.to_dict()}
+    return {'success': True, 'task': task.to_dict()}
 
 
 @opencode_router.post('/tasks/{task_id}/cancel')
@@ -2066,14 +2605,327 @@ async def cancel_task(task_id: str):
     """Cancel a pending task."""
     bridge = get_opencode_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail="OpenCode bridge not available")
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
 
     success = bridge.cancel_task(task_id)
     if not success:
-        raise HTTPException(status_code=400, detail="Cannot cancel task (may already be completed or not found)")
+        raise HTTPException(
+            status_code=400,
+            detail='Cannot cancel task (may already be completed or not found)',
+        )
 
-    return {"success": True, "message": "Task cancelled"}
+    return {'success': True, 'message': 'Task cancelled'}
+
+
+# ========================================
+# Authentication & User Session Management
+# ========================================
+
+# Import Keycloak auth service
+_keycloak_auth = None
+
+
+def get_keycloak_auth():
+    """Get or create the Keycloak auth service instance."""
+    global _keycloak_auth
+    if _keycloak_auth is None:
+        try:
+            from .keycloak_auth import keycloak_auth
+
+            _keycloak_auth = keycloak_auth
+            logger.info('Keycloak auth service initialized')
+        except Exception as e:
+            logger.warning(f'Failed to initialize Keycloak auth: {e}')
+            _keycloak_auth = None
+    return _keycloak_auth
+
+
+# Auth router
+auth_router = APIRouter(prefix='/v1/auth', tags=['authentication'])
+
+
+class LoginRequest(BaseModel):
+    """Login request model."""
+
+    username: str
+    password: str
+    device_id: Optional[str] = None
+    device_name: Optional[str] = None
+    device_type: Optional[str] = None  # ios, macos, web, linux
+
+
+class RefreshRequest(BaseModel):
+    """Token refresh request model."""
+
+    refresh_token: str
+
+
+class CodebaseAccessRequest(BaseModel):
+    """Request to associate/check codebase access."""
+
+    codebase_id: str
+    role: str = 'owner'
+
+
+@auth_router.post('/login')
+async def login(request: LoginRequest, req: Request):
+    """Authenticate user with username/password."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    device_info = {
+        'device_id': request.device_id or str(uuid.uuid4()),
+        'device_name': request.device_name,
+        'device_type': request.device_type,
+        'ip_address': req.client.host if req.client else None,
+        'user_agent': req.headers.get('user-agent'),
+    }
+
+    session = await auth.authenticate_password(
+        username=request.username,
+        password=request.password,
+        device_info=device_info,
+    )
+
+    return {
+        'success': True,
+        'session': session.to_dict(),
+        'access_token': session.access_token,
+        'refresh_token': session.refresh_token,
+        'expires_at': session.expires_at.isoformat(),
+    }
+
+
+@auth_router.post('/refresh')
+async def refresh_token(request: RefreshRequest):
+    """Refresh an expired session."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    session = await auth.refresh_session(request.refresh_token)
+
+    return {
+        'success': True,
+        'session': session.to_dict(),
+        'access_token': session.access_token,
+        'refresh_token': session.refresh_token,
+        'expires_at': session.expires_at.isoformat(),
+    }
+
+
+@auth_router.post('/logout')
+async def logout(
+    session_id: Optional[str] = None, authorization: Optional[str] = None
+):
+    """Logout and invalidate session."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    if session_id:
+        await auth.logout(session_id)
+
+    return {'success': True, 'message': 'Logged out'}
+
+
+@auth_router.get('/session')
+async def get_session(session_id: str):
+    """Get current session info."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    session = await auth.get_session(session_id)
+    if not session:
+        raise HTTPException(
+            status_code=404, detail='Session not found or expired'
+        )
+
+    return session.to_dict()
+
+
+@auth_router.get('/sync')
+async def sync_session_state(user_id: str):
+    """Get synchronized state across all user devices."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    return auth.sync_session_state(user_id)
+
+
+@auth_router.get('/user/{user_id}/codebases')
+async def get_user_codebases(user_id: str):
+    """Get all codebases associated with a user."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    codebases = auth.get_user_codebases(user_id)
+    return [c.to_dict() for c in codebases]
+
+
+@auth_router.post('/user/{user_id}/codebases')
+async def associate_user_codebase(user_id: str, request: CodebaseAccessRequest):
+    """Associate a codebase with a user."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    # Get codebase info from bridge
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    codebase = bridge.get_codebase(request.codebase_id)
+    if not codebase:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    association = auth.associate_codebase(
+        user_id=user_id,
+        codebase_id=codebase.id,
+        codebase_name=codebase.name,
+        codebase_path=codebase.path,
+        role=request.role,
+    )
+
+    return {'success': True, 'association': association.to_dict()}
+
+
+@auth_router.delete('/user/{user_id}/codebases/{codebase_id}')
+async def remove_user_codebase(user_id: str, codebase_id: str):
+    """Remove a codebase association from a user."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    success = auth.remove_codebase_association(user_id, codebase_id)
+    return {'success': success}
+
+
+@auth_router.get('/user/{user_id}/agent-sessions')
+async def get_user_agent_sessions(user_id: str):
+    """Get all agent sessions for a user."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    sessions = auth.get_user_agent_sessions(user_id)
+    return [s.to_dict() for s in sessions]
+
+
+@auth_router.post('/user/{user_id}/agent-sessions')
+async def create_agent_session(
+    user_id: str,
+    codebase_id: str,
+    agent_type: str = 'build',
+    device_id: Optional[str] = None,
+):
+    """Create a new agent session for a user."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    # Verify user has access to codebase
+    if not auth.can_access_codebase(user_id, codebase_id):
+        raise HTTPException(
+            status_code=403, detail='User does not have access to this codebase'
+        )
+
+    session = auth.create_agent_session(
+        user_id=user_id,
+        codebase_id=codebase_id,
+        agent_type=agent_type,
+        device_id=device_id,
+    )
+
+    return {'success': True, 'session': session.to_dict()}
+
+
+@auth_router.get('/agent-sessions/{session_id}')
+async def get_agent_session(session_id: str):
+    """Get an agent session by ID."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    session = auth.get_agent_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail='Agent session not found')
+
+    return session.to_dict()
+
+
+@auth_router.delete('/agent-sessions/{session_id}')
+async def close_agent_session(session_id: str):
+    """Close an agent session."""
+    auth = get_keycloak_auth()
+    if auth is None:
+        raise HTTPException(
+            status_code=503, detail='Authentication service not available'
+        )
+
+    auth.close_agent_session(session_id)
+    return {'success': True, 'message': 'Session closed'}
+
+
+@auth_router.get('/status')
+async def auth_status():
+    """Check authentication service status."""
+    auth = get_keycloak_auth()
+
+    if auth is None:
+        return {
+            'available': False,
+            'message': 'Keycloak authentication not configured',
+            'keycloak_url': None,
+        }
+
+    return {
+        'available': True,
+        'message': 'Keycloak authentication ready',
+        'keycloak_url': auth.keycloak_url,
+        'realm': auth.realm,
+        'active_sessions': len(auth._sessions),
+        'agent_sessions': len(auth._agent_sessions),
+    }
 
 
 # Export the monitoring service, routers and helpers
-__all__ = ['monitor_router', 'opencode_router', 'monitoring_service', 'log_agent_message', 'get_opencode_bridge']
+__all__ = [
+    'monitor_router',
+    'opencode_router',
+    'auth_router',
+    'monitoring_service',
+    'log_agent_message',
+    'get_opencode_bridge',
+    'get_keycloak_auth',
+]

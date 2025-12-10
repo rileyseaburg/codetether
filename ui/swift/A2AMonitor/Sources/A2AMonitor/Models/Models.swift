@@ -652,6 +652,225 @@ struct ServerStats: Codable {
     }
 }
 
+// MARK: - AI Model
+
+struct AIModel: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let provider: String
+    let custom: Bool?
+    let capabilities: AIModelCapabilities?
+    
+    struct AIModelCapabilities: Codable, Hashable {
+        let reasoning: Bool?
+        let attachment: Bool?
+        let toolCall: Bool?
+        
+        enum CodingKeys: String, CodingKey {
+            case reasoning, attachment
+            case toolCall = "tool_call"
+        }
+    }
+    
+    var displayName: String {
+        if custom == true {
+            return "\(name) (Custom)"
+        }
+        return name
+    }
+    
+    var providerIcon: String {
+        switch provider.lowercased() {
+        case let p where p.contains("anthropic"):
+            return "brain"
+        case let p where p.contains("openai"):
+            return "sparkles"
+        case let p where p.contains("google"):
+            return "g.circle"
+        case let p where p.contains("azure"):
+            return "cloud"
+        case let p where p.contains("deepseek"):
+            return "magnifyingglass"
+        case let p where p.contains("xai"):
+            return "x.circle"
+        case let p where p.contains("z.ai") || p.contains("glm"):
+            return "wand.and.stars"
+        default:
+            return "cpu"
+        }
+    }
+}
+
+struct ModelsResponse: Codable {
+    let models: [AIModel]
+    let `default`: String?
+}
+
+// MARK: - Authentication Models
+
+struct UserSession: Codable, Identifiable {
+    let userId: String
+    let email: String
+    let username: String
+    let name: String
+    let sessionId: String
+    let expiresAt: String
+    let createdAt: String
+    let lastActivity: String
+    let deviceInfo: DeviceInfo
+    let roles: [String]
+    
+    var id: String { sessionId }
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case email, username, name
+        case sessionId = "session_id"
+        case expiresAt = "expires_at"
+        case createdAt = "created_at"
+        case lastActivity = "last_activity"
+        case deviceInfo = "device_info"
+        case roles
+    }
+    
+    var isAdmin: Bool {
+        roles.contains("a2a-admin")
+    }
+    
+    var displayName: String {
+        name.isEmpty ? username : name
+    }
+}
+
+struct DeviceInfo: Codable, Hashable {
+    let deviceId: String?
+    let deviceName: String?
+    let deviceType: String?
+    let ipAddress: String?
+    let userAgent: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case deviceName = "device_name"
+        case deviceType = "device_type"
+        case ipAddress = "ip_address"
+        case userAgent = "user_agent"
+    }
+}
+
+struct LoginResponse: Codable {
+    let success: Bool
+    let session: UserSession
+    let accessToken: String
+    let refreshToken: String?
+    let expiresAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case success, session
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresAt = "expires_at"
+    }
+}
+
+struct RefreshResponse: Codable {
+    let success: Bool
+    let session: UserSession
+    let accessToken: String
+    let refreshToken: String?
+    let expiresAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case success, session
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresAt = "expires_at"
+    }
+}
+
+struct AuthStatusResponse: Codable {
+    let available: Bool
+    let message: String
+    let keycloakUrl: String?
+    let realm: String?
+    let activeSessions: Int?
+    let agentSessions: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case available, message
+        case keycloakUrl = "keycloak_url"
+        case realm
+        case activeSessions = "active_sessions"
+        case agentSessions = "agent_sessions"
+    }
+}
+
+struct UserCodebaseAssociation: Codable, Identifiable, Hashable {
+    let userId: String
+    let codebaseId: String
+    let codebaseName: String
+    let codebasePath: String
+    let role: String
+    let createdAt: String
+    let lastAccessed: String
+    
+    var id: String { codebaseId }
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case codebaseId = "codebase_id"
+        case codebaseName = "codebase_name"
+        case codebasePath = "codebase_path"
+        case role
+        case createdAt = "created_at"
+        case lastAccessed = "last_accessed"
+    }
+}
+
+struct UserAgentSession: Codable, Identifiable, Hashable {
+    let userId: String
+    let sessionId: String
+    let codebaseId: String
+    let agentType: String
+    let opencodeSessionId: String?
+    let createdAt: String
+    let lastActivity: String
+    let deviceId: String?
+    let messageCount: Int
+    
+    var id: String { sessionId }
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case sessionId = "session_id"
+        case codebaseId = "codebase_id"
+        case agentType = "agent_type"
+        case opencodeSessionId = "opencode_session_id"
+        case createdAt = "created_at"
+        case lastActivity = "last_activity"
+        case deviceId = "device_id"
+        case messageCount = "message_count"
+    }
+}
+
+struct SyncState: Codable {
+    let userId: String
+    let activeDevices: Int
+    let sessions: [UserSession]
+    let agentSessions: [UserAgentSession]
+    let codebases: [UserCodebaseAssociation]
+    let syncedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case activeDevices = "active_devices"
+        case sessions
+        case agentSessions = "agent_sessions"
+        case codebases
+        case syncedAt = "synced_at"
+    }
+}
+
 // MARK: - Agent Event SSE Delegate
 
 class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {

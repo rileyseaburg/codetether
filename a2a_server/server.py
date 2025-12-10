@@ -19,21 +19,38 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
 
 from .models import (
-    JSONRPCRequest, JSONRPCResponse, JSONRPCError,
-    SendMessageRequest, SendMessageResponse,
-    GetTaskRequest, GetTaskResponse,
-    CancelTaskRequest, CancelTaskResponse,
-    StreamMessageRequest, TaskStatusUpdateEvent,
-    Task, TaskStatus, Message, Part,
-    LiveKitTokenRequest, LiveKitTokenResponse
+    JSONRPCRequest,
+    JSONRPCResponse,
+    JSONRPCError,
+    SendMessageRequest,
+    SendMessageResponse,
+    GetTaskRequest,
+    GetTaskResponse,
+    CancelTaskRequest,
+    CancelTaskResponse,
+    StreamMessageRequest,
+    TaskStatusUpdateEvent,
+    Task,
+    TaskStatus,
+    Message,
+    Part,
+    LiveKitTokenRequest,
+    LiveKitTokenResponse,
 )
 from .task_manager import TaskManager, InMemoryTaskManager
 from .message_broker import MessageBroker, InMemoryMessageBroker
 from .agent_card import AgentCard
-from .monitor_api import monitor_router, opencode_router, monitoring_service, log_agent_message
+from .monitor_api import (
+    monitor_router,
+    opencode_router,
+    auth_router,
+    monitoring_service,
+    log_agent_message,
+)
 
 try:
     from .livekit_bridge import create_livekit_bridge, LiveKitBridge
+
     LIVEKIT_AVAILABLE = True
 except ImportError:
     LIVEKIT_AVAILABLE = False
@@ -53,7 +70,7 @@ class A2AServer:
         agent_card: AgentCard,
         task_manager: Optional[TaskManager] = None,
         message_broker: Optional[MessageBroker] = None,
-        auth_callback: Optional[Callable[[str], bool]] = None
+        auth_callback: Optional[Callable[[str], bool]] = None,
     ):
         self.agent_card = agent_card
         self.task_manager = task_manager or InMemoryTaskManager()
@@ -66,37 +83,39 @@ class A2AServer:
             try:
                 self.livekit_bridge = create_livekit_bridge()
                 if self.livekit_bridge:
-                    logger.info("LiveKit bridge initialized successfully")
+                    logger.info('LiveKit bridge initialized successfully')
                 else:
-                    logger.info("LiveKit bridge not configured - media features disabled")
+                    logger.info(
+                        'LiveKit bridge not configured - media features disabled'
+                    )
             except Exception as e:
-                logger.warning(f"Failed to initialize LiveKit bridge: {e}")
+                logger.warning(f'Failed to initialize LiveKit bridge: {e}')
         else:
-            logger.info("LiveKit not available - media features disabled")
+            logger.info('LiveKit not available - media features disabled')
 
         # Create FastAPI app
         self.app = FastAPI(
-            title=f"A2A Server - {agent_card.card.name}",
+            title=f'A2A Server - {agent_card.card.name}',
             description=agent_card.card.description,
-            version=agent_card.card.version
+            version=agent_card.card.version,
         )
 
         # Add CORS middleware
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=['*'],
             allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
+            allow_methods=['*'],
+            allow_headers=['*'],
         )
 
         # Method handlers
         self._method_handlers: Dict[str, Callable] = {
-            "message/send": self._handle_send_message,
-            "message/stream": self._handle_stream_message,
-            "tasks/get": self._handle_get_task,
-            "tasks/cancel": self._handle_cancel_task,
-            "tasks/resubscribe": self._handle_resubscribe_task,
+            'message/send': self._handle_send_message,
+            'message/stream': self._handle_stream_message,
+            'tasks/get': self._handle_get_task,
+            'tasks/cancel': self._handle_cancel_task,
+            'tasks/resubscribe': self._handle_resubscribe_task,
         }
 
         # Active streaming connections
@@ -109,44 +128,55 @@ class A2AServer:
         self._setup_routes()
 
         # Register agent on startup (async)
-        @self.app.on_event("startup")
+        @self.app.on_event('startup')
         async def register_with_monitoring():
-            await monitoring_service.register_agent(self.agent_id, self._agent_name)
+            await monitoring_service.register_agent(
+                self.agent_id, self._agent_name
+            )
 
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        @self.app.get("/.well-known/agent-card.json")
+        @self.app.get('/.well-known/agent-card.json')
         async def get_agent_card():
             """Serve the agent card for discovery."""
             return JSONResponse(content=self.agent_card.to_dict())
 
-        @self.app.post("/")
+        @self.app.post('/')
         async def handle_jsonrpc(
             request: Request,
-            credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+            credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+                security
+            ),
         ):
             """Handle JSON-RPC 2.0 requests."""
             return await self._handle_jsonrpc_request(request, credentials)
 
-        @self.app.get("/health")
+        @self.app.get('/health')
         async def health_check():
             """Health check endpoint."""
-            return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+            return {
+                'status': 'healthy',
+                'timestamp': datetime.utcnow().isoformat(),
+            }
 
-        @self.app.get("/agents")
+        @self.app.get('/agents')
         async def discover_agents():
             """Discover other agents through the message broker."""
             agents = await self.message_broker.discover_agents()
             return [agent.model_dump() for agent in agents]
 
-        @self.app.post("/v1/livekit/token", response_model=LiveKitTokenResponse)
+        @self.app.post('/v1/livekit/token', response_model=LiveKitTokenResponse)
         async def get_livekit_token(
             token_request: LiveKitTokenRequest,
-            credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+            credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+                security
+            ),
         ):
             """Get a LiveKit access token for media sessions."""
-            return await self._handle_livekit_token_request(token_request, credentials)
+            return await self._handle_livekit_token_request(
+                token_request, credentials
+            )
 
         # Include monitoring API routes
         self.app.include_router(monitor_router)
@@ -154,10 +184,13 @@ class A2AServer:
         # Include OpenCode integration routes
         self.app.include_router(opencode_router)
 
+        # Include authentication routes
+        self.app.include_router(auth_router)
+
     async def _handle_jsonrpc_request(
         self,
         request: Request,
-        credentials: Optional[HTTPAuthorizationCredentials]
+        credentials: Optional[HTTPAuthorizationCredentials],
     ) -> Response:
         """Handle incoming JSON-RPC request."""
         try:
@@ -166,28 +199,30 @@ class A2AServer:
             try:
                 request_data = json.loads(body)
             except json.JSONDecodeError:
-                return self._create_error_response(None, -32700, "Parse error")
+                return self._create_error_response(None, -32700, 'Parse error')
 
             # Validate JSON-RPC structure
             try:
                 rpc_request = JSONRPCRequest.model_validate(request_data)
             except Exception:
                 return self._create_error_response(
-                    request_data.get("id"), -32600, "Invalid Request"
+                    request_data.get('id'), -32600, 'Invalid Request'
                 )
 
             # Check authentication if required
             if self.agent_card.card.authentication and self.auth_callback:
-                if not credentials or not self.auth_callback(credentials.credentials):
+                if not credentials or not self.auth_callback(
+                    credentials.credentials
+                ):
                     return self._create_error_response(
-                        rpc_request.id, -32001, "Authentication failed"
+                        rpc_request.id, -32001, 'Authentication failed'
                     )
 
             # Handle method
             method_handler = self._method_handlers.get(rpc_request.method)
             if not method_handler:
                 return self._create_error_response(
-                    rpc_request.id, -32601, "Method not found"
+                    rpc_request.id, -32601, 'Method not found'
                 )
 
             try:
@@ -200,62 +235,64 @@ class A2AServer:
                 return self._create_success_response(rpc_request.id, result)
 
             except Exception as e:
-                logger.error(f"Error handling method {rpc_request.method}: {e}")
+                logger.error(f'Error handling method {rpc_request.method}: {e}')
                 return self._create_error_response(
-                    rpc_request.id, -32603, f"Internal error: {str(e)}"
+                    rpc_request.id, -32603, f'Internal error: {str(e)}'
                 )
 
         except Exception as e:
-            logger.error(f"Error processing JSON-RPC request: {e}")
-            return self._create_error_response(None, -32603, "Internal error")
+            logger.error(f'Error processing JSON-RPC request: {e}')
+            return self._create_error_response(None, -32603, 'Internal error')
 
-    def _create_success_response(self, request_id: Any, result: Any) -> JSONResponse:
+    def _create_success_response(
+        self, request_id: Any, result: Any
+    ) -> JSONResponse:
         """Create a successful JSON-RPC response."""
-        response = JSONRPCResponse(
-            id=request_id,
-            result=result
-        )
+        response = JSONRPCResponse(id=request_id, result=result)
         return JSONResponse(content=response.model_dump(exclude_none=True))
 
-    def _create_error_response(self, request_id: Any, code: int, message: str) -> JSONResponse:
+    def _create_error_response(
+        self, request_id: Any, code: int, message: str
+    ) -> JSONResponse:
         """Create an error JSON-RPC response."""
         error = JSONRPCError(code=code, message=message)
-        response = JSONRPCResponse(
-            id=request_id,
-            error=error.model_dump()
-        )
+        response = JSONRPCResponse(id=request_id, error=error.model_dump())
         return JSONResponse(
             content=response.model_dump(exclude_none=True),
-            status_code=400 if code != -32603 else 500
+            status_code=400 if code != -32603 else 500,
         )
 
-    async def _handle_send_message(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_send_message(
+        self, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Handle message/send method."""
         start_time = datetime.now()
 
         try:
             request = SendMessageRequest.model_validate(params)
         except Exception as e:
-            raise ValueError(f"Invalid parameters: {e}")
+            raise ValueError(f'Invalid parameters: {e}')
 
         # Log incoming message to monitoring
-        message_text = " ".join([p.content for p in request.message.parts if p.type == "text"])
+        message_text = ' '.join(
+            [p.content for p in request.message.parts if p.type == 'text']
+        )
         await log_agent_message(
-            agent_name="External Client",
+            agent_name='External Client',
             content=message_text,
-            message_type="human",
-            metadata={"task_id": request.task_id, "skill_id": request.skill_id}
+            message_type='human',
+            metadata={'task_id': request.task_id, 'skill_id': request.skill_id},
         )
 
         # Create or get task
         if request.task_id:
             task = await self.task_manager.get_task(request.task_id)
             if not task:
-                raise ValueError(f"Task not found: {request.task_id}")
+                raise ValueError(f'Task not found: {request.task_id}')
         else:
             task = await self.task_manager.create_task(
-                title="Message processing",
-                description="Processing incoming message"
+                title='Message processing',
+                description='Processing incoming message',
             )
 
         # Update task status
@@ -264,19 +301,23 @@ class A2AServer:
         )
 
         # Process the message (this would be implemented by specific agents)
-        response_message = await self._process_message(request.message, request.skill_id)
+        response_message = await self._process_message(
+            request.message, request.skill_id
+        )
 
         # Calculate response time
         response_time = (datetime.now() - start_time).total_seconds() * 1000
 
         # Log agent response to monitoring
-        response_text = " ".join([p.content for p in response_message.parts if p.type == "text"])
+        response_text = ' '.join(
+            [p.content for p in response_message.parts if p.type == 'text']
+        )
         await log_agent_message(
             agent_name=self.agent_card.card.name,
             content=response_text,
-            message_type="agent",
-            metadata={"task_id": task.id, "skill_id": request.skill_id},
-            response_time=response_time
+            message_type='agent',
+            metadata={'task_id': task.id, 'skill_id': request.skill_id},
+            response_time=response_time,
         )
 
         # Update task as completed
@@ -286,31 +327,32 @@ class A2AServer:
 
         # Publish message event
         await self.message_broker.publish_message(
-            "external", self.agent_card.card.name, request.message
+            'external', self.agent_card.card.name, request.message
         )
 
-        response = SendMessageResponse(
-            task=task,
-            message=response_message
-        )
+        response = SendMessageResponse(task=task, message=response_message)
         return response.model_dump(mode='json')
 
-    async def _handle_stream_message(self, params: Dict[str, Any]) -> StreamingResponse:
+    async def _handle_stream_message(
+        self, params: Dict[str, Any]
+    ) -> StreamingResponse:
         """Handle message/stream method."""
         try:
             request = StreamMessageRequest.model_validate(params)
         except Exception as e:
-            raise ValueError(f"Invalid parameters: {e}")
+            raise ValueError(f'Invalid parameters: {e}')
 
         # Check if streaming is supported
-        if not (self.agent_card.card.capabilities and
-                self.agent_card.card.capabilities.streaming):
-            raise ValueError("Streaming not supported")
+        if not (
+            self.agent_card.card.capabilities
+            and self.agent_card.card.capabilities.streaming
+        ):
+            raise ValueError('Streaming not supported')
 
         # Create task
         task = await self.task_manager.create_task(
-            title="Streaming message processing",
-            description="Processing streaming message"
+            title='Streaming message processing',
+            description='Processing streaming message',
         )
 
         # Create event queue for this connection
@@ -324,7 +366,9 @@ class A2AServer:
         async def task_update_handler(event: TaskStatusUpdateEvent):
             await event_queue.put(event)
 
-        await self.task_manager.register_update_handler(task_id, task_update_handler)
+        await self.task_manager.register_update_handler(
+            task_id, task_update_handler
+        )
 
         # Start processing in background
         asyncio.create_task(self._process_streaming_message(request, task))
@@ -335,16 +379,18 @@ class A2AServer:
                 while True:
                     try:
                         # Wait for next event with timeout
-                        event = await asyncio.wait_for(event_queue.get(), timeout=30.0)
+                        event = await asyncio.wait_for(
+                            event_queue.get(), timeout=30.0
+                        )
 
                         # Format as Server-Sent Event
                         event_data = {
-                            "jsonrpc": "2.0",
-                            "id": task_id,
-                            "result": {"event": event.model_dump(mode='json')}
+                            'jsonrpc': '2.0',
+                            'id': task_id,
+                            'result': {'event': event.model_dump(mode='json')},
                         }
 
-                        yield f"data: {json.dumps(event_data)}\n\n"
+                        yield f'data: {json.dumps(event_data)}\n\n'
 
                         # Break if this is the final event
                         if event.final:
@@ -352,7 +398,7 @@ class A2AServer:
 
                     except asyncio.TimeoutError:
                         # Send keepalive
-                        yield "data: {}\n\n"
+                        yield 'data: {}\n\n'
 
             finally:
                 # Cleanup
@@ -364,15 +410,17 @@ class A2AServer:
                     except ValueError:
                         pass
 
-                await self.task_manager.unregister_update_handler(task_id, task_update_handler)
+                await self.task_manager.unregister_update_handler(
+                    task_id, task_update_handler
+                )
 
         return StreamingResponse(
             generate_events(),
-            media_type="text/event-stream",
+            media_type='text/event-stream',
             headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-            }
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            },
         )
 
     async def _handle_get_task(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -380,59 +428,66 @@ class A2AServer:
         try:
             request = GetTaskRequest.model_validate(params)
         except Exception as e:
-            raise ValueError(f"Invalid parameters: {e}")
+            raise ValueError(f'Invalid parameters: {e}')
 
         task = await self.task_manager.get_task(request.task_id)
         if not task:
-            raise ValueError(f"Task not found: {request.task_id}")
+            raise ValueError(f'Task not found: {request.task_id}')
 
         response = GetTaskResponse(task=task)
         return response.model_dump(mode='json')
 
-    async def _handle_cancel_task(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_cancel_task(
+        self, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Handle tasks/cancel method."""
         try:
             request = CancelTaskRequest.model_validate(params)
         except Exception as e:
-            raise ValueError(f"Invalid parameters: {e}")
+            raise ValueError(f'Invalid parameters: {e}')
 
         task = await self.task_manager.cancel_task(request.task_id)
         if not task:
-            raise ValueError(f"Task not found: {request.task_id}")
+            raise ValueError(f'Task not found: {request.task_id}')
 
         response = CancelTaskResponse(task=task)
         return response.model_dump(mode='json')
 
-    async def _handle_resubscribe_task(self, params: Dict[str, Any]) -> StreamingResponse:
+    async def _handle_resubscribe_task(
+        self, params: Dict[str, Any]
+    ) -> StreamingResponse:
         """Handle tasks/resubscribe method."""
-        task_id = params.get("task_id")
+        task_id = params.get('task_id')
         if not task_id:
-            raise ValueError("task_id is required")
+            raise ValueError('task_id is required')
 
         task = await self.task_manager.get_task(task_id)
         if not task:
-            raise ValueError(f"Task not found: {task_id}")
+            raise ValueError(f'Task not found: {task_id}')
 
         # This is a simplified implementation - in a real system you'd
         # need to handle reconnection to existing streams
         return await self._handle_stream_message(params)
 
-    async def _process_message(self, message: Message, skill_id: Optional[str] = None) -> Message:
+    async def _process_message(
+        self, message: Message, skill_id: Optional[str] = None
+    ) -> Message:
         """Process an incoming message. Override this in subclasses."""
         # Default implementation - echo the message back
         response_parts = []
         for part in message.parts:
-            if part.type == "text":
-                response_parts.append(Part(
-                    type="text",
-                    content=f"Received: {part.content}"
-                ))
+            if part.type == 'text':
+                response_parts.append(
+                    Part(type='text', content=f'Received: {part.content}')
+                )
             else:
                 response_parts.append(part)
 
         return Message(parts=response_parts)
 
-    async def _process_streaming_message(self, request: StreamMessageRequest, task: Task) -> None:
+    async def _process_streaming_message(
+        self, request: StreamMessageRequest, task: Task
+    ) -> None:
         """Process a streaming message with periodic updates."""
         try:
             # Update task status to working
@@ -445,13 +500,13 @@ class A2AServer:
                 await asyncio.sleep(1)  # Simulate work
                 progress = (i + 1) / 5
                 await self.task_manager.update_task_status(
-                    task.id,
-                    TaskStatus.WORKING,
-                    progress=progress
+                    task.id, TaskStatus.WORKING, progress=progress
                 )
 
             # Generate final response
-            response_message = await self._process_message(request.message, request.skill_id)
+            response_message = await self._process_message(
+                request.message, request.skill_id
+            )
 
             # Complete the task
             await self.task_manager.update_task_status(
@@ -459,33 +514,39 @@ class A2AServer:
             )
 
         except Exception as e:
-            logger.error(f"Error processing streaming message: {e}")
+            logger.error(f'Error processing streaming message: {e}')
             await self.task_manager.update_task_status(
                 task.id, TaskStatus.FAILED, final=True
             )
 
-    def _validate_auth(self, credentials: Optional[HTTPAuthorizationCredentials]) -> bool:
+    def _validate_auth(
+        self, credentials: Optional[HTTPAuthorizationCredentials]
+    ) -> bool:
         """Validate authentication credentials."""
         if self.agent_card.card.authentication and self.auth_callback:
-            if not credentials or not self.auth_callback(credentials.credentials):
+            if not credentials or not self.auth_callback(
+                credentials.credentials
+            ):
                 return False
         return True
 
     async def _handle_livekit_token_request(
         self,
         token_request: LiveKitTokenRequest,
-        credentials: Optional[HTTPAuthorizationCredentials]
+        credentials: Optional[HTTPAuthorizationCredentials],
     ) -> LiveKitTokenResponse:
         """Handle LiveKit token request with A2A authentication."""
         # Validate authentication
         if not self._validate_auth(credentials):
-            raise HTTPException(status_code=401, detail="Authentication required")
+            raise HTTPException(
+                status_code=401, detail='Authentication required'
+            )
 
         # Check if LiveKit bridge is available
         if not self.livekit_bridge:
             raise HTTPException(
                 status_code=503,
-                detail="LiveKit functionality not available - bridge not configured"
+                detail='LiveKit functionality not available - bridge not configured',
             )
 
         try:
@@ -495,31 +556,36 @@ class A2AServer:
                 room_name=token_request.room_name,
                 a2a_role=token_request.role,
                 metadata=token_request.metadata,
-                ttl_minutes=token_request.ttl_minutes
+                ttl_minutes=token_request.ttl_minutes,
             )
 
             # Generate join URL
             join_url = self.livekit_bridge.generate_join_url(
-                token_request.room_name,
-                access_token
+                token_request.room_name, access_token
             )
 
             # Calculate expiration time
-            expires_at = datetime.now() + timedelta(minutes=token_request.ttl_minutes)
+            expires_at = datetime.now() + timedelta(
+                minutes=token_request.ttl_minutes
+            )
 
-            logger.info(f"Minted LiveKit token for {token_request.identity} in room {token_request.room_name}")
+            logger.info(
+                f'Minted LiveKit token for {token_request.identity} in room {token_request.room_name}'
+            )
 
             return LiveKitTokenResponse(
                 access_token=access_token,
                 join_url=join_url,
-                expires_at=expires_at
+                expires_at=expires_at,
             )
 
         except Exception as e:
-            logger.error(f"Failed to mint LiveKit token: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to generate token: {str(e)}")
+            logger.error(f'Failed to mint LiveKit token: {e}')
+            raise HTTPException(
+                status_code=500, detail=f'Failed to generate token: {str(e)}'
+            )
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8000) -> None:
+    async def start(self, host: str = '0.0.0.0', port: int = 8000) -> None:
         """Start the A2A server."""
         # Start message broker
         await self.message_broker.start()
@@ -527,15 +593,14 @@ class A2AServer:
         # Register this agent
         await self.message_broker.register_agent(self.agent_card.card)
 
-        logger.info(f"Starting A2A server for {self.agent_card.card.name}")
-        logger.info(f"Agent card available at: http://{host}:{port}/.well-known/agent-card.json")
+        logger.info(f'Starting A2A server for {self.agent_card.card.name}')
+        logger.info(
+            f'Agent card available at: http://{host}:{port}/.well-known/agent-card.json'
+        )
 
         # Start the server
         config = uvicorn.Config(
-            self.app,
-            host=host,
-            port=port,
-            log_level="info"
+            self.app, host=host, port=port, log_level='info'
         )
         server = uvicorn.Server(config)
         await server.serve()
@@ -548,13 +613,15 @@ class A2AServer:
         # Stop message broker
         await self.message_broker.stop()
 
-        logger.info(f"Stopped A2A server for {self.agent_card.card.name}")
+        logger.info(f'Stopped A2A server for {self.agent_card.card.name}')
 
 
 # Custom agent implementations would inherit from this
 class CustomA2AAgent(A2AServer):
     """Base class for custom A2A agent implementations."""
 
-    async def _process_message(self, message: Message, skill_id: Optional[str] = None) -> Message:
+    async def _process_message(
+        self, message: Message, skill_id: Optional[str] = None
+    ) -> Message:
         """Override this method to implement custom message processing logic."""
-        raise NotImplementedError("Subclasses must implement _process_message")
+        raise NotImplementedError('Subclasses must implement _process_message')

@@ -292,6 +292,7 @@ struct TriggerAgentSheet: View {
     
     @State private var prompt = ""
     @State private var selectedAgent = "build"
+    @State private var selectedModel: String = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     
@@ -301,6 +302,23 @@ struct TriggerAgentSheet: View {
         ("general", "General", "Multi-step tasks"),
         ("explore", "Explore", "Codebase search")
     ]
+    
+    // Group models by provider
+    var modelsByProvider: [String: [AIModel]] {
+        Dictionary(grouping: viewModel.availableModels) { $0.provider }
+    }
+    
+    var sortedProviders: [String] {
+        // Put custom/Azure first, then alphabetical
+        let providers = Array(modelsByProvider.keys)
+        return providers.sorted { p1, p2 in
+            let isCustom1 = modelsByProvider[p1]?.first?.custom == true
+            let isCustom2 = modelsByProvider[p2]?.first?.custom == true
+            if isCustom1 && !isCustom2 { return true }
+            if !isCustom1 && isCustom2 { return false }
+            return p1 < p2
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -325,6 +343,58 @@ struct TriggerAgentSheet: View {
                                 .foregroundColor(Color.liquidGlass.textSecondary)
                         }
                         .padding(.top, 20)
+                        
+                        // Model Selection
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("AI Model")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color.liquidGlass.textSecondary)
+                            
+                            Menu {
+                                Button("Default") {
+                                    selectedModel = ""
+                                }
+                                
+                                ForEach(sortedProviders, id: \.self) { provider in
+                                    Section(provider) {
+                                        ForEach(modelsByProvider[provider] ?? [], id: \.id) { model in
+                                            Button {
+                                                selectedModel = model.id
+                                            } label: {
+                                                HStack {
+                                                    Image(systemName: model.providerIcon)
+                                                    Text(model.name)
+                                                    if model.custom == true {
+                                                        Text("Custom")
+                                                            .font(.caption2)
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    if let model = viewModel.availableModels.first(where: { $0.id == selectedModel }) {
+                                        Image(systemName: model.providerIcon)
+                                        Text(model.displayName)
+                                    } else {
+                                        Image(systemName: "cpu")
+                                        Text(selectedModel.isEmpty ? "Default Model" : selectedModel)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.caption)
+                                }
+                                .padding()
+                                .background(.ultraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal)
                         
                         // Agent Type Selection
                         VStack(alignment: .leading, spacing: 12) {
@@ -381,6 +451,12 @@ struct TriggerAgentSheet: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .onAppear {
+                // Set default model
+                if selectedModel.isEmpty, let defaultModel = viewModel.defaultModel {
+                    selectedModel = defaultModel
+                }
+            }
         }
     }
     
@@ -393,7 +469,8 @@ struct TriggerAgentSheet: View {
                 try await viewModel.triggerAgent(
                     codebase: codebase,
                     prompt: prompt,
-                    agent: selectedAgent
+                    agent: selectedAgent,
+                    model: selectedModel.isEmpty ? nil : selectedModel
                 )
                 dismiss()
             } catch {

@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// A2A Server API Client with SSE support
+/// A2A Server API Client with SSE support and authentication
 @MainActor
 class A2AClient: ObservableObject {
     @Published var isConnected = false
@@ -11,6 +11,9 @@ class A2AClient: ObservableObject {
     private var eventSourceTask: URLSessionDataTask?
     private var session: URLSession
     private var cancellables = Set<AnyCancellable>()
+    
+    // Auth service reference for adding authorization headers
+    weak var authService: AuthService?
     
     var onMessage: ((Message) -> Void)?
     var onAgentStatus: ((Agent) -> Void)?
@@ -29,6 +32,20 @@ class A2AClient: ObservableObject {
         if let newURL = URL(string: url) {
             baseURL = newURL
         }
+    }
+    
+    // MARK: - Auth Header Helper
+    
+    private func addAuthHeader(to request: inout URLRequest) {
+        if let authHeader = authService?.authorizationHeader {
+            request.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        }
+    }
+    
+    private func authenticatedRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        addAuthHeader(to: &request)
+        return request
     }
     
     // MARK: - SSE Connection
@@ -83,7 +100,8 @@ class A2AClient: ObservableObject {
     
     func fetchAgents() async throws -> [Agent] {
         let url = baseURL.appendingPathComponent("/v1/monitor/agents")
-        let (data, _) = try await session.data(from: url)
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
         return try JSONDecoder().decode([Agent].self, from: data)
     }
     
@@ -91,7 +109,8 @@ class A2AClient: ObservableObject {
         var components = URLComponents(url: baseURL.appendingPathComponent("/v1/monitor/messages"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
         
-        let (data, _) = try await session.data(from: components.url!)
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
         return try JSONDecoder().decode([Message].self, from: data)
     }
     
@@ -124,6 +143,7 @@ class A2AClient: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addAuthHeader(to: &request)
         
         let body: [String: Any] = [
             "agent_id": agentId,
@@ -146,6 +166,13 @@ class A2AClient: ObservableObject {
         return try JSONDecoder().decode(OpenCodeStatus.self, from: data)
     }
     
+    func fetchModels() async throws -> ModelsResponse {
+        let url = baseURL.appendingPathComponent("/v1/opencode/models")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try JSONDecoder().decode(ModelsResponse.self, from: data)
+    }
+    
     func fetchCodebases() async throws -> [Codebase] {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases")
         let (data, _) = try await session.data(from: url)
@@ -157,6 +184,7 @@ class A2AClient: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addAuthHeader(to: &request)
         
         var body: [String: Any] = [
             "name": name,
@@ -168,7 +196,14 @@ class A2AClient: ObservableObject {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (data, _) = try await session.data(for: request)
-        return try JSONDecoder().decode(Codebase.self, from: data)
+        
+        struct CodebaseResponse: Codable {
+            let success: Bool
+            let codebase: Codebase
+        }
+        
+        let response = try JSONDecoder().decode(CodebaseResponse.self, from: data)
+        return response.codebase
     }
     
     func unregisterCodebase(id: String) async throws {
@@ -182,16 +217,20 @@ class A2AClient: ObservableObject {
         }
     }
     
-    func triggerAgent(codebaseId: String, prompt: String, agent: String = "build") async throws -> TriggerResponse {
+    func triggerAgent(codebaseId: String, prompt: String, agent: String = "build", model: String? = nil) async throws -> TriggerResponse {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/trigger")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addAuthHeader(to: &request)
         
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "prompt": prompt,
             "agent": agent
         ]
+        if let model = model, !model.isEmpty {
+            body["model"] = model
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (data, _) = try await session.data(for: request)
