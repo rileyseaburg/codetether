@@ -142,7 +142,7 @@ jobs:
             CODE_SIGN_IDENTITY="Apple Development" \
             CODE_SIGNING_REQUIRED=YES \
             CODE_SIGNING_ALLOWED=YES \
-            build
+            build -allowProvisioningUpdates
 
       - name: Archive iOS app
         working-directory: ui/swift/A2AMonitor
