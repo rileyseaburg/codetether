@@ -37,8 +37,8 @@ jobs:
 
       - name: Setup Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+          swift --version
 
       - name: Unlock Keychain for codesign
         run: |
@@ -205,8 +205,8 @@ jobs:
 
       - name: Setup Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+          swift --version
 
       - name: Build Swift Package for macOS
         working-directory: ui/swift/A2AMonitor
