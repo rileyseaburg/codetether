@@ -68,91 +68,241 @@
 </head>
 
 <body class="h-full">
-    <div class="min-h-full">
-        <!-- Header -->
-        <header class="bg-primary-600 dark:bg-primary-800 pb-24">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="relative flex items-center justify-between py-5">
-                    <!-- Logo -->
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
-                            <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h1 class="text-xl font-bold text-white">A2A Agent Monitor</h1>
-                            <p class="text-sm text-primary-200">Real-time Agent Orchestration</p>
-                        </div>
-                    </div>
+    <!-- Mobile sidebar backdrop -->
+    <div id="mobile-sidebar-backdrop" class="hidden fixed inset-0 z-50 bg-gray-900/80 lg:hidden"
+        onclick="closeMobileSidebar()"></div>
 
-                    <!-- Status indicators -->
-                    <div class="hidden md:flex items-center gap-6">
-                        <div class="flex items-center gap-2">
-                            <span id="connection-dot" class="h-2.5 w-2.5 rounded-full bg-green-400 pulse-dot"></span>
-                            <span id="connection-status" class="text-sm text-primary-100">Connected</span>
-                        </div>
-                        <div class="text-sm text-primary-200">
-                            <span id="active-agents-count">0</span> Active Agents
-                        </div>
-                        <div class="text-sm text-primary-200">
-                            <span id="total-tasks-count">0</span> Tasks
-                        </div>
-                    </div>
-
-                    <!-- Right actions -->
-                    <div class="flex items-center gap-3">
-                        <button onclick="toggleDarkMode()"
-                            class="rounded-full p-2 text-primary-200 hover:bg-white/10 hover:text-white">
-                            <svg id="dark-icon" class="h-5 w-5 hidden dark:block" fill="currentColor"
-                                viewBox="0 0 20 20">
-                                <path
-                                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" />
-                            </svg>
-                            <svg id="light-icon" class="h-5 w-5 block dark:hidden" fill="currentColor"
-                                viewBox="0 0 20 20">
-                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                            </svg>
-                        </button>
-                        <button onclick="openSettingsModal()"
-                            class="rounded-full p-2 text-primary-200 hover:bg-white/10 hover:text-white">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </button>
-                    </div>
+    <!-- Mobile sidebar -->
+    <div id="mobile-sidebar"
+        class="hidden fixed inset-y-0 left-0 z-50 w-72 bg-primary-700 dark:bg-gray-800 lg:hidden transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <div
+            class="flex h-16 shrink-0 items-center justify-between px-6 border-b border-primary-600 dark:border-gray-700">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+                    <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                 </div>
+                <span class="text-lg font-semibold text-white">A2A Monitor</span>
+            </div>
+            <button onclick="closeMobileSidebar()" class="text-primary-200 hover:text-white">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <nav class="flex flex-1 flex-col p-4">
+            <ul class="space-y-1">
+                <li>
+                    <button onclick="switchTab('codebases'); closeMobileSidebar()" id="mobile-tab-codebases"
+                        class="mobile-tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white bg-white/10">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        Codebases
+                    </button>
+                </li>
+                <li>
+                    <button onclick="switchTab('tasks'); closeMobileSidebar()" id="mobile-tab-tasks"
+                        class="mobile-tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Task Queue
+                    </button>
+                </li>
+                <li>
+                    <button onclick="switchTab('sessions'); closeMobileSidebar()" id="mobile-tab-sessions"
+                        class="mobile-tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Sessions
+                    </button>
+                </li>
+                <li>
+                    <button onclick="switchTab('output'); closeMobileSidebar()" id="mobile-tab-output"
+                        class="mobile-tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Agent Output
+                    </button>
+                </li>
+                <li>
+                    <button onclick="switchTab('activity'); closeMobileSidebar()" id="mobile-tab-activity"
+                        class="mobile-tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Activity Feed
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    </div>
 
-                <!-- Navigation tabs -->
-                <div class="border-t border-white/20 dark:border-white/10">
-                    <nav class="flex gap-4 py-4">
-                        <button onclick="switchTab('codebases')" id="tab-codebases"
-                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-white bg-white/10">
-                            Codebases
-                        </button>
-                        <button onclick="switchTab('tasks')" id="tab-tasks"
-                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
-                            Task Queue
-                        </button>
-                        <button onclick="switchTab('output')" id="tab-output"
-                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
-                            Agent Output
-                        </button>
-                        <button onclick="switchTab('activity')" id="tab-activity"
-                            class="tab-btn rounded-md px-4 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
-                            Activity Feed
-                        </button>
-                    </nav>
+    <!-- Desktop sidebar -->
+    <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-56 lg:flex-col">
+        <div class="flex grow flex-col overflow-y-auto bg-primary-700 dark:bg-gray-800">
+            <div class="flex h-16 shrink-0 items-center px-4 border-b border-primary-600 dark:border-gray-700">
+                <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+                        <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <span class="text-lg font-semibold text-white">A2A Monitor</span>
                 </div>
             </div>
-        </header>
+            <nav class="flex flex-1 flex-col p-3">
+                <ul class="space-y-1">
+                    <li>
+                        <button onclick="switchTab('codebases')" id="tab-codebases"
+                            class="tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white bg-white/10">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            </svg>
+                            Codebases
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('tasks')" id="tab-tasks"
+                            class="tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            Task Queue
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('sessions')" id="tab-sessions"
+                            class="tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Sessions
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('output')" id="tab-output"
+                            class="tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Agent Output
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('activity')" id="tab-activity"
+                            class="tab-btn w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-100 hover:bg-white/10">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Activity Feed
+                        </button>
+                    </li>
+                </ul>
+                <!-- Stats in sidebar -->
+                <div class="mt-auto pt-4 border-t border-primary-600 dark:border-gray-700">
+                    <div class="grid grid-cols-2 gap-2 text-center">
+                        <div class="rounded-lg bg-white/5 p-2">
+                            <div id="stat-codebases" class="text-lg font-bold text-white">0</div>
+                            <div class="text-xs text-primary-200">Codebases</div>
+                        </div>
+                        <div class="rounded-lg bg-white/5 p-2">
+                            <div id="stat-tasks" class="text-lg font-bold text-white">0</div>
+                            <div class="text-xs text-primary-200">Tasks</div>
+                        </div>
+                        <div class="rounded-lg bg-white/5 p-2">
+                            <div id="stat-completed" class="text-lg font-bold text-green-400">0</div>
+                            <div class="text-xs text-primary-200">Completed</div>
+                        </div>
+                        <div class="rounded-lg bg-white/5 p-2">
+                            <div id="stat-running" class="text-lg font-bold text-blue-400">0</div>
+                            <div class="text-xs text-primary-200">Running</div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main content wrapper -->
+    <div class="lg:pl-56">
+        <!-- Top navbar -->
+        <div
+            class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
+            <!-- Mobile menu button -->
+            <button onclick="openMobileSidebar()" class="lg:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-200">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            <!-- Separator -->
+            <div class="h-6 w-px bg-gray-200 dark:bg-gray-700 lg:hidden"></div>
+
+            <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+                <!-- Page title - shown on mobile -->
+                <div class="flex items-center lg:hidden">
+                    <h1 id="current-page-title" class="text-lg font-semibold text-gray-900 dark:text-white">Codebases
+                    </h1>
+                </div>
+
+                <!-- Status indicators -->
+                <div class="hidden md:flex items-center gap-4 ml-auto">
+                    <div class="flex items-center gap-2">
+                        <span id="connection-dot" class="h-2.5 w-2.5 rounded-full bg-green-500 pulse-dot"></span>
+                        <span id="connection-status" class="text-sm text-gray-600 dark:text-gray-300">Connected</span>
+                    </div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <span id="active-agents-count">0</span> Agents
+                    </div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <span id="total-tasks-count">0</span> Tasks
+                    </div>
+                </div>
+
+                <!-- Right actions -->
+                <div class="flex items-center gap-x-3 ml-auto md:ml-0">
+                    <button onclick="toggleDarkMode()"
+                        class="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+                        <svg id="dark-icon" class="h-5 w-5 hidden dark:block" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" />
+                        </svg>
+                        <svg id="light-icon" class="h-5 w-5 block dark:hidden" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                        </svg>
+                    </button>
+                    <button onclick="openSettingsModal()"
+                        class="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Main content -->
-        <main class="-mt-24 pb-8">
+        <main class="py-6">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
 
@@ -316,39 +466,68 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Right sidebar - Stats & Quick Actions -->
-                    <div class="lg:col-span-1 space-y-6">
-                        <!-- Stats -->
-                        <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
-                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Statistics</h3>
-                            </div>
-                            <div class="p-4 grid grid-cols-2 gap-4">
-                                <div class="text-center">
-                                    <div id="stat-codebases"
-                                        class="text-2xl font-bold text-primary-600 dark:text-primary-400">0</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Codebases</div>
-                                </div>
-                                <div class="text-center">
-                                    <div id="stat-tasks"
-                                        class="text-2xl font-bold text-primary-600 dark:text-primary-400">0</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Tasks</div>
-                                </div>
-                                <div class="text-center">
-                                    <div id="stat-completed"
-                                        class="text-2xl font-bold text-green-600 dark:text-green-400">0</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Completed</div>
-                                </div>
-                                <div class="text-center">
-                                    <div id="stat-running" class="text-2xl font-bold text-blue-600 dark:text-blue-400">0
+                        <!-- Sessions tab content -->
+                        <div id="content-sessions" class="tab-content hidden">
+                            <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Session History
+                                        </h2>
+                                        <select id="sessions-codebase-select" onchange="loadSessions(this.value)"
+                                            class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                            <option value="">Select codebase...</option>
+                                        </select>
                                     </div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Running</div>
+                                </div>
+                                <div id="sessions-list"
+                                    class="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-450px)] overflow-y-auto scrollbar-thin">
+                                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                        <p class="mt-2 text-sm">Select a codebase to view sessions</p>
+                                    </div>
+                                </div>
+                                <!-- Session detail panel -->
+                                <div id="session-detail" class="hidden border-t border-gray-200 dark:border-gray-700">
+                                    <div class="p-4">
+                                        <div class="flex items-center justify-between mb-4">
+                                            <h3 id="session-detail-title"
+                                                class="text-sm font-semibold text-gray-900 dark:text-white">Session
+                                                Messages</h3>
+                                            <button onclick="closeSessionDetail()"
+                                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                                    stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <div id="session-messages"
+                                            class="space-y-3 max-h-64 overflow-y-auto scrollbar-thin"></div>
+                                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                            <div class="flex gap-2">
+                                                <input id="session-resume-prompt" type="text"
+                                                    placeholder="Continue the conversation..."
+                                                    class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                                <button onclick="resumeSelectedSession()"
+                                                    class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500">
+                                                    Resume
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
+                    <!-- Right sidebar - Quick Actions & Workers -->
+                    <div class="lg:col-span-1 space-y-6">
                         <!-- Quick Actions -->
                         <div class="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                             <div class="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -448,7 +627,10 @@
             agentOutputs: new Map(),
             eventStreams: new Map(),
             darkMode: localStorage.getItem('darkMode') === 'true',
-            taskFilter: 'all'
+            taskFilter: 'all',
+            sessions: [],
+            currentSessionCodebase: null,
+            selectedSession: null
         };
 
         // Initialize
@@ -464,7 +646,9 @@
             await loadCodebases();
             await loadTasks();
             await loadWorkers();
+            await loadActivity();
             startPolling();
+            connectMonitorStream();
         }
 
         async function loadModels() {
@@ -531,6 +715,136 @@
             setInterval(loadCodebases, 10000);
             setInterval(loadTasks, 5000);
             setInterval(loadWorkers, 30000);
+            setInterval(loadActivity, 10000);
+        }
+
+        // Connect to monitor SSE stream for real-time activity
+        function connectMonitorStream() {
+            const eventSource = new EventSource(`${state.serverUrl}/v1/monitor/stream`);
+
+            eventSource.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'connected') return;
+
+                    // Add to activity feed
+                    addActivityItem({
+                        agent_name: data.agent_name || 'System',
+                        content: data.content || data.message || '',
+                        type: data.type || 'agent',
+                        timestamp: data.timestamp || new Date().toISOString(),
+                        metadata: data.metadata
+                    });
+                } catch (err) {
+                    console.debug('Monitor stream parse:', e.data);
+                }
+            };
+
+            eventSource.onerror = () => {
+                console.log('Monitor stream disconnected, reconnecting...');
+                setTimeout(connectMonitorStream, 5000);
+            };
+        }
+
+        // Load recent activity from API
+        async function loadActivity() {
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/monitor/messages?limit=50`);
+                const messages = await response.json();
+                renderActivityFeed(messages);
+            } catch (error) {
+                console.error('Failed to load activity:', error);
+            }
+        }
+
+        function renderActivityFeed(messages) {
+            const container = document.getElementById('activity-feed');
+            if (!messages || messages.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <p class="text-sm">No recent activity</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = messages.slice(0, 50).map(msg => {
+                const typeIcon = {
+                    'agent': '🤖',
+                    'human': '👤',
+                    'system': '⚙️',
+                    'tool': '🔧',
+                    'error': '❌'
+                }[msg.type] || '📝';
+
+                const content = typeof msg.content === 'string'
+                    ? msg.content
+                    : (msg.content?.text || JSON.stringify(msg.content));
+
+                return `
+                    <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <div class="flex items-start gap-3">
+                            <span class="text-lg">${typeIcon}</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(msg.agent_name || 'Unknown')}</span>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">${formatTime(msg.timestamp)}</span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-3">${escapeHtml(content?.substring(0, 300) || '')}</p>
+                                ${msg.metadata?.conversation_id ? `<span class="text-xs text-gray-400">Conv: ${msg.metadata.conversation_id.substring(0, 8)}...</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addActivityItem(item) {
+            const container = document.getElementById('activity-feed');
+            const typeIcon = {
+                'agent': '🤖',
+                'human': '👤',
+                'system': '⚙️',
+                'tool': '🔧',
+                'error': '❌'
+            }[item.type] || '📝';
+
+            const content = typeof item.content === 'string'
+                ? item.content
+                : (item.content?.text || JSON.stringify(item.content));
+
+            const div = document.createElement('div');
+            div.className = 'p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700';
+            div.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="text-lg">${typeIcon}</span>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(item.agent_name)}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">${formatTime(item.timestamp)}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-3">${escapeHtml(content?.substring(0, 300) || '')}</p>
+                    </div>
+                </div>
+            `;
+
+            // Remove "no activity" placeholder
+            const placeholder = container.querySelector('.text-center');
+            if (placeholder) placeholder.remove();
+
+            // Insert at top
+            container.insertBefore(div, container.firstChild);
+
+            // Limit items
+            while (container.children.length > 100) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString();
         }
 
         // Dark mode
@@ -540,15 +854,65 @@
             document.documentElement.classList.toggle('dark');
         }
 
+        // Mobile sidebar functions
+        function openMobileSidebar() {
+            const sidebar = document.getElementById('mobile-sidebar');
+            const backdrop = document.getElementById('mobile-sidebar-backdrop');
+            sidebar.classList.remove('hidden', '-translate-x-full');
+            sidebar.classList.add('translate-x-0');
+            backdrop.classList.remove('hidden');
+        }
+
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('mobile-sidebar');
+            const backdrop = document.getElementById('mobile-sidebar-backdrop');
+            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            setTimeout(() => {
+                sidebar.classList.add('hidden');
+                backdrop.classList.add('hidden');
+            }, 300);
+        }
+
         // Tab switching
+        const tabTitles = {
+            'codebases': 'Codebases',
+            'tasks': 'Task Queue',
+            'sessions': 'Sessions',
+            'output': 'Agent Output',
+            'activity': 'Activity Feed'
+        };
+
         function switchTab(tab) {
+            // Update desktop tabs
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('bg-white/10', 'text-white');
                 btn.classList.add('text-primary-100');
             });
-            document.getElementById(`tab-${tab}`).classList.add('bg-white/10', 'text-white');
-            document.getElementById(`tab-${tab}`).classList.remove('text-primary-100');
+            const desktopTab = document.getElementById(`tab-${tab}`);
+            if (desktopTab) {
+                desktopTab.classList.add('bg-white/10', 'text-white');
+                desktopTab.classList.remove('text-primary-100');
+            }
 
+            // Update mobile tabs
+            document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+                btn.classList.remove('bg-white/10', 'text-white');
+                btn.classList.add('text-primary-100');
+            });
+            const mobileTab = document.getElementById(`mobile-tab-${tab}`);
+            if (mobileTab) {
+                mobileTab.classList.add('bg-white/10', 'text-white');
+                mobileTab.classList.remove('text-primary-100');
+            }
+
+            // Update page title for mobile
+            const pageTitle = document.getElementById('current-page-title');
+            if (pageTitle) {
+                pageTitle.textContent = tabTitles[tab] || tab;
+            }
+
+            // Show/hide content
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('hidden');
             });
@@ -701,6 +1065,209 @@
             const options = state.codebases.map(cb => `<option value="${cb.id}">${escapeHtml(cb.name)}</option>`).join('');
             document.getElementById('trigger-codebase').innerHTML = `<option value="">Select a codebase...</option>${options}`;
             document.getElementById('output-codebase-select').innerHTML = `<option value="">Select codebase...</option>${options}`;
+            document.getElementById('sessions-codebase-select').innerHTML = `<option value="">Select codebase...</option>${options}`;
+        }
+
+        // ========================================
+        // Session Management
+        // ========================================
+
+        async function loadSessions(codebaseId) {
+            if (!codebaseId) {
+                state.sessions = [];
+                state.currentSessionCodebase = null;
+                renderSessions();
+                return;
+            }
+
+            state.currentSessionCodebase = codebaseId;
+
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases/${codebaseId}/sessions`);
+                const data = await response.json();
+                state.sessions = data.sessions || [];
+                renderSessions();
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+                showToast('Failed to load sessions', 'error');
+            }
+        }
+
+        function renderSessions() {
+            const container = document.getElementById('sessions-list');
+
+            if (state.sessions.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p class="mt-2 text-sm">${state.currentSessionCodebase ? 'No sessions found' : 'Select a codebase to view sessions'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = state.sessions.map(session => `
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="selectSession('${session.id}')">
+                    <div class="flex items-start justify-between">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                ${escapeHtml(session.title || 'Untitled Session')}
+                            </p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                ${session.agent || 'build'} • ${session.messageCount || 0} messages
+                            </p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500">
+                                ${session.updated ? formatDate(session.updated) : formatDate(session.created)}
+                            </p>
+                        </div>
+                        <button onclick="event.stopPropagation(); quickResumeSession('${session.id}')"
+                            class="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                            ▶️ Resume
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function selectSession(sessionId) {
+            state.selectedSession = sessionId;
+
+            // Load session messages
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases/${state.currentSessionCodebase}/sessions/${sessionId}/messages`);
+                const data = await response.json();
+                renderSessionMessages(data.messages || []);
+
+                // Show detail panel
+                document.getElementById('session-detail').classList.remove('hidden');
+                document.getElementById('session-detail-title').textContent = `Session ${sessionId.substring(0, 8)}...`;
+            } catch (error) {
+                console.error('Failed to load session messages:', error);
+                showToast('Failed to load session messages', 'error');
+            }
+        }
+
+        function renderSessionMessages(messages) {
+            const container = document.getElementById('session-messages');
+
+            if (messages.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No messages in this session</p>';
+                return;
+            }
+
+            container.innerHTML = messages.slice(-20).map(msg => {
+                const info = msg.info || msg;
+                const parts = msg.parts || [];
+                const role = info.role || 'unknown';
+                const isUser = role === 'user';
+
+                // Extract text content from parts
+                let content = '';
+                for (const part of parts) {
+                    if (part.type === 'text' && part.text) {
+                        content += part.text;
+                    }
+                }
+                if (!content && info.content) {
+                    content = typeof info.content === 'string' ? info.content : JSON.stringify(info.content);
+                }
+
+                return `
+                    <div class="p-2 rounded-lg ${isUser ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-gray-50 dark:bg-gray-700/50'}">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-medium ${isUser ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}">
+                                ${isUser ? '👤 User' : '🤖 Assistant'}
+                            </span>
+                            ${info.model ? `<span class="text-xs text-gray-400">${info.model}</span>` : ''}
+                        </div>
+                        <p class="text-sm text-gray-800 dark:text-gray-200 line-clamp-4">${escapeHtml(content.substring(0, 500))}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function closeSessionDetail() {
+            document.getElementById('session-detail').classList.add('hidden');
+            state.selectedSession = null;
+        }
+
+        async function resumeSelectedSession() {
+            if (!state.selectedSession || !state.currentSessionCodebase) {
+                showToast('No session selected', 'error');
+                return;
+            }
+
+            const prompt = document.getElementById('session-resume-prompt').value;
+
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases/${state.currentSessionCodebase}/sessions/${state.selectedSession}/resume`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt || null,
+                        agent: 'build'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Session resumed!', 'success');
+                    document.getElementById('session-resume-prompt').value = '';
+                    closeSessionDetail();
+
+                    // Switch to output tab if there's new output
+                    if (result.task_id) {
+                        await loadTasks();
+                        switchTab('tasks');
+                    }
+                } else {
+                    showToast(result.error || 'Failed to resume session', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to resume session:', error);
+                showToast('Failed to resume session', 'error');
+            }
+        }
+
+        async function quickResumeSession(sessionId) {
+            if (!state.currentSessionCodebase) return;
+
+            try {
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases/${state.currentSessionCodebase}/sessions/${sessionId}/resume`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agent: 'build' })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Session resumed!', 'success');
+                    if (result.task_id) {
+                        await loadTasks();
+                        switchTab('tasks');
+                    }
+                } else {
+                    showToast(result.error || 'Failed to resume session', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to resume session', 'error');
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+            return date.toLocaleDateString();
         }
 
         // Actions
@@ -835,22 +1402,32 @@
             eventSource.addEventListener('message', (e) => {
                 try {
                     const data = JSON.parse(e.data);
-                    if (data.type === 'text' && data.content) {
-                        // Parse nested JSON events
-                        const lines = data.content.split('\n').filter(l => l.trim());
-                        for (const line of lines) {
-                            try {
-                                const event = JSON.parse(line);
-                                processEvent(event);
-                            } catch {
-                                addOutput('text', line);
+
+                    // Handle different message formats
+                    if (data.type === 'text') {
+                        const content = data.content || data.part?.text || '';
+                        if (typeof content === 'string' && content.includes('\n')) {
+                            // Try to parse as newline-delimited JSON
+                            const lines = content.split('\n').filter(l => l.trim());
+                            for (const line of lines) {
+                                try {
+                                    const event = JSON.parse(line);
+                                    processEvent(event);
+                                } catch {
+                                    addOutput('text', line);
+                                }
                             }
+                        } else {
+                            processEvent(data);
                         }
                     } else {
                         processEvent(data);
                     }
-                } catch {
-                    addOutput('text', e.data);
+                } catch (err) {
+                    // Not JSON, just display as text
+                    if (e.data && e.data.trim()) {
+                        addOutput('text', e.data);
+                    }
                 }
             });
 
@@ -865,26 +1442,70 @@
         }
 
         function processEvent(event) {
-            const type = event.type;
+            if (!event) return;
+
+            const type = event.type || event.event_type;
             const part = event.part || {};
+
+            // Handle content that may be string or object
+            const getTextContent = (obj) => {
+                if (!obj) return '';
+                if (typeof obj === 'string') return obj;
+                if (obj.text) return obj.text;
+                if (obj.content) {
+                    if (typeof obj.content === 'string') return obj.content;
+                    if (Array.isArray(obj.content)) return obj.content.map(c => c.text || c).join('');
+                }
+                return '';
+            };
 
             switch (type) {
                 case 'text':
-                    if (part.text) addOutput('text', part.text);
+                case 'part.text':
+                    const text = getTextContent(part) || getTextContent(event);
+                    if (text) addOutput('text', text);
                     break;
                 case 'tool_use':
-                    const state_info = part.state || {};
-                    addOutput('tool', `Tool: ${part.tool} - ${state_info.title || ''}\n${state_info.output || ''}`);
+                case 'part.tool':
+                    const state_info = part.state || event.state || {};
+                    const toolName = part.tool || part.tool_name || event.tool_name || 'Tool';
+                    const toolOutput = state_info.output || '';
+                    const toolTitle = state_info.title || '';
+                    addOutput('tool', `Tool: ${toolName}${toolTitle ? ' - ' + toolTitle : ''}\n${toolOutput}`);
                     break;
                 case 'step_start':
+                case 'part.step-start':
                     addOutput('status', '--- Step started ---');
                     break;
                 case 'step_finish':
-                    const tokens = part.tokens;
+                case 'part.step-finish':
+                    const tokens = part.tokens || event.tokens;
                     if (tokens) {
-                        addOutput('status', `Step finished (${tokens.input + tokens.output} tokens)`);
+                        const total = (tokens.input || 0) + (tokens.output || 0);
+                        addOutput('status', `Step finished (${total} tokens)`);
+                    } else {
+                        addOutput('status', '--- Step finished ---');
                     }
                     break;
+                case 'message':
+                case 'message.updated':
+                    // Handle full message updates
+                    const msgContent = getTextContent(event);
+                    if (msgContent) addOutput('text', msgContent);
+                    break;
+                case 'status':
+                case 'session.status':
+                    addOutput('status', event.status || event.message || 'Status update');
+                    break;
+                case 'error':
+                    addOutput('error', event.error || event.message || 'Error occurred');
+                    break;
+                default:
+                    // Try to extract any text content
+                    const fallbackText = getTextContent(event) || getTextContent(part);
+                    if (fallbackText) {
+                        addOutput('text', fallbackText);
+                    }
             }
         }
 
