@@ -214,13 +214,13 @@ class A2AClient: ObservableObject {
         let (_, _) = try await session.data(for: request)
     }
     
-    func startWatchMode(codebaseId: String, pollInterval: Double = 5.0) async throws {
+    func startWatchMode(codebaseId: String, interval: Int = 5) async throws {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/watch/start")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let body: [String: Any] = ["poll_interval": pollInterval]
+        let body: [String: Any] = ["interval": interval]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (_, _) = try await session.data(for: request)
@@ -268,6 +268,143 @@ class A2AClient: ObservableObject {
         request.httpMethod = "POST"
         
         let (_, _) = try await session.data(for: request)
+    }
+    
+    // MARK: - OpenCode Events SSE (Agent Output Streaming)
+    
+    func connectToAgentEvents(codebaseId: String, onEvent: @escaping (AgentEvent) -> Void) -> URLSessionDataTask? {
+        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/events")
+        var request = URLRequest(url: url)
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        
+        let delegate = AgentEventSSEDelegate(onEvent: onEvent)
+        let sseSession = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        let task = sseSession.dataTask(with: request)
+        task.resume()
+        return task
+    }
+    
+    func fetchSessionMessages(codebaseId: String, limit: Int = 50) async throws -> [SessionMessage] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/messages"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
+        
+        let (data, _) = try await session.data(from: components.url!)
+        
+        struct MessagesResponse: Codable {
+            let messages: [SessionMessage]
+            let sessionId: String?
+            
+            enum CodingKeys: String, CodingKey {
+                case messages
+                case sessionId = "session_id"
+            }
+        }
+        
+        let response = try JSONDecoder().decode(MessagesResponse.self, from: data)
+        return response.messages
+    }
+    
+    func fetchAgentStatus(codebaseId: String) async throws -> AgentStatusResponse {
+        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/status")
+        let (data, _) = try await session.data(from: url)
+        return try JSONDecoder().decode(AgentStatusResponse.self, from: data)
+    }
+    
+    func sendAgentMessage(codebaseId: String, message: String, agent: String? = nil) async throws -> TriggerResponse {
+        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/message")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        var body: [String: Any] = ["message": message]
+        if let agent = agent {
+            body["agent"] = agent
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await session.data(for: request)
+        return try JSONDecoder().decode(TriggerResponse.self, from: data)
+    }
+    
+    // MARK: - Worker API
+    
+    func fetchWorkers() async throws -> [Worker] {
+        let url = baseURL.appendingPathComponent("/v1/opencode/workers")
+        let (data, _) = try await session.data(from: url)
+        return try JSONDecoder().decode([Worker].self, from: data)
+    }
+    
+    func registerWorker(workerId: String, name: String, capabilities: [String], hostname: String?) async throws -> Worker {
+        let url = baseURL.appendingPathComponent("/v1/opencode/workers/register")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        var body: [String: Any] = [
+            "worker_id": workerId,
+            "name": name,
+            "capabilities": capabilities
+        ]
+        if let hostname = hostname {
+            body["hostname"] = hostname
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await session.data(for: request)
+        
+        struct WorkerResponse: Codable {
+            let success: Bool
+            let worker: Worker
+        }
+        
+        let response = try JSONDecoder().decode(WorkerResponse.self, from: data)
+        return response.worker
+    }
+    
+    func unregisterWorker(workerId: String) async throws {
+        let url = baseURL.appendingPathComponent("/v1/opencode/workers/\(workerId)/unregister")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        
+        let (_, _) = try await session.data(for: request)
+    }
+    
+    func workerHeartbeat(workerId: String) async throws {
+        let url = baseURL.appendingPathComponent("/v1/opencode/workers/\(workerId)/heartbeat")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        
+        let (_, _) = try await session.data(for: request)
+    }
+    
+    // MARK: - Watch Mode Status
+    
+    func fetchWatchStatus(codebaseId: String) async throws -> WatchStatus {
+        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/watch/status")
+        let (data, _) = try await session.data(from: url)
+        return try JSONDecoder().decode(WatchStatus.self, from: data)
+    }
+    
+    // MARK: - Monitor Stats
+    
+    func fetchStats() async throws -> ServerStats {
+        let url = baseURL.appendingPathComponent("/v1/monitor/stats")
+        let (data, _) = try await session.data(from: url)
+        return try JSONDecoder().decode(ServerStats.self, from: data)
+    }
+    
+    // MARK: - Export
+    
+    func exportMessagesJSON(limit: Int = 10000, allMessages: Bool = false) async throws -> Data {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/monitor/export/json"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "all_messages", value: allMessages ? "true" : "false")
+        ]
+        
+        let (data, _) = try await session.data(from: components.url!)
+        return data
     }
 }
 

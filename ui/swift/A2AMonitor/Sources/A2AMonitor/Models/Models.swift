@@ -415,3 +415,283 @@ struct TriggerResponse: Codable {
 struct MessageCountResponse: Codable {
     let total: Int
 }
+
+// MARK: - OpenCode Extended Status
+
+struct OpenCodeStatusExtended: Codable {
+    let available: Bool
+    let message: String?
+    let opencodeBinary: String?
+    let registeredCodebases: Int?
+    let autoStart: Bool?
+    
+    enum CodingKeys: String, CodingKey {
+        case available, message
+        case opencodeBinary = "opencode_binary"
+        case registeredCodebases = "registered_codebases"
+        case autoStart = "auto_start"
+    }
+}
+
+// MARK: - Agent Event (from SSE stream)
+
+struct AgentEvent: Codable {
+    let eventType: String
+    let codebaseId: String
+    let messageId: String?
+    let sessionId: String?
+    let partType: String?
+    let text: String?
+    let delta: String?
+    let toolName: String?
+    let callId: String?
+    let status: String?
+    let input: String?
+    let output: String?
+    let title: String?
+    let error: String?
+    let cost: Double?
+    let tokens: TokenInfoResponse?
+    let raw: [String: AnyCodable]?
+    
+    enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+        case codebaseId = "codebase_id"
+        case messageId = "message_id"
+        case sessionId = "session_id"
+        case partType = "part_type"
+        case text, delta
+        case toolName = "tool_name"
+        case callId = "call_id"
+        case status, input, output, title, error, cost, tokens, raw
+    }
+}
+
+struct TokenInfoResponse: Codable, Hashable {
+    let input: Int?
+    let output: Int?
+}
+
+// MARK: - AnyCodable for raw JSON
+
+struct AnyCodable: Codable, Hashable {
+    let value: Any
+    
+    init(_ value: Any) {
+        self.value = value
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let string = try? container.decode(String.self) {
+            value = string
+        } else if let int = try? container.decode(Int.self) {
+            value = int
+        } else if let double = try? container.decode(Double.self) {
+            value = double
+        } else if let bool = try? container.decode(Bool.self) {
+            value = bool
+        } else if let array = try? container.decode([AnyCodable].self) {
+            value = array.map { $0.value }
+        } else if let dict = try? container.decode([String: AnyCodable].self) {
+            value = dict.mapValues { $0.value }
+        } else {
+            value = NSNull()
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch value {
+        case let string as String: try container.encode(string)
+        case let int as Int: try container.encode(int)
+        case let double as Double: try container.encode(double)
+        case let bool as Bool: try container.encode(bool)
+        default: try container.encodeNil()
+        }
+    }
+    
+    static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
+        String(describing: lhs.value) == String(describing: rhs.value)
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(String(describing: value))
+    }
+}
+
+// MARK: - Session Message
+
+struct SessionMessage: Codable, Identifiable {
+    let id: String?
+    let sessionID: String?
+    let role: String?
+    let time: MessageTime?
+    let model: String?
+    let agent: String?
+    let cost: Double?
+    let tokens: TokenInfoResponse?
+    let parts: [MessagePart]?
+    
+    var identifier: String {
+        id ?? UUID().uuidString
+    }
+}
+
+struct MessageTime: Codable {
+    let created: String?
+    let completed: String?
+}
+
+struct MessagePart: Codable, Identifiable {
+    let id: String?
+    let type: String
+    let text: String?
+    let tool: String?
+    let state: ToolState?
+    
+    var identifier: String {
+        id ?? UUID().uuidString
+    }
+}
+
+struct ToolState: Codable {
+    let status: String?
+    let input: String?
+    let output: String?
+    let title: String?
+    let error: String?
+}
+
+// MARK: - Agent Status Response
+
+struct AgentStatusResponse: Codable {
+    let id: String
+    let name: String
+    let path: String
+    let status: String
+    let opencodePort: Int?
+    let sessionId: String?
+    let watchMode: Bool
+    let watchInterval: Int
+    let workerId: String?
+    let recentMessages: [SessionMessage]?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, path, status
+        case opencodePort = "opencode_port"
+        case sessionId = "session_id"
+        case watchMode = "watch_mode"
+        case watchInterval = "watch_interval"
+        case workerId = "worker_id"
+        case recentMessages = "recent_messages"
+    }
+}
+
+// MARK: - Worker
+
+struct Worker: Codable, Identifiable, Hashable {
+    let workerId: String
+    let name: String
+    let capabilities: [String]
+    let hostname: String?
+    let registeredAt: String
+    let lastSeen: String
+    let status: String
+    
+    var id: String { workerId }
+    
+    enum CodingKeys: String, CodingKey {
+        case workerId = "worker_id"
+        case name, capabilities, hostname
+        case registeredAt = "registered_at"
+        case lastSeen = "last_seen"
+        case status
+    }
+}
+
+// MARK: - Watch Status
+
+struct WatchStatus: Codable {
+    let codebaseId: String
+    let name: String
+    let watchMode: Bool
+    let status: String
+    let interval: Int
+    let pendingTasks: Int
+    let runningTasks: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case codebaseId = "codebase_id"
+        case name
+        case watchMode = "watch_mode"
+        case status, interval
+        case pendingTasks = "pending_tasks"
+        case runningTasks = "running_tasks"
+    }
+}
+
+// MARK: - Server Stats
+
+struct ServerStats: Codable {
+    let totalMessages: Int
+    let toolCalls: Int
+    let errors: Int
+    let tokens: Int
+    let avgResponseTime: Double
+    let activeAgents: Int
+    let interventions: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case totalMessages = "total_messages"
+        case toolCalls = "tool_calls"
+        case errors, tokens
+        case avgResponseTime = "avg_response_time"
+        case activeAgents = "active_agents"
+        case interventions
+    }
+}
+
+// MARK: - Agent Event SSE Delegate
+
+class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
+    private var onEvent: (AgentEvent) -> Void
+    private var buffer = ""
+    
+    init(onEvent: @escaping (AgentEvent) -> Void) {
+        self.onEvent = onEvent
+    }
+    
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard let string = String(data: data, encoding: .utf8) else { return }
+        buffer += string
+        processBuffer()
+    }
+    
+    private func processBuffer() {
+        let chunks = buffer.components(separatedBy: "\n\n")
+        
+        for i in 0..<(chunks.count - 1) {
+            let chunk = chunks[i]
+            var eventType = ""
+            var eventData = ""
+            
+            for line in chunk.components(separatedBy: "\n") {
+                if line.hasPrefix("event:") {
+                    eventType = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                } else if line.hasPrefix("data:") {
+                    eventData = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                }
+            }
+            
+            if !eventData.isEmpty {
+                if let data = eventData.data(using: .utf8),
+                   let event = try? JSONDecoder().decode(AgentEvent.self, from: data) {
+                    onEvent(event)
+                }
+            }
+        }
+        
+        buffer = chunks.last ?? ""
+    }
+}
