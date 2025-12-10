@@ -1,0 +1,368 @@
+import SwiftUI
+
+/// Tasks View - Manage task queue for agents
+struct TasksView: View {
+    @EnvironmentObject var viewModel: MonitorViewModel
+    @State private var showingCreateSheet = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Top bar with filters
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Task Queue")
+                        .font(.headline)
+                        .foregroundColor(Color.liquidGlass.textPrimary)
+                    
+                    Spacer()
+                    
+                    // Stats badges
+                    HStack(spacing: 8) {
+                        GlassBadge(
+                            text: "\(viewModel.tasks.filter { $0.status == .pending }.count) pending",
+                            color: Color.liquidGlass.warning
+                        )
+                        GlassBadge(
+                            text: "\(viewModel.tasks.filter { $0.status == .working }.count) working",
+                            color: Color.liquidGlass.info
+                        )
+                        GlassBadge(
+                            text: "\(viewModel.tasks.filter { $0.status == .completed }.count) completed",
+                            color: Color.liquidGlass.success
+                        )
+                    }
+                }
+                
+                HStack(spacing: 12) {
+                    // Filters
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterChip(title: "All", isSelected: viewModel.taskFilter == nil) {
+                                viewModel.taskFilter = nil
+                            }
+                            
+                            ForEach(TaskStatus.allCases, id: \.self) { status in
+                                FilterChip(title: status.rawValue.capitalized, isSelected: viewModel.taskFilter == status) {
+                                    viewModel.taskFilter = status
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    GlassButton("Create Task", icon: "plus", style: .primary) {
+                        showingCreateSheet = true
+                    }
+                }
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+            
+            // Tasks list
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    if viewModel.filteredTasks.isEmpty {
+                        EmptyStateView(
+                            icon: "checklist",
+                            title: "No Tasks",
+                            message: "Create a task to assign work to an agent",
+                            action: { showingCreateSheet = true },
+                            actionTitle: "Create Task"
+                        )
+                        .padding(.top, 60)
+                    } else {
+                        ForEach(viewModel.filteredTasks) { task in
+                            TaskCard(
+                                task: task,
+                                onStart: task.status == .pending ? {
+                                    Task {
+                                        try? await viewModel.startTask(task)
+                                    }
+                                } : nil,
+                                onCancel: task.status == .pending || task.status == .working ? {
+                                    Task {
+                                        try? await viewModel.cancelTask(task)
+                                    }
+                                } : nil
+                            )
+                            .contextMenu {
+                                if task.status == .pending {
+                                    Button {
+                                        Task {
+                                            try? await viewModel.startTask(task)
+                                        }
+                                    } label: {
+                                        Label("Start Task", systemImage: "play.fill")
+                                    }
+                                }
+                                
+                                if task.status != .completed && task.status != .cancelled {
+                                    Button(role: .destructive) {
+                                        Task {
+                                            try? await viewModel.cancelTask(task)
+                                        }
+                                    } label: {
+                                        Label("Cancel Task", systemImage: "xmark.circle")
+                                    }
+                                }
+                                
+                                Button {
+                                    copyTaskId(task.id)
+                                } label: {
+                                    Label("Copy ID", systemImage: "doc.on.doc")
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+        }
+        .background(Color.clear)
+        .navigationTitle("Tasks")
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    Task {
+                        await viewModel.loadTasks()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+        }
+        .sheet(isPresented: $showingCreateSheet) {
+            CreateTaskSheet()
+        }
+    }
+    
+    func copyTaskId(_ id: String) {
+        #if os(macOS)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(id, forType: .string)
+        #else
+        UIPasteboard.general.string = id
+        #endif
+    }
+}
+
+// MARK: - Create Task Sheet
+
+struct CreateTaskSheet: View {
+    @EnvironmentObject var viewModel: MonitorViewModel
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var selectedCodebaseId: String = ""
+    @State private var title = ""
+    @State private var description = ""
+    @State private var priority: TaskPriority = .normal
+    @State private var context = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LiquidGradientBackground()
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        VStack(spacing: 8) {
+                            Image(systemName: "checklist")
+                                .font(.system(size: 50))
+                                .foregroundColor(Color.liquidGlass.primary)
+                            
+                            Text("Create Task")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .foregroundColor(Color.liquidGlass.textPrimary)
+                        }
+                        .padding(.top, 20)
+                        
+                        // Agent selection
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Assign to Agent")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color.liquidGlass.textSecondary)
+                            
+                            Picker("Agent", selection: $selectedCodebaseId) {
+                                Text("Select Agent...").tag("")
+                                ForEach(viewModel.codebases) { codebase in
+                                    HStack {
+                                        StatusIndicator(status: codebase.status, showLabel: false, size: 8)
+                                        Text(codebase.name)
+                                        if codebase.status == .watching {
+                                            Image(systemName: "eye.fill")
+                                                .font(.caption2)
+                                        }
+                                    }
+                                    .tag(codebase.id)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .padding(12)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.horizontal)
+                        
+                        // Title
+                        GlassTextField(
+                            title: "Task Title",
+                            placeholder: "e.g., Add user authentication",
+                            text: $title
+                        )
+                        .padding(.horizontal)
+                        
+                        // Description
+                        GlassTextField(
+                            title: "Description",
+                            placeholder: "Describe what you want the agent to do...",
+                            text: $description,
+                            isMultiline: true
+                        )
+                        .padding(.horizontal)
+                        
+                        // Priority
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Priority")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color.liquidGlass.textSecondary)
+                            
+                            HStack(spacing: 12) {
+                                ForEach(TaskPriority.allCases, id: \.self) { p in
+                                    PriorityButton(
+                                        priority: p,
+                                        isSelected: priority == p
+                                    ) {
+                                        priority = p
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Context
+                        GlassTextField(
+                            title: "Additional Context (Optional)",
+                            placeholder: "Any additional files, requirements, or context...",
+                            text: $context,
+                            isMultiline: true
+                        )
+                        .padding(.horizontal)
+                        
+                        if let error = errorMessage {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(Color.liquidGlass.error)
+                        }
+                        
+                        // Actions
+                        HStack(spacing: 16) {
+                            GlassButton("Cancel", style: .secondary) {
+                                dismiss()
+                            }
+                            
+                            GlassButton("Create Task", icon: "plus", style: .primary) {
+                                createTask()
+                            }
+                            .disabled(selectedCodebaseId.isEmpty || title.isEmpty || description.isEmpty || isLoading)
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+    
+    func createTask() {
+        guard let codebase = viewModel.codebases.first(where: { $0.id == selectedCodebaseId }) else {
+            errorMessage = "Please select a valid agent"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        Task {
+            do {
+                try await viewModel.createTask(
+                    codebase: codebase,
+                    title: title,
+                    description: description,
+                    priority: priority,
+                    context: context.isEmpty ? nil : context
+                )
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isLoading = false
+        }
+    }
+}
+
+// MARK: - Priority Button
+
+struct PriorityButton: View {
+    let priority: TaskPriority
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var color: Color {
+        switch priority {
+        case .low: return Color.liquidGlass.success
+        case .normal: return Color.liquidGlass.warning
+        case .high: return .orange
+        case .urgent: return Color.liquidGlass.error
+        }
+    }
+    
+    var icon: String {
+        switch priority {
+        case .low: return "arrow.down"
+        case .normal: return "minus"
+        case .high: return "arrow.up"
+        case .urgent: return "exclamationmark"
+        }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption)
+                Text(priority.label)
+                    .font(.caption2)
+            }
+            .foregroundColor(isSelected ? .white : color)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? color : Color.white.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(color.opacity(isSelected ? 0 : 0.5), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Preview
+
+#Preview {
+    NavigationStack {
+        TasksView()
+            .environmentObject(MonitorViewModel())
+            .background(LiquidGradientBackground())
+    }
+}

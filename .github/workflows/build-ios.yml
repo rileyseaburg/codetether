@@ -1,0 +1,277 @@
+name: Build iOS App
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'ui/swift/**'
+      - '.github/workflows/build-ios.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ui/swift/**'
+  workflow_dispatch:
+    inputs:
+      install_to_device:
+        description: 'Install to connected iPhone'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  # ===================
+  # iOS - Self-hosted on local Mac
+  # Uses existing Xcode signing (riley@spotlessbinco.com)
+  # ===================
+  build-ios:
+    runs-on: [self-hosted, macOS, ios-builder]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          clean: true
+
+      - name: Setup Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Unlock Keychain for codesign
+        run: |
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" ~/Library/Keychains/login.keychain-db
+          security set-keychain-settings -t 3600 ~/Library/Keychains/login.keychain-db
+
+      - name: Build Swift Package
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          swift build -c release
+
+      - name: Create Xcode Project
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          # Create an Xcode project from the Swift package for iOS building
+          cat > project.yml << 'EOF'
+          name: A2AMonitor
+          options:
+            bundleIdPrefix: com.a2a
+            deploymentTarget:
+              iOS: "17.0"
+              macOS: "14.0"
+          settings:
+            DEVELOPMENT_TEAM: ""
+            CODE_SIGN_STYLE: Automatic
+          targets:
+            A2AMonitor:
+              type: application
+              platform: iOS
+              sources:
+                - path: Sources/A2AMonitor
+              settings:
+                PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
+                INFOPLIST_VALUES:
+                  CFBundleDisplayName: A2A Monitor
+                  CFBundleShortVersionString: "1.0.0"
+                  CFBundleVersion: "1"
+                  UILaunchScreen: {}
+                  UIRequiredDeviceCapabilities:
+                    - arm64
+                  UISupportedInterfaceOrientations:
+                    - UIInterfaceOrientationPortrait
+                    - UIInterfaceOrientationLandscapeLeft
+                    - UIInterfaceOrientationLandscapeRight
+                  UISupportedInterfaceOrientations~ipad:
+                    - UIInterfaceOrientationPortrait
+                    - UIInterfaceOrientationPortraitUpsideDown
+                    - UIInterfaceOrientationLandscapeLeft
+                    - UIInterfaceOrientationLandscapeRight
+                  NSAppTransportSecurity:
+                    NSAllowsArbitraryLoads: true
+          EOF
+
+      - name: Generate Xcode Project with XcodeGen
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          # Install xcodegen if not available
+          which xcodegen || brew install xcodegen
+          xcodegen generate
+
+      - name: Build iOS app for device
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          xcodebuild -project A2AMonitor.xcodeproj \
+            -scheme A2AMonitor \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            build
+
+      - name: Archive iOS app
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          xcodebuild -project A2AMonitor.xcodeproj \
+            -scheme A2AMonitor \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/A2AMonitor.xcarchive \
+            archive
+
+      - name: Export IPA
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          cat > ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>teamID</key>
+              <string></string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+          
+          xcodebuild -exportArchive \
+            -archivePath build/A2AMonitor.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist || true
+
+      - name: Upload iOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-a2a-monitor
+          path: |
+            ui/swift/A2AMonitor/build/**/*.app
+            ui/swift/A2AMonitor/build/**/*.ipa
+            ui/swift/A2AMonitor/build/A2AMonitor.xcarchive
+          if-no-files-found: warn
+
+      - name: Install to connected iPhone
+        if: ${{ github.event.inputs.install_to_device != 'false' }}
+        run: |
+          # Find the built app
+          APP_PATH=$(find ui/swift/A2AMonitor/build -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "Found app: $APP_PATH"
+            # Target: Evolving Software-5G (iPhone 13 Pro Max)
+            DEVICE_ID="4745B27B-2B68-5164-A053-B869B07EE2CA"
+            echo "Installing to Evolving Software-5G (iPhone 13 Pro Max)..."
+            xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
+          else
+            echo "No .app found to install"
+          fi
+        continue-on-error: true
+
+      - name: Build Summary
+        run: |
+          echo "### iOS Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**App:** A2A Monitor (Liquid Glass UI)" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** iOS 17.0+" >> $GITHUB_STEP_SUMMARY
+          echo "**Architecture:** arm64" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- iOS App Bundle (.app)" >> $GITHUB_STEP_SUMMARY
+          echo "- Xcode Archive (.xcarchive)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "ui/swift/A2AMonitor/build/export/A2AMonitor.ipa" ]; then
+            echo "- IPA Package (.ipa)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ===================
+  # macOS Build
+  # ===================
+  build-macos:
+    runs-on: [self-hosted, macOS, ios-builder]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          clean: true
+
+      - name: Setup Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Build Swift Package for macOS
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          swift build -c release
+
+      - name: Create macOS App Bundle
+        working-directory: ui/swift/A2AMonitor
+        run: |
+          # Create app bundle structure
+          mkdir -p build/A2AMonitor.app/Contents/MacOS
+          mkdir -p build/A2AMonitor.app/Contents/Resources
+          
+          # Copy binary
+          cp .build/release/A2AMonitor build/A2AMonitor.app/Contents/MacOS/ || true
+          
+          # Create Info.plist
+          cat > build/A2AMonitor.app/Contents/Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>A2AMonitor</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.a2a.monitor</string>
+              <key>CFBundleName</key>
+              <string>A2A Monitor</string>
+              <key>CFBundleDisplayName</key>
+              <string>A2A Monitor</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>14.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>NSAppTransportSecurity</key>
+              <dict>
+                  <key>NSAllowsArbitraryLoads</key>
+                  <true/>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-a2a-monitor
+          path: |
+            ui/swift/A2AMonitor/build/A2AMonitor.app
+            ui/swift/A2AMonitor/.build/release/A2AMonitor
+          if-no-files-found: warn
+
+      - name: Build Summary
+        run: |
+          echo "### macOS Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**App:** A2A Monitor (Liquid Glass UI)" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** macOS 14.0+" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS App Bundle (.app)" >> $GITHUB_STEP_SUMMARY
+          echo "- Release Binary" >> $GITHUB_STEP_SUMMARY
