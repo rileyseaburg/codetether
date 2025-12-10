@@ -111,8 +111,8 @@ jobs:
               iOS: "17.0"
               macOS: "14.0"
           settings:
-            DEVELOPMENT_TEAM: "8WK8N255QG"
-            CODE_SIGN_STYLE: Automatic
+            DEVELOPMENT_TEAM: "J9YRM3U37D"
+            CODE_SIGN_STYLE: Manual
           targets:
             A2AMonitor:
               type: application
@@ -123,6 +123,8 @@ jobs:
                 PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
                 INFOPLIST_FILE: Info.plist
                 GENERATE_INFOPLIST_FILE: NO
+                CODE_SIGN_IDENTITY: "Apple Development"
+                PROVISIONING_PROFILE_SPECIFIER: "debug1"
           EOF
 
       - name: Generate Xcode Project with XcodeGen
@@ -139,10 +141,11 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            DEVELOPMENT_TEAM="J9YRM3U37D" \
             CODE_SIGN_IDENTITY="Apple Development" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
-            build -allowProvisioningUpdates
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="debug1" \
+            build
 
       - name: Archive iOS app
         working-directory: ui/swift/A2AMonitor
@@ -152,6 +155,10 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/A2AMonitor.xcarchive \
+            DEVELOPMENT_TEAM="J9YRM3U37D" \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="debug1" \
             archive
 
       - name: Export IPA
@@ -165,9 +172,14 @@ jobs:
               <key>method</key>
               <string>development</string>
               <key>teamID</key>
-              <string></string>
+              <string>J9YRM3U37D</string>
               <key>signingStyle</key>
-              <string>automatic</string>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.a2a.monitor</key>
+                  <string>debug1</string>
+              </dict>
               <key>stripSwiftSymbols</key>
               <true/>
               <key>compileBitcode</key>
