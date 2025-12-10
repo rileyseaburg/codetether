@@ -1,0 +1,19 @@
+name: A2AMonitor
+options:
+  bundleIdPrefix: com.a2a
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+settings:
+  DEVELOPMENT_TEAM: "8WK8N255QG"
+  CODE_SIGN_STYLE: Automatic
+targets:
+  A2AMonitor:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/A2AMonitor
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
+      INFOPLIST_FILE: Info.plist
+      GENERATE_INFOPLIST_FILE: NO

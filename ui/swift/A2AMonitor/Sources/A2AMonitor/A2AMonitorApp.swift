@@ -96,6 +96,7 @@ struct ContentView: View {
     }
 }
 
+#if os(macOS)
 // MARK: - Sidebar (macOS)
 struct SidebarView: View {
     @Binding var selectedTab: ContentView.Tab
@@ -114,6 +115,8 @@ struct SidebarView: View {
         }
     }
 }
+
+#endif
 
 // MARK: - Settings View
 struct SettingsView: View {
