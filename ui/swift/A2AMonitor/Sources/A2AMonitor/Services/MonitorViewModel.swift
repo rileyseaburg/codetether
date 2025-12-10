@@ -25,6 +25,9 @@ class MonitorViewModel: ObservableObject {
     @Published var messageFilter: MessageType?
     @Published var searchQuery: String = ""
     
+    // Sessions
+    @Published var sessions: [SessionMessage] = []
+    
     // Tasks
     @Published var tasks: [AgentTask] = []
     @Published var taskFilter: TaskStatus?
@@ -150,10 +153,11 @@ class MonitorViewModel: ObservableObject {
         async let modelsTask: () = loadModels()
         async let agentsTask: () = loadAgents()
         async let messagesTask: () = loadMessages()
+        async let sessionsTask: () = loadSessions()
         async let tasksTask: () = loadTasks()
         async let countTask: () = loadMessageCount()
         
-        _ = await (openCodeTask, codebasesTask, modelsTask, agentsTask, messagesTask, tasksTask, countTask)
+        _ = await (openCodeTask, codebasesTask, modelsTask, agentsTask, messagesTask, sessionsTask, tasksTask, countTask)
         
         isLoading = false
     }
@@ -326,6 +330,16 @@ class MonitorViewModel: ObservableObject {
         }
         
         return result
+    }
+    
+    // MARK: - Sessions
+    
+    func loadSessions() async {
+        do {
+            sessions = try await client.fetchSessions()
+        } catch {
+            print("Failed to load sessions: \(error)")
+        }
     }
     
     // MARK: - Tasks

@@ -61,6 +61,7 @@ struct ContentView: View {
         case agents = "Agents"
         case messages = "Messages"
         case tasks = "Tasks"
+        case sessions = "Sessions"
         case output = "Output"
         
         var icon: String {
@@ -69,6 +70,7 @@ struct ContentView: View {
             case .agents: return "cpu"
             case .messages: return "bubble.left.and.bubble.right"
             case .tasks: return "checklist"
+            case .sessions: return "person.2"
             case .output: return "terminal"
             }
         }
@@ -163,6 +165,8 @@ struct ContentView: View {
             MessagesView()
         case .tasks:
             TasksView()
+        case .sessions:
+            SessionsView()
         case .output:
             AgentOutputView()
         }

@@ -322,6 +322,12 @@ class A2AClient: ObservableObject {
     
     // MARK: - Task API
     
+    func fetchSessions() async throws -> [SessionMessage] {
+        let url = baseURL.appendingPathComponent("/v1/opencode/sessions")
+        let (data, _) = try await session.data(from: url)
+        return try jsonDecoder.decode([SessionMessage].self, from: data)
+    }
+    
     func fetchTasks() async throws -> [AgentTask] {
         let url = baseURL.appendingPathComponent("/v1/opencode/tasks")
         let (data, _) = try await session.data(from: url)
