@@ -10,7 +10,7 @@ User=a2a-worker
 Group=a2a-worker
 
 # Environment
-Environment=A2A_SERVER_URL=https://a2a.quantum-forge.net
+Environment=A2A_SERVER_URL=https://api.codetether.run
 Environment=A2A_WORKER_NAME=%H
 Environment=A2A_POLL_INTERVAL=5
 EnvironmentFile=-/etc/a2a-worker/env

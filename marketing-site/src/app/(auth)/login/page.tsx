@@ -62,7 +62,7 @@ function LoginForm() {
     try {
       // Direct API login to A2A backend
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://a2a.quantum-forge.net'}/v1/auth/login`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'}/v1/auth/login`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

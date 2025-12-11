@@ -80,7 +80,7 @@ if [[ ! -f "$CONFIG_DIR/env" ]]; then
 # A2A Agent Worker Environment
 # Uncomment and modify as needed
 
-# A2A_SERVER_URL=https://a2a.quantum-forge.net
+# A2A_SERVER_URL=https://api.codetether.run
 # A2A_WORKER_NAME=my-worker
 # A2A_POLL_INTERVAL=5
 EOF

@@ -11,7 +11,7 @@ This worker:
 6. Reports OpenCode session history to the server
 
 Usage:
-    python worker.py --server https://a2a.quantum-forge.net --name "dev-vm-worker"
+    python worker.py --server https://api.codetether.run --name "dev-vm-worker"
 """
 
 import argparse
@@ -667,7 +667,7 @@ async def main():
     parser = argparse.ArgumentParser(description="A2A Agent Worker")
     parser.add_argument(
         "--server", "-s",
-        default=os.environ.get("A2A_SERVER_URL", "https://a2a.quantum-forge.net"),
+        default=os.environ.get("A2A_SERVER_URL", "https://api.codetether.run"),
         help="A2A server URL"
     )
     parser.add_argument(

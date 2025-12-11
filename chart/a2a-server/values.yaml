@@ -74,7 +74,7 @@ ingress:
     cert-manager.io/cluster-issuer: "cloudflare-issuer"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
   hosts:
-    - host: a2a.quantum-forge.net
+    - host: api.codetether.run
       paths:
         - path: /
           pathType: Prefix
@@ -85,7 +85,7 @@ ingress:
   tls:
     - secretName: a2a-server-tls
       hosts:
-        - a2a.quantum-forge.net
+        - api.codetether.run
 
 # Resource limits and requests
 resources:

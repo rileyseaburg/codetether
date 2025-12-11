@@ -6,9 +6,13 @@ DOCKER_REGISTRY ?= registry.quantum-forge.net/library
 OCI_REGISTRY = registry.quantum-forge.net/library
 PORT ?= 8000
 CHART_PATH = chart/a2a-server
-CHART_VERSION ?= 0.3.0
+CHART_VERSION ?= 0.4.0
 NAMESPACE ?= a2a-server
 VALUES_FILE ?= chart/codetether-values.yaml
+
+# Additional image names for full platform
+MARKETING_IMAGE_NAME = a2a-marketing
+DOCS_IMAGE_NAME = codetether-docs
 
 # Default target
 .PHONY: help
@@ -49,8 +53,19 @@ help: ## Show this help message
 
 # Docker targets
 .PHONY: docker-build
-docker-build: ## Build Docker image
+docker-build: ## Build Docker image (API server only)
 	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) . --network=host
+
+.PHONY: docker-build-marketing
+docker-build-marketing: ## Build marketing site Docker image
+	docker build -t $(MARKETING_IMAGE_NAME):$(DOCKER_TAG) ./marketing-site --network=host
+
+.PHONY: docker-build-docs
+docker-build-docs: ## Build docs site Docker image
+	docker build -t $(DOCS_IMAGE_NAME):$(DOCKER_TAG) -f Dockerfile.docs . --network=host
+
+.PHONY: docker-build-all
+docker-build-all: docker-build docker-build-marketing docker-build-docs ## Build all Docker images (server, marketing, docs)
 
 .PHONY: docker-build-no-cache
 docker-build-no-cache: ## Build Docker image without cache
@@ -84,9 +99,22 @@ docker-shell: ## Open shell in running container
 	docker exec -it a2a-server /bin/bash
 
 .PHONY: docker-push
-docker-push: ## Push Docker image to OCI registry
+docker-push: ## Push API server Docker image to OCI registry
 	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) $(OCI_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 	docker push $(OCI_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
+
+.PHONY: docker-push-marketing
+docker-push-marketing: ## Push marketing site Docker image to OCI registry
+	docker tag $(MARKETING_IMAGE_NAME):$(DOCKER_TAG) $(OCI_REGISTRY)/$(MARKETING_IMAGE_NAME):$(DOCKER_TAG)
+	docker push $(OCI_REGISTRY)/$(MARKETING_IMAGE_NAME):$(DOCKER_TAG)
+
+.PHONY: docker-push-docs
+docker-push-docs: ## Push docs site Docker image to OCI registry
+	docker tag $(DOCS_IMAGE_NAME):$(DOCKER_TAG) $(OCI_REGISTRY)/$(DOCS_IMAGE_NAME):$(DOCKER_TAG)
+	docker push $(OCI_REGISTRY)/$(DOCS_IMAGE_NAME):$(DOCKER_TAG)
+
+.PHONY: docker-push-all
+docker-push-all: docker-push docker-push-marketing docker-push-docs ## Push all Docker images to OCI registry
 
 .PHONY: docker-push-custom
 docker-push-custom: ## Push Docker image to custom registry
@@ -368,7 +396,7 @@ bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push im
 # =============================================================================
 
 .PHONY: k8s-dev
-k8s-dev: docker-build docker-push ## Build and deploy to dev environment with blue-green
+k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to dev environment
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting DEV environment blue-green deployment"
 	NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
@@ -377,7 +405,7 @@ k8s-dev: docker-build docker-push ## Build and deploy to dev environment with bl
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: k8s-staging
-k8s-staging: docker-build docker-push ## Build and deploy to staging environment with blue-green
+k8s-staging: docker-build-all docker-push-all ## Build and deploy all containers to staging environment
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting STAGING environment blue-green deployment"
 	NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
@@ -386,10 +414,11 @@ k8s-staging: docker-build docker-push ## Build and deploy to staging environment
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: k8s-prod
-k8s-prod: docker-build docker-push helm-package helm-push ## Build and deploy to production with blue-green (OCI)
+k8s-prod: docker-build-all docker-push-all helm-package helm-push ## Build and deploy ALL containers to production (server, marketing, docs)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
+	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site"
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=a2a-server \
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \

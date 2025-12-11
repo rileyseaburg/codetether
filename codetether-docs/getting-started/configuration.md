@@ -180,7 +180,7 @@ For distributed agent workers:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `A2A_SERVER_URL` | `https://a2a.quantum-forge.net` | Server URL to connect to |
+| `A2A_SERVER_URL` | `https://api.codetether.run` | Server URL to connect to |
 | `A2A_WORKER_NAME` | hostname | Worker identifier |
 | `A2A_POLL_INTERVAL` | `5` | Task polling interval (seconds) |
 

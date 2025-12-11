@@ -1595,18 +1595,18 @@ Workers automatically sync OpenCode session history to the server, enabling:
 
 ```bash
 # List all sessions for a codebase
-curl https://a2a.quantum-forge.net/v1/opencode/codebases/{id}/sessions
+curl https://api.codetether.run/v1/opencode/codebases/{id}/sessions
 
 # Get messages for a specific session
-curl https://a2a.quantum-forge.net/v1/opencode/codebases/{id}/sessions/{session_id}/messages
+curl https://api.codetether.run/v1/opencode/codebases/{id}/sessions/{session_id}/messages
 
 # Resume a session (creates a new task)
-curl -X POST https://a2a.quantum-forge.net/v1/opencode/codebases/{id}/sessions/{session_id}/resume \
+curl -X POST https://api.codetether.run/v1/opencode/codebases/{id}/sessions/{session_id}/resume \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Continue with the refactoring"}'
 
 # Stream task output (SSE)
-curl https://a2a.quantum-forge.net/v1/opencode/tasks/{task_id}/output/stream
+curl https://api.codetether.run/v1/opencode/tasks/{task_id}/output/stream
 ```
 
 ### Real-time Output Streaming
@@ -1633,7 +1633,7 @@ async def stream_output(server_url: str, task_id: str):
                         break
 
 # Usage
-asyncio.run(stream_output("https://a2a.quantum-forge.net", "task-123"))
+asyncio.run(stream_output("https://api.codetether.run", "task-123"))
 ```
 
 ### Watch Mode
@@ -1657,7 +1657,7 @@ The A2A server supports enterprise authentication via Keycloak:
 
 ```bash
 # Login with username/password
-curl -X POST https://a2a.quantum-forge.net/v1/auth/login \
+curl -X POST https://api.codetether.run/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "user@example.com", "password": "secret"}'
 
@@ -1674,7 +1674,7 @@ curl -X POST https://a2a.quantum-forge.net/v1/auth/login \
 }
 
 # Refresh token when expired
-curl -X POST https://a2a.quantum-forge.net/v1/auth/refresh \
+curl -X POST https://api.codetether.run/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refresh_token": "eyJ..."}'
 ```
@@ -1694,7 +1694,7 @@ KEYCLOAK_CLIENT_SECRET=your-secret
 Include the access token in requests:
 
 ```bash
-curl https://a2a.quantum-forge.net/v1/opencode/codebases \
+curl https://api.codetether.run/v1/opencode/codebases \
   -H "Authorization: Bearer eyJ..."
 ```
 
@@ -1713,7 +1713,7 @@ curl https://a2a.quantum-forge.net/v1/opencode/codebases \
 
 ## 🚀 Production Deployment
 
-### Deploy to a2a.quantum-forge.net
+### Deploy to api.codetether.run
 
 Full production deployment with monitoring, autoscaling, and MCP synchronization:
 
@@ -1726,7 +1726,7 @@ Full production deployment with monitoring, autoscaling, and MCP synchronization
 ```
 
 **Features:**
-- ✅ Domain: `a2a.quantum-forge.net`
+- ✅ Domain: `api.codetether.run`
 - ✅ TLS with Let's Encrypt
 - ✅ Horizontal autoscaling (2-10 pods)
 - ✅ Redis message broker
@@ -1750,20 +1750,20 @@ Full production deployment with monitoring, autoscaling, and MCP synchronization
 **Access Production Services:**
 ```bash
 # Monitoring dashboard
-https://a2a.quantum-forge.net/v1/monitor/
+https://api.codetether.run/v1/monitor/
 
 # Agent discovery
-https://a2a.quantum-forge.net/.well-known/agent-card.json
+https://api.codetether.run/.well-known/agent-card.json
 
 # OpenCode API
-https://a2a.quantum-forge.net/v1/opencode/codebases
+https://api.codetether.run/v1/opencode/codebases
 
 # Login (Keycloak)
-curl -X POST https://a2a.quantum-forge.net/v1/auth/login \
+curl -X POST https://api.codetether.run/v1/auth/login \
   -d '{"username": "user@example.com", "password": "secret"}'
 
 # Health check
-https://a2a.quantum-forge.net/health
+https://api.codetether.run/health
 ```
 
 ---

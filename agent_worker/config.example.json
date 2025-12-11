@@ -1,5 +1,5 @@
 {
-    "server_url": "https://a2a.quantum-forge.net",
+    "server_url": "https://api.codetether.run",
     "worker_name": "dev-vm-worker",
     "poll_interval": 5,
     "opencode_bin": null,

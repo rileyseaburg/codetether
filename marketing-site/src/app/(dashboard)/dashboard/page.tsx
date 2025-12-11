@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 // API base URL - use environment variable or default
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://a2a.quantum-forge.net'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
 interface Codebase {
     id: string
