@@ -103,8 +103,8 @@ export function CopilotComparison() {
                 </div>
 
                 {/* The Better Together Architecture */}
-                <div className="mt-16 rounded-3xl bg-gray-900 dark:bg-gray-800 p-8 sm:p-12">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="mt-16 rounded-3xl bg-gray-900 dark:bg-gray-800 p-4 sm:p-8 lg:p-12 overflow-hidden">
+                    <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                         <div>
                             <h3 className="text-2xl font-bold text-white">
                                 The &quot;Better Together&quot; Architecture
@@ -133,18 +133,18 @@ export function CopilotComparison() {
                                 </div>
                             </div>
                         </div>
-                        <div className="relative">
+                        <div className="relative overflow-hidden">
                             {/* Architecture Diagram */}
-                            <div className="rounded-2xl bg-gray-950 p-6 ring-1 ring-white/10">
+                            <div className="rounded-2xl bg-gray-950 p-4 sm:p-6 ring-1 ring-white/10">
                                 <div className="space-y-4">
                                     {/* VS Code / Copilot Box */}
-                                    <div className="rounded-xl bg-blue-900/30 border border-blue-500/30 p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="text-2xl">💻</span>
-                                            <span className="font-semibold text-blue-400">VS Code + Copilot</span>
-                                            <span className="ml-auto text-xs text-blue-400/60">Developer VDI</span>
+                                    <div className="rounded-xl bg-blue-900/30 border border-blue-500/30 p-3 sm:p-4">
+                                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                                            <span className="text-xl sm:text-2xl">💻</span>
+                                            <span className="font-semibold text-blue-400 text-sm sm:text-base">VS Code + Copilot</span>
+                                            <span className="text-xs text-blue-400/60 sm:ml-auto">Developer VDI</span>
                                         </div>
-                                        <p className="text-sm text-gray-400">Lightweight interface. Quick autocomplete. Chat.</p>
+                                        <p className="text-xs sm:text-sm text-gray-400">Lightweight interface. Quick autocomplete. Chat.</p>
                                     </div>
 
                                     {/* Arrow */}
@@ -158,27 +158,27 @@ export function CopilotComparison() {
                                     </div>
 
                                     {/* CodeTether Box */}
-                                    <div className="rounded-xl bg-cyan-900/30 border border-cyan-500/30 p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="text-2xl">⚡</span>
-                                            <span className="font-semibold text-cyan-400">CodeTether Workers</span>
-                                            <span className="ml-auto text-xs text-cyan-400/60">Your Secure VPC</span>
+                                    <div className="rounded-xl bg-cyan-900/30 border border-cyan-500/30 p-3 sm:p-4">
+                                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                                            <span className="text-xl sm:text-2xl">⚡</span>
+                                            <span className="font-semibold text-cyan-400 text-sm sm:text-base">CodeTether Workers</span>
+                                            <span className="text-xs text-cyan-400/60 sm:ml-auto">Your Secure VPC</span>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2 mt-2">
-                                            <div className="rounded bg-gray-800 p-2 text-center">
-                                                <div className="text-lg">🔧</div>
-                                                <div className="text-xs text-gray-400">Refactor</div>
+                                        <div className="grid grid-cols-3 gap-1 sm:gap-2 mt-2">
+                                            <div className="rounded bg-gray-800 p-1.5 sm:p-2 text-center">
+                                                <div className="text-base sm:text-lg">🔧</div>
+                                                <div className="text-[10px] sm:text-xs text-gray-400">Refactor</div>
                                             </div>
-                                            <div className="rounded bg-gray-800 p-2 text-center">
-                                                <div className="text-lg">🧪</div>
-                                                <div className="text-xs text-gray-400">Test</div>
+                                            <div className="rounded bg-gray-800 p-1.5 sm:p-2 text-center">
+                                                <div className="text-base sm:text-lg">🧪</div>
+                                                <div className="text-[10px] sm:text-xs text-gray-400">Test</div>
                                             </div>
-                                            <div className="rounded bg-gray-800 p-2 text-center">
-                                                <div className="text-lg">📊</div>
-                                                <div className="text-xs text-gray-400">Analyze</div>
+                                            <div className="rounded bg-gray-800 p-1.5 sm:p-2 text-center">
+                                                <div className="text-base sm:text-lg">📊</div>
+                                                <div className="text-[10px] sm:text-xs text-gray-400">Analyze</div>
                                             </div>
                                         </div>
-                                        <p className="text-sm text-gray-400 mt-3">Heavy compute. Long-running. Data stays local.</p>
+                                        <p className="text-xs sm:text-sm text-gray-400 mt-3">Heavy compute. Long-running. Data stays local.</p>
                                     </div>
                                 </div>
                             </div>

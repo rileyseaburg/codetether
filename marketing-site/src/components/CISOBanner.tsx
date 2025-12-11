@@ -86,14 +86,14 @@ export function CISOBanner() {
                 <div className="mt-8 flex flex-wrap gap-4">
                     <Button
                         href="#features"
-                        className="bg-white text-cyan-700 hover:bg-cyan-50 border-transparent"
+                        className="!bg-white !text-cyan-700 hover:!bg-cyan-50 !border-transparent"
                     >
                         See How It Works
                     </Button>
                     <Button
-                        href="https://github.com/rileyseaburg/codetether"
+                        href="/security-whitepaper"
                         variant="outline"
-                        className="border-white/50 text-white hover:bg-white/10"
+                        className="!border-white/50 !text-white hover:!bg-white/10"
                     >
                         Security Whitepaper
                     </Button>

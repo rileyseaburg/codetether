@@ -15,10 +15,10 @@ function GitHubIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export function Footer() {
     return (
-        <footer className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+        <footer className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden">
             <Container>
                 <div className="flex flex-col items-start justify-between gap-y-12 pt-16 pb-6 lg:flex-row lg:items-center lg:py-16">
-                    <div>
+                    <div className="w-full lg:w-auto">
                         <div className="flex items-center text-gray-900 dark:text-white">
                             <Logomark className="h-10 w-10 flex-none fill-cyan-500" />
                             <div className="ml-4">
@@ -26,7 +26,7 @@ export function Footer() {
                                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Production A2A Coordination Platform</p>
                             </div>
                         </div>
-                        <nav className="mt-11 flex gap-8">
+                        <nav className="mt-11 flex flex-wrap gap-x-6 gap-y-3 sm:gap-8">
                             <NavLinks />
                         </nav>
                     </div>
@@ -45,7 +45,7 @@ export function Footer() {
                     </div>
                 </div>
                 <div className="flex flex-col items-center border-t border-gray-200 dark:border-gray-800 pt-8 pb-12 md:flex-row-reverse md:justify-between md:pt-6">
-                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-400 px-2 sm:gap-x-6 sm:px-0">
                         <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white">
                             Privacy Policy
                         </Link>
