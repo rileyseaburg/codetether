@@ -83,7 +83,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/rileyseaburg/A2A-Server-MCP
+      link: https://github.com/rileyseaburg/codetether
     - icon: fontawesome/brands/twitter
       link: https://twitter.com/codetether
     - icon: fontawesome/brands/discord

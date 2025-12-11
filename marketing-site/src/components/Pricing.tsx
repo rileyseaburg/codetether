@@ -14,7 +14,7 @@ const plans = [
         description: 'Self-host CodeTether with full protocol support.',
         button: {
             label: 'Get Started',
-            href: 'https://github.com/rileyseaburg/A2A-Server-MCP',
+            href: 'https://github.com/rileyseaburg/codetether',
         },
         features: [
             'Full A2A protocol implementation',

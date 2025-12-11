@@ -173,7 +173,7 @@ export default function TermsOfService() {
                         </p>
                         <ul className="mt-4 space-y-2 text-gray-600">
                             <li>• Email: legal@quantum-forge.net</li>
-                            <li>• GitHub: github.com/rileyseaburg/A2A-Server-MCP/issues</li>
+                            <li>• GitHub: github.com/rileyseaburg/codetether/issues</li>
                         </ul>
                     </div>
                 </div>

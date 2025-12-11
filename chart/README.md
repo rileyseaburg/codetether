@@ -393,7 +393,7 @@ helm dependency build
 
 For issues and questions:
 - **[Documentation](https://docs.codetether.run)** - Comprehensive guides and API reference
-- **[GitHub Issues](https://github.com/rileyseaburg/A2A-Server-MCP/issues)** - Bug reports and feature requests
+- **[GitHub Issues](https://github.com/rileyseaburg/codetether/issues)** - Bug reports and feature requests
 - **[A2A Protocol Specification](https://a2a-protocol.org/)** - Linux Foundation standard we implement
 
 ## License

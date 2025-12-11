@@ -418,7 +418,7 @@ kubectl logs -n a2a-system -l app.kubernetes.io/name=a2a-server -f | grep ERROR
 ## Support
 
 **GitHub Actions Issues:**
-- Check workflow status: https://github.com/rileyseaburg/A2A-Server-MCP/actions
+- Check workflow status: https://github.com/rileyseaburg/codetether/actions
 - View logs: Click on failed job → View logs
 - Re-run: Click "Re-run jobs" button
 

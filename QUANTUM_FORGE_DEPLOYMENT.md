@@ -400,4 +400,4 @@ For issues with Quantum Forge deployment:
 - Check registry status at your Quantum Forge portal
 - Verify credentials and permissions
 - Review logs: `docker logs` or `kubectl logs`
-- GitHub Issues: https://github.com/rileyseaburg/A2A-Server-MCP/issues
+- GitHub Issues: https://github.com/rileyseaburg/codetether/issues

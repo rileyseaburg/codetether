@@ -437,7 +437,7 @@ After deployment:
 
 ## 🆘 Support
 
-**Issues**: https://github.com/rileyseaburg/A2A-Server-MCP/issues
+**Issues**: https://github.com/rileyseaburg/codetether/issues
 
 **Logs**:
 ```bash

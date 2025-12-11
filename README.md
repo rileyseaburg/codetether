@@ -80,7 +80,7 @@ Helm charts, horizontal scaling, blue-green deployments. Production from day one
 ### One-Line Install
 
 ```bash
-git clone https://github.com/rileyseaburg/A2A-Server-MCP.git
+git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP && pip install -r requirements.txt
 python run_server.py --port 8000
 ```
@@ -260,7 +260,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
 # Setup development environment
-git clone https://github.com/rileyseaburg/A2A-Server-MCP.git
+git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt -r requirements-test.txt
@@ -282,6 +282,6 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
 **Built with ❤️ by the CodeTether Team**
 
-[Website](https://codetether.run) • [Documentation](https://docs.codetether.run) • [GitHub](https://github.com/rileyseaburg/A2A-Server-MCP)
+[Website](https://codetether.run) • [Documentation](https://docs.codetether.run) • [GitHub](https://github.com/rileyseaburg/codetether)
 
 </div>

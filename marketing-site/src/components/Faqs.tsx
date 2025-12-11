@@ -77,7 +77,7 @@ export function Faqs() {
                     <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
                         Have a different question?{' '}
                         <a
-                            href="https://github.com/rileyseaburg/A2A-Server-MCP/discussions"
+                            href="https://github.com/rileyseaburg/codetether/discussions"
                             className="text-cyan-600 dark:text-cyan-400 underline"
                         >
                             Join the discussion on GitHub

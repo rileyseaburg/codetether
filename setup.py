@@ -8,7 +8,7 @@ setup(
     description="Agent-to-Agent (A2A) Server with MCP integration",
     author="A2A Server Team",
     author_email="",
-    url="https://github.com/rileyseaburg/A2A-Server-MCP",
+    url="https://github.com/rileyseaburg/codetether",
     packages=find_packages(exclude=["tests", "tests.*", "examples", "examples.*"]),
     package_data={
         "a2a_server": ["../ui/*.html", "../ui/*.js"],

@@ -99,7 +99,7 @@ The Agent Worker acts as a bridge between the CodeTether server and local codeba
 
 ```bash
 # Clone repository (if not already)
-git clone https://github.com/rileyseaburg/A2A-Server-MCP.git
+git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP
 
 # Run installer as root

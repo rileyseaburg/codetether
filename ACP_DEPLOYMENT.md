@@ -427,5 +427,5 @@ docker rmi registry.quantum-forge.net/library/a2a-server:latest
 - **Quantum Forge Deployment**: [QUANTUM_FORGE_DEPLOYMENT.md](QUANTUM_FORGE_DEPLOYMENT.md)
 
 For issues:
-- GitHub: https://github.com/rileyseaburg/A2A-Server-MCP/issues
+- GitHub: https://github.com/rileyseaburg/codetether/issues
 - Logs: `kubectl logs -n a2a-system -l app.kubernetes.io/name=a2a-server`

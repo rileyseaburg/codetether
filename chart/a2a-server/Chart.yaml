@@ -9,7 +9,7 @@ appVersion: "1.2.0"
 home: https://codetether.run
 icon: https://codetether.run/icon.png
 sources:
-  - https://github.com/rileyseaburg/A2A-Server-MCP
+  - https://github.com/rileyseaburg/codetether
 maintainers:
   - name: CodeTether Team
     email: support@codetether.run
@@ -43,4 +43,4 @@ annotations:
     - name: A2A Protocol Spec
       url: https://a2a-protocol.org
     - name: Support
-      url: https://github.com/rileyseaburg/A2A-Server-MCP/issues
+      url: https://github.com/rileyseaburg/codetether/issues

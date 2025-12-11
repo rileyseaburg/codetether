@@ -332,7 +332,7 @@ async def run_distributed_server(
     # Create agent card for the server
     provider = AgentProvider(
         organization="Distributed A2A Network",
-        url="https://github.com/rileyseaburg/A2A-Server-MCP"
+        url="https://github.com/rileyseaburg/codetether"
     )
 
     agent_card = AgentCard(

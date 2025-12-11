@@ -123,7 +123,7 @@ export function Header() {
                                                         <MobileNavLink href="/docs">
                                                             Docs
                                                         </MobileNavLink>
-                                                        <MobileNavLink href="https://github.com/rileyseaburg/A2A-Server-MCP">
+                                                        <MobileNavLink href="https://github.com/rileyseaburg/codetether">
                                                             GitHub
                                                         </MobileNavLink>
                                                     </div>
@@ -131,7 +131,7 @@ export function Header() {
                                                         <Button href="/dashboard" variant="outline">
                                                             Dashboard
                                                         </Button>
-                                                        <Button href="https://github.com/rileyseaburg/A2A-Server-MCP">
+                                                        <Button href="https://github.com/rileyseaburg/codetether">
                                                             Get Started
                                                         </Button>
                                                     </div>
@@ -146,7 +146,7 @@ export function Header() {
                             <Button href="/dashboard" variant="outline">
                                 Dashboard
                             </Button>
-                            <Button href="https://github.com/rileyseaburg/A2A-Server-MCP">
+                            <Button href="https://github.com/rileyseaburg/codetether">
                                 Get Started
                             </Button>
                         </div>

@@ -518,5 +518,5 @@ kubectl delete namespace a2a-system
 ## Support
 
 For issues, questions, or contributions:
-- GitHub Issues: https://github.com/rileyseaburg/A2A-Server-MCP/issues
-- Documentation: https://github.com/rileyseaburg/A2A-Server-MCP/docs
+- GitHub Issues: https://github.com/rileyseaburg/codetether/issues
+- Documentation: https://github.com/rileyseaburg/codetether/docs

@@ -167,6 +167,6 @@ graph TB
 
 -   :material-github:{ .lg .middle } __Source Code__
 
-    [:octicons-arrow-right-24: GitHub](https://github.com/rileyseaburg/A2A-Server-MCP)
+    [:octicons-arrow-right-24: GitHub](https://github.com/rileyseaburg/codetether)
 
 </div>

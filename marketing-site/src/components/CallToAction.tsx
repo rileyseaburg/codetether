@@ -21,7 +21,7 @@ export function CallToAction() {
                         Your compliance team will thank you.
                     </p>
                     <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-                        <Button href="https://github.com/rileyseaburg/A2A-Server-MCP" color="cyan">
+                        <Button href="https://github.com/rileyseaburg/codetether" color="cyan">
                             View on GitHub
                         </Button>
                         <Button href="/dashboard" variant="outline" className="text-white border-white hover:bg-white/10">

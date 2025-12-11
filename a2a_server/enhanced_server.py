@@ -92,7 +92,7 @@ def create_enhanced_agent_card() -> AgentCard:
 
     provider = AgentProvider(
         organization="A2A Protocol Server",
-        url="https://github.com/rileyseaburg/A2A-Server-MCP"
+        url="https://github.com/rileyseaburg/codetether"
     )
 
     card = AgentCard(

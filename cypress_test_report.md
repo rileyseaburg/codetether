@@ -25,7 +25,7 @@ The agent successfully exposes its capabilities through the standard agent card:
     "url": "http://localhost:8000",
     "provider": {
         "organization": "A2A Server",
-        "url": "https://github.com/rileyseaburg/A2A-Server-MCP"
+        "url": "https://github.com/rileyseaburg/codetether"
     },
     "capabilities": {
         "streaming": true,

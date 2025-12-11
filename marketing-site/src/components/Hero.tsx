@@ -104,7 +104,7 @@ export function Hero() {
               with zero inbound firewall rules. Enterprise-ready from day one.
             </p>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
-              <Button href="https://github.com/rileyseaburg/A2A-Server-MCP">
+              <Button href="https://github.com/rileyseaburg/codetether">
                 <GitHubIcon className="h-5 w-5 flex-none" />
                 <span className="ml-2.5">Star on GitHub</span>
               </Button>

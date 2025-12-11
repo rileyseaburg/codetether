@@ -26,7 +26,7 @@ Workers are separate processes that:
 
 ```bash
 # Clone repository
-git clone https://github.com/rileyseaburg/A2A-Server-MCP.git
+git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP
 
 # Run installer as root

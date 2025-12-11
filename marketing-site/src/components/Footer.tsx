@@ -32,7 +32,7 @@ export function Footer() {
                     </div>
                     <div className="flex flex-col items-center gap-4 sm:flex-row">
                         <Link
-                            href="https://github.com/rileyseaburg/A2A-Server-MCP"
+                            href="https://github.com/rileyseaburg/codetether"
                             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                             target="_blank"
                         >
@@ -52,13 +52,13 @@ export function Footer() {
                         <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white">
                             Terms of Service
                         </Link>
-                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/blob/main/LICENSE" className="hover:text-gray-900 dark:hover:text-white">
+                        <Link href="https://github.com/rileyseaburg/codetether/blob/main/LICENSE" className="hover:text-gray-900 dark:hover:text-white">
                             Apache 2.0 License
                         </Link>
-                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/blob/main/CONTRIBUTING.md" className="hover:text-gray-900 dark:hover:text-white">
+                        <Link href="https://github.com/rileyseaburg/codetether/blob/main/CONTRIBUTING.md" className="hover:text-gray-900 dark:hover:text-white">
                             Contributing
                         </Link>
-                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/discussions" className="hover:text-gray-900 dark:hover:text-white">
+                        <Link href="https://github.com/rileyseaburg/codetether/discussions" className="hover:text-gray-900 dark:hover:text-white">
                             Community
                         </Link>
                     </div>

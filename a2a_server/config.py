@@ -69,7 +69,7 @@ def create_agent_config(
     name: str,
     description: str,
     organization: str = "A2A Server",
-    organization_url: str = "https://github.com/rileyseaburg/A2A-Server-MCP",
+    organization_url: str = "https://github.com/rileyseaburg/codetether",
     port: Optional[int] = None
 ) -> AgentConfig:
     """Create an agent configuration."""

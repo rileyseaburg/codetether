@@ -99,7 +99,7 @@ docker-compose up -d
 Clone the repository:
 
 ```bash
-git clone https://github.com/rileyseaburg/A2A-Server-MCP.git
+git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP
 ```
 

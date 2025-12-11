@@ -91,7 +91,7 @@ export function CISOBanner() {
                         See How It Works
                     </Button>
                     <Button
-                        href="https://github.com/rileyseaburg/A2A-Server-MCP"
+                        href="https://github.com/rileyseaburg/codetether"
                         variant="outline"
                         className="border-white/50 text-white hover:bg-white/10"
                     >

@@ -13,7 +13,7 @@ app:
   enhanced: true
   # Documentation and support URLs
   docs: "https://docs.codetether.run"
-  support: "https://github.com/rileyseaburg/A2A-Server-MCP/issues"
+  support: "https://github.com/rileyseaburg/codetether/issues"
 
 # Image configuration
 image:

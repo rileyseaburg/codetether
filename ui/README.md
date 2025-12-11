@@ -350,6 +350,6 @@ async def export_xml(limit: int = 1000):
 ## Support
 
 For issues or questions:
-- GitHub Issues: https://github.com/rileyseaburg/A2A-Server-MCP/issues
+- GitHub Issues: https://github.com/rileyseaburg/codetether/issues
 - Documentation: [ACP_DEPLOYMENT.md](../ACP_DEPLOYMENT.md)
 - Main README: [README.md](../README.md)
