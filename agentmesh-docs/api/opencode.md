@@ -10,7 +10,7 @@ The OpenCode API provides integration with AI coding agents. It manages codebase
 !!! info "Base URL"
     All OpenCode endpoints are prefixed with `/v1/opencode`
     ```
-    https://agentmesh.example.com/v1/opencode/...
+    https://codetether.example.com/v1/opencode/...
     ```
 
 ## Status
@@ -644,10 +644,10 @@ All endpoints return errors in a consistent format:
 
 ```bash
 # 1. Check status
-curl https://agentmesh.run/v1/opencode/status
+curl https://codetether.run/v1/opencode/status
 
 # 2. Register a codebase
-curl -X POST https://agentmesh.run/v1/opencode/codebases \
+curl -X POST https://codetether.run/v1/opencode/codebases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-app",
@@ -656,10 +656,10 @@ curl -X POST https://agentmesh.run/v1/opencode/codebases \
   }'
 
 # 3. List available models
-curl https://agentmesh.run/v1/opencode/models
+curl https://codetether.run/v1/opencode/models
 
 # 4. Trigger an agent
-curl -X POST https://agentmesh.run/v1/opencode/codebases/cb_abc123/trigger \
+curl -X POST https://codetether.run/v1/opencode/codebases/cb_abc123/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Refactor the database module to use async/await",
@@ -668,13 +668,13 @@ curl -X POST https://agentmesh.run/v1/opencode/codebases/cb_abc123/trigger \
   }'
 
 # 5. Watch events (in another terminal)
-curl -N https://agentmesh.run/v1/opencode/codebases/cb_abc123/events
+curl -N https://codetether.run/v1/opencode/codebases/cb_abc123/events
 
 # 6. Send follow-up message
-curl -X POST https://agentmesh.run/v1/opencode/codebases/cb_abc123/message \
+curl -X POST https://codetether.run/v1/opencode/codebases/cb_abc123/message \
   -H "Content-Type: application/json" \
   -d '{"message": "Also add type hints"}'
 
 # 7. Stop the agent
-curl -X POST https://agentmesh.run/v1/opencode/codebases/cb_abc123/stop
+curl -X POST https://codetether.run/v1/opencode/codebases/cb_abc123/stop
 ```

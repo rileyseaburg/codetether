@@ -1,11 +1,11 @@
 ---
 title: Task Management
-description: How AgentMesh manages agent tasks
+description: How CodeTether manages agent tasks
 ---
 
 # Task Management
 
-AgentMesh provides comprehensive task management for AI agent workflows.
+CodeTether provides comprehensive task management for AI agent workflows.
 
 ## Task Lifecycle
 

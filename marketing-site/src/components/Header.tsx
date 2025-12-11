@@ -49,7 +49,7 @@ function MobileNavLink(
     return (
         <PopoverButton
             as={Link}
-            className="block text-base/7 tracking-tight text-gray-700"
+            className="block text-base/7 tracking-tight text-gray-700 dark:text-gray-300"
             {...props}
         />
     )
@@ -57,12 +57,12 @@ function MobileNavLink(
 
 export function Header() {
     return (
-        <header>
+        <header className="bg-white dark:bg-gray-950">
             <nav>
                 <Container className="relative z-50 flex justify-between py-8">
                     <div className="relative z-10 flex items-center gap-16">
                         <Link href="/" aria-label="Home">
-                            <Logo className="h-10 w-auto text-gray-900" />
+                            <Logo className="h-10 w-auto text-gray-900 dark:text-white" />
                         </Link>
                         <div className="hidden lg:flex lg:gap-10">
                             <NavLinks />
@@ -73,7 +73,7 @@ export function Header() {
                             {({ open }) => (
                                 <>
                                     <PopoverButton
-                                        className="relative z-10 -m-2 inline-flex items-center rounded-lg stroke-gray-900 p-2 hover:bg-gray-200/50 hover:stroke-gray-600 focus:not-data-focus:outline-hidden active:stroke-gray-900"
+                                        className="relative z-10 -m-2 inline-flex items-center rounded-lg stroke-gray-900 dark:stroke-white p-2 hover:bg-gray-200/50 dark:hover:bg-gray-800/50 hover:stroke-gray-600 dark:hover:stroke-gray-300 focus:not-data-focus:outline-hidden active:stroke-gray-900 dark:active:stroke-white"
                                         aria-label="Toggle site navigation"
                                     >
                                         {({ open }) =>
@@ -93,7 +93,7 @@ export function Header() {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     exit={{ opacity: 0 }}
-                                                    className="fixed inset-0 z-0 bg-gray-300/60 backdrop-blur-sm"
+                                                    className="fixed inset-0 z-0 bg-gray-300/60 dark:bg-gray-900/80 backdrop-blur-sm"
                                                 />
                                                 <PopoverPanel
                                                     static
@@ -105,27 +105,27 @@ export function Header() {
                                                         y: -32,
                                                         transition: { duration: 0.2 },
                                                     }}
-                                                    className="absolute inset-x-0 top-0 z-0 origin-top rounded-b-2xl bg-gray-50 px-6 pt-32 pb-6 shadow-2xl shadow-gray-900/20"
+                                                    className="absolute inset-x-0 top-0 z-0 origin-top rounded-b-2xl bg-gray-50 dark:bg-gray-900 px-6 pt-32 pb-6 shadow-2xl shadow-gray-900/20"
                                                 >
                                                     <div className="space-y-4">
-<MobileNavLink href="#features">
-    Features
-</MobileNavLink>
-<MobileNavLink href="#use-cases">
-    Use Cases
-</MobileNavLink>
-<MobileNavLink href="#roadmap">
-    Roadmap
-</MobileNavLink>
-<MobileNavLink href="#pricing">
-    Pricing
-</MobileNavLink>
-<MobileNavLink href="/docs">
-    Docs
-</MobileNavLink>
-<MobileNavLink href="https://github.com/rileyseaburg/A2A-Server-MCP">
-    GitHub
-</MobileNavLink>
+                                                        <MobileNavLink href="#features">
+                                                            Features
+                                                        </MobileNavLink>
+                                                        <MobileNavLink href="#use-cases">
+                                                            Use Cases
+                                                        </MobileNavLink>
+                                                        <MobileNavLink href="#roadmap">
+                                                            Roadmap
+                                                        </MobileNavLink>
+                                                        <MobileNavLink href="#pricing">
+                                                            Pricing
+                                                        </MobileNavLink>
+                                                        <MobileNavLink href="/docs">
+                                                            Docs
+                                                        </MobileNavLink>
+                                                        <MobileNavLink href="https://github.com/rileyseaburg/A2A-Server-MCP">
+                                                            GitHub
+                                                        </MobileNavLink>
                                                     </div>
                                                     <div className="mt-8 flex flex-col gap-4">
                                                         <Button href="/dashboard" variant="outline">

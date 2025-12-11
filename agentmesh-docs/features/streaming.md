@@ -5,7 +5,7 @@ description: SSE-based real-time output streaming
 
 # Real-time Streaming
 
-AgentMesh provides real-time streaming of agent output via Server-Sent Events (SSE).
+CodeTether provides real-time streaming of agent output via Server-Sent Events (SSE).
 
 ## Connecting
 

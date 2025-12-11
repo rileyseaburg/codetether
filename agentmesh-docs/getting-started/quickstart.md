@@ -1,18 +1,18 @@
 ---
 title: Quick Start
-description: Get AgentMesh running and send your first agent task in 5 minutes
+description: Get CodeTether running and send your first agent task in 5 minutes
 ---
 
 # Quick Start
 
-Get AgentMesh Server running and send your first task in 5 minutes.
+Get CodeTether Server running and send your first task in 5 minutes.
 
 ## Prerequisites
 
 - Python 3.10+ installed
 - `pip` package manager
 
-## Step 1: Install AgentMesh
+## Step 1: Install CodeTether
 
 ```bash
 pip install a2a-server-mcp
@@ -21,13 +21,13 @@ pip install a2a-server-mcp
 ## Step 2: Start the Server
 
 ```bash
-agentmesh serve --port 8000
+codetether serve --port 8000
 ```
 
 You should see:
 
 ```
-INFO:     AgentMesh Server starting...
+INFO:     CodeTether Server starting...
 INFO:     A2A Protocol endpoint: http://0.0.0.0:8000/v1/a2a
 INFO:     Agent Card: http://0.0.0.0:8000/.well-known/agent-card.json
 INFO:     Monitor UI: http://0.0.0.0:8000/monitor
@@ -44,7 +44,7 @@ curl http://localhost:8000/.well-known/agent-card.json | jq
 
 ```json
 {
-  "name": "AgentMesh Server",
+  "name": "CodeTether Server",
   "description": "Production A2A coordination server",
   "url": "http://localhost:8000",
   "version": "1.0.0",
@@ -76,7 +76,7 @@ curl -X POST http://localhost:8000/v1/a2a \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"text": "Hello, AgentMesh!"}]
+        "parts": [{"text": "Hello, CodeTether!"}]
       }
     },
     "id": "task-001"
@@ -95,7 +95,7 @@ Response:
     },
     "artifacts": [
       {
-        "parts": [{"text": "Hello! I'm AgentMesh Server, ready to coordinate your agents."}]
+        "parts": [{"text": "Hello! I'm CodeTether Server, ready to coordinate your agents."}]
       }
     ]
   },

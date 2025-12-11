@@ -33,6 +33,12 @@ marketing:
     host: codetether.run
     tls:
       secretName: codetether-marketing-tls
+  env:
+    AUTH_URL: "https://codetether.run"
+    AUTH_TRUST_HOST: "true"
+    NEXTAUTH_URL: "https://codetether.run"
+    KEYCLOAK_CLIENT_ID: "a2a-monitor"
+    KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
   resources:
     limits:
       cpu: 200m

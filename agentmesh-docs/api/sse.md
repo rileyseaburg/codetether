@@ -5,7 +5,7 @@ description: Server-Sent Events reference
 
 # SSE Events
 
-AgentMesh uses Server-Sent Events for real-time streaming.
+CodeTether uses Server-Sent Events for real-time streaming.
 
 ## Connecting
 

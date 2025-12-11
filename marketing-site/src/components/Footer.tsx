@@ -15,15 +15,15 @@ function GitHubIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export function Footer() {
     return (
-        <footer className="border-t border-gray-200">
+        <footer className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
             <Container>
                 <div className="flex flex-col items-start justify-between gap-y-12 pt-16 pb-6 lg:flex-row lg:items-center lg:py-16">
                     <div>
-                        <div className="flex items-center text-gray-900">
+                        <div className="flex items-center text-gray-900 dark:text-white">
                             <Logomark className="h-10 w-10 flex-none fill-cyan-500" />
                             <div className="ml-4">
                                 <p className="text-base font-semibold">CodeTether</p>
-                                <p className="mt-1 text-sm">Production A2A Coordination Platform</p>
+                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Production A2A Coordination Platform</p>
                             </div>
                         </div>
                         <nav className="mt-11 flex gap-8">
@@ -33,7 +33,7 @@ export function Footer() {
                     <div className="flex flex-col items-center gap-4 sm:flex-row">
                         <Link
                             href="https://github.com/rileyseaburg/A2A-Server-MCP"
-                            className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                             target="_blank"
                         >
                             <GitHubIcon className="h-6 w-6" />
@@ -44,25 +44,25 @@ export function Footer() {
                         </Button>
                     </div>
                 </div>
-                <div className="flex flex-col items-center border-t border-gray-200 pt-8 pb-12 md:flex-row-reverse md:justify-between md:pt-6">
-                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600">
-                        <Link href="/privacy" className="hover:text-gray-900">
+                <div className="flex flex-col items-center border-t border-gray-200 dark:border-gray-800 pt-8 pb-12 md:flex-row-reverse md:justify-between md:pt-6">
+                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white">
                             Privacy Policy
                         </Link>
-                        <Link href="/terms" className="hover:text-gray-900">
+                        <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white">
                             Terms of Service
                         </Link>
-                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/blob/main/LICENSE" className="hover:text-gray-900">
+                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/blob/main/LICENSE" className="hover:text-gray-900 dark:hover:text-white">
                             Apache 2.0 License
                         </Link>
-                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/blob/main/CONTRIBUTING.md" className="hover:text-gray-900">
+                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/blob/main/CONTRIBUTING.md" className="hover:text-gray-900 dark:hover:text-white">
                             Contributing
                         </Link>
-                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/discussions" className="hover:text-gray-900">
+                        <Link href="https://github.com/rileyseaburg/A2A-Server-MCP/discussions" className="hover:text-gray-900 dark:hover:text-white">
                             Community
                         </Link>
                     </div>
-                    <p className="mt-6 text-sm text-gray-500 md:mt-0">
+                    <p className="mt-6 text-sm text-gray-500 dark:text-gray-500 md:mt-0">
                         &copy; {new Date().getFullYear()} CodeTether. Open source under Apache 2.0.
                     </p>
                 </div>

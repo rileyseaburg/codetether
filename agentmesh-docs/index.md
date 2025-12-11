@@ -1,13 +1,13 @@
 ---
-title: AgentMesh Server
+title: CodeTether Server
 description: Production-ready A2A Protocol implementation for AI agent coordination
 ---
 
-# AgentMesh Server
+# CodeTether Server
 
 **Turn AI Agents Into Production Systems.**
 
-AgentMesh Server is a production-ready implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), the open standard from the Linux Foundation that enables AI agents to communicate, collaborate, and solve complex problems together.
+CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), the open standard from the Linux Foundation that enables AI agents to communicate, collaborate, and solve complex problems together.
 
 <div class="grid cards" markdown>
 
@@ -15,7 +15,7 @@ AgentMesh Server is a production-ready implementation of the [A2A (Agent-to-Agen
 
     ---
 
-    Install AgentMesh and run your first multi-agent workflow
+    Install CodeTether and run your first multi-agent workflow
 
     [:octicons-arrow-right-24: Quick Start](getting-started/quickstart.md)
 
@@ -47,9 +47,9 @@ AgentMesh Server is a production-ready implementation of the [A2A (Agent-to-Agen
 
 ---
 
-## What is AgentMesh?
+## What is CodeTether?
 
-AgentMesh Server provides the infrastructure layer for running AI agents in production:
+CodeTether Server provides the infrastructure layer for running AI agents in production:
 
 - **A2A Protocol Native** — Full implementation of the [A2A specification](https://a2a-protocol.org/specification.md) for agent-to-agent communication
 - **Distributed Workers** — Run agents across multiple machines with automatic task routing
@@ -60,9 +60,9 @@ AgentMesh Server provides the infrastructure layer for running AI agents in prod
 
 ## A2A Protocol Implementation
 
-AgentMesh implements the complete A2A Protocol specification:
+CodeTether implements the complete A2A Protocol specification:
 
-| A2A Feature | AgentMesh Support | Reference |
+| A2A Feature | CodeTether Support | Reference |
 |-------------|-------------------|-----------|
 | Agent Discovery | ✅ `/.well-known/agent-card.json` | [Spec §5](https://a2a-protocol.org/specification.md#5-agent-discovery-the-agent-card) |
 | JSON-RPC 2.0 | ✅ Full support | [Spec §6](https://a2a-protocol.org/specification.md#6-protocol-data-objects) |
@@ -71,7 +71,7 @@ AgentMesh implements the complete A2A Protocol specification:
 | Push Notifications | ✅ Webhook callbacks | [Topics](https://a2a-protocol.org/topics/streaming-and-async.md) |
 | Multi-turn Conversations | ✅ Session continuity | [Topics](https://a2a-protocol.org/topics/key-concepts.md) |
 
-Plus AgentMesh extensions:
+Plus CodeTether extensions:
 
 - **Distributed Task Queue** — Redis-backed task distribution across workers
 - **OpenCode Integration** — AI coding agent bridge with codebase registration
@@ -85,7 +85,7 @@ Plus AgentMesh extensions:
 pip install a2a-server-mcp
 
 # Run server
-agentmesh serve --port 8000
+codetether serve --port 8000
 
 # In another terminal, send a task
 curl -X POST http://localhost:8000/v1/a2a \
@@ -113,7 +113,7 @@ graph TB
         Agent[External Agents]
     end
 
-    subgraph AgentMesh Server
+    subgraph CodeTether Server
         API[FastAPI Server]
         A2A[A2A Protocol Handler]
         MCP[MCP Tool Server]

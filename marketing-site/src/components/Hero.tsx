@@ -90,18 +90,18 @@ function DocsIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export function Hero() {
   return (
-    <div className="overflow-hidden py-20 sm:py-32 lg:pb-32 xl:pb-36">
+    <div className="overflow-hidden py-20 sm:py-32 lg:pb-32 xl:pb-36 bg-white dark:bg-gray-950">
       <Container>
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-20">
           <div className="relative z-10 mx-auto max-w-2xl lg:col-span-7 lg:max-w-none lg:pt-6 xl:col-span-6">
-            <h1 className="text-4xl font-medium tracking-tight text-gray-900">
-              Turn AI Agents Into <br />
-              <span className="text-cyan-600">Production Systems.</span>
+            <h1 className="text-4xl font-medium tracking-tight text-gray-900 dark:text-white">
+              Your AI. Your Data. <br />
+              <span className="text-cyan-600 dark:text-cyan-400">Your Network.</span>
             </h1>
-            <p className="mt-6 text-lg text-gray-600">
-              CodeTether is a production-ready A2A (Agent-to-Agent) coordination
-              layer that lets your AI agents collaborate, share tools, and orchestrate
-              complex workflows with real-time streaming and enterprise-grade security.
+            <p className="mt-6 text-lg text-gray-600 dark:text-gray-300">
+              CodeTether brings AI agents to your data—not your data to AI.
+              Deploy workers inside secure networks that pull tasks and stream results,
+              with zero inbound firewall rules. Enterprise-ready from day one.
             </p>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
               <Button href="https://github.com/rileyseaburg/A2A-Server-MCP">
@@ -118,7 +118,7 @@ export function Hero() {
             </div>
           </div>
           <div className="relative mt-10 sm:mt-20 lg:col-span-5 lg:row-span-2 lg:mt-0 xl:col-span-6">
-            <BackgroundIllustration className="absolute top-4 left-1/2 h-[1026px] w-[1026px] -translate-x-1/3 mask-[linear-gradient(to_bottom,white_20%,transparent_75%)] stroke-gray-300/70 sm:top-16 sm:-translate-x-1/2 lg:-top-16 lg:ml-12 xl:-top-14 xl:ml-0" />
+            <BackgroundIllustration className="absolute top-4 left-1/2 h-[1026px] w-[1026px] -translate-x-1/3 mask-[linear-gradient(to_bottom,white_20%,transparent_75%)] stroke-gray-300/70 dark:stroke-gray-700/50 sm:top-16 sm:-translate-x-1/2 lg:-top-16 lg:ml-12 xl:-top-14 xl:ml-0" />
             <div className="-mx-4 h-[448px] px-9 sm:mx-0 lg:absolute lg:-inset-x-10 lg:-top-10 lg:-bottom-20 lg:h-auto lg:px-0 lg:pt-10 xl:-bottom-32">
               {/* Terminal-style demo */}
               <div className="mx-auto max-w-[500px] rounded-2xl bg-gray-900 p-4 shadow-2xl ring-1 ring-white/10">
@@ -144,7 +144,7 @@ export function Hero() {
             </div>
           </div>
           <div className="relative -mt-4 lg:col-span-7 lg:mt-0 xl:col-span-6">
-            <p className="text-center text-sm font-semibold text-gray-900 lg:text-left">
+            <p className="text-center text-sm font-semibold text-gray-900 dark:text-white lg:text-left">
               Built with industry-leading technologies
             </p>
             <ul
@@ -152,18 +152,18 @@ export function Hero() {
               className="mx-auto mt-8 flex max-w-xl flex-wrap justify-center gap-x-10 gap-y-8 lg:mx-0 lg:justify-start"
             >
               {[
-                ['Python', '🐍'],
-                ['FastAPI', '⚡'],
-                ['Redis', '🔴'],
+                ['Zero Trust', '🔐'],
+                ['A2A Protocol', '🔗'],
+                ['Pull Architecture', '⬇️'],
                 ['Kubernetes', '☸️'],
-                ['MCP', '🔗'],
-                ['SSE', '📡'],
-                ['Keycloak', '🔐'],
-                ['OpenCode', '💻'],
+                ['Keycloak SSO', '🛡️'],
+                ['HIPAA Ready', '🏥'],
+                ['SOC2', '✅'],
+                ['On-Prem', '🏢'],
               ].map(([name, emoji]) => (
                 <li key={name} className="flex items-center gap-2">
                   <span className="text-2xl">{emoji}</span>
-                  <span className="text-sm font-medium text-gray-700">{name}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{name}</span>
                 </li>
               ))}
             </ul>

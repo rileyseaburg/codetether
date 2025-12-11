@@ -1,11 +1,11 @@
 ---
 title: Installation
-description: Install AgentMesh Server via pip, Docker, or from source
+description: Install CodeTether Server via pip, Docker, or from source
 ---
 
 # Installation
 
-AgentMesh Server can be installed in several ways depending on your needs.
+CodeTether Server can be installed in several ways depending on your needs.
 
 ## Requirements
 
@@ -22,8 +22,8 @@ pip install a2a-server-mcp
 Verify the installation:
 
 ```bash
-agentmesh --version
-# AgentMesh Server v1.0.0
+codetether --version
+# CodeTether Server v1.0.0
 ```
 
 ## Docker
@@ -31,30 +31,30 @@ agentmesh --version
 Pull the official image:
 
 ```bash
-docker pull ghcr.io/rileyseaburg/agentmesh-server:latest
+docker pull ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 Run the server:
 
 ```bash
 docker run -d \
-  --name agentmesh \
+  --name codetether \
   -p 8000:8000 \
   -p 9000:9000 \
-  ghcr.io/rileyseaburg/agentmesh-server:latest
+  ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 With environment configuration:
 
 ```bash
 docker run -d \
-  --name agentmesh \
+  --name codetether \
   -p 8000:8000 \
   -p 9000:9000 \
   -e A2A_AGENT_NAME="My Agent" \
   -e REDIS_URL="redis://redis:6379" \
   -e KEYCLOAK_URL="https://auth.example.com" \
-  ghcr.io/rileyseaburg/agentmesh-server:latest
+  ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 ## Docker Compose
@@ -65,13 +65,13 @@ Create a `docker-compose.yml`:
 version: '3.8'
 
 services:
-  agentmesh:
-    image: ghcr.io/rileyseaburg/agentmesh-server:latest
+  codetether:
+    image: ghcr.io/rileyseaburg/codetether-server:latest
     ports:
       - "8000:8000"  # A2A API
       - "9000:9000"  # MCP Server
     environment:
-      - A2A_AGENT_NAME=AgentMesh Server
+      - A2A_AGENT_NAME=CodeTether Server
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=INFO
     depends_on:
@@ -129,18 +129,18 @@ python run_server.py run --port 8000
 Add the Helm repository:
 
 ```bash
-helm repo add agentmesh https://charts.agentmesh.run
+helm repo add codetether https://charts.codetether.run
 helm repo update
 ```
 
 Install the chart:
 
 ```bash
-helm install agentmesh agentmesh/a2a-server \
-  --namespace agentmesh \
+helm install codetether codetether/a2a-server \
+  --namespace codetether \
   --create-namespace \
   --set ingress.enabled=true \
-  --set ingress.hosts[0].host=agentmesh.example.com
+  --set ingress.hosts[0].host=codetether.example.com
 ```
 
 See [Kubernetes Deployment](../deployment/kubernetes.md) for full configuration options.

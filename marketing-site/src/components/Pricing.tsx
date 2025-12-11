@@ -109,14 +109,14 @@ function Plan({
     return (
         <section
             className={clsx(
-                'flex flex-col overflow-hidden rounded-3xl p-6 shadow-lg shadow-gray-900/5',
-                featured ? 'order-first bg-gray-900 lg:order-none' : 'bg-white',
+                'flex flex-col overflow-hidden rounded-3xl p-6 shadow-lg shadow-gray-900/5 dark:shadow-black/20',
+                featured ? 'order-first bg-gray-900 lg:order-none' : 'bg-white dark:bg-gray-800',
             )}
         >
             <h3
                 className={clsx(
                     'flex items-center text-sm font-semibold',
-                    featured ? 'text-white' : 'text-gray-900',
+                    featured ? 'text-white' : 'text-gray-900 dark:text-white',
                 )}
             >
                 <span>{name}</span>
@@ -129,7 +129,7 @@ function Plan({
             <p
                 className={clsx(
                     'mt-5 flex text-3xl tracking-tight',
-                    featured ? 'text-white' : 'text-gray-900',
+                    featured ? 'text-white' : 'text-gray-900 dark:text-white',
                 )}
             >
                 {price.monthly === price.annually ? (
@@ -138,20 +138,20 @@ function Plan({
                     <>
                         <span>{price[activePeriod]}</span>
                         {price[activePeriod] !== 'Custom' && price[activePeriod] !== 'Free' && (
-                            <span className="ml-1 text-sm font-normal text-gray-500">/mo</span>
+                            <span className="ml-1 text-sm font-normal text-gray-500 dark:text-gray-400">/mo</span>
                         )}
                     </>
                 )}
             </p>
             {activePeriod === 'annually' && price.monthly !== price.annually && price.annually !== 'Custom' && price.annually !== 'Free' && (
-                <p className={clsx('mt-1 text-sm', featured ? 'text-gray-400' : 'text-gray-500')}>
+                <p className={clsx('mt-1 text-sm', featured ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400')}>
                     Billed annually (save 17%)
                 </p>
             )}
             <p
                 className={clsx(
                     'mt-3 text-sm',
-                    featured ? 'text-gray-300' : 'text-gray-700',
+                    featured ? 'text-gray-300' : 'text-gray-700 dark:text-gray-300',
                 )}
             >
                 {description}
@@ -163,7 +163,7 @@ function Plan({
                         '-my-2 divide-y text-sm',
                         featured
                             ? 'divide-gray-800 text-gray-300'
-                            : 'divide-gray-200 text-gray-700',
+                            : 'divide-gray-200 dark:divide-gray-700 text-gray-700 dark:text-gray-300',
                     )}
                 >
                     {features.map((feature) => (
@@ -200,24 +200,24 @@ export function Pricing() {
         <section
             id="pricing"
             aria-labelledby="pricing-title"
-            className="border-t border-gray-200 bg-gray-100 py-20 sm:py-32"
+            className="border-t border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 py-20 sm:py-32"
         >
             <Container>
                 <div className="mx-auto max-w-2xl text-center">
                     <h2
                         id="pricing-title"
-                        className="text-3xl font-medium tracking-tight text-gray-900"
+                        className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                     >
                         Simple, transparent pricing
                     </h2>
-                    <p className="mt-2 text-lg text-gray-600">
+                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
                         Start free with open source, or get managed hosting and premium support.
                     </p>
                 </div>
 
                 <div className="mt-8 flex justify-center">
                     <div className="relative">
-                        <div className="flex rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-200">
+                        <div className="flex rounded-full bg-white dark:bg-gray-800 p-1 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700">
                             {(['monthly', 'annually'] as const).map((period) => (
                                 <button
                                     key={period}
@@ -225,7 +225,7 @@ export function Pricing() {
                                         'px-4 py-2 text-sm font-medium transition-colors',
                                         activePeriod === period
                                             ? 'rounded-full bg-gray-900 text-white'
-                                            : 'text-gray-700 hover:text-gray-900',
+                                            : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white',
                                     )}
                                     onClick={() => setActivePeriod(period)}
                                 >

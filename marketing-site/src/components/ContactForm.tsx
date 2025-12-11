@@ -17,29 +17,29 @@ export function ContactForm() {
         <section
             id="contact"
             aria-labelledby="contact-title"
-            className="border-t border-gray-200 py-20 sm:py-32"
+            className="border-t border-gray-200 dark:border-gray-800 py-20 sm:py-32 bg-white dark:bg-gray-950"
         >
             <Container>
                 <div className="mx-auto max-w-2xl">
                     <div className="text-center">
                         <h2
                             id="contact-title"
-                            className="text-3xl font-medium tracking-tight text-gray-900"
+                            className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                         >
                             Ready to scale your AI agents?
                         </h2>
-                        <p className="mt-2 text-lg text-gray-600">
+                        <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
                             Talk to our team about your use case. We'll help you get started.
                         </p>
                     </div>
 
                     {submitted ? (
-                        <div className="mt-10 rounded-2xl bg-green-50 p-8 text-center">
+                        <div className="mt-10 rounded-2xl bg-green-50 dark:bg-green-900/20 p-8 text-center">
                             <div className="text-4xl">🎉</div>
-                            <h3 className="mt-4 text-lg font-semibold text-green-900">
+                            <h3 className="mt-4 text-lg font-semibold text-green-900 dark:text-green-400">
                                 Thanks for reaching out!
                             </h3>
-                            <p className="mt-2 text-green-700">
+                            <p className="mt-2 text-green-700 dark:text-green-300">
                                 We'll be in touch within 24 hours.
                             </p>
                         </div>
@@ -49,7 +49,7 @@ export function ContactForm() {
                                 <div>
                                     <label
                                         htmlFor="name"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Name
                                     </label>
@@ -58,14 +58,14 @@ export function ContactForm() {
                                         id="name"
                                         name="name"
                                         required
-                                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                        className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                         placeholder="Jane Smith"
                                     />
                                 </div>
                                 <div>
                                     <label
                                         htmlFor="email"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Work Email
                                     </label>
@@ -74,7 +74,7 @@ export function ContactForm() {
                                         id="email"
                                         name="email"
                                         required
-                                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                        className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                         placeholder="jane@company.com"
                                     />
                                 </div>
@@ -82,7 +82,7 @@ export function ContactForm() {
                             <div>
                                 <label
                                     htmlFor="company"
-                                    className="block text-sm font-medium text-gray-700"
+                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                 >
                                     Company
                                 </label>
@@ -90,21 +90,21 @@ export function ContactForm() {
                                     type="text"
                                     id="company"
                                     name="company"
-                                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                    className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                     placeholder="Acme Inc."
                                 />
                             </div>
                             <div>
                                 <label
                                     htmlFor="use-case"
-                                    className="block text-sm font-medium text-gray-700"
+                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                 >
                                     What would you like to build?
                                 </label>
                                 <select
                                     id="use-case"
                                     name="use-case"
-                                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                    className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                 >
                                     <option value="">Select a use case...</option>
                                     <option value="coding">AI Coding Assistants</option>
@@ -119,7 +119,7 @@ export function ContactForm() {
                             <div>
                                 <label
                                     htmlFor="message"
-                                    className="block text-sm font-medium text-gray-700"
+                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                 >
                                     Tell us more
                                 </label>
@@ -127,7 +127,7 @@ export function ContactForm() {
                                     id="message"
                                     name="message"
                                     rows={4}
-                                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                    className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                     placeholder="Describe your AI agent use case..."
                                 />
                             </div>
@@ -136,9 +136,9 @@ export function ContactForm() {
                                     Request Demo
                                 </Button>
                             </div>
-                            <p className="text-center text-xs text-gray-500">
+                            <p className="text-center text-xs text-gray-500 dark:text-gray-400">
                                 By submitting, you agree to our{' '}
-                                <a href="/privacy" className="underline hover:text-gray-700">
+                                <a href="/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-300">
                                     Privacy Policy
                                 </a>
                                 .

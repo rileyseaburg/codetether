@@ -1,11 +1,11 @@
 ---
 title: A2A Protocol
-description: How AgentMesh implements the A2A Protocol specification
+description: How CodeTether implements the A2A Protocol specification
 ---
 
 # A2A Protocol
 
-AgentMesh Server is a production implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), an open standard from the Linux Foundation.
+CodeTether Server is a production implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), an open standard from the Linux Foundation.
 
 ## What is A2A?
 
@@ -18,7 +18,7 @@ The Agent-to-Agent Protocol defines how AI agents communicate, collaborate, and 
 
 ## Specification Compliance
 
-AgentMesh implements the complete A2A Protocol specification:
+CodeTether implements the complete A2A Protocol specification:
 
 | Section | Feature | Status |
 |---------|---------|--------|
@@ -30,21 +30,21 @@ AgentMesh implements the complete A2A Protocol specification:
 
 ## Agent Card
 
-Every AgentMesh server exposes an Agent Card at `/.well-known/agent-card.json`:
+Every CodeTether server exposes an Agent Card at `/.well-known/agent-card.json`:
 
 ```bash
-curl https://agentmesh.run/.well-known/agent-card.json
+curl https://codetether.run/.well-known/agent-card.json
 ```
 
 ```json
 {
-  "name": "AgentMesh Server",
+  "name": "CodeTether Server",
   "description": "Production A2A coordination server",
-  "url": "https://agentmesh.run",
+  "url": "https://codetether.run",
   "version": "1.0.0",
   "provider": {
-    "organization": "AgentMesh",
-    "url": "https://agentmesh.run"
+    "organization": "CodeTether",
+    "url": "https://codetether.run"
   },
   "capabilities": {
     "streaming": true,
@@ -71,7 +71,7 @@ curl https://agentmesh.run/.well-known/agent-card.json
 
 ## JSON-RPC Methods
 
-AgentMesh supports all standard A2A methods:
+CodeTether supports all standard A2A methods:
 
 ### tasks/send
 

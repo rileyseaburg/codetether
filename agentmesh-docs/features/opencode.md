@@ -5,11 +5,11 @@ description: Bridge AI coding agents to your codebase with OpenCode
 
 # OpenCode Integration
 
-AgentMesh Server integrates with [OpenCode](https://opencode.ai), enabling AI coding agents to work on your codebase with full session management, task queuing, and real-time streaming.
+CodeTether Server integrates with [OpenCode](https://opencode.ai), enabling AI coding agents to work on your codebase with full session management, task queuing, and real-time streaming.
 
 ## Overview
 
-The OpenCode Bridge connects AgentMesh to the OpenCode CLI, allowing you to:
+The OpenCode Bridge connects CodeTether to the OpenCode CLI, allowing you to:
 
 - **Register codebases** for agents to work on
 - **Trigger AI agents** with natural language prompts
@@ -19,7 +19,7 @@ The OpenCode Bridge connects AgentMesh to the OpenCode CLI, allowing you to:
 
 ```mermaid
 graph LR
-    UI[Web Dashboard] --> API[AgentMesh API]
+    UI[Web Dashboard] --> API[CodeTether API]
     API --> Bridge[OpenCode Bridge]
     Bridge --> OC[OpenCode CLI]
     OC --> LLM[AI Model]
@@ -28,7 +28,7 @@ graph LR
 
 ## Prerequisites
 
-1. **OpenCode installed** on the machine running AgentMesh or workers
+1. **OpenCode installed** on the machine running CodeTether or workers
 
     ```bash
     # Install OpenCode
@@ -49,10 +49,10 @@ graph LR
 
 ## Quick Start
 
-### 1. Start AgentMesh with OpenCode
+### 1. Start CodeTether with OpenCode
 
 ```bash
-agentmesh serve --port 8000
+codetether serve --port 8000
 ```
 
 Check that OpenCode is detected:
@@ -110,7 +110,7 @@ curl -N http://localhost:8000/v1/opencode/codebases/{id}/events
 
 ## Available Models
 
-AgentMesh supports multiple AI model providers:
+CodeTether supports multiple AI model providers:
 
 ```bash
 curl http://localhost:8000/v1/opencode/models
@@ -148,7 +148,7 @@ Sessions are automatically resumed when you trigger an agent on a codebase that 
 
 ### Sync Sessions from OpenCode
 
-If you've used OpenCode directly (outside AgentMesh), sync the sessions:
+If you've used OpenCode directly (outside CodeTether), sync the sessions:
 
 ```bash
 curl -X POST http://localhost:8000/v1/opencode/codebases/{id}/sessions/sync
@@ -216,7 +216,7 @@ events.addEventListener('complete', () => {
 | `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database for sessions |
 | `OPENCODE_AUTO_START` | `true` | Auto-start agents on trigger |
 
-!!! tip \"Docker Container Configuration\"\n    When running AgentMesh in Docker and connecting to OpenCode on your host:\n    \n    ```bash\n    # Docker Desktop (Mac/Windows)\n    docker run -e OPENCODE_HOST=host.docker.internal ...\n    \n    # Linux\n    docker run --add-host=host.docker.internal:host-gateway \\\n      -e OPENCODE_HOST=host.docker.internal ...\n    ```
+!!! tip \"Docker Container Configuration\"\n    When running CodeTether in Docker and connecting to OpenCode on your host:\n    \n    ```bash\n    # Docker Desktop (Mac/Windows)\n    docker run -e OPENCODE_HOST=host.docker.internal ...\n    \n    # Linux\n    docker run --add-host=host.docker.internal:host-gateway \\\n      -e OPENCODE_HOST=host.docker.internal ...\n    ```
 
 ### Codebase Configuration
 
@@ -246,8 +246,8 @@ For scaling, run OpenCode agents on dedicated worker machines:
 pip install a2a-server-mcp
 
 # Run worker with OpenCode
-agentmesh worker \
-  --server https://agentmesh.example.com \
+codetether worker \
+  --server https://codetether.example.com \
   --name worker-1 \
   --codebases /projects/app1,/projects/app2
 ```
@@ -255,7 +255,7 @@ agentmesh worker \
 ### Register Worker Codebases
 
 ```bash
-curl -X POST https://agentmesh.example.com/v1/opencode/codebases \
+curl -X POST https://codetether.example.com/v1/opencode/codebases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "app1",

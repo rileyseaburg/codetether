@@ -5,7 +5,7 @@ description: Web dashboard for agent monitoring
 
 # Monitor UI
 
-AgentMesh includes a web-based monitoring dashboard.
+CodeTether includes a web-based monitoring dashboard.
 
 ## Access
 

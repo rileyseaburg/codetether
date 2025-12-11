@@ -1,18 +1,18 @@
 ---
 title: Kubernetes Deployment
-description: Deploy AgentMesh on Kubernetes
+description: Deploy CodeTether on Kubernetes
 ---
 
 # Kubernetes Deployment
 
-Deploy AgentMesh Server on Kubernetes using Helm.
+Deploy CodeTether Server on Kubernetes using Helm.
 
 ## Quick Start
 
 ```bash
-helm repo add agentmesh https://charts.agentmesh.run
-helm install agentmesh agentmesh/a2a-server \
-  --namespace agentmesh \
+helm repo add codetether https://charts.codetether.run
+helm install codetether codetether/a2a-server \
+  --namespace codetether \
   --create-namespace
 ```
 
@@ -24,7 +24,7 @@ replicaCount: 2
 ingress:
   enabled: true
   hosts:
-    - host: agentmesh.example.com
+    - host: codetether.example.com
       paths:
         - path: /
           pathType: Prefix

@@ -5,7 +5,7 @@ description: Complete environment variable reference
 
 # Environment Variables
 
-Complete reference of all AgentMesh environment variables.
+Complete reference of all CodeTether environment variables.
 
 See [Configuration](../getting-started/configuration.md) for detailed documentation.
 

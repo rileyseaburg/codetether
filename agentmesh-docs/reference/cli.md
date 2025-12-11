@@ -1,11 +1,11 @@
 ---
 title: CLI Reference
-description: AgentMesh CLI command reference
+description: CodeTether CLI command reference
 ---
 
 # CLI Reference
 
-AgentMesh command-line interface.
+CodeTether command-line interface.
 
 ## Commands
 
@@ -14,7 +14,7 @@ AgentMesh command-line interface.
 Start the server:
 
 ```bash
-agentmesh serve --port 8000
+codetether serve --port 8000
 ```
 
 ### worker
@@ -22,7 +22,7 @@ agentmesh serve --port 8000
 Start a worker:
 
 ```bash
-agentmesh worker --server https://example.com
+codetether worker --server https://example.com
 ```
 
 ### version
@@ -30,5 +30,5 @@ agentmesh worker --server https://example.com
 Show version:
 
 ```bash
-agentmesh --version
+codetether --version
 ```

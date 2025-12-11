@@ -5,13 +5,13 @@ description: Scale AI agents across multiple machines
 
 # Distributed Workers
 
-AgentMesh supports distributed workers, allowing you to scale AI agent execution across multiple machines.
+CodeTether supports distributed workers, allowing you to scale AI agent execution across multiple machines.
 
 ## Overview
 
 Workers are separate processes that:
 
-- Connect to the AgentMesh server
+- Connect to the CodeTether server
 - Poll for assigned tasks
 - Execute tasks using local OpenCode installation
 - Report results back to the server
@@ -30,7 +30,7 @@ Create `/etc/a2a-worker/config.json`:
 
 ```json
 {
-  "server_url": "https://agentmesh.example.com",
+  "server_url": "https://codetether.example.com",
   "worker_name": "worker-1",
   "poll_interval": 5,
   "codebases": [
@@ -43,14 +43,14 @@ Create `/etc/a2a-worker/config.json`:
 ### 3. Start Worker
 
 ```bash
-agentmesh worker --config /etc/a2a-worker/config.json
+codetether worker --config /etc/a2a-worker/config.json
 ```
 
 ## Worker Architecture
 
 ```mermaid
 graph LR
-    S[AgentMesh Server] --> R[(Redis)]
+    S[CodeTether Server] --> R[(Redis)]
     R --> W1[Worker 1]
     R --> W2[Worker 2]
     R --> W3[Worker N]
@@ -64,7 +64,7 @@ graph LR
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `server_url` | — | AgentMesh server URL |
+| `server_url` | — | CodeTether server URL |
 | `worker_name` | hostname | Unique worker identifier |
 | `poll_interval` | 5 | Seconds between task polls |
 | `codebases` | [] | Paths to registered codebases |
@@ -73,7 +73,7 @@ graph LR
 ## Environment Variables
 
 ```bash
-export A2A_SERVER_URL=https://agentmesh.example.com
+export A2A_SERVER_URL=https://codetether.example.com
 export A2A_WORKER_NAME=worker-1
 export A2A_POLL_INTERVAL=5
 ```
@@ -84,13 +84,13 @@ Create `/etc/systemd/system/a2a-worker.service`:
 
 ```ini
 [Unit]
-Description=AgentMesh Worker
+Description=CodeTether Worker
 After=network.target
 
 [Service]
 Type=simple
-User=agentmesh
-ExecStart=/usr/local/bin/agentmesh worker --config /etc/a2a-worker/config.json
+User=codetether
+ExecStart=/usr/local/bin/codetether worker --config /etc/a2a-worker/config.json
 Restart=always
 RestartSec=10
 
@@ -110,7 +110,7 @@ sudo systemctl start a2a-worker
 Register codebases with worker affinity:
 
 ```bash
-curl -X POST https://agentmesh.example.com/v1/opencode/codebases \
+curl -X POST https://codetether.example.com/v1/opencode/codebases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-project",
@@ -129,13 +129,13 @@ Add more workers to handle more concurrent tasks:
 
 ```bash
 # Worker 1
-agentmesh worker --name worker-1
+codetether worker --name worker-1
 
 # Worker 2
-agentmesh worker --name worker-2
+codetether worker --name worker-2
 
 # Worker N
-agentmesh worker --name worker-N
+codetether worker --name worker-N
 ```
 
 ### Kubernetes Deployment
@@ -144,20 +144,20 @@ agentmesh worker --name worker-N
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: agentmesh-worker
+  name: codetether-worker
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: agentmesh-worker
+      app: codetether-worker
   template:
     spec:
       containers:
       - name: worker
-        image: ghcr.io/rileyseaburg/agentmesh-worker:latest
+        image: ghcr.io/rileyseaburg/codetether-worker:latest
         env:
         - name: A2A_SERVER_URL
-          value: "http://agentmesh-api:8000"
+          value: "http://codetether-api:8000"
         - name: A2A_WORKER_NAME
           valueFrom:
             fieldRef:
@@ -169,7 +169,7 @@ spec:
 Check worker status:
 
 ```bash
-curl https://agentmesh.example.com/v1/monitor/workers
+curl https://codetether.example.com/v1/monitor/workers
 ```
 
 ```json

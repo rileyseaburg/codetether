@@ -5,7 +5,7 @@ description: Manage agent sessions with history and resumption
 
 # Session Management
 
-AgentMesh provides comprehensive session management for AI agent conversations.
+CodeTether provides comprehensive session management for AI agent conversations.
 
 ## Features
 

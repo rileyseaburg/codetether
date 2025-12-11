@@ -4,39 +4,39 @@ import { Container } from '@/components/Container'
 
 const features = [
     {
-        name: 'Turn Agents Into Systems',
+        name: 'Zero Inbound Firewall Rules',
         description:
-            'Multi-agent workflows, agent-to-agent messaging, task chaining, history, and resumption. Great for coding agents, support, data pipelines, research assistants.',
+            'Workers PULL tasks from your server—never the other way around. Security teams approve because there\'s nothing to approve. No ports, no VPNs, no attack surface.',
         icon: SystemsIcon,
     },
     {
-        name: 'Run Where Data Lives',
+        name: 'Data Gravity Respected',
         description:
-            'Distributed workers pull tasks from the server, run inside secure environments (dev machines, VPCs, on-prem), and stream results back. No "upload your entire repo" nonsense.',
+            'Your source code, patient records, and financial data have "gravity"—they can\'t move. We move the AI to them. Workers run inside your VPC and only send back results.',
         icon: DataIcon,
     },
     {
-        name: 'Enterprise-Ready Day One',
+        name: 'HIPAA / SOC2 / PCI Ready',
         description:
-            'Keycloak SSO, RBAC for agents/codebases, Kubernetes Helm charts, Redis broker, network policies, observability hooks. Built to pass the "ship to a regulated org" test.',
+            'Built for regulated industries from day one. Keycloak SSO, RBAC, audit logs, network policies, and Kubernetes isolation. The compliance checkbox is already checked.',
         icon: EnterpriseIcon,
     },
     {
-        name: 'Open Protocol, No Lock-in',
+        name: 'Open Standards (A2A + MCP)',
         description:
-            'Implements the A2A protocol plus MCP for tools. Apache-licensed core; choose self-hosted or a managed Pro / Enterprise offering.',
+            'Built on Google/Microsoft\'s A2A protocol and Anthropic\'s MCP. No vendor lock-in—your agents speak the same language as Claude, Gemini, and the rest of the ecosystem.',
         icon: OpenSourceIcon,
     },
     {
-        name: 'MCP Tool Integration',
+        name: 'Extend with Any Tool',
         description:
-            'Access external tools and resources through Model Context Protocol. File systems, REST APIs, databases—extend agent capabilities infinitely.',
+            'MCP lets agents call file systems, databases, REST APIs, and custom tools. The AI brain orchestrates; your local workers execute with full permissions.',
         icon: MCPIcon,
     },
     {
-        name: 'Real-time Observability',
+        name: 'Human-in-the-Loop Built In',
         description:
-            'Web dashboard for agent supervision, live streaming output, session explorer. Human intervention when agents need guidance.',
+            'Real-time dashboard for oversight. Approve sensitive actions, intervene when agents need guidance, and audit everything. AI augments humans, never replaces judgment.',
         icon: MonitorIcon,
     },
 ]
@@ -128,16 +128,16 @@ export function SecondaryFeatures() {
         <section
             id="secondary-features"
             aria-label="Core value propositions"
-            className="py-20 sm:py-32"
+            className="py-20 sm:py-32 bg-white dark:bg-gray-950"
         >
             <Container>
                 <div className="mx-auto max-w-2xl sm:text-center">
-                    <h2 className="text-3xl font-medium tracking-tight text-gray-900">
-                        Why teams choose CodeTether
+                    <h2 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white">
+                        Why Security Teams Say &quot;Yes&quot;
                     </h2>
-                    <p className="mt-2 text-lg text-gray-600">
-                        Modern AI use cases don&apos;t need one big agent—they need teams of agents
-                        that can talk to each other, call tools, and run close to your code and data.
+                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
+                        The difference between &quot;AI as a toy&quot; and &quot;AI as a workforce&quot; is access.
+                        CodeTether solves the secure access problem that kills enterprise AI projects.
                     </p>
                 </div>
                 <ul
@@ -147,13 +147,13 @@ export function SecondaryFeatures() {
                     {features.map((feature) => (
                         <li
                             key={feature.name}
-                            className="rounded-2xl border border-gray-200 p-8 hover:border-cyan-500 hover:shadow-lg transition-all"
+                            className="rounded-2xl border border-gray-200 dark:border-gray-800 p-8 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg dark:hover:shadow-cyan-500/10 transition-all bg-white dark:bg-gray-900"
                         >
                             <feature.icon className="h-8 w-8" />
-                            <h3 className="mt-6 font-semibold text-gray-900">
+                            <h3 className="mt-6 font-semibold text-gray-900 dark:text-white">
                                 {feature.name}
                             </h3>
-                            <p className="mt-2 text-gray-700">{feature.description}</p>
+                            <p className="mt-2 text-gray-700 dark:text-gray-300">{feature.description}</p>
                         </li>
                     ))}
                 </ul>

@@ -5,7 +5,7 @@ description: Error code reference
 
 # Error Codes
 
-AgentMesh error codes and troubleshooting.
+CodeTether error codes and troubleshooting.
 
 ## HTTP Status Codes
 

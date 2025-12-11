@@ -1,61 +1,61 @@
 ---
 title: Docker Deployment
-description: Deploy AgentMesh with Docker
+description: Deploy CodeTether with Docker
 ---
 
 # Docker Deployment
 
-Deploy AgentMesh Server using Docker.
+Deploy CodeTether Server using Docker.
 
 ## Quick Start
 
 ```bash
 docker run -d \
-  --name agentmesh \
+  --name codetether \
   -p 8000:8000 \
   -p 9000:9000 \
-  ghcr.io/rileyseaburg/agentmesh-server:latest
+  ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 ## Connecting to Host OpenCode
 
-When running AgentMesh in Docker and you want to connect to OpenCode running on your host machine:
+When running CodeTether in Docker and you want to connect to OpenCode running on your host machine:
 
 ### Docker Desktop (Mac/Windows)
 
 ```bash
 docker run -d \
-  --name agentmesh \
+  --name codetether \
   -p 8000:8000 \
   -p 9000:9000 \
   -e OPENCODE_HOST=host.docker.internal \
   -e OPENCODE_PORT=9777 \
-  ghcr.io/rileyseaburg/agentmesh-server:latest
+  ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 ### Linux
 
 ```bash
 docker run -d \
-  --name agentmesh \
+  --name codetether \
   --add-host=host.docker.internal:host-gateway \
   -p 8000:8000 \
   -p 9000:9000 \
   -e OPENCODE_HOST=host.docker.internal \
   -e OPENCODE_PORT=9777 \
-  ghcr.io/rileyseaburg/agentmesh-server:latest
+  ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 ### Using Host IP
 
 ```bash
 docker run -d \
-  --name agentmesh \
+  --name codetether \
   -p 8000:8000 \
   -p 9000:9000 \
   -e OPENCODE_HOST=192.168.1.100 \
   -e OPENCODE_PORT=9777 \
-  ghcr.io/rileyseaburg/agentmesh-server:latest
+  ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
 ## Docker Compose
@@ -63,8 +63,8 @@ docker run -d \
 ```yaml
 version: '3.8'
 services:
-  agentmesh:
-    image: ghcr.io/rileyseaburg/agentmesh-server:latest
+  codetether:
+    image: ghcr.io/rileyseaburg/codetether-server:latest
     ports:
       - "8000:8000"
       - "9000:9000"

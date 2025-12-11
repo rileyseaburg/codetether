@@ -5,7 +5,7 @@ description: Checklist for production deployments
 
 # Production Checklist
 
-Before deploying AgentMesh to production:
+Before deploying CodeTether to production:
 
 ## Security
 

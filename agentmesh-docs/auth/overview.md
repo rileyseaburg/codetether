@@ -1,11 +1,11 @@
 ---
 title: Authentication Overview
-description: Authentication options in AgentMesh
+description: Authentication options in CodeTether
 ---
 
 # Authentication
 
-AgentMesh supports multiple authentication methods.
+CodeTether supports multiple authentication methods.
 
 ## Options
 
@@ -26,7 +26,7 @@ export A2A_AUTH_TOKENS="admin:your-secret-token"
 ```bash
 export KEYCLOAK_URL=https://auth.example.com
 export KEYCLOAK_REALM=myrealm
-export KEYCLOAK_CLIENT_ID=agentmesh
+export KEYCLOAK_CLIENT_ID=codetether
 ```
 
 See [Keycloak Setup](keycloak.md) for full configuration.

@@ -1,11 +1,11 @@
 ---
 title: Architecture
-description: AgentMesh Server architecture overview
+description: CodeTether Server architecture overview
 ---
 
 # Architecture
 
-AgentMesh Server is designed as a modular, scalable system for running AI agents in production.
+CodeTether Server is designed as a modular, scalable system for running AI agents in production.
 
 ## High-Level Architecture
 
@@ -17,7 +17,7 @@ graph TB
         Agents[External Agents]
     end
 
-    subgraph "AgentMesh Server"
+    subgraph "CodeTether Server"
         API[FastAPI Server<br/>Port 8000]
         A2A[A2A Protocol<br/>Handler]
         Monitor[Monitor API]
@@ -71,8 +71,8 @@ The main HTTP server handling:
 
 Model Context Protocol server for tool integration:
 
-- Expose AgentMesh capabilities as MCP tools
-- Allow external agents to use AgentMesh tools
+- Expose CodeTether capabilities as MCP tools
+- Allow external agents to use CodeTether tools
 - Bridge between A2A and MCP protocols
 
 ### Message Broker (Redis)
@@ -108,7 +108,7 @@ Observability and management:
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant S as AgentMesh Server
+    participant S as CodeTether Server
     participant R as Redis
     participant W as Worker
     participant O as OpenCode
@@ -155,7 +155,7 @@ Simplest deployment - everything in one process:
 
 ```
 ┌─────────────────────────────┐
-│     AgentMesh Server        │
+│     CodeTether Server        │
 │  ┌─────────┐ ┌───────────┐  │
 │  │ API     │ │ OpenCode  │  │
 │  │ Server  │ │ Bridge    │  │
@@ -173,7 +173,7 @@ Scale horizontally with dedicated workers:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
-│ AgentMesh API   │     │ AgentMesh API   │
+│ CodeTether API   │     │ CodeTether API   │
 │ (Instance 1)    │     │ (Instance 2)    │
 └────────┬────────┘     └────────┬────────┘
          │                       │
@@ -201,7 +201,7 @@ Full production deployment:
 │                  Kubernetes                      │
 │  ┌─────────────────────────────────────────┐    │
 │  │              Ingress                     │    │
-│  │   agentmesh.run → API Service           │    │
+│  │   codetether.run → API Service           │    │
 │  └─────────────────────────────────────────┘    │
 │                                                  │
 │  ┌──────────────┐  ┌──────────────┐            │

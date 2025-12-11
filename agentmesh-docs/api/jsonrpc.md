@@ -5,7 +5,7 @@ description: A2A Protocol JSON-RPC method reference
 
 # JSON-RPC Methods
 
-AgentMesh implements the A2A Protocol JSON-RPC methods.
+CodeTether implements the A2A Protocol JSON-RPC methods.
 
 ## Endpoint
 

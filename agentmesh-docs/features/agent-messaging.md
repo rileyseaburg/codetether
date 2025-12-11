@@ -5,7 +5,7 @@ description: Agent-to-agent communication
 
 # Agent Messaging
 
-AgentMesh enables agents to communicate and collaborate using the A2A Protocol.
+CodeTether enables agents to communicate and collaborate using the A2A Protocol.
 
 ## Overview
 

@@ -1,11 +1,11 @@
 ---
 title: API Overview
-description: AgentMesh Server API reference
+description: CodeTether Server API reference
 ---
 
 # API Overview
 
-AgentMesh Server exposes multiple API endpoints for different purposes.
+CodeTether Server exposes multiple API endpoints for different purposes.
 
 ## Endpoint Summary
 
@@ -23,14 +23,14 @@ AgentMesh Server exposes multiple API endpoints for different purposes.
 
 ```
 # A2A Protocol (JSON-RPC)
-POST https://agentmesh.example.com/v1/a2a
+POST https://codetether.example.com/v1/a2a
 
 # REST APIs
-GET/POST https://agentmesh.example.com/v1/opencode/...
-GET/POST https://agentmesh.example.com/v1/monitor/...
+GET/POST https://codetether.example.com/v1/opencode/...
+GET/POST https://codetether.example.com/v1/monitor/...
 
 # MCP Protocol
-POST https://agentmesh.example.com:9000/mcp
+POST https://codetether.example.com:9000/mcp
 ```
 
 ## Authentication
@@ -38,7 +38,7 @@ POST https://agentmesh.example.com:9000/mcp
 ### Bearer Token
 
 ```bash
-curl -X POST https://agentmesh.example.com/v1/a2a \
+curl -X POST https://codetether.example.com/v1/a2a \
   -H "Authorization: Bearer your-api-token" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", ...}'
@@ -51,12 +51,12 @@ If Keycloak is configured, obtain a token first:
 ```bash
 # Get access token
 TOKEN=$(curl -s -X POST "https://auth.example.com/realms/myrealm/protocol/openid-connect/token" \
-  -d "client_id=agentmesh" \
+  -d "client_id=codetether" \
   -d "client_secret=your-secret" \
   -d "grant_type=client_credentials" | jq -r '.access_token')
 
 # Use token
-curl -X POST https://agentmesh.example.com/v1/a2a \
+curl -X POST https://codetether.example.com/v1/a2a \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", ...}'

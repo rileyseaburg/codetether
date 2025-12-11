@@ -5,7 +5,7 @@ description: REST API reference
 
 # REST Endpoints
 
-AgentMesh exposes REST APIs for management and monitoring.
+CodeTether exposes REST APIs for management and monitoring.
 
 ## Monitor API
 

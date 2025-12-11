@@ -5,7 +5,7 @@ description: Redis-based message broker for distributed agent communication
 
 # Message Broker
 
-AgentMesh uses Redis as a message broker for distributed agent communication and task queuing.
+CodeTether uses Redis as a message broker for distributed agent communication and task queuing.
 
 ## Overview
 

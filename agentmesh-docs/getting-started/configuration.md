@@ -1,11 +1,11 @@
 ---
 title: Configuration
-description: Configure AgentMesh Server with environment variables
+description: Configure CodeTether Server with environment variables
 ---
 
 # Configuration
 
-AgentMesh Server is configured primarily through environment variables, making it easy to deploy in containers and Kubernetes.
+CodeTether Server is configured primarily through environment variables, making it easy to deploy in containers and Kubernetes.
 
 ## Quick Reference
 
@@ -29,7 +29,7 @@ export A2A_AUTH_TOKENS="admin:secret-token-1,worker:secret-token-2"
 # Keycloak OIDC
 export KEYCLOAK_URL=https://auth.example.com
 export KEYCLOAK_REALM=myrealm
-export KEYCLOAK_CLIENT_ID=agentmesh
+export KEYCLOAK_CLIENT_ID=codetether
 export KEYCLOAK_CLIENT_SECRET=your-secret
 
 # MCP Server
@@ -51,7 +51,7 @@ export LIVEKIT_API_SECRET=your-api-secret
 export MINIO_ENDPOINT=minio.example.com:9000
 export MINIO_ACCESS_KEY=your-access-key
 export MINIO_SECRET_KEY=your-secret-key
-export MINIO_BUCKET=agentmesh
+export MINIO_BUCKET=codetether
 export MINIO_SECURE=true
 ```
 
@@ -139,7 +139,7 @@ The MCP (Model Context Protocol) server provides tool integration.
 | `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database for OpenCode sessions |
 
 !!! tip "Docker Container Configuration"
-    When running AgentMesh in Docker and connecting to OpenCode on your host:
+    When running CodeTether in Docker and connecting to OpenCode on your host:
 
     - **Docker Desktop (Mac/Windows)**: Use `OPENCODE_HOST=host.docker.internal`
     - **Linux**: Use `--add-host=host.docker.internal:host-gateway` and `OPENCODE_HOST=host.docker.internal`
@@ -198,7 +198,7 @@ A2A_REDIS_URL=redis://redis:6379
 A2A_AUTH_ENABLED=true
 KEYCLOAK_URL=https://auth.example.com
 KEYCLOAK_REALM=production
-KEYCLOAK_CLIENT_ID=agentmesh
+KEYCLOAK_CLIENT_ID=codetether
 ```
 
 ### Kubernetes ConfigMap
@@ -207,7 +207,7 @@ KEYCLOAK_CLIENT_ID=agentmesh
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: agentmesh-config
+  name: codetether-config
 data:
   A2A_HOST: "0.0.0.0"
   A2A_PORT: "8000"
@@ -223,7 +223,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: agentmesh-secrets
+  name: codetether-secrets
 type: Opaque
 stringData:
   A2A_AUTH_TOKENS: "admin:super-secret-token"
@@ -233,10 +233,10 @@ stringData:
 
 ## Validation
 
-AgentMesh validates configuration on startup. Check the logs for any configuration issues:
+CodeTether validates configuration on startup. Check the logs for any configuration issues:
 
 ```bash
-agentmesh serve --port 8000
+codetether serve --port 8000
 # INFO: Configuration validated
 # INFO: Redis connection: OK
 # INFO: Keycloak: disabled

@@ -9,59 +9,57 @@ import { CircleBackground } from '@/components/CircleBackground'
 
 const features = [
     {
-        name: 'Distributed Agent Workers',
+        name: 'Pull Architecture (Zero Inbound Ports)',
         description:
-            'Deploy workers on remote machines with codebases. Workers automatically poll for tasks, execute OpenCode agents, and stream results back in real-time.',
+            'Workers sit inside your secure network and reach OUT to poll for tasks. No inbound firewall rules, no VPN tunnels, no attack surface. Security teams say "yes" on day one.',
         icon: WorkerIcon,
-        code: `# Worker polls for tasks
+        code: `# Worker PULLS tasks - no inbound ports needed
 async def poll_loop(self):
     while self.running:
-        tasks = await self.get_pending_tasks()
+        # Outbound HTTPS only - works behind any firewall
+        tasks = await self.fetch_tasks(self.server_url)
         for task in tasks:
-            await self.execute_task(task)
-
-# Execute with OpenCode
-result = await self.run_opencode(
-    codebase_path="/app",
-    prompt="Refactor the auth module",
-    agent_type="build"
-)`,
+            # Execute locally with full data access
+            result = await self.run_agent(task)
+            # Only the RESULT goes back, never raw data
+            await self.submit_result(task.id, result)`,
     },
     {
-        name: 'Session History & Resumption',
+        name: 'Data Never Leaves Your Network',
         description:
-            'Browse past AI coding sessions from any device. Resume conversations exactly where you left off with full context preservation.',
+            'The AI brain lives in the cloud; the hands (tool execution) stay local. Source code, patient records, financial data—processed inside your VPC, never uploaded.',
         icon: SessionIcon,
-        code: `# List all sessions
-GET /v1/opencode/codebases/{id}/sessions
+        code: `# Example: Healthcare compliance
+Worker runs INSIDE hospital VPC:
+├── Reads patient records from local DB
+├── Processes with AI agent
+├── Returns only: "Diagnosis: X, Confidence: 95%"
+└── PII never touches public internet
 
-# Resume a session
-POST /v1/opencode/codebases/{id}/sessions/{session_id}/resume
-{
-  "prompt": "Continue with the refactoring"
-}
-
-# Stream real-time output
-GET /v1/opencode/tasks/{task_id}/output/stream
-event: output
-data: {"content": "Analyzing code..."}`,
+# Example: FinTech
+Worker runs ON the trading floor:
+├── Reads proprietary algorithms
+├── Executes "optimize portfolio" task
+├── Returns only: "Rebalance: +5% bonds"
+└── Alpha-generating code stays internal`,
     },
     {
         name: 'Real-time Output Streaming',
         description:
-            'Watch agent responses as they happen via Server-Sent Events. Perfect for long-running tasks where you need immediate feedback.',
+            'Watch agent progress as it happens via Server-Sent Events. Perfect for long-running tasks where stakeholders need visibility without exposing underlying data.',
         icon: StreamIcon,
-        code: `// Subscribe to task output (Swift)
-let url = URL(string: "\\(serverURL)/tasks/\\(taskId)/output/stream")!
-let source = EventSource(url: url)
+        code: `// Subscribe to task progress (Swift/Web)
+const source = new EventSource(
+  \`\${serverURL}/tasks/\${taskId}/output/stream\`
+);
 
-source.onMessage { event in
-    if event.type == "output" {
-        print(event.data) // Real-time output
-    } else if event.type == "done" {
-        print("Task completed!")
-    }
-}`,
+source.onMessage(event => {
+  // See progress without seeing raw data
+  // "Analyzing file 3 of 150..."
+  // "Refactoring auth module..."
+  // "Tests passing: 47/50"
+  updateUI(event.data);
+});`,
     },
 ]
 
@@ -186,12 +184,12 @@ export function PrimaryFeatures() {
             <Container>
                 <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-3xl">
                     <h2 className="text-3xl font-medium tracking-tight text-white">
-                        The mesh that makes agents work together.
+                        The &quot;Brain in Cloud, Hands on Prem&quot; architecture.
                     </h2>
                     <p className="mt-2 text-lg text-gray-400">
-                        CodeTether provides the A2A protocol–native platform for connecting agents.
-                        Routing, sessions, history, observability, and MCP tool integration—so
-                        agents can safely coordinate real work in production.
+                        AI demos require you to upload your data. Enterprise AI requires you to keep it.
+                        CodeTether&apos;s pull-based worker model solves the firewall problem that kills
+                        95% of enterprise AI projects before they start.
                     </p>
                 </div>
                 <div className="mt-16">

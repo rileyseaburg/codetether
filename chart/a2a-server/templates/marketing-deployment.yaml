@@ -51,4 +51,38 @@ spec:
               value: "{{ .Values.marketing.service.targetPort }}"
             - name: HOSTNAME
               value: "0.0.0.0"
+            {{- if .Values.marketing.env }}
+            {{- if .Values.marketing.env.AUTH_URL }}
+            - name: AUTH_URL
+              value: "{{ .Values.marketing.env.AUTH_URL }}"
+            {{- end }}
+            {{- if .Values.marketing.env.AUTH_TRUST_HOST }}
+            - name: AUTH_TRUST_HOST
+              value: "{{ .Values.marketing.env.AUTH_TRUST_HOST }}"
+            {{- end }}
+            {{- if .Values.marketing.env.NEXTAUTH_URL }}
+            - name: NEXTAUTH_URL
+              value: "{{ .Values.marketing.env.NEXTAUTH_URL }}"
+            {{- end }}
+            {{- if .Values.marketing.env.KEYCLOAK_CLIENT_ID }}
+            - name: KEYCLOAK_CLIENT_ID
+              value: "{{ .Values.marketing.env.KEYCLOAK_CLIENT_ID }}"
+            {{- end }}
+            {{- if .Values.marketing.env.KEYCLOAK_ISSUER }}
+            - name: KEYCLOAK_ISSUER
+              value: "{{ .Values.marketing.env.KEYCLOAK_ISSUER }}"
+            {{- end }}
+            {{- if .Values.marketing.secretName }}
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.marketing.secretName }}
+                  key: AUTH_SECRET
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.marketing.secretName }}
+                  key: KEYCLOAK_CLIENT_SECRET
+            {{- end }}
+            {{- end }}
 {{- end }}

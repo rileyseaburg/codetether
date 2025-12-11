@@ -5,7 +5,7 @@ description: Configure Keycloak OIDC authentication
 
 # Keycloak Setup
 
-Integrate AgentMesh with Keycloak for enterprise SSO.
+Integrate CodeTether with Keycloak for enterprise SSO.
 
 ## Prerequisites
 
@@ -20,10 +20,10 @@ Integrate AgentMesh with Keycloak for enterprise SSO.
 ```bash
 export KEYCLOAK_URL=https://auth.example.com
 export KEYCLOAK_REALM=myrealm
-export KEYCLOAK_CLIENT_ID=agentmesh
+export KEYCLOAK_CLIENT_ID=codetether
 export KEYCLOAK_CLIENT_SECRET=your-secret
 ```
 
-3. Restart AgentMesh
+3. Restart CodeTether
 
 See [Configuration](../getting-started/configuration.md) for all options.
