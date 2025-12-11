@@ -11,34 +11,34 @@ import AppKit
 @MainActor
 class AuthService: ObservableObject {
     // MARK: - Published State
-    
+
     @Published var isAuthenticated = false
     @Published var isLoading = false
     @Published var isGuestMode = false
     @Published var currentUser: UserSession?
     @Published var syncState: SyncState?
     @Published var error: String?
-    
+
     // Token state
     @Published private(set) var accessToken: String?
     @Published private(set) var refreshToken: String?
     @Published private(set) var tokenExpiresAt: Date?
-    
+
     // MARK: - Private
-    
+
     private var baseURL: URL
     private var session: URLSession
     private var refreshTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
-    
+
     // Keychain keys
     private let accessTokenKey = "a2a_access_token"
     private let refreshTokenKey = "a2a_refresh_token"
     private let userIdKey = "a2a_user_id"
     private let sessionIdKey = "a2a_session_id"
-    
+
     // MARK: - Device Info
-    
+
     private var deviceId: String {
         #if os(iOS)
         return UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
@@ -48,7 +48,7 @@ class AuthService: ObservableObject {
         return UUID().uuidString
         #endif
     }
-    
+
     private var deviceName: String {
         #if os(iOS)
         return UIDevice.current.name
@@ -58,7 +58,7 @@ class AuthService: ObservableObject {
         return "Unknown Device"
         #endif
     }
-    
+
     private var deviceType: String {
         #if os(iOS)
         return UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios"
@@ -72,7 +72,7 @@ class AuthService: ObservableObject {
         return "unknown"
         #endif
     }
-    
+
     #if os(macOS)
     private func getMacDeviceId() -> String {
         // Try to get hardware UUID
@@ -80,7 +80,7 @@ class AuthService: ObservableObject {
             kIOMainPortDefault,
             IOServiceMatching("IOPlatformExpertDevice")
         )
-        
+
         if platformExpert != 0 {
             if let serialNumberAsCFString = IORegistryEntryCreateCFProperty(
                 platformExpert,
@@ -96,42 +96,42 @@ class AuthService: ObservableObject {
         return UUID().uuidString
     }
     #endif
-    
+
     // MARK: - Init
-    
+
     init(baseURL: String = "https://api.codetether.run") {
         self.baseURL = URL(string: baseURL)!
-        
+
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         self.session = URLSession(configuration: config)
-        
+
         // Try to restore session from keychain
         Task {
             await restoreSession()
         }
     }
-    
+
     func updateBaseURL(_ url: String) {
         if let newURL = URL(string: url) {
             baseURL = newURL
         }
     }
-    
+
     // MARK: - Authentication
-    
+
     /// Login with username and password
     func login(username: String, password: String) async throws {
         isLoading = true
         error = nil
-        
+
         defer { isLoading = false }
-        
+
         let url = baseURL.appendingPathComponent("v1/auth/login")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let body: [String: Any] = [
             "username": username,
             "password": password,
@@ -140,17 +140,17 @@ class AuthService: ObservableObject {
             "device_type": deviceType
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
+
         let (data, response) = try await session.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AuthError.invalidResponse
         }
-        
+
         if httpResponse.statusCode == 401 {
             throw AuthError.invalidCredentials
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let detail = errorJson["detail"] as? String {
@@ -158,75 +158,75 @@ class AuthService: ObservableObject {
             }
             throw AuthError.serverError("Login failed with status \(httpResponse.statusCode)")
         }
-        
+
         let loginResponse = try JSONDecoder().decode(LoginResponse.self, from: data)
-        
+
         // Store tokens
         accessToken = loginResponse.accessToken
         refreshToken = loginResponse.refreshToken
         currentUser = loginResponse.session
-        
+
         // Parse expiration
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         tokenExpiresAt = formatter.date(from: loginResponse.expiresAt)
-        
+
         // Save to keychain
         saveToKeychain()
-        
+
         isAuthenticated = true
-        
+
         // Start token refresh timer
         scheduleTokenRefresh()
-        
+
         // Load sync state
         await loadSyncState()
     }
-    
+
     /// Refresh the access token
     func refreshAccessToken() async throws {
         guard let refresh = refreshToken else {
             throw AuthError.noRefreshToken
         }
-        
+
         let url = baseURL.appendingPathComponent("v1/auth/refresh")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let body = ["refresh_token": refresh]
         request.httpBody = try JSONEncoder().encode(body)
-        
+
         let (data, response) = try await session.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AuthError.invalidResponse
         }
-        
+
         if httpResponse.statusCode == 401 {
             // Refresh token expired, need to re-login
             await logout()
             throw AuthError.sessionExpired
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             throw AuthError.serverError("Token refresh failed")
         }
-        
+
         let refreshResponse = try JSONDecoder().decode(RefreshResponse.self, from: data)
-        
+
         accessToken = refreshResponse.accessToken
         refreshToken = refreshResponse.refreshToken
         currentUser = refreshResponse.session
-        
+
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         tokenExpiresAt = formatter.date(from: refreshResponse.expiresAt)
-        
+
         saveToKeychain()
         scheduleTokenRefresh()
     }
-    
+
     /// Logout and clear session
     func logout() async {
         // Call logout endpoint
@@ -235,13 +235,13 @@ class AuthService: ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            
+
             let body = ["session_id": sessionId]
             request.httpBody = try? JSONEncoder().encode(body)
-            
+
             _ = try? await session.data(for: request)
         }
-        
+
         // Clear state
         accessToken = nil
         refreshToken = nil
@@ -250,17 +250,17 @@ class AuthService: ObservableObject {
         tokenExpiresAt = nil
         isAuthenticated = false
         isGuestMode = false
-        
+
         // Clear keychain
         clearKeychain()
-        
+
         // Cancel refresh task
         refreshTask?.cancel()
         refreshTask = nil
     }
-    
+
     // MARK: - Guest Mode
-    
+
     /// Enable guest mode (no authentication, local-only)
     func enableGuestMode() {
         isGuestMode = true
@@ -268,28 +268,28 @@ class AuthService: ObservableObject {
         currentUser = nil
         syncState = nil
     }
-    
+
     /// Disable guest mode (return to login screen)
     func disableGuestMode() {
         isGuestMode = false
         isAuthenticated = false
     }
-    
+
     // MARK: - Sync State
-    
+
     /// Load synchronized state across all devices
     func loadSyncState() async {
         guard let userId = currentUser?.userId else { return }
-        
+
         let url = baseURL.appendingPathComponent("v1/auth/sync")
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "user_id", value: userId)]
-        
+
         var request = URLRequest(url: components.url!)
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
+
         do {
             let (data, _) = try await session.data(for: request)
             syncState = try JSONDecoder().decode(SyncState.self, from: data)
@@ -297,29 +297,29 @@ class AuthService: ObservableObject {
             print("Failed to load sync state: \(error)")
         }
     }
-    
+
     /// Get all codebases associated with the current user
     func getUserCodebases() async throws -> [UserCodebaseAssociation] {
         guard let userId = currentUser?.userId else {
             throw AuthError.notAuthenticated
         }
-        
+
         let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/codebases")
         var request = URLRequest(url: url)
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
+
         let (data, _) = try await session.data(for: request)
         return try JSONDecoder().decode([UserCodebaseAssociation].self, from: data)
     }
-    
+
     /// Associate a codebase with the current user
     func associateCodebase(codebaseId: String, role: String = "owner") async throws {
         guard let userId = currentUser?.userId else {
             throw AuthError.notAuthenticated
         }
-        
+
         let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/codebases")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -327,75 +327,75 @@ class AuthService: ObservableObject {
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
+
         let body = ["codebase_id": codebaseId, "role": role]
         request.httpBody = try JSONEncoder().encode(body)
-        
+
         let (_, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw AuthError.serverError("Failed to associate codebase")
         }
-        
+
         // Refresh sync state
         await loadSyncState()
     }
-    
+
     /// Create an agent session for a codebase
     func createAgentSession(codebaseId: String, agentType: String = "build") async throws -> UserAgentSession {
         guard let userId = currentUser?.userId else {
             throw AuthError.notAuthenticated
         }
-        
+
         var components = URLComponents(url: baseURL.appendingPathComponent("v1/auth/user/\(userId)/agent-sessions"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "codebase_id", value: codebaseId),
             URLQueryItem(name: "agent_type", value: agentType),
             URLQueryItem(name: "device_id", value: deviceId)
         ]
-        
+
         var request = URLRequest(url: components.url!)
         request.httpMethod = "POST"
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
+
         let (data, _) = try await session.data(for: request)
-        
+
         struct Response: Codable {
             let success: Bool
             let session: UserAgentSession
         }
-        
+
         let response = try JSONDecoder().decode(Response.self, from: data)
-        
+
         // Refresh sync state
         await loadSyncState()
-        
+
         return response.session
     }
-    
+
     /// Get all agent sessions for the current user
     func getUserAgentSessions() async throws -> [UserAgentSession] {
         guard let userId = currentUser?.userId else {
             throw AuthError.notAuthenticated
         }
-        
+
         let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/agent-sessions")
         var request = URLRequest(url: url)
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
+
         let (data, _) = try await session.data(for: request)
         return try JSONDecoder().decode([UserAgentSession].self, from: data)
     }
-    
+
     // MARK: - Auth Status
-    
+
     /// Check if authentication service is available
     func checkAuthStatus() async -> AuthStatusResponse? {
         let url = baseURL.appendingPathComponent("v1/auth/status")
-        
+
         do {
             let (data, _) = try await session.data(from: url)
             return try JSONDecoder().decode(AuthStatusResponse.self, from: data)
@@ -404,35 +404,35 @@ class AuthService: ObservableObject {
             return nil
         }
     }
-    
+
     // MARK: - Token Management
-    
+
     /// Get authorization header for API requests
     var authorizationHeader: String? {
         guard let token = accessToken else { return nil }
         return "Bearer \(token)"
     }
-    
+
     /// Check if token needs refresh (within 60 seconds of expiry)
     var needsRefresh: Bool {
         guard let expires = tokenExpiresAt else { return true }
         return Date().addingTimeInterval(60) >= expires
     }
-    
+
     private func scheduleTokenRefresh() {
         refreshTask?.cancel()
-        
+
         guard let expires = tokenExpiresAt else { return }
-        
+
         // Refresh 60 seconds before expiry
         let refreshTime = expires.addingTimeInterval(-60)
         let delay = max(0, refreshTime.timeIntervalSinceNow)
-        
+
         refreshTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            
+
             guard !Task.isCancelled else { return }
-            
+
             do {
                 try await refreshAccessToken()
             } catch {
@@ -441,9 +441,9 @@ class AuthService: ObservableObject {
             }
         }
     }
-    
+
     // MARK: - Keychain
-    
+
     private func saveToKeychain() {
         if let access = accessToken {
             KeychainHelper.save(key: accessTokenKey, value: access)
@@ -458,23 +458,23 @@ class AuthService: ObservableObject {
             KeychainHelper.save(key: sessionIdKey, value: sessionId)
         }
     }
-    
+
     private func clearKeychain() {
         KeychainHelper.delete(key: accessTokenKey)
         KeychainHelper.delete(key: refreshTokenKey)
         KeychainHelper.delete(key: userIdKey)
         KeychainHelper.delete(key: sessionIdKey)
     }
-    
+
     private func restoreSession() async {
         guard let access = KeychainHelper.load(key: accessTokenKey),
               let refresh = KeychainHelper.load(key: refreshTokenKey) else {
             return
         }
-        
+
         accessToken = access
         refreshToken = refresh
-        
+
         // Try to refresh the token to verify it's still valid
         do {
             try await refreshAccessToken()
@@ -498,7 +498,7 @@ enum AuthError: LocalizedError {
     case noRefreshToken
     case sessionExpired
     case notAuthenticated
-    
+
     var errorDescription: String? {
         switch self {
         case .invalidCredentials:
@@ -522,17 +522,17 @@ enum AuthError: LocalizedError {
 struct KeychainHelper {
     static func save(key: String, value: String) {
         guard let data = value.data(using: .utf8) else { return }
-        
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
             kSecValueData as String: data
         ]
-        
+
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
     }
-    
+
     static func load(key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -540,25 +540,25 @@ struct KeychainHelper {
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
-        
+
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
+
         guard status == errSecSuccess,
               let data = result as? Data,
               let value = String(data: data, encoding: .utf8) else {
             return nil
         }
-        
+
         return value
     }
-    
+
     static func delete(key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key
         ]
-        
+
         SecItemDelete(query as CFDictionary)
     }
 }

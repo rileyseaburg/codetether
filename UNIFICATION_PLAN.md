@@ -31,7 +31,7 @@ api.codetether.run      → API reference site
   - `/api` → `https://api.codetether.run`
 
 ### 2. Documentation Site (MkDocs)
-- **File**: `docs/agentmesh-mkdocs.yml`
+- **File**: `docs/codetether-mkdocs.yml`
 - **Changes**: Fixed YAML syntax and added redirect rules
 - **Redirects**:
   - `/docs` → `https://docs.codetether.run`

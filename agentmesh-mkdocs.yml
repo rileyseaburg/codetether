@@ -1,11 +1,11 @@
-# AgentMesh Server Documentation
-site_name: AgentMesh Server
-site_url: https://docs.agentmesh.run/
+# CodeTether Server Documentation
+site_name: CodeTether Server
+site_url: https://docs.codetether.run/
 site_description: >-
-  AgentMesh Server is a production-ready implementation of the A2A (Agent-to-Agent) Protocol.
+  CodeTether Server is a production-ready implementation of the A2A (Agent-to-Agent) Protocol.
   Turn AI agents into production systems with real-time coordination, distributed workers, and enterprise-grade security.
-site_author: AgentMesh
-site_dir: agentmesh-site
+site_author: CodeTether
+site_dir: codetether-site
 
 extra:
   version: "1.0.0"
@@ -13,7 +13,7 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/rileyseaburg/A2A-Server-MCP
     - icon: fontawesome/brands/twitter
-      link: https://twitter.com/agentmesh
+      link: https://twitter.com/codetether
   generator: false
 
 # Navigation
@@ -62,7 +62,7 @@ repo_name: rileyseaburg/A2A-Server-MCP
 repo_url: https://github.com/rileyseaburg/A2A-Server-MCP
 
 # Copyright
-copyright: Copyright 2025 AgentMesh. Apache License 2.0.
+copyright: Copyright 2025 CodeTether. Apache License 2.0.
 
 # Custom CSS
 extra_css:
@@ -75,8 +75,8 @@ theme:
   font:
     text: Inter
     code: JetBrains Mono
-  logo: assets/agentmesh-logo.svg
-  favicon: assets/agentmesh-favicon.svg
+  logo: assets/codetether-logo.svg
+  favicon: assets/codetether-favicon.svg
   icon:
     repo: fontawesome/brands/github
     admonition:

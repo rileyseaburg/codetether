@@ -313,9 +313,9 @@ codetether-build-marketing: ## Build and push marketing site
 
 .PHONY: codetether-build-docs
 codetether-build-docs: ## Build and push docs site
-	docker build -t $(OCI_REGISTRY)/agentmesh-docs:latest -t $(OCI_REGISTRY)/agentmesh-docs:$(CHART_VERSION) -f Dockerfile.docs .
-	docker push $(OCI_REGISTRY)/agentmesh-docs:latest
-	docker push $(OCI_REGISTRY)/agentmesh-docs:$(CHART_VERSION)
+	docker build -t $(OCI_REGISTRY)/codetether-docs:latest -t $(OCI_REGISTRY)/codetether-docs:$(CHART_VERSION) -f Dockerfile.docs .
+	docker push $(OCI_REGISTRY)/codetether-docs:latest
+	docker push $(OCI_REGISTRY)/codetether-docs:$(CHART_VERSION)
 
 .PHONY: codetether-build-all
 codetether-build-all: codetether-build-marketing codetether-build-docs docker-build docker-push ## Build and push all CodeTether images

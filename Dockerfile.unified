@@ -41,8 +41,8 @@ RUN pip install \
     mkdocs-macros-plugin \
     mkdocs-redirects
 WORKDIR /docs
-COPY agentmesh-mkdocs.yml /docs/mkdocs.yml
-COPY agentmesh-docs /docs/docs
+COPY codetether-mkdocs.yml /docs/mkdocs.yml
+COPY codetether-docs /docs/docs
 RUN mkdocs build -f mkdocs.yml -d /site
 
 FROM nginx:alpine as docs

@@ -1,4 +1,4 @@
-# Dockerfile for AgentMesh Documentation Site
+# Dockerfile for CodeTether Documentation Site
 FROM squidfunk/mkdocs-material:9.5
 
 # Install additional plugins
@@ -10,8 +10,8 @@ RUN pip install \
 WORKDIR /docs
 
 # Copy documentation files
-COPY agentmesh-mkdocs.yml /docs/mkdocs.yml
-COPY agentmesh-docs /docs/docs
+COPY codetether-mkdocs.yml /docs/mkdocs.yml
+COPY codetether-docs /docs/docs
 
 # Build static site
 RUN mkdocs build -f mkdocs.yml -d /site

@@ -1,4 +1,4 @@
-# Default values for a2a-server (AgentMesh Server).
+# Default values for a2a-server (CodeTether Server).
 # Documentation: https://docs.codetether.run
 # A2A Protocol: https://a2a-protocol.org
 #
@@ -7,7 +7,7 @@
 
 # Application configuration
 app:
-  name: "AgentMesh Server"
+  name: "CodeTether Server"
   description: "Production A2A coordination server"
   logLevel: "INFO"
   enhanced: true
@@ -168,7 +168,7 @@ env:
   MCP_HTTP_PORT: "9000"
 
   # Application configuration
-  A2A_AGENT_NAME: "AgentMesh Server"
+  A2A_AGENT_NAME: "CodeTether Server"
   A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
   A2A_AGENT_ORG: "CodeTether"
   A2A_AGENT_ORG_URL: "https://codetether.run"
@@ -332,7 +332,7 @@ marketing:
 docs:
   enabled: false
   image:
-    repository: registry.quantum-forge.net/library/agentmesh-docs
+    repository: registry.quantum-forge.net/library/codetether-docs
     pullPolicy: Always
     tag: "latest"
   replicaCount: 1

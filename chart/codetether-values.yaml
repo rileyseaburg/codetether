@@ -51,7 +51,7 @@ marketing:
 docs:
   enabled: true
   image:
-    repository: registry.quantum-forge.net/library/agentmesh-docs
+    repository: registry.quantum-forge.net/library/codetether-docs
     pullPolicy: Always
     tag: "latest"
   replicaCount: 1
