@@ -30,7 +30,7 @@ sequenceDiagram
 
     Worker->>Server: Register worker
     Worker->>Server: Register codebases
-    
+
     loop Poll Interval
         Worker->>Server: Get pending tasks
         Server-->>Worker: Task list
@@ -39,7 +39,7 @@ sequenceDiagram
         Worker->>Server: Stream output
         Worker->>Server: Report completion
     end
-    
+
     loop Session Sync
         Worker->>Server: Sync OpenCode sessions
     end
@@ -566,7 +566,7 @@ Run multiple workers for different codebase sets:
 # Worker 1 - Production codebases
 python3 worker.py --name prod-worker --config /etc/a2a-worker/prod.json
 
-# Worker 2 - Development codebases  
+# Worker 2 - Development codebases
 python3 worker.py --name dev-worker --config /etc/a2a-worker/dev.json
 ```
 
@@ -579,7 +579,7 @@ Advertise specific capabilities:
     "capabilities": [
         "opencode",
         "python",
-        "typescript", 
+        "typescript",
         "docker",
         "kubernetes"
     ]
@@ -618,7 +618,7 @@ Location: `/opt/a2a-worker/worker.py` (installed) or `agent_worker/worker.py` (s
 Main worker script containing:
 
 - `WorkerConfig` - Configuration dataclass
-- `LocalCodebase` - Registered codebase dataclass  
+- `LocalCodebase` - Registered codebase dataclass
 - `AgentWorker` - Main worker class
 - Task polling, execution, and reporting logic
 - OpenCode session discovery and sync
