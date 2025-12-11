@@ -99,3 +99,35 @@ ingress:
     - secretName: codetether-api-tls
       hosts:
         - api.codetether.run
+
+# Redis configuration
+redis:
+  enabled: true
+  image:
+    repository: bitnami/redis
+    tag: 7.4-debian-12
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 128Mi
+  replica:
+    replicaCount: 0
+
+# Disable local persistence (using MinIO instead)
+persistence:
+  enabled: false
+
+# MinIO/S3 storage configuration
+minio:
+  enabled: true
+  endpoint: "192.168.50.223:9000"
+  bucket: "a2a-monitor"
+  secure: false
+  accessKey: "sccacheadmin"
+  secretKey: "hZz3CXz2EqTTA503mvgsaFWQLGfCucGS"
