@@ -19,10 +19,10 @@ function CheckIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
-function XIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+function LockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
     )
 }
@@ -49,15 +49,20 @@ export default function SecurityWhitepaper() {
                                 <ShieldIcon className="h-8 w-8 text-white" />
                             </div>
                         </div>
-                        <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-                            Security Whitepaper
-                        </h1>
-                        <p className="mt-6 text-lg text-cyan-100">
-                            Enterprise-grade security architecture for AI agent orchestration.
-                            Zero inbound firewall rules. Data stays in your network.
+                        <p className="text-sm font-semibold text-cyan-200 uppercase tracking-wide mb-4">
+                            Security Architecture Whitepaper
                         </p>
-                        <p className="mt-4 text-sm text-cyan-200">
-                            Version 1.0 | December 2025
+                        <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                            The Secure Agent Runtime
+                        </h1>
+                        <p className="mt-4 text-xl text-cyan-100">
+                            Zero Trust Orchestration for Regulated Enterprises
+                        </p>
+                        <p className="mt-6 text-lg text-cyan-200">
+                            Classification: PUBLIC / TECHNICAL
+                        </p>
+                        <p className="mt-2 text-sm text-cyan-300">
+                            Audience: Enterprise Security Operations (SecOps), GRC, and Network Architecture Teams
                         </p>
                     </div>
                 </Container>
@@ -68,287 +73,176 @@ export default function SecurityWhitepaper() {
                 <Container>
                     <div className="mx-auto max-w-3xl">
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            Executive Summary
+                            1. Executive Summary
                         </h2>
-                        <div className="mt-6 prose prose-lg dark:prose-invert">
-                            <p className="text-gray-600 dark:text-gray-300">
-                                CodeTether is an enterprise-grade AI agent orchestration platform designed with security as its foundational principle. Unlike traditional AI solutions that require data egress to cloud services, CodeTether employs a <strong className="text-cyan-600 dark:text-cyan-400">reverse-pull architecture</strong> where workers inside your network pull tasks from a central broker—eliminating inbound firewall rules and keeping sensitive data within your security perimeter.
+                        <div className="mt-6 space-y-4 text-lg text-gray-600 dark:text-gray-300">
+                            <p>
+                                The rapid adoption of &ldquo;Agentic AI&rdquo; in the enterprise has historically been blocked by a fundamental security paradox: to be useful, agents need access to internal data; to be secure, internal data must not be exposed to external cloud providers.
                             </p>
+                            <p>
+                                CodeTether resolves this conflict through <strong className="text-cyan-600 dark:text-cyan-400">Inversion of Control</strong>.
+                            </p>
+                            <p>
+                                Unlike traditional SaaS integration models that require opening inbound firewall ports or establishing persistent VPN tunnels, CodeTether utilizes a <strong>Distributed Worker Architecture</strong>. We do not ask you to send your data to our cloud. Instead, you deploy our ephemeral runtime—the <strong>CodeTether Worker</strong>—inside your secure perimeter.
+                            </p>
+                            <div className="rounded-xl bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800 p-6 mt-6">
+                                <p className="text-cyan-800 dark:text-cyan-300 font-medium">
+                                    This architecture ensures that CodeTether operates with the same security profile as a standard CI/CD runner (e.g., Jenkins or GitHub Actions). It requires <strong>zero inbound ports</strong>, maintains strict data residency via &ldquo;Data Gravity,&rdquo; and provides immutable audit trails for every agent action.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </Container>
             </section>
 
-            {/* The Problem */}
+            {/* Control Plane vs Data Plane */}
             <section className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900">
                 <Container>
                     <div className="mx-auto max-w-3xl">
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            The Security Challenge
+                            2. The Architecture of Trust
                         </h2>
                         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                            Traditional AI integrations create unacceptable security risks for enterprises.
+                            CodeTether enforces a strict logical and physical separation between the <strong>Control Plane</strong> (managed by CodeTether SaaS) and the <strong>Data Plane</strong> (managed by the Customer). This separation creates a &ldquo;Logic Air Gap.&rdquo;
                         </p>
 
-                        <div className="mt-10 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-100 dark:bg-gray-800">
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Risk Factor</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Traditional AI</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-cyan-600 dark:text-cyan-400">CodeTether</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">Data egress to cloud</td>
-                                        <td className="px-6 py-4"><XIcon className="h-5 w-5 text-red-500" /><span className="sr-only">Required</span></td>
-                                        <td className="px-6 py-4"><CheckIcon className="h-5 w-5 text-emerald-500" /><span className="sr-only">Optional</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">Inbound firewall rules</td>
-                                        <td className="px-6 py-4"><XIcon className="h-5 w-5 text-red-500" /></td>
-                                        <td className="px-6 py-4"><CheckIcon className="h-5 w-5 text-emerald-500" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">Code exposure to vendors</td>
-                                        <td className="px-6 py-4"><XIcon className="h-5 w-5 text-red-500" /></td>
-                                        <td className="px-6 py-4"><CheckIcon className="h-5 w-5 text-emerald-500" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">Audit trail control</td>
-                                        <td className="px-6 py-4"><XIcon className="h-5 w-5 text-red-500" /></td>
-                                        <td className="px-6 py-4"><CheckIcon className="h-5 w-5 text-emerald-500" /></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </Container>
-            </section>
-
-            {/* Zero Inbound Access */}
-            <section className="py-16 sm:py-24">
-                <Container>
-                    <div className="mx-auto max-w-3xl">
-                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            Zero Inbound Access Model
-                        </h2>
-                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                            CodeTether inverts the traditional client-server model. Workers inside your network initiate all connections.
-                        </p>
-
-                        <div className="mt-10 rounded-2xl bg-gray-900 p-6 sm:p-8">
-                            <div className="space-y-8">
-                                {/* Traditional Model */}
-                                <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <XIcon className="h-5 w-5 text-red-500" />
-                                        <span className="text-red-400 font-semibold">Traditional Model (BLOCKED)</span>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-4 text-gray-400">
-                                        <div className="rounded-lg bg-gray-800 px-4 py-2 text-center">
-                                            <div className="text-sm font-medium text-gray-300">AI Service</div>
-                                            <div className="text-xs text-gray-500">(External)</div>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-xs text-red-400 mb-1">INBOUND</span>
-                                            <svg className="h-6 w-16 text-red-500" fill="none" viewBox="0 0 64 24">
-                                                <path stroke="currentColor" strokeWidth="2" d="M0 12h54m0 0l-8-8m8 8l-8 8" />
-                                            </svg>
-                                            <span className="text-xs text-red-400 mt-1">firewall rule</span>
-                                        </div>
-                                        <div className="rounded-lg bg-gray-800 px-4 py-2 text-center">
-                                            <div className="text-sm font-medium text-gray-300">Your Network</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <hr className="border-gray-700" />
-
-                                {/* CodeTether Model */}
-                                <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <CheckIcon className="h-5 w-5 text-emerald-500" />
-                                        <span className="text-emerald-400 font-semibold">CodeTether Model (APPROVED)</span>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-4 text-gray-400">
-                                        <div className="rounded-lg bg-cyan-900/30 border border-cyan-500/30 px-4 py-2 text-center">
-                                            <div className="text-sm font-medium text-cyan-300">CodeTether</div>
-                                            <div className="text-xs text-cyan-500">Broker</div>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-xs text-emerald-400 mb-1">OUTBOUND</span>
-                                            <svg className="h-6 w-16 text-emerald-500" fill="none" viewBox="0 0 64 24">
-                                                <path stroke="currentColor" strokeWidth="2" d="M64 12H10m0 0l8-8m-8 8l8 8" />
-                                            </svg>
-                                            <span className="text-xs text-emerald-400 mt-1">worker pulls</span>
-                                        </div>
-                                        <div className="rounded-lg bg-cyan-900/30 border border-cyan-500/30 px-4 py-2 text-center">
-                                            <div className="text-sm font-medium text-cyan-300">Your Network</div>
-                                            <div className="text-xs text-cyan-500">(Workers)</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-6">
-                            <h3 className="font-semibold text-emerald-800 dark:text-emerald-300">Firewall Configuration</h3>
-                            <p className="mt-2 text-emerald-700 dark:text-emerald-400">
-                                <strong>Required inbound firewall rules: ZERO</strong>
-                            </p>
-                            <p className="mt-1 text-sm text-emerald-600 dark:text-emerald-500">
-                                Only outbound HTTPS (port 443) to the broker is required—the same traffic pattern as browsing the web.
-                            </p>
-                        </div>
-                    </div>
-                </Container>
-            </section>
-
-            {/* Data Residency */}
-            <section className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900">
-                <Container>
-                    <div className="mx-auto max-w-3xl">
-                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            Data Residency & Sovereignty
-                        </h2>
-                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                            Your code and secrets never leave your network.
-                        </p>
-
-                        <div className="mt-10 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-100 dark:bg-gray-800">
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Data Type</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Leaves Network?</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Source code</td>
-                                        <td className="px-6 py-4 text-sm text-emerald-600 dark:text-emerald-400 font-semibold">Never</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Stays in your VPC</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Credentials/secrets</td>
-                                        <td className="px-6 py-4 text-sm text-emerald-600 dark:text-emerald-400 font-semibold">Never</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Worker uses local vault</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Task metadata</td>
-                                        <td className="px-6 py-4 text-sm text-yellow-600 dark:text-yellow-400">Minimal</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Task ID, status, timing</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Results/outputs</td>
-                                        <td className="px-6 py-4 text-sm text-yellow-600 dark:text-yellow-400">Configurable</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">PR links, summaries</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </Container>
-            </section>
-
-            {/* Authentication */}
-            <section className="py-16 sm:py-24">
-                <Container>
-                    <div className="mx-auto max-w-3xl">
-                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            Authentication & Authorization
-                        </h2>
-                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                            Enterprise-grade authentication with multiple options.
-                        </p>
-
-                        <div className="mt-10 grid gap-6 sm:grid-cols-2">
-                            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                                <h3 className="font-semibold text-gray-900 dark:text-white">API Token Authentication</h3>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Simple bearer tokens for service-to-service communication.
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                                <h3 className="font-semibold text-gray-900 dark:text-white">Keycloak OIDC</h3>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Enterprise SSO with full OIDC support, MFA, and RBAC.
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                                <h3 className="font-semibold text-gray-900 dark:text-white">mTLS (Mutual TLS)</h3>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Certificate-based authentication for zero-trust environments.
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                                <h3 className="font-semibold text-gray-900 dark:text-white">Role-Based Access</h3>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Admin, Developer, Viewer, and Worker roles with granular permissions.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </Container>
-            </section>
-
-            {/* Compliance */}
-            <section className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900">
-                <Container>
-                    <div className="mx-auto max-w-3xl">
-                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            Compliance Frameworks
-                        </h2>
-                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                            CodeTether supports the compliance requirements of regulated industries.
-                        </p>
-
-                        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+                        <div className="mt-10 grid gap-8 md:grid-cols-2">
+                            {/* Control Plane */}
                             <div className="rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                                        <span className="text-xl">🏥</span>
+                                        <span className="text-xl">☁️</span>
                                     </div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">HIPAA</h3>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Control Plane (SaaS)</h3>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    PHI stays in your VPC. BAA available for enterprise customers.
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                    Hosted in our SOC 2 Type II compliant environment
                                 </p>
+                                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                        <span><strong>Signal Routing:</strong> Managing the queue of abstract tasks</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                        <span><strong>Identity Provider:</strong> Centralized OIDC via Keycloak</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                        <span><strong>Telemetry:</strong> Aggregating metadata only</span>
+                                    </li>
+                                </ul>
+                                <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                                        <strong>Security Guarantee:</strong> The Control Plane does not store, process, or see your source code, database records, or PII.
+                                    </p>
+                                </div>
                             </div>
+
+                            {/* Data Plane */}
                             <div className="rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                                        <span className="text-xl">🔒</span>
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                                        <span className="text-xl">🏢</span>
                                     </div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">SOC 2 Type II</h3>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Data Plane (Customer VPC)</h3>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Our hosted broker maintains SOC 2 Type II certification.
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                    Runs within your secure VPC as a containerized workload
                                 </p>
-                            </div>
-                            <div className="rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                                        <span className="text-xl">💳</span>
-                                    </div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">PCI-DSS</h3>
+                                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                        <span><strong>Execution:</strong> Running actual logic locally</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                        <span><strong>Tool Access:</strong> Interfacing via MCP</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                        <span><strong>Data Residency:</strong> Data never leaves your network</span>
+                                    </li>
+                                </ul>
+                                <div className="mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                        <strong>Impact:</strong> Even if the Control Plane were fully compromised, attackers would have no access to your credentials or source code.
+                                    </p>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Cardholder data never leaves your network. Full network segmentation support.
-                                </p>
                             </div>
-                            <div className="rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-                                        <span className="text-xl">🏛️</span>
+                        </div>
+                    </div>
+                </Container>
+            </section>
+
+            {/* Network Security */}
+            <section className="py-16 sm:py-24">
+                <Container>
+                    <div className="mx-auto max-w-3xl">
+                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                            3. Network Security: Reverse-Polling
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                            The primary objection to external integrations is the &ldquo;Firewall Objection&rdquo;—the risk associated with opening inbound ports. CodeTether eliminates this risk entirely.
+                        </p>
+
+                        <div className="mt-10 rounded-2xl bg-gray-900 p-6 sm:p-8">
+                            <h3 className="text-xl font-semibold text-white mb-6">Outbound-Only Architecture</h3>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="flex items-start gap-3">
+                                    <CheckIcon className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-medium text-white">No Inbound Ports</p>
+                                        <p className="text-sm text-gray-400">Worker rejects all unsolicited inbound traffic</p>
                                     </div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">FedRAMP</h3>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Self-hosted deployment supports FedRAMP requirements. Air-gap compatible.
+                                <div className="flex items-start gap-3">
+                                    <CheckIcon className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-medium text-white">HTTPS Only (TCP/443)</p>
+                                        <p className="text-sm text-gray-400">Standard outbound traffic pattern</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <CheckIcon className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-medium text-white">SSE & Long-Polling</p>
+                                        <p className="text-sm text-gray-400">Worker asks: &ldquo;Are there tasks for me?&rdquo;</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <CheckIcon className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-medium text-white">TLS 1.3 Encryption</p>
+                                        <p className="text-sm text-gray-400">Strong cipher suites, no legacy SSL</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 border-t border-gray-700 pt-6">
+                                <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Firewall Configuration</h4>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-left text-gray-400">
+                                                <th className="pb-2">Direction</th>
+                                                <th className="pb-2">Destination</th>
+                                                <th className="pb-2">Port</th>
+                                                <th className="pb-2">Protocol</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-white">
+                                            <tr>
+                                                <td className="py-2 text-emerald-400">Outbound</td>
+                                                <td className="py-2 font-mono text-cyan-400">api.codetether.run</td>
+                                                <td className="py-2">443</td>
+                                                <td className="py-2">HTTPS</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p className="mt-4 text-sm text-gray-400">
+                                    No Site-to-Site VPNs, Bastion hosts, or DMZ exceptions required.
                                 </p>
                             </div>
                         </div>
@@ -356,27 +250,212 @@ export default function SecurityWhitepaper() {
                 </Container>
             </section>
 
-            {/* Key Takeaways */}
+            {/* Data Gravity */}
+            <section className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900">
+                <Container>
+                    <div className="mx-auto max-w-3xl">
+                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                            4. Data Residency: The &ldquo;Data Gravity&rdquo; Principle
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                            Regulated industries cannot afford to stream proprietary code or customer PII to an external vendor. CodeTether adheres to strict Data Gravity principles: <strong className="text-cyan-600 dark:text-cyan-400">logic moves to the data; data does not move to the logic</strong>.
+                        </p>
+
+                        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+                            <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6">
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Local Processing</h3>
+                                <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-cyan-500">→</span>
+                                        <span>Source code processed entirely within your VPC</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-cyan-500">→</span>
+                                        <span>Only <em>status</em> streamed to Control Plane</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-cyan-500">→</span>
+                                        <span>Sanitized summaries returned, not raw data</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6">
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Pre-Flight Redaction</h3>
+                                <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-cyan-500">→</span>
+                                        <span>Worker acts as proxy for external LLMs</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-cyan-500">→</span>
+                                        <span>Regex/NLP filters scrub sensitive entities</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-cyan-500">→</span>
+                                        <span>PII redacted <em>before</em> inference API calls</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </Container>
+            </section>
+
+            {/* Identity & Governance */}
             <section className="py-16 sm:py-24">
                 <Container>
                     <div className="mx-auto max-w-3xl">
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            Key Takeaways
+                            5. Identity & Governance: RBAC & MCP
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                            In a Zero Trust architecture, identity is the new perimeter. CodeTether leverages <strong>Keycloak</strong> for enterprise-grade Identity and Access Management (IAM).
+                        </p>
+
+                        <div className="mt-10 space-y-8">
+                            {/* RBAC */}
+                            <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <LockIcon className="h-6 w-6 text-cyan-500" />
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Fine-Grained RBAC</h3>
+                                </div>
+                                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                                    We treat Agents as non-human identities with strict permissions.
+                                </p>
+                                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-cyan-500 mt-0.5" />
+                                        <span><strong>Identity Separation:</strong> A &ldquo;Test Agent&rdquo; is cryptographically distinct from a &ldquo;Deploy Agent&rdquo;</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <CheckIcon className="h-4 w-4 text-cyan-500 mt-0.5" />
+                                        <span><strong>Role Scoping:</strong> Test Agent can read DB; only Deploy Agent can write</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            {/* MCP Policy */}
+                            <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <ShieldIcon className="h-6 w-6 text-cyan-500" />
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">MCP as a Policy Layer</h3>
+                                </div>
+                                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                                    The Model Context Protocol allows security teams to wrap <strong>&ldquo;Policy Layers&rdquo;</strong> around tool access.
+                                </p>
+                                <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-4">
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                        <strong>Scenario:</strong> An agent wants to run a SQL query.<br />
+                                        <strong>Policy Enforcement:</strong> The MCP server enforces &ldquo;Read-Only&rdquo; policy. If the agent attempts a <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">DROP TABLE</code> command, the MCP layer blocks it locally. The command never reaches the database.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Audit Logging */}
+                            <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Immutable Audit Logging</h3>
+                                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                                    Every action is logged and exportable to your SIEM (Splunk, Datadog):
+                                </p>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-gray-900 dark:text-white">Who:</span>
+                                        <span className="text-gray-600 dark:text-gray-300">User ID / Agent ID</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-gray-900 dark:text-white">What:</span>
+                                        <span className="text-gray-600 dark:text-gray-300">MCP tool called</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-gray-900 dark:text-white">When:</span>
+                                        <span className="text-gray-600 dark:text-gray-300">UTC Timestamp</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-gray-900 dark:text-white">Why:</span>
+                                        <span className="text-gray-600 dark:text-gray-300">Prompt context</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Container>
+            </section>
+
+            {/* Supply Chain & Compliance */}
+            <section className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900">
+                <Container>
+                    <div className="mx-auto max-w-3xl">
+                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                            6. Supply Chain Security
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                            To ensure the integrity of software running inside your perimeter:
+                        </p>
+
+                        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                            <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5">
+                                <div className="text-2xl mb-2">🔏</div>
+                                <h3 className="font-semibold text-gray-900 dark:text-white">Signed Images</h3>
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    All Docker images cryptographically signed. Verify via admission controllers.
+                                </p>
+                            </div>
+                            <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5">
+                                <div className="text-2xl mb-2">📦</div>
+                                <h3 className="font-semibold text-gray-900 dark:text-white">Minimal Base</h3>
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    Distroless or minimal Alpine bases to reduce attack surface.
+                                </p>
+                            </div>
+                            <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5">
+                                <div className="text-2xl mb-2">📋</div>
+                                <h3 className="font-semibold text-gray-900 dark:text-white">SBOM Available</h3>
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    Software Bill of Materials for every release with all dependencies.
+                                </p>
+                            </div>
+                        </div>
+
+                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mt-16">
+                            7. Compliance Frameworks
                         </h2>
 
-                        <div className="mt-10 space-y-4">
+                        <div className="mt-8 grid gap-4 sm:grid-cols-2">
                             {[
-                                'Zero inbound firewall rules — Workers initiate all connections',
-                                'Data stays local — Code and secrets never leave your network',
-                                'Enterprise authentication — Keycloak, mTLS, and API tokens',
-                                'Compliance-ready — HIPAA, SOC 2, PCI-DSS architectures',
-                                'Flexible deployment — SaaS, self-hosted, or hybrid',
-                            ].map((item, index) => (
-                                <div key={index} className="flex items-start gap-3">
-                                    <CheckIcon className="h-6 w-6 text-cyan-500 flex-shrink-0 mt-0.5" />
-                                    <p className="text-lg text-gray-700 dark:text-gray-300">{item}</p>
+                                { icon: '🏥', name: 'HIPAA', desc: 'PHI stays in your VPC. BAA available.' },
+                                { icon: '🔒', name: 'SOC 2 Type II', desc: 'Control Plane maintains certification.' },
+                                { icon: '💳', name: 'PCI-DSS', desc: 'Cardholder data never leaves network.' },
+                                { icon: '🏛️', name: 'FedRAMP', desc: 'Self-hosted, air-gap compatible.' },
+                            ].map((item) => (
+                                <div key={item.name} className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5 flex items-start gap-4">
+                                    <div className="text-2xl">{item.icon}</div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
+                                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
+                                    </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                </Container>
+            </section>
+
+            {/* Conclusion */}
+            <section className="py-16 sm:py-24">
+                <Container>
+                    <div className="mx-auto max-w-3xl">
+                        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                            8. Conclusion
+                        </h2>
+                        <p className="mt-6 text-lg text-gray-600 dark:text-gray-300">
+                            CodeTether transforms the AI Agent from a &ldquo;Black Box&rdquo; security risk into a managed, observable, and policy-governed IT asset. By decoupling the Control Plane from the Execution Plane, we allow regulated enterprises to innovate with AI agents without compromising their security posture.
+                        </p>
+
+                        <div className="mt-10 rounded-2xl bg-gradient-to-r from-cyan-600 to-cyan-800 p-8 text-white">
+                            <h3 className="text-xl font-bold mb-4">The &ldquo;Runner&rdquo; Analogy</h3>
+                            <p className="text-cyan-100">
+                                &ldquo;It works exactly like a GitHub Action runner. It sits in your VPC, polls for work on port 443, does the work locally, and reports the status. No inbound ports.&rdquo;
+                            </p>
                         </div>
                     </div>
                 </Container>
@@ -390,14 +469,14 @@ export default function SecurityWhitepaper() {
                             Ready to Secure Your AI Workflows?
                         </h2>
                         <p className="mt-4 text-lg text-cyan-100">
-                            Get started with a security architecture review or pilot deployment.
+                            Schedule a Security Architecture Review with our team.
                         </p>
                         <div className="mt-8 flex flex-wrap justify-center gap-4">
-                            <Button href="/#contact" className="bg-white text-cyan-700 hover:bg-cyan-50">
+                            <Button href="/#contact" className="!bg-white !text-cyan-700 hover:!bg-cyan-50">
                                 Request Security Review
                             </Button>
-                            <Button href="/security-whitepaper.md" variant="outline" className="border-white/50 text-white hover:bg-white/10">
-                                Download PDF
+                            <Button href="/security-whitepaper.md" variant="outline" className="!border-white/50 !text-white hover:!bg-white/10">
+                                Download Markdown
                             </Button>
                         </div>
                     </div>

@@ -1,537 +1,159 @@
-# CodeTether Security Whitepaper
+# CodeTether Security Architecture
 
-**Version 1.0 | December 2025**
+**The Secure Agent Runtime: Zero Trust Orchestration for Regulated Enterprises**
 
----
-
-## Executive Summary
-
-CodeTether is an enterprise-grade AI agent orchestration platform designed with security as its foundational principle. Unlike traditional AI solutions that require data egress to cloud services, CodeTether employs a **reverse-pull architecture** where workers inside your network pull tasks from a central broker—eliminating inbound firewall rules and keeping sensitive data within your security perimeter.
-
-This whitepaper details the security architecture, compliance considerations, and enterprise deployment patterns that make CodeTether suitable for regulated industries including financial services, healthcare, and government.
+**Classification:** PUBLIC / TECHNICAL
+**Audience:** Enterprise Security Operations (SecOps), GRC, and Network Architecture Teams
+**Date:** December 2025
 
 ---
 
-## Table of Contents
+## 1. Executive Summary
 
-1. [The Security Challenge](#the-security-challenge)
-2. [Architecture Overview](#architecture-overview)
-3. [Zero Inbound Access Model](#zero-inbound-access-model)
-4. [Data Residency & Sovereignty](#data-residency--sovereignty)
-5. [Authentication & Authorization](#authentication--authorization)
-6. [Network Security](#network-security)
-7. [Encryption](#encryption)
-8. [Audit & Compliance](#audit--compliance)
-9. [Deployment Models](#deployment-models)
-10. [Compliance Frameworks](#compliance-frameworks)
-11. [Security Best Practices](#security-best-practices)
-12. [Conclusion](#conclusion)
+The rapid adoption of "Agentic AI" in the enterprise has historically been blocked by a fundamental security paradox: to be useful, agents need access to internal data; to be secure, internal data must not be exposed to external cloud providers.
+
+CodeTether resolves this conflict through **Inversion of Control**.
+
+Unlike traditional SaaS integration models that require opening inbound firewall ports or establishing persistent VPN tunnels, CodeTether utilizes a **Distributed Worker Architecture**. We do not ask you to send your data to our cloud. Instead, you deploy our ephemeral runtime—the **CodeTether Worker**—inside your secure perimeter.
+
+This architecture ensures that CodeTether operates with the same security profile as a standard CI/CD runner (e.g., Jenkins or GitHub Actions). It requires **zero inbound ports**, maintains strict data residency via "Data Gravity," and provides immutable audit trails for every agent action.
 
 ---
 
-## The Security Challenge
+## 2. The Architecture of Trust: Control Plane vs. Data Plane
 
-### The Problem with Traditional AI Integrations
+CodeTether enforces a strict logical and physical separation between the **Control Plane** (managed by CodeTether SaaS) and the **Data Plane** (managed by the Customer). This separation creates a "Logic Air Gap."
 
-Modern AI coding assistants and autonomous agents typically require:
+### 2.1 The Control Plane (SaaS)
 
-- **Data upload** to external cloud services
-- **Inbound firewall rules** for webhooks and callbacks
-- **VPN tunnels** or exposed endpoints
-- **Trust in third-party data handling**
+Hosted in our SOC 2 Type II compliant environment, the Control Plane is responsible for orchestration only:
 
-For enterprises with strict security requirements, these patterns create unacceptable risk:
+- **Signal Routing:** Managing the queue of abstract tasks (e.g., "Run Q3 Analysis").
+- **Identity Provider:** Centralized OIDC authentication via Keycloak.
+- **Telemetry:** Aggregating *metadata* (task status, timestamps, success/failure rates).
 
-| Risk Factor | Traditional AI | CodeTether |
-|-------------|---------------|------------|
-| Data egress to cloud | ✗ Required | ✓ Optional |
-| Inbound firewall rules | ✗ Required | ✓ None |
-| Code exposure to vendors | ✗ Yes | ✓ No |
-| Audit trail control | ✗ Limited | ✓ Full |
+**Security Guarantee:** The Control Plane does not store, process, or see your source code, database records, or PII.
 
-### Why CISOs Block AI Adoption
+### 2.2 The Data Plane (Customer VPC)
 
-1. **Data Loss Prevention (DLP)**: Code and business logic sent to external services
-2. **Attack Surface**: New inbound ports and endpoints to secure
-3. **Compliance Risk**: HIPAA, PCI-DSS, SOX require data to stay on-premises
-4. **Vendor Trust**: No control over how AI providers handle your data
+The **Agent Worker** runs as a containerized workload (Docker/Kubernetes) within your secure VPC. It is responsible for:
+
+- **Execution:** Running the actual logic (SQL queries, code analysis, file manipulation).
+- **Tool Access:** Interfacing with internal APIs via the Model Context Protocol (MCP).
+- **Data Residency:** Ensuring sensitive data never traverses the public internet.
+
+**Impact:** Even if the CodeTether Control Plane were fully compromised, the attacker would have **no access** to your database credentials or source code, as these secrets reside solely in your local Kubernetes secrets and never leave your environment.
 
 ---
 
-## Architecture Overview
+## 3. Network Security: The "Reverse-Polling" Mechanism
 
-### The Reverse-Pull Model
+The primary objection to external integrations is the "Firewall Objection"—the risk associated with opening inbound ports. CodeTether eliminates this risk entirely.
 
-CodeTether inverts the traditional client-server model:
+### 3.1 Outbound-Only Architecture
 
-```
-Traditional Model (BLOCKED):
-┌──────────────┐      INBOUND      ┌──────────────┐
-│  AI Service  │  ──────────────→  │ Your Network │
-│  (External)  │   (firewall rule) │              │
-└──────────────┘                   └──────────────┘
+The Agent Worker utilizes a **Pull-Based (Polling)** communication model.
 
-CodeTether Model (APPROVED):
-┌──────────────┐      OUTBOUND     ┌──────────────┐
-│ CodeTether   │  ←──────────────  │ Your Network │
-│   Broker     │   (worker pulls)  │  (Workers)   │
-└──────────────┘                   └──────────────┘
-```
+- **No Inbound Ports:** There are no open listening ports on the Worker. It rejects all unsolicited inbound traffic.
+- **Protocol:** Communication is established via outbound HTTPS (TCP/443) only.
+- **Mechanism:** The Worker utilizes Server-Sent Events (SSE) and long-polling to ask the Control Plane: *"Are there tasks for me?"*
+- **Encryption:** All traffic is encapsulated in **TLS 1.3** (utilizing strong cipher suites and prohibiting legacy SSL versions).
 
-### How It Works
+### 3.2 Firewall Configuration
 
-1. **Workers run inside your network** - VPC, data center, or air-gapped environment
-2. **Workers initiate all connections** - Outbound HTTPS only
-3. **Tasks are pulled, not pushed** - No webhooks, no callbacks
-4. **Data stays local** - Code execution happens inside your perimeter
-5. **Only results are returned** - Minimal data exposure
+To deploy CodeTether, your firewall rules require a single allow-list entry:
+
+| Direction | Destination | Port | Protocol |
+|-----------|-------------|------|----------|
+| Outbound | `api.codetether.run` | 443 | HTTPS |
+
+Because the connection is initiated from *inside* the trusted network, no Site-to-Site VPNs, Bastion hosts, or DMZ exceptions are required.
 
 ---
 
-## Zero Inbound Access Model
+## 4. Data Residency & Privacy: The "Data Gravity" Principle
 
-### Technical Implementation
+Regulated industries cannot afford to stream proprietary code or customer PII to an external vendor. CodeTether adheres to strict **Data Gravity** principles: logic moves to the data; data does not move to the logic.
 
-CodeTether workers use **long-polling** over HTTPS to fetch tasks:
+### 4.1 Local Processing
 
-```python
-# Worker pseudocode
-while True:
-    # Outbound HTTPS connection (allowed by default)
-    task = broker.poll_for_task(worker_id, timeout=30)
+When a task is assigned, the source code and database rows are processed entirely within the Agent Worker container in your VPC.
 
-    if task:
-        # Execute locally inside your network
-        result = execute_task(task)
+- **Streaming Metadata:** The Worker streams the *status* ("Running tests...", "Syntax error found") back to the Control Plane.
+- **Sanitized Output:** Actual data payloads are processed locally. Only the result (e.g., "Revenue calculated: $50k" or a sanitized summary) is transmitted back to the central dashboard.
 
-        # Return only the result (not the full codebase)
-        broker.submit_result(task.id, result)
-```
+### 4.2 Prevention of Leakage
 
-### Firewall Configuration
-
-**Required firewall rules: ZERO inbound**
-
-| Direction | Port | Protocol | Destination | Status |
-|-----------|------|----------|-------------|--------|
-| Inbound | Any | Any | Any | ✗ NONE REQUIRED |
-| Outbound | 443 | HTTPS | broker.codetether.run | ✓ Required |
-
-### Network Diagram
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    YOUR VPC / DATA CENTER                │
-│                                                          │
-│  ┌──────────────────┐      ┌──────────────────┐        │
-│  │   CodeTether     │      │   Your Source    │        │
-│  │   Worker         │──────│   Code Repo      │        │
-│  │                  │      │                  │        │
-│  └────────┬─────────┘      └──────────────────┘        │
-│           │                                             │
-│           │ OUTBOUND HTTPS (port 443)                  │
-│           │ Worker PULLS tasks                          │
-│           ▼                                             │
-├───────────────────────────────────────────────────────┤
-│                    FIREWALL                             │
-│           No inbound rules required                     │
-└───────────────────────────────────────────────────────┘
-                         │
-                         ▼
-              ┌──────────────────┐
-              │  CodeTether      │
-              │  Broker          │
-              │  (Cloud/Hosted)  │
-              └──────────────────┘
-```
+If using external LLMs, the Worker acts as a proxy with **Pre-Flight Redaction**. It can be configured to scrub sensitive entities (Credit Card numbers, SSNs) via regex/NLP filters locally *before* any context is sent to the inference API.
 
 ---
 
-## Data Residency & Sovereignty
+## 5. Identity & Governance: RBAC & MCP
 
-### What Data Leaves Your Network?
+In a Zero Trust architecture, identity is the new perimeter. CodeTether leverages **Keycloak** for enterprise-grade Identity and Access Management (IAM).
 
-| Data Type | Leaves Network? | Notes |
-|-----------|-----------------|-------|
-| Source code | ✗ Never | Stays in your VPC |
-| Credentials/secrets | ✗ Never | Worker uses local vault |
-| Task metadata | ✓ Minimal | Task ID, status, timing |
-| Results/outputs | ✓ Configurable | PR links, summaries |
-| AI model queries | ✓ Configurable | Can use local LLMs |
+### 5.1 Fine-Grained RBAC
 
-### Local LLM Support
+We treat Agents as non-human identities with strict permissions.
 
-For maximum data isolation, CodeTether supports local LLM deployment:
+- **Identity Separation:** A "Test Agent" is cryptographically distinct from a "Deploy Agent."
+- **Role Scoping:** Access is granted via fine-grained RBAC. *Example: The 'Test Agent' can read the DB, but only the 'Deploy Agent' can write to it.*
 
-- **Ollama** - Run open-source models locally
-- **vLLM** - Production-grade local inference
-- **Azure OpenAI Private Endpoints** - Isolated Azure instances
-- **AWS Bedrock** - VPC-native AI services
+### 5.2 The Model Context Protocol (MCP) as a Policy Layer
 
-```yaml
-# Worker configuration for local LLM
-worker:
-  llm_provider: ollama
-  llm_endpoint: http://localhost:11434
-  model: codellama:34b
-```
+We utilize the **Model Context Protocol (MCP)** to standardize how Agents access your internal tools. This allows security teams to wrap **"Policy Layers"** around tool access.
 
----
+- **Scenario:** An agent wants to run a SQL query.
+- **Policy Enforcement:** The MCP server on the Worker can enforce a "Read-Only" policy. If the agent attempts a `DROP TABLE` command, the MCP layer blocks the execution locally. The command never reaches the database.
 
-## Authentication & Authorization
+### 5.3 Immutable Audit Logging
 
-### Authentication Methods
+Every action is logged in an immutable session history, exportable to your SIEM (Splunk, Datadog):
 
-CodeTether supports enterprise-grade authentication:
-
-#### 1. API Token Authentication
-
-Simple bearer tokens for service-to-service communication:
-
-```bash
-curl -H "Authorization: Bearer <token>" \
-  https://broker.codetether.run/v1/a2a
-```
-
-#### 2. Keycloak OIDC Integration
-
-Enterprise SSO with full OIDC support:
-
-- **Single Sign-On** via your existing identity provider
-- **Role-Based Access Control (RBAC)** with Keycloak groups
-- **Multi-Factor Authentication** enforced by your IdP
-- **Session Management** with configurable timeouts
-
-```yaml
-# Keycloak configuration
-auth:
-  provider: keycloak
-  server_url: https://auth.yourcompany.com
-  realm: enterprise
-  client_id: codetether
-  client_secret: ${KEYCLOAK_SECRET}
-```
-
-#### 3. mTLS (Mutual TLS)
-
-For zero-trust environments:
-
-- Worker certificates signed by your CA
-- Certificate pinning for broker connections
-- Automatic certificate rotation
-
-### Authorization Model
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  RBAC Hierarchy                      │
-├─────────────────────────────────────────────────────┤
-│  Admin       │ Full control, user management         │
-│  Developer   │ Create tasks, view own results        │
-│  Viewer      │ Read-only access to dashboards        │
-│  Worker      │ Pull tasks, submit results only       │
-└─────────────────────────────────────────────────────┘
-```
+| Field | Description |
+|-------|-------------|
+| **Who** | User ID (or Parent Agent ID) |
+| **What** | The specific MCP tool called |
+| **When** | UTC Timestamp |
+| **Why** | The prompt context that triggered the action |
 
 ---
 
-## Network Security
+## 6. Supply Chain Security
 
-### TLS Configuration
+To ensure the integrity of the software running inside your perimeter:
 
-All connections use TLS 1.3 with strong cipher suites:
-
-```
-Supported Cipher Suites:
-- TLS_AES_256_GCM_SHA384
-- TLS_CHACHA20_POLY1305_SHA256
-- TLS_AES_128_GCM_SHA256
-```
-
-### Network Policies (Kubernetes)
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: codetether-worker
-spec:
-  podSelector:
-    matchLabels:
-      app: codetether-worker
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress: []  # No inbound traffic allowed
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0  # Broker connection
-      ports:
-        - protocol: TCP
-          port: 443
-```
-
-### Private Link / PrivateLink Support
-
-For cloud deployments:
-
-- **AWS PrivateLink** - Traffic never leaves AWS backbone
-- **Azure Private Link** - VNet-to-VNet connectivity
-- **GCP Private Service Connect** - Google's private networking
+- **Signed Images:** All Docker images are cryptographically signed. You can verify signatures via admission controllers before the container starts.
+- **Minimal Base Images:** We use distroless or minimal Alpine bases to reduce the attack surface.
+- **SBOM:** A Software Bill of Materials (SBOM) is available for every release, detailing all open-source dependencies and their versions.
 
 ---
 
-## Encryption
+## 7. Compliance Frameworks
 
-### Data in Transit
+CodeTether's architecture supports compliance with major regulatory frameworks:
 
-- **TLS 1.3** for all HTTP connections
-- **mTLS** option for worker authentication
-- **Certificate pinning** for broker connections
-
-### Data at Rest
-
-- **AES-256** encryption for task data
-- **Kubernetes Secrets** with encryption at rest
-- **HashiCorp Vault** integration for secrets management
-
-### Secrets Management
-
-CodeTether never stores your secrets:
-
-```yaml
-# Worker pulls secrets from your vault
-secrets:
-  provider: vault
-  address: https://vault.yourcompany.com
-  path: secret/codetether
-```
+| Framework | How CodeTether Supports Compliance |
+|-----------|-----------------------------------|
+| **HIPAA** | PHI stays in your VPC. BAA available for enterprise customers. |
+| **SOC 2 Type II** | Control Plane maintains SOC 2 certification. Audit logs exportable. |
+| **PCI-DSS** | Cardholder data never leaves your network. Network segmentation supported. |
+| **FedRAMP** | Self-hosted deployment supports FedRAMP requirements. Air-gap compatible. |
+| **GDPR** | Data residency maintained. No cross-border data transfer required. |
 
 ---
 
-## Audit & Compliance
+## 8. Conclusion
 
-### Comprehensive Audit Logging
-
-Every action is logged with:
-
-- **Timestamp** - ISO 8601 format
-- **Actor** - User or service identity
-- **Action** - What was performed
-- **Resource** - What was affected
-- **Result** - Success or failure
-- **Source IP** - Origin of request
-
-### Log Format (JSON)
-
-```json
-{
-  "timestamp": "2025-12-11T10:30:00Z",
-  "event_type": "task.created",
-  "actor": {
-    "type": "user",
-    "id": "user@company.com",
-    "roles": ["developer"]
-  },
-  "resource": {
-    "type": "task",
-    "id": "task-uuid-123"
-  },
-  "action": "create",
-  "result": "success",
-  "metadata": {
-    "source_ip": "10.0.1.50",
-    "user_agent": "CodeTether-CLI/1.0"
-  }
-}
-```
-
-### SIEM Integration
-
-Export logs to your security platform:
-
-- **Splunk** via HEC
-- **Elastic/ELK** via Filebeat
-- **Datadog** via agent
-- **Azure Sentinel** via diagnostic settings
-- **AWS CloudWatch** via native integration
-
----
-
-## Deployment Models
-
-### Model 1: Fully Managed (SaaS)
-
-**Best for**: Teams wanting minimal operational overhead
-
-```
-Your VPC                    CodeTether Cloud
-┌───────────┐              ┌────────────────┐
-│  Worker   │──HTTPS──────→│    Broker      │
-│  (you run)│              │  (we operate)  │
-└───────────┘              └────────────────┘
-```
-
-- Workers run in your environment
-- Broker hosted by CodeTether
-- Zero inbound firewall rules
-
-### Model 2: Self-Hosted
-
-**Best for**: Maximum control and air-gapped environments
-
-```
-Your VPC (Everything self-hosted)
-┌─────────────────────────────────────┐
-│  ┌─────────┐      ┌─────────┐      │
-│  │ Broker  │◄─────│ Worker  │      │
-│  └─────────┘      └─────────┘      │
-│       ↓                             │
-│  ┌─────────┐      ┌─────────┐      │
-│  │ Redis   │      │Postgres │      │
-│  └─────────┘      └─────────┘      │
-└─────────────────────────────────────┘
-```
-
-- Full control over all components
-- Air-gap compatible
-- BYO infrastructure
-
-### Model 3: Hybrid
-
-**Best for**: Regulated industries with cloud presence
-
-```
-Your VPC                    Private Cloud
-┌───────────┐              ┌────────────────┐
-│  Worker   │──PrivateLink→│    Broker      │
-│           │              │  (dedicated)   │
-└───────────┘              └────────────────┘
-```
-
-- Dedicated broker instance
-- Private networking (no public internet)
-- Managed by CodeTether, isolated for you
-
----
-
-## Compliance Frameworks
-
-### HIPAA (Healthcare)
-
-CodeTether supports HIPAA compliance:
-
-| Requirement | Implementation |
-|-------------|----------------|
-| Access Controls | Keycloak OIDC with MFA |
-| Audit Controls | Comprehensive logging |
-| Transmission Security | TLS 1.3 encryption |
-| Data Integrity | Checksums on all transfers |
-| PHI Handling | Data stays in your VPC |
-
-**BAA Available**: Contact sales for Business Associate Agreement.
-
-### SOC 2 Type II
-
-Our hosted broker maintains SOC 2 Type II certification:
-
-- **Security** - Logical and physical access controls
-- **Availability** - 99.9% uptime SLA
-- **Processing Integrity** - Task execution verification
-- **Confidentiality** - Data encryption and isolation
-- **Privacy** - Minimal data collection
-
-### PCI-DSS
-
-For payment card environments:
-
-- Cardholder data never leaves your network
-- Network segmentation support
-- Encryption requirements met
-- Access control integration
-
-### FedRAMP (Government)
-
-Self-hosted deployment supports FedRAMP requirements:
-
-- Air-gap compatible
-- FIPS 140-2 encryption support
-- Comprehensive audit logging
-- US data residency
-
----
-
-## Security Best Practices
-
-### Worker Hardening
-
-```yaml
-# Kubernetes security context
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  readOnlyRootFilesystem: true
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-      - ALL
-```
-
-### Secret Rotation
-
-- Rotate API tokens every 90 days
-- Use short-lived OIDC tokens (1 hour)
-- Automate rotation via Vault
-
-### Monitoring & Alerting
-
-Set up alerts for:
-
-- Failed authentication attempts (>5 in 1 minute)
-- Unusual task volumes (>2 std dev from baseline)
-- Worker disconnections (>30 seconds)
-- Certificate expiration (14 days warning)
-
-### Incident Response
-
-1. **Detection** - Automated alerting via SIEM
-2. **Containment** - Revoke worker tokens instantly
-3. **Investigation** - Full audit trail available
-4. **Recovery** - Deploy new workers in minutes
-5. **Lessons Learned** - Documented post-mortems
-
----
-
-## Conclusion
-
-CodeTether addresses the fundamental security challenge of enterprise AI adoption: **how to leverage powerful AI agents without compromising your security posture**.
-
-By inverting the traditional model—having workers pull tasks rather than accepting inbound connections—CodeTether eliminates the attack surface that causes CISOs to block AI initiatives.
-
-### Key Takeaways
-
-1. **Zero inbound firewall rules** - Workers initiate all connections
-2. **Data stays local** - Code and secrets never leave your network
-3. **Enterprise authentication** - Keycloak, mTLS, and API tokens
-4. **Compliance-ready** - HIPAA, SOC 2, PCI-DSS architectures
-5. **Flexible deployment** - SaaS, self-hosted, or hybrid
-
-### Next Steps
-
-- **Security Review**: Request a security architecture review with our team
-- **Pilot Deployment**: Start with a single worker in your environment
-- **Compliance Mapping**: Get our detailed compliance control mappings
+CodeTether transforms the AI Agent from a "Black Box" security risk into a managed, observable, and policy-governed IT asset. By decoupling the Control Plane from the Execution Plane, we allow regulated enterprises to innovate with AI agents without compromising their security posture.
 
 ---
 
 ## Contact
 
-**Security Team**: security@codetether.run
-
-**Sales**: sales@codetether.run
-
-**Documentation**: https://docs.codetether.run
+**Security Team:** security@codetether.run
+**Sales:** sales@codetether.run
+**Documentation:** https://docs.codetether.run
 
 ---
 
