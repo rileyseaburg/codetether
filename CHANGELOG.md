@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **Runtime Sessions API**: Direct access to local OpenCode sessions without requiring codebase registration
+  - `GET /v1/opencode/runtime/status` - Check if OpenCode runtime is available locally
+  - `GET /v1/opencode/runtime/projects` - List all local projects with session counts
+  - `GET /v1/opencode/runtime/sessions` - List all sessions with pagination
+  - `GET /v1/opencode/runtime/sessions/{id}` - Get session details
+  - `GET /v1/opencode/runtime/sessions/{id}/messages` - Get conversation history
+  - `GET /v1/opencode/runtime/sessions/{id}/parts` - Get message content parts
+* **Enhanced OpenCode Status**: The `/v1/opencode/status` endpoint now includes runtime session information when OpenCode is detected locally
+* **Blue-Green Deployments**: Added `make bluegreen-deploy` target with zero-downtime deployment support
+* **Kubernetes Targets**: New makefile targets for dev/staging/prod deployments (`make k8s-dev`, `make k8s-staging`, `make k8s-prod`)
+
+### Documentation
+
+* **Agent Worker Guide**: Comprehensive documentation for the Agent Worker daemon
+  - Installation guide with quick install script and manual steps
+  - Complete configuration reference (config file and environment variables)
+  - Systemd service setup with security hardening
+  - Task workflow explanation (polling, execution, streaming)
+  - Session sync functionality
+  - Troubleshooting guide
+* **Worker API Documentation**: Added Worker endpoints to OpenCode API reference
+  - `POST /v1/opencode/workers/register` - Register a worker
+  - `POST /v1/opencode/workers/{id}/unregister` - Unregister a worker
+  - `PUT /v1/opencode/tasks/{id}/status` - Update task status
+  - `POST /v1/opencode/tasks/{id}/output` - Stream task output
+  - `POST /v1/opencode/codebases/{id}/sessions/sync` - Sync sessions
+* Updated Distributed Workers guide with accurate Agent Worker integration
+* Updated REST API reference with Worker and Task endpoints
+* Added Runtime Sessions API examples to README
+
 ## [0.3.0](https://github.com/a2aproject/A2A/compare/v0.2.6...v0.3.0) (2025-07-30)
 
 

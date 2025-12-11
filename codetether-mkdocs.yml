@@ -30,6 +30,7 @@ nav:
       - Task Management: concepts/task-management.md
   - Features:
       - OpenCode Integration: features/opencode.md
+      - Agent Worker: features/agent-worker.md
       - Distributed Workers: features/distributed-workers.md
       - Session Management: features/sessions.md
       - Real-time Streaming: features/streaming.md

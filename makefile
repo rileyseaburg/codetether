@@ -14,7 +14,38 @@ VALUES_FILE ?= chart/codetether-values.yaml
 .PHONY: help
 help: ## Show this help message
 	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Docker targets:"
+	@grep -E '^docker-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Helm targets:"
+	@grep -E '^helm-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Blue-Green Deployment:"
+	@grep -E '^(bluegreen-|deploy-blue|deploy-green|rollback-|cleanup-|deploy-status|deploy-fast|deploy-now)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Environment Deployments (Blue-Green):"
+	@grep -E '^k8s[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Kubernetes Utilities:"
+	@grep -E '^(get-pods|describe-pod|scale-|rollout-)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "CodeTether targets:"
+	@grep -E '^codetether-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Development targets:"
+	@grep -E '^(install|test|lint|format|run|docs)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Other targets:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -vE '^(docker-|helm-|codetether-|bluegreen-|deploy-|rollback-|cleanup-|k8s|get-pods|describe-pod|scale-|rollout-|install|test|lint|format|run|docs)' | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Environment variables:"
+	@echo "  DOCKER_TAG      - Docker image tag (default: latest)"
+	@echo "  NAMESPACE       - Kubernetes namespace (default: a2a-server)"
+	@echo "  CHART_VERSION   - Helm chart version (default: 0.3.0)"
+	@echo "  VALUES_FILE     - Path to Helm values file"
+	@echo "  KUBECONFIG_PATH - Path to kubeconfig (default: quantum-forge-kubeconfig.yaml)"
+	@echo "  DEBUG           - Enable debug output for deployments"
 
 # Docker targets
 .PHONY: docker-build
@@ -266,6 +297,17 @@ one-command-deploy: ## Build image, load/push depending on environment, and depl
 # Blue-Green Deployment Targets
 # =============================================================================
 
+# Force bash for advanced scripting used in deployment targets
+SHELL := /bin/bash
+
+# Git info for tagging
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+GIT_BRANCH_SAFE := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/\//-/g' || echo "unknown")
+
+# Kubeconfig path
+KUBECONFIG_PATH ?= quantum-forge-kubeconfig.yaml
+
 .PHONY: deploy-blue
 deploy-blue: ## Deploy to blue slot
 	@./scripts/blue-green-deploy.sh blue $(CHART_VERSION) deploy
@@ -293,6 +335,110 @@ cleanup-green: ## Cleanup green slot deployment
 .PHONY: deploy-status
 deploy-status: ## Show blue-green deployment status
 	@./scripts/blue-green-deploy.sh blue $(CHART_VERSION) status
+
+# =============================================================================
+# Blue-Green Deployment (New Script)
+# =============================================================================
+
+.PHONY: bluegreen-deploy
+bluegreen-deploy: ## Deploy with blue-green strategy (zero-downtime)
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Starting blue-green deployment..."
+	BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+
+.PHONY: bluegreen-rollback
+bluegreen-rollback: ## Rollback blue-green deployment to previous version
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "↩️  Rolling back blue-green deployment..."
+	./scripts/bluegreen-deploy.sh rollback
+
+.PHONY: bluegreen-status
+bluegreen-status: ## Show blue-green deployment status
+	@chmod +x scripts/bluegreen-deploy.sh
+	./scripts/bluegreen-deploy.sh status
+
+.PHONY: bluegreen-oci
+bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push image and chart, then deploy with blue-green (OCI)
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Starting blue-green deployment with OCI chart..."
+	CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+
+# =============================================================================
+# Environment-Specific Deployments (Blue-Green)
+# =============================================================================
+
+.PHONY: k8s-dev
+k8s-dev: docker-build docker-push ## Build and deploy to dev environment with blue-green
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Starting DEV environment blue-green deployment"
+	NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
+		VALUES_FILE=$(CHART_PATH)/values-dev.yaml \
+		BACKEND_TAG=$(DOCKER_TAG) \
+		./scripts/bluegreen-deploy.sh deploy
+
+.PHONY: k8s-staging
+k8s-staging: docker-build docker-push ## Build and deploy to staging environment with blue-green
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Starting STAGING environment blue-green deployment"
+	NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
+		VALUES_FILE=$(CHART_PATH)/values-staging.yaml \
+		BACKEND_TAG=$(DOCKER_TAG) \
+		./scripts/bluegreen-deploy.sh deploy
+
+.PHONY: k8s-prod
+k8s-prod: docker-build docker-push helm-package helm-push ## Build and deploy to production with blue-green (OCI)
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
+	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=a2a-server \
+		VALUES_FILE=$(VALUES_FILE) \
+		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
+		BACKEND_TAG=$(DOCKER_TAG) \
+		./scripts/bluegreen-deploy.sh deploy
+
+# Convenience aliases
+.PHONY: k8s
+k8s: k8s-prod ## Alias for k8s-prod
+
+.PHONY: deploy-fast
+deploy-fast: helm-package helm-push ## Fast deploy (chart only, assumes images exist)
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "⚡ Fast deployment (chart update only)..."
+	CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+
+.PHONY: deploy-now
+deploy-now: ## Immediate deploy with existing chart (no build)
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Immediate deployment with existing chart..."
+	BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+
+# =============================================================================
+# Kubernetes Utilities
+# =============================================================================
+
+.PHONY: get-pods
+get-pods: ## List pods in namespace
+	kubectl --kubeconfig $(KUBECONFIG_PATH) get pods -n $(NAMESPACE)
+
+.PHONY: describe-pod
+describe-pod: ## Describe pods in namespace
+	kubectl --kubeconfig $(KUBECONFIG_PATH) describe pod -n $(NAMESPACE)
+
+.PHONY: scale-0
+scale-0: ## Scale deployment to 0 replicas
+	kubectl --kubeconfig $(KUBECONFIG_PATH) scale deployment a2a-server --replicas=0 -n $(NAMESPACE)
+
+.PHONY: scale-1
+scale-1: ## Scale deployment to 1 replica
+	kubectl --kubeconfig $(KUBECONFIG_PATH) scale deployment a2a-server --replicas=1 -n $(NAMESPACE)
+
+.PHONY: scale-2
+scale-2: ## Scale deployment to 2 replicas
+	kubectl --kubeconfig $(KUBECONFIG_PATH) scale deployment a2a-server --replicas=2 -n $(NAMESPACE)
+
+.PHONY: rollout-status
+rollout-status: ## Show deployment rollout status
+	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout status deployment/a2a-server -n $(NAMESPACE)
 
 # =============================================================================
 # CodeTether Deployment Targets

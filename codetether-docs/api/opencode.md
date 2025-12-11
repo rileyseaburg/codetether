@@ -17,7 +17,7 @@ The OpenCode API provides integration with AI coding agents. It manages codebase
 
 ### Check OpenCode Status
 
-Check if the OpenCode bridge is available and initialized.
+Check if the OpenCode bridge is available and initialized. Includes local runtime session information.
 
 ```http
 GET /v1/opencode/status
@@ -31,7 +31,13 @@ GET /v1/opencode/status
   "message": "OpenCode integration ready",
   "opencode_binary": "/usr/local/bin/opencode",
   "registered_codebases": 3,
-  "auto_start": true
+  "auto_start": true,
+  "runtime": {
+    "available": true,
+    "storage_path": "/home/user/.local/share/opencode/storage",
+    "projects": 3,
+    "sessions": 247
+  }
 }
 ```
 
@@ -42,6 +48,11 @@ GET /v1/opencode/status
 | `opencode_binary` | string | Path to OpenCode executable |
 | `registered_codebases` | integer | Number of registered codebases |
 | `auto_start` | boolean | Whether agents auto-start on trigger |
+| `runtime` | object | Local runtime session information (if available) |
+| `runtime.available` | boolean | Whether local OpenCode storage is detected |
+| `runtime.storage_path` | string | Path to OpenCode storage directory |
+| `runtime.projects` | integer | Number of local projects |
+| `runtime.sessions` | integer | Total number of local sessions |
 
 ---
 
@@ -615,6 +626,442 @@ events.addEventListener('complete', (e) => {
 events.addEventListener('error', (e) => {
   console.error('Stream error:', e);
 });
+```
+
+---
+
+## Runtime Sessions
+
+The Runtime API provides **immediate access** to OpenCode sessions stored locally on the system. Unlike the codebase-based session APIs which require registration, these endpoints read directly from the OpenCode storage directory (`~/.local/share/opencode/storage/`).
+
+!!! tip "Zero Configuration"
+    When OpenCode is detected on a system, users can immediately browse and resume their existing sessions without registering codebases first.
+
+### Check Runtime Status
+
+Check if OpenCode runtime storage is available on the local system.
+
+```http
+GET /v1/opencode/runtime/status
+```
+
+**Response**
+
+```json
+{
+  "available": true,
+  "message": "OpenCode runtime detected",
+  "storage_path": "/home/user/.local/share/opencode/storage",
+  "projects": 3,
+  "sessions": 247
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `available` | boolean | Whether local OpenCode storage is detected |
+| `message` | string | Human-readable status |
+| `storage_path` | string | Path to OpenCode storage directory |
+| `projects` | integer | Number of projects found |
+| `sessions` | integer | Total number of sessions across all projects |
+
+---
+
+### List Runtime Projects
+
+Get all OpenCode projects detected on the local system.
+
+```http
+GET /v1/opencode/runtime/projects
+```
+
+**Response**
+
+```json
+{
+  "projects": [
+    {
+      "id": "2e35f00d-abc123",
+      "worktree": "/home/user/my-project",
+      "vcs": "git",
+      "vcs_dir": "/home/user/my-project/.git",
+      "created_at": 1733859600,
+      "updated_at": 1733918400,
+      "session_count": 45
+    },
+    {
+      "id": "global",
+      "worktree": "/",
+      "vcs": null,
+      "vcs_dir": null,
+      "created_at": 1733800000,
+      "updated_at": 1733910000,
+      "session_count": 5
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique project identifier (git commit hash or "global") |
+| `worktree` | string | Path to the project directory |
+| `vcs` | string | Version control system (e.g., "git") |
+| `vcs_dir` | string | Path to VCS directory |
+| `created_at` | number | Unix timestamp when project was first seen |
+| `updated_at` | number | Unix timestamp of last activity |
+| `session_count` | integer | Number of sessions for this project |
+
+---
+
+### List Runtime Sessions
+
+Get all sessions with pagination, optionally filtered by project.
+
+```http
+GET /v1/opencode/runtime/sessions
+GET /v1/opencode/runtime/sessions?project_id={project_id}
+GET /v1/opencode/runtime/sessions?limit=20&offset=0
+```
+
+**Query Parameters**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `project_id` | string | - | Filter sessions by project ID |
+| `limit` | integer | 50 | Maximum sessions to return |
+| `offset` | integer | 0 | Pagination offset |
+
+**Response**
+
+```json
+{
+  "sessions": [
+    {
+      "id": "sess_abc123",
+      "project_id": "2e35f00d-abc123",
+      "directory": "/home/user/my-project",
+      "title": "Implementing OAuth2 authentication flow",
+      "version": "1.0.0",
+      "created_at": 1733859600,
+      "updated_at": 1733918400,
+      "summary": {
+        "total_messages": 24,
+        "model": "claude-sonnet-4-20250514"
+      }
+    }
+  ],
+  "total": 247,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique session identifier |
+| `project_id` | string | Associated project ID |
+| `directory` | string | Working directory for the session |
+| `title` | string | Session title/description |
+| `version` | string | OpenCode version used |
+| `created_at` | number | Unix timestamp when session started |
+| `updated_at` | number | Unix timestamp of last activity |
+| `summary` | object | Session statistics |
+
+---
+
+### Get Runtime Session
+
+Get details for a specific session by ID.
+
+```http
+GET /v1/opencode/runtime/sessions/{session_id}
+```
+
+**Response**
+
+```json
+{
+  "session": {
+    "id": "sess_abc123",
+    "project_id": "2e35f00d-abc123",
+    "directory": "/home/user/my-project",
+    "title": "Implementing OAuth2 authentication flow",
+    "version": "1.0.0",
+    "created_at": 1733859600,
+    "updated_at": 1733918400,
+    "summary": {
+      "total_messages": 24,
+      "model": "claude-sonnet-4-20250514"
+    }
+  }
+}
+```
+
+---
+
+### Get Session Messages
+
+Get the conversation history for a session.
+
+```http
+GET /v1/opencode/runtime/sessions/{session_id}/messages
+GET /v1/opencode/runtime/sessions/{session_id}/messages?limit=20&offset=0
+```
+
+**Query Parameters**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 50 | Maximum messages to return |
+| `offset` | integer | 0 | Pagination offset |
+
+**Response**
+
+```json
+{
+  "messages": [
+    {
+      "id": "msg_001",
+      "session_id": "sess_abc123",
+      "role": "user",
+      "created_at": 1733859600,
+      "model": null,
+      "cost": null,
+      "tokens": null,
+      "tool_calls": []
+    },
+    {
+      "id": "msg_002",
+      "session_id": "sess_abc123",
+      "role": "assistant",
+      "created_at": 1733859605,
+      "model": "claude-sonnet-4-20250514",
+      "cost": 0.0015,
+      "tokens": {"input": 150, "output": 423},
+      "tool_calls": ["read_file", "write_file"]
+    }
+  ],
+  "total": 24,
+  "limit": 50,
+  "offset": 0,
+  "session_id": "sess_abc123"
+}
+```
+
+---
+
+### Get Session Parts
+
+Get message parts (content chunks) for a session.
+
+```http
+GET /v1/opencode/runtime/sessions/{session_id}/parts
+GET /v1/opencode/runtime/sessions/{session_id}/parts?message_id={message_id}
+```
+
+**Query Parameters**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `message_id` | string | - | Filter parts by specific message |
+| `limit` | integer | 100 | Maximum parts to return |
+
+**Response**
+
+```json
+{
+  "parts": [
+    {
+      "id": "part_001",
+      "message_id": "msg_001",
+      "type": "text",
+      "content": "Please implement OAuth2 authentication...",
+      "created_at": 1733859600
+    },
+    {
+      "id": "part_002",
+      "message_id": "msg_002",
+      "type": "tool_use",
+      "tool_name": "read_file",
+      "arguments": {"path": "src/auth/oauth.py"},
+      "created_at": 1733859605
+    }
+  ],
+  "session_id": "sess_abc123",
+  "message_id": null
+}
+```
+
+---
+
+## Workers
+
+The Worker API enables [Agent Workers](../features/agent-worker.md) to connect, register codebases, and execute tasks.
+
+### Register Worker
+
+Register a worker with the server.
+
+```http
+POST /v1/opencode/workers/register
+Content-Type: application/json
+```
+
+**Request Body**
+
+```json
+{
+  "worker_id": "abc123",
+  "name": "dev-vm-worker",
+  "capabilities": ["opencode", "build", "deploy", "test"],
+  "hostname": "dev-vm.internal"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `worker_id` | string | ✅ | Unique worker identifier |
+| `name` | string | ✅ | Human-readable worker name |
+| `capabilities` | array | ❌ | List of worker capabilities |
+| `hostname` | string | ❌ | Machine hostname |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "worker_id": "abc123",
+  "message": "Worker registered"
+}
+```
+
+---
+
+### Unregister Worker
+
+Unregister a worker from the server.
+
+```http
+POST /v1/opencode/workers/{worker_id}/unregister
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "Worker unregistered"
+}
+```
+
+---
+
+### Stream Task Output
+
+Stream real-time output from a task execution.
+
+```http
+POST /v1/opencode/tasks/{task_id}/output
+Content-Type: application/json
+```
+
+**Request Body**
+
+```json
+{
+  "worker_id": "abc123",
+  "output": "Analyzing codebase structure...",
+  "timestamp": "2025-12-10T15:30:05Z"
+}
+```
+
+**Response**
+
+```json
+{
+  "success": true
+}
+```
+
+---
+
+### Update Task Status
+
+Update the status of a task (used by workers).
+
+```http
+PUT /v1/opencode/tasks/{task_id}/status
+Content-Type: application/json
+```
+
+**Request Body**
+
+```json
+{
+  "status": "completed",
+  "worker_id": "abc123",
+  "result": "Added 15 unit tests to the authentication module"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status` | string | ✅ | New status: `running`, `completed`, `failed` |
+| `worker_id` | string | ✅ | Worker identifier |
+| `result` | string | ❌ | Task result (for completed) |
+| `error` | string | ❌ | Error message (for failed) |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "task_id": "task_abc123",
+  "status": "completed"
+}
+```
+
+---
+
+### Sync Sessions
+
+Sync OpenCode sessions from a worker to the server.
+
+```http
+POST /v1/opencode/codebases/{codebase_id}/sessions/sync
+Content-Type: application/json
+```
+
+**Request Body**
+
+```json
+{
+  "worker_id": "abc123",
+  "sessions": [
+    {
+      "id": "sess_xyz789",
+      "title": "Implementing OAuth2 flow",
+      "project_id": "2e35f00d",
+      "created_at": "2025-12-10T15:00:00Z",
+      "updated_at": "2025-12-10T16:30:00Z",
+      "summary": {
+        "total_messages": 24,
+        "model": "claude-sonnet-4-20250514"
+      }
+    }
+  ]
+}
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "synced": 5,
+  "message": "Synced 5 sessions"
+}
 ```
 
 ---

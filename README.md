@@ -20,11 +20,12 @@ This repository provides a complete A2A protocol server that bridges the gap bet
 - **👁️ Real-time Monitor UI**: Web-based dashboard for agent supervision and human intervention
 - **📱 Swift Liquid Glass UI**: Native iOS/macOS app with Apple-style glassmorphism design
 - **🔄 Distributed Workers**: Remote agent workers with task queues and watch mode
-- **� Session History**: Browse and resume past OpenCode sessions from any device
+- **📂 Runtime Session Access**: Immediate access to local OpenCode sessions without registration
+- **📜 Session History**: Browse and resume past OpenCode sessions from any device
 - **⏯️ Session Resumption**: Continue conversations with AI agents from where you left off
 - **📊 Real-time Output Streaming**: See agent responses as they happen via SSE
 - **🔐 Keycloak Authentication**: Enterprise SSO with OAuth2/OIDC via Keycloak
-- **�🚀 Production Ready**: Kubernetes deployment with Helm charts
+- **🚀 Production Ready**: Kubernetes deployment with Helm charts
 - **🔐 Enterprise Security**: Authentication, authorization, and network policies
 - **📊 Observability**: Built-in monitoring, health checks, and metrics
 - **⚡ Scalable**: Redis-based message broker with horizontal scaling
@@ -419,6 +420,29 @@ The server provides REST endpoints for OpenCode agent management:
 **Workers:**
 - **`POST /v1/opencode/workers/register`** - Register a worker
 - **`POST /v1/opencode/workers/{id}/unregister`** - Unregister a worker
+
+### Runtime Sessions API
+
+Direct access to local OpenCode sessions without requiring codebase registration. When OpenCode is detected on a system, users can immediately browse and resume sessions:
+
+- **`GET /v1/opencode/runtime/status`** - Check if OpenCode runtime is available
+- **`GET /v1/opencode/runtime/projects`** - List all local projects
+- **`GET /v1/opencode/runtime/sessions`** - List all sessions (with pagination)
+- **`GET /v1/opencode/runtime/sessions/{id}`** - Get session details
+- **`GET /v1/opencode/runtime/sessions/{id}/messages`** - Get conversation history
+- **`GET /v1/opencode/runtime/sessions/{id}/parts`** - Get message content parts
+
+```bash
+# Check runtime status (shows session count immediately)
+curl http://localhost:8000/v1/opencode/runtime/status
+# {"available": true, "projects": 3, "sessions": 247}
+
+# List all sessions
+curl http://localhost:8000/v1/opencode/runtime/sessions?limit=10
+
+# Get messages for a specific session
+curl http://localhost:8000/v1/opencode/runtime/sessions/{session_id}/messages
+```
 
 ### Authentication Endpoints
 
@@ -1488,25 +1512,42 @@ The A2A server supports a distributed architecture where worker agents run on re
                                └──────────────────────────┘
 ```
 
-### Worker Setup
+### Agent Worker Setup
 
+The Agent Worker daemon runs on machines with codebases, connecting to the A2A server to receive and execute tasks.
+
+**Quick Install (Linux):**
+```bash
+# Clone repository
+git clone https://github.com/rileyseaburg/A2A-Server-MCP.git
+cd A2A-Server-MCP
+
+# Run installer as root (creates systemd service)
+sudo ./agent_worker/install.sh
+```
+
+**Manual Setup:**
 ```bash
 # Install on remote machine
 cd agent_worker
-./install.sh
+sudo cp worker.py /opt/a2a-worker/
+sudo cp config.example.json /etc/a2a-worker/config.json
 
 # Configure worker
-cp config.example.json config.json
-# Edit config.json with your settings
+sudo nano /etc/a2a-worker/config.json
 
-# Run worker
-python worker.py --config config.json
+# Start as service
+sudo systemctl start a2a-agent-worker
+sudo systemctl enable a2a-agent-worker
+
+# Or run manually
+python worker.py --config /etc/a2a-worker/config.json
 ```
 
 **Example config.json:**
 ```json
 {
-  "server_url": "https://a2a.quantum-forge.net",
+  "server_url": "https://api.codetether.run",
   "worker_name": "dev-vm-worker",
   "codebases": [
     {
@@ -1516,9 +1557,31 @@ python worker.py --config config.json
     }
   ],
   "poll_interval": 5,
-  "opencode_bin": "/home/user/.local/bin/opencode"
+  "opencode_bin": "/home/user/.local/bin/opencode",
+  "capabilities": ["opencode", "build", "deploy", "test"]
 }
 ```
+
+**Command Line Options:**
+```bash
+# Basic usage
+python worker.py --server https://api.codetether.run --name my-worker
+
+# With inline codebases
+python worker.py -s https://api.codetether.run -b my-project:/home/user/my-project
+
+# Custom poll interval
+python worker.py --server https://api.codetether.run --poll-interval 10
+```
+
+**What the Worker Does:**
+1. **Registers** itself and its codebases with the server
+2. **Polls** for pending tasks assigned to its codebases
+3. **Executes** tasks using local OpenCode installation
+4. **Streams** real-time output back to the server
+5. **Syncs** OpenCode session history every ~60 seconds
+
+For complete documentation, see [Agent Worker Guide](codetether-docs/features/agent-worker.md).
 
 ### Session History & Resumption
 

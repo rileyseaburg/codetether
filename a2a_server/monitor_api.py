@@ -1171,13 +1171,48 @@ opencode_router = APIRouter(prefix='/v1/opencode', tags=['opencode'])
 
 @opencode_router.get('/status')
 async def opencode_status():
-    """Check OpenCode integration status."""
+    """Check OpenCode integration status including local runtime sessions."""
     bridge = get_opencode_bridge()
+
+    # Check for local OpenCode runtime storage
+    runtime_available = False
+    runtime_sessions = 0
+    runtime_projects = 0
+    storage_path = None
+
+    # Try to find OpenCode storage
+    possible_paths = [
+        os.path.expanduser('~/.local/share/opencode/storage'),
+        '/app/.local/share/opencode/storage',
+    ]
+    for path in possible_paths:
+        if os.path.isdir(path):
+            storage_path = path
+            runtime_available = True
+            # Count projects and sessions
+            projects_dir = os.path.join(path, 'project')
+            sessions_dir = os.path.join(path, 'session')
+            if os.path.isdir(projects_dir):
+                runtime_projects = len([f for f in os.listdir(projects_dir) if f.endswith('.json')])
+            if os.path.isdir(sessions_dir):
+                for proj_id in os.listdir(sessions_dir):
+                    proj_sessions = os.path.join(sessions_dir, proj_id)
+                    if os.path.isdir(proj_sessions):
+                        runtime_sessions += len([f for f in os.listdir(proj_sessions) if f.endswith('.json')])
+            break
+
     if bridge is None:
         return {
-            'available': False,
-            'message': 'OpenCode bridge not available',
+            'available': runtime_available,
+            'message': 'OpenCode runtime detected' if runtime_available else 'OpenCode not available',
             'opencode_binary': None,
+            'registered_codebases': 0,
+            'runtime': {
+                'available': runtime_available,
+                'storage_path': storage_path,
+                'projects': runtime_projects,
+                'sessions': runtime_sessions,
+            } if runtime_available else None,
         }
 
     return {
@@ -1186,6 +1221,397 @@ async def opencode_status():
         'opencode_binary': bridge.opencode_bin,
         'registered_codebases': len(bridge.list_codebases()),
         'auto_start': bridge.auto_start,
+        'runtime': {
+            'available': runtime_available,
+            'storage_path': storage_path,
+            'projects': runtime_projects,
+            'sessions': runtime_sessions,
+        } if runtime_available else None,
+    }
+
+
+# =============================================================================
+# OpenCode Runtime Session Endpoints (Direct Storage Access)
+# =============================================================================
+# These endpoints read directly from OpenCode's storage directory
+# (~/.local/share/opencode/storage/) without requiring a codebase to be registered.
+# This allows users to immediately see and resume their existing sessions.
+
+# XDG Base Directory paths for OpenCode storage
+OPENCODE_DATA_DIR = os.environ.get(
+    'OPENCODE_DATA_DIR',
+    os.path.expanduser('~/.local/share/opencode')
+)
+OPENCODE_STORAGE_DIR = os.path.join(OPENCODE_DATA_DIR, 'storage')
+
+
+def _get_opencode_storage_path() -> Optional[str]:
+    """Get the OpenCode storage directory path if it exists."""
+    if os.path.isdir(OPENCODE_STORAGE_DIR):
+        return OPENCODE_STORAGE_DIR
+    # Fallback locations
+    fallbacks = [
+        os.path.expanduser('~/.local/share/opencode/storage'),
+        '/app/.local/share/opencode/storage',
+    ]
+    for path in fallbacks:
+        if os.path.isdir(path):
+            return path
+    return None
+
+
+async def _read_json_file(filepath: str) -> Optional[Dict[str, Any]]:
+    """Read and parse a JSON file."""
+    try:
+        import aiofiles
+        async with aiofiles.open(filepath, 'r') as f:
+            content = await f.read()
+            return json.loads(content)
+    except ImportError:
+        # Fallback to sync if aiofiles not available
+        try:
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.debug(f'Failed to read {filepath}: {e}')
+            return None
+    except Exception as e:
+        logger.debug(f'Failed to read {filepath}: {e}')
+        return None
+
+
+@opencode_router.get('/runtime/status')
+async def opencode_runtime_status():
+    """
+    Check if OpenCode runtime is available on this system.
+
+    Returns information about the local OpenCode installation and storage.
+    """
+    storage_path = _get_opencode_storage_path()
+
+    if not storage_path:
+        return {
+            'available': False,
+            'message': 'OpenCode storage not found on this system',
+            'storage_path': None,
+            'projects': 0,
+            'sessions': 0,
+        }
+
+    # Count projects and sessions
+    projects_dir = os.path.join(storage_path, 'project')
+    sessions_dir = os.path.join(storage_path, 'session')
+
+    project_count = 0
+    session_count = 0
+
+    if os.path.isdir(projects_dir):
+        project_count = len([f for f in os.listdir(projects_dir) if f.endswith('.json')])
+
+    if os.path.isdir(sessions_dir):
+        for project_id in os.listdir(sessions_dir):
+            project_sessions_dir = os.path.join(sessions_dir, project_id)
+            if os.path.isdir(project_sessions_dir):
+                session_count += len([f for f in os.listdir(project_sessions_dir) if f.endswith('.json')])
+
+    return {
+        'available': True,
+        'message': 'OpenCode runtime detected',
+        'storage_path': storage_path,
+        'projects': project_count,
+        'sessions': session_count,
+    }
+
+
+@opencode_router.get('/runtime/projects')
+async def list_opencode_projects():
+    """
+    List all OpenCode projects detected on this system.
+
+    Projects are identified by their git commit hash and include
+    the worktree path where the project is located.
+    """
+    storage_path = _get_opencode_storage_path()
+
+    if not storage_path:
+        raise HTTPException(
+            status_code=503,
+            detail='OpenCode storage not available on this system'
+        )
+
+    projects_dir = os.path.join(storage_path, 'project')
+    sessions_dir = os.path.join(storage_path, 'session')
+
+    if not os.path.isdir(projects_dir):
+        return {'projects': []}
+
+    projects = []
+    for filename in os.listdir(projects_dir):
+        if not filename.endswith('.json'):
+            continue
+
+        filepath = os.path.join(projects_dir, filename)
+        project_data = await _read_json_file(filepath)
+
+        if project_data:
+            project_id = project_data.get('id', filename[:-5])
+
+            # Count sessions for this project
+            session_count = 0
+            project_sessions_dir = os.path.join(sessions_dir, project_id)
+            if os.path.isdir(project_sessions_dir):
+                session_count = len([f for f in os.listdir(project_sessions_dir) if f.endswith('.json')])
+
+            projects.append({
+                'id': project_id,
+                'worktree': project_data.get('worktree', '/'),
+                'vcs': project_data.get('vcs'),
+                'vcs_dir': project_data.get('vcsDir'),
+                'created_at': project_data.get('time', {}).get('created'),
+                'updated_at': project_data.get('time', {}).get('updated'),
+                'session_count': session_count,
+            })
+
+    # Sort by most recently updated
+    projects.sort(key=lambda p: p.get('updated_at') or 0, reverse=True)
+
+    return {'projects': projects}
+
+
+@opencode_router.get('/runtime/sessions')
+async def list_all_runtime_sessions(
+    project_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """
+    List all OpenCode sessions, optionally filtered by project.
+
+    Sessions are sorted by most recently updated first.
+    Use project_id to filter sessions for a specific project.
+    """
+    storage_path = _get_opencode_storage_path()
+
+    if not storage_path:
+        raise HTTPException(
+            status_code=503,
+            detail='OpenCode storage not available on this system'
+        )
+
+    sessions_dir = os.path.join(storage_path, 'session')
+
+    if not os.path.isdir(sessions_dir):
+        return {'sessions': [], 'total': 0}
+
+    all_sessions = []
+
+    # Determine which project directories to scan
+    if project_id:
+        project_dirs = [project_id] if os.path.isdir(os.path.join(sessions_dir, project_id)) else []
+    else:
+        project_dirs = [d for d in os.listdir(sessions_dir) if os.path.isdir(os.path.join(sessions_dir, d))]
+
+    for proj_id in project_dirs:
+        project_sessions_dir = os.path.join(sessions_dir, proj_id)
+
+        for filename in os.listdir(project_sessions_dir):
+            if not filename.endswith('.json'):
+                continue
+
+            filepath = os.path.join(project_sessions_dir, filename)
+            session_data = await _read_json_file(filepath)
+
+            if session_data:
+                all_sessions.append({
+                    'id': session_data.get('id', filename[:-5]),
+                    'project_id': session_data.get('projectID', proj_id),
+                    'directory': session_data.get('directory'),
+                    'title': session_data.get('title', 'Untitled Session'),
+                    'version': session_data.get('version'),
+                    'created_at': session_data.get('time', {}).get('created'),
+                    'updated_at': session_data.get('time', {}).get('updated'),
+                    'summary': session_data.get('summary', {}),
+                })
+
+    # Sort by most recently updated
+    all_sessions.sort(key=lambda s: s.get('updated_at') or 0, reverse=True)
+
+    total = len(all_sessions)
+    paginated = all_sessions[offset:offset + limit]
+
+    return {
+        'sessions': paginated,
+        'total': total,
+        'limit': limit,
+        'offset': offset,
+    }
+
+
+@opencode_router.get('/runtime/sessions/{session_id}')
+async def get_runtime_session(session_id: str):
+    """
+    Get details for a specific OpenCode session.
+
+    Returns the full session data including metadata.
+    """
+    storage_path = _get_opencode_storage_path()
+
+    if not storage_path:
+        raise HTTPException(
+            status_code=503,
+            detail='OpenCode storage not available on this system'
+        )
+
+    sessions_dir = os.path.join(storage_path, 'session')
+
+    # Search all project directories for the session
+    for project_id in os.listdir(sessions_dir):
+        project_sessions_dir = os.path.join(sessions_dir, project_id)
+        if not os.path.isdir(project_sessions_dir):
+            continue
+
+        session_file = os.path.join(project_sessions_dir, f'{session_id}.json')
+        if os.path.isfile(session_file):
+            session_data = await _read_json_file(session_file)
+            if session_data:
+                return {
+                    'session': {
+                        'id': session_data.get('id', session_id),
+                        'project_id': session_data.get('projectID', project_id),
+                        'directory': session_data.get('directory'),
+                        'title': session_data.get('title', 'Untitled Session'),
+                        'version': session_data.get('version'),
+                        'created_at': session_data.get('time', {}).get('created'),
+                        'updated_at': session_data.get('time', {}).get('updated'),
+                        'summary': session_data.get('summary', {}),
+                    }
+                }
+
+    raise HTTPException(status_code=404, detail=f'Session {session_id} not found')
+
+
+@opencode_router.get('/runtime/sessions/{session_id}/messages')
+async def get_runtime_session_messages(
+    session_id: str,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """
+    Get messages for a specific OpenCode session.
+
+    Returns the conversation history for the session.
+    """
+    storage_path = _get_opencode_storage_path()
+
+    if not storage_path:
+        raise HTTPException(
+            status_code=503,
+            detail='OpenCode storage not available on this system'
+        )
+
+    messages_dir = os.path.join(storage_path, 'message', session_id)
+
+    if not os.path.isdir(messages_dir):
+        return {'messages': [], 'total': 0, 'session_id': session_id}
+
+    all_messages = []
+
+    for filename in os.listdir(messages_dir):
+        if not filename.endswith('.json'):
+            continue
+
+        filepath = os.path.join(messages_dir, filename)
+        msg_data = await _read_json_file(filepath)
+
+        if msg_data:
+            all_messages.append({
+                'id': msg_data.get('id', filename[:-5]),
+                'session_id': msg_data.get('sessionID', session_id),
+                'role': msg_data.get('role'),
+                'created_at': msg_data.get('time', {}).get('created'),
+                'model': msg_data.get('model'),
+                'cost': msg_data.get('cost'),
+                'tokens': msg_data.get('tokens'),
+                'tool_calls': msg_data.get('tool_calls', []),
+            })
+
+    # Sort by created time
+    all_messages.sort(key=lambda m: m.get('created_at') or 0)
+
+    total = len(all_messages)
+    paginated = all_messages[offset:offset + limit]
+
+    return {
+        'messages': paginated,
+        'total': total,
+        'limit': limit,
+        'offset': offset,
+        'session_id': session_id,
+    }
+
+
+@opencode_router.get('/runtime/sessions/{session_id}/parts')
+async def get_runtime_session_parts(
+    session_id: str,
+    message_id: Optional[str] = None,
+    limit: int = 100,
+):
+    """
+    Get message parts (content chunks) for a session.
+
+    Parts contain the actual text content, tool calls, and other
+    structured data from the conversation.
+    """
+    storage_path = _get_opencode_storage_path()
+
+    if not storage_path:
+        raise HTTPException(
+            status_code=503,
+            detail='OpenCode storage not available on this system'
+        )
+
+    # Parts are stored per message: storage/part/{message_id}/*.json
+    parts_base_dir = os.path.join(storage_path, 'part')
+
+    if not os.path.isdir(parts_base_dir):
+        return {'parts': [], 'session_id': session_id}
+
+    all_parts = []
+
+    # If message_id specified, only get parts for that message
+    if message_id:
+        message_parts_dir = os.path.join(parts_base_dir, message_id)
+        if os.path.isdir(message_parts_dir):
+            for filename in os.listdir(message_parts_dir):
+                if not filename.endswith('.json'):
+                    continue
+                filepath = os.path.join(message_parts_dir, filename)
+                part_data = await _read_json_file(filepath)
+                if part_data:
+                    all_parts.append(part_data)
+    else:
+        # Get messages for this session first, then their parts
+        messages_dir = os.path.join(storage_path, 'message', session_id)
+        if os.path.isdir(messages_dir):
+            for msg_filename in os.listdir(messages_dir):
+                if not msg_filename.endswith('.json'):
+                    continue
+                msg_id = msg_filename[:-5]
+                message_parts_dir = os.path.join(parts_base_dir, msg_id)
+                if os.path.isdir(message_parts_dir):
+                    for filename in os.listdir(message_parts_dir)[:limit]:
+                        if not filename.endswith('.json'):
+                            continue
+                        filepath = os.path.join(message_parts_dir, filename)
+                        part_data = await _read_json_file(filepath)
+                        if part_data:
+                            part_data['message_id'] = msg_id
+                            all_parts.append(part_data)
+
+    return {
+        'parts': all_parts[:limit],
+        'session_id': session_id,
+        'message_id': message_id,
     }
 
 

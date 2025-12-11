@@ -1,0 +1,34 @@
+# Marketing site defaults
+enabled: true
+
+replicaCount: 1
+
+image:
+  repository: registry.quantum-forge.net/library/a2a-marketing
+  pullPolicy: Always
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  host: codetether.run
+  tls:
+    secretName: codetether-marketing-tls
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+env: {}

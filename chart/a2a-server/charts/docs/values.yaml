@@ -1,0 +1,32 @@
+# Docs site defaults
+enabled: true
+
+replicaCount: 1
+
+image:
+  repository: registry.quantum-forge.net/library/codetether-docs
+  pullPolicy: Always
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  host: docs.codetether.run
+  tls:
+    secretName: codetether-docs-tls
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi

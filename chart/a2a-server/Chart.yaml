@@ -1,9 +1,11 @@
 apiVersion: v2
 name: a2a-server
-description: CodeTether Server - Production A2A (Agent-to-Agent) Protocol implementation with MCP support
+description: |
+  CodeTether - Complete A2A (Agent-to-Agent) Platform
+  Includes: API Server, Marketing Site, Documentation Site, and Redis
 type: application
-version: 0.3.0
-appVersion: "1.1.0"
+version: 0.4.0
+appVersion: "1.2.0"
 home: https://codetether.run
 icon: https://codetether.run/icon.png
 sources:
@@ -20,11 +22,19 @@ keywords:
   - ai
   - protocol
   - agent-to-agent
+  - marketing
+  - documentation
 dependencies:
   - name: redis
     version: "~19.0.0"
     repository: "https://charts.bitnami.com/bitnami"
     condition: redis.enabled
+  - name: marketing
+    version: "0.1.0"
+    condition: marketing.enabled
+  - name: docs
+    version: "0.1.0"
+    condition: docs.enabled
 annotations:
   category: AI/ML
   artifacthub.io/links: |
