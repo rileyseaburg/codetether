@@ -127,7 +127,7 @@ class AuthService: ObservableObject {
         
         defer { isLoading = false }
         
-        let url = baseURL.appendingPathComponent("/v1/auth/login")
+        let url = baseURL.appendingPathComponent("v1/auth/login")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -189,7 +189,7 @@ class AuthService: ObservableObject {
             throw AuthError.noRefreshToken
         }
         
-        let url = baseURL.appendingPathComponent("/v1/auth/refresh")
+        let url = baseURL.appendingPathComponent("v1/auth/refresh")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -231,7 +231,7 @@ class AuthService: ObservableObject {
     func logout() async {
         // Call logout endpoint
         if let sessionId = currentUser?.sessionId {
-            let url = baseURL.appendingPathComponent("/v1/auth/logout")
+            let url = baseURL.appendingPathComponent("v1/auth/logout")
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -281,7 +281,7 @@ class AuthService: ObservableObject {
     func loadSyncState() async {
         guard let userId = currentUser?.userId else { return }
         
-        let url = baseURL.appendingPathComponent("/v1/auth/sync")
+        let url = baseURL.appendingPathComponent("v1/auth/sync")
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "user_id", value: userId)]
         
@@ -304,7 +304,7 @@ class AuthService: ObservableObject {
             throw AuthError.notAuthenticated
         }
         
-        let url = baseURL.appendingPathComponent("/v1/auth/user/\(userId)/codebases")
+        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/codebases")
         var request = URLRequest(url: url)
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -320,7 +320,7 @@ class AuthService: ObservableObject {
             throw AuthError.notAuthenticated
         }
         
-        let url = baseURL.appendingPathComponent("/v1/auth/user/\(userId)/codebases")
+        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/codebases")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -346,7 +346,7 @@ class AuthService: ObservableObject {
             throw AuthError.notAuthenticated
         }
         
-        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/auth/user/\(userId)/agent-sessions"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: baseURL.appendingPathComponent("v1/auth/user/\(userId)/agent-sessions"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "codebase_id", value: codebaseId),
             URLQueryItem(name: "agent_type", value: agentType),
@@ -380,7 +380,7 @@ class AuthService: ObservableObject {
             throw AuthError.notAuthenticated
         }
         
-        let url = baseURL.appendingPathComponent("/v1/auth/user/\(userId)/agent-sessions")
+        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/agent-sessions")
         var request = URLRequest(url: url)
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -394,7 +394,7 @@ class AuthService: ObservableObject {
     
     /// Check if authentication service is available
     func checkAuthStatus() async -> AuthStatusResponse? {
-        let url = baseURL.appendingPathComponent("/v1/auth/status")
+        let url = baseURL.appendingPathComponent("v1/auth/status")
         
         do {
             let (data, _) = try await session.data(from: url)
