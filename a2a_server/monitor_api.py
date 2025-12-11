@@ -2100,7 +2100,7 @@ async def get_session(codebase_id: str, session_id: str):
                         session_data = await resp.json()
                         return session_data
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}'))
+            logger.warning(f'Failed to query OpenCode API: {e}')
 
     # Fallback: Read from local state
     session_data = await _read_local_session(codebase.path, session_id)
@@ -2143,7 +2143,7 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
                         messages = await resp.json()
                         return {'messages': messages, 'session_id': session_id}
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}'))
+            logger.warning(f'Failed to query OpenCode API: {e}')
 
     # Fallback: Read from local state
     messages = await _read_local_session_messages(codebase.path, session_id)
