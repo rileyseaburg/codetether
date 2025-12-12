@@ -26,7 +26,9 @@ class MonitorViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     
     // Sessions
-    @Published var sessions: [SessionMessage] = []
+    @Published var sessions: [SessionSummary] = []
+    @Published var selectedSessionsCodebaseId: String?
+    @Published var sessionMessages: [SessionMessage] = []
     
     // Tasks
     @Published var tasks: [AgentTask] = []
@@ -335,10 +337,40 @@ class MonitorViewModel: ObservableObject {
     // MARK: - Sessions
     
     func loadSessions() async {
+        // Best-effort: if a codebase is selected, load sessions for it. Otherwise,
+        // leave sessions empty until the Sessions tab selects a codebase.
+        guard let codebaseId = selectedSessionsCodebaseId ?? codebases.first?.id else {
+            sessions = []
+            return
+        }
+        await loadSessions(for: codebaseId)
+    }
+
+    func loadSessions(for codebaseId: String) async {
+        selectedSessionsCodebaseId = codebaseId
         do {
-            sessions = try await client.fetchSessions()
+            sessions = try await client.fetchSessions(codebaseId: codebaseId)
         } catch {
-            print("Failed to load sessions: \(error)")
+            print("Failed to load sessions for codebase \(codebaseId): \(error)")
+            sessions = []
+        }
+    }
+
+    func loadSessionMessages(codebaseId: String, sessionId: String, limit: Int = 100) async {
+        do {
+            sessionMessages = try await client.fetchSessionMessages(codebaseId: codebaseId, sessionId: sessionId, limit: limit)
+        } catch {
+            print("Failed to load session messages (codebase=\(codebaseId), session=\(sessionId)): \(error)")
+            sessionMessages = []
+        }
+    }
+
+    func sendSessionPrompt(codebaseId: String, sessionId: String, prompt: String, agent: String = "build", model: String? = nil) async -> Bool {
+        do {
+            return try await client.resumeSession(codebaseId: codebaseId, sessionId: sessionId, prompt: prompt, agent: agent, model: model)
+        } catch {
+            print("Failed to send session prompt: \(error)")
+            return false
         }
     }
     

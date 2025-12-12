@@ -535,10 +535,65 @@ struct AnyCodable: Codable, Hashable {
 
 // MARK: - Session Message
 
+// MARK: - Session Summary
+
+/// A lightweight representation of an OpenCode session as returned by
+/// `GET /v1/opencode/codebases/{codebase_id}/sessions`.
+///
+/// Note: the backend may return slightly different shapes depending on source
+/// (worker sync vs local state vs direct OpenCode API), so decoding is tolerant.
+struct SessionSummary: Identifiable, Codable, Hashable {
+    let id: String
+    let title: String?
+    let agent: String?
+    let messageCount: Int?
+    let created: String?
+    let updated: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case agent
+        case messageCount
+        case message_count
+        case created
+        case created_at
+        case updated
+        case updated_at
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        title = try? container.decodeIfPresent(String.self, forKey: .title)
+        agent = try? container.decodeIfPresent(String.self, forKey: .agent)
+
+        let mc1 = try? container.decodeIfPresent(Int.self, forKey: .messageCount)
+        let mc2 = try? container.decodeIfPresent(Int.self, forKey: .message_count)
+        messageCount = mc1 ?? mc2
+
+        let c1 = try? container.decodeIfPresent(String.self, forKey: .created)
+        let c2 = try? container.decodeIfPresent(String.self, forKey: .created_at)
+        created = c1 ?? c2
+
+        let u1 = try? container.decodeIfPresent(String.self, forKey: .updated)
+        let u2 = try? container.decodeIfPresent(String.self, forKey: .updated_at)
+        updated = u1 ?? u2
+    }
+}
+
+struct SessionMessageInfo: Codable, Hashable {
+    let role: String?
+    let model: String?
+    let content: AnyCodable?
+}
+
 struct SessionMessage: Codable, Identifiable {
     let id: String?
     let sessionID: String?
     let role: String?
+    let info: SessionMessageInfo?
     let time: MessageTime?
     let model: String?
     let agent: String?
@@ -548,6 +603,51 @@ struct SessionMessage: Codable, Identifiable {
     
     var identifier: String {
         id ?? UUID().uuidString
+    }
+
+    /// A stable identifier for UI lists when `id` may be absent.
+    var stableId: String {
+        if let id {
+            return id
+        }
+        let created = time?.created ?? ""
+        let role = resolvedRole ?? ""
+        let model = resolvedModel ?? ""
+        let snippet = String(resolvedText.prefix(64))
+        return "\(sessionID ?? "")|\(created)|\(role)|\(model)|\(snippet)"
+    }
+
+    /// Normalized role across backend shapes.
+    var resolvedRole: String? {
+        info?.role ?? role
+    }
+
+    /// True when the message should be rendered as a user/human message.
+    var isUserMessage: Bool {
+        let r = resolvedRole?.lowercased()
+        return r == "user" || r == "human"
+    }
+
+    /// Normalized model across backend shapes.
+    var resolvedModel: String? {
+        info?.model ?? model
+    }
+
+    /// Best-effort message text extraction (parts first, then `info.content`).
+    var resolvedText: String {
+        if let parts {
+            let text = parts.compactMap { $0.text }.joined()
+            if !text.isEmpty {
+                return text
+            }
+        }
+        if let contentValue = info?.content?.value {
+            if let s = contentValue as? String {
+                return s
+            }
+            return String(describing: contentValue)
+        }
+        return ""
     }
 }
 
@@ -565,6 +665,10 @@ struct MessagePart: Codable, Identifiable {
     
     var identifier: String {
         id ?? UUID().uuidString
+    }
+
+    var stableId: String {
+        id ?? identifier
     }
 }
 
