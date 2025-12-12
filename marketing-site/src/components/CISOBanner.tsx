@@ -47,12 +47,13 @@ export function CISOBanner() {
                             </span>
                         </div>
                         <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                            The AI Access Problem, Solved
+                            Control Plane for Autonomous Execution
                         </h2>
                         <p className="mt-3 text-lg text-cyan-100 max-w-2xl">
-                            Your security team blocks AI because it requires data upload. CodeTether flips the model:
-                            <span className="font-semibold text-white"> workers PULL tasks from inside your network</span>—no
-                            inbound ports, no VPNs, no attack surface to approve.
+                            AI agents are starting to execute real work. CodeTether makes that legible and governable:
+                            <span className="font-semibold text-white"> identity, authorization, audit logging, and approval</span>,
+                            while workers still <span className="font-semibold text-white">PULL tasks from inside your network</span>
+                            (no inbound ports, no VPNs).
                         </p>
                     </div>
 
@@ -61,22 +62,22 @@ export function CISOBanner() {
                         <div className="flex items-start gap-3 rounded-xl bg-white/10 backdrop-blur p-4">
                             <CheckIcon className="h-5 w-5 text-emerald-300 mt-0.5 flex-shrink-0" />
                             <div>
-                                <p className="font-semibold text-white">Zero Inbound Firewall Rules</p>
-                                <p className="text-sm text-cyan-200">Workers reach out, nothing reaches in</p>
+                                <p className="font-semibold text-white">Per-Agent Identity + RBAC</p>
+                                <p className="text-sm text-cyan-200">No shared credentials, scoped access</p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3 rounded-xl bg-white/10 backdrop-blur p-4">
                             <CheckIcon className="h-5 w-5 text-emerald-300 mt-0.5 flex-shrink-0" />
                             <div>
-                                <p className="font-semibold text-white">Zero Third-Party Storage</p>
-                                <p className="text-sm text-cyan-200">We don’t proxy prompts or source code</p>
+                                <p className="font-semibold text-white">Audit Trail + Data Residency</p>
+                                <p className="text-sm text-cyan-200">Auditability without proxying payloads</p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3 rounded-xl bg-white/10 backdrop-blur p-4">
                             <CheckIcon className="h-5 w-5 text-emerald-300 mt-0.5 flex-shrink-0" />
                             <div>
-                                <p className="font-semibold text-white">HIPAA / SOC2 / PCI Architecture</p>
-                                <p className="text-sm text-cyan-200">Compliance-ready from day one</p>
+                                <p className="font-semibold text-white">Outbound-Only Workers</p>
+                                <p className="text-sm text-cyan-200">No inbound ports; no VPN approvals</p>
                             </div>
                         </div>
                     </div>

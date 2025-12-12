@@ -3,32 +3,65 @@
 import { Container } from '@/components/Container'
 
 const maintenanceTimeline = [
-    { day: 'Day 1', status: 'success', event: 'It works! The agent polls and runs.' },
-    { day: 'Day 30', status: 'warning', event: 'The Redis queue fills up and crashes production.' },
-    { day: 'Day 60', status: 'danger', event: 'Security audit finds no encryption on the wire.' },
-    { day: 'Day 90', status: 'critical', event: 'The engineer who built it quits. Now nobody knows how it works.' },
+    { day: 'Day 1', status: 'success', event: 'The demo works. Everyone ships it.' },
+    { day: 'Day 30', status: 'warning', event: 'Load hits. The queue backs up. On-call begins.' },
+    { day: 'Day 60', status: 'danger', event: 'Security review: missing encryption, auth, and an audit trail.' },
+    { day: 'Day 90', status: 'critical', event: 'The original builder leaves. Now it\'s yours.' },
 ]
 
 const runtimeConcerns = [
     {
-        question: 'Retry Logic',
-        diy: 'What happens when the worker crashes halfway through a 20-minute job?',
-        codetether: 'Automatic task recovery with checkpoint state preservation.',
+        question: 'Retry & Recovery',
+        diy: 'Worker dies mid-job. Do you resume, replay, or lose work?',
+        codetether: 'Checkpointed recovery: resume safely after crashes.',
     },
     {
-        question: 'Queueing',
-        diy: 'What happens when 50 developers submit 500 jobs at once?',
-        codetether: 'Redis-backed queue with worker pool scaling and backpressure.',
+        question: 'Queue & Backpressure',
+        diy: '500 jobs land at once. What slows down, drops, or deadlocks?',
+        codetether: 'Queue + backpressure + worker autoscaling.',
     },
     {
-        question: 'Security Handshake',
-        diy: 'How do you prove the worker is allowed to touch the database?',
-        codetether: 'Keycloak-integrated auth with service accounts and scopes.',
+        question: 'Identity & Permissions',
+        diy: 'How does a worker prove it can touch prod data?',
+        codetether: 'Keycloak auth with scoped service accounts.',
     },
     {
-        question: 'Logging',
-        diy: 'Where does stdout go when the worker is ephemeral?',
-        codetether: 'Structured logs and SSE streaming to persistent storage.',
+        question: 'Logs & Audit',
+        diy: 'Where do logs go, and who can see them later?',
+        codetether: 'Structured logs + streamed output + retention.',
+    },
+]
+
+const controlMappings = [
+    {
+        area: 'Access Control',
+        gap: 'Agents execute with shared credentials or over-broad service accounts.',
+        control: 'Per-agent identity with scoped RBAC (Keycloak).',
+    },
+    {
+        area: 'Change Management',
+        gap: 'Autonomous changes ship with no approvals or policy gates.',
+        control: 'Human-in-the-loop approvals for sensitive actions.',
+    },
+    {
+        area: 'Audit Logging',
+        gap: 'No reliable record of what ran, who approved it, or what changed.',
+        control: 'Central audit trail for sessions, tools, and outputs.',
+    },
+    {
+        area: 'Network Security',
+        gap: 'Requires inbound access, VPNs, or new firewall exceptions.',
+        control: 'Outbound-only workers (reverse polling).',
+    },
+    {
+        area: 'Incident Response',
+        gap: 'Runaway agents are hard to stop and even harder to explain.',
+        control: 'Centralized oversight and intervention controls.',
+    },
+    {
+        area: 'Vendor & Data Risk',
+        gap: 'Prompts or source code get routed through third-party systems.',
+        control: 'Payloads stay on the worker; CodeTether stays on orchestration metadata (you control retention).',
     },
 ]
 
@@ -43,23 +76,26 @@ export function WhyNotDIY() {
                 {/* Header */}
                 <div className="mx-auto max-w-3xl text-center">
                     <span className="inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-900/30 px-4 py-1 text-sm font-medium text-orange-700 dark:text-orange-400 mb-4">
-                        The Hard Truth
+                        Reality Check
                     </span>
                     <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
                         &quot;Can&apos;t Our Senior Engineer Just Build This?&quot;
                     </h2>
                     <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                        Yes. And here&apos;s exactly what will happen.
+                        Yes. The demo is easy. Production is where you pay.
                     </p>
                 </div>
 
                 {/* The Weekend Project Timeline */}
                 <div className="mt-12 rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                        The &quot;Weekend Project&quot; → Production Trap
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                        The &quot;Weekend Project&quot; → On-Call Trap
                     </h3>
+                    <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+                        A predictable timeline when a demo becomes &quot;production.&quot;
+                    </p>
                     <div className="space-y-4">
-                        {maintenanceTimeline.map((item, index) => (
+                        {maintenanceTimeline.map((item) => (
                             <div
                                 key={item.day}
                                 className={`flex flex-col sm:flex-row items-start gap-4 p-4 rounded-lg ${item.status === 'success'
@@ -101,7 +137,7 @@ export function WhyNotDIY() {
                         ))}
                     </div>
                     <p className="mt-6 text-gray-600 dark:text-gray-400 text-sm">
-                        Companies buy platforms to avoid <span className="font-semibold text-gray-900 dark:text-white">&quot;Maintenance Debt.&quot;</span> They don&apos;t want to own the plumbing—they want to own the business logic.
+                        Platforms get bought to avoid <span className="font-semibold text-gray-900 dark:text-white">&quot;maintenance debt.&quot;</span> You don&apos;t want to own the plumbing—you want uptime, security, and sleep.
                     </p>
                 </div>
 
@@ -110,25 +146,28 @@ export function WhyNotDIY() {
                     <div className="rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 p-8">
                         <div className="flex items-center gap-3 mb-4">
                             <span className="text-3xl">🤖</span>
-                            <h3 className="text-xl font-bold text-white">LLMs Write Code</h3>
+                            <h3 className="text-xl font-bold text-white">LLMs Write the Demo</h3>
                         </div>
                         <p className="text-gray-300 mb-4">
-                            An LLM can generate a Python script to &quot;poll a server&quot; in 10 seconds.
+                            An LLM can generate the polling script in seconds.
                         </p>
                         <p className="text-gray-400 text-sm">
-                            That&apos;s the <span className="text-white font-semibold">logic</span>. A script. The easy part.
+                            That&apos;s the <span className="text-white font-semibold">demo</span>. Not the runtime.
                         </p>
                     </div>
                     <div className="rounded-2xl bg-gradient-to-br from-cyan-600 to-cyan-700 p-8">
                         <div className="flex items-center gap-3 mb-4">
                             <span className="text-3xl">🏗️</span>
-                            <h3 className="text-xl font-bold text-white">CodeTether Runs Systems</h3>
+                            <h3 className="text-xl font-bold text-white">CodeTether Runs the Runtime</h3>
                         </div>
-                        <p className="text-gray-100 mb-4">
-                            The server, the queue, the state machine, the retry logic, the security handshake.
-                        </p>
+                        <ul className="text-gray-100 mb-4 space-y-1 text-sm">
+                            <li>Queue + worker orchestration</li>
+                            <li>Retries + recovery + checkpoints</li>
+                            <li>Scoped identities + auth</li>
+                            <li>Logs + streaming + auditability</li>
+                        </ul>
                         <p className="text-cyan-200 text-sm">
-                            That&apos;s the <span className="text-white font-semibold">runtime</span>. The infrastructure. The hard part.
+                            That&apos;s the <span className="text-white font-semibold">runtime</span>. That&apos;s what keeps agent work reliable.
                         </p>
                     </div>
                 </div>
@@ -136,7 +175,7 @@ export function WhyNotDIY() {
                 {/* The Questions They'll Ask */}
                 <div className="mt-12">
                     <h3 className="text-center text-xl font-semibold text-gray-900 dark:text-white mb-8">
-                        Questions Your DIY System Won&apos;t Answer
+                        Questions a DIY Runtime Must Answer
                     </h3>
                     <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
                         {/* Mobile: stacked cards */}
@@ -184,16 +223,99 @@ export function WhyNotDIY() {
                     </div>
                 </div>
 
+                {/* Control Mapping */}
+                <div className="mt-12 rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                                Uncontrolled Autonomous Execution Risk
+                            </h3>
+                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-2xl">
+                                Agents aren&apos;t human users and aren&apos;t CI/CD. If they can execute work, they need a governance layer.
+                                Here&apos;s how CodeTether maps to controls CISOs already report on.
+                            </p>
+                        </div>
+                        <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-900 px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            SOC 2 / ISO 27001 / NIST CSF
+                        </span>
+                    </div>
+
+                    <div className="mt-6 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
+                        {/* Mobile: stacked cards */}
+                        <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
+                            {controlMappings.map((row) => (
+                                <div key={row.area} className="p-4">
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {row.area}
+                                    </div>
+                                    <dl className="mt-3 space-y-3">
+                                        <div>
+                                            <dt className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+                                                Gap without CodeTether
+                                            </dt>
+                                            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300 break-words">
+                                                {row.gap}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">
+                                                CodeTether Control
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-200 break-words">
+                                                {row.control}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop/tablet: table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full min-w-[700px]">
+                                <thead>
+                                    <tr className="bg-gray-50 dark:bg-gray-900">
+                                        <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                                            Control Area
+                                        </th>
+                                        <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-red-500 dark:text-red-400">
+                                            Gap Without CodeTether
+                                        </th>
+                                        <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                                            CodeTether Control
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
+                                    {controlMappings.map((row) => (
+                                        <tr key={row.area}>
+                                            <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 dark:text-white break-words">
+                                                {row.area}
+                                            </td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-600 dark:text-gray-400 break-words">
+                                                {row.gap}
+                                            </td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 dark:text-gray-200 font-medium break-words">
+                                                {row.control}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 {/* The Gold Rush Analogy */}
                 <div className="mt-16 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 p-6 sm:p-12">
                     <div className="max-w-3xl mx-auto text-center">
-                        <h3 className="text-2xl font-bold text-gray-900 mb-6">⛏️ The Gold Rush Analogy</h3>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6">⛏️ One Simple Analogy</h3>
                         <div className="grid sm:grid-cols-3 gap-4 sm:gap-6 mb-8">
                             <div className="bg-white/20 backdrop-blur rounded-xl p-4">
                                 <div className="text-3xl mb-2">💎</div>
                                 <div className="font-bold text-gray-900">The Gold Mine</div>
-                                <div className="text-sm text-gray-800">OpenAI / Anthropic</div>
-                                <div className="text-xs text-gray-700 mt-1">Everyone wants the gold</div>
+                                <div className="text-sm text-gray-800">Model providers</div>
+                                <div className="text-xs text-gray-700 mt-1">Everyone wants the output</div>
                             </div>
                             <div className="bg-white/20 backdrop-blur rounded-xl p-4">
                                 <div className="text-3xl mb-2">⛏️</div>
@@ -209,11 +331,10 @@ export function WhyNotDIY() {
                             </div>
                         </div>
                         <p className="text-gray-900 text-lg break-words">
-                            Sure, the miner is smart. But without the ventilation system,
-                            <span className="font-bold"> the miner dies, the tunnel collapses, and the operation shuts down.</span>
+                            The miner can be brilliant. Without ventilation, <span className="font-bold">the operation shuts down.</span>
                         </p>
                         <p className="mt-4 text-gray-800 font-semibold break-words">
-                            The smarter the miners get, the better your ventilation needs to be.
+                            CodeTether is that ventilation.
                         </p>
                     </div>
                 </div>
@@ -224,20 +345,40 @@ export function WhyNotDIY() {
                         <div className="flex flex-col sm:flex-row items-start gap-4">
                             <span className="text-4xl">🛡️</span>
                             <div>
-                                <h4 className="font-bold text-red-700 dark:text-red-400 mb-2">The CISO Doesn&apos;t Trust DIY</h4>
+                                <h4 className="font-bold text-red-700 dark:text-red-400 mb-2">Your CISO Won&apos;t Approve DIY</h4>
                                 <div className="space-y-4 text-gray-700 dark:text-gray-300 break-words">
                                     <p>
-                                        <span className="text-red-600 dark:text-red-400">❌ What gets you fired:</span><br />
-                                        <span className="italic">&quot;I asked ChatGPT to write a custom reverse-shell script to run agents inside our payment network.&quot;</span>
+                                        <span className="text-red-600 dark:text-red-400">❌ What gets you blamed:</span><br />
+                                        <span className="italic">&quot;We built a homegrown agent runner with prod credentials and no audit trail.&quot;</span>
                                     </p>
                                     <p>
-                                        <span className="text-green-600 dark:text-green-400">✅ What gets the check signed:</span><br />
-                                        <span className="italic">&quot;We&apos;re deploying CodeTether—an industry-standard, SOC2-compliant orchestration platform that runs in our VPC.&quot;</span>
+                                        <span className="text-green-600 dark:text-green-400">✅ What gets you credit:</span><br />
+                                        <span className="italic">&quot;We deployed a scoped, auditable orchestration runtime inside our VPC.&quot;</span>
                                     </p>
                                 </div>
                                 <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-                                    You&apos;re not just buying code. You&apos;re buying <span className="font-semibold text-gray-900 dark:text-white">standardization</span> and <span className="font-semibold text-gray-900 dark:text-white">trust</span>.
+                                    You&apos;re buying <span className="font-semibold text-gray-900 dark:text-white">standardization</span>, <span className="font-semibold text-gray-900 dark:text-white">auditability</span>, and <span className="font-semibold text-gray-900 dark:text-white">trust</span>.
                                 </p>
+                                <div className="mt-6 rounded-xl bg-white/60 dark:bg-gray-900/40 border border-red-200/60 dark:border-red-900/30 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+                                        Board Sentence
+                                    </p>
+                                    <p className="mt-2 text-sm text-gray-900 dark:text-white break-words">
+                                        &ldquo;We implemented a control plane for autonomous systems so no AI can execute work inside our environment without identity, authorization, audit logging, and human approval.&rdquo;
+                                    </p>
+                                </div>
+                                <div className="mt-4 text-sm text-gray-700 dark:text-gray-300 break-words">
+                                    In the next 12&ndash;24 months, an autonomous agent will run unattended and make a material change. The question won&apos;t be
+                                    &ldquo;why did the agent do this?&rdquo; It will be &ldquo;why was there no control plane?&rdquo;
+                                </div>
+                                <ul className="mt-4 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                    <li className="break-words">
+                                        <span className="font-semibold text-gray-900 dark:text-white">Deploy and nothing happens:</span> proactive risk management.
+                                    </li>
+                                    <li className="break-words">
+                                        <span className="font-semibold text-gray-900 dark:text-white">Don&apos;t deploy and something happens:</span> it looks like a documented omission.
+                                    </li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -246,20 +387,20 @@ export function WhyNotDIY() {
                 {/* The Verdict */}
                 <div className="mt-16 text-center max-w-2xl mx-auto">
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                        The Smarter LLMs Get, The More They Need Us
+                        Chatbots Need APIs. Agents Need a Runtime.
                     </h3>
                     <div className="grid sm:grid-cols-2 gap-6 text-left">
                         <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-6">
-                            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Dumb Bots (Chatbots)</div>
-                            <div className="text-gray-900 dark:text-white">Just need an API call</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Chatbots</div>
+                            <div className="text-gray-900 dark:text-white">Prompt → response</div>
                         </div>
                         <div className="bg-cyan-100 dark:bg-cyan-900/30 rounded-xl p-6 border-2 border-cyan-500">
-                            <div className="text-sm text-cyan-600 dark:text-cyan-400 mb-2">Genius Agents (Coding/Infra Bots)</div>
-                            <div className="text-gray-900 dark:text-white font-semibold">Need access, long-term memory, and safety rails</div>
+                            <div className="text-sm text-cyan-600 dark:text-cyan-400 mb-2">Agent teams</div>
+                            <div className="text-gray-900 dark:text-white font-semibold">Tools, auth, memory, guardrails</div>
                         </div>
                     </div>
                     <p className="mt-8 text-xl font-semibold text-cyan-600 dark:text-cyan-400">
-                        CodeTether is the safety rail for genius AI.
+                        CodeTether is the production runtime for agent teams.
                     </p>
                 </div>
             </Container>
