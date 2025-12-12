@@ -37,7 +37,7 @@ export function WhyNotDIY() {
         <section
             id="why-not-diy"
             aria-label="Why not build it yourself"
-            className="py-20 sm:py-32 bg-gray-50 dark:bg-gray-900"
+            className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900"
         >
             <Container>
                 {/* Header */}
@@ -63,32 +63,32 @@ export function WhyNotDIY() {
                             <div
                                 key={item.day}
                                 className={`flex flex-col sm:flex-row items-start gap-4 p-4 rounded-lg ${item.status === 'success'
-                                        ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'
-                                        : item.status === 'warning'
-                                            ? 'bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800'
-                                            : item.status === 'danger'
-                                                ? 'bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800'
-                                                : 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
+                                    ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'
+                                    : item.status === 'warning'
+                                        ? 'bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800'
+                                        : item.status === 'danger'
+                                            ? 'bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800'
+                                            : 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
                                     }`}
                             >
                                 <div className={`text-sm font-bold w-20 sm:w-20 ${item.status === 'success'
-                                        ? 'text-green-700 dark:text-green-400'
-                                        : item.status === 'warning'
-                                            ? 'text-yellow-700 dark:text-yellow-400'
-                                            : item.status === 'danger'
-                                                ? 'text-orange-700 dark:text-orange-400'
-                                                : 'text-red-700 dark:text-red-400'
+                                    ? 'text-green-700 dark:text-green-400'
+                                    : item.status === 'warning'
+                                        ? 'text-yellow-700 dark:text-yellow-400'
+                                        : item.status === 'danger'
+                                            ? 'text-orange-700 dark:text-orange-400'
+                                            : 'text-red-700 dark:text-red-400'
                                     }`}>
                                     {item.day}
                                 </div>
-                                <div className="flex-1 text-sm">
+                                <div className="flex-1 min-w-0 text-sm break-words">
                                     <span className={`${item.status === 'success'
-                                            ? 'text-green-800 dark:text-green-300'
-                                            : item.status === 'warning'
-                                                ? 'text-yellow-800 dark:text-yellow-300'
-                                                : item.status === 'danger'
-                                                    ? 'text-orange-800 dark:text-orange-300'
-                                                    : 'text-red-800 dark:text-red-300'
+                                        ? 'text-green-800 dark:text-green-300'
+                                        : item.status === 'warning'
+                                            ? 'text-yellow-800 dark:text-yellow-300'
+                                            : item.status === 'danger'
+                                                ? 'text-orange-800 dark:text-orange-300'
+                                                : 'text-red-800 dark:text-red-300'
                                         }`}>
                                         {item.event}
                                     </span>
@@ -139,7 +139,29 @@ export function WhyNotDIY() {
                         Questions Your DIY System Won&apos;t Answer
                     </h3>
                     <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
-                        <div className="overflow-x-auto">
+                        {/* Mobile: stacked cards */}
+                        <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
+                            {runtimeConcerns.map((row) => (
+                                <div key={row.question} className="p-4">
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {row.question}
+                                    </div>
+                                    <dl className="mt-3 space-y-3">
+                                        <div>
+                                            <dt className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">Your DIY System</dt>
+                                            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300 italic break-words">{row.diy}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">CodeTether</dt>
+                                            <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-200 break-words">{row.codetether}</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop/tablet: table */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full min-w-[600px]">
                                 <thead>
                                     <tr className="bg-gray-50 dark:bg-gray-900">
@@ -151,9 +173,9 @@ export function WhyNotDIY() {
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
                                     {runtimeConcerns.map((row) => (
                                         <tr key={row.question}>
-                                            <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{row.question}</td>
-                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-500 italic">{row.diy}</td>
-                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 dark:text-gray-200">{row.codetether}</td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 dark:text-white break-words">{row.question}</td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-500 italic break-words">{row.diy}</td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 dark:text-gray-200 break-words">{row.codetether}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -186,11 +208,11 @@ export function WhyNotDIY() {
                                 <div className="text-xs text-gray-700 mt-1">Keeps the operation safe</div>
                             </div>
                         </div>
-                        <p className="text-gray-900 text-lg">
+                        <p className="text-gray-900 text-lg break-words">
                             Sure, the miner is smart. But without the ventilation system,
                             <span className="font-bold"> the miner dies, the tunnel collapses, and the operation shuts down.</span>
                         </p>
-                        <p className="mt-4 text-gray-800 font-semibold">
+                        <p className="mt-4 text-gray-800 font-semibold break-words">
                             The smarter the miners get, the better your ventilation needs to be.
                         </p>
                     </div>
@@ -203,7 +225,7 @@ export function WhyNotDIY() {
                             <span className="text-4xl">🛡️</span>
                             <div>
                                 <h4 className="font-bold text-red-700 dark:text-red-400 mb-2">The CISO Doesn&apos;t Trust DIY</h4>
-                                <div className="space-y-4 text-gray-700 dark:text-gray-300">
+                                <div className="space-y-4 text-gray-700 dark:text-gray-300 break-words">
                                     <p>
                                         <span className="text-red-600 dark:text-red-400">❌ What gets you fired:</span><br />
                                         <span className="italic">&quot;I asked ChatGPT to write a custom reverse-shell script to run agents inside our payment network.&quot;</span>

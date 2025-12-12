@@ -84,7 +84,7 @@ export function CopilotComparison() {
         <section
             id="copilot-comparison"
             aria-label="Copilot comparison"
-            className="py-20 sm:py-32 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950"
+            className="py-16 sm:py-24 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950"
         >
             <Container>
                 {/* Header */}
@@ -121,7 +121,7 @@ export function CopilotComparison() {
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-white text-xs font-bold">2</div>
-                                    <p className="text-gray-300"><span className="text-white font-medium">Copilot calls MCP:</span> <code className="bg-gray-800 px-2 py-0.5 rounded text-cyan-400">codetether.spawn_agent(task=&quot;refactor&quot;)</code></p>
+                                    <p className="text-gray-300"><span className="text-white font-medium">Copilot calls MCP:</span> <code className="bg-gray-800 px-2 py-0.5 rounded text-cyan-400 whitespace-normal break-all">codetether.spawn_agent(task=&quot;refactor&quot;)</code></p>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-white text-xs font-bold">3</div>
@@ -216,23 +216,49 @@ export function CopilotComparison() {
 
                 {/* Comparison Table */}
                 <div className="mt-16 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
-                    <div className="overflow-x-auto">
+                    {/* Mobile: stacked cards */}
+                    <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
+                        {comparisonData.map((row) => (
+                            <div key={row.feature} className="p-4">
+                                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {row.feature}
+                                </div>
+                                <dl className="mt-3 space-y-3">
+                                    <div>
+                                        <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">GitHub Copilot</dt>
+                                        <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300 break-words">{row.copilot}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">CodeTether</dt>
+                                        <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-200 break-words">{row.codetether}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">The Win</dt>
+                                        <dd className="mt-1 text-sm font-medium text-cyan-700 dark:text-cyan-400 break-words">{row.salesAngle}</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Desktop/tablet: table */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-gray-50 dark:bg-gray-900">
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Feature</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">GitHub Copilot</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-cyan-600 dark:text-cyan-400">CodeTether</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">The Win</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Feature</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">GitHub Copilot</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-cyan-600 dark:text-cyan-400">CodeTether</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">The Win</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
                                 {comparisonData.map((row) => (
                                     <tr key={row.feature}>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{row.feature}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{row.copilot}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-200 font-medium">{row.codetether}</td>
-                                        <td className="px-6 py-4 text-sm text-cyan-600 dark:text-cyan-400 font-medium">{row.salesAngle}</td>
+                                        <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{row.feature}</td>
+                                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{row.copilot}</td>
+                                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 dark:text-gray-200 font-medium">{row.codetether}</td>
+                                        <td className="px-4 sm:px-6 py-4 text-sm text-cyan-600 dark:text-cyan-400 font-medium">{row.salesAngle}</td>
                                     </tr>
                                 ))}
                             </tbody>

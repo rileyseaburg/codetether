@@ -45,7 +45,7 @@ export function TemporalComparison() {
         <section
             id="temporal-comparison"
             aria-label="Temporal comparison"
-            className="py-20 sm:py-32 bg-white dark:bg-gray-950"
+            className="py-16 sm:py-24 bg-white dark:bg-gray-950"
         >
             <Container>
                 {/* Header */}
@@ -96,21 +96,43 @@ export function TemporalComparison() {
                         Questions Your Engineers Are Stuck On Right Now
                     </h3>
                     <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
-                        <div className="overflow-x-auto">
+                        {/* Mobile: stacked cards */}
+                        <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
+                            {temporalGaps.map((row) => (
+                                <div key={row.problem} className="p-4">
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {row.problem}
+                                    </div>
+                                    <dl className="mt-3 space-y-3">
+                                        <div>
+                                            <dt className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">With Raw Temporal</dt>
+                                            <dd className="mt-1 text-sm text-gray-700 dark:text-gray-300 break-words">{row.temporal}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">With CodeTether</dt>
+                                            <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-200 break-words">{row.codetether}</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop/tablet: table */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-gray-50 dark:bg-gray-900">
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">The Question</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-red-500 dark:text-red-400">With Raw Temporal</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-cyan-600 dark:text-cyan-400">With CodeTether</th>
+                                        <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">The Question</th>
+                                        <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-red-500 dark:text-red-400">With Raw Temporal</th>
+                                        <th className="px-4 sm:px-6 py-4 text-left text-sm font-semibold text-cyan-600 dark:text-cyan-400">With CodeTether</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
                                     {temporalGaps.map((row) => (
                                         <tr key={row.problem}>
-                                            <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 italic">{row.problem}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-500">{row.temporal}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-200 font-medium">{row.codetether}</td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-700 dark:text-gray-300 italic">{row.problem}</td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-500">{row.temporal}</td>
+                                            <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 dark:text-gray-200 font-medium">{row.codetether}</td>
                                         </tr>
                                     ))}
                                 </tbody>

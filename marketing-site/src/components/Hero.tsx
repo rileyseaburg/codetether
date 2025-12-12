@@ -90,11 +90,11 @@ function DocsIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export function Hero() {
   return (
-    <div className="overflow-hidden py-20 sm:py-32 lg:pb-32 xl:pb-36 bg-white dark:bg-gray-950">
+    <div className="overflow-hidden pt-14 pb-16 sm:pt-24 sm:pb-24 lg:pt-32 lg:pb-32 xl:pb-36 bg-white dark:bg-gray-950">
       <Container>
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-20">
           <div className="relative z-10 mx-auto max-w-2xl lg:col-span-7 lg:max-w-none lg:pt-6 xl:col-span-6">
-            <h1 className="text-4xl font-medium tracking-tight text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-medium tracking-tight leading-tight text-gray-900 dark:text-white sm:text-4xl lg:text-5xl">
               Your AI. Your Data. <br />
               <span className="text-cyan-600 dark:text-cyan-400">Your Network.</span>
             </h1>
@@ -128,7 +128,7 @@ export function Hero() {
                   <div className="h-3 w-3 rounded-full bg-green-500" />
                   <span className="ml-2 text-sm text-gray-400">codetether-server</span>
                 </div>
-                <div className="mt-4 font-mono text-sm">
+                <div className="mt-4 font-mono text-sm leading-relaxed break-words">
                   <p className="text-green-400">$ codetether dev</p>
                   <p className="mt-2 text-gray-400">Starting CodeTether Server...</p>
                   <p className="text-cyan-400">✓ Message broker started (Redis)</p>

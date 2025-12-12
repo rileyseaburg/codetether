@@ -240,6 +240,12 @@ run: ## Run the server locally
 run-dev: ## Run the server in development mode
 	python run_server.py run --host 0.0.0.0 --port $(PORT) --reload
 
+# Keycloak utilities
+.PHONY: keycloak-client
+keycloak-client: ## Create/update Keycloak OIDC client via kcadm.sh (requires KEYCLOAK_* env vars)
+	@chmod +x scripts/keycloak_upsert_client.sh
+	@./scripts/keycloak_upsert_client.sh
+
 # Documentation targets
 .PHONY: docs-serve
 docs-serve: ## Serve documentation locally
