@@ -60,6 +60,26 @@ sudo systemctl start a2a-agent-worker
 sudo systemctl enable a2a-agent-worker
 ```
 
+### 4. Verify the Worker is Registered
+
+Once started, the server should show at least one registered worker:
+
+```bash
+curl https://api.codetether.run/v1/opencode/workers
+```
+
+On the worker machine, you can also confirm it is polling:
+
+```bash
+sudo systemctl status a2a-agent-worker
+sudo journalctl -u a2a-agent-worker -n 100 --no-pager
+```
+
+!!! tip "If you see “No workers available”"
+  That message is returned when the server has **no registered workers** at the moment a codebase registration-by-path request is made.
+
+  Make sure the worker service is running on the machine that can access the path, and that `A2A_SERVER_URL` points at the same server your UI/API is using.
+
 ## Worker Architecture
 
 ```mermaid

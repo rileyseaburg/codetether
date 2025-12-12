@@ -1169,7 +1169,7 @@
                 const info = msg.info || msg;
                 const parts = msg.parts || [];
                 const role = info.role || 'unknown';
-                const isUser = role === 'user';
+                const isUser = role === 'user' || role === 'human';
 
                 // Extract text content from parts
                 let content = '';

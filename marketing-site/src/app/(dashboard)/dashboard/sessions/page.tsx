@@ -26,6 +26,9 @@ interface SessionMessage {
         model?: string
         content?: string
     }
+    role?: string
+    model?: string
+    content?: string
     parts?: Array<{
         type: string
         text?: string
@@ -46,8 +49,9 @@ export default function SessionsPage() {
     const [sessions, setSessions] = useState<Session[]>([])
     const [selectedSession, setSelectedSession] = useState<Session | null>(null)
     const [sessionMessages, setSessionMessages] = useState<SessionMessage[]>([])
-    const [resumePrompt, setResumePrompt] = useState('')
+    const [draftMessage, setDraftMessage] = useState('')
     const [loading, setLoading] = useState(false)
+    const [actionStatus, setActionStatus] = useState<string | null>(null)
 
     const loadCodebases = useCallback(async () => {
         try {
@@ -106,24 +110,54 @@ export default function SessionsPage() {
         }
     }, [selectedSession, loadSessionMessages])
 
-    const resumeSession = async () => {
-        if (!selectedCodebase || !selectedSession) return
+    const resumeSession = async (session: Session, prompt: string | null) => {
+        if (!selectedCodebase || !session?.id) return
         setLoading(true)
+        setActionStatus(null)
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/codebases/${selectedCodebase}/sessions/${selectedSession.id}/resume`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: resumePrompt || null, agent: 'build' })
-            })
-            if (response.ok) {
-                setResumePrompt('')
-                alert('Session resumed!')
+            const response = await fetch(
+                `${API_URL}/v1/opencode/codebases/${selectedCodebase}/sessions/${session.id}/resume`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt || null, agent: session.agent || 'build' }),
+                }
+            )
+
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                setActionStatus(`Resume failed: ${data?.detail || data?.message || response.statusText}`)
+                return
             }
+
+            const activeSessionId: string =
+                data?.active_session_id || data?.new_session_id || data?.session_id || session.id
+
+            // Keep UI focused on the active session (some backends may return a new session id)
+            setSelectedSession((prev) => {
+                const base = prev && prev.id === session.id ? prev : session
+                return activeSessionId && base.id !== activeSessionId ? { ...base, id: activeSessionId } : base
+            })
+
+            // Refresh sidebar lists and message preview
+            await loadSessions(selectedCodebase)
+            await loadSessionMessages(activeSessionId)
+
+            setActionStatus(prompt ? 'Message sent (session resumed if needed).' : 'Session resumed. You can reply below.')
         } catch (error) {
             console.error('Failed to resume session:', error)
+            setActionStatus('Resume failed: network error')
         } finally {
             setLoading(false)
         }
+    }
+
+    const sendReply = async () => {
+        if (!selectedSession) return
+        const message = draftMessage.trim()
+        if (!message) return
+        await resumeSession(selectedSession, message)
+        setDraftMessage('')
     }
 
     const formatDate = (dateStr: string) => {
@@ -139,7 +173,11 @@ export default function SessionsPage() {
     }
 
     const extractContent = (msg: SessionMessage): string => {
-        const info = msg.info || {}
+        const info = (msg.info || msg) as {
+            role?: string
+            model?: string
+            content?: unknown
+        }
         const parts = msg.parts || []
 
         let content = ''
@@ -208,7 +246,8 @@ export default function SessionsPage() {
                                             onClick={(e) => {
                                                 e.stopPropagation()
                                                 setSelectedSession(session)
-                                                setResumePrompt('')
+                                                setDraftMessage('')
+                                                void resumeSession(session, null)
                                             }}
                                             className="ml-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
                                         >
@@ -233,9 +272,13 @@ export default function SessionsPage() {
                             <div className="space-y-4">
                                 <div className="space-y-3 max-h-64 overflow-y-auto">
                                     {sessionMessages.slice(-20).map((msg, idx) => {
-                                        const info = msg.info || {}
+                                        const info = (msg.info || msg) as {
+                                            role?: string
+                                            model?: string
+                                            content?: unknown
+                                        }
                                         const role = info.role || 'unknown'
-                                        const isUser = role === 'user'
+                                        const isUser = role === 'user' || role === 'human'
                                         const content = extractContent(msg)
 
                                         return (
@@ -257,21 +300,42 @@ export default function SessionsPage() {
                                     })}
                                 </div>
                                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={resumePrompt}
-                                            onChange={(e) => setResumePrompt(e.target.value)}
-                                            placeholder="Continue the conversation..."
-                                            className="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
-                                        />
-                                        <button
-                                            onClick={resumeSession}
-                                            disabled={loading}
-                                            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-                                        >
-                                            {loading ? '...' : 'Resume'}
-                                        </button>
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={draftMessage}
+                                                onChange={(e) => setDraftMessage(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault()
+                                                        void sendReply()
+                                                    }
+                                                }}
+                                                placeholder="Reply to this session…"
+                                                className="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
+                                            />
+                                            <button
+                                                onClick={() => void sendReply()}
+                                                disabled={loading || !draftMessage.trim()}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                                            >
+                                                {loading ? '...' : 'Send'}
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <button
+                                                type="button"
+                                                onClick={() => void resumeSession(selectedSession, null)}
+                                                disabled={loading}
+                                                className="text-xs text-gray-600 dark:text-gray-300 hover:underline disabled:opacity-50"
+                                            >
+                                                Resume without sending
+                                            </button>
+                                            {actionStatus ? (
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">{actionStatus}</span>
+                                            ) : null}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

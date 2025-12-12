@@ -54,6 +54,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Blue/Green selector labels
+
+IMPORTANT: These MUST NOT overlap with the legacy Deployment selector labels,
+otherwise multiple Deployments/ReplicaSets will match the same Pods.
+
+We achieve this by using a different app.kubernetes.io/name value.
+*/}}
+{{- define "a2a-server.blueGreenName" -}}
+{{- printf "%s-bg" (include "a2a-server.name" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "a2a-server.blueGreenSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "a2a-server.blueGreenName" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Blue/Green common labels
+*/}}
+{{- define "a2a-server.blueGreenLabels" -}}
+helm.sh/chart: {{ include "a2a-server.chart" . }}
+{{ include "a2a-server.blueGreenSelectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- with .Values.commonLabels }}
+{{ toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "a2a-server.serviceAccountName" -}}
@@ -69,7 +101,7 @@ Create the Redis URL
 */}}
 {{- define "a2a-server.redisUrl" -}}
 {{- if .Values.redis.enabled }}
-{{- printf "redis://%s-redis-master:6379" .Release.Name }}
+{{- printf "redis://%s-redis-master:6379" (include "a2a-server.fullname" .) }}
 {{- else }}
 {{- if .Values.externalRedis.password }}
 {{- printf "redis://:%s@%s:%d/%d" .Values.externalRedis.password .Values.externalRedis.host (.Values.externalRedis.port | int) (.Values.externalRedis.database | int) }}
@@ -84,6 +116,34 @@ Create the image reference
 */}}
 {{- define "a2a-server.image" -}}
 {{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}
+{{- end }}
+
+{{/*
+Resolve the legacy workload image in blue/green mode.
+*/}}
+{{- define "a2a-server.legacyImage" -}}
+{{- if and .Values.blueGreen.enabled .Values.blueGreen.legacyImage.image }}
+{{- .Values.blueGreen.legacyImage.image -}}
+{{- else -}}
+{{- include "a2a-server.image" . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve a per-color image override.
+
+Usage: {{ include "a2a-server.blueGreenImage" (dict "root" . "color" "blue") }}
+*/}}
+{{- define "a2a-server.blueGreenImage" -}}
+{{- $root := .root -}}
+{{- $color := .color -}}
+{{- $images := ($root.Values.blueGreen.images | default dict) -}}
+{{- $cfg := (index $images $color | default dict) -}}
+{{- if $cfg.image -}}
+{{- $cfg.image -}}
+{{- else -}}
+{{- include "a2a-server.image" $root -}}
+{{- end -}}
 {{- end }}
 
 {{/*

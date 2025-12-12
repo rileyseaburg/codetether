@@ -28,6 +28,52 @@ fullnameOverride: ""
 # Deployment configuration
 replicaCount: 1
 
+# Blue/Green deployment configuration
+#
+# This chart supports two modes:
+# - blueGreen.enabled=false (default): deploy a single legacy Deployment.
+# - blueGreen.enabled=true:
+#     - mode=legacy: keep routing traffic to the legacy Deployment while you stage
+#       a new version in the inactive color Deployment.
+#     - mode=bluegreen: route traffic via Service selector to the active color.
+#
+# The production `make k8s-prod` pipeline uses the deploy script to:
+# 1) helm upgrade with mode=legacy (traffic stays on legacy/current)
+# 2) wait for the inactive color to be Ready
+# 3) helm upgrade with mode=bluegreen (traffic switches)
+blueGreen:
+  enabled: false
+  # One of: legacy | bluegreen
+  mode: legacy
+  # Which color the Service should route to when mode=bluegreen
+  serviceColor: blue
+  # Optional rollout IDs. When set, the value is added to the Pod template
+  # as an annotation to force Kubernetes to roll that specific workload.
+  #
+  # This is especially useful when deploying the same tag (e.g. "latest")
+  # and relying on `image.pullPolicy=Always`.
+  rolloutId:
+    legacy: ""
+    blue: ""
+    green: ""
+  # Optional image override for the legacy Deployment (full reference).
+  # When set, it takes precedence over the global `image.*` for the legacy workload.
+  legacyImage:
+    image: ""
+  # Replicas for the legacy Deployment (used when mode=legacy; typically 0 in steady-state)
+  legacyReplicaCount: 1
+  # Replicas for each color deployment
+  replicas:
+    blue: 0
+    green: 0
+  # Optional per-color image overrides.
+  # Prefer setting `image` to the full reference (e.g. repo:tag or repo@sha256:...).
+  images:
+    blue:
+      image: ""
+    green:
+      image: ""
+
 # Service account configuration
 serviceAccount:
   create: true
@@ -191,26 +237,19 @@ auth:
   #   agent2: "secret456"
 
 # Redis configuration
+# This chart deploys a simple in-cluster Redis (Deployment + ClusterIP Service) when enabled.
+# If you prefer an external Redis, set redis.enabled=false and configure externalRedis.*.
 redis:
   enabled: true
-  # When enabled: true, uses the included Redis chart
-  # When enabled: false, connects to external Redis
   image:
-    registry: docker.io
     repository: redis
-    tag: 7-alpine
-  auth:
-    enabled: false
-  master:
-    persistence:
-      enabled: false
-    resources:
-      limits:
-        memory: 256Mi
-      requests:
-        memory: 128Mi
-  replica:
-    replicaCount: 0
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
 
 # External Redis configuration (when redis.enabled: false)
 externalRedis:

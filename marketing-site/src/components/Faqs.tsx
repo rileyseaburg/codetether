@@ -15,14 +15,19 @@ const faqs = [
         {
             question: 'Can I resume past AI conversations?',
             answer:
-                'Yes! Session history is automatically synced from workers to the server. You can browse past sessions from any device and resume them with full context preservation. The AI continues exactly where you left off—unlike Copilot which forgets after 10 minutes.',
+                'Yes. Session history can be preserved so you can resume work with context. In enterprise deployments, you control what is retained (metadata-only vs. full transcripts) and where it is stored (e.g., inside your VPC).',
         },
     ],
     [
         {
             question: 'What about data security and compliance?',
             answer:
-                'Workers PULL tasks from inside your network—no inbound firewall rules needed. Your source code, patient records, and financial data never leave your VPC. We process locally and return only results. Built for HIPAA, SOC2, PCI from day one with Keycloak SSO, RBAC, and audit logs.',
+                'CodeTether separates the Control Plane (orchestration + metadata) from the Data Plane (execution + sensitive payloads). Workers PULL tasks from inside your network—no inbound firewall rules needed. Your source code and sensitive context are handled on the Worker, and if you use a hosted model (OpenAI Enterprise / Azure OpenAI), the Worker connects directly to your model tenant using your keys. CodeTether does not sit in the inference path and does not store your prompts/source code. Built for HIPAA, SOC 2, PCI architectures with Keycloak SSO, RBAC, and audit logs.',
+        },
+        {
+            question: 'Wait — does my code get sent to OpenAI?',
+            answer:
+                'It can, depending on how you configure inference — but it does not get sent to CodeTether. The Worker runs in your environment and calls your chosen model endpoint directly using your credentials. If you use Azure OpenAI, you can keep traffic private (e.g., Private Link) so it doesn\'t traverse the public internet. The key guarantee we sell is Zero Third-Party Storage: CodeTether does not proxy, store, or retain your prompt payloads.',
         },
         {
             question: 'How do I deploy to production?',

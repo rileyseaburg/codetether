@@ -19,4 +19,27 @@ spec:
   selector:
     matchLabels:
       {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+---
+{{- if .Values.blueGreen.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-bg
+  labels:
+    {{- include "a2a-server.blueGreenLabels" . | nindent 4 }}
+  {{- with include "a2a-server.annotations" . }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "a2a-server.blueGreenSelectorLabels" . | nindent 6 }}
+{{- end }}
 {{- end }}

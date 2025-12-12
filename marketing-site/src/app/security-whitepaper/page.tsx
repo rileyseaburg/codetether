@@ -134,7 +134,7 @@ export default function SecurityWhitepaper() {
                                 </ul>
                                 <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                                     <p className="text-xs text-blue-700 dark:text-blue-300">
-                                        <strong>Security Guarantee:</strong> The Control Plane does not store, process, or see your source code, database records, or PII.
+                                        <strong>Security Guarantee:</strong> The Control Plane is not in the inference data path and is designed to operate on metadata (task state, routing, audit events) rather than prompt payloads.
                                     </p>
                                 </div>
                             </div>
@@ -161,7 +161,7 @@ export default function SecurityWhitepaper() {
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <CheckIcon className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                                        <span><strong>Data Residency:</strong> Data never leaves your network</span>
+                                        <span><strong>Data Handling:</strong> Sensitive payloads are handled on the Worker; optional model calls go directly to your approved model tenant using your keys</span>
                                     </li>
                                 </ul>
                                 <div className="mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
@@ -267,15 +267,15 @@ export default function SecurityWhitepaper() {
                                 <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                                     <li className="flex items-start gap-2">
                                         <span className="text-cyan-500">→</span>
-                                        <span>Source code processed entirely within your VPC</span>
+                                        <span>Tools and sensitive context run on Workers inside your environment</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-cyan-500">→</span>
-                                        <span>Only <em>status</em> streamed to Control Plane</span>
+                                        <span>Only <em>metadata</em> is required by the Control Plane (status, routing, audit events)</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-cyan-500">→</span>
-                                        <span>Sanitized summaries returned, not raw data</span>
+                                        <span>Optional centralized logs are configurable; you decide what is retained and where</span>
                                     </li>
                                 </ul>
                             </div>
@@ -284,7 +284,7 @@ export default function SecurityWhitepaper() {
                                 <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                                     <li className="flex items-start gap-2">
                                         <span className="text-cyan-500">→</span>
-                                        <span>Worker acts as proxy for external LLMs</span>
+                                        <span>Worker acts as the policy enforcement point before any external inference call</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-cyan-500">→</span>
@@ -292,7 +292,7 @@ export default function SecurityWhitepaper() {
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-cyan-500">→</span>
-                                        <span>PII redacted <em>before</em> inference API calls</span>
+                                        <span>PII redacted <em>before</em> direct-to-tenant inference API calls (e.g., Azure OpenAI)</span>
                                     </li>
                                 </ul>
                             </div>
@@ -424,7 +424,7 @@ export default function SecurityWhitepaper() {
                             {[
                                 { icon: '🏥', name: 'HIPAA', desc: 'PHI stays in your VPC. BAA available.' },
                                 { icon: '🔒', name: 'SOC 2 Type II', desc: 'Control Plane maintains certification.' },
-                                { icon: '💳', name: 'PCI-DSS', desc: 'Cardholder data never leaves network.' },
+                                { icon: '💳', name: 'PCI-DSS', desc: 'Cardholder data stays under your control; enforce egress policy at the Worker.' },
                                 { icon: '🏛️', name: 'FedRAMP', desc: 'Self-hosted, air-gap compatible.' },
                             ].map((item) => (
                                 <div key={item.name} className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5 flex items-start gap-4">

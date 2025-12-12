@@ -35,8 +35,8 @@ const comparisonData = [
     {
         feature: 'Data Flow',
         copilot: 'Egress to Azure/OpenAI',
-        codetether: 'Local execution in your VPC',
-        salesAngle: 'Keep the code local',
+        codetether: 'Worker → your model tenant (direct)',
+        salesAngle: 'No vendor-in-the-middle',
     },
     {
         feature: 'Customization',

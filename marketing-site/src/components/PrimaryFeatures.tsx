@@ -21,27 +21,26 @@ async def poll_loop(self):
         for task in tasks:
             # Execute locally with full data access
             result = await self.run_agent(task)
-            # Only the RESULT goes back, never raw data
+            # Stream status + approved artifacts back (configurable)
             await self.submit_result(task.id, result)`,
     },
     {
-        name: 'Data Never Leaves Your Network',
+        name: 'Zero Third-Party Storage (by CodeTether)',
         description:
-            'The AI brain lives in the cloud; the hands (tool execution) stay local. Source code, patient records, financial data—processed inside your VPC, never uploaded.',
+            'CodeTether doesn\'t proxy prompts or source code. Sensitive context is handled on the Worker; if you use a hosted model, the Worker connects directly to your approved model tenant (e.g., Azure OpenAI with private networking) using your keys. The Control Plane only needs orchestration metadata.',
         icon: SessionIcon,
-        code: `# Example: Healthcare compliance
+        code: `# Example: Healthcare
 Worker runs INSIDE hospital VPC:
-├── Reads patient records from local DB
-├── Processes with AI agent
-├── Returns only: "Diagnosis: X, Confidence: 95%"
-└── PII never touches public internet
+├── Reads PHI from local DB / EHR
+├── Applies policy checks / redaction (optional)
+├── Calls your approved model endpoint directly (optional)
+└── Streams status/telemetry without proxying payloads
 
 # Example: FinTech
 Worker runs ON the trading floor:
 ├── Reads proprietary algorithms
 ├── Executes "optimize portfolio" task
-├── Returns only: "Rebalance: +5% bonds"
-└── Alpha-generating code stays internal`,
+└── CodeTether never stores prompts/source code`,
     },
     {
         name: 'Real-time Output Streaming',

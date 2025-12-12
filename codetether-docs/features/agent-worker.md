@@ -187,10 +187,13 @@ The worker reads configuration from `/etc/a2a-worker/config.json`:
 | `worker_name` | string | hostname | Human-readable name for the worker |
 | `poll_interval` | integer | `5` | Seconds between task polls |
 | `opencode_bin` | string | auto-detect | Path to OpenCode binary |
+| `opencode_storage_path` | string | auto-detect | Override OpenCode storage directory (contains `project/`, `session/`, `message/`, `part/`) |
 | `codebases` | array | `[]` | List of codebases to register |
 | `codebases[].name` | string | directory name | Display name for the codebase |
 | `codebases[].path` | string | — | **Required.** Absolute path to codebase |
 | `codebases[].description` | string | `""` | Description of the codebase |
+| `session_message_sync_max_sessions` | integer | `3` | How many *most recent* sessions (per codebase) to also sync messages for (UI detail panel) |
+| `session_message_sync_max_messages` | integer | `100` | How many *most recent* messages (per session) to sync |
 | `capabilities` | array | `["opencode", "build", "deploy"]` | Worker capabilities to advertise |
 
 ### Environment Variables
@@ -202,6 +205,14 @@ Environment variables can override configuration:
 A2A_SERVER_URL=https://api.codetether.run
 A2A_WORKER_NAME=production-worker-1
 A2A_POLL_INTERVAL=10
+
+# If the worker runs as a service user (e.g. /opt/a2a-worker) but OpenCode sessions
+# live under a different user's home, point the worker at that storage:
+# A2A_OPENCODE_STORAGE_PATH=/home/riley/.local/share/opencode/storage
+
+# Optional tuning for how much session detail gets synced:
+# A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS=3
+# A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES=100
 ```
 
 | Variable | Description |
@@ -209,6 +220,20 @@ A2A_POLL_INTERVAL=10
 | `A2A_SERVER_URL` | CodeTether server URL |
 | `A2A_WORKER_NAME` | Worker identifier |
 | `A2A_POLL_INTERVAL` | Poll interval in seconds |
+| `A2A_OPENCODE_STORAGE_PATH` | Override OpenCode storage path (useful under systemd service accounts) |
+| `A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS` | Number of recent sessions to sync messages for |
+| `A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES` | Number of recent messages to sync per session |
+
+!!! note "Precedence (what wins)"
+    Worker settings follow this precedence order:
+
+    1. **CLI flags** (e.g. `--server`, `--name`, `--poll-interval`)
+    2. **Environment variables** (e.g. `A2A_SERVER_URL`)
+    3. **Config file** (`/etc/a2a-worker/config.json`)
+    4. Built-in defaults
+
+    If you're running under **systemd**, the unit file often sets `A2A_SERVER_URL` directly.
+    To override without editing the unit, put overrides in `/etc/a2a-worker/env` (the unit loads it via `EnvironmentFile`).
 
 ---
 
@@ -265,6 +290,9 @@ python3 agent_worker/worker.py \
 | `--codebase` | `-b` | Codebase to register (format: `name:path` or just `path`) |
 | `--poll-interval` | `-i` | Poll interval in seconds |
 | `--opencode` | — | Path to OpenCode binary |
+| `--opencode-storage-path` | — | Override OpenCode storage directory |
+| `--session-message-sync-max-sessions` | — | Recent sessions per codebase to sync messages for |
+| `--session-message-sync-max-messages` | — | Recent messages per session to sync |
 
 ---
 
@@ -337,7 +365,9 @@ POST /v1/opencode/codebases/{id}/sessions/sync
         {
             "id": "sess_xyz",
             "title": "Added unit tests",
-            "created_at": "2025-12-10T15:00:00Z"
+            "created": "2025-12-10T15:00:00Z",
+            "updated": "2025-12-10T15:05:00Z",
+            "messageCount": 12
         }
     ]
 }
@@ -486,6 +516,58 @@ curl https://api.codetether.run/v1/monitor/workers
 ---
 
 ## Troubleshooting
+
+### UI/API says “No workers available”
+
+This error happens when you try to register a codebase *by path* (from the UI or API) but the server currently has **zero registered workers**.
+
+Fix checklist:
+
+1. **Start the worker on the machine that has the codebase path**
+
+    - `sudo systemctl start a2a-agent-worker`
+    - `sudo systemctl status a2a-agent-worker`
+
+2. **Make sure the worker points at the same server URL your UI/API is using**
+
+    - Inspect what systemd is passing:
+      - `sudo systemctl cat a2a-agent-worker | grep A2A_SERVER_URL`
+    - If needed, override via `/etc/a2a-worker/env`:
+      - `A2A_SERVER_URL=https://api.codetether.run`
+    - Then restart:
+      - `sudo systemctl restart a2a-agent-worker`
+
+3. **Verify the server sees at least one worker**
+
+    - `curl https://api.codetether.run/v1/opencode/workers`
+
+If `/v1/opencode/workers` returns an empty list, the server will reject path-based registration requests.
+
+### Registration task stuck in “pending”
+
+When you register a codebase from the UI **without** providing a `worker_id`, the server creates a special registration task with:
+
+- `agent_type = "register_codebase"`
+- `codebase_id = "__pending__"`
+
+Any worker can claim these tasks, validate the path exists locally, and then confirm registration.
+
+How to debug:
+
+1. Check pending tasks:
+
+    - `curl https://api.codetether.run/v1/opencode/tasks?status=pending`
+
+2. Watch worker logs for the claim:
+
+    - `sudo journalctl -u a2a-agent-worker -f`
+    - You should see something like: `Handling registration task ...`
+
+3. Ensure the worker user can read the path:
+
+    - `sudo -u a2a-worker ls -la /path/to/your/codebase`
+
+If the task remains pending and the worker never logs that it handled it, confirm the worker is polling and is connected to the correct server.
 
 ### Worker Not Starting
 

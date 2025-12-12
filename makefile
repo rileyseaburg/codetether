@@ -6,8 +6,9 @@ DOCKER_REGISTRY ?= registry.quantum-forge.net/library
 OCI_REGISTRY = registry.quantum-forge.net/library
 PORT ?= 8000
 CHART_PATH = chart/a2a-server
-CHART_VERSION ?= 0.4.0
+CHART_VERSION ?= 0.4.2
 NAMESPACE ?= a2a-server
+RELEASE_NAME ?= codetether
 VALUES_FILE ?= chart/codetether-values.yaml
 
 # Additional image names for full platform
@@ -46,7 +47,7 @@ help: ## Show this help message
 	@echo "Environment variables:"
 	@echo "  DOCKER_TAG      - Docker image tag (default: latest)"
 	@echo "  NAMESPACE       - Kubernetes namespace (default: a2a-server)"
-	@echo "  CHART_VERSION   - Helm chart version (default: 0.3.0)"
+	@echo "  CHART_VERSION   - Helm chart version (default: 0.4.2)"
 	@echo "  VALUES_FILE     - Path to Helm values file"
 	@echo "  KUBECONFIG_PATH - Path to kubeconfig (default: quantum-forge-kubeconfig.yaml)"
 	@echo "  DEBUG           - Enable debug output for deployments"
@@ -144,7 +145,10 @@ helm-package: ## Package Helm chart
 
 .PHONY: helm-push
 helm-push: helm-package ## Package and push Helm chart to OCI registry
-	@CHART_PACKAGE=$$(ls a2a-server-*.tgz | head -n1); \
+	@CHART_PACKAGE="a2a-server-$(CHART_VERSION).tgz"; \
+	if [ ! -f "$$CHART_PACKAGE" ]; then \
+		CHART_PACKAGE=$$(ls -t a2a-server-*.tgz 2>/dev/null | head -n1); \
+	fi; \
 	if [ -z "$$CHART_PACKAGE" ]; then \
 		echo "Error: No chart package found. Run 'make helm-package' first."; \
 		exit 1; \
@@ -378,18 +382,20 @@ bluegreen-deploy: ## Deploy with blue-green strategy (zero-downtime)
 bluegreen-rollback: ## Rollback blue-green deployment to previous version
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "↩️  Rolling back blue-green deployment..."
-	./scripts/bluegreen-deploy.sh rollback
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh rollback
 
 .PHONY: bluegreen-status
 bluegreen-status: ## Show blue-green deployment status
 	@chmod +x scripts/bluegreen-deploy.sh
-	./scripts/bluegreen-deploy.sh status
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh status
 
 .PHONY: bluegreen-oci
 bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push image and chart, then deploy with blue-green (OCI)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment with OCI chart..."
-	CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
+		./scripts/bluegreen-deploy.sh deploy
 
 # =============================================================================
 # Environment-Specific Deployments (Blue-Green)
@@ -419,7 +425,7 @@ k8s-prod: docker-build-all docker-push-all helm-package helm-push ## Build and d
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
 	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site"
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=a2a-server \
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
@@ -433,13 +439,15 @@ k8s: k8s-prod ## Alias for k8s-prod
 deploy-fast: helm-package helm-push ## Fast deploy (chart only, assumes images exist)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "⚡ Fast deployment (chart update only)..."
-	CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
+		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: deploy-now
 deploy-now: ## Immediate deploy with existing chart (no build)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Immediate deployment with existing chart..."
-	BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
 
 # =============================================================================
 # Kubernetes Utilities

@@ -68,8 +68,8 @@ export function CISOBanner() {
                         <div className="flex items-start gap-3 rounded-xl bg-white/10 backdrop-blur p-4">
                             <CheckIcon className="h-5 w-5 text-emerald-300 mt-0.5 flex-shrink-0" />
                             <div>
-                                <p className="font-semibold text-white">Data Never Leaves Your VPC</p>
-                                <p className="text-sm text-cyan-200">Process locally, return only results</p>
+                                <p className="font-semibold text-white">Zero Third-Party Storage</p>
+                                <p className="text-sm text-cyan-200">We don’t proxy prompts or source code</p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3 rounded-xl bg-white/10 backdrop-blur p-4">

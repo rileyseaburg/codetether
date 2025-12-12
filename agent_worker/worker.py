@@ -51,6 +51,12 @@ class WorkerConfig:
     codebases: List[Dict[str, str]] = field(default_factory=list)
     poll_interval: int = 5
     opencode_bin: Optional[str] = None
+    # Optional override for OpenCode storage location (directory that contains
+    # subdirs like project/, session/, message/, part/).
+    opencode_storage_path: Optional[str] = None
+    # Optional message sync (for session detail view on remote codebases)
+    session_message_sync_max_sessions: int = 3
+    session_message_sync_max_messages: int = 100
     capabilities: List[str] = field(default_factory=lambda: ["opencode", "build", "deploy"])
 
 
@@ -75,6 +81,7 @@ class AgentWorker:
         self.running = False
         self.opencode_bin = config.opencode_bin or self._find_opencode_binary()
         self.active_processes: Dict[str, subprocess.Popen] = {}
+        self._opencode_storage_path: Optional[Path] = None
 
     def _find_opencode_binary(self) -> str:
         """Find the opencode binary."""
@@ -258,7 +265,8 @@ class AgentWorker:
 
                     # Check if this task is for one of our codebases
                     codebase_id = task.get("codebase_id")
-                    if codebase_id in self.codebases:
+                    # Also allow special "__pending__" registration tasks that any worker can claim.
+                    if codebase_id in self.codebases or codebase_id == "__pending__":
                         await self.execute_task(task)
 
                 # Periodically sync sessions
@@ -281,8 +289,6 @@ class AgentWorker:
 
             # Get tasks for our worker's codebases
             codebase_ids = list(self.codebases.keys())
-            if not codebase_ids:
-                return []
 
             url = f"{self.config.server_url}/v1/opencode/tasks"
             params = {
@@ -293,8 +299,14 @@ class AgentWorker:
             async with session.get(url, params=params) as resp:
                 if resp.status == 200:
                     tasks = await resp.json()
-                    # Filter to tasks for our codebases
-                    return [t for t in tasks if t.get("codebase_id") in self.codebases]
+                    # Filter to:
+                    # 1. Tasks for our registered codebases
+                    # 2. Registration tasks (codebase_id = '__pending__') that any worker can claim
+                    return [
+                        t for t in tasks
+                        if t.get("codebase_id") in self.codebases
+                        or t.get("codebase_id") == "__pending__"
+                    ]
                 else:
                     return []
 
@@ -303,9 +315,17 @@ class AgentWorker:
             return []
 
     async def execute_task(self, task: Dict[str, Any]):
-        """Execute a task using OpenCode."""
+        """Execute a task using OpenCode or handle special task types."""
         task_id = task.get("id")
         codebase_id = task.get("codebase_id")
+        agent_type = task.get("agent_type", "build")
+
+        # Handle special task types
+        if agent_type == "register_codebase":
+            await self.handle_register_codebase_task(task)
+            return
+
+        # Regular task - requires existing codebase
         codebase = self.codebases.get(codebase_id)
 
         if not codebase:
@@ -320,7 +340,6 @@ class AgentWorker:
         try:
             # Build the prompt
             prompt = task.get("prompt", task.get("description", ""))
-            agent_type = task.get("agent_type", "build")
             metadata = task.get("metadata", {})
             model = metadata.get("model")  # e.g., "anthropic/claude-sonnet-4-20250514"
             resume_session_id = metadata.get("resume_session_id")  # Session to resume
@@ -352,6 +371,65 @@ class AgentWorker:
 
         except Exception as e:
             logger.error(f"Task {task_id} execution error: {e}")
+            await self.update_task_status(task_id, "failed", error=str(e))
+
+    async def handle_register_codebase_task(self, task: Dict[str, Any]):
+        """
+        Handle a codebase registration task from the server.
+
+        This validates the path exists locally and registers the codebase
+        with this worker's ID.
+        """
+        task_id = task.get("id")
+        metadata = task.get("metadata", {})
+
+        name = metadata.get("name", "Unknown")
+        path = metadata.get("path")
+        description = metadata.get("description", "")
+
+        logger.info(f"Handling registration task {task_id}: {name} at {path}")
+
+        # Claim the task
+        await self.update_task_status(task_id, "running")
+
+        try:
+            # Validate path exists locally on this worker
+            if not path:
+                await self.update_task_status(
+                    task_id, "failed",
+                    error="No path provided in registration task"
+                )
+                return
+
+            if not os.path.isdir(path):
+                await self.update_task_status(
+                    task_id, "failed",
+                    error=f"Path does not exist on this worker: {path}"
+                )
+                logger.warning(f"Registration failed - path not found: {path}")
+                return
+
+            # Path exists! Register it with the server (with our worker_id)
+            codebase_id = await self.register_codebase(
+                name=name,
+                path=path,
+                description=description,
+            )
+
+            if codebase_id:
+                await self.update_task_status(
+                    task_id, "completed",
+                    result=f"Codebase registered successfully with ID: {codebase_id}"
+                )
+                logger.info(f"Registration task {task_id} completed: {name} -> {codebase_id}")
+            else:
+                await self.update_task_status(
+                    task_id, "failed",
+                    error="Failed to register codebase with server"
+                )
+
+        except Exception as e:
+            logger.error(f"Registration task {task_id} error: {e}")
             await self.update_task_status(task_id, "failed", error=str(e))
 
     async def run_opencode(
@@ -514,10 +592,141 @@ class AgentWorker:
             logger.error(f"Failed to update task status: {e}")
 
     def _get_opencode_storage_path(self) -> Path:
-        """Get the OpenCode global storage path."""
-        # Check XDG_DATA_HOME first
-        xdg_data = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))
-        return Path(xdg_data) / "opencode" / "storage"
+        """Get the OpenCode global storage path.
+
+        We prefer an explicit override, but we also try to "do what I mean" in
+        common deployments where the worker runs as a service account while the
+        codebases (and OpenCode storage) live under /home/<user>/.
+        """
+
+        if self._opencode_storage_path is not None:
+            return self._opencode_storage_path
+
+        def _storage_match_score(storage: Path) -> int:
+            """Return how many registered codebases appear in this OpenCode storage's project list."""
+            codebase_paths: List[str] = [
+                cb.get("path") for cb in (self.config.codebases or []) if cb.get("path")
+            ]
+            if not codebase_paths:
+                return 0
+
+            project_dir = storage / "project"
+            if not project_dir.exists() or not project_dir.is_dir():
+                return 0
+
+            # Compare resolved paths to handle symlinks/relative config.
+            try:
+                resolved_codebases = {str(Path(p).resolve()) for p in codebase_paths}
+            except Exception:
+                resolved_codebases = set(codebase_paths)
+
+            matched: set[str] = set()
+
+            for project_file in project_dir.glob("*.json"):
+                if project_file.stem == "global":
+                    continue
+                try:
+                    with open(project_file, "r", encoding="utf-8") as f:
+                        project = json.load(f)
+                    worktree = project.get("worktree")
+                    if not worktree:
+                        continue
+                    try:
+                        wt = str(Path(worktree).resolve())
+                        if wt in resolved_codebases:
+                            matched.add(wt)
+                    except Exception:
+                        if worktree in resolved_codebases:
+                            matched.add(worktree)
+                except Exception:
+                    continue
+
+            return len(matched)
+
+        candidates: List[Path] = []
+        override_path: Optional[Path] = None
+
+        # 1) Explicit override (config/env)
+        override = (
+            self.config.opencode_storage_path
+            or os.environ.get("A2A_OPENCODE_STORAGE_PATH")
+            or os.environ.get("OPENCODE_STORAGE_PATH")
+        )
+        if override:
+            override_path = Path(os.path.expanduser(override)).resolve()
+            candidates.append(override_path)
+
+        # 2) Standard per-user location for the current service user
+        xdg_data = os.environ.get(
+            "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
+        )
+        candidates.append(Path(os.path.expanduser(xdg_data)) / "opencode" / "storage")
+
+        # 3) Heuristic: infer /home/<user> from codebase paths
+        inferred_users: List[str] = []
+        for cb in self.config.codebases:
+            p = cb.get("path")
+            if not p:
+                continue
+            parts = Path(p).parts
+            if len(parts) >= 3 and parts[0] == "/" and parts[1] == "home":
+                inferred_users.append(parts[2])
+
+        # Also infer from the opencode binary path (often /home/<user>/.opencode/bin/opencode)
+        try:
+            bin_parts = Path(self.opencode_bin).parts
+            if len(bin_parts) >= 3 and bin_parts[0] == "/" and bin_parts[1] == "home":
+                inferred_users.append(bin_parts[2])
+        except Exception:
+            pass
+
+        for user in dict.fromkeys(inferred_users):  # preserve order, de-dupe
+            candidates.append(Path("/home") / user / ".local" / "share" / "opencode" / "storage")
+
+        # Pick the best existing candidate.
+        first_existing: Optional[Path] = None
+        best_match: Optional[Path] = None
+        best_score = -1
+        for c in candidates:
+            try:
+                if c.exists() and c.is_dir():
+                    if first_existing is None:
+                        first_existing = c
+
+                    # Explicit override wins if it exists.
+                    if override_path is not None and c == override_path:
+                        self._opencode_storage_path = c
+                        logger.info(f"Using OpenCode storage at (override): {c}")
+                        return c
+
+                    # Otherwise, score by how many registered codebases this storage contains.
+                    score = _storage_match_score(c)
+                    if score > best_score:
+                        best_score = score
+                        best_match = c
+            except Exception:
+                continue
+
+        if best_match is not None and best_score > 0:
+            self._opencode_storage_path = best_match
+            logger.info(
+                f"Using OpenCode storage at: {best_match} (matched {best_score} codebase(s))"
+            )
+            return best_match
+
+        if first_existing is not None:
+            # Fall back to *something* that exists, but warn because it might be empty/wrong.
+            self._opencode_storage_path = first_existing
+            logger.warning(
+                "OpenCode storage path exists but did not match any registered codebase projects; "
+                f"falling back to: {first_existing}"
+            )
+            return first_existing
+
+        # Final fallback (even if it doesn't exist yet)
+        self._opencode_storage_path = candidates[0] if candidates else (Path.home() / ".local" / "share" / "opencode" / "storage")
+        logger.warning(f"OpenCode storage path not found on disk; defaulting to: {self._opencode_storage_path}")
+        return self._opencode_storage_path
 
     def _get_project_id_for_path(self, codebase_path: str) -> Optional[str]:
         """Get the OpenCode project ID (hash) for a given codebase path."""
@@ -532,10 +741,16 @@ class AgentWorker:
             if project_file.stem == "global":
                 continue
             try:
-                with open(project_file) as f:
+                with open(project_file, "r", encoding="utf-8") as f:
                     project = json.load(f)
-                    if project.get("worktree") == codebase_path:
-                        return project.get("id")
+                worktree = project.get("worktree")
+                if worktree:
+                    try:
+                        if Path(worktree).resolve() == Path(codebase_path).resolve():
+                            return project.get("id")
+                    except Exception:
+                        if worktree == codebase_path:
+                            return project.get("id")
             except Exception:
                 continue
 
@@ -554,7 +769,7 @@ class AgentWorker:
         if not session_dir.exists():
             return []
 
-        sessions = []
+        sessions: List[Dict[str, Any]] = []
         for session_file in session_dir.glob("ses_*.json"):
             try:
                 with open(session_file) as f:
@@ -564,13 +779,37 @@ class AgentWorker:
                     created_ms = time_data.get("created", 0)
                     updated_ms = time_data.get("updated", 0)
 
+                    session_id = session_data.get("id")
+                    # OpenCode stores messages separately; count message files for UI convenience.
+                    msg_count = 0
+                    if session_id:
+                        msg_dir = storage_path / "message" / str(session_id)
+                        try:
+                            if msg_dir.exists():
+                                msg_count = len(list(msg_dir.glob("msg_*.json")))
+                        except Exception:
+                            msg_count = 0
+
+                    created_iso = (
+                        datetime.fromtimestamp(created_ms / 1000).isoformat()
+                        if created_ms
+                        else None
+                    )
+                    updated_iso = (
+                        datetime.fromtimestamp(updated_ms / 1000).isoformat()
+                        if updated_ms
+                        else None
+                    )
+
                     sessions.append({
-                        "id": session_data.get("id"),
+                        "id": session_id,
                         "title": session_data.get("title", "Untitled"),
                         "directory": session_data.get("directory"),
                         "project_id": project_id,
-                        "created_at": datetime.fromtimestamp(created_ms / 1000).isoformat() if created_ms else None,
-                        "updated_at": datetime.fromtimestamp(updated_ms / 1000).isoformat() if updated_ms else None,
+                        # Match the UI expectations from monitor-tailwind.html
+                        "created": created_iso,
+                        "updated": updated_iso,
+                        "messageCount": msg_count,
                         "summary": session_data.get("summary", {}),
                         "version": session_data.get("version"),
                     })
@@ -579,47 +818,98 @@ class AgentWorker:
                 continue
 
         # Sort by updated time descending
-        sessions.sort(key=lambda s: s.get("updated_at") or "", reverse=True)
+        sessions.sort(key=lambda s: s.get("updated") or "", reverse=True)
         return sessions
 
-    def get_session_messages(self, session_id: str) -> List[Dict[str, Any]]:
-        """Get messages for a specific session."""
+    def get_session_messages(self, session_id: str, max_messages: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get messages (including parts) for a specific session from OpenCode storage."""
         storage_path = self._get_opencode_storage_path()
         message_dir = storage_path / "message" / session_id
 
         if not message_dir.exists():
             return []
 
-        messages = []
-        for msg_file in message_dir.glob("msg_*.json"):
+        msg_files = sorted(message_dir.glob("msg_*.json"))
+        if max_messages is not None and max_messages > 0 and len(msg_files) > max_messages:
+            msg_files = msg_files[-max_messages:]
+
+        messages: List[Dict[str, Any]] = []
+        for msg_file in msg_files:
             try:
                 with open(msg_file) as f:
                     msg_data = json.load(f)
-                    time_data = msg_data.get("time", {})
-                    created_ms = time_data.get("created", 0)
 
-                    messages.append({
-                        "id": msg_data.get("id"),
-                        "session_id": msg_data.get("sessionID"),
-                        "role": msg_data.get("role"),
-                        "created_at": datetime.fromtimestamp(created_ms / 1000).isoformat() if created_ms else None,
-                        "summary": msg_data.get("summary", {}),
-                        "agent": msg_data.get("agent"),
-                        "model": msg_data.get("model", {}),
-                    })
+                msg_id = msg_data.get("id")
+                role = msg_data.get("role")
+                agent = msg_data.get("agent")
+                model_obj = msg_data.get("model") or {}
+                model = None
+                if isinstance(model_obj, dict):
+                    provider_id = model_obj.get("providerID")
+                    model_id = model_obj.get("modelID")
+                    if provider_id and model_id:
+                        model = f"{provider_id}/{model_id}"
+                elif isinstance(model_obj, str):
+                    model = model_obj
+
+                time_data = msg_data.get("time", {}) or {}
+                created_ms = time_data.get("created", 0)
+                created_iso = (
+                    datetime.fromtimestamp(created_ms / 1000).isoformat()
+                    if created_ms
+                    else None
+                )
+
+                # Load message parts (text/tool/step/etc)
+                parts: List[Dict[str, Any]] = []
+                if msg_id:
+                    parts_dir = storage_path / "part" / str(msg_id)
+                    if parts_dir.exists() and parts_dir.is_dir():
+                        for part_file in sorted(parts_dir.glob("prt_*.json")):
+                            try:
+                                with open(part_file, "r", encoding="utf-8") as f:
+                                    part_data = json.load(f)
+                                part_obj: Dict[str, Any] = {
+                                    "id": part_data.get("id"),
+                                    "type": part_data.get("type"),
+                                }
+                                for k in ("text", "tool", "state", "reason", "callID", "cost", "tokens"):
+                                    if k in part_data:
+                                        part_obj[k] = part_data.get(k)
+                                parts.append(part_obj)
+                            except Exception as e:
+                                logger.debug(f"Error reading part file {part_file}: {e}")
+
+                messages.append(
+                    {
+                        "id": msg_id,
+                        "sessionID": msg_data.get("sessionID") or session_id,
+                        "role": role,
+                        "time": {"created": created_iso},
+                        "agent": agent,
+                        "model": model,
+                        "parts": parts,
+                    }
+                )
             except Exception as e:
                 logger.debug(f"Error reading message file {msg_file}: {e}")
                 continue
 
-        # Sort by created time ascending
-        messages.sort(key=lambda m: m.get("created_at") or "")
+        # Sort by created time ascending (ISO or None)
+        messages.sort(key=lambda m: (m.get("time") or {}).get("created") or "")
         return messages
 
     async def report_sessions_to_server(self):
         """Report all sessions for registered codebases to the server."""
-        for codebase_id, codebase in self.codebases.items():
+        # Iterate over a snapshot since we may update self.codebases if we need
+        # to re-register a codebase (e.g., after a server restart).
+        for codebase_id, codebase in list(self.codebases.items()):
             try:
                 sessions = self.get_sessions_for_codebase(codebase.path)
+                logger.info(
+                    f"Discovered {len(sessions)} OpenCode sessions for codebase '{codebase.name}' "
+                    f"(id={codebase_id}, path={codebase.path})"
+                )
                 if not sessions:
                     continue
 
@@ -631,15 +921,103 @@ class AgentWorker:
                     "sessions": sessions,
                 }
 
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        logger.debug(f"Synced {len(sessions)} sessions for {codebase.name}")
-                    else:
+                async def _post_sessions(target_codebase_id: str) -> int:
+                    target_url = f"{self.config.server_url}/v1/opencode/codebases/{target_codebase_id}/sessions/sync"
+                    async with session.post(target_url, json=payload) as resp:
+                        if resp.status == 200:
+                            logger.debug(
+                                f"Synced {len(sessions)} sessions for {codebase.name} (codebase_id={target_codebase_id})"
+                            )
+                            return 200
+
                         text = await resp.text()
-                        logger.debug(f"Session sync returned {resp.status}: {text}")
+
+                        # Make failures visible at INFO/WARN so operators can
+                        # diagnose sync issues in journald without turning on
+                        # debug logging.
+                        logger.warning(
+                            "Session sync failed for codebase '%s' (codebase_id=%s, path=%s): %s %s",
+                            codebase.name,
+                            target_codebase_id,
+                            codebase.path,
+                            resp.status,
+                            (text[:500] + "…") if len(text) > 500 else text,
+                        )
+                        return resp.status
+
+                status = await _post_sessions(codebase_id)
+
+                # Self-heal common failure modes:
+                # - 404: server lost codebase registry (restart / db reset)
+                # - 403: worker_id mismatch for this codebase
+                # In either case, re-register the codebase and retry once.
+                if status in (403, 404):
+                    logger.info(
+                        "Attempting to re-register codebase '%s' after session sync %s (old_id=%s)",
+                        codebase.name,
+                        status,
+                        codebase_id,
+                    )
+                    new_codebase_id = await self.register_codebase(
+                        name=codebase.name,
+                        path=codebase.path,
+                        description=codebase.description,
+                    )
+
+                    # If a new ID was created/returned, drop the stale mapping.
+                    if new_codebase_id and new_codebase_id != codebase_id:
+                        self.codebases.pop(codebase_id, None)
+                        codebase_id = new_codebase_id
+
+                    if new_codebase_id:
+                        await _post_sessions(codebase_id)
+
+                # Optionally sync recent session messages so the UI can show session details
+                max_sessions = getattr(self.config, "session_message_sync_max_sessions", 0) or 0
+                max_messages = getattr(self.config, "session_message_sync_max_messages", 0) or 0
+                if max_sessions > 0 and max_messages > 0:
+                    await self._report_recent_session_messages_to_server(
+                        codebase_id=codebase_id,
+                        sessions=sessions[:max_sessions],
+                        max_messages=max_messages,
+                    )
 
             except Exception as e:
                 logger.debug(f"Failed to sync sessions for {codebase.name}: {e}")
+
+    async def _report_recent_session_messages_to_server(
+        self,
+        codebase_id: str,
+        sessions: List[Dict[str, Any]],
+        max_messages: int,
+    ):
+        """Best-effort sync for the most recent sessions' messages."""
+        try:
+            session = await self._get_session()
+            for ses in sessions:
+                session_id = ses.get("id")
+                if not session_id:
+                    continue
+
+                messages = self.get_session_messages(str(session_id), max_messages=max_messages)
+                if not messages:
+                    continue
+
+                url = f"{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/{session_id}/messages/sync"
+                payload = {
+                    "worker_id": self.config.worker_id,
+                    "messages": messages,
+                }
+                async with session.post(url, json=payload) as resp:
+                    if resp.status == 200:
+                        logger.debug(
+                            f"Synced {len(messages)} messages for session {session_id} (codebase {codebase_id})"
+                        )
+                    else:
+                        text = await resp.text()
+                        logger.debug(f"Message sync returned {resp.status}: {text}")
+        except Exception as e:
+            logger.debug(f"Failed to sync session messages for codebase {codebase_id}: {e}")
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -667,12 +1045,12 @@ async def main():
     parser = argparse.ArgumentParser(description="A2A Agent Worker")
     parser.add_argument(
         "--server", "-s",
-        default=os.environ.get("A2A_SERVER_URL", "https://api.codetether.run"),
+        default=None,
         help="A2A server URL"
     )
     parser.add_argument(
         "--name", "-n",
-        default=os.environ.get("A2A_WORKER_NAME", os.uname().nodename),
+        default=None,
         help="Worker name"
     )
     parser.add_argument(
@@ -687,7 +1065,7 @@ async def main():
     parser.add_argument(
         "--poll-interval", "-i",
         type=int,
-        default=int(os.environ.get("A2A_POLL_INTERVAL", "5")),
+        default=None,
         help="Poll interval in seconds"
     )
     parser.add_argument(
@@ -695,10 +1073,78 @@ async def main():
         help="Path to opencode binary"
     )
 
+    parser.add_argument(
+        "--opencode-storage-path",
+        default=None,
+        help="Override OpenCode storage path (directory containing project/, session/, message/, part/)"
+    )
+    parser.add_argument(
+        "--session-message-sync-max-sessions",
+        type=int,
+        default=None,
+        help="How many most-recent sessions per codebase to sync messages for (0 disables)"
+    )
+    parser.add_argument(
+        "--session-message-sync-max-messages",
+        type=int,
+        default=None,
+        help="How many most-recent messages per session to sync (0 disables)"
+    )
+
     args = parser.parse_args()
 
     # Load config from file
     file_config = load_config(args.config)
+
+    # Honor config file values when CLI flags are not explicitly provided.
+    # Note: argparse does not tell us whether a value came from a default or
+    # from an explicit flag, so we detect explicit flags via sys.argv.
+    server_flag_set = ("--server" in sys.argv) or ("-s" in sys.argv)
+    name_flag_set = ("--name" in sys.argv) or ("-n" in sys.argv)
+    poll_flag_set = ("--poll-interval" in sys.argv) or ("-i" in sys.argv)
+
+    # Resolve server_url with precedence: CLI flag > env > config > default
+    if server_flag_set and args.server:
+        server_url = args.server
+    elif os.environ.get("A2A_SERVER_URL"):
+        server_url = os.environ["A2A_SERVER_URL"]
+    elif file_config.get("server_url"):
+        server_url = file_config["server_url"]
+    else:
+        server_url = "https://api.codetether.run"
+
+    # Resolve worker_name with precedence: CLI flag > env > config > hostname
+    if name_flag_set and args.name:
+        worker_name = args.name
+    elif os.environ.get("A2A_WORKER_NAME"):
+        worker_name = os.environ["A2A_WORKER_NAME"]
+    elif file_config.get("worker_name"):
+        worker_name = file_config["worker_name"]
+    else:
+        worker_name = os.uname().nodename
+
+    # Resolve poll_interval with precedence: CLI flag > env > config > default
+    poll_interval_raw = None
+    if poll_flag_set and (args.poll_interval is not None):
+        poll_interval_raw = args.poll_interval
+    elif os.environ.get("A2A_POLL_INTERVAL"):
+        poll_interval_raw = os.environ.get("A2A_POLL_INTERVAL")
+    elif file_config.get("poll_interval") is not None:
+        poll_interval_raw = file_config.get("poll_interval")
+    else:
+        poll_interval_raw = 5
+
+    try:
+        poll_interval = int(poll_interval_raw)
+    except (TypeError, ValueError):
+        poll_interval = 5
+        logger.warning(
+            "Invalid poll_interval value; falling back to 5 seconds"
+        )
+
+    capabilities = file_config.get("capabilities")
+    if not isinstance(capabilities, list):
+        capabilities = None
 
     # Build codebase list
     codebases = file_config.get("codebases", [])
@@ -712,13 +1158,51 @@ async def main():
             codebases.append({"name": name, "path": os.path.abspath(path)})
 
     # Create config
-    config = WorkerConfig(
-        server_url=args.server,
-        worker_name=args.name,
-        codebases=codebases,
-        poll_interval=args.poll_interval,
-        opencode_bin=args.opencode or file_config.get("opencode_bin"),
-    )
+    config_kwargs: Dict[str, Any] = {
+        "server_url": server_url,
+        "worker_name": worker_name,
+        "codebases": codebases,
+        "poll_interval": poll_interval,
+        "opencode_bin": args.opencode or file_config.get("opencode_bin"),
+        "opencode_storage_path": (
+            args.opencode_storage_path
+            or os.environ.get("A2A_OPENCODE_STORAGE_PATH")
+            or file_config.get("opencode_storage_path")
+        ),
+    }
+
+    # Optional session message sync tuning
+    if args.session_message_sync_max_sessions is not None:
+        config_kwargs["session_message_sync_max_sessions"] = args.session_message_sync_max_sessions
+    elif os.environ.get("A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS"):
+        try:
+            config_kwargs["session_message_sync_max_sessions"] = int(
+                os.environ["A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS"]
+            )
+        except ValueError:
+            pass
+    elif file_config.get("session_message_sync_max_sessions") is not None:
+        config_kwargs["session_message_sync_max_sessions"] = file_config.get(
+            "session_message_sync_max_sessions"
+        )
+
+    if args.session_message_sync_max_messages is not None:
+        config_kwargs["session_message_sync_max_messages"] = args.session_message_sync_max_messages
+    elif os.environ.get("A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES"):
+        try:
+            config_kwargs["session_message_sync_max_messages"] = int(
+                os.environ["A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES"]
+            )
+        except ValueError:
+            pass
+    elif file_config.get("session_message_sync_max_messages") is not None:
+        config_kwargs["session_message_sync_max_messages"] = file_config.get(
+            "session_message_sync_max_messages"
+        )
+    if capabilities is not None:
+        config_kwargs["capabilities"] = capabilities
+
+    config = WorkerConfig(**config_kwargs)
 
     # Create and start worker
     worker = AgentWorker(config)

@@ -8,6 +8,7 @@ jsonrpcserver>=5.0.0
 
 # Message broker support
 redis>=5.0.0
+async-timeout>=4.0.3
 
 # HTTP client for agent communication
 httpx>=0.25.0

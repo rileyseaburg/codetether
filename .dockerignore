@@ -51,9 +51,8 @@ Thumbs.db
 .gitattributes
 
 # Documentation
-docs/
-*.md
-*.rst
+# Keep markdown/reST files in the build context because the unified Dockerfile
+# builds the docs image from content in codetether-docs/.
 
 # Test files
 tests/
@@ -88,4 +87,13 @@ types/
 
 # Helm chart (we don't want it in the image)
 chart/
+
+# NOTE: Do not exclude marketing-site/, opencode/, codetether-docs/, or ui/
+# because Dockerfile.unified builds images that require those directories.
+
+# Helm packages
+*.tgz
+
+# Data directory (runtime data)
+data/
 helm/

@@ -29,12 +29,12 @@ export function NavLinks() {
             >
                 Pricing
             </Link>
-            <Link
-                href="/docs"
+            <a
+                href="https://docs.codetether.run"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
             >
                 Docs
-            </Link>
+            </a>
             <Link
                 href="https://github.com/rileyseaburg/codetether"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"

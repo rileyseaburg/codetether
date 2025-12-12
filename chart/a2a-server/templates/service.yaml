@@ -4,13 +4,17 @@ metadata:
   name: {{ include "a2a-server.fullname" . }}
   labels:
     {{- include "a2a-server.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
   annotations:
+    {{- with .Values.service.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with include "a2a-server.annotations" . }}
+    {{- end }}
+    {{- with include "a2a-server.annotations" . }}
     {{- . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- if .Values.blueGreen.enabled }}
+    bluegreen/mode: {{ .Values.blueGreen.mode | quote }}
+    bluegreen/active-color: {{ .Values.blueGreen.serviceColor | quote }}
+    {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -25,4 +29,9 @@ spec:
       name: mcp-http
     {{- end }}
   selector:
+    {{- if and .Values.blueGreen.enabled (eq .Values.blueGreen.mode "bluegreen") }}
+    {{- include "a2a-server.blueGreenSelectorLabels" . | nindent 4 }}
+    color: {{ .Values.blueGreen.serviceColor | quote }}
+    {{- else }}
     {{- include "a2a-server.selectorLabels" . | nindent 4 }}
+    {{- end }}

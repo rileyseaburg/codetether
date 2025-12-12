@@ -547,9 +547,8 @@ class OpenCodeBridge:
         # Normalize path
         path = os.path.abspath(os.path.expanduser(path))
 
-        # Only validate path if no worker (local execution mode)
-        if not worker_id and not os.path.isdir(path):
-            raise ValueError(f"Codebase path does not exist: {path}")
+        # NOTE: Path validation removed - the control plane never executes locally.
+        # Paths are validated by workers when they register codebases.
 
         # Check for existing codebase with same path - update instead of duplicate
         existing_id = None
@@ -971,11 +970,21 @@ class OpenCodeBridge:
         priority: int = 0,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[AgentTask]:
-        """Create a new task for an agent."""
-        codebase = self._codebases.get(codebase_id)
-        if not codebase:
-            logger.error(f"Cannot create task: codebase {codebase_id} not found")
-            return None
+        """
+        Create a new task for an agent.
+
+        Special codebase_id values:
+        - '__pending__': Registration tasks that any worker can claim
+        """
+        # Allow special '__pending__' codebase_id for registration tasks
+        if codebase_id != '__pending__':
+            codebase = self._codebases.get(codebase_id)
+            if not codebase:
+                logger.error(f"Cannot create task: codebase {codebase_id} not found")
+                return None
+            codebase_name = codebase.name
+        else:
+            codebase_name = "pending-registration"
 
         task_id = str(uuid.uuid4())
         task = AgentTask(
@@ -998,7 +1007,7 @@ class OpenCodeBridge:
         # Persist to database
         self._save_task(task)
 
-        logger.info(f"Created task {task_id} for {codebase.name}: {title}")
+        logger.info(f"Created task {task_id} for {codebase_name}: {title}")
 
         # Notify callbacks
         asyncio.create_task(self._notify_task_update(task))

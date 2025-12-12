@@ -13,7 +13,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "a2a-server.fullname" . }}
+    name: {{- if and .Values.blueGreen.enabled (eq .Values.blueGreen.mode "bluegreen") -}}{{ include "a2a-server.fullname" . }}-deployment-{{ .Values.blueGreen.serviceColor }}{{- else -}}{{ include "a2a-server.fullname" . }}{{- end }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

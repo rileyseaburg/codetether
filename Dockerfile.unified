@@ -87,12 +87,31 @@ USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]
 
-# OpenCode stage - lightweight client that connects to host VM's opencode API
+# OpenCode stage - build the opencode binary from source
+FROM oven/bun:1.3.3-alpine as opencode-builder
+WORKDIR /src/opencode
+
+# Native deps are sometimes needed for install/build steps (final image stays small)
+RUN apk add --no-cache bash git python3 make g++
+
+COPY opencode/ ./
+
+# Install workspace deps and build the binary. The build script outputs multiple targets;
+# we copy the linux x64 baseline musl binary into the runtime stage.
+#
+# NOTE: The embedded opencode workspace has a large optional-dependency surface.
+# In practice, Bun may need to normalize the lockfile for the builder environment
+# (e.g. alpine/musl). We don't freeze the lockfile here because the lockfile
+# mutation (if any) is isolated to the image layer and does not affect the repo.
+RUN bun install
+RUN bun run --cwd packages/opencode build --single
+
+# Runtime image
 FROM alpine as opencode
 ARG BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
 ENV BUN_RUNTIME_TRANSPILER_CACHE_PATH=${BUN_RUNTIME_TRANSPILER_CACHE_PATH}
 
-RUN apk add libgcc libstdc++
-COPY opencode/packages/opencode/dist/opencode-linux-x64-baseline-musl/bin/opencode /usr/local/bin/opencode
-RUN opencode --version
+RUN apk add --no-cache libgcc libstdc++
+COPY --from=opencode-builder /src/opencode/packages/opencode/dist/opencode-linux-x64-baseline-musl/bin/opencode /usr/local/bin/opencode
+RUN /usr/local/bin/opencode --version
 ENTRYPOINT ["opencode"]

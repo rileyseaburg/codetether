@@ -420,6 +420,81 @@ class PersistentMessageStore:
         # Fallback to in-memory only
         self._in_memory_messages.append(msg_dict)
 
+    def _get_messages_from_memory(
+        self,
+        limit: int = 100,
+        message_type: Optional[str] = None,
+        agent_name: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        since: Optional[datetime] = None,
+        offset: int = 0,
+    ) -> List[MonitorMessage]:
+        """Return messages from the in-memory cache (used for MinIO and in-memory fallback)."""
+
+        def _parse_ts(value: Any) -> datetime:
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value)
+                except Exception:
+                    return datetime.min
+            return datetime.min
+
+        def _get_metadata(m: Dict[str, Any]) -> Dict[str, Any]:
+            md = m.get('metadata')
+            return md if isinstance(md, dict) else {}
+
+        raw = []
+        for m in self._in_memory_messages:
+            if isinstance(m, dict):
+                raw.append(m)
+            else:
+                # Defensive: some older code paths may store MonitorMessage objects
+                try:
+                    raw.append(asdict(m))
+                except Exception:
+                    pass
+
+        # Apply filters
+        if message_type:
+            raw = [m for m in raw if m.get('type') == message_type]
+        if agent_name:
+            raw = [m for m in raw if m.get('agent_name') == agent_name]
+        if conversation_id:
+            raw = [
+                m
+                for m in raw
+                if _get_metadata(m).get('conversation_id') == conversation_id
+            ]
+        if since:
+            raw = [m for m in raw if _parse_ts(m.get('timestamp')) > since]
+
+        # Match SQLite ordering: newest first
+        raw.sort(key=lambda m: _parse_ts(m.get('timestamp')), reverse=True)
+
+        # Apply pagination
+        page = raw[offset : offset + limit]
+
+        result: List[MonitorMessage] = []
+        for m in page:
+            result.append(
+                MonitorMessage(
+                    id=m.get('id', ''),
+                    timestamp=_parse_ts(m.get('timestamp'))
+                    if m.get('timestamp') is not None
+                    else datetime.now(),
+                    type=m.get('type', ''),
+                    agent_name=m.get('agent_name', ''),
+                    content=m.get('content', ''),
+                    metadata=_get_metadata(m),
+                    response_time=m.get('response_time'),
+                    tokens=m.get('tokens'),
+                    error=m.get('error'),
+                )
+            )
+        return result
+
     def get_messages(
         self,
         limit: int = 100,
@@ -430,39 +505,17 @@ class PersistentMessageStore:
         offset: int = 0,
     ) -> List[MonitorMessage]:
         """Get messages with optional filtering."""
-        # Use in-memory fallback if no persistent storage
-        if not self._use_sqlite and not self._use_minio:
-            messages = list(self._in_memory_messages)
-            if message_type:
-                messages = [
-                    m for m in messages if m.get('type') == message_type
-                ]
-            if agent_name:
-                messages = [
-                    m for m in messages if m.get('agent_name') == agent_name
-                ]
-            # Return as MonitorMessage objects
-            result = []
-            for m in messages[-limit:]:
-                if isinstance(m, dict):
-                    result.append(
-                        MonitorMessage(
-                            id=m.get('id', ''),
-                            timestamp=datetime.fromisoformat(m['timestamp'])
-                            if isinstance(m.get('timestamp'), str)
-                            else m.get('timestamp', datetime.now()),
-                            type=m.get('type', ''),
-                            agent_name=m.get('agent_name', ''),
-                            content=m.get('content', ''),
-                            metadata=m.get('metadata', {}),
-                            response_time=m.get('response_time'),
-                            tokens=m.get('tokens'),
-                            error=m.get('error'),
-                        )
-                    )
-                else:
-                    result.append(m)
-            return result
+        # For MinIO-backed deployments, reads come from the in-memory cache.
+        # (MinIO is used as the persistence layer, and the cache is populated on init and on writes.)
+        if not self._use_sqlite:
+            return self._get_messages_from_memory(
+                limit=limit,
+                message_type=message_type,
+                agent_name=agent_name,
+                conversation_id=conversation_id,
+                since=since,
+                offset=offset,
+            )
 
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -514,18 +567,20 @@ class PersistentMessageStore:
 
     def get_message_count(self, message_type: Optional[str] = None) -> int:
         """Get total message count."""
-        # Use in-memory count if no persistent storage
-        if not self._use_sqlite and not self._use_minio:
+        # For MinIO (and in-memory fallback), counts are tracked in-memory.
+        if not self._use_sqlite:
             if message_type:
                 return len(
                     [
                         m
                         for m in self._in_memory_messages
-                        if m.get('type') == message_type
+                        if isinstance(m, dict) and m.get('type') == message_type
                     ]
                 )
-            return self._in_memory_stats.get(
-                'total_messages', len(self._in_memory_messages)
+            return int(
+                self._in_memory_stats.get(
+                    'total_messages', len(self._in_memory_messages)
+                )
             )
 
         conn = self._get_connection()
@@ -591,9 +646,11 @@ class PersistentMessageStore:
 
     def get_stats(self) -> Dict[str, int]:
         """Get aggregate statistics."""
-        # Use in-memory stats if no persistent storage
-        if not self._use_sqlite and not self._use_minio:
-            return self._in_memory_stats.copy()
+        # For MinIO (and in-memory fallback), stats are tracked in-memory.
+        if not self._use_sqlite:
+            stats = self._in_memory_stats.copy()
+            stats['interventions'] = len(self._in_memory_interventions)
+            return stats
 
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -611,8 +668,8 @@ class PersistentMessageStore:
         self, query: str, limit: int = 100
     ) -> List[MonitorMessage]:
         """Full-text search in message content."""
-        # Use in-memory search if no persistent storage
-        if not self._use_sqlite and not self._use_minio:
+        # For MinIO (and in-memory fallback), search the in-memory cache.
+        if not self._use_sqlite:
             query_lower = query.lower()
             results = []
             for m in self._in_memory_messages:
@@ -1105,6 +1162,69 @@ _worker_sessions: Dict[str, List[Dict[str, Any]]] = {}
 _worker_messages: Dict[str, List[Dict[str, Any]]] = {}
 # Real-time task output streams: {task_id: [output_lines]}
 _task_output_streams: Dict[str, List[Dict[str, Any]]] = {}
+
+# Optional Redis backing store for worker-synced sessions/messages.
+#
+# Why: These in-memory dicts work for single-process dev, but in production
+# (multiple replicas / restarts) the UI can appear to show only "local" sessions.
+# When Redis is available, we persist worker sync payloads there so any instance
+# can serve them.
+try:
+    import redis.asyncio as aioredis  # type: ignore
+
+    _REDIS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    aioredis = None
+    _REDIS_AVAILABLE = False
+
+_redis_lock = asyncio.Lock()
+_redis_client = None
+_redis_checked = False
+
+
+async def _get_redis_client():
+    """Return a shared async Redis client if configured and reachable."""
+    global _redis_client, _redis_checked
+
+    if not _REDIS_AVAILABLE:
+        return None
+
+    redis_url = os.environ.get('A2A_REDIS_URL')
+    if not redis_url:
+        return None
+
+    if _redis_client is not None:
+        return _redis_client
+
+    async with _redis_lock:
+        if _redis_client is not None:
+            return _redis_client
+        if _redis_checked:
+            return None
+        _redis_checked = True
+
+        try:
+            client = aioredis.from_url(
+                redis_url,
+                encoding='utf-8',
+                decode_responses=True,
+            )
+            await client.ping()
+            _redis_client = client
+            logger.info('✓ OpenCode worker sync store using Redis')
+            return _redis_client
+        except Exception as e:
+            logger.warning(f'OpenCode worker sync store: Redis unavailable ({e}); falling back to in-memory')
+            _redis_client = None
+            return None
+
+
+def _redis_key_worker_sessions(codebase_id: str) -> str:
+    return f'a2a:opencode:codebases:{codebase_id}:sessions'
+
+
+def _redis_key_worker_messages(session_id: str) -> str:
+    return f'a2a:opencode:sessions:{session_id}:messages'
 
 
 def get_opencode_bridge():
@@ -1648,6 +1768,28 @@ async def list_models():
             'provider': 'Anthropic',
         },
         # OpenAI
+        {
+            'id': 'openai/gpt-5.1-codex-max',
+            'name': 'GPT-5.1-Codex-Max (Preview)',
+            'provider': 'OpenAI',
+        },
+        # GPT-5.2 (API model names)
+        {
+            'id': 'openai/gpt-5.2',
+            'name': 'GPT-5.2 (Thinking)',
+            'provider': 'OpenAI',
+        },
+        {
+            'id': 'openai/gpt-5.2-chat-latest',
+            'name': 'GPT-5.2 (Instant)',
+            'provider': 'OpenAI',
+        },
+        {
+            'id': 'openai/gpt-5.2-pro',
+            'name': 'GPT-5.2 Pro',
+            'provider': 'OpenAI',
+        },
+
         {'id': 'openai/gpt-4o', 'name': 'GPT-4o', 'provider': 'OpenAI'},
         {
             'id': 'openai/gpt-4o-mini',
@@ -1759,42 +1901,93 @@ async def list_codebases():
 
 @opencode_router.post('/codebases')
 async def register_codebase(registration: CodebaseRegistration):
-    """Register a new codebase for agent work."""
+    """
+    Register a new codebase for agent work.
+
+    If worker_id is provided (from a worker), the codebase is registered directly
+    since the worker has already validated the path exists locally.
+
+    If NO worker_id is provided (from UI), a registration task is created for
+    workers to pick up, validate the path, and confirm registration.
+    """
     bridge = get_opencode_bridge()
     if bridge is None:
         raise HTTPException(
             status_code=503, detail='OpenCode bridge not available'
         )
 
-    try:
-        codebase = bridge.register_codebase(
-            name=registration.name,
-            path=registration.path,
-            description=registration.description,
-            agent_config=registration.agent_config,
-            worker_id=registration.worker_id,
+    # If worker_id provided, this is a confirmed registration from a worker
+    # The worker has already validated the path exists on its machine
+    if registration.worker_id:
+        try:
+            codebase = bridge.register_codebase(
+                name=registration.name,
+                path=registration.path,
+                description=registration.description,
+                agent_config=registration.agent_config,
+                worker_id=registration.worker_id,
+            )
+
+            await monitoring_service.log_message(
+                agent_name='OpenCode Bridge',
+                content=f'Registered codebase: {registration.name} at {registration.path} (worker: {registration.worker_id})',
+                message_type='system',
+                metadata={
+                    'codebase_id': codebase.id,
+                    'path': registration.path,
+                    'worker_id': registration.worker_id,
+                },
+            )
+
+            return {'success': True, 'codebase': codebase.to_dict()}
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    # No worker_id - this is a registration REQUEST from UI
+    # Create a task for workers to validate and claim this codebase
+    # Check if any workers are registered
+    if not _registered_workers:
+        raise HTTPException(
+            status_code=400,
+            detail='No workers available. Start a worker on the machine with access to this path.'
         )
 
-        # Log the registration
-        worker_info = (
-            f' (worker: {registration.worker_id})'
-            if registration.worker_id
-            else ''
-        )
+    # Create a "register_codebase" task that workers will pick up
+    task = bridge.create_task(
+        codebase_id='__pending__',  # Special marker for registration tasks
+        title=f'Register codebase: {registration.name}',
+        prompt=f'Validate and register codebase at path: {registration.path}',
+        agent_type='register_codebase',
+        metadata={
+            'name': registration.name,
+            'path': registration.path,
+            'description': registration.description,
+            'agent_config': registration.agent_config,
+        },
+    )
+
+    if task:
         await monitoring_service.log_message(
             agent_name='OpenCode Bridge',
-            content=f'Registered codebase: {registration.name} at {registration.path}{worker_info}',
+            content=f'Created registration task for: {registration.name} at {registration.path}',
             message_type='system',
             metadata={
-                'codebase_id': codebase.id,
+                'task_id': task.id,
                 'path': registration.path,
-                'worker_id': registration.worker_id,
             },
         )
 
-        return {'success': True, 'codebase': codebase.to_dict()}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return {
+            'success': True,
+            'pending': True,
+            'task_id': task.id,
+            'message': f'Registration task created. A worker will validate the path and confirm registration.',
+        }
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail='Failed to create registration task'
+        )
 
 
 @opencode_router.get('/codebases/{codebase_id}')
@@ -1852,6 +2045,24 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
+    # Log the user's prompt separately so monitoring/UIs attribute it to the human.
+    # (Otherwise the prompt text often appears inside system/agent log lines.)
+    try:
+        await monitoring_service.log_message(
+            agent_name='User',
+            content=trigger.prompt,
+            message_type='human',
+            metadata={
+                'action': 'opencode.trigger',
+                'codebase_id': codebase_id,
+                'codebase_name': codebase.name,
+                'agent': trigger.agent,
+                'model': trigger.model,
+            },
+        )
+    except Exception as e:
+        logger.debug(f'Failed to log user trigger prompt: {e}')
+
     # Create trigger request
     from .opencode_bridge import AgentTriggerRequest
 
@@ -1871,7 +2082,7 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     if response.success:
         await monitoring_service.log_message(
             agent_name='OpenCode Bridge',
-            content=f"Triggered agent '{trigger.agent}' on {codebase.name}: {trigger.prompt[:100]}...",
+            content=f"Triggered agent '{trigger.agent}' on {codebase.name}",
             message_type='system',
             metadata={
                 'codebase_id': codebase_id,
@@ -1895,6 +2106,22 @@ async def send_agent_message(codebase_id: str, msg: AgentMessage):
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
+
+    # Log user follow-up messages as human so they render correctly in monitoring UIs.
+    try:
+        await monitoring_service.log_message(
+            agent_name='User',
+            content=msg.message,
+            message_type='human',
+            metadata={
+                'action': 'opencode.message',
+                'codebase_id': codebase_id,
+                'codebase_name': codebase.name,
+                'agent': msg.agent,
+            },
+        )
+    except Exception as e:
+        logger.debug(f'Failed to log user follow-up message: {e}')
 
     response = await bridge.send_message(
         codebase_id=codebase_id,
@@ -2312,6 +2539,25 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
     if not task:
         raise HTTPException(status_code=500, detail='Failed to create task')
 
+    # Log the task prompt as a human message so UIs don't attribute it to the agent.
+    try:
+        await monitoring_service.log_message(
+            agent_name='User',
+            content=task_data.prompt,
+            message_type='human',
+            metadata={
+                'action': 'opencode.task.create',
+                'task_id': task.id,
+                'codebase_id': codebase_id,
+                'codebase_name': codebase.name,
+                'agent_type': task_data.agent_type,
+                'priority': task_data.priority,
+                'title': task_data.title,
+            },
+        )
+    except Exception as e:
+        logger.debug(f'Failed to log user task prompt: {e}')
+
     # Log the task creation
     await monitoring_service.log_message(
         agent_name='OpenCode Bridge',
@@ -2409,6 +2655,23 @@ async def list_sessions(codebase_id: str):
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
+    # Check Redis-backed worker-synced sessions first (for remote codebases / multi-replica).
+    redis_client = await _get_redis_client()
+    if redis_client is not None:
+        try:
+            raw = await redis_client.get(_redis_key_worker_sessions(codebase_id))
+            if raw:
+                payload = json.loads(raw)
+                sessions = payload.get('sessions') if isinstance(payload, dict) else None
+                if sessions:
+                    return {
+                        'sessions': sessions,
+                        'source': 'worker_sync',
+                        'synced_at': payload.get('updated_at') if isinstance(payload, dict) else None,
+                    }
+        except Exception as e:
+            logger.debug(f'Failed to read worker sessions from Redis: {e}')
+
     # Check if we have worker-synced sessions first (for remote codebases)
     if codebase_id in _worker_sessions and _worker_sessions[codebase_id]:
         return {'sessions': _worker_sessions[codebase_id], 'source': 'worker_sync'}
@@ -2462,6 +2725,23 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
     # Store the synced sessions
     _worker_sessions[codebase_id] = request.sessions
 
+    # Best-effort persist to Redis (if configured) so sessions survive restarts / replicas.
+    redis_client = await _get_redis_client()
+    if redis_client is not None:
+        try:
+            await redis_client.set(
+                _redis_key_worker_sessions(codebase_id),
+                json.dumps(
+                    {
+                        'worker_id': request.worker_id,
+                        'updated_at': datetime.utcnow().isoformat(),
+                        'sessions': request.sessions,
+                    }
+                ),
+            )
+        except Exception as e:
+            logger.debug(f'Failed to persist worker sessions to Redis: {e}')
+
     logger.info(f'Synced {len(request.sessions)} sessions for codebase {codebase_id} from worker {request.worker_id}')
     return {'success': True, 'sessions_count': len(request.sessions)}
 
@@ -2494,6 +2774,23 @@ async def sync_session_messages(codebase_id: str, session_id: str, request: Mess
 
     # Store the synced messages
     _worker_messages[session_id] = request.messages
+
+    # Best-effort persist to Redis (if configured) so messages are available across replicas.
+    redis_client = await _get_redis_client()
+    if redis_client is not None:
+        try:
+            await redis_client.set(
+                _redis_key_worker_messages(session_id),
+                json.dumps(
+                    {
+                        'worker_id': request.worker_id,
+                        'updated_at': datetime.utcnow().isoformat(),
+                        'messages': request.messages,
+                    }
+                ),
+            )
+        except Exception as e:
+            logger.debug(f'Failed to persist worker messages to Redis: {e}')
 
     return {'success': True, 'messages_count': len(request.messages)}
 
@@ -2551,6 +2848,24 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
+    # Check Redis-backed worker-synced messages first.
+    redis_client = await _get_redis_client()
+    if redis_client is not None:
+        try:
+            raw = await redis_client.get(_redis_key_worker_messages(session_id))
+            if raw:
+                payload = json.loads(raw)
+                messages = payload.get('messages') if isinstance(payload, dict) else None
+                if messages:
+                    return {
+                        'messages': messages[:limit],
+                        'session_id': session_id,
+                        'source': 'worker_sync',
+                        'synced_at': payload.get('updated_at') if isinstance(payload, dict) else None,
+                    }
+        except Exception as e:
+            logger.debug(f'Failed to read worker messages from Redis: {e}')
+
     # Check if we have worker-synced messages
     if session_id in _worker_messages and _worker_messages[session_id]:
         messages = _worker_messages[session_id][:limit]
@@ -2591,6 +2906,25 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
+    # If the user provided a prompt, log it as a human message for correct attribution.
+    if request.prompt:
+        try:
+            await monitoring_service.log_message(
+                agent_name='User',
+                content=request.prompt,
+                message_type='human',
+                metadata={
+                    'action': 'opencode.session.resume',
+                    'codebase_id': codebase_id,
+                    'codebase_name': codebase.name,
+                    'resume_session_id': session_id,
+                    'agent': request.agent,
+                    'model': request.model,
+                },
+            )
+        except Exception as e:
+            logger.debug(f'Failed to log user resume prompt: {e}')
+
     # For remote workers, create a task with the session_id in metadata
     if codebase.worker_id and not codebase.opencode_port:
         task = bridge.create_task(
@@ -2608,6 +2942,8 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
             'message': f'Task queued to resume session {session_id}',
             'task_id': task.id if task else None,
             'session_id': session_id,
+            # For follow-up UI actions, this is the session the user is interacting with.
+            'active_session_id': session_id,
         }
 
     # For local codebases with running OpenCode, use the API
@@ -2639,6 +2975,7 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
                                 'success': True,
                                 'message': 'Session resumed',
                                 'session_id': session_id,
+                                'active_session_id': session_id,
                                 'response': result,
                             }
                 else:
@@ -2648,6 +2985,7 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
                         'success': True,
                         'message': 'Session initialized',
                         'session_id': session_id,
+                        'active_session_id': session_id,
                     }
         except HTTPException:
             raise
@@ -2672,6 +3010,8 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
         'message': 'Session resumed with new OpenCode instance',
         'session_id': session_id,
         'new_session_id': response.session_id,
+        # When OpenCode is started on-demand, follow-up messages should target the active OpenCode session.
+        'active_session_id': response.session_id or session_id,
         'error': response.error,
     }
 

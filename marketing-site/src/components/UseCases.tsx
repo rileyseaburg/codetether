@@ -11,16 +11,16 @@ const useCases = [
     {
         title: 'Healthcare & Life Sciences',
         description:
-            'Patient records, clinical trials, research data—none of it touches external APIs. AI agents process PHI inside your HIPAA boundary while orchestration happens safely in the cloud.',
+            'Patient records, clinical trials, research data—processed where your compliance boundary requires. The Worker runs inside your HIPAA environment; if you use a hosted model, the Worker calls your Azure OpenAI/OpenAI Enterprise tenant directly using your keys. CodeTether remains out of the inference path and does not store PHI.',
         icon: '🏥',
-        features: ['HIPAA compliant', 'PHI stays internal', 'BAA-friendly architecture'],
+        features: ['HIPAA aligned', 'PHI stays under your control', 'BAA-friendly architecture'],
     },
     {
         title: 'Source Code & IP Protection',
         description:
-            'Your proprietary algorithms and source code are your competitive advantage. AI coding assistants run where your code lives—no code ever uploads to external AI services.',
+            'Your proprietary algorithms and source code are your competitive advantage. CodeTether Workers run where your code lives, and CodeTether itself never proxies or stores your prompts/source. When you choose to use a hosted model, the Worker talks directly to your model tenant (or an on-prem model) under your security policy.',
         icon: '🔐',
-        features: ['Zero code exfiltration', 'Air-gap compatible', 'Full repo access'],
+        features: ['Zero third-party storage', 'Air-gap compatible (on-prem models)', 'Full repo access'],
     },
     {
         title: 'Government & Defense',
@@ -39,7 +39,7 @@ const useCases = [
     {
         title: 'Legal & Professional Services',
         description:
-            'Client privileged information never leaves your document management system. AI reviews contracts and analyzes cases without compromising attorney-client privilege.',
+            'Client privileged information stays under your control. Run Workers next to your DMS and apply redaction/policy checks before any optional model call. CodeTether doesn\'t store the payloads; you govern what leaves the building.',
         icon: '⚖️',
         features: ['Privilege preserved', 'DMS integration', 'Matter separation'],
     },

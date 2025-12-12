@@ -15,21 +15,22 @@ echo "Service: $SERVICE"
 echo "Tag: $TAG"
 
 build_service() {
-    local service=$1
-    local full_tag="${REGISTRY}/${service}:${TAG}"
-    echo "Building $service as $full_tag"
+    local target=$1
+    local image_name=$2
+    local full_tag="${REGISTRY}/${image_name}:${TAG}"
+    echo "Building ${target} as ${full_tag}"
 
-    if [ "$service" = "docs" ]; then
+    if [ "$target" = "docs" ]; then
         docker build --target docs -f Dockerfile.unified -t $full_tag .
-    elif [ "$service" = "marketing" ]; then
+    elif [ "$target" = "marketing" ]; then
         docker build --target marketing -f Dockerfile.unified \
             --build-arg AUTH_SECRET="Gzez2UkA76TcFpnUEXUmT16+/G3UX2RmoGxyByfAJO4=" \
             --build-arg KEYCLOAK_CLIENT_SECRET="Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1" \
             -t $full_tag .
-    elif [ "$service" = "opencode" ]; then
+    elif [ "$target" = "opencode" ]; then
         docker build --target opencode -f Dockerfile.unified -t $full_tag .
     else
-        docker build --target $service -f Dockerfile.unified -t $full_tag .
+        docker build --target $target -f Dockerfile.unified -t $full_tag .
     fi
 
     echo "Pushing $full_tag"
@@ -37,12 +38,28 @@ build_service() {
 }
 
 if [ "$SERVICE" = "all" ]; then
-    build_service "a2a-server"
-    build_service "docs"
-    build_service "marketing"
-    build_service "opencode"
+    # NOTE: image_name values must match what's referenced by Helm charts.
+    build_service "a2a-server" "a2a-server"
+    build_service "docs" "codetether-docs"
+    build_service "marketing" "a2a-marketing"
+    build_service "opencode" "opencode"
 else
-    build_service "$SERVICE"
+    # Backwards-compatible single-service mode:
+    # - a2a-server -> a2a-server
+    # - docs -> codetether-docs
+    # - marketing -> a2a-marketing
+    # - opencode -> opencode
+    case "$SERVICE" in
+        a2a-server) build_service "a2a-server" "a2a-server" ;;
+        docs) build_service "docs" "codetether-docs" ;;
+        marketing) build_service "marketing" "a2a-marketing" ;;
+        opencode) build_service "opencode" "opencode" ;;
+        *)
+            echo "Unknown service: $SERVICE"
+            echo "Services: a2a-server, docs, marketing, opencode, all"
+            exit 1
+            ;;
+    esac
 fi
 
 echo "Build completed successfully!"
