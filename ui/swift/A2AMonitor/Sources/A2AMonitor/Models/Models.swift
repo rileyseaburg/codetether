@@ -581,6 +581,17 @@ struct SessionSummary: Identifiable, Codable, Hashable {
         let u2 = try? container.decodeIfPresent(String.self, forKey: .updated_at)
         updated = u1 ?? u2
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(agent, forKey: .agent)
+        try container.encodeIfPresent(messageCount, forKey: .messageCount)
+        try container.encodeIfPresent(created, forKey: .created)
+        try container.encodeIfPresent(updated, forKey: .updated)
+    }
 }
 
 struct SessionMessageInfo: Codable, Hashable {
