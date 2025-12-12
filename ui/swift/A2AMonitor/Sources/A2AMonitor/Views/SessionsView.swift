@@ -6,13 +6,13 @@ struct SessionsView: View {
     @State private var selectedCodebaseId: String = ""
     @State private var selectedSession: SessionSummary?
     @State private var showingSessionDetail = false
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // Header
                 headerSection
-                
+
                 // Sessions List
                 sessionsList
             }
@@ -41,9 +41,9 @@ struct SessionsView: View {
             }
         }
     }
-    
+
     // MARK: - Header Section
-    
+
     var headerSection: some View {
         GlassCard(cornerRadius: 24, padding: 24) {
             HStack(spacing: 20) {
@@ -52,7 +52,7 @@ struct SessionsView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Text("Monitor and manage active agent sessions")
                         .font(.subheadline)
                         .foregroundColor(Color.liquidGlass.textSecondary)
@@ -76,9 +76,9 @@ struct SessionsView: View {
                             .foregroundColor(Color.liquidGlass.textMuted)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Session Stats
                 HStack(spacing: 16) {
                     StatCard(
@@ -87,14 +87,14 @@ struct SessionsView: View {
                         icon: "person.2",
                         color: Color.liquidGlass.primary
                     )
-                    
+
                     StatCard(
                         title: "With Messages",
                         value: "\(viewModel.sessions.filter { ($0.messageCount ?? 0) > 0 }.count)",
                         icon: "text.bubble",
                         color: Color.liquidGlass.success
                     )
-                    
+
                     StatCard(
                         title: "Recent",
                         value: "\(min(viewModel.sessions.count, 10))",
@@ -105,9 +105,9 @@ struct SessionsView: View {
             }
         }
     }
-    
+
     // MARK: - Sessions List
-    
+
     var sessionsList: some View {
         GlassCard(cornerRadius: 20, padding: 20) {
             VStack(alignment: .leading, spacing: 16) {
@@ -117,10 +117,10 @@ struct SessionsView: View {
                     Text("Recent Sessions")
                         .font(.headline)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Spacer()
                 }
-                
+
                 if viewModel.sessions.isEmpty {
                     EmptyStateView(
                         icon: "person.2",
@@ -145,44 +145,44 @@ struct SessionsView: View {
 
 struct SessionRow: View {
     let session: SessionSummary
-    
+
     var body: some View {
         HStack(spacing: 12) {
             // Status indicator
             Circle()
                 .fill(statusColor)
                 .frame(width: 10, height: 10)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(session.title ?? "Untitled Session")
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(Color.liquidGlass.textPrimary)
-                    
+
                     Spacer()
-                    
+
                     Text(session.agent ?? "build")
                         .font(.caption2)
                         .foregroundColor(Color.liquidGlass.textMuted)
                 }
-                
+
                 Text(session.updated ?? session.created ?? "")
                     .font(.caption2)
                     .foregroundColor(Color.liquidGlass.textMuted)
-                
+
                 Text("\(session.messageCount ?? 0) messages")
                     .font(.caption2)
                     .foregroundColor(Color.liquidGlass.textMuted)
             }
-            
+
             Spacer()
         }
         .padding(12)
         .background(Color.white.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
-    
+
     var statusColor: Color {
         // Determine status color based on session state
         // This would need to be enhanced with actual status information
@@ -200,7 +200,7 @@ struct SessionDetailView: View {
     @State private var draftMessage: String = ""
     @State private var isSending = false
     @State private var statusText: String?
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -214,12 +214,12 @@ struct SessionDetailView: View {
                                 .font(.headline)
                                 .foregroundColor(Color.liquidGlass.textPrimary)
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Title: \(session.title ?? "Untitled")")
                                 .font(.subheadline)
                                 .foregroundColor(Color.liquidGlass.textPrimary)
-                            
+
                             Text("Agent: \(session.agent ?? "build")")
                                 .font(.subheadline)
                                 .foregroundColor(Color.liquidGlass.textPrimary)
@@ -230,7 +230,7 @@ struct SessionDetailView: View {
                         }
                     }
                 }
-                
+
                 // Session Messages
                 GlassCard(cornerRadius: 20, padding: 20) {
                     VStack(alignment: .leading, spacing: 16) {
@@ -358,7 +358,7 @@ struct SessionMessageBubble: View {
 
 struct MessagePartView: View {
     let part: MessagePart
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -369,7 +369,7 @@ struct MessagePartView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(Color.liquidGlass.textPrimary)
             }
-            
+
             if let text = part.text {
                 Text(text)
                     .font(.caption)
@@ -378,13 +378,13 @@ struct MessagePartView: View {
                     .background(Color.white.opacity(0.03))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            
+
             if let tool = part.tool {
                 Text("Tool: \(tool)")
                     .font(.caption)
                     .foregroundColor(Color.liquidGlass.textMuted)
             }
-            
+
             if let state = part.state {
                 Text("State: \(state.status ?? "Unknown")")
                     .font(.caption)

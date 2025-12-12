@@ -10,7 +10,7 @@ struct Agent: Identifiable, Codable, Hashable {
     var url: String?
     var messagesCount: Int
     var lastSeen: Date?
-    
+
     enum CodingKeys: String, CodingKey {
         case id, name, status, description, url
         case messagesCount = "messages_count"
@@ -27,7 +27,7 @@ enum AgentStatus: String, Codable, CaseIterable {
     case disconnected
     case stopped
     case unknown
-    
+
     var color: String {
         switch self {
         case .idle: return "gray"
@@ -40,7 +40,7 @@ enum AgentStatus: String, Codable, CaseIterable {
         case .unknown: return "gray"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .idle: return "circle"
@@ -53,7 +53,7 @@ enum AgentStatus: String, Codable, CaseIterable {
         case .unknown: return "questionmark.circle"
         }
     }
-    
+
     // Handle unknown status values gracefully
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -75,7 +75,7 @@ struct Codebase: Identifiable, Codable, Hashable {
     var sessionId: String?
     var pendingTasks: Int
     var workingTasks: Int
-    
+
     enum CodingKeys: String, CodingKey {
         case id, name, path, status, description
         case registeredAt = "registered_at"
@@ -84,7 +84,7 @@ struct Codebase: Identifiable, Codable, Hashable {
         case pendingTasks = "pending_tasks"
         case workingTasks = "working_tasks"
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
@@ -98,7 +98,7 @@ struct Codebase: Identifiable, Codable, Hashable {
         pendingTasks = try container.decodeIfPresent(Int.self, forKey: .pendingTasks) ?? 0
         workingTasks = try container.decodeIfPresent(Int.self, forKey: .workingTasks) ?? 0
     }
-    
+
     init(id: String, name: String, path: String, status: AgentStatus = .idle, description: String? = nil) {
         self.id = id
         self.name = name
@@ -123,13 +123,13 @@ struct Message: Identifiable, Codable, Hashable {
     let content: String
     var metadata: [String: String]?
     var isFlagged: Bool
-    
+
     enum CodingKeys: String, CodingKey {
         case id, timestamp, type, content, metadata
         case agentName = "agent_name"
         case isFlagged = "is_flagged"
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
@@ -140,7 +140,7 @@ struct Message: Identifiable, Codable, Hashable {
         metadata = try container.decodeIfPresent([String: String].self, forKey: .metadata)
         isFlagged = try container.decodeIfPresent(Bool.self, forKey: .isFlagged) ?? false
     }
-    
+
     init(id: String = UUID().uuidString, timestamp: Date = Date(), type: MessageType, agentName: String, content: String, metadata: [String: String]? = nil) {
         self.id = id
         self.timestamp = timestamp
@@ -157,7 +157,7 @@ enum MessageType: String, Codable, CaseIterable {
     case human
     case system
     case tool
-    
+
     var color: String {
         switch self {
         case .agent: return "blue"
@@ -166,7 +166,7 @@ enum MessageType: String, Codable, CaseIterable {
         case .tool: return "green"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .agent: return "cpu"
@@ -190,14 +190,14 @@ struct AgentTask: Identifiable, Codable, Hashable {
     var result: String?
     var createdAt: Date
     var updatedAt: Date?
-    
+
     enum CodingKeys: String, CodingKey {
         case id, title, description, status, priority, context, result
         case codebaseId = "codebase_id"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
@@ -211,7 +211,7 @@ struct AgentTask: Identifiable, Codable, Hashable {
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
     }
-    
+
     init(id: String = UUID().uuidString, title: String, description: String, status: TaskStatus = .pending, priority: TaskPriority = .normal, codebaseId: String? = nil) {
         self.id = id
         self.title = title
@@ -232,7 +232,7 @@ enum TaskStatus: String, Codable, CaseIterable {
     case completed
     case failed
     case cancelled
-    
+
     var color: String {
         switch self {
         case .pending: return "yellow"
@@ -242,7 +242,7 @@ enum TaskStatus: String, Codable, CaseIterable {
         case .cancelled: return "gray"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .pending: return "clock"
@@ -259,7 +259,7 @@ enum TaskPriority: Int, Codable, CaseIterable {
     case normal = 2
     case high = 3
     case urgent = 4
-    
+
     var label: String {
         switch self {
         case .low: return "Low"
@@ -268,7 +268,7 @@ enum TaskPriority: Int, Codable, CaseIterable {
         case .urgent: return "Urgent"
         }
     }
-    
+
     var color: String {
         switch self {
         case .low: return "green"
@@ -293,7 +293,7 @@ struct OutputEntry: Identifiable, Hashable {
     var isStreaming: Bool
     var tokens: TokenInfo?
     var cost: Double?
-    
+
     init(id: String = UUID().uuidString, timestamp: Date = Date(), type: OutputType, content: String, toolName: String? = nil) {
         self.id = id
         self.timestamp = timestamp
@@ -323,7 +323,7 @@ enum OutputType: String, Codable, CaseIterable {
     case status
     case diagnostics
     case error
-    
+
     var label: String {
         switch self {
         case .text: return "Text"
@@ -341,7 +341,7 @@ enum OutputType: String, Codable, CaseIterable {
         case .error: return "Error"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .text: return "text.bubble"
@@ -359,7 +359,7 @@ enum OutputType: String, Codable, CaseIterable {
         case .error: return "exclamationmark.triangle"
         }
     }
-    
+
     var color: String {
         switch self {
         case .text: return "teal"
@@ -394,7 +394,7 @@ struct MonitorStats {
     var tokens: Int = 0
     var averageResponseTime: Double = 0
     var responseTimes: [Double] = []
-    
+
     mutating func addResponseTime(_ time: Double) {
         responseTimes.append(time)
         averageResponseTime = responseTimes.reduce(0, +) / Double(responseTimes.count)
@@ -407,7 +407,7 @@ struct OpenCodeStatus: Codable {
     let available: Bool
     let message: String?
     let opencodeBinary: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case available, message
         case opencodeBinary = "opencode_binary"
@@ -418,7 +418,7 @@ struct TriggerResponse: Codable {
     let success: Bool
     let error: String?
     let sessionId: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case success, error
         case sessionId = "session_id"
@@ -437,7 +437,7 @@ struct OpenCodeStatusExtended: Codable {
     let opencodeBinary: String?
     let registeredCodebases: Int?
     let autoStart: Bool?
-    
+
     enum CodingKeys: String, CodingKey {
         case available, message
         case opencodeBinary = "opencode_binary"
@@ -466,7 +466,7 @@ struct AgentEvent: Codable {
     let cost: Double?
     let tokens: TokenInfoResponse?
     let raw: [String: AnyCodable]?
-    
+
     enum CodingKeys: String, CodingKey {
         case eventType = "event_type"
         case codebaseId = "codebase_id"
@@ -489,11 +489,11 @@ struct TokenInfoResponse: Codable, Hashable {
 
 struct AnyCodable: Codable, Hashable {
     let value: Any
-    
+
     init(_ value: Any) {
         self.value = value
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let string = try? container.decode(String.self) {
@@ -512,7 +512,7 @@ struct AnyCodable: Codable, Hashable {
             value = NSNull()
         }
     }
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch value {
@@ -523,11 +523,11 @@ struct AnyCodable: Codable, Hashable {
         default: try container.encodeNil()
         }
     }
-    
+
     static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
         String(describing: lhs.value) == String(describing: rhs.value)
     }
-    
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(String(describing: value))
     }
@@ -600,7 +600,7 @@ struct SessionMessage: Codable, Identifiable {
     let cost: Double?
     let tokens: TokenInfoResponse?
     let parts: [MessagePart]?
-    
+
     var identifier: String {
         id ?? UUID().uuidString
     }
@@ -662,7 +662,7 @@ struct MessagePart: Codable, Identifiable {
     let text: String?
     let tool: String?
     let state: ToolState?
-    
+
     var identifier: String {
         id ?? UUID().uuidString
     }
@@ -693,7 +693,7 @@ struct AgentStatusResponse: Codable {
     let watchInterval: Int
     let workerId: String?
     let recentMessages: [SessionMessage]?
-    
+
     enum CodingKeys: String, CodingKey {
         case id, name, path, status
         case opencodePort = "opencode_port"
@@ -715,9 +715,9 @@ struct Worker: Codable, Identifiable, Hashable {
     let registeredAt: String
     let lastSeen: String
     let status: String
-    
+
     var id: String { workerId }
-    
+
     enum CodingKeys: String, CodingKey {
         case workerId = "worker_id"
         case name, capabilities, hostname
@@ -737,7 +737,7 @@ struct WatchStatus: Codable {
     let interval: Int
     let pendingTasks: Int
     let runningTasks: Int
-    
+
     enum CodingKeys: String, CodingKey {
         case codebaseId = "codebase_id"
         case name
@@ -758,7 +758,7 @@ struct ServerStats: Codable {
     let avgResponseTime: Double
     let activeAgents: Int
     let interventions: Int
-    
+
     enum CodingKeys: String, CodingKey {
         case totalMessages = "total_messages"
         case toolCalls = "tool_calls"
@@ -777,25 +777,25 @@ struct AIModel: Codable, Identifiable, Hashable {
     let provider: String
     let custom: Bool?
     let capabilities: AIModelCapabilities?
-    
+
     struct AIModelCapabilities: Codable, Hashable {
         let reasoning: Bool?
         let attachment: Bool?
         let toolCall: Bool?
-        
+
         enum CodingKeys: String, CodingKey {
             case reasoning, attachment
             case toolCall = "tool_call"
         }
     }
-    
+
     var displayName: String {
         if custom == true {
             return "\(name) (Custom)"
         }
         return name
     }
-    
+
     var providerIcon: String {
         switch provider.lowercased() {
         case let p where p.contains("anthropic"):
@@ -836,9 +836,9 @@ struct UserSession: Codable, Identifiable {
     let lastActivity: String
     let deviceInfo: DeviceInfo
     let roles: [String]
-    
+
     var id: String { sessionId }
-    
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case email, username, name
@@ -849,11 +849,11 @@ struct UserSession: Codable, Identifiable {
         case deviceInfo = "device_info"
         case roles
     }
-    
+
     var isAdmin: Bool {
         roles.contains("a2a-admin")
     }
-    
+
     var displayName: String {
         name.isEmpty ? username : name
     }
@@ -865,7 +865,7 @@ struct DeviceInfo: Codable, Hashable {
     let deviceType: String?
     let ipAddress: String?
     let userAgent: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case deviceId = "device_id"
         case deviceName = "device_name"
@@ -881,7 +881,7 @@ struct LoginResponse: Codable {
     let accessToken: String
     let refreshToken: String?
     let expiresAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case success, session
         case accessToken = "access_token"
@@ -896,7 +896,7 @@ struct RefreshResponse: Codable {
     let accessToken: String
     let refreshToken: String?
     let expiresAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case success, session
         case accessToken = "access_token"
@@ -912,7 +912,7 @@ struct AuthStatusResponse: Codable {
     let realm: String?
     let activeSessions: Int?
     let agentSessions: Int?
-    
+
     enum CodingKeys: String, CodingKey {
         case available, message
         case keycloakUrl = "keycloak_url"
@@ -930,9 +930,9 @@ struct UserCodebaseAssociation: Codable, Identifiable, Hashable {
     let role: String
     let createdAt: String
     let lastAccessed: String
-    
+
     var id: String { codebaseId }
-    
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case codebaseId = "codebase_id"
@@ -954,9 +954,9 @@ struct UserAgentSession: Codable, Identifiable, Hashable {
     let lastActivity: String
     let deviceId: String?
     let messageCount: Int
-    
+
     var id: String { sessionId }
-    
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case sessionId = "session_id"
@@ -977,7 +977,7 @@ struct SyncState: Codable {
     let agentSessions: [UserAgentSession]
     let codebases: [UserCodebaseAssociation]
     let syncedAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case activeDevices = "active_devices"
@@ -993,30 +993,30 @@ struct SyncState: Codable {
 class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
     private var onEvent: (AgentEvent) -> Void
     private var buffer = ""
-    
+
     init(onEvent: @escaping (AgentEvent) -> Void) {
         self.onEvent = onEvent
     }
-    
+
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let string = String(data: data, encoding: .utf8) else { return }
         buffer += string
         processBuffer()
     }
-    
+
     private func processBuffer() {
         let chunks = buffer.components(separatedBy: "\n\n")
-        
+
         for i in 0..<(chunks.count - 1) {
             let chunk = chunks[i]
             var eventData = ""
-            
+
             for line in chunk.components(separatedBy: "\n") {
                 if line.hasPrefix("data:") {
                     eventData = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
                 }
             }
-            
+
             if !eventData.isEmpty {
                 if let data = eventData.data(using: .utf8),
                    let event = try? JSONDecoder().decode(AgentEvent.self, from: data) {
@@ -1024,7 +1024,7 @@ class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
                 }
             }
         }
-        
+
         buffer = chunks.last ?? ""
     }
 }
