@@ -2656,34 +2656,141 @@ async def stream_agent_events(codebase_id: str, request: Request):
     if codebase.worker_id and not codebase.opencode_port:
 
         async def remote_event_generator():
-            """Stream events for remote worker codebases from completed tasks."""
-            yield f'event: connected\ndata: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": True, "worker_id": codebase.worker_id})}\n\n'
+            """Stream events for remote worker codebases from task output/results.
 
-            # Check for recent completed tasks and stream their results
+            Previously this stream ended immediately after dumping a small batch of
+            completed task results, which caused browser EventSource clients to
+            reconnect in a loop and spam "disconnected" messages.
+            """
+            import time
+
+            def _format_task_result_events(raw_result: Any):
+                """Yield SSE frames for a stored task result payload."""
+                try:
+                    result_data = (
+                        json.loads(raw_result)
+                        if isinstance(raw_result, str)
+                        else raw_result
+                    )
+                    if isinstance(result_data, list):
+                        for event in result_data:
+                            if not isinstance(event, dict):
+                                yield (
+                                    'event: message\n'
+                                    f'data: {json.dumps({"type": "text", "content": str(event)})}\n\n'
+                                )
+                                continue
+
+                            event_type = event.get('type', 'message')
+                            yield f'event: {event_type}\ndata: {json.dumps(event)}\n\n'
+                    else:
+                        yield f'event: message\ndata: {json.dumps(result_data)}\n\n'
+                except (json.JSONDecodeError, TypeError):
+                    yield (
+                        'event: message\n'
+                        f'data: {json.dumps({"type": "text", "content": str(raw_result)})}\n\n'
+                    )
+
+            yield (
+                'event: connected\n'
+                f'data: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": True, "worker_id": codebase.worker_id})}\n\n'
+            )
+
+            emitted_task_ids: set[str] = set()
+            output_cursors: Dict[str, int] = {}
+            last_task_status: Dict[str, str] = {}
+
+            # Emit recent completed task results on initial connect.
             all_tasks = bridge.list_tasks(codebase_id=codebase_id)
-            tasks = [
-                {'status': t.status.value, 'result': t.result, 'title': t.title}
-                for t in all_tasks[:10]
-            ]
-            for task in tasks:
-                if task.get('status') == 'completed' and task.get('result'):
-                    try:
-                        # Parse and stream stored task results as events
-                        result_data = (
-                            json.loads(task['result'])
-                            if isinstance(task['result'], str)
-                            else task['result']
-                        )
-                        if isinstance(result_data, list):
-                            for event in result_data:
-                                event_type = event.get('type', 'message')
-                                yield f'event: {event_type}\ndata: {json.dumps(event)}\n\n'
-                        else:
-                            yield f'event: message\ndata: {json.dumps(result_data)}\n\n'
-                    except (json.JSONDecodeError, TypeError):
-                        yield f'event: message\ndata: {json.dumps({"type": "text", "content": str(task["result"])})}\n\n'
+            recent_tasks = all_tasks[-10:] if len(all_tasks) > 10 else all_tasks
+            for t in recent_tasks:
+                if t.status.value == 'completed' and t.result:
+                    for frame in _format_task_result_events(t.result):
+                        yield frame
+                    emitted_task_ids.add(t.id)
 
-            yield f'event: status\ndata: {json.dumps({"status": "idle", "message": "Remote worker codebase - results from completed tasks"})}\n\n'
+            # Inform the client we're in remote mode, then stay connected.
+            yield (
+                'event: status\n'
+                f'data: {json.dumps({"status": "idle", "message": "Remote worker codebase - streaming task output/results"})}\n\n'
+            )
+
+            keepalive_interval_s = 15.0
+            poll_interval_s = 0.5
+            last_keepalive = time.monotonic()
+
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        break
+
+                    all_tasks = bridge.list_tasks(codebase_id=codebase_id)
+                    recent_tasks = (
+                        all_tasks[-25:] if len(all_tasks) > 25 else all_tasks
+                    )
+
+                    for t in recent_tasks:
+                        # Emit status transitions (lightweight breadcrumbs).
+                        current_status = t.status.value
+                        previous_status = last_task_status.get(t.id)
+                        if previous_status is None:
+                            # Establish baseline without spamming historical status.
+                            last_task_status[t.id] = current_status
+                        elif previous_status != current_status:
+                            last_task_status[t.id] = current_status
+                            yield (
+                                'event: status\n'
+                                f'data: {json.dumps({"status": current_status, "message": f"Task: {t.title} ({current_status})", "task_id": t.id})}\n\n'
+                            )
+
+                        # Stream any new output chunks received from the worker.
+                        outputs = _task_output_streams.get(t.id, [])
+                        cursor = output_cursors.get(t.id, 0)
+                        if len(outputs) > cursor:
+                            for chunk in outputs[cursor:]:
+                                content = (chunk or {}).get('output')
+                                if content:
+                                    yield (
+                                        'event: message\n'
+                                        f'data: {json.dumps({"type": "text", "content": content, "task_id": t.id, "worker_id": (chunk or {}).get("worker_id")})}\n\n'
+                                    )
+                            output_cursors[t.id] = len(outputs)
+
+                        # Stream newly completed results (only once).
+                        if (
+                            current_status == 'completed'
+                            and t.result
+                            and t.id not in emitted_task_ids
+                        ):
+                            for frame in _format_task_result_events(t.result):
+                                yield frame
+                            emitted_task_ids.add(t.id)
+                        elif (
+                            current_status in ('failed', 'cancelled')
+                            and (t.error or t.result)
+                            and t.id not in emitted_task_ids
+                        ):
+                            payload = {
+                                'type': 'error' if current_status == 'failed' else 'status',
+                                'message': t.error or t.result or f'Task {current_status}',
+                                'task_id': t.id,
+                                'title': t.title,
+                            }
+                            yield f'event: message\ndata: {json.dumps(payload)}\n\n'
+                            emitted_task_ids.add(t.id)
+
+                    # Send SSE comment keepalives to prevent idle timeouts.
+                    now = time.monotonic()
+                    if now - last_keepalive >= keepalive_interval_s:
+                        yield ': keep-alive\n\n'
+                        last_keepalive = now
+
+                    await asyncio.sleep(poll_interval_s)
+            except asyncio.CancelledError:
+                logger.info(f'Remote event stream cancelled for {codebase_id}')
+            except Exception as e:
+                logger.error(f'Error streaming remote events: {e}')
+                yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
 
         return StreamingResponse(
             remote_event_generator(),
