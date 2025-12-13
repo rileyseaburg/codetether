@@ -298,6 +298,10 @@ class MonitorViewModel: ObservableObject {
         messages.insert(message, at: 0)
         stats.totalMessages += 1
 
+        // If a task was started elsewhere (e.g., web UI) and the agent emits a message,
+        // surface it as a local alert on mobile.
+        NotificationService.shared.notifyIfNeeded(for: message)
+
         // Track tool calls
         if message.type == .tool {
             stats.toolCalls += 1
@@ -371,6 +375,36 @@ class MonitorViewModel: ObservableObject {
         } catch {
             print("Failed to send session prompt: \(error)")
             return false
+        }
+    }
+
+    func sendSessionPromptDetailed(
+        codebaseId: String,
+        sessionId: String,
+        prompt: String,
+        agent: String = "build",
+        model: String? = nil
+    ) async -> ResumeSessionResponse? {
+        do {
+            return try await client.resumeSessionDetailed(
+                codebaseId: codebaseId,
+                sessionId: sessionId,
+                prompt: prompt,
+                agent: agent,
+                model: model
+            )
+        } catch {
+            print("Failed to send session prompt (detailed): \(error)")
+            return nil
+        }
+    }
+
+    func fetchTask(taskId: String) async -> AgentTask? {
+        do {
+            return try await client.fetchTask(taskId: taskId)
+        } catch {
+            print("Failed to fetch task \(taskId): \(error)")
+            return nil
         }
     }
 

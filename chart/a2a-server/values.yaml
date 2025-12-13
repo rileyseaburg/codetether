@@ -236,6 +236,40 @@ auth:
   #   agent1: "secret123"
   #   agent2: "secret456"
 
+# PostgreSQL configuration for durable persistence
+# This provides durable storage for workers, codebases, tasks, and sessions
+# that survives pod restarts and works across multiple replicas.
+postgresql:
+  # Enable the built-in PostgreSQL subchart (bitnami/postgresql)
+  enabled: false
+  # PostgreSQL auth settings (when using subchart)
+  auth:
+    database: a2a_server
+    username: a2a
+    password: "" # Set this or use existingSecret
+    existingSecret: ""
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+  # Primary configuration
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        memory: 256Mi
+
+# External PostgreSQL configuration (when postgresql.enabled: false)
+externalPostgresql:
+  # Database URL format: postgresql://user:password@host:port/database
+  url: ""
+  # Or use existing secret with DATABASE_URL key
+  existingSecret: ""
+  secretKey: "DATABASE_URL"
+
 # Redis configuration
 # This chart deploys a simple in-cluster Redis (Deployment + ClusterIP Service) when enabled.
 # If you prefer an external Redis, set redis.enabled=false and configure externalRedis.*.

@@ -84,7 +84,8 @@ sudo journalctl -u a2a-agent-worker -n 100 --no-pager
 
 ```mermaid
 graph LR
-    S[CodeTether Server] --> R[(Redis)]
+    S[CodeTether Server] --> PG[(PostgreSQL)]
+    S --> R[(Redis)]
     R --> W1[Worker 1]
     R --> W2[Worker 2]
     R --> W3[Worker N]
@@ -93,6 +94,9 @@ graph LR
     W2 --> OC2[OpenCode]
     W3 --> OC3[OpenCode]
 ```
+
+!!! tip "Durable Persistence with PostgreSQL"
+    When `DATABASE_URL` is configured, workers, codebases, and sessions persist across server restarts and work correctly with multiple replicas. Without PostgreSQL, data is stored in Redis (shared) or in-memory (single instance only).
 
 ## Configuration Options
 

@@ -895,6 +895,156 @@ GET /v1/opencode/runtime/sessions/{session_id}/parts?message_id={message_id}
 
 ---
 
+## Database API
+
+The Database API provides access to PostgreSQL-persisted data for workers, codebases, and sessions. These endpoints return data that survives server restarts and works across multiple replicas.
+
+!!! info "PostgreSQL Required"
+    These endpoints require `DATABASE_URL` to be configured. Without PostgreSQL, they return empty results.
+
+### Database Status
+
+Check PostgreSQL connection status and statistics.
+
+```http
+GET /v1/opencode/database/status
+```
+
+**Response**
+
+```json
+{
+  "available": true,
+  "message": "PostgreSQL connected",
+  "stats": {
+    "workers": 3,
+    "codebases": 12,
+    "tasks": 45,
+    "sessions": 156
+  },
+  "pool_size": 10,
+  "pool_idle": 8
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `available` | boolean | Whether PostgreSQL is connected |
+| `message` | string | Connection status message |
+| `stats.workers` | integer | Total registered workers |
+| `stats.codebases` | integer | Total registered codebases |
+| `stats.tasks` | integer | Total tasks in database |
+| `stats.sessions` | integer | Total sessions synced |
+| `pool_size` | integer | Connection pool size |
+| `pool_idle` | integer | Idle connections available |
+
+---
+
+### List All Sessions (Database)
+
+Get all sessions across all codebases from PostgreSQL.
+
+```http
+GET /v1/opencode/database/sessions
+GET /v1/opencode/database/sessions?limit=50&offset=0
+```
+
+**Query Parameters**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 100 | Maximum sessions to return |
+| `offset` | integer | 0 | Pagination offset |
+
+**Response**
+
+```json
+{
+  "sessions": [
+    {
+      "id": "sess_xyz789",
+      "codebase_id": "cb_abc123",
+      "codebase_name": "my-project",
+      "codebase_path": "/home/user/my-project",
+      "title": "Implementing OAuth2 authentication",
+      "created_at": "2025-12-10T15:00:00Z",
+      "updated_at": "2025-12-10T16:30:00Z",
+      "summary": {
+        "total_messages": 24,
+        "model": "claude-sonnet-4-20250514"
+      }
+    }
+  ],
+  "total": 156,
+  "limit": 100,
+  "offset": 0,
+  "source": "postgresql"
+}
+```
+
+---
+
+### List All Codebases (Database)
+
+Get all registered codebases from PostgreSQL.
+
+```http
+GET /v1/opencode/database/codebases
+```
+
+**Response**
+
+```json
+{
+  "codebases": [
+    {
+      "id": "cb_abc123",
+      "name": "my-project",
+      "path": "/home/user/my-project",
+      "description": "Main application",
+      "worker_id": "worker-1",
+      "status": "idle",
+      "created_at": "2025-12-10T10:00:00Z",
+      "updated_at": "2025-12-10T15:30:00Z"
+    }
+  ],
+  "total": 12,
+  "source": "postgresql"
+}
+```
+
+---
+
+### List All Workers (Database)
+
+Get all registered workers from PostgreSQL.
+
+```http
+GET /v1/opencode/database/workers
+```
+
+**Response**
+
+```json
+{
+  "workers": [
+    {
+      "worker_id": "abc123",
+      "name": "dev-vm-worker",
+      "hostname": "dev-vm.internal",
+      "capabilities": ["opencode", "build", "deploy", "test"],
+      "status": "active",
+      "registered_at": "2025-12-10T09:00:00Z",
+      "last_seen": "2025-12-10T15:30:00Z"
+    }
+  ],
+  "total": 3,
+  "source": "postgresql"
+}
+```
+
+---
+
 ## Workers
 
 The Worker API enables [Agent Workers](../features/agent-worker.md) to connect, register codebases, and execute tasks.

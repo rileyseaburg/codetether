@@ -6,13 +6,18 @@ import SwiftUI
 struct A2AMonitorApp: App {
     @StateObject private var viewModel = MonitorViewModel()
     @StateObject private var authService = AuthService()
-    
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(viewModel)
                 .environmentObject(authService)
                 .preferredColorScheme(.dark) // Force dark mode for liquid glass UI
+                .task {
+                    // Configure notification handling (iOS local alerts).
+                    NotificationService.shared.configure()
+                    await NotificationService.shared.requestAuthorizationIfNeeded()
+                }
                 #if os(macOS)
                 .frame(minWidth: 1200, minHeight: 800)
                 #endif
@@ -21,7 +26,7 @@ struct A2AMonitorApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1400, height: 900)
         #endif
-        
+
         #if os(macOS)
         Settings {
             SettingsView()
@@ -37,7 +42,7 @@ struct A2AMonitorApp: App {
 struct RootView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var viewModel: MonitorViewModel
-    
+
     var body: some View {
         Group {
             if authService.isAuthenticated {
@@ -55,7 +60,7 @@ struct ContentView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @EnvironmentObject var authService: AuthService
     @State private var selectedTab: Tab = .dashboard
-    
+
     enum Tab: String, CaseIterable {
         case dashboard = "Dashboard"
         case agents = "Agents"
@@ -63,7 +68,7 @@ struct ContentView: View {
         case tasks = "Tasks"
         case sessions = "Sessions"
         case output = "Output"
-        
+
         var icon: String {
             switch self {
             case .dashboard: return "square.grid.2x2"
@@ -75,12 +80,12 @@ struct ContentView: View {
             }
         }
     }
-    
+
     var body: some View {
         ZStack {
             // Background gradient
             LiquidGradientBackground()
-            
+
             #if os(iOS)
             NavigationStack {
                 TabView(selection: $selectedTab) {
@@ -119,25 +124,25 @@ struct ContentView: View {
             // Connect auth service to viewModel's client
             viewModel.setAuthService(authService)
             viewModel.connect()
-            
+
             #if os(iOS)
             // Configure tab bar appearance for iOS
             let tabBarAppearance = UITabBarAppearance()
             tabBarAppearance.configureWithTransparentBackground()
             tabBarAppearance.backgroundColor = UIColor.black.withAlphaComponent(0.3)
             tabBarAppearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
-            
+
             // Normal state
             tabBarAppearance.stackedLayoutAppearance.normal.iconColor = UIColor.white.withAlphaComponent(0.5)
             tabBarAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.white.withAlphaComponent(0.5)]
-            
+
             // Selected state
             tabBarAppearance.stackedLayoutAppearance.selected.iconColor = UIColor.cyan
             tabBarAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.cyan]
-            
+
             UITabBar.appearance().standardAppearance = tabBarAppearance
             UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
-            
+
             // Configure navigation bar appearance
             let navBarAppearance = UINavigationBarAppearance()
             navBarAppearance.configureWithTransparentBackground()
@@ -145,7 +150,7 @@ struct ContentView: View {
             navBarAppearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
             navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
             navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-            
+
             UINavigationBar.appearance().standardAppearance = navBarAppearance
             UINavigationBar.appearance().scrollEdgeAppearance = navBarAppearance
             UINavigationBar.appearance().compactAppearance = navBarAppearance
@@ -153,7 +158,7 @@ struct ContentView: View {
             #endif
         }
     }
-    
+
     @ViewBuilder
     func tabContent(for tab: Tab) -> some View {
         switch tab {
@@ -178,7 +183,7 @@ struct ContentView: View {
 struct SidebarView: View {
     @Binding var selectedTab: ContentView.Tab
     @EnvironmentObject var viewModel: MonitorViewModel
-    
+
     var body: some View {
         List(ContentView.Tab.allCases, id: \.self, selection: $selectedTab) { tab in
             Label(tab.rawValue, systemImage: tab.icon)
@@ -203,11 +208,11 @@ struct SettingsView: View {
     @AppStorage("serverURL") private var serverURL = "https://api.codetether.run"
     @AppStorage("autoReconnect") private var autoReconnect = true
     @AppStorage("refreshInterval") private var refreshInterval = 5.0
-    
+
     var body: some View {
         ZStack {
             LiquidGradientBackground()
-            
+
             ScrollView {
                 VStack(spacing: 24) {
                     // Server Section
@@ -217,7 +222,7 @@ struct SettingsView: View {
                             SettingsToggle(title: "Auto Reconnect", isOn: $autoReconnect)
                         }
                     }
-                    
+
                     // Refresh Section
                     SettingsSection(title: "Refresh", icon: "arrow.clockwise") {
                         VStack(alignment: .leading, spacing: 8) {
@@ -228,14 +233,14 @@ struct SettingsView: View {
                                 .tint(.cyan)
                         }
                     }
-                    
+
                     // Account Section
                     SettingsSection(title: "Account", icon: "person.circle") {
                         if let user = authService.currentUser {
                             VStack(spacing: 12) {
                                 SettingsRow(label: "Signed in as", value: user.displayName)
                                 SettingsRow(label: "Email", value: user.email)
-                                
+
                                 Button {
                                     Task { await authService.logout() }
                                 } label: {
@@ -258,7 +263,7 @@ struct SettingsView: View {
                                 .foregroundColor(.white.opacity(0.5))
                         }
                     }
-                    
+
                     // Sync Status
                     if let syncState = authService.syncState {
                         SettingsSection(title: "Sync Status", icon: "arrow.triangle.2.circlepath") {
@@ -283,13 +288,13 @@ struct SettingsSection<Content: View>: View {
     let title: String
     let icon: String
     let content: Content
-    
+
     init(title: String, icon: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.icon = icon
         self.content = content()
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -300,7 +305,7 @@ struct SettingsSection<Content: View>: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
             }
-            
+
             content
         }
         .padding(20)
@@ -317,7 +322,7 @@ struct SettingsSection<Content: View>: View {
 struct SettingsTextField: View {
     let title: String
     @Binding var text: String
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -336,7 +341,7 @@ struct SettingsTextField: View {
 struct SettingsToggle: View {
     let title: String
     @Binding var isOn: Bool
-    
+
     var body: some View {
         Toggle(isOn: $isOn) {
             Text(title)
@@ -349,7 +354,7 @@ struct SettingsToggle: View {
 struct SettingsRow: View {
     let label: String
     let value: String
-    
+
     var body: some View {
         HStack {
             Text(label)

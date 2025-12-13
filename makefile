@@ -511,13 +511,13 @@ codetether-build-all: codetether-build-marketing codetether-build-docs docker-bu
 
 .PHONY: codetether-restart-marketing
 codetether-restart-marketing: ## Restart marketing deployment
-	kubectl rollout restart deployment a2a-marketing-a2a-server-marketing -n $(NAMESPACE)
-	kubectl rollout status deployment a2a-marketing-a2a-server-marketing -n $(NAMESPACE) --timeout=120s
+	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout restart deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE)
+	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout status deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE) --timeout=120s
 
 .PHONY: codetether-restart-docs
 codetether-restart-docs: ## Restart docs deployment
-	kubectl rollout restart deployment a2a-marketing-a2a-server-docs -n $(NAMESPACE)
-	kubectl rollout status deployment a2a-marketing-a2a-server-docs -n $(NAMESPACE) --timeout=120s
+	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout restart deployment/$(RELEASE_NAME)-docs -n $(NAMESPACE)
+	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout status deployment/$(RELEASE_NAME)-docs -n $(NAMESPACE) --timeout=120s
 
 .PHONY: codetether-restart-api
 codetether-restart-api: ## Restart API deployment

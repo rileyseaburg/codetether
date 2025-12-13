@@ -43,3 +43,7 @@ PyJWT>=2.8.0
 
 # Keycloak OIDC authentication
 python-keycloak>=3.0.0
+
+# PostgreSQL support (async)
+asyncpg>=0.29.0
+sqlalchemy[asyncio]>=2.0.0

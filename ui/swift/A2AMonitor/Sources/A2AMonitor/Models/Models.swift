@@ -233,6 +233,21 @@ enum TaskStatus: String, Codable, CaseIterable {
     case failed
     case cancelled
 
+    // Handle backend variants (e.g. Python/bridge may emit 'running') gracefully.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if let exact = TaskStatus(rawValue: raw) {
+            self = exact
+            return
+        }
+        if raw == "running" {
+            self = .working
+            return
+        }
+        self = .pending
+    }
+
     var color: String {
         switch self {
         case .pending: return "yellow"
@@ -591,6 +606,27 @@ struct SessionSummary: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(messageCount, forKey: .messageCount)
         try container.encodeIfPresent(created, forKey: .created)
         try container.encodeIfPresent(updated, forKey: .updated)
+    }
+}
+
+/// Response from `POST /v1/opencode/codebases/{codebase_id}/sessions/{session_id}/resume`.
+///
+/// For remote workers, the server queues a task and returns a `task_id`.
+struct ResumeSessionResponse: Codable {
+    let success: Bool
+    let message: String?
+    let taskId: String?
+    let sessionId: String?
+    let activeSessionId: String?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case taskId = "task_id"
+        case sessionId = "session_id"
+        case activeSessionId = "active_session_id"
+        case error
     }
 }
 

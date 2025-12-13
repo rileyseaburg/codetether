@@ -52,6 +52,9 @@ export function Footer() {
                         <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white">
                             Terms of Service
                         </Link>
+                        <Link href="/investors" className="hover:text-gray-900 dark:hover:text-white">
+                            Investor Pitch
+                        </Link>
                         <Link href="https://github.com/rileyseaburg/codetether/blob/main/LICENSE" className="hover:text-gray-900 dark:hover:text-white">
                             Apache 2.0 License
                         </Link>

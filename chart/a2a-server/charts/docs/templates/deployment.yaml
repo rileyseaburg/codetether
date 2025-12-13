@@ -14,6 +14,15 @@ spec:
     metadata:
       labels:
         {{- include "docs.selectorLabels" . | nindent 8 }}
+      {{- if or .Values.rolloutId .Values.podAnnotations }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.rolloutId }}
+        rollme: {{ .Values.rolloutId | quote }}
+        {{- end }}
+      {{- end }}
     spec:
       containers:
         - name: docs

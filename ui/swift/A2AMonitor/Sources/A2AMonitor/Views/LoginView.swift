@@ -5,22 +5,22 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var viewModel: MonitorViewModel
-    
+
     @State private var username = ""
     @State private var password = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
     @State private var rememberMe = true
-    
+
     @AppStorage("serverURL") private var serverURL = "https://api.codetether.run"
     @AppStorage("lastUsername") private var lastUsername = ""
     @State private var showServerSettings = false
-    
+
     var body: some View {
         ZStack {
             LiquidGradientBackground()
-            
+
             ScrollView {
                 VStack(spacing: 0) {
                     Spacer(minLength: 60)
@@ -45,30 +45,30 @@ struct LoginView: View {
             }
         }
     }
-    
+
     // MARK: - Logo Section
-    
+
     private var logoSection: some View {
         VStack(spacing: 16) {
             Image(systemName: "cpu.fill")
                 .font(.system(size: 64))
                 .foregroundColor(.cyan)
                 .shadow(color: .cyan.opacity(0.5), radius: 20)
-            
+
             Text("A2A Monitor")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
-            
+
             Text("Agent Conversation Auditing & Control")
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.7))
         }
         .padding(.bottom, 40)
     }
-    
+
     // MARK: - Login Form Card
-    
+
     private var loginFormCard: some View {
         VStack(spacing: 20) {
             emailField
@@ -84,7 +84,7 @@ struct LoginView: View {
         .padding(.horizontal, 24)
         .frame(maxWidth: 420)
     }
-    
+
     private var loginCardBackground: some View {
         RoundedRectangle(cornerRadius: 24)
             .fill(Color.black.opacity(0.4))
@@ -93,16 +93,16 @@ struct LoginView: View {
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
     }
-    
+
     // MARK: - Email Field
-    
+
     private var emailField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Email")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white.opacity(0.8))
-            
+
             HStack(spacing: 12) {
                 Image(systemName: "envelope.fill")
                     .foregroundColor(.white.opacity(0.6))
@@ -125,16 +125,16 @@ struct LoginView: View {
             )
         }
     }
-    
+
     // MARK: - Password Field
-    
+
     private var passwordField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Password")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white.opacity(0.8))
-            
+
             HStack(spacing: 12) {
                 Image(systemName: "lock.fill")
                     .foregroundColor(.white.opacity(0.6))
@@ -157,9 +157,9 @@ struct LoginView: View {
             )
         }
     }
-    
+
     // MARK: - Remember Me Toggle
-    
+
     private var rememberMeToggle: some View {
         HStack {
             Toggle(isOn: $rememberMe) {
@@ -170,9 +170,9 @@ struct LoginView: View {
             .toggleStyle(SwitchToggleStyle(tint: .cyan))
         }
     }
-    
+
     // MARK: - Sign In Button
-    
+
     private var signInButton: some View {
         Button(action: login) {
             HStack(spacing: 8) {
@@ -194,7 +194,7 @@ struct LoginView: View {
         }
         .disabled(username.isEmpty || password.isEmpty || isLoading)
     }
-    
+
     private var signInButtonBackground: some View {
         Group {
             if username.isEmpty || password.isEmpty {
@@ -208,9 +208,9 @@ struct LoginView: View {
             }
         }
     }
-    
+
     // MARK: - Divider
-    
+
     private var dividerView: some View {
         HStack(spacing: 16) {
             Rectangle()
@@ -225,9 +225,9 @@ struct LoginView: View {
                 .frame(height: 1)
         }
     }
-    
+
     // MARK: - Guest Button
-    
+
     private var guestButton: some View {
         Button(action: continueAsGuest) {
             HStack(spacing: 8) {
@@ -246,16 +246,16 @@ struct LoginView: View {
             )
         }
     }
-    
+
     private var guestModeNote: some View {
         Text("Guest mode won't sync across devices")
             .font(.caption)
             .foregroundColor(.white.opacity(0.5))
             .multilineTextAlignment(.center)
     }
-    
+
     // MARK: - Server Button
-    
+
     private var serverButton: some View {
         Button(action: { showServerSettings = true }) {
             HStack(spacing: 8) {
@@ -274,23 +274,23 @@ struct LoginView: View {
         }
         .padding(.bottom, 32)
     }
-    
+
     // MARK: - Helpers
-    
+
     private func cleanServerURL(_ url: String) -> String {
         url.replacingOccurrences(of: "http://", with: "")
            .replacingOccurrences(of: "https://", with: "")
     }
-    
+
     private func login() {
         isLoading = true
         errorMessage = nil
         authService.updateBaseURL(serverURL)
-        
+
         if rememberMe {
             lastUsername = username
         }
-        
+
         Task {
             do {
                 try await authService.login(username: username, password: password)
@@ -304,7 +304,7 @@ struct LoginView: View {
             isLoading = false
         }
     }
-    
+
     private func continueAsGuest() {
         authService.enableGuestMode()
         viewModel.updateServerURL(serverURL)
@@ -319,18 +319,18 @@ struct ServerSettingsSheet: View {
     @State private var tempURL: String = ""
     @State private var isChecking = false
     @State private var connectionStatus: ConnectionStatus = .unknown
-    
+
     enum ConnectionStatus {
         case unknown, checking
         case success(String)
         case failure(String)
     }
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
                 LiquidGradientBackground()
-                
+
                 ScrollView {
                     VStack(spacing: 24) {
                         headerSection
@@ -362,14 +362,14 @@ struct ServerSettingsSheet: View {
         .frame(minWidth: 450, minHeight: 500)
         #endif
     }
-    
+
     private var headerSection: some View {
         VStack(spacing: 12) {
             Image(systemName: "server.rack")
                 .font(.system(size: 48))
                 .foregroundColor(.cyan)
                 .shadow(color: .cyan.opacity(0.5), radius: 15)
-            
+
             Text("Server Configuration")
                 .font(.title2)
                 .fontWeight(.bold)
@@ -377,14 +377,14 @@ struct ServerSettingsSheet: View {
         }
         .padding(.top, 20)
     }
-    
+
     private var urlInputSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Server URL")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white.opacity(0.8))
-            
+
             HStack {
                 TextField("https://api.codetether.run", text: $tempURL)
                     .foregroundColor(.white)
@@ -394,7 +394,7 @@ struct ServerSettingsSheet: View {
                     #endif
                     .disableAutocorrection(true)
                     .onSubmit { checkConnection() }
-                
+
                 if case .checking = connectionStatus {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -410,7 +410,7 @@ struct ServerSettingsSheet: View {
             )
         }
     }
-    
+
     @ViewBuilder
     private var connectionStatusView: some View {
         switch connectionStatus {
@@ -424,7 +424,7 @@ struct ServerSettingsSheet: View {
             statusRow(icon: "xmark.circle.fill", text: message, color: .red)
         }
     }
-    
+
     private func statusRow(icon: String, text: String, color: Color) -> some View {
         HStack {
             Image(systemName: icon)
@@ -438,14 +438,14 @@ struct ServerSettingsSheet: View {
         .background(color.opacity(0.2))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
-    
+
     private var presetsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Presets")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white.opacity(0.8))
-            
+
             HStack(spacing: 10) {
                 PresetButton(title: "Local", icon: "laptopcomputer") {
                     tempURL = "http://localhost:8000"
@@ -459,7 +459,7 @@ struct ServerSettingsSheet: View {
             }
         }
     }
-    
+
     private var actionButtons: some View {
         VStack(spacing: 12) {
             Button(action: checkConnection) {
@@ -475,7 +475,7 @@ struct ServerSettingsSheet: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .disabled(tempURL.isEmpty || isChecking)
-            
+
             Button(action: saveAndDismiss) {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
@@ -493,16 +493,16 @@ struct ServerSettingsSheet: View {
             .disabled(tempURL.isEmpty)
         }
     }
-    
+
     private func saveAndDismiss() {
         serverURL = tempURL
         dismiss()
     }
-    
+
     private func checkConnection() {
         connectionStatus = .checking
         isChecking = true
-        
+
         Task {
             let service = AuthService(baseURL: tempURL)
             if let status = await service.checkAuthStatus() {
@@ -517,13 +517,13 @@ struct ServerSettingsSheet: View {
             isChecking = false
         }
     }
-    
+
     private func checkBasicHealth() async {
         guard let url = URL(string: tempURL)?.appendingPathComponent("/health") else {
             connectionStatus = .failure("Invalid URL")
             return
         }
-        
+
         do {
             let (_, response) = try await URLSession.shared.data(from: url)
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
@@ -543,7 +543,7 @@ struct PresetButton: View {
     let title: String
     let icon: String
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
@@ -571,18 +571,18 @@ struct PresetButton: View {
 
 struct SyncStatusView: View {
     @EnvironmentObject var authService: AuthService
-    
+
     var body: some View {
         if let syncState = authService.syncState {
             VStack(alignment: .leading, spacing: 16) {
                 syncHeader(activeDevices: syncState.activeDevices)
-                
+
                 Divider().background(Color.white.opacity(0.2))
-                
+
                 if !syncState.sessions.isEmpty {
                     sessionsSection(sessions: syncState.sessions)
                 }
-                
+
                 if !syncState.codebases.isEmpty {
                     Divider().background(Color.white.opacity(0.2))
                     codebasesSection(codebases: syncState.codebases)
@@ -597,13 +597,13 @@ struct SyncStatusView: View {
             )
         }
     }
-    
+
     private func syncHeader(activeDevices: Int) -> some View {
         HStack {
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
                 .font(.title2)
                 .foregroundColor(.cyan)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text("Synced Across Devices")
                     .font(.subheadline)
@@ -613,11 +613,11 @@ struct SyncStatusView: View {
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.6))
             }
-            
+
             Spacer()
         }
     }
-    
+
     private func sessionsSection(sessions: [UserSession]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(sessions) { session in
@@ -625,14 +625,14 @@ struct SyncStatusView: View {
             }
         }
     }
-    
+
     private func sessionRow(session: UserSession) -> some View {
         HStack(spacing: 12) {
             Image(systemName: deviceIcon(for: session.deviceInfo.deviceType))
                 .font(.title3)
                 .foregroundColor(.white.opacity(0.6))
                 .frame(width: 24)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.deviceInfo.deviceName ?? "Unknown Device")
                     .font(.subheadline)
@@ -641,9 +641,9 @@ struct SyncStatusView: View {
                     .font(.caption2)
                     .foregroundColor(.white.opacity(0.5))
             }
-            
+
             Spacer()
-            
+
             if session.sessionId == authService.currentUser?.sessionId {
                 Text("This device")
                     .font(.caption2)
@@ -656,20 +656,20 @@ struct SyncStatusView: View {
             }
         }
     }
-    
+
     private func codebasesSection(codebases: [UserCodebaseAssociation]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your Codebases")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.white.opacity(0.7))
-            
+
             ForEach(codebases) { codebase in
                 codebaseRow(codebase: codebase)
             }
         }
     }
-    
+
     private func codebaseRow(codebase: UserCodebaseAssociation) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "folder.fill")
@@ -687,7 +687,7 @@ struct SyncStatusView: View {
                 .clipShape(Capsule())
         }
     }
-    
+
     private func deviceIcon(for type: String?) -> String {
         switch type {
         case "ios": return "iphone"
@@ -705,7 +705,7 @@ struct SyncStatusView: View {
 struct UserProfileButton: View {
     @EnvironmentObject var authService: AuthService
     @State private var showingProfile = false
-    
+
     var body: some View {
         Button(action: { showingProfile = true }) {
             profileContent
@@ -714,7 +714,7 @@ struct UserProfileButton: View {
             UserProfileSheet()
         }
     }
-    
+
     @ViewBuilder
     private var profileContent: some View {
         if authService.isGuestMode {
@@ -727,7 +727,7 @@ struct UserProfileButton: View {
                 .foregroundColor(.white)
         }
     }
-    
+
     private var guestProfileContent: some View {
         HStack(spacing: 8) {
             Image(systemName: "person.badge.clock.fill")
@@ -738,20 +738,20 @@ struct UserProfileButton: View {
         }
         .foregroundColor(.white)
     }
-    
+
     private func userProfileContent(user: UserSession) -> some View {
         HStack(spacing: 8) {
             ZStack {
                 Circle()
                     .fill(LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 28, height: 28)
-                
+
                 Text(initials(for: user.displayName))
                     .font(.caption2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
             }
-            
+
             Text(user.displayName)
                 .font(.caption)
                 .fontWeight(.medium)
@@ -759,7 +759,7 @@ struct UserProfileButton: View {
                 .foregroundColor(.white)
         }
     }
-    
+
     private func initials(for name: String) -> String {
         let parts = name.split(separator: " ")
         if parts.count >= 2 {
@@ -774,21 +774,26 @@ struct UserProfileButton: View {
 struct UserProfileSheet: View {
     @EnvironmentObject var authService: AuthService
     @Environment(\.dismiss) private var dismiss
-    
+
+    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = true
+    @AppStorage("notificationsAgentOnly") private var notificationsAgentOnly: Bool = true
+
     var body: some View {
         NavigationStack {
             ZStack {
                 LiquidGradientBackground()
-                
+
                 ScrollView {
                     VStack(spacing: 24) {
                         profileHeader
-                        
+
                         if !authService.isGuestMode {
                             SyncStatusView()
                                 .padding(.horizontal)
                         }
-                        
+
+                        notificationsSection
+
                         actionSection
                     }
                 }
@@ -809,7 +814,7 @@ struct UserProfileSheet: View {
         .frame(minWidth: 400, minHeight: 500)
         #endif
     }
-    
+
     @ViewBuilder
     private var profileHeader: some View {
         if let user = authService.currentUser {
@@ -818,7 +823,7 @@ struct UserProfileSheet: View {
             guestHeader
         }
     }
-    
+
     private func authenticatedHeader(user: UserSession) -> some View {
         VStack(spacing: 12) {
             ZStack {
@@ -826,22 +831,22 @@ struct UserProfileSheet: View {
                     .fill(LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 80, height: 80)
                     .shadow(color: .cyan.opacity(0.5), radius: 15)
-                
+
                 Text(initials(for: user.displayName))
                     .font(.title)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
             }
-            
+
             Text(user.displayName)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
-            
+
             Text(user.email)
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.7))
-            
+
             HStack(spacing: 8) {
                 ForEach(user.roles.prefix(3), id: \.self) { role in
                     RoleBadge(role: role)
@@ -850,26 +855,26 @@ struct UserProfileSheet: View {
         }
         .padding(.top, 30)
     }
-    
+
     private var guestHeader: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.badge.clock.fill")
                 .font(.system(size: 60))
                 .foregroundColor(.white.opacity(0.7))
                 .shadow(color: .cyan.opacity(0.3), radius: 10)
-            
+
             Text("Guest Mode")
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
-            
+
             Text("Sign in to sync across devices")
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.6))
         }
         .padding(.top, 30)
     }
-    
+
     private var actionSection: some View {
         VStack(spacing: 12) {
             if authService.isGuestMode {
@@ -881,7 +886,66 @@ struct UserProfileSheet: View {
         .padding(.horizontal)
         .padding(.bottom, 30)
     }
-    
+
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "bell.badge.fill")
+                    .foregroundColor(.cyan)
+                Text("Notifications")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+            }
+
+            VStack(spacing: 10) {
+                Toggle(isOn: $notificationsEnabled) {
+                    Text("Alert on agent messages")
+                        .foregroundColor(.white)
+                }
+                .tint(.cyan)
+                .onChange(of: notificationsEnabled) { _, newValue in
+                    guard newValue else { return }
+                    Task {
+                        await NotificationService.shared.requestAuthorizationIfNeeded()
+                    }
+                }
+
+                Toggle(isOn: $notificationsAgentOnly) {
+                    Text("Agent-only (ignore system/tool)")
+                        .foregroundColor(.white)
+                }
+                .tint(.cyan)
+                .disabled(!notificationsEnabled)
+
+                Button {
+                    Task {
+                        await NotificationService.shared.requestAuthorizationIfNeeded()
+                        await MainActor.run {
+                            NotificationService.shared.sendTestNotification()
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "bell")
+                        Text("Test notification")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.12))
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .disabled(!notificationsEnabled)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .padding(.horizontal)
+    }
+
     private var signInButton: some View {
         Button {
             authService.disableGuestMode()
@@ -899,7 +963,7 @@ struct UserProfileSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
-    
+
     private var signOutButton: some View {
         Button {
             Task {
@@ -919,7 +983,7 @@ struct UserProfileSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
-    
+
     private func initials(for name: String) -> String {
         let parts = name.split(separator: " ")
         if parts.count >= 2 {
@@ -933,19 +997,19 @@ struct UserProfileSheet: View {
 
 struct RoleBadge: View {
     let role: String
-    
+
     private var color: Color {
         if role.contains("admin") { return .orange }
         if role.contains("user") { return .cyan }
         return .white.opacity(0.6)
     }
-    
+
     private var icon: String {
         if role.contains("admin") { return "shield.fill" }
         if role.contains("user") { return "person.fill" }
         return "key.fill"
     }
-    
+
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)

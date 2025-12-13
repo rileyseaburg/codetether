@@ -3,6 +3,8 @@ Monitoring API endpoints for A2A Server.
 
 Provides real-time monitoring, logging, and human intervention capabilities.
 Supports multiple storage backends:
+- PostgreSQL for durable storage across restarts/replicas (preferred)
+- Redis for distributed session sync
 - SQLite for persistent storage (default if writable)
 - MinIO/S3 for cloud-native deployments
 - In-memory fallback when no persistent storage is available
@@ -15,7 +17,7 @@ import sqlite3
 import threading
 import uuid
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 from dataclasses import dataclass, asdict
 from fastapi import APIRouter, HTTPException, Request
@@ -24,6 +26,9 @@ from pydantic import BaseModel
 import os
 import io
 import tempfile
+
+# Import PostgreSQL persistence layer
+from . import database as db
 
 logger = logging.getLogger(__name__)
 
@@ -1227,6 +1232,164 @@ def _redis_key_worker_messages(session_id: str) -> str:
     return f'a2a:opencode:sessions:{session_id}:messages'
 
 
+def _redis_key_workers_index() -> str:
+    return 'a2a:opencode:workers:index'
+
+
+def _redis_key_worker(worker_id: str) -> str:
+    return f'a2a:opencode:workers:{worker_id}'
+
+
+def _redis_key_codebases_index() -> str:
+    return 'a2a:opencode:codebases:index'
+
+
+def _redis_key_codebase_meta(codebase_id: str) -> str:
+    return f'a2a:opencode:codebases:{codebase_id}:meta'
+
+
+async def _redis_upsert_worker(worker_info: Dict[str, Any]) -> None:
+    """Best-effort: mirror worker registry to Redis so all replicas can list it."""
+    client = await _get_redis_client()
+    if not client:
+        return
+
+    worker_id = worker_info.get('worker_id')
+    if not worker_id:
+        return
+
+    try:
+        await client.sadd(_redis_key_workers_index(), worker_id)
+        await client.set(_redis_key_worker(worker_id), json.dumps(worker_info))
+    except Exception as e:
+        logger.debug(f'Failed to persist worker to Redis: {e}')
+
+
+async def _redis_delete_worker(worker_id: str) -> None:
+    client = await _get_redis_client()
+    if not client:
+        return
+
+    try:
+        await client.srem(_redis_key_workers_index(), worker_id)
+        await client.delete(_redis_key_worker(worker_id))
+    except Exception as e:
+        logger.debug(f'Failed to delete worker from Redis: {e}')
+
+
+async def _redis_list_workers() -> List[Dict[str, Any]]:
+    client = await _get_redis_client()
+    if not client:
+        return []
+
+    try:
+        worker_ids = await client.smembers(_redis_key_workers_index())
+        if not worker_ids:
+            return []
+
+        keys = [_redis_key_worker(wid) for wid in worker_ids]
+        raw_items = await client.mget(keys)
+
+        workers: List[Dict[str, Any]] = []
+        for raw in raw_items:
+            if not raw:
+                continue
+            try:
+                workers.append(json.loads(raw))
+            except Exception:
+                continue
+        return workers
+    except Exception as e:
+        logger.debug(f'Failed to list workers from Redis: {e}')
+        return []
+
+
+async def _redis_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
+    client = await _get_redis_client()
+    if not client:
+        return None
+
+    try:
+        raw = await client.get(_redis_key_worker(worker_id))
+        if not raw:
+            return None
+        return json.loads(raw)
+    except Exception as e:
+        logger.debug(f'Failed to get worker from Redis: {e}')
+        return None
+
+
+async def _redis_upsert_codebase_meta(codebase: Dict[str, Any]) -> None:
+    """Best-effort: mirror codebase registry to Redis for multi-replica setups."""
+    client = await _get_redis_client()
+    if not client:
+        return
+
+    codebase_id = codebase.get('id')
+    if not codebase_id:
+        return
+
+    try:
+        await client.sadd(_redis_key_codebases_index(), codebase_id)
+        await client.set(_redis_key_codebase_meta(codebase_id), json.dumps(codebase))
+    except Exception as e:
+        logger.debug(f'Failed to persist codebase meta to Redis: {e}')
+
+
+async def _redis_delete_codebase_meta(codebase_id: str) -> None:
+    client = await _get_redis_client()
+    if not client:
+        return
+
+    try:
+        await client.srem(_redis_key_codebases_index(), codebase_id)
+        await client.delete(_redis_key_codebase_meta(codebase_id))
+    except Exception as e:
+        logger.debug(f'Failed to delete codebase meta from Redis: {e}')
+
+
+async def _redis_list_codebase_meta() -> List[Dict[str, Any]]:
+    client = await _get_redis_client()
+    if not client:
+        return []
+
+    try:
+        codebase_ids = await client.smembers(_redis_key_codebases_index())
+        if not codebase_ids:
+            return []
+
+        keys = [_redis_key_codebase_meta(cid) for cid in codebase_ids]
+        raw_items = await client.mget(keys)
+
+        codebases: List[Dict[str, Any]] = []
+        for raw in raw_items:
+            if not raw:
+                continue
+            try:
+                codebases.append(json.loads(raw))
+            except Exception:
+                continue
+        return codebases
+    except Exception as e:
+        logger.debug(f'Failed to list codebases from Redis: {e}')
+        return []
+
+
+async def _redis_get_codebase_meta(codebase_id: str) -> Optional[Dict[str, Any]]:
+    client = await _get_redis_client()
+    if not client:
+        return None
+
+    try:
+        raw = await client.get(_redis_key_codebase_meta(codebase_id))
+        if not raw:
+            return None
+        return json.loads(raw)
+    except Exception as e:
+        logger.debug(f'Failed to get codebase meta from Redis: {e}')
+        return None
+
+
 def get_opencode_bridge():
     """Get or create the OpenCode bridge instance."""
     global _opencode_bridge
@@ -1335,11 +1498,20 @@ async def opencode_status():
             } if runtime_available else None,
         }
 
+    registered_codebases = len(bridge.list_codebases())
+    try:
+        # If Redis is configured, it may have the authoritative multi-replica
+        # registry even when this instance has an empty local DB.
+        redis_codebases = await _redis_list_codebase_meta()
+        registered_codebases = max(registered_codebases, len(redis_codebases))
+    except Exception:
+        pass
+
     return {
         'available': True,
         'message': 'OpenCode integration ready',
         'opencode_binary': bridge.opencode_bin,
-        'registered_codebases': len(bridge.list_codebases()),
+        'registered_codebases': registered_codebases,
         'auto_start': bridge.auto_start,
         'runtime': {
             'available': runtime_available,
@@ -1347,6 +1519,63 @@ async def opencode_status():
             'projects': runtime_projects,
             'sessions': runtime_sessions,
         } if runtime_available else None,
+    }
+
+
+@opencode_router.get('/database/status')
+async def database_status():
+    """Check PostgreSQL database status and statistics."""
+    return await db.db_health_check()
+
+
+@opencode_router.get('/database/sessions')
+async def database_sessions(
+    limit: int = 100,
+    offset: int = 0,
+):
+    """
+    List all sessions from PostgreSQL database.
+
+    Returns sessions across all codebases, sorted by most recently updated.
+    Use this endpoint for a global view of all agent sessions.
+    """
+    sessions = await db.db_list_all_sessions(limit=limit, offset=offset)
+    return {
+        'sessions': sessions,
+        'total': len(sessions),
+        'limit': limit,
+        'offset': offset,
+        'source': 'postgresql',
+    }
+
+
+@opencode_router.get('/database/codebases')
+async def database_codebases():
+    """
+    List all codebases from PostgreSQL database.
+
+    Returns all registered codebases with their worker assignments.
+    """
+    codebases = await db.db_list_codebases()
+    return {
+        'codebases': codebases,
+        'total': len(codebases),
+        'source': 'postgresql',
+    }
+
+
+@opencode_router.get('/database/workers')
+async def database_workers():
+    """
+    List all workers from PostgreSQL database.
+
+    Returns all registered workers with their status and capabilities.
+    """
+    workers = await db.db_list_workers()
+    return {
+        'workers': workers,
+        'total': len(workers),
+        'source': 'postgresql',
     }
 
 
@@ -1888,15 +2117,166 @@ async def list_models():
 
 
 @opencode_router.get('/codebases')
-async def list_codebases():
-    """List all registered codebases."""
+def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
+    if not path or not isinstance(path, str):
+        return None
+    try:
+        return os.path.abspath(os.path.expanduser(path))
+    except Exception:
+        return path
+
+
+def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        # Normalize to naive UTC for consistent comparisons/subtraction.
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    except Exception:
+        return None
+
+
+def _codebase_sort_key(cb: Dict[str, Any]) -> tuple:
+    # Prefer most recently updated, then created, then stable id
+    updated = _parse_iso_datetime(cb.get('updated_at'))
+    created = _parse_iso_datetime(cb.get('created_at'))
+    # None sorts last
+    return (
+        updated or datetime.min,
+        created or datetime.min,
+        str(cb.get('id') or ''),
+    )
+
+
+async def _get_active_worker_ids() -> set:
+    """Best-effort set of worker_ids considered "active" based on last_seen."""
+    window_seconds = int(os.environ.get('A2A_WORKER_ACTIVE_WINDOW_SECONDS', '300'))
+    now = datetime.utcnow()
+
+    db_workers = await db.db_list_workers()
+    redis_workers = await _redis_list_workers()
+
+    merged: Dict[str, Dict[str, Any]] = {}
+    # Keep the freshest last_seen per worker_id
+    for w in list(_registered_workers.values()) + redis_workers + db_workers:
+        wid = w.get('worker_id')
+        if not wid:
+            continue
+        prev = merged.get(wid)
+        if prev is None:
+            merged[wid] = w
+            continue
+        prev_seen = _parse_iso_datetime(prev.get('last_seen'))
+        cur_seen = _parse_iso_datetime(w.get('last_seen'))
+        if (cur_seen or datetime.min) > (prev_seen or datetime.min):
+            merged[wid] = w
+
+    active: set = set()
+    for wid, w in merged.items():
+        if w.get('status') and str(w.get('status')).lower() != 'active':
+            continue
+        last_seen = _parse_iso_datetime(w.get('last_seen'))
+        if not last_seen:
+            continue
+        if (now - last_seen).total_seconds() <= window_seconds:
+            active.add(wid)
+    return active
+
+
+def _dedupe_codebases_by_path(
+    codebases: List[Dict[str, Any]],
+    active_worker_ids: set,
+) -> List[Dict[str, Any]]:
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    passthrough: List[Dict[str, Any]] = []
+
+    for cb in codebases:
+        path = _normalize_codebase_path(cb.get('path'))
+        if not path:
+            passthrough.append(cb)
+            continue
+        grouped.setdefault(path, []).append(cb)
+
+    deduped: List[Dict[str, Any]] = []
+
+    for path, cbs in grouped.items():
+        if len(cbs) == 1:
+            cb = cbs[0]
+            cb['path'] = path
+            deduped.append(cb)
+            continue
+
+        active_candidates = [
+            cb for cb in cbs
+            if cb.get('worker_id') in active_worker_ids
+        ]
+        candidates = active_candidates if active_candidates else cbs
+        chosen = max(candidates, key=_codebase_sort_key)
+
+        # Provide visibility into de-duping without breaking older clients.
+        chosen = dict(chosen)
+        chosen['path'] = path
+        chosen['aliases'] = [cb.get('id') for cb in cbs if cb.get('id') != chosen.get('id')]
+        chosen['duplicate_count'] = len(cbs)
+        deduped.append(chosen)
+
+    # Keep stable ordering
+    deduped.sort(key=lambda cb: (cb.get('name') or '', cb.get('path') or ''))
+    passthrough.sort(key=lambda cb: (cb.get('name') or '', str(cb.get('id') or '')))
+    return deduped + passthrough
+
+
+async def list_codebases(include_duplicates: bool = False):
+    """List all registered codebases.
+
+    By default, de-duplicates entries that share the same filesystem path and
+    prefers codebases owned by recently-seen workers. Pass include_duplicates=true
+    to return the raw, unfiltered list.
+    """
     bridge = get_opencode_bridge()
     if bridge is None:
         raise HTTPException(
             status_code=503, detail='OpenCode bridge not available'
         )
 
-    return [cb.to_dict() for cb in bridge.list_codebases()]
+    # Collect from all sources: PostgreSQL > Redis > local bridge
+    local_codebases = [cb.to_dict() for cb in bridge.list_codebases()]
+    redis_codebases = await _redis_list_codebase_meta()
+    db_codebases = await db.db_list_codebases()
+
+    merged: Dict[str, Dict[str, Any]] = {}
+
+    # Local first (most up-to-date for this instance)
+    for cb in local_codebases:
+        cid = cb.get('id')
+        if cid:
+            merged[cid] = cb
+
+    # Redis (may have codebases from other instances)
+    for cb in redis_codebases:
+        cid = cb.get('id')
+        if cid and cid not in merged:
+            merged[cid] = cb
+
+    # PostgreSQL (durable, survives restarts)
+    for cb in db_codebases:
+        cid = cb.get('id')
+        if cid and cid not in merged:
+            merged[cid] = cb
+
+    result = list(merged.values())
+    if include_duplicates:
+        return result
+
+    try:
+        active_worker_ids = await _get_active_worker_ids()
+    except Exception:
+        active_worker_ids = set()
+
+    return _dedupe_codebases_by_path(result, active_worker_ids)
 
 
 @opencode_router.post('/codebases')
@@ -1920,13 +2300,35 @@ async def register_codebase(registration: CodebaseRegistration):
     # The worker has already validated the path exists on its machine
     if registration.worker_id:
         try:
+            normalized_path = _normalize_codebase_path(registration.path) or registration.path
+
+            # If we've seen this path before (e.g., after a server restart), reuse
+            # the existing codebase ID from PostgreSQL to prevent duplicates.
+            existing_id: Optional[str] = None
+            try:
+                existing = await db.db_list_codebases_by_path(normalized_path)
+                if existing:
+                    # Prefer most recently updated entry.
+                    existing_id = existing[0].get('id')
+            except Exception:
+                existing_id = None
+
             codebase = bridge.register_codebase(
                 name=registration.name,
-                path=registration.path,
+                path=normalized_path,
                 description=registration.description,
                 agent_config=registration.agent_config,
                 worker_id=registration.worker_id,
+                codebase_id=existing_id,
             )
+
+            codebase_dict = codebase.to_dict()
+
+            # Primary persistence: PostgreSQL
+            await db.db_upsert_codebase(codebase_dict)
+
+            # Secondary: Redis for distributed session sync
+            await _redis_upsert_codebase_meta(codebase_dict)
 
             await monitoring_service.log_message(
                 agent_name='OpenCode Bridge',
@@ -1939,14 +2341,17 @@ async def register_codebase(registration: CodebaseRegistration):
                 },
             )
 
-            return {'success': True, 'codebase': codebase.to_dict()}
+            return {'success': True, 'codebase': codebase_dict}
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
     # No worker_id - this is a registration REQUEST from UI
     # Create a task for workers to validate and claim this codebase
-    # Check if any workers are registered
-    if not _registered_workers:
+    # Check if any workers are registered (check all sources)
+    db_workers = await db.db_list_workers()
+    redis_workers = await _redis_list_workers()
+    all_workers = list(_registered_workers.values()) + db_workers + redis_workers
+    if not all_workers:
         raise HTTPException(
             status_code=400,
             detail='No workers available. Start a worker on the machine with access to this path.'
@@ -1999,11 +2404,22 @@ async def get_codebase(codebase_id: str):
             status_code=503, detail='OpenCode bridge not available'
         )
 
+    # Check local bridge first
     codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    if codebase:
+        return codebase.to_dict()
 
-    return codebase.to_dict()
+    # Check PostgreSQL
+    db_codebase = await db.db_get_codebase(codebase_id)
+    if db_codebase:
+        return db_codebase
+
+    # Check Redis fallback
+    redis_codebase = await _redis_get_codebase_meta(codebase_id)
+    if redis_codebase:
+        return redis_codebase
+
+    raise HTTPException(status_code=404, detail='Codebase not found')
 
 
 @opencode_router.delete('/codebases/{codebase_id}')
@@ -2016,20 +2432,40 @@ async def unregister_codebase(codebase_id: str):
         )
 
     codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    codebase_name = codebase.name if codebase else None
+    success = False
 
-    success = bridge.unregister_codebase(codebase_id)
+    # Check all sources before deletion for proper response
+    db_codebase = await db.db_get_codebase(codebase_id)
+    redis_codebase = await _redis_get_codebase_meta(codebase_id)
 
-    if success:
-        await monitoring_service.log_message(
-            agent_name='OpenCode Bridge',
-            content=f'Unregistered codebase: {codebase.name}',
-            message_type='system',
-            metadata={'codebase_id': codebase_id},
-        )
+    if codebase:
+        success = bridge.unregister_codebase(codebase_id)
+        codebase_name = codebase.name
 
-    return {'success': success}
+    if not codebase_name and db_codebase:
+        codebase_name = db_codebase.get('name')
+
+    if not codebase_name and redis_codebase:
+        codebase_name = redis_codebase.get('name')
+
+    # Delete from PostgreSQL
+    await db.db_delete_codebase(codebase_id)
+
+    # Delete from Redis
+    await _redis_delete_codebase_meta(codebase_id)
+
+    if success or db_codebase or redis_codebase:
+        if codebase_name:
+            await monitoring_service.log_message(
+                agent_name='OpenCode Bridge',
+                content=f'Unregistered codebase: {codebase_name}',
+                message_type='system',
+                metadata={'codebase_id': codebase_id},
+            )
+        return {'success': True}
+
+    raise HTTPException(status_code=404, detail='Codebase not found')
 
 
 @opencode_router.post('/codebases/{codebase_id}/trigger')
@@ -2693,7 +3129,18 @@ async def list_sessions(codebase_id: str):
 
     # Fallback: Read sessions from OpenCode's local state directory
     sessions = await _read_local_sessions(codebase.path)
-    return {'sessions': sessions, 'source': 'local_state'}
+    if sessions:
+        return {'sessions': sessions, 'source': 'local_state'}
+
+    # Final fallback: PostgreSQL persistence (common for remote workers).
+    try:
+        persisted = await db.db_list_sessions(codebase_id=codebase_id, limit=500)
+        if persisted:
+            return {'sessions': persisted, 'source': 'database'}
+    except Exception as e:
+        logger.debug(f'Failed to read sessions from PostgreSQL: {e}')
+
+    return {'sessions': [], 'source': 'local_state'}
 
 
 class SessionSyncRequest(BaseModel):
@@ -2704,26 +3151,33 @@ class SessionSyncRequest(BaseModel):
 
 @opencode_router.post('/codebases/{codebase_id}/sessions/sync')
 async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
-    """Receive synced sessions from a worker."""
-    bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
+    """Receive synced sessions from a worker.
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
-
-    # Verify worker_id matches
-    if codebase.worker_id and codebase.worker_id != request.worker_id:
-        raise HTTPException(
-            status_code=403,
-            detail=f'Worker {request.worker_id} not authorized for codebase {codebase_id}'
-        )
-
+    This endpoint accepts session data from workers and persists it to PostgreSQL
+    and Redis. It does NOT require the codebase to exist in the in-memory bridge -
+    workers can sync sessions for any codebase_id they manage.
+    """
     # Store the synced sessions
     _worker_sessions[codebase_id] = request.sessions
+
+    # Best-effort persist to PostgreSQL (primary persistence)
+    for session_data in request.sessions:
+        try:
+            created_at = session_data.get('created_at') or session_data.get('created')
+            updated_at = session_data.get('updated_at') or session_data.get('updated')
+            await db.db_upsert_session({
+                'id': session_data.get('id'),
+                'codebase_id': codebase_id,
+                'project_id': session_data.get('project_id'),
+                'directory': session_data.get('directory'),
+                'title': session_data.get('title'),
+                'version': session_data.get('version'),
+                'summary': session_data.get('summary', {}),
+                'created_at': created_at,
+                'updated_at': updated_at,
+            })
+        except Exception as e:
+            logger.debug(f'Failed to persist session to PostgreSQL: {e}')
 
     # Best-effort persist to Redis (if configured) so sessions survive restarts / replicas.
     redis_client = await _get_redis_client()
@@ -2754,26 +3208,94 @@ class MessageSyncRequest(BaseModel):
 
 @opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/messages/sync')
 async def sync_session_messages(codebase_id: str, session_id: str, request: MessageSyncRequest):
-    """Receive synced messages from a worker."""
-    bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
+    """Receive synced messages from a worker.
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
-
-    # Verify worker_id matches
-    if codebase.worker_id and codebase.worker_id != request.worker_id:
-        raise HTTPException(
-            status_code=403,
-            detail=f'Worker {request.worker_id} not authorized for codebase {codebase_id}'
-        )
-
+    This endpoint accepts message data from workers and persists it to PostgreSQL
+    and Redis. It does NOT require the codebase to exist in the in-memory bridge -
+    workers can sync messages for any session they manage.
+    """
     # Store the synced messages
     _worker_messages[session_id] = request.messages
+
+    def _extract_message_content(msg: Dict[str, Any]) -> Optional[str]:
+        # Preferred: explicit content
+        c = msg.get('content')
+        if isinstance(c, str) and c.strip():
+            return c
+
+        # Worker-synced OpenCode shape: parts[].text
+        parts = msg.get('parts')
+        if isinstance(parts, list):
+            texts: List[str] = []
+            for p in parts:
+                if not isinstance(p, dict):
+                    continue
+                t = p.get('text')
+                if isinstance(t, str) and t:
+                    texts.append(t)
+            if texts:
+                return ''.join(texts)
+
+        # Alternate shape: info.content
+        info = msg.get('info')
+        if isinstance(info, dict):
+            ic = info.get('content')
+            if isinstance(ic, str) and ic.strip():
+                return ic
+            if ic is not None:
+                return str(ic)
+
+        return None
+
+    def _extract_role(msg: Dict[str, Any]) -> Optional[str]:
+        r = msg.get('role')
+        if isinstance(r, str) and r:
+            return r
+        info = msg.get('info')
+        if isinstance(info, dict):
+            r2 = info.get('role')
+            if isinstance(r2, str) and r2:
+                return r2
+        return None
+
+    def _extract_model(msg: Dict[str, Any]) -> Optional[str]:
+        m = msg.get('model')
+        if isinstance(m, str) and m:
+            return m
+        info = msg.get('info')
+        if isinstance(info, dict):
+            m2 = info.get('model')
+            if isinstance(m2, str) and m2:
+                return m2
+        return None
+
+    def _extract_created_at(msg: Dict[str, Any]) -> Optional[str]:
+        ca = msg.get('created_at')
+        if isinstance(ca, str) and ca:
+            return ca
+        time_obj = msg.get('time')
+        if isinstance(time_obj, dict):
+            created = time_obj.get('created')
+            if isinstance(created, str) and created:
+                return created
+        return None
+
+    # Best-effort persist to PostgreSQL (primary persistence)
+    for msg_data in request.messages:
+        try:
+            await db.db_upsert_message({
+                'id': msg_data.get('id'),
+                'session_id': session_id,
+                'role': _extract_role(msg_data),
+                'content': _extract_message_content(msg_data),
+                'model': _extract_model(msg_data),
+                'cost': msg_data.get('cost'),
+                'tokens': msg_data.get('tokens', {}),
+                'tool_calls': msg_data.get('tool_calls', []),
+                'created_at': _extract_created_at(msg_data),
+            })
+        except Exception as e:
+            logger.debug(f'Failed to persist message to PostgreSQL: {e}')
 
     # Best-effort persist to Redis (if configured) so messages are available across replicas.
     redis_client = await _get_redis_client()
@@ -2886,9 +3408,48 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
         except Exception as e:
             logger.warning(f'Failed to query OpenCode API: {e}')
 
-    # Fallback: Read from local state
+    # Fallback: Read from local state (only works when the server has filesystem access).
     messages = await _read_local_session_messages(codebase.path, session_id)
-    return {'messages': messages, 'session_id': session_id, 'source': 'local_state'}
+    if messages:
+        return {'messages': messages[:limit], 'session_id': session_id, 'source': 'local_state'}
+
+    # Final fallback: PostgreSQL persistence (common for remote workers).
+    try:
+        persisted = await db.db_list_messages(session_id=session_id, limit=limit)
+        if persisted:
+            # Normalize DB rows into the shape expected by the Swift client
+            # (SessionMessage: {id, sessionID, role, info{...}, time{created}, model, ...}).
+            normalized: List[Dict[str, Any]] = []
+            for row in persisted:
+                role = row.get('role')
+                model = row.get('model')
+                content = row.get('content')
+                created_at = row.get('created_at')
+                normalized.append(
+                    {
+                        'id': row.get('id'),
+                        'sessionID': session_id,
+                        'role': role,
+                        'info': {
+                            'role': role,
+                            'model': model,
+                            'content': content,
+                        },
+                        'time': {'created': created_at},
+                        'model': model,
+                        'cost': row.get('cost'),
+                        'tokens': row.get('tokens', {}),
+                    }
+                )
+            return {
+                'messages': normalized,
+                'session_id': session_id,
+                'source': 'database',
+            }
+    except Exception as e:
+        logger.debug(f'Failed to read session messages from PostgreSQL: {e}')
+
+    return {'messages': [], 'session_id': session_id, 'source': 'local_state'}
 
 
 @opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/resume')
@@ -3259,7 +3820,14 @@ async def register_worker(registration: WorkerRegistration):
         'status': 'active',
     }
 
+    # In-memory cache for this instance
     _registered_workers[registration.worker_id] = worker_info
+
+    # Primary persistence: PostgreSQL (survives restarts/multi-replica)
+    await db.db_upsert_worker(worker_info)
+
+    # Secondary persistence: Redis (for session sync and fallback)
+    await _redis_upsert_worker(worker_info)
 
     logger.info(
         f'Worker registered: {registration.name} (ID: {registration.worker_id})'
@@ -3278,18 +3846,33 @@ async def register_worker(registration: WorkerRegistration):
 @opencode_router.post('/workers/{worker_id}/unregister')
 async def unregister_worker(worker_id: str):
     """Unregister a worker."""
+    worker_info = None
+
+    # Remove from in-memory
     if worker_id in _registered_workers:
         worker_info = _registered_workers.pop(worker_id)
+
+    # Remove from PostgreSQL
+    await db.db_delete_worker(worker_id)
+
+    # Remove from Redis
+    await _redis_delete_worker(worker_id)
+
+    if worker_info:
         logger.info(
             f'Worker unregistered: {worker_info.get("name")} (ID: {worker_id})'
         )
-
         await monitoring_service.log_message(
             agent_name='Worker Registry',
             content=f"Worker '{worker_info.get('name')}' disconnected",
             message_type='system',
         )
+        return {'success': True, 'message': 'Worker unregistered'}
 
+    # Check if it existed in DB/Redis
+    db_worker = await db.db_get_worker(worker_id)
+    redis_worker = await _redis_get_worker(worker_id)
+    if db_worker or redis_worker:
         return {'success': True, 'message': 'Worker unregistered'}
 
     return {'success': False, 'message': 'Worker not found'}
@@ -3298,26 +3881,85 @@ async def unregister_worker(worker_id: str):
 @opencode_router.get('/workers')
 async def list_workers():
     """List all registered workers."""
-    return list(_registered_workers.values())
+    # Priority: PostgreSQL > Redis > in-memory
+    db_workers = await db.db_list_workers()
+    redis_workers = await _redis_list_workers()
+
+    merged: Dict[str, Dict[str, Any]] = {}
+
+    # In-memory first (most up-to-date for this instance)
+    for w in _registered_workers.values():
+        wid = w.get('worker_id')
+        if wid:
+            merged[wid] = w
+
+    # Redis (may have workers from other instances)
+    for w in redis_workers:
+        wid = w.get('worker_id')
+        if wid and wid not in merged:
+            merged[wid] = w
+
+    # PostgreSQL (durable, survives restarts)
+    for w in db_workers:
+        wid = w.get('worker_id')
+        if wid and wid not in merged:
+            merged[wid] = w
+
+    return list(merged.values())
 
 
 @opencode_router.get('/workers/{worker_id}')
 async def get_worker(worker_id: str):
     """Get worker details."""
+    # Check in-memory first
     if worker_id in _registered_workers:
         return _registered_workers[worker_id]
+
+    # Check PostgreSQL
+    db_worker = await db.db_get_worker(worker_id)
+    if db_worker:
+        return db_worker
+
+    # Check Redis fallback
+    redis_worker = await _redis_get_worker(worker_id)
+    if redis_worker:
+        return redis_worker
+
     raise HTTPException(status_code=404, detail='Worker not found')
 
 
 @opencode_router.post('/workers/{worker_id}/heartbeat')
 async def worker_heartbeat(worker_id: str):
     """Update worker last-seen timestamp."""
+    now = datetime.utcnow().isoformat()
+
+    # Update in-memory
     if worker_id in _registered_workers:
-        _registered_workers[worker_id]['last_seen'] = (
-            datetime.utcnow().isoformat()
-        )
-        return {'success': True}
-    raise HTTPException(status_code=404, detail='Worker not found')
+        _registered_workers[worker_id]['last_seen'] = now
+
+    # Update PostgreSQL
+    await db.db_update_worker_heartbeat(worker_id)
+
+    # Update Redis
+    if worker_id in _registered_workers:
+        await _redis_upsert_worker(_registered_workers[worker_id])
+    else:
+        # Get from DB and update Redis
+        db_worker = await db.db_get_worker(worker_id)
+        if db_worker:
+            db_worker['last_seen'] = now
+            await _redis_upsert_worker(db_worker)
+            return {'success': True}
+
+        redis_worker = await _redis_get_worker(worker_id)
+        if redis_worker:
+            redis_worker['last_seen'] = now
+            await _redis_upsert_worker(redis_worker)
+            return {'success': True}
+
+        raise HTTPException(status_code=404, detail='Worker not found')
+
+    return {'success': True}
 
 
 @opencode_router.put('/tasks/{task_id}/status')
@@ -3350,9 +3992,14 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
 
     # Update worker last-seen
     if update.worker_id in _registered_workers:
-        _registered_workers[update.worker_id]['last_seen'] = (
-            datetime.utcnow().isoformat()
-        )
+        _registered_workers[update.worker_id]['last_seen'] = datetime.utcnow().isoformat()
+        await _redis_upsert_worker(_registered_workers[update.worker_id])
+    else:
+        # Best-effort: keep Redis mirror fresh even if this instance missed initial registration.
+        redis_worker = await _redis_get_worker(update.worker_id)
+        if redis_worker is not None:
+            redis_worker['last_seen'] = datetime.utcnow().isoformat()
+            await _redis_upsert_worker(redis_worker)
 
     await monitoring_service.log_message(
         agent_name='Task Manager',

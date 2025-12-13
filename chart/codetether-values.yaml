@@ -113,6 +113,19 @@ redis:
     requests:
       memory: 128Mi
 
+# PostgreSQL for durable persistence (workers, codebases, tasks, sessions)
+# This ensures data survives pod restarts and works across replicas
+postgresql:
+  enabled: false
+
+# External PostgreSQL (use this in production with a managed database)
+externalPostgresql:
+  # PostgreSQL connection URL
+  url: "postgresql://postgres:spike2@192.168.50.70:5432/a2a_server"
+  # Or use existing secret
+  existingSecret: ""
+  secretKey: "DATABASE_URL"
+
 # Disable local persistence (using MinIO instead)
 persistence:
   enabled: false

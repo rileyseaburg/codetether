@@ -149,8 +149,28 @@ The MCP (Model Context Protocol) server provides tool integration.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MONITOR_DB_PATH` | `./data/monitor.db` | SQLite database for monitoring data |
+| `DATABASE_URL` | — | PostgreSQL connection URL for durable persistence. Format: `postgresql://user:password@host:port/database`. When set, workers, codebases, tasks, and sessions survive server restarts and work across replicas. |
+| `A2A_DATABASE_URL` | — | Alias for `DATABASE_URL` |
+| `MONITOR_DB_PATH` | `./data/monitor.db` | SQLite database for monitoring data (fallback when PostgreSQL not configured) |
 | `SESSIONS_DB_PATH` | — | Database path for session persistence |
+
+!!! tip "PostgreSQL Connection URL Format"
+    ```
+    postgresql://[username]:[password]@host[:port]/database
+    ```
+
+    Examples:
+    ```
+    postgresql://postgres:secret@localhost:5432/codetether
+    postgresql://user:pass@db.example.com:5432/a2a_server
+    ```
+
+!!! info "Storage Priority"
+    CodeTether uses a tiered storage approach:
+
+    1. **PostgreSQL** (primary) - Durable persistence across restarts and replicas
+    2. **Redis** - Fast shared state for multi-replica deployments
+    3. **In-memory** - Single-instance fallback when neither is configured
 
 ### LiveKit Media
 

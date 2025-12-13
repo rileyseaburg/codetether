@@ -148,6 +148,27 @@ See [QUICK_REFERENCE_MCP_CONFIG.md](../QUICK_REFERENCE_MCP_CONFIG.md) for Cline/
 | `externalRedis.port` | External Redis port | `6379` |
 | `externalRedis.password` | External Redis password | `""` |
 
+### PostgreSQL Configuration (Durable Persistence)
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `postgresql.enabled` | Deploy PostgreSQL with the chart (bitnami subchart) | `false` |
+| `postgresql.auth.database` | Database name | `a2a_server` |
+| `postgresql.auth.username` | Database username | `a2a` |
+| `postgresql.auth.password` | Database password (use secret in production) | `""` |
+| `externalPostgresql.url` | External PostgreSQL URL (when postgresql.enabled=false) | `""` |
+| `externalPostgresql.existingSecret` | Secret containing DATABASE_URL | `""` |
+
+PostgreSQL provides durable persistence for workers, codebases, tasks, and sessions that survives pod restarts and works across multiple replicas.
+
+Example with external PostgreSQL:
+```yaml
+postgresql:
+  enabled: false
+externalPostgresql:
+  url: "postgresql://a2a:password@postgres.database.svc:5432/a2a_server"
+```
+
 ### Authentication
 
 | Parameter | Description | Default |

@@ -16,7 +16,15 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 | `A2A_HOST` | `0.0.0.0` | Server host |
 | `A2A_PORT` | `8000` | Server port |
 | `A2A_LOG_LEVEL` | `INFO` | Log level |
-| `A2A_REDIS_URL` | `redis://localhost:6379` | Redis URL |
+
+## Database & Storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | — | PostgreSQL connection URL for durable persistence. Format: `postgresql://user:password@host:port/database`. When set, workers, codebases, tasks, and sessions survive server restarts and work across replicas. |
+| `A2A_DATABASE_URL` | — | Alias for `DATABASE_URL` |
+| `A2A_REDIS_URL` | `redis://localhost:6379` | Redis URL (shared state for multi-replica deployments; used by task queues and OpenCode worker/session sync) |
+| `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database path for OpenCode codebases/tasks registry (fallback when PostgreSQL not configured) |
 
 ## Authentication
 
@@ -42,4 +50,3 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 |----------|---------|-------------|
 | `OPENCODE_HOST` | `localhost` | Host where OpenCode API runs (use `host.docker.internal` in Docker) |
 | `OPENCODE_PORT` | `9777` | OpenCode API port |
-| `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database path |

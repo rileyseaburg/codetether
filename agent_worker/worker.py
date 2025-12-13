@@ -82,6 +82,7 @@ class AgentWorker:
         self.opencode_bin = config.opencode_bin or self._find_opencode_binary()
         self.active_processes: Dict[str, subprocess.Popen] = {}
         self._opencode_storage_path: Optional[Path] = None
+        self._global_codebase_id: Optional[str] = None  # Cached ID for global sessions codebase
 
     def _find_opencode_binary(self) -> str:
         """Find the opencode binary."""
@@ -150,7 +151,7 @@ class AgentWorker:
         self.running = False
 
         # Kill any active processes
-        for task_id, process in self.active_processes.items():
+        for task_id, process in list(self.active_processes.items()):
             logger.info(f"Terminating process for task {task_id}")
             process.terminate()
             try:
@@ -158,12 +159,17 @@ class AgentWorker:
             except subprocess.TimeoutExpired:
                 process.kill()
 
-        # Unregister from server
-        await self.unregister_worker()
+        # Unregister from server (best effort)
+        try:
+            await self.unregister_worker()
+        except Exception as e:
+            logger.debug(f"Failed to unregister worker during shutdown: {e}")
 
-        # Close session
-        if self.session and not self.session.closed:
+        # Close session properly
+        if self.session is not None and not self.session.closed:
             await self.session.close()
+            # Wait for underlying connector to close
+            await asyncio.sleep(0.1)
 
         logger.info("Worker stopped")
 
@@ -212,13 +218,16 @@ class AgentWorker:
             logger.error(f"Codebase path does not exist: {path}")
             return None
 
+        # Normalize for comparisons / de-duping when re-registering.
+        normalized_path = os.path.abspath(os.path.expanduser(path))
+
         try:
             session = await self._get_session()
             url = f"{self.config.server_url}/v1/opencode/codebases"
 
             payload = {
                 "name": name,
-                "path": path,
+                "path": normalized_path,
                 "description": description,
                 "worker_id": self.config.worker_id,  # Associate with this worker
             }
@@ -229,10 +238,20 @@ class AgentWorker:
                     codebase_data = data.get("codebase", data)
                     codebase_id = codebase_data.get("id")
 
+                    # If we're re-registering after a server restart, the
+                    # server may assign a new codebase ID for the same path.
+                    # Remove any stale local entries for this path.
+                    stale_ids = [
+                        cid for cid, cb in self.codebases.items()
+                        if os.path.abspath(os.path.expanduser(cb.path)) == normalized_path and cid != codebase_id
+                    ]
+                    for cid in stale_ids:
+                        self.codebases.pop(cid, None)
+
                     self.codebases[codebase_id] = LocalCodebase(
                         id=codebase_id,
                         name=name,
-                        path=path,
+                        path=normalized_path,
                         description=description,
                     )
 
@@ -273,6 +292,19 @@ class AgentWorker:
                 session_sync_counter += 1
                 if session_sync_counter >= session_sync_interval:
                     session_sync_counter = 0
+
+                    # Re-register periodically so the worker recovers cleanly
+                    # after server restarts and keeps its last_seen fresh.
+                    await self.register_worker()
+
+                    # Also re-register codebases in case the server lost state.
+                    for cb_config in self.config.codebases:
+                        await self.register_codebase(
+                            name=cb_config.get("name", Path(cb_config["path"]).name),
+                            path=cb_config["path"],
+                            description=cb_config.get("description", ""),
+                        )
+
                     await self.report_sessions_to_server()
 
             except asyncio.CancelledError:
@@ -602,6 +634,21 @@ class AgentWorker:
         if self._opencode_storage_path is not None:
             return self._opencode_storage_path
 
+        def _dir_has_any_children(p: Path) -> bool:
+            try:
+                if not p.exists() or not p.is_dir():
+                    return False
+                # Fast path: check for any entry without materializing a list.
+                for _ in p.iterdir():
+                    return True
+                return False
+            except Exception:
+                return False
+
+        def _storage_has_message_data(storage: Path) -> bool:
+            """Return True if this storage appears to contain message/part data."""
+            return _dir_has_any_children(storage / "message") and _dir_has_any_children(storage / "part")
+
         def _storage_match_score(storage: Path) -> int:
             """Return how many registered codebases appear in this OpenCode storage's project list."""
             codebase_paths: List[str] = [
@@ -683,10 +730,15 @@ class AgentWorker:
         for user in dict.fromkeys(inferred_users):  # preserve order, de-dupe
             candidates.append(Path("/home") / user / ".local" / "share" / "opencode" / "storage")
 
+        inferred_candidate_paths = {
+            (Path("/home") / user / ".local" / "share" / "opencode" / "storage").resolve()
+            for user in dict.fromkeys(inferred_users)
+        }
+
         # Pick the best existing candidate.
         first_existing: Optional[Path] = None
         best_match: Optional[Path] = None
-        best_score = -1
+        best_tuple: Optional[tuple] = None
         for c in candidates:
             try:
                 if c.exists() and c.is_dir():
@@ -700,19 +752,41 @@ class AgentWorker:
                         return c
 
                     # Otherwise, score by how many registered codebases this storage contains.
-                    score = _storage_match_score(c)
-                    if score > best_score:
-                        best_score = score
+                    score_codebases = _storage_match_score(c)
+                    has_message_data = 1 if _storage_has_message_data(c) else 0
+                    inferred_bonus = 1 if c.resolve() in inferred_candidate_paths else 0
+
+                    # Prefer:
+                    #  1) Storage that matches registered codebases
+                    #  2) Storage that actually contains message/part data (for session detail UI)
+                    #  3) Inferred /home/<user> storage over service-account storage when tied
+                    score_tuple = (score_codebases, has_message_data, inferred_bonus)
+
+                    if best_tuple is None or score_tuple > best_tuple:
+                        best_tuple = score_tuple
                         best_match = c
             except Exception:
                 continue
 
-        if best_match is not None and best_score > 0:
-            self._opencode_storage_path = best_match
-            logger.info(
-                f"Using OpenCode storage at: {best_match} (matched {best_score} codebase(s))"
-            )
-            return best_match
+        if best_match is not None and best_tuple is not None:
+            if best_tuple[0] > 0:
+                self._opencode_storage_path = best_match
+                logger.info(
+                    f"Using OpenCode storage at: {best_match} (matched {best_tuple[0]} codebase(s))"
+                )
+                return best_match
+
+            # No project→codebase matches found. Prefer a storage that still looks
+            # "real" (has message/part data) and/or was inferred from /home/<user>.
+            if best_tuple[1] > 0 or best_tuple[2] > 0:
+                self._opencode_storage_path = best_match
+                logger.info(
+                    "Using OpenCode storage at: %s (best available; message_data=%s, inferred_home=%s)",
+                    best_match,
+                    bool(best_tuple[1]),
+                    bool(best_tuple[2]),
+                )
+                return best_match
 
         if first_existing is not None:
             # Fall back to *something* that exists, but warn because it might be empty/wrong.
@@ -818,6 +892,62 @@ class AgentWorker:
                 continue
 
         # Sort by updated time descending
+        sessions.sort(key=lambda s: s.get("updated") or "", reverse=True)
+        return sessions
+
+    def get_global_sessions(self) -> List[Dict[str, Any]]:
+        """Get all global OpenCode sessions (not associated with a specific project)."""
+        storage_path = self._get_opencode_storage_path()
+        session_dir = storage_path / "session" / "global"
+
+        if not session_dir.exists():
+            return []
+
+        sessions: List[Dict[str, Any]] = []
+        for session_file in session_dir.glob("ses_*.json"):
+            try:
+                with open(session_file) as f:
+                    session_data = json.load(f)
+                    time_data = session_data.get("time", {})
+                    created_ms = time_data.get("created", 0)
+                    updated_ms = time_data.get("updated", 0)
+
+                    session_id = session_data.get("id")
+                    msg_count = 0
+                    if session_id:
+                        msg_dir = storage_path / "message" / str(session_id)
+                        try:
+                            if msg_dir.exists():
+                                msg_count = len(list(msg_dir.glob("msg_*.json")))
+                        except Exception:
+                            msg_count = 0
+
+                    created_iso = (
+                        datetime.fromtimestamp(created_ms / 1000).isoformat()
+                        if created_ms
+                        else None
+                    )
+                    updated_iso = (
+                        datetime.fromtimestamp(updated_ms / 1000).isoformat()
+                        if updated_ms
+                        else None
+                    )
+
+                    sessions.append({
+                        "id": session_id,
+                        "title": session_data.get("title", "Untitled"),
+                        "directory": session_data.get("directory"),
+                        "project_id": "global",
+                        "created": created_iso,
+                        "updated": updated_iso,
+                        "messageCount": msg_count,
+                        "summary": session_data.get("summary", {}),
+                        "version": session_data.get("version"),
+                    })
+            except Exception as e:
+                logger.debug(f"Error reading global session file {session_file}: {e}")
+                continue
+
         sessions.sort(key=lambda s: s.get("updated") or "", reverse=True)
         return sessions
 
@@ -985,6 +1115,67 @@ class AgentWorker:
             except Exception as e:
                 logger.debug(f"Failed to sync sessions for {codebase.name}: {e}")
 
+        # Also sync global sessions (not associated with any specific project)
+        await self._report_global_sessions_to_server()
+
+    async def _report_global_sessions_to_server(self):
+        """Report global sessions to the server under a 'global' pseudo-codebase."""
+        try:
+            global_sessions = self.get_global_sessions()
+            if not global_sessions:
+                return
+
+            logger.info(f"Discovered {len(global_sessions)} global OpenCode sessions")
+
+            # Ensure we have a "global" codebase registered
+            global_codebase_id = self._global_codebase_id
+            if not global_codebase_id:
+                # Register the global pseudo-codebase
+                global_codebase_id = await self.register_codebase(
+                    name="global",
+                    path=str(Path.home()),
+                    description="Global OpenCode sessions (not project-specific)",
+                )
+                if global_codebase_id:
+                    self._global_codebase_id = global_codebase_id
+                else:
+                    logger.warning("Failed to register global codebase for session sync")
+                    return
+
+            session = await self._get_session()
+            url = f"{self.config.server_url}/v1/opencode/codebases/{global_codebase_id}/sessions/sync"
+            payload = {
+                "worker_id": self.config.worker_id,
+                "sessions": global_sessions,
+            }
+
+            async with session.post(url, json=payload) as resp:
+                if resp.status == 200:
+                    logger.debug(f"Synced {len(global_sessions)} global sessions")
+                elif resp.status in (403, 404):
+                    # Re-register and retry
+                    self._global_codebase_id = None
+                    new_id = await self.register_codebase(
+                        name="global",
+                        path=str(Path.home()),
+                        description="Global OpenCode sessions (not project-specific)",
+                    )
+                    if new_id:
+                        self._global_codebase_id = new_id
+                        retry_url = f"{self.config.server_url}/v1/opencode/codebases/{new_id}/sessions/sync"
+                        async with session.post(retry_url, json=payload) as retry_resp:
+                            if retry_resp.status == 200:
+                                logger.debug(f"Synced {len(global_sessions)} global sessions (after re-register)")
+                            else:
+                                text = await retry_resp.text()
+                                logger.warning(f"Global session sync retry failed: {retry_resp.status} {text[:200]}")
+                else:
+                    text = await resp.text()
+                    logger.warning(f"Global session sync failed: {resp.status} {text[:200]}")
+
+        except Exception as e:
+            logger.warning(f"Failed to sync global sessions: {e}")
+
     async def _report_recent_session_messages_to_server(
         self,
         codebase_id: str,
@@ -1054,6 +1245,11 @@ async def main():
         help="Worker name"
     )
     parser.add_argument(
+        "--worker-id",
+        default=None,
+        help="Stable worker id (recommended for systemd/k8s). If omitted, a random id is generated."
+    )
+    parser.add_argument(
         "--config", "-c",
         help="Path to config file"
     )
@@ -1101,6 +1297,7 @@ async def main():
     # from an explicit flag, so we detect explicit flags via sys.argv.
     server_flag_set = ("--server" in sys.argv) or ("-s" in sys.argv)
     name_flag_set = ("--name" in sys.argv) or ("-n" in sys.argv)
+    worker_id_flag_set = ("--worker-id" in sys.argv)
     poll_flag_set = ("--poll-interval" in sys.argv) or ("-i" in sys.argv)
 
     # Resolve server_url with precedence: CLI flag > env > config > default
@@ -1122,6 +1319,15 @@ async def main():
         worker_name = file_config["worker_name"]
     else:
         worker_name = os.uname().nodename
+
+    # Resolve worker_id with precedence: CLI flag > env > config > default
+    worker_id: Optional[str] = None
+    if worker_id_flag_set and args.worker_id:
+        worker_id = args.worker_id
+    elif os.environ.get("A2A_WORKER_ID"):
+        worker_id = os.environ["A2A_WORKER_ID"]
+    elif file_config.get("worker_id"):
+        worker_id = file_config["worker_id"]
 
     # Resolve poll_interval with precedence: CLI flag > env > config > default
     poll_interval_raw = None
@@ -1171,6 +1377,9 @@ async def main():
         ),
     }
 
+    if worker_id:
+        config_kwargs["worker_id"] = worker_id
+
     # Optional session message sync tuning
     if args.session_message_sync_max_sessions is not None:
         config_kwargs["session_message_sync_max_sessions"] = args.session_message_sync_max_sessions
@@ -1212,7 +1421,7 @@ async def main():
 
     def signal_handler():
         logger.info("Received shutdown signal")
-        asyncio.create_task(worker.stop())
+        worker.running = False
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, signal_handler)
@@ -1220,7 +1429,12 @@ async def main():
     try:
         await worker.start()
     except KeyboardInterrupt:
+        pass
+    finally:
+        # Always ensure clean shutdown
         await worker.stop()
+        # Give aiohttp time to close connections gracefully
+        await asyncio.sleep(0.25)
 
 
 if __name__ == "__main__":

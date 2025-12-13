@@ -3,6 +3,11 @@ enabled: true
 
 replicaCount: 1
 
+## Optional: set to force a rollout even when the image tag doesn't change (e.g. "latest").
+rolloutId: ""
+
+podAnnotations: {}
+
 image:
   repository: registry.quantum-forge.net/library/codetether-docs
   pullPolicy: Always

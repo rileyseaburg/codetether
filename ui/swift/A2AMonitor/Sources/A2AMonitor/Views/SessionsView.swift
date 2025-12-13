@@ -201,90 +201,104 @@ struct SessionDetailView: View {
     @State private var isSending = false
     @State private var statusText: String?
 
+    @State private var activeTaskId: String?
+    @State private var activeTaskStatus: TaskStatus?
+    @State private var taskPolling: Task<Void, Never>?
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Session Header
-                GlassCard(cornerRadius: 24, padding: 24) {
-                    VStack(spacing: 16) {
-                        HStack {
-                            Image(systemName: "person.2")
-                                .foregroundColor(Color.liquidGlass.primary)
-                            Text("Session Details")
-                                .font(.headline)
-                                .foregroundColor(Color.liquidGlass.textPrimary)
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Title: \(session.title ?? "Untitled")")
-                                .font(.subheadline)
-                                .foregroundColor(Color.liquidGlass.textPrimary)
-
-                            Text("Agent: \(session.agent ?? "build")")
-                                .font(.subheadline)
-                                .foregroundColor(Color.liquidGlass.textPrimary)
-
-                            Text("Updated: \(session.updated ?? session.created ?? "")")
-                                .font(.subheadline)
-                                .foregroundColor(Color.liquidGlass.textMuted)
-                        }
-                    }
+        VStack(spacing: 0) {
+            if let activeTaskStatus, activeTaskStatus == .working || activeTaskStatus == .pending {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Agent is working in the background…")
+                        .font(.caption)
+                        .foregroundColor(Color.liquidGlass.textSecondary)
+                    Spacer()
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.06))
+            }
 
-                // Session Messages
-                GlassCard(cornerRadius: 20, padding: 20) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Session Messages")
-                            .font(.headline)
-                            .foregroundColor(Color.liquidGlass.textPrimary)
-
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
                         if viewModel.sessionMessages.isEmpty {
-                            Text("No messages in this session")
-                                .font(.caption)
-                                .foregroundColor(Color.liquidGlass.textMuted)
+                            EmptyStateView(
+                                icon: "text.bubble",
+                                title: "No messages",
+                                message: "This session's messages may not be synced yet."
+                            )
+                            .padding(.top, 30)
                         } else {
                             ForEach(viewModel.sessionMessages, id: \.stableId) { msg in
-                                SessionMessageBubble(message: msg)
+                                ChatBubbleRow(message: msg)
+                                    .id(msg.stableId)
                             }
                         }
 
-                        Divider().background(Color.white.opacity(0.15))
-
-                        VStack(spacing: 10) {
-                            TextField("Reply to this session…", text: $draftMessage, axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
-
-                            HStack {
-                                Button {
-                                    Task {
-                                        await send()
-                                    }
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "paperplane.fill")
-                                        Text(isSending ? "Sending…" : "Send")
-                                    }
-                                }
-                                .disabled(isSending || draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                                Spacer()
-
-                                if let statusText {
-                                    Text(statusText)
-                                        .font(.caption2)
-                                        .foregroundColor(Color.liquidGlass.textMuted)
-                                }
-                            }
-                        }
+                        Color.clear
+                            .frame(height: 1)
+                            .id("__bottom")
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                }
+                .onChange(of: viewModel.sessionMessages.count) { _, _ in
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        proxy.scrollTo("__bottom", anchor: .bottom)
                     }
                 }
+                .task {
+                    // Clear out any previous session's messages before loading.
+                    await MainActor.run {
+                        viewModel.sessionMessages = []
+                    }
+                    await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+                    proxy.scrollTo("__bottom", anchor: .bottom)
+                }
             }
-            .padding(20)
         }
-        .navigationTitle("Session Details")
-        .task {
-            await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+        .safeAreaInset(edge: .bottom) {
+            composer
         }
+        .navigationTitle(session.title ?? "Session")
+        .navigationBarTitleDisplayMode(.inline)
+        .onDisappear {
+            taskPolling?.cancel()
+            taskPolling = nil
+        }
+    }
+
+    private var composer: some View {
+        VStack(spacing: 10) {
+            if let statusText {
+                Text(statusText)
+                    .font(.caption2)
+                    .foregroundColor(Color.liquidGlass.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField("Message…", text: $draftMessage, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...6)
+
+                Button {
+                    Task { await send() }
+                } label: {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .padding(10)
+                }
+                .background(Color.liquidGlass.primary.opacity(0.2))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .disabled(isSending || draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
     }
 
     private func send() async {
@@ -293,16 +307,67 @@ struct SessionDetailView: View {
 
         isSending = true
         statusText = nil
-        let ok = await viewModel.sendSessionPrompt(codebaseId: codebaseId, sessionId: session.id, prompt: message, agent: session.agent ?? "build")
-        if ok {
+        let resp = await viewModel.sendSessionPromptDetailed(
+            codebaseId: codebaseId,
+            sessionId: session.id,
+            prompt: message,
+            agent: session.agent ?? "build"
+        )
+        if let resp, resp.success {
             draftMessage = ""
-            statusText = "Sent"
+            statusText = resp.taskId != nil ? "Queued" : "Sent"
+            if let taskId = resp.taskId {
+                startPolling(taskId: taskId)
+            }
             await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
             await viewModel.loadSessions(for: codebaseId)
         } else {
             statusText = "Failed"
         }
         isSending = false
+    }
+
+    private func startPolling(taskId: String) {
+        activeTaskId = taskId
+        activeTaskStatus = .pending
+
+        taskPolling?.cancel()
+        taskPolling = Task { @MainActor in
+            // Poll task status and refresh messages while the agent runs.
+            while !Task.isCancelled {
+                if let task = await viewModel.fetchTask(taskId: taskId) {
+                    activeTaskStatus = task.status
+
+                    if task.status == .completed || task.status == .failed || task.status == .cancelled {
+                        break
+                    }
+                }
+
+                await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+            }
+
+            // One last refresh.
+            await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+            await viewModel.loadSessions(for: codebaseId)
+        }
+    }
+}
+
+// MARK: - Chat Bubble Row
+
+struct ChatBubbleRow: View {
+    let message: SessionMessage
+
+    var body: some View {
+        HStack {
+            if message.isUserMessage { Spacer(minLength: 40) }
+
+            SessionMessageBubble(message: message)
+                .frame(maxWidth: 520, alignment: message.isUserMessage ? .trailing : .leading)
+
+            if !message.isUserMessage { Spacer(minLength: 40) }
+        }
     }
 }
 

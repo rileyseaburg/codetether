@@ -543,6 +543,35 @@ Fix checklist:
 
 If `/v1/opencode/workers` returns an empty list, the server will reject path-based registration requests.
 
+### Worker is running, but `/v1/opencode/workers` or `/v1/opencode/codebases` is empty
+
+If the worker logs show successful registration (e.g. `Worker registered successfully` / `Registered codebase ...`) but the API still reports **zero** workers/codebases, this is almost always one of these:
+
+1. **You’re behind a load balancer / multiple API replicas without shared state**
+2. **The API pod/container restarted and lost in-memory state**
+3. **The OpenCode registry database is not persisted (no volume / wrong `OPENCODE_DB_PATH`)**
+
+Fix checklist:
+
+- **Enable Redis-backed OpenCode state on the server** (recommended for Kubernetes and any multi-replica deployment):
+
+    - Set `A2A_REDIS_URL` on the **server** (not the worker), e.g.:
+        - `A2A_REDIS_URL=redis://redis:6379`
+    - This lets workers/codebases/sessions be visible consistently across API replicas.
+
+- **Persist the OpenCode DB if you rely on SQLite**:
+
+    - Set `OPENCODE_DB_PATH` to a path on a persistent volume (e.g. `/data/opencode.db`).
+
+- **Force a fresh re-registration**:
+
+    - Restart the worker: `sudo systemctl restart a2a-agent-worker`
+    - Then re-check:
+        - `curl https://api.codetether.run/v1/opencode/workers`
+        - `curl https://api.codetether.run/v1/opencode/codebases`
+
+If the lists “flap” (sometimes empty, sometimes populated), it’s a strong signal that your load balancer is routing reads/writes to different replicas without a shared backing store.
+
 ### Registration task stuck in “pending”
 
 When you register a codebase from the UI **without** providing a `worker_id`, the server creates a special registration task with:

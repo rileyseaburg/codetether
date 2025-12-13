@@ -30,6 +30,12 @@ fi
 
 # Image tags
 BACKEND_TAG=${BACKEND_TAG:-"latest"}
+MARKETING_TAG=${MARKETING_TAG:-"$BACKEND_TAG"}
+DOCS_TAG=${DOCS_TAG:-"$BACKEND_TAG"}
+
+# Optional image repository overrides
+MARKETING_REPOSITORY=${MARKETING_REPOSITORY:-"${REGISTRY}/${IMAGE_REPO}/a2a-marketing"}
+DOCS_REPOSITORY=${DOCS_REPOSITORY:-"${REGISTRY}/${IMAGE_REPO}/codetether-docs"}
 
 # Default desired replica count for the active workload.
 REPLICAS=${REPLICAS:-"1"}
@@ -228,8 +234,8 @@ deploy_bluegreen() {
     fi
 
     # PHASE A: stage the inactive color, keep traffic on current workload.
-    local phase_a_mode phase_a_service_color phase_a_legacy_repl
-    local phase_a_blue_repl phase_a_green_repl
+	    local phase_a_mode phase_a_service_color phase_a_legacy_repl
+	    local phase_a_blue_repl phase_a_green_repl
 
     if [ "$current_mode" = "bluegreen" ]; then
         # Traffic is already on color deployments.
@@ -259,9 +265,9 @@ deploy_bluegreen() {
 
     log_info "Phase A: staging ${new_color} (mode=${phase_a_mode}, serviceColor=${phase_a_service_color})"
 
-    local HELM_TIMEOUT="10m"
-        local -a phase_a_args=(
-                --wait --timeout "${HELM_TIMEOUT}"
+	    local HELM_TIMEOUT="10m"
+	        local -a phase_a_args=(
+	                --wait --timeout "${HELM_TIMEOUT}"
                 --set blueGreen.enabled=true
                 --set-string blueGreen.mode="${phase_a_mode}"
                 --set-string blueGreen.serviceColor="${phase_a_service_color}"
@@ -274,9 +280,15 @@ deploy_bluegreen() {
                 --set-string blueGreen.rolloutId.legacy="${rollout_legacy}"
                 --set-string blueGreen.rolloutId.blue="${rollout_blue}"
                 --set-string blueGreen.rolloutId.green="${rollout_green}"
-                --set-string image.repository="${REGISTRY}/${IMAGE_REPO}/a2a-server-mcp"
-                --set-string image.tag="${BACKEND_TAG}"
-        )
+	                --set-string image.repository="${REGISTRY}/${IMAGE_REPO}/a2a-server-mcp"
+	                --set-string image.tag="${BACKEND_TAG}"
+	                --set-string marketing.image.repository="${MARKETING_REPOSITORY}"
+	                --set-string marketing.image.tag="${MARKETING_TAG}"
+	                --set-string marketing.rolloutId="${deploy_id}"
+	                --set-string docs.image.repository="${DOCS_REPOSITORY}"
+	                --set-string docs.image.tag="${DOCS_TAG}"
+	                --set-string docs.rolloutId="${deploy_id}"
+	        )
 
         helm_upgrade "${phase_a_args[@]}"
 
@@ -303,8 +315,8 @@ deploy_bluegreen() {
         phase_b_green_repl="$REPLICAS"
     fi
 
-    local -a phase_b_args=(
-        --wait --timeout "${HELM_TIMEOUT}"
+	    local -a phase_b_args=(
+	        --wait --timeout "${HELM_TIMEOUT}"
         --set blueGreen.enabled=true
         --set-string blueGreen.mode="bluegreen"
         --set-string blueGreen.serviceColor="${new_color}"
@@ -317,9 +329,15 @@ deploy_bluegreen() {
         --set-string blueGreen.rolloutId.legacy="${rollout_legacy}"
         --set-string blueGreen.rolloutId.blue="${rollout_blue}"
         --set-string blueGreen.rolloutId.green="${rollout_green}"
-        --set-string image.repository="${REGISTRY}/${IMAGE_REPO}/a2a-server-mcp"
-        --set-string image.tag="${BACKEND_TAG}"
-    )
+	        --set-string image.repository="${REGISTRY}/${IMAGE_REPO}/a2a-server-mcp"
+	        --set-string image.tag="${BACKEND_TAG}"
+	        --set-string marketing.image.repository="${MARKETING_REPOSITORY}"
+	        --set-string marketing.image.tag="${MARKETING_TAG}"
+	        --set-string marketing.rolloutId="${deploy_id}"
+	        --set-string docs.image.repository="${DOCS_REPOSITORY}"
+	        --set-string docs.image.tag="${DOCS_TAG}"
+	        --set-string docs.rolloutId="${deploy_id}"
+	    )
 
     helm_upgrade "${phase_b_args[@]}"
 
@@ -432,21 +450,25 @@ main() {
         *)
             echo "Usage: $0 {deploy|rollback|status}"
             echo ""
-            echo "Environment variables:"
-            echo "  BACKEND_TAG    - Backend image tag (default: latest)"
-            echo "  REPLICAS       - Active workload replicas (default: 1)"
-            echo "  NAMESPACE      - Kubernetes namespace (default: a2a-server)"
-            echo "  RELEASE_NAME   - Helm release name (default: a2a-server)"
+	            echo "Environment variables:"
+	            echo "  BACKEND_TAG    - Backend image tag (default: latest)"
+	            echo "  MARKETING_TAG  - Marketing image tag (default: BACKEND_TAG)"
+	            echo "  DOCS_TAG       - Docs image tag (default: BACKEND_TAG)"
+	            echo "  REPLICAS       - Active workload replicas (default: 1)"
+	            echo "  NAMESPACE      - Kubernetes namespace (default: a2a-server)"
+	            echo "  RELEASE_NAME   - Helm release name (default: a2a-server)"
             echo "  CHART_SOURCE   - Chart source: 'local' or 'oci' (default: local)"
             echo "  CHART_VERSION  - OCI chart version (default: 0.4.2)"
             echo "  VALUES_FILE    - Path to values file"
             echo "  KUBECONFIG     - Path to kubeconfig file"
-            echo "  REGISTRY       - Container registry host (default: registry.quantum-forge.net)"
-            echo "  IMAGE_REPO     - OCI namespace (default: library)"
-            echo "  DEBUG          - Enable Helm debug output"
-            exit 2
-            ;;
-    esac
-}
+	            echo "  REGISTRY       - Container registry host (default: registry.quantum-forge.net)"
+	            echo "  IMAGE_REPO     - OCI namespace (default: library)"
+	            echo "  MARKETING_REPOSITORY - Marketing image repository override"
+	            echo "  DOCS_REPOSITORY      - Docs image repository override"
+	            echo "  DEBUG          - Enable Helm debug output"
+	            exit 2
+	            ;;
+	    esac
+	}
 
 main "$@"

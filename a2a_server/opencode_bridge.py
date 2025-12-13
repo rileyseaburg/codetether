@@ -527,6 +527,7 @@ class OpenCodeBridge:
         description: str = "",
         agent_config: Optional[Dict[str, Any]] = None,
         worker_id: Optional[str] = None,
+        codebase_id: Optional[str] = None,
     ) -> RegisteredCodebase:
         """
         Register a codebase for agent work.
@@ -550,6 +551,24 @@ class OpenCodeBridge:
         # NOTE: Path validation removed - the control plane never executes locally.
         # Paths are validated by workers when they register codebases.
 
+        # If the caller provided a specific ID and we already have it in-memory,
+        # update that entry in-place.
+        if codebase_id and codebase_id in self._codebases:
+            codebase = self._codebases[codebase_id]
+            codebase.name = name
+            codebase.description = description
+            codebase.agent_config = agent_config or {}
+            if worker_id:
+                codebase.worker_id = worker_id
+            codebase.status = AgentStatus.IDLE
+            self._save_codebase(codebase)  # Persist update
+
+            worker_info = f" (worker: {worker_id})" if worker_id else ""
+            logger.info(
+                f"Updated existing codebase: {name} ({codebase_id}) at {path}{worker_info}"
+            )
+            return codebase
+
         # Check for existing codebase with same path - update instead of duplicate
         existing_id = None
         for cid, cb in self._codebases.items():
@@ -558,7 +577,14 @@ class OpenCodeBridge:
                 break
 
         if existing_id:
-            # Update existing codebase instead of creating duplicate
+            # Update existing codebase instead of creating duplicate.
+            # If the caller supplied a conflicting codebase_id, keep the existing
+            # in-memory ID (it is already referenced by tasks/sessions).
+            if codebase_id and codebase_id != existing_id:
+                logger.info(
+                    f"register_codebase: ignoring provided codebase_id={codebase_id} "
+                    f"because path is already registered as {existing_id}"
+                )
             codebase = self._codebases[existing_id]
             codebase.name = name
             codebase.description = description
@@ -569,11 +595,15 @@ class OpenCodeBridge:
             self._save_codebase(codebase)  # Persist update
 
             worker_info = f" (worker: {worker_id})" if worker_id else ""
-            logger.info(f"Updated existing codebase: {name} ({existing_id}) at {path}{worker_info}")
+            logger.info(
+                f"Updated existing codebase: {name} ({existing_id}) at {path}{worker_info}"
+            )
             return codebase
 
-        # Generate ID for new codebase
-        codebase_id = str(uuid.uuid4())[:8]
+        # Use caller-provided ID when available (e.g., when rehydrating from
+        # PostgreSQL/Redis after a restart), otherwise generate a new ID.
+        if not codebase_id:
+            codebase_id = str(uuid.uuid4())[:8]
 
         codebase = RegisteredCodebase(
             id=codebase_id,

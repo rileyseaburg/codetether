@@ -373,6 +373,23 @@ class A2AClient: ObservableObject {
         agent: String = "build",
         model: String? = nil
     ) async throws -> Bool {
+        let response = try await resumeSessionDetailed(
+            codebaseId: codebaseId,
+            sessionId: sessionId,
+            prompt: prompt,
+            agent: agent,
+            model: model
+        )
+        return response.success
+    }
+
+    func resumeSessionDetailed(
+        codebaseId: String,
+        sessionId: String,
+        prompt: String?,
+        agent: String = "build",
+        model: String? = nil
+    ) async throws -> ResumeSessionResponse {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/sessions/\(sessionId)/resume")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -390,15 +407,28 @@ class A2AClient: ObservableObject {
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            return false
+            throw A2AError.invalidResponse
         }
 
-        // Best-effort: the API returns {success: bool, ...}
+        // Preferred: strongly-typed decode.
+        if let decoded = try? jsonDecoder.decode(ResumeSessionResponse.self, from: data) {
+            return decoded
+        }
+
+        // Fallback for unexpected shapes.
         if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let success = obj["success"] as? Bool {
-            return success
+            return ResumeSessionResponse(
+                success: success,
+                message: obj["message"] as? String,
+                taskId: obj["task_id"] as? String,
+                sessionId: obj["session_id"] as? String,
+                activeSessionId: obj["active_session_id"] as? String,
+                error: obj["error"] as? String
+            )
         }
-        return true
+
+        return ResumeSessionResponse(success: true, message: nil, taskId: nil, sessionId: sessionId, activeSessionId: sessionId, error: nil)
     }
 
     func fetchTasks() async throws -> [AgentTask] {
@@ -406,6 +436,13 @@ class A2AClient: ObservableObject {
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
         return try jsonDecoder.decode([AgentTask].self, from: data)
+    }
+
+    func fetchTask(taskId: String) async throws -> AgentTask {
+        let url = baseURL.appendingPathComponent("/v1/opencode/tasks/\(taskId)")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(AgentTask.self, from: data)
     }
 
     func createTask(codebaseId: String, title: String, description: String, priority: TaskPriority, context: String?) async throws -> AgentTask {
