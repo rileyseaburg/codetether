@@ -2229,6 +2229,7 @@ def _dedupe_codebases_by_path(
     return deduped + passthrough
 
 
+@opencode_router.get('/codebases/list')
 async def list_codebases(include_duplicates: bool = False):
     """List all registered codebases.
 
@@ -2648,12 +2649,33 @@ async def stream_agent_events(codebase_id: str, request: Request):
             status_code=503, detail='OpenCode bridge not available'
         )
 
-    codebase = bridge._codebases.get(codebase_id)
-    if not codebase:
+    # Resolve codebase metadata across all backends.
+    # NOTE: OpenCodeBridge persists to SQLite, while the server also persists
+    # codebases to PostgreSQL/Redis for durability and multi-replica support.
+    # The SSE stream must therefore not depend solely on bridge._codebases.
+    codebase_obj = bridge.get_codebase(codebase_id)
+    codebase_meta: Optional[Dict[str, Any]] = (
+        codebase_obj.to_dict() if codebase_obj else None
+    )
+
+    if not codebase_meta:
+        try:
+            codebase_meta = await db.db_get_codebase(codebase_id)
+        except Exception:
+            codebase_meta = None
+
+    if not codebase_meta:
+        codebase_meta = await _redis_get_codebase_meta(codebase_id)
+
+    if not codebase_meta:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
+    worker_id = codebase_meta.get('worker_id')
+    opencode_port = codebase_meta.get('opencode_port')
+    codebase_path = codebase_meta.get('path') or ''
+
     # For remote workers, check if there are pending tasks and return task-based events
-    if codebase.worker_id and not codebase.opencode_port:
+    if worker_id and not opencode_port:
 
         async def remote_event_generator():
             """Stream events for remote worker codebases from task output/results.
@@ -2693,7 +2715,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
             yield (
                 'event: connected\n'
-                f'data: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": True, "worker_id": codebase.worker_id})}\n\n'
+                f'data: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": True, "worker_id": worker_id})}\n\n'
             )
 
             emitted_task_ids: set[str] = set()
@@ -2802,12 +2824,20 @@ async def stream_agent_events(codebase_id: str, request: Request):
             },
         )
 
-    if not codebase.opencode_port:
+    if not opencode_port:
         raise HTTPException(status_code=400, detail='Agent not running')
 
     async def event_generator():
         """Proxy events from OpenCode SSE endpoint."""
-        base_url = bridge._get_opencode_base_url(codebase.opencode_port)
+        try:
+            port_int = int(opencode_port)
+        except Exception:
+            port_int = None
+
+        if port_int is None:
+            raise HTTPException(status_code=400, detail='Agent not running')
+
+        base_url = bridge._get_opencode_base_url(port_int)
 
         yield f'event: connected\ndata: {json.dumps({"codebase_id": codebase_id, "status": "connected"})}\n\n'
 
@@ -2815,7 +2845,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/event',
-                    params={'directory': codebase.path},
+                    params={'directory': codebase_path},
                     timeout=aiohttp.ClientTimeout(total=None),
                 ) as resp:
                     if resp.status != 200:
