@@ -6,6 +6,7 @@ site_description: >-
   Turn AI agents into production systems with real-time coordination, distributed workers, and enterprise-grade security.
 site_author: CodeTether
 site_dir: codetether-site
+docs_dir: codetether-docs
 
 extra:
   version: "1.0.0"

@@ -11,6 +11,13 @@ NAMESPACE ?= a2a-server
 RELEASE_NAME ?= codetether
 VALUES_FILE ?= chart/codetether-values.yaml
 
+# Local systemd worker (optional)
+LOCAL_WORKER_SERVICE ?= a2a-agent-worker
+RESTART_LOCAL_WORKER ?= 1
+AUTO_INSTALL_LOCAL_WORKER ?= 1
+LOCAL_WORKER_INSTALL_SCRIPT ?= agent_worker/install.sh
+SUDO ?= sudo
+
 # Additional image names for full platform
 MARKETING_IMAGE_NAME = a2a-marketing
 DOCS_IMAGE_NAME = codetether-docs
@@ -259,6 +266,18 @@ docs-build: ## Build documentation
 docs-deploy: ## Deploy documentation
 	mkdocs gh-deploy
 
+.PHONY: codetether-docs-serve
+codetether-docs-serve: ## Serve CodeTether documentation locally
+	mkdocs serve -f codetether-mkdocs.yml
+
+.PHONY: codetether-docs-build
+codetether-docs-build: ## Build CodeTether documentation
+	mkdocs build -f codetether-mkdocs.yml
+
+.PHONY: codetether-docs-deploy
+codetether-docs-deploy: ## Deploy CodeTether documentation
+	mkdocs gh-deploy -f codetether-mkdocs.yml
+
 # Cleanup targets
 .PHONY: clean
 clean: ## Clean up temporary files
@@ -382,24 +401,24 @@ deploy-status: ## Show blue-green deployment status
 bluegreen-deploy: ## Deploy with blue-green strategy (zero-downtime)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment..."
-	BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	KUBECONFIG=$(KUBECONFIG_PATH) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: bluegreen-rollback
 bluegreen-rollback: ## Rollback blue-green deployment to previous version
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "↩️  Rolling back blue-green deployment..."
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh rollback
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh rollback
 
 .PHONY: bluegreen-status
 bluegreen-status: ## Show blue-green deployment status
 	@chmod +x scripts/bluegreen-deploy.sh
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh status
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh status
 
 .PHONY: bluegreen-oci
 bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push image and chart, then deploy with blue-green (OCI)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment with OCI chart..."
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
 
@@ -411,7 +430,7 @@ bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push im
 k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to dev environment
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting DEV environment blue-green deployment"
-	NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
 		VALUES_FILE=$(CHART_PATH)/values-dev.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
@@ -420,7 +439,7 @@ k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to 
 k8s-staging: docker-build-all docker-push-all ## Build and deploy all containers to staging environment
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting STAGING environment blue-green deployment"
-	NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
 		VALUES_FILE=$(CHART_PATH)/values-staging.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
@@ -431,11 +450,113 @@ k8s-prod: docker-build-all docker-push-all helm-package helm-push ## Build and d
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
 	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site"
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
+	@$(MAKE) local-worker-restart
+
+.PHONY: k8s-prod-docs
+k8s-prod-docs: docker-build-docs docker-push-docs ## Build and deploy Documentation Site only to production
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Deploying DOCS only to production"
+	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
+	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
+		DOCS_TAG=$(DOCKER_TAG) \
+		./scripts/bluegreen-deploy.sh deploy-docs
+
+.PHONY: local-worker-restart
+local-worker-restart: ## Restart local systemd worker (best effort). Set RESTART_LOCAL_WORKER=0 to skip.
+	@set -euo pipefail; \
+	if [ "$(RESTART_LOCAL_WORKER)" != "1" ]; then \
+		echo "ℹ️  RESTART_LOCAL_WORKER=$(RESTART_LOCAL_WORKER) - skipping local systemd worker restart"; \
+		exit 0; \
+	fi; \
+	if ! command -v systemctl >/dev/null 2>&1; then \
+		echo "❌ systemctl not found but RESTART_LOCAL_WORKER=1. Cannot manage local worker via systemd."; \
+		exit 1; \
+	fi; \
+	unit="$(LOCAL_WORKER_SERVICE)"; \
+	: "Allow LOCAL_WORKER_SERVICE to be set with or without the .service suffix"; \
+	if [[ "$$unit" != *.service ]]; then unit="$$unit.service"; fi; \
+	unit_installed=0; \
+	for p in \
+		"/etc/systemd/system/$$unit" \
+		"/lib/systemd/system/$$unit" \
+		"/usr/lib/systemd/system/$$unit"; do \
+		if [ -f "$$p" ]; then unit_installed=1; break; fi; \
+	done; \
+	if [ "$$unit_installed" -ne 1 ]; then \
+		echo "⚠️  systemd unit $$unit not installed"; \
+		if [ "$(AUTO_INSTALL_LOCAL_WORKER)" != "1" ]; then \
+			echo "❌ AUTO_INSTALL_LOCAL_WORKER=$(AUTO_INSTALL_LOCAL_WORKER) so we will not auto-install. Install it, then rerun."; \
+			exit 1; \
+		fi; \
+		if [ ! -f "$(LOCAL_WORKER_INSTALL_SCRIPT)" ]; then \
+			echo "❌ Install script not found: $(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+			exit 1; \
+		fi; \
+		echo "🧰 Attempting to install local worker service via $(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+		if [ "$$(id -u)" -eq 0 ]; then \
+			bash "$(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+		else \
+			if command -v "$(SUDO)" >/dev/null 2>&1; then \
+				if "$(SUDO)" -n true 2>/dev/null; then \
+					"$(SUDO)" bash "$(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+				elif [ -t 0 ]; then \
+					"$(SUDO)" bash "$(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+				else \
+					echo "❌ sudo needs a password but this is a non-interactive session. Install the worker manually:"; \
+					echo "   sudo bash $(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+					exit 1; \
+				fi; \
+			else \
+				echo "❌ Not root and sudo not available. Install the worker as root:"; \
+				echo "   bash $(LOCAL_WORKER_INSTALL_SCRIPT)"; \
+				exit 1; \
+			fi; \
+		fi; \
+	fi; \
+	# Re-check now that we may have installed it. \
+	unit_installed=0; \
+	for p in \
+		"/etc/systemd/system/$$unit" \
+		"/lib/systemd/system/$$unit" \
+		"/usr/lib/systemd/system/$$unit"; do \
+		if [ -f "$$p" ]; then unit_installed=1; break; fi; \
+	done; \
+	if [ "$$unit_installed" -ne 1 ]; then \
+		echo "❌ systemd unit $$unit still not installed after install attempt."; \
+		exit 1; \
+	fi; \
+	echo "🔄 Restarting local worker: $$unit"; \
+	if [ "$$(id -u)" -eq 0 ]; then \
+		systemctl daemon-reload || true; \
+		systemctl restart "$$unit"; \
+		systemctl --no-pager --full status "$$unit"; \
+	else \
+		if command -v "$(SUDO)" >/dev/null 2>&1; then \
+			if "$(SUDO)" -n true 2>/dev/null; then \
+				"$(SUDO)" systemctl daemon-reload || true; \
+				"$(SUDO)" systemctl restart "$$unit"; \
+				"$(SUDO)" systemctl --no-pager --full status "$$unit"; \
+			elif [ -t 0 ]; then \
+				"$(SUDO)" systemctl daemon-reload || true; \
+				"$(SUDO)" systemctl restart "$$unit"; \
+				"$(SUDO)" systemctl --no-pager --full status "$$unit"; \
+			else \
+				echo "❌ sudo needs a password but this is a non-interactive session. Restart manually:"; \
+				echo "   sudo systemctl restart $$unit"; \
+				exit 1; \
+			fi; \
+		else \
+			echo "❌ Not root and sudo not available. Restart manually as root:"; \
+			echo "   systemctl restart $$unit"; \
+			exit 1; \
+		fi; \
+	fi
 
 # Convenience aliases
 .PHONY: k8s
