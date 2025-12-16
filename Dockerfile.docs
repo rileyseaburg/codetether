@@ -11,7 +11,7 @@ WORKDIR /docs
 
 # Copy documentation files
 COPY codetether-mkdocs.yml /docs/mkdocs.yml
-COPY docs /docs/docs
+COPY codetether-docs /docs/codetether-docs
 
 # Build static site
 RUN mkdocs build -f mkdocs.yml -d /site
