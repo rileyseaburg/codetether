@@ -152,6 +152,18 @@ class A2AServer:
             """Handle JSON-RPC 2.0 requests."""
             return await self._handle_jsonrpc_request(request, credentials)
 
+        # Backwards/Docs compatibility: accept JSON-RPC at a versioned path.
+        # Historically, docs and clients used /v1/a2a.
+        @self.app.post('/v1/a2a')
+        async def handle_jsonrpc_v1(
+            request: Request,
+            credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+                security
+            ),
+        ):
+            """Handle JSON-RPC 2.0 requests (alias for `/`)."""
+            return await self._handle_jsonrpc_request(request, credentials)
+
         @self.app.get('/health')
         async def health_check():
             """Health check endpoint."""
