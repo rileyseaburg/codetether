@@ -1,15 +1,31 @@
-"""Setup script for A2A Server MCP."""
+"""Setup script for CodeTether.
+
+Distribution name: CodeTether
+Python packages: a2a_server (server implementation), agent_worker (system worker)
+"""
 
 from setuptools import setup, find_packages
 
+
+def _read_readme() -> str:
+    try:
+        with open("README.md", "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return "CodeTether - production-ready agent orchestration platform."
+
 setup(
-    name="a2a-server-mcp",
+    name="codetether",
     version="1.0.0",
-    description="Agent-to-Agent (A2A) Server with MCP integration",
-    author="A2A Server Team",
+    description="CodeTether: production-ready Agent-to-Agent (A2A) platform with MCP + OpenCode",
+    long_description=_read_readme(),
+    long_description_content_type="text/markdown",
+    author="CodeTether Contributors",
     author_email="",
     url="https://github.com/rileyseaburg/codetether",
     packages=find_packages(exclude=["tests", "tests.*", "examples", "examples.*"]),
+    # Include top-level modules used by console entrypoints.
+    py_modules=["run_server"],
     package_data={
         "a2a_server": ["../ui/*.html", "../ui/*.js"],
     },
@@ -20,9 +36,24 @@ setup(
         "uvicorn>=0.24.0",
         "pydantic>=2.0.0",
         "httpx>=0.25.0",
+        # Worker runtime
+        "aiohttp>=3.9.0",
         "redis>=5.0.0",
         "mcp>=1.0.0",
+        # LiveKit integration for real-time media
+        "livekit>=0.15.0",
+        "livekit-api>=1.0.0",
     ],
+    entry_points={
+        "console_scripts": [
+            # Main UX: `codetether` starts a server by default.
+            "codetether=codetether.cli:main",
+            # Worker runner.
+            "codetether-worker=codetether.worker_cli:main",
+            # Back-compat friendly alias.
+            "a2a-server=codetether.cli:main",
+        ]
+    },
     extras_require={
         "test": [
             "pytest>=7.4.0",
