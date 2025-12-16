@@ -1405,6 +1405,63 @@ def get_opencode_bridge():
     return _opencode_bridge
 
 
+async def _rehydrate_codebase_into_bridge(codebase_id: str):
+    """Best-effort: load a codebase from Redis/PostgreSQL into this instance's bridge.
+
+    Some endpoints historically required the codebase to exist in the in-memory
+    OpenCode bridge registry. In multi-replica setups or after restarts, the
+    bridge can be empty while PostgreSQL still has durable codebase/session data.
+
+    Returns the registered codebase (if successful) or None.
+    """
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        return None
+
+    existing = bridge.get_codebase(codebase_id)
+    if existing is not None:
+        return existing
+
+    meta: Optional[Dict[str, Any]] = None
+    try:
+        meta = await _redis_get_codebase_meta(codebase_id)
+    except Exception:
+        meta = None
+
+    if not meta:
+        try:
+            meta = await db.db_get_codebase(codebase_id)
+        except Exception:
+            meta = None
+
+    if not meta:
+        return None
+
+    name = meta.get('name') or codebase_id
+    path = meta.get('path')
+    if not isinstance(path, str) or not path:
+        return None
+
+    agent_config = meta.get('agent_config')
+    if not isinstance(agent_config, dict):
+        agent_config = {}
+
+    desired_id = meta.get('id') or codebase_id
+    try:
+        codebase = bridge.register_codebase(
+            name=name,
+            path=path,
+            description=meta.get('description') or '',
+            agent_config=agent_config,
+            worker_id=meta.get('worker_id'),
+            codebase_id=desired_id,
+        )
+        return codebase
+    except Exception as e:
+        logger.debug(f'Failed to rehydrate codebase {codebase_id} into bridge: {e}')
+        return None
+
+
 class CodebaseRegistration(BaseModel):
     """Request model for registering a codebase."""
 
@@ -2116,7 +2173,6 @@ async def list_models():
     }
 
 
-@opencode_router.get('/codebases')
 def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
     if not path or not isinstance(path, str):
         return None
@@ -2124,6 +2180,25 @@ def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
         return os.path.abspath(os.path.expanduser(path))
     except Exception:
         return path
+
+
+@opencode_router.get('/codebases')
+async def get_codebases(
+    path: Optional[str] = None,
+    include_duplicates: bool = False,
+):
+    """Backward-compatible GET handler.
+
+    - If `path` is provided, returns the normalized filesystem path.
+    - If `path` is omitted, returns the list of registered codebases.
+
+    Historically, the UI called this as a listing endpoint; FastAPI treated
+    `path` as required and returned 422. We keep the path-normalization behavior
+    while also supporting listing to prevent client errors.
+    """
+    if path:
+        return _normalize_codebase_path(path)
+    return await list_codebases(include_duplicates=include_duplicates)
 
 
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -2213,7 +2288,12 @@ def _dedupe_codebases_by_path(
             cb for cb in cbs
             if cb.get('worker_id') in active_worker_ids
         ]
-        candidates = active_candidates if active_candidates else cbs
+        if active_candidates:
+            candidates = active_candidates
+        else:
+            # Prefer worker-owned entries even if the worker is currently inactive.
+            owned_candidates = [cb for cb in cbs if cb.get('worker_id')]
+            candidates = owned_candidates if owned_candidates else cbs
         chosen = max(candidates, key=_codebase_sort_key)
 
         # Provide visibility into de-duping without breaking older clients.
@@ -2686,7 +2766,9 @@ async def stream_agent_events(codebase_id: str, request: Request):
             """
             import time
 
-            def _format_task_result_events(raw_result: Any):
+            def _format_task_result_events(
+                raw_result: Any, session_id: Optional[str] = None
+            ):
                 """Yield SSE frames for a stored task result payload."""
                 try:
                     result_data = (
@@ -2703,9 +2785,18 @@ async def stream_agent_events(codebase_id: str, request: Request):
                                 )
                                 continue
 
+                            if session_id and 'session_id' not in event:
+                                event['session_id'] = session_id
+
                             event_type = event.get('type', 'message')
                             yield f'event: {event_type}\ndata: {json.dumps(event)}\n\n'
                     else:
+                        if (
+                            isinstance(result_data, dict)
+                            and session_id
+                            and 'session_id' not in result_data
+                        ):
+                            result_data['session_id'] = session_id
                         yield f'event: message\ndata: {json.dumps(result_data)}\n\n'
                 except (json.JSONDecodeError, TypeError):
                     yield (
@@ -2726,8 +2817,19 @@ async def stream_agent_events(codebase_id: str, request: Request):
             all_tasks = bridge.list_tasks(codebase_id=codebase_id)
             recent_tasks = all_tasks[-10:] if len(all_tasks) > 10 else all_tasks
             for t in recent_tasks:
+                task_metadata = (
+                    (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                )
+                resume_session_id = None
+                try:
+                    resume_session_id = task_metadata.get('resume_session_id')
+                except Exception:
+                    resume_session_id = None
+
                 if t.status.value == 'completed' and t.result:
-                    for frame in _format_task_result_events(t.result):
+                    for frame in _format_task_result_events(
+                        t.result, session_id=resume_session_id
+                    ):
                         yield frame
                     emitted_task_ids.add(t.id)
 
@@ -2752,6 +2854,13 @@ async def stream_agent_events(codebase_id: str, request: Request):
                     )
 
                     for t in recent_tasks:
+                        task_metadata = (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                        resume_session_id = None
+                        try:
+                            resume_session_id = task_metadata.get('resume_session_id')
+                        except Exception:
+                            resume_session_id = None
+
                         # Emit status transitions (lightweight breadcrumbs).
                         current_status = t.status.value
                         previous_status = last_task_status.get(t.id)
@@ -2762,7 +2871,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             last_task_status[t.id] = current_status
                             yield (
                                 'event: status\n'
-                                f'data: {json.dumps({"status": current_status, "message": f"Task: {t.title} ({current_status})", "task_id": t.id})}\n\n'
+                                f'data: {json.dumps({"status": current_status, "message": f"Task: {t.title} ({current_status})", "task_id": t.id, "resume_session_id": resume_session_id, "session_id": resume_session_id})}\n\n'
                             )
 
                         # Stream any new output chunks received from the worker.
@@ -2774,7 +2883,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
                                 if content:
                                     yield (
                                         'event: message\n'
-                                        f'data: {json.dumps({"type": "text", "content": content, "task_id": t.id, "worker_id": (chunk or {}).get("worker_id")})}\n\n'
+                                        f'data: {json.dumps({"type": "text", "content": content, "task_id": t.id, "worker_id": (chunk or {}).get("worker_id"), "resume_session_id": resume_session_id, "session_id": resume_session_id})}\n\n'
                                     )
                             output_cursors[t.id] = len(outputs)
 
@@ -2784,7 +2893,9 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             and t.result
                             and t.id not in emitted_task_ids
                         ):
-                            for frame in _format_task_result_events(t.result):
+                            for frame in _format_task_result_events(
+                                t.result, session_id=resume_session_id
+                            ):
                                 yield frame
                             emitted_task_ids.add(t.id)
                         elif (
@@ -2797,6 +2908,8 @@ async def stream_agent_events(codebase_id: str, request: Request):
                                 'message': t.error or t.result or f'Task {current_status}',
                                 'task_id': t.id,
                                 'title': t.title,
+                                'resume_session_id': resume_session_id,
+                                'session_id': resume_session_id,
                             }
                             yield f'event: message\ndata: {json.dumps(payload)}\n\n'
                             emitted_task_ids.add(t.id)
@@ -2825,7 +2938,116 @@ async def stream_agent_events(codebase_id: str, request: Request):
         )
 
     if not opencode_port:
-        raise HTTPException(status_code=400, detail='Agent not running')
+
+        async def offline_event_generator():
+            """Keep an SSE stream open even when no agent is currently running.
+
+            This avoids EventSource error spam in the UI and still allows clients
+            to receive task output/results for codebases that execute work via the
+            task queue (or become available later).
+            """
+            import time
+
+            yield (
+                'event: connected\n'
+                f'data: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": bool(worker_id), "worker_id": worker_id})}\n\n'
+            )
+
+            yield (
+                'event: status\n'
+                f'data: {json.dumps({"status": "offline", "message": "Agent not running (yet). Waiting for tasks/output…"})}\n\n'
+            )
+
+            emitted_task_ids: set[str] = set()
+            output_cursors: Dict[str, int] = {}
+
+            keepalive_interval_s = 15.0
+            poll_interval_s = 1.0
+            last_keepalive = time.monotonic()
+
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        break
+
+                    # Stream any available task output/results.
+                    try:
+                        all_tasks = bridge.list_tasks(codebase_id=codebase_id)
+                    except Exception:
+                        all_tasks = []
+
+                    recent_tasks = (
+                        all_tasks[-25:] if len(all_tasks) > 25 else all_tasks
+                    )
+
+                    for t in recent_tasks:
+                        task_metadata = (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                        resume_session_id = None
+                        try:
+                            resume_session_id = task_metadata.get('resume_session_id')
+                        except Exception:
+                            resume_session_id = None
+
+                        outputs = _task_output_streams.get(t.id, [])
+                        cursor = output_cursors.get(t.id, 0)
+                        if len(outputs) > cursor:
+                            for chunk in outputs[cursor:]:
+                                content = (chunk or {}).get('output')
+                                if content:
+                                    yield (
+                                        'event: message\n'
+                                        f'data: {json.dumps({"type": "text", "content": content, "task_id": t.id, "worker_id": (chunk or {}).get("worker_id"), "resume_session_id": resume_session_id, "session_id": resume_session_id})}\n\n'
+                                    )
+                            output_cursors[t.id] = len(outputs)
+
+                        # Emit completed/failed terminal payload once.
+                        status_value = t.status.value
+                        if status_value == 'completed' and t.result and t.id not in emitted_task_ids:
+                            payload = {
+                                'type': 'status',
+                                'message': 'Task completed',
+                                'task_id': t.id,
+                                'title': t.title,
+                                'resume_session_id': resume_session_id,
+                                'session_id': resume_session_id,
+                                'result': t.result,
+                            }
+                            yield f'event: message\ndata: {json.dumps(payload)}\n\n'
+                            emitted_task_ids.add(t.id)
+                        elif status_value == 'failed' and (t.error or t.result) and t.id not in emitted_task_ids:
+                            payload = {
+                                'type': 'error',
+                                'message': t.error or 'Task failed',
+                                'task_id': t.id,
+                                'title': t.title,
+                                'resume_session_id': resume_session_id,
+                                'session_id': resume_session_id,
+                                'result': t.result,
+                            }
+                            yield f'event: message\ndata: {json.dumps(payload)}\n\n'
+                            emitted_task_ids.add(t.id)
+
+                    now = time.monotonic()
+                    if now - last_keepalive >= keepalive_interval_s:
+                        yield ': keep-alive\n\n'
+                        last_keepalive = now
+
+                    await asyncio.sleep(poll_interval_s)
+            except asyncio.CancelledError:
+                logger.info(f'Offline event stream cancelled for {codebase_id}')
+            except Exception as e:
+                logger.error(f'Error streaming offline events: {e}')
+                yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
+
+        return StreamingResponse(
+            offline_event_generator(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
+            },
+        )
 
     async def event_generator():
         """Proxy events from OpenCode SSE endpoint."""
@@ -3098,6 +3320,14 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
 
     codebase = bridge.get_codebase(codebase_id)
     if not codebase:
+        # Codebase may exist durably in PostgreSQL/Redis but not in the local
+        # in-memory registry (e.g., after restart or when requests are routed
+        # to a different replica). Rehydrate so task creation works reliably.
+        try:
+            codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+        except Exception:
+            codebase = None
+    if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
     task = bridge.create_task(
@@ -3219,14 +3449,7 @@ async def list_sessions(codebase_id: str):
     import aiohttp
 
     bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
-
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
 
     # Check Redis-backed worker-synced sessions first (for remote codebases / multi-replica).
     redis_client = await _get_redis_client()
@@ -3249,8 +3472,13 @@ async def list_sessions(codebase_id: str):
     if codebase_id in _worker_sessions and _worker_sessions[codebase_id]:
         return {'sessions': _worker_sessions[codebase_id], 'source': 'worker_sync'}
 
+    # If we don't have a codebase locally, try to rehydrate it so we can query
+    # the OpenCode API / local state for local codebases.
+    if codebase is None and bridge is not None:
+        codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+
     # If there's a running OpenCode instance, query its API
-    if codebase.opencode_port:
+    if codebase and codebase.opencode_port:
         try:
             base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
@@ -3265,11 +3493,12 @@ async def list_sessions(codebase_id: str):
             logger.warning(f'Failed to query OpenCode API: {e}')
 
     # Fallback: Read sessions from OpenCode's local state directory
-    sessions = await _read_local_sessions(codebase.path)
-    if sessions:
-        return {'sessions': sessions, 'source': 'local_state'}
+    if codebase:
+        sessions = await _read_local_sessions(codebase.path)
+        if sessions:
+            return {'sessions': sessions, 'source': 'local_state'}
 
-    # Final fallback: PostgreSQL persistence (common for remote workers).
+    # Durable fallback: PostgreSQL persistence (common for remote workers).
     try:
         persisted = await db.db_list_sessions(codebase_id=codebase_id, limit=500)
         if persisted:
@@ -3277,13 +3506,58 @@ async def list_sessions(codebase_id: str):
     except Exception as e:
         logger.debug(f'Failed to read sessions from PostgreSQL: {e}')
 
-    return {'sessions': [], 'source': 'local_state'}
+    # At this point, we have no sessions from any source. If the codebase exists
+    # in Redis/PostgreSQL, return an empty list; otherwise treat it as unknown.
+    try:
+        exists = await _redis_get_codebase_meta(codebase_id)
+    except Exception:
+        exists = None
+    if not exists:
+        try:
+            exists = await db.db_get_codebase(codebase_id)
+        except Exception:
+            exists = None
+    if not exists:
+        raise HTTPException(status_code=404, detail='Codebase not found')
+
+    return {'sessions': [], 'source': 'database'}
 
 
 class SessionSyncRequest(BaseModel):
     """Request model for syncing sessions from a worker."""
     worker_id: str
     sessions: List[Dict[str, Any]]
+
+
+def _normalize_iso_timestamp(value: Any) -> Optional[str]:
+    """Normalize timestamps coming from workers.
+
+    Workers may send ISO strings (preferred) or epoch times (OpenCode often uses
+    milliseconds since epoch). We normalize to an ISO-8601 string when possible
+    so PostgreSQL ordering and UI displays behave consistently.
+    """
+
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat()
+
+    if isinstance(value, str):
+        v = value.strip()
+        return v or None
+
+    if isinstance(value, (int, float)):
+        # Heuristic: treat large values as epoch milliseconds.
+        ts = float(value)
+        if ts > 1e11:
+            ts = ts / 1000.0
+        try:
+            return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+        except Exception:
+            return None
+
+    return None
 
 
 @opencode_router.post('/codebases/{codebase_id}/sessions/sync')
@@ -3300,8 +3574,12 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
     # Best-effort persist to PostgreSQL (primary persistence)
     for session_data in request.sessions:
         try:
-            created_at = session_data.get('created_at') or session_data.get('created')
-            updated_at = session_data.get('updated_at') or session_data.get('updated')
+            created_at = _normalize_iso_timestamp(
+                session_data.get('created_at') or session_data.get('created')
+            )
+            updated_at = _normalize_iso_timestamp(
+                session_data.get('updated_at') or session_data.get('updated')
+            )
             await db.db_upsert_session({
                 'id': session_data.get('id'),
                 'codebase_id': codebase_id,
@@ -3408,13 +3686,15 @@ async def sync_session_messages(codebase_id: str, session_id: str, request: Mess
 
     def _extract_created_at(msg: Dict[str, Any]) -> Optional[str]:
         ca = msg.get('created_at')
-        if isinstance(ca, str) and ca:
-            return ca
+        normalized = _normalize_iso_timestamp(ca)
+        if normalized:
+            return normalized
         time_obj = msg.get('time')
         if isinstance(time_obj, dict):
             created = time_obj.get('created')
-            if isinstance(created, str) and created:
-                return created
+            normalized2 = _normalize_iso_timestamp(created)
+            if normalized2:
+                return normalized2
         return None
 
     # Best-effort persist to PostgreSQL (primary persistence)
@@ -3460,17 +3740,10 @@ async def get_session(codebase_id: str, session_id: str):
     import aiohttp
 
     bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
-
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
 
     # If there's a running OpenCode instance, query its API
-    if codebase.opencode_port:
+    if codebase and codebase.opencode_port:
         try:
             base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
@@ -3485,9 +3758,18 @@ async def get_session(codebase_id: str, session_id: str):
             logger.warning(f'Failed to query OpenCode API: {e}')
 
     # Fallback: Read from local state
-    session_data = await _read_local_session(codebase.path, session_id)
-    if session_data:
-        return session_data
+    if codebase:
+        session_data = await _read_local_session(codebase.path, session_id)
+        if session_data:
+            return session_data
+
+    # Final fallback: PostgreSQL persistence.
+    try:
+        persisted = await db.db_get_session(session_id=session_id)
+        if persisted and persisted.get('codebase_id') == codebase_id:
+            return persisted
+    except Exception as e:
+        logger.debug(f'Failed to read session from PostgreSQL: {e}')
 
     raise HTTPException(status_code=404, detail='Session not found')
 
@@ -3498,14 +3780,7 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
     import aiohttp
 
     bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
-
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
 
     # Check Redis-backed worker-synced messages first.
     redis_client = await _get_redis_client()
@@ -3530,8 +3805,13 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
         messages = _worker_messages[session_id][:limit]
         return {'messages': messages, 'session_id': session_id, 'source': 'worker_sync'}
 
+    # If we don't have a codebase locally, try to rehydrate it so we can query
+    # the OpenCode API / local state for local codebases.
+    if codebase is None and bridge is not None:
+        codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+
     # If there's a running OpenCode instance, query its API
-    if codebase.opencode_port:
+    if codebase and codebase.opencode_port:
         try:
             base_url = bridge._get_opencode_base_url(codebase.opencode_port)
             async with aiohttp.ClientSession() as session:
@@ -3546,9 +3826,10 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
             logger.warning(f'Failed to query OpenCode API: {e}')
 
     # Fallback: Read from local state (only works when the server has filesystem access).
-    messages = await _read_local_session_messages(codebase.path, session_id)
-    if messages:
-        return {'messages': messages[:limit], 'session_id': session_id, 'source': 'local_state'}
+    if codebase:
+        messages = await _read_local_session_messages(codebase.path, session_id)
+        if messages:
+            return {'messages': messages[:limit], 'session_id': session_id, 'source': 'local_state'}
 
     # Final fallback: PostgreSQL persistence (common for remote workers).
     try:
@@ -3601,6 +3882,8 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
         )
 
     codebase = bridge.get_codebase(codebase_id)
+    if not codebase:
+        codebase = await _rehydrate_codebase_into_bridge(codebase_id)
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
@@ -3660,22 +3943,39 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
 
                 # If there's a prompt, send a message
                 if request.prompt:
-                    async with session.post(
-                        f'{base_url}/session/{session_id}/message',
-                        params={'directory': codebase.path},
-                        json={'content': request.prompt, 'agent': request.agent},
-                    ) as resp:
-                        if resp.status == 200:
-                            result = await resp.json()
-                            # Update codebase session_id
-                            codebase.session_id = session_id
-                            return {
-                                'success': True,
-                                'message': 'Session resumed',
-                                'session_id': session_id,
-                                'active_session_id': session_id,
-                                'response': result,
-                            }
+                    payload = {'content': request.prompt, 'agent': request.agent}
+                    # Best-effort: allow overriding model when OpenCode supports it.
+                    if request.model:
+                        payload['model'] = request.model
+
+                    async def _send_message(body: Dict[str, Any]):
+                        async with session.post(
+                            f'{base_url}/session/{session_id}/message',
+                            params={'directory': codebase.path},
+                            json=body,
+                        ) as resp:
+                            return resp.status, await resp.text()
+
+                    status, text = await _send_message(payload)
+                    if status == 422 and request.model:
+                        # Compatibility: some OpenCode builds may not accept a `model` field.
+                        payload.pop('model', None)
+                        status, text = await _send_message(payload)
+
+                    if status == 200:
+                        try:
+                            result = json.loads(text) if text else None
+                        except Exception:
+                            result = None
+                        # Update codebase session_id
+                        codebase.session_id = session_id
+                        return {
+                            'success': True,
+                            'message': 'Session resumed',
+                            'session_id': session_id,
+                            'active_session_id': session_id,
+                            'response': result,
+                        }
                 else:
                     # Update codebase session_id
                     codebase.session_id = session_id
