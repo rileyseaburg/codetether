@@ -82,7 +82,11 @@ Helm charts, horizontal scaling, blue-green deployments. Production from day one
 ```bash
 git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP && pip install -r requirements.txt
-python run_server.py --port 8000
+# Optional (recommended): install the package + CLI
+pip install -e .
+
+# Start the server (defaults to `run`)
+codetether --port 8000
 ```
 
 ### Docker
