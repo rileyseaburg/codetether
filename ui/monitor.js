@@ -5,6 +5,8 @@ class AgentMonitor {
         this.agents = new Map();
         this.tasks = [];
         this.codebases = [];  // OpenCode registered codebases
+        this.models = [];     // Available AI models
+        this.defaultModel = '';
         this.currentTaskFilter = 'all';
         this.eventSource = null;
         this.isPaused = false;
@@ -35,8 +37,86 @@ class AgentMonitor {
         this.startStatsUpdate();
         this.pollTaskQueue();
         this.fetchTotalMessageCount();
-        this.initOpenCode();  // Initialize OpenCode integration
+        this.loadModels();       // Load available models
+        this.initOpenCode();     // Initialize OpenCode integration
         this.initAgentOutput();  // Initialize agent output panel
+    }
+
+    async loadModels() {
+        try {
+            const serverUrl = this.getServerUrl();
+            const response = await fetch(`${serverUrl}/v1/opencode/models`);
+            if (response.ok) {
+                const data = await response.json();
+                this.models = data.models || [];
+                this.defaultModel = data.default || '';
+                // Re-render codebases to update selectors if they are already shown
+                if (this.codebases.length > 0) {
+                    this.displayCodebases();
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load models:', error);
+        }
+    }
+
+    renderModelOptions() {
+        if (!this.models || this.models.length === 0) {
+            return '';
+        }
+
+        // Group models by provider
+        const byProvider = {};
+        this.models.forEach(m => {
+            const provider = m.provider || 'Other';
+            if (!byProvider[provider]) byProvider[provider] = [];
+            byProvider[provider].push(m);
+        });
+
+        let html = '';
+
+        // Custom models first
+        const customModels = this.models.filter(m => m.custom);
+        if (customModels.length > 0) {
+            html += '<optgroup label="⭐ Custom (from config)">';
+            customModels.forEach(m => {
+                const selected = m.id === this.defaultModel ? 'selected' : '';
+                const badge = m.capabilities?.reasoning ? ' 🧠' : '';
+                html += `<option value="${m.id}" ${selected}>${m.name}${badge}</option>`;
+            });
+            html += '</optgroup>';
+        }
+
+        // Standard providers
+        const standardProviders = ['Anthropic', 'OpenAI', 'Google', 'DeepSeek', 'xAI', 'Z.AI Coding Plan', 'Azure AI Foundry'];
+        standardProviders.forEach(provider => {
+            const models = (byProvider[provider] || []).filter(m => !m.custom);
+            if (models.length > 0) {
+                html += `<optgroup label="${provider}">`;
+                models.forEach(m => {
+                    const selected = m.id === this.defaultModel ? 'selected' : '';
+                    html += `<option value="${m.id}" ${selected}>${m.name}</option>`;
+                });
+                html += '</optgroup>';
+            }
+        });
+
+        // Other providers
+        Object.keys(byProvider).forEach(provider => {
+            if (!standardProviders.includes(provider) && provider !== 'Other') {
+                const models = byProvider[provider].filter(m => !m.custom);
+                if (models.length > 0) {
+                    html += `<optgroup label="${provider}">`;
+                    models.forEach(m => {
+                        const selected = m.id === this.defaultModel ? 'selected' : '';
+                        html += `<option value="${m.id}" ${selected}>${m.name}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+            }
+        });
+
+        return html;
     }
 
     // ========================================
@@ -867,17 +947,7 @@ class AgentMonitor {
                 </select>
                 <select id="trigger-model-${codebase.id}" class="model-selector">
                     <option value="">🤖 Default Model</option>
-                    <option value="anthropic/claude-sonnet-4-20250514">Anthropic Claude Sonnet 4</option>
-                    <option value="anthropic/claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
-                    <option value="anthropic/claude-3-5-haiku-20241022">Anthropic Claude 3.5 Haiku</option>
-                    <option value="openai/gpt-4o">OpenAI GPT-4o</option>
-                    <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
-                    <option value="openai/o1">OpenAI o1</option>
-                    <option value="openai/o1-mini">OpenAI o1 Mini</option>
-                    <option value="google/gemini-2.0-flash">Google Gemini 2.0 Flash</option>
-                    <option value="google/gemini-1.5-pro">Google Gemini 1.5 Pro</option>
-                    <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
-                    <option value="deepseek/deepseek-reasoner">DeepSeek Reasoner</option>
+                    ${this.renderModelOptions()}
                 </select>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" onclick="monitor.triggerAgent('${codebase.id}')" style="flex: 1;">🚀 Start Agent</button>

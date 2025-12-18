@@ -143,9 +143,29 @@ Run the server:
 codetether --port 8000
 ```
 
+## OpenCode (Local Fork)
+
+CodeTether includes a maintained fork of OpenCode in the `opencode/` directory. To build it:
+
+```bash
+cd opencode
+
+# Install dependencies
+bun install
+
+# Build the project
+bun run build
+
+# Verify installation
+opencode --version
+```
+
+For more details, see [OpenCode Integration](../features/opencode.md).
+
 ## Agent Worker (systemd, Linux)
 
 To execute OpenCode tasks on machines that host codebases, install the agent worker.
+First ensure you have [built OpenCode from the local fork](#opencode-local-fork).
 
 ```bash
 git clone https://github.com/rileyseaburg/codetether.git

@@ -102,11 +102,25 @@ async def _init_schema():
                 name TEXT NOT NULL,
                 capabilities JSONB DEFAULT '[]'::jsonb,
                 hostname TEXT,
+                models JSONB DEFAULT '[]'::jsonb,
+                global_codebase_id TEXT,
                 registered_at TIMESTAMPTZ DEFAULT NOW(),
                 last_seen TIMESTAMPTZ DEFAULT NOW(),
                 status TEXT DEFAULT 'active'
             )
         ''')
+
+        # Migration: Add models column if it doesn't exist
+        try:
+            await conn.execute('ALTER TABLE workers ADD COLUMN IF NOT EXISTS models JSONB DEFAULT \'[]\'::jsonb')
+        except Exception:
+            pass
+
+        # Migration: Add global_codebase_id column if it doesn't exist
+        try:
+            await conn.execute('ALTER TABLE workers ADD COLUMN IF NOT EXISTS global_codebase_id TEXT')
+        except Exception:
+            pass
 
         # Codebases table
         await conn.execute('''
@@ -214,13 +228,15 @@ async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
     try:
         async with pool.acquire() as conn:
             await conn.execute('''
-                INSERT INTO workers (worker_id, name, capabilities, hostname, registered_at, last_seen, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO workers (worker_id, name, capabilities, hostname, models, global_codebase_id, registered_at, last_seen, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (worker_id)
                 DO UPDATE SET
                     name = EXCLUDED.name,
                     capabilities = EXCLUDED.capabilities,
                     hostname = EXCLUDED.hostname,
+                    models = EXCLUDED.models,
+                    global_codebase_id = EXCLUDED.global_codebase_id,
                     last_seen = EXCLUDED.last_seen,
                     status = EXCLUDED.status
             ''',
@@ -228,6 +244,8 @@ async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
                 worker_info.get('name'),
                 json.dumps(worker_info.get('capabilities', [])),
                 worker_info.get('hostname'),
+                json.dumps(worker_info.get('models', [])),
+                worker_info.get('global_codebase_id'),
                 _parse_timestamp(worker_info.get('registered_at')) or datetime.utcnow(),
                 _parse_timestamp(worker_info.get('last_seen')) or datetime.utcnow(),
                 worker_info.get('status', 'active'),
@@ -316,6 +334,8 @@ def _row_to_worker(row) -> Dict[str, Any]:
         'name': row['name'],
         'capabilities': json.loads(row['capabilities']) if isinstance(row['capabilities'], str) else row['capabilities'],
         'hostname': row['hostname'],
+        'models': json.loads(row['models']) if isinstance(row['models'], str) else row['models'],
+        'global_codebase_id': row['global_codebase_id'],
         'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,
         'last_seen': row['last_seen'].isoformat() if row['last_seen'] else None,
         'status': row['status'],

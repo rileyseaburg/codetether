@@ -140,7 +140,7 @@ sudo systemctl daemon-reload
 ### Requirements
 
 - **Python 3.8+** with `asyncio` and `aiohttp`
-- **OpenCode** installed and accessible
+- **OpenCode** built from the local fork (see [OpenCode Integration](opencode.md))
 - **Network access** to the CodeTether server
 - **Read/write access** to configured codebases
 
@@ -195,6 +195,16 @@ The worker reads configuration from `/etc/a2a-worker/config.json`:
 | `session_message_sync_max_sessions` | integer | `3` | How many *most recent* sessions (per codebase, including **global**) to also sync messages for (UI detail panel) |
 | `session_message_sync_max_messages` | integer | `100` | How many *most recent* messages (per session) to sync |
 | `capabilities` | array | `["opencode", "build", "deploy"]` | Worker capabilities to advertise |
+
+### Model Filtering & Authentication
+
+The Agent Worker now automatically filters the models it registers with the server based on available authentication.
+
+- **Authenticated Models Only**: The worker checks for valid credentials in the OpenCode `auth.json` file.
+- **Dynamic Registration**: Only models from providers with active authentication (e.g., Anthropic, OpenAI, Google) are reported to the server.
+- **Provider Support**: Supports filtering for Anthropic, OpenAI, Google (Gemini), Azure, AWS Bedrock, and more.
+
+This ensures that the UI only presents models that the worker is actually capable of using, preventing "Model not found" or "Authentication failed" errors during task execution.
 
 ### Environment Variables
 

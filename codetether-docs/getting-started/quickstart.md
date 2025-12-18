@@ -111,6 +111,20 @@ Open your browser to [http://localhost:8000/v1/monitor/](http://localhost:8000/v
 - Real-time message streams
 - System health
 
+## Step 6: Scale with Distributed Workers
+
+CodeTether is designed to scale. You can run **Distributed Workers** on any machine to execute tasks:
+
+1.  **Install the worker** on a remote machine:
+    ```bash
+    git clone https://github.com/rileyseaburg/codetether.git
+    cd codetether && sudo ./agent_worker/install.sh
+    ```
+2.  **Configure** the worker to point to your server.
+3.  **Deploy Anywhere**: Whether it's a local VM, a cloud instance, or a Kubernetes cluster, CodeTether workers can run anywhere they have outbound access to the server.
+
+Learn more in the [Distributed Workers Guide](../features/distributed-workers.md) and our [Deployment Options](../deployment/docker.md).
+
 ## Using the Python Client
 
 Install the client library:
@@ -136,7 +150,7 @@ for chunk in client.send_task_streaming("Generate a report"):
 
 ## Using with OpenCode
 
-If you have [OpenCode](https://opencode.ai) installed, you can register codebases:
+If you have built [OpenCode from the local fork](../features/opencode.md) (included in the `opencode/` directory), you can register codebases:
 
 ```bash
 # Register a codebase

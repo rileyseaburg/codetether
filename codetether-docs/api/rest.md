@@ -47,7 +47,7 @@ Direct access to local OpenCode sessions without codebase registration.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /v1/opencode/runtime/status | Check if OpenCode is installed locally |
+| GET | /v1/opencode/runtime/status | Check if OpenCode is available locally |
 | GET | /v1/opencode/runtime/projects | List all local projects |
 | GET | /v1/opencode/runtime/sessions | List all sessions (paginated) |
 | GET | /v1/opencode/runtime/sessions/{id} | Get session details |

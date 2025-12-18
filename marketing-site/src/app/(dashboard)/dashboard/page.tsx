@@ -14,6 +14,15 @@ interface Codebase {
     worker_id?: string
 }
 
+interface Worker {
+    worker_id: string
+    name: string
+    hostname?: string
+    status: string
+    global_codebase_id?: string
+    last_seen?: string
+}
+
 interface Model {
     id: string
     name: string
@@ -47,6 +56,7 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export default function DashboardPage() {
     const [codebases, setCodebases] = useState<Codebase[]>([])
+    const [workers, setWorkers] = useState<Worker[]>([])
     const [models, setModels] = useState<Model[]>([])
     const [selectedCodebase, setSelectedCodebase] = useState('')
     const [selectedAgent, setSelectedAgent] = useState('build')
@@ -85,6 +95,18 @@ export default function DashboardPage() {
         }
     }, [])
 
+    const loadWorkers = useCallback(async () => {
+        try {
+            const response = await fetch(`${API_URL}/v1/opencode/workers`)
+            if (response.ok) {
+                const data = await response.json()
+                setWorkers(data || [])
+            }
+        } catch (error) {
+            console.error('Failed to load workers:', error)
+        }
+    }, [])
+
     const loadModels = useCallback(async () => {
         try {
             const response = await fetch(`${API_URL}/v1/opencode/models`)
@@ -97,7 +119,10 @@ export default function DashboardPage() {
             console.error('Failed to load models:', error)
             // Fallback models
             setModels([
-                { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Anthropic' },
+                { id: 'google/gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)', provider: 'Google' },
+                { id: 'z-ai/coding-plain-v1', name: 'Z.AI Coding Plain v1', provider: 'Z.AI Coding Plan' },
+                { id: 'z-ai/coding-plain-v2', name: 'Z.AI Coding Plain v2', provider: 'Z.AI Coding Plan' },
+                { id: 'anthropic/claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
                 { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
             ])
         }
@@ -105,10 +130,14 @@ export default function DashboardPage() {
 
     useEffect(() => {
         loadCodebases()
+        loadWorkers()
         loadModels()
-        const interval = setInterval(loadCodebases, 10000)
+        const interval = setInterval(() => {
+            loadCodebases()
+            loadWorkers()
+        }, 10000)
         return () => clearInterval(interval)
-    }, [loadCodebases, loadModels])
+    }, [loadCodebases, loadWorkers, loadModels])
 
     const triggerAgent = async () => {
         if (!selectedCodebase || !prompt.trim()) return
@@ -181,8 +210,11 @@ export default function DashboardPage() {
         return classes[status] || classes.idle
     }
 
-    // Group models by provider
+    // Group models by provider and ensure unique IDs
+    const seenModelIds = new Set<string>()
     const modelsByProvider = models.reduce((acc, m) => {
+        if (seenModelIds.has(m.id)) return acc
+        seenModelIds.add(m.id)
         const provider = m.provider || 'Other'
         if (!acc[provider]) acc[provider] = []
         acc[provider].push(m)
@@ -326,8 +358,42 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Right sidebar - Quick Actions */}
+            {/* Right sidebar - Quick Actions & Workers */}
             <div className="lg:col-span-1 space-y-6">
+                {/* Workers Section */}
+                <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Active Workers</h3>
+                    </div>
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[300px] overflow-y-auto">
+                        {workers.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
+                                No workers connected
+                            </div>
+                        ) : (
+                            workers.map((w) => (
+                                <div key={w.worker_id} className="p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{w.name}</p>
+                                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{w.hostname || w.worker_id}</p>
+                                        </div>
+                                        <span className={`ml-2 h-2 w-2 rounded-full ${w.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    </div>
+                                    {w.global_codebase_id && (
+                                        <button
+                                            onClick={() => setSelectedCodebase(w.global_codebase_id!)}
+                                            className="mt-2 w-full rounded bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center justify-center gap-1"
+                                        >
+                                            💬 Chat Directly
+                                        </button>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
                 <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>

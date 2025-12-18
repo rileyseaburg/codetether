@@ -23,7 +23,8 @@ CodeTether provides a complete A2A protocol server that bridges the gap between 
 - **📂 Runtime Session Access**: Immediate access to local OpenCode sessions without registration
 - **📜 Session History**: Browse and resume past OpenCode sessions from any device
 - **⏯️ Session Resumption**: Continue conversations with AI agents from where you left off
-- **📊 Real-time Output Streaming**: See agent responses as they happen via SSE
+- **� Model Filtering**: Workers automatically filter and register only authenticated models from `auth.json`
+- **�📊 Real-time Output Streaming**: See agent responses as they happen via SSE
 - **🔐 Keycloak Authentication**: Enterprise SSO with OAuth2/OIDC via Keycloak
 - **🚀 Production Ready**: Kubernetes deployment with Helm charts
 - **🔐 Enterprise Security**: Authentication, authorization, and network policies
@@ -35,7 +36,16 @@ CodeTether provides a complete A2A protocol server that bridges the gap between 
 
 ### 🛠️ Local Development (Recommended for Getting Started)
 
-**Terminal 1: Run the CodeTether Server**
+**Start the full environment (Python + Next.js + Worker)**
+```bash
+# Install all dependencies
+make install-dev
+
+# Run Python server, Next.js marketing site, and Agent Worker together
+make dev
+```
+
+**Terminal 1: Run the CodeTether Server (Python only)**
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -50,7 +60,14 @@ python run_server.py run --name "CodeTether Server" --port 8000
 # - Media Agent (LiveKit sessions)
 ```
 
-**Terminal 2: Run Agent-to-Agent Messaging Demo**
+**Terminal 2: Run the Agent Worker (Python only)**
+```bash
+# Run the worker to handle OpenCode tasks
+cd agent_worker
+python worker.py --server http://localhost:8000 --name "Local Worker"
+```
+
+**Terminal 3: Run Agent-to-Agent Messaging Demo**
 ```bash
 # Run the comprehensive agent messaging demo
 python examples/agent_to_agent_messaging.py
@@ -62,7 +79,7 @@ python examples/agent_to_agent_messaging.py
 # - Data aggregation across agents
 ```
 
-**Terminal 3: Connect with Claude LLM**
+**Terminal 4: Connect with Claude LLM**
 ```bash
 # Run Claude integration demo (requires Claude API on localhost:4000)
 python examples/claude_agent.py
@@ -91,7 +108,15 @@ curl -X POST http://localhost:8000/ \
   }'
 ```
 
-### 🐳 Docker Deployment
+### � Direct Chat & Global Codebase
+
+CodeTether now supports **Direct Chat**, allowing you to interact with AI agents without needing to register a specific project codebase.
+
+- **Global Codebase**: When a worker starts, it automatically registers a "global" codebase pointing to the user's home directory (`~`).
+- **Workspace-less Interaction**: Use the "Chat Directly" button in the Dashboard to start a session that isn't tied to a specific project.
+- **Dynamic Model Discovery**: Workers automatically report available models (e.g., Gemini 3 Flash, Claude 3.5 Sonnet) to the server, which are then available in the UI.
+
+### �🐳 Docker Deployment
 
 The fastest way to get started with Docker:
 
@@ -414,6 +439,7 @@ The server provides REST endpoints for OpenCode agent management:
 **Sessions:**
 - **`GET /v1/opencode/codebases/{id}/sessions`** - List sessions for a codebase
 - **`POST /v1/opencode/codebases/{id}/sessions/sync`** - Sync sessions from worker
+- **`POST /v1/opencode/codebases/{id}/sessions/{session_id}/ingest`** - Ingest external chat/session transcripts (e.g., VS Code chat)
 - **`GET /v1/opencode/codebases/{id}/sessions/{session_id}/messages`** - Get session messages
 - **`POST /v1/opencode/codebases/{id}/sessions/{session_id}/resume`** - Resume a session
 
@@ -1574,10 +1600,33 @@ python worker.py -s https://api.codetether.run -b my-project:/home/user/my-proje
 python worker.py --server https://api.codetether.run --poll-interval 10
 ```
 
+### 🚀 Production Worker Setup
+
+To connect a local worker to the production CodeTether service:
+
+1. **Install the worker**:
+   ```bash
+   sudo ./agent_worker/install.sh
+   ```
+
+2. **Configure for production**:
+   Edit `/etc/a2a-worker/env`:
+   ```bash
+   A2A_SERVER_URL=https://api.codetether.run
+   ```
+
+3. **Authenticate models**:
+   Ensure your models are authenticated in `~/.local/share/opencode/auth.json`. The worker will only register models it has credentials for.
+
+4. **Restart the service**:
+   ```bash
+   sudo systemctl restart a2a-agent-worker
+   ```
+
 **What the Worker Does:**
 1. **Registers** itself and its codebases with the server
 2. **Polls** for pending tasks assigned to its codebases
-3. **Executes** tasks using local OpenCode installation
+3. **Executes** tasks using the local OpenCode fork (from `opencode/` directory)
 4. **Streams** real-time output back to the server
 5. **Syncs** OpenCode session history every ~60 seconds
 
