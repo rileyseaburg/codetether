@@ -4,6 +4,7 @@
 
 ### Features
 
+* **Model Filtering by Authentication**: Workers now automatically filter available models based on configured authentication. Only models from providers with valid API keys or OAuth tokens in `auth.json` are registered with the server.
 * **Runtime Sessions API**: Direct access to local OpenCode sessions without requiring codebase registration
   - `GET /v1/opencode/runtime/status` - Check if OpenCode runtime is available locally
   - `GET /v1/opencode/runtime/projects` - List all local projects with session counts
@@ -14,6 +15,11 @@
 * **Enhanced OpenCode Status**: The `/v1/opencode/status` endpoint now includes runtime session information when OpenCode is detected locally
 * **Blue-Green Deployments**: Added `make bluegreen-deploy` target with zero-downtime deployment support
 * **Kubernetes Targets**: New makefile targets for dev/staging/prod deployments (`make k8s-dev`, `make k8s-staging`, `make k8s-prod`)
+
+### Bug Fixes
+
+* **React UI Normalization**: Fixed "Minified React error #31" (Objects are not valid as React child) by normalizing model objects to string format in the backend.
+* **Worker Production Connection**: Updated default worker configuration to use `https://api.codetether.run` for production environments.
 
 ### Documentation
 

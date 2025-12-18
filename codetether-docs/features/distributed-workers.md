@@ -13,7 +13,7 @@ Workers are separate processes that:
 
 - Connect to the CodeTether server
 - Poll for assigned tasks
-- Execute tasks using local OpenCode installation
+- Execute tasks using the local OpenCode fork (from `opencode/` directory)
 - Report results back to the server
 - Sync session history to the central server
 

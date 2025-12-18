@@ -199,9 +199,11 @@ class MonitorViewModel: ObservableObject {
             print("Failed to load models: \(error)")
             // Fallback models
             availableModels = [
-                AIModel(id: "azure-anthropic/claude-opus-4-5", name: "Claude Opus 4.5", provider: "Azure AI Foundry", custom: true, capabilities: nil),
-                AIModel(id: "anthropic/claude-sonnet-4-20250514", name: "Claude Sonnet 4", provider: "Anthropic", custom: nil, capabilities: nil),
-                AIModel(id: "glm/glm-4.6", name: "GLM-4.6", provider: "Z.AI", custom: nil, capabilities: nil),
+                AIModel(id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash (Preview)", provider: "Google", custom: nil, capabilities: nil),
+                AIModel(id: "z-ai/coding-plain-v1", name: "Z.AI Coding Plain v1", provider: "Z.AI Coding Plan", custom: nil, capabilities: nil),
+                AIModel(id: "z-ai/coding-plain-v2", name: "Z.AI Coding Plain v2", provider: "Z.AI Coding Plan", custom: nil, capabilities: nil),
+                AIModel(id: "anthropic/claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", provider: "Anthropic", custom: nil, capabilities: nil),
+                AIModel(id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenAI", custom: nil, capabilities: nil),
             ]
         }
     }

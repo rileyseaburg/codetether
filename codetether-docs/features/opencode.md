@@ -5,7 +5,7 @@ description: Bridge AI coding agents to your codebase with OpenCode
 
 # OpenCode Integration
 
-CodeTether Server integrates with [OpenCode](https://opencode.ai), enabling AI coding agents to work on your codebase with full session management, task queuing, and real-time streaming.
+CodeTether Server includes a maintained fork of [OpenCode](https://opencode.ai) in the `opencode/` directory, enabling AI coding agents to work on your codebase with full session management, task queuing, and real-time streaming.
 
 ## Overview
 
@@ -28,11 +28,15 @@ graph LR
 
 ## Prerequisites
 
-1. **OpenCode installed** on the machine running CodeTether or workers
+1. **OpenCode built from the local fork** (included in `opencode/` directory)
 
     ```bash
-    # Install OpenCode
-    curl -fsSL https://opencode.ai/install.sh | bash
+    # Navigate to the OpenCode directory
+    cd opencode
+
+    # Install dependencies and build
+    bun install
+    bun run build
 
     # Verify installation
     opencode --version
@@ -277,9 +281,10 @@ Tasks for `app1` will be routed to `worker-1`.
 ```
 
 **Solutions:**
-1. Ensure OpenCode is installed: `which opencode`
-2. Check PATH includes OpenCode: `export PATH=$PATH:/usr/local/bin`
+1. Ensure OpenCode is built from the local fork: `which opencode`
+2. If built but not in PATH, add it: `export PATH=$PATH:/path/to/opencode/packages/cli/dist`
 3. Verify OpenCode works: `opencode --version`
+4. Rebuild if needed: `cd opencode && bun run build`
 
 ### No Models Returned
 

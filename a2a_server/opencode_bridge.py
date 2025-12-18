@@ -217,7 +217,7 @@ class OpenCodeBridge:
 
         # Port allocations
         self._port_allocations: Dict[str, int] = {}
-        self._next_port = default_port
+        self._next_port = self.default_port
 
         # Event callbacks
         self._on_status_change: List[Callable] = []
@@ -471,6 +471,11 @@ class OpenCodeBridge:
 
     def _find_opencode_binary(self) -> str:
         """Find the opencode binary in common locations."""
+        # Check environment variable first
+        env_bin = os.environ.get("OPENCODE_BIN_PATH")
+        if env_bin and os.path.exists(env_bin):
+            return env_bin
+
         # Check common locations
         locations = [
             # Local project
@@ -560,6 +565,7 @@ class OpenCodeBridge:
             codebase.agent_config = agent_config or {}
             if worker_id:
                 codebase.worker_id = worker_id
+                codebase.opencode_port = None  # Clear local port if it's now remote
             codebase.status = AgentStatus.IDLE
             self._save_codebase(codebase)  # Persist update
 
@@ -591,6 +597,7 @@ class OpenCodeBridge:
             codebase.agent_config = agent_config or {}
             if worker_id:
                 codebase.worker_id = worker_id
+                codebase.opencode_port = None  # Clear local port if it's now remote
             codebase.status = AgentStatus.IDLE
             self._save_codebase(codebase)  # Persist update
 
@@ -664,8 +671,8 @@ class OpenCodeBridge:
         # Build command
         cmd = [
             self.opencode_bin,
+            "serve",
             "--port", str(port),
-            "--no-tui",
         ]
 
         logger.info(f"Starting OpenCode server for {codebase.name} on port {port}")
@@ -860,6 +867,70 @@ class OpenCodeBridge:
                 error=str(e),
                 codebase_id=codebase.id,
             )
+
+    async def get_available_models(self) -> List[Dict[str, Any]]:
+        """
+        Fetch available models from OpenCode.
+
+        Tries to query an active OpenCode instance. If none are running,
+        it may start a temporary one or fall back to reading config.
+        """
+        # 1. Try to find an active OpenCode instance
+        active_port = None
+        for codebase in self._codebases.values():
+            if codebase.opencode_port and codebase.status == AgentStatus.RUNNING:
+                active_port = codebase.opencode_port
+                break
+
+        if not active_port:
+            # Try default port
+            active_port = self.default_port
+
+        try:
+            base_url = self._get_opencode_base_url(active_port)
+            session = await self._get_session()
+
+            async with session.get(f"{base_url}/provider") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    # Transform OpenCode provider/model format to A2A format
+                    models = []
+                    all_providers = data.get("all", [])
+                    for provider in all_providers:
+                        provider_id = provider.get("id")
+                        provider_name = provider.get("name", provider_id)
+                        for model_id, model_info in provider.get("models", {}).items():
+                            models.append(
+                                {
+                                    "id": f"{provider_id}/{model_id}",
+                                    "name": model_info.get("name", model_id),
+                                    "provider": provider_name,
+                                    "capabilities": {
+                                        "reasoning": model_info.get(
+                                            "reasoning", False
+                                        ),
+                                        "attachment": model_info.get(
+                                            "attachment", False
+                                        ),
+                                        "tool_call": model_info.get(
+                                            "tool_call", False
+                                        ),
+                                    },
+                                }
+                            )
+
+                    # Sort models: Gemini 3 Flash first, then by provider
+                    models.sort(key=lambda x: (
+                        0 if "gemini-3-flash" in x["id"].lower() else 1,
+                        x["provider"],
+                        x["name"]
+                    ))
+
+                    return models
+        except Exception as e:
+            logger.debug(f"Failed to fetch models from OpenCode API: {e}")
+
+        return []
 
     async def get_agent_status(self, codebase_id: str) -> Optional[Dict[str, Any]]:
         """Get the current status of an agent."""
@@ -1078,6 +1149,7 @@ class OpenCodeBridge:
         status: AgentTaskStatus,
         result: Optional[str] = None,
         error: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> Optional[AgentTask]:
         """Update task status."""
         task = self._tasks.get(task_id)
@@ -1086,10 +1158,20 @@ class OpenCodeBridge:
 
         task.status = status
 
+        # Idempotency: workers may send multiple RUNNING updates (e.g., once
+        # to claim and later to attach session_id). Preserve the original
+        # started/completed timestamps.
         if status == AgentTaskStatus.RUNNING:
-            task.started_at = datetime.utcnow()
+            if task.started_at is None:
+                task.started_at = datetime.utcnow()
         elif status in (AgentTaskStatus.COMPLETED, AgentTaskStatus.FAILED, AgentTaskStatus.CANCELLED):
-            task.completed_at = datetime.utcnow()
+            if task.completed_at is None:
+                task.completed_at = datetime.utcnow()
+
+        # Allow workers (or the control plane) to attach the active OpenCode
+        # session ID for UI deep-linking and eager message sync.
+        if session_id and session_id != task.session_id:
+            task.session_id = session_id
 
         if result:
             task.result = result

@@ -10,6 +10,16 @@ The OpenCode integration allows you to:
 2. **Trigger agents remotely** - Start AI coding agents from the web UI
 3. **Monitor progress** - Track agent status and view messages
 4. **Manage sessions** - Interrupt, stop, or send follow-up messages
+5. **Direct Chat** - Interact with agents without a specific project context using the "Global Codebase"
+
+## Global Codebase & Direct Chat
+
+CodeTether introduces the concept of a **Global Codebase** to enable workspace-less interactions.
+
+- **Automatic Registration**: When an Agent Worker starts, it automatically registers a codebase named `global` pointing to the user's home directory (`~`).
+- **Direct Chat UI**: The Dashboard features a "Chat Directly" button that immediately starts an OpenCode session on this global codebase.
+- **Dynamic Models**: Available models are discovered dynamically from the worker (e.g., Gemini 3 Flash, Claude 3.5 Sonnet).
+- **Model Filtering**: Workers automatically filter and register only models that have valid authentication in `auth.json`.
 
 ## Architecture
 
@@ -28,17 +38,27 @@ The OpenCode integration allows you to:
 
 ## Installation
 
-### 1. Install OpenCode
+### 1. Build OpenCode from Local Fork
+
+CodeTether includes a maintained fork of OpenCode in the `opencode/` directory. Build it from source:
 
 ```bash
-# Quick install
-curl -fsSL https://opencode.ai/install | bash
+# Navigate to the OpenCode directory
+cd opencode
 
-# Or via npm
-npm i -g opencode-ai@latest
+# Install dependencies and build
+bun install
+bun run build
 
-# Or via bun
-bun add -g opencode-ai@latest
+# Link the binary globally (optional)
+bun link
+```
+
+Alternatively, run OpenCode directly from the workspace:
+
+```bash
+# Run from the opencode directory
+cd opencode && bun run dev
 ```
 
 ### 2. Verify OpenCode is available
@@ -214,9 +234,10 @@ You can customize OpenCode behavior by creating an `opencode.json` in your codeb
 
 If the bridge shows "OpenCode bridge not available":
 
-1. Verify OpenCode is installed: `which opencode`
-2. Add the binary path to your PATH or set `OPENCODE_BIN` environment variable
-3. Restart the A2A server
+1. Verify OpenCode is built from the local fork: `which opencode`
+2. Rebuild if needed: `cd opencode && bun install && bun run build`
+3. Add the binary path to your PATH or set `OPENCODE_BIN` environment variable
+4. Restart the A2A server
 
 ### Agent not starting
 

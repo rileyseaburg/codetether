@@ -57,7 +57,10 @@ Build systems where agents collaborate, delegate tasks, and share context—all 
 Connect to 100+ tools via Model Context Protocol. File systems, databases, APIs, and more.
 
 ### 💻 **AI Coding at Scale**
-Deploy OpenCode agents across your infrastructure. Automated code generation, refactoring, and testing.
+Deploy AI coding agents across your infrastructure using our maintained OpenCode fork. Automated code generation, refactoring, and testing.
+
+### 🔍 **Model Filtering**
+Workers automatically filter and register only authenticated models from `auth.json`, ensuring reliable execution.
 
 </td>
 <td width="50%">
@@ -65,11 +68,14 @@ Deploy OpenCode agents across your infrastructure. Automated code generation, re
 ### 📡 **Real-Time Streaming**
 Watch agents think in real-time. SSE streaming for instant feedback and human intervention.
 
+### 🚀 **Production Ready**
+Connect workers to `https://api.codetether.run` for live task execution. Helm charts and horizontal scaling included.
+
 ### 🔐 **Enterprise Ready**
 Keycloak SSO, RBAC, audit logs, and network policies. Security that enterprises demand.
 
-### ☸️ **Cloud Native**
-Helm charts, horizontal scaling, blue-green deployments. Production from day one.
+### ☸️ **Deploy Anywhere**
+Helm charts, horizontal scaling, blue-green deployments. Production from day one on any cloud or on-premise infrastructure.
 
 </td>
 </tr>
@@ -101,6 +107,40 @@ docker run -p 8000:8000 registry.quantum-forge.net/library/a2a-server-mcp:latest
 helm install codetether oci://registry.quantum-forge.net/library/a2a-server \
   --namespace codetether --create-namespace
 ```
+
+### Distributed Workers (Scale Anywhere)
+
+Run agents on any machine with the CodeTether Worker:
+
+```bash
+git clone https://github.com/rileyseaburg/codetether.git
+cd codetether && sudo ./agent_worker/install.sh
+```
+
+Learn more in the [Distributed Workers Guide](https://docs.codetether.run/features/distributed-workers/).
+
+### 🚀 Production Worker Setup
+
+To connect a local worker to the production CodeTether service:
+
+1. **Install the worker**:
+   ```bash
+   sudo ./agent_worker/install.sh
+   ```
+
+2. **Configure for production**:
+   Edit `/etc/a2a-worker/env`:
+   ```bash
+   A2A_SERVER_URL=https://api.codetether.run
+   ```
+
+3. **Authenticate models**:
+   Ensure your models are authenticated in `~/.local/share/opencode/auth.json`. The worker will only register models it has credentials for.
+
+4. **Restart the service**:
+   ```bash
+   sudo systemctl restart a2a-agent-worker
+   ```
 
 **That's it.** Your agent platform is running at `http://localhost:8000`
 
@@ -139,13 +179,14 @@ curl http://localhost:8000/v1/opencode/codebases/{id}/events
 
 ## 🏗️ Architecture
 
-CodeTether is built on **three core pillars**:
+CodeTether is built on **four core pillars**:
 
 | Component | Purpose | Technology |
 |-----------|---------|------------|
 | **A2A Protocol Server** | Agent communication & orchestration | Python, FastAPI, Redis |
+| **Distributed Workers** | Scale agent execution across machines | Python, Redis, Systemd/K8s |
 | **MCP Integration** | Tool access & resource management | Model Context Protocol |
-| **OpenCode Bridge** | AI-powered code generation | OpenCode, Claude/GPT-4 |
+| **OpenCode Bridge** | AI-powered code generation | Local OpenCode fork, Claude/GPT-4 |
 
 ### Platform Components
 
@@ -153,7 +194,8 @@ CodeTether is built on **three core pillars**:
 codetether/
 ├── 🌐 API Server          # A2A protocol + REST APIs
 ├── 🖥️ Monitor UI          # Real-time agent dashboard
-├── 👷 Agent Workers       # Distributed task execution
+├── 👷 [Agent Workers](https://docs.codetether.run/features/distributed-workers/)       # Distributed task execution
+├── 🤖 OpenCode Fork       # Maintained AI coding agent
 ├── 📚 Documentation       # MkDocs Material site
 └── 🏠 Marketing Site      # Next.js landing page
 ```
@@ -272,8 +314,8 @@ pip install -r requirements.txt -r requirements-test.txt
 # Run tests
 pytest tests/
 
-# Start development server
-python run_server.py --port 8000
+# Start development server (Python + Next.js)
+make dev
 ```
 
 ## 📄 License

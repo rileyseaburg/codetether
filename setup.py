@@ -17,7 +17,7 @@ def _read_readme() -> str:
 setup(
     name="codetether",
     version="1.0.0",
-    description="CodeTether: production-ready Agent-to-Agent (A2A) platform with MCP + OpenCode",
+    description="CodeTether: production-ready Agent-to-Agent (A2A) platform with MCP + OpenCode-compatible integration",
     long_description=_read_readme(),
     long_description_content_type="text/markdown",
     author="CodeTether Contributors",

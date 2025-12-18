@@ -18,6 +18,36 @@ npm run dev
 
 Finally, open [http://localhost:3000](http://localhost:3000) in your browser to view the website.
 
+## Local login (Keycloak / NextAuth)
+
+This app uses NextAuth (Keycloak provider). For local development, the Keycloak client must allow the callback URL that NextAuth uses.
+
+### 1) Ensure `NEXTAUTH_URL` matches the port you are running
+
+If port `3000` is already in use, Next.js will move to another port (for example `3001`). In that case, set:
+
+- `NEXTAUTH_URL=http://localhost:3001`
+
+This repo includes a dev override at `/.env.development.local` for that purpose.
+
+### 2) Update Keycloak client redirect URIs
+
+In the Keycloak Admin Console, open the client configured by `KEYCLOAK_CLIENT_ID` (default: `a2a-monitor`) and add at least one of the following to **Valid Redirect URIs**:
+
+- `http://localhost:3001/api/auth/*`
+- `http://127.0.0.1:3001/api/auth/*`
+
+NextAuth’s Keycloak callback endpoint is:
+
+- `http://localhost:3001/api/auth/callback/keycloak`
+
+If you see `Invalid parameter: redirect_uri` during login, it almost always means this list does not include the URL/port you are using.
+
+Optionally also add the matching **Web Origins** entries:
+
+- `http://localhost:3001`
+- `http://127.0.0.1:3001`
+
 ## Customizing
 
 You can start editing this template by modifying the files in the `/src` folder. The site will auto-update as you edit these files.

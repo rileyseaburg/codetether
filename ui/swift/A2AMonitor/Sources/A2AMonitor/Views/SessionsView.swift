@@ -303,7 +303,9 @@ struct SessionDetailView: View {
                 TextField(viewModel.defaultModel ?? "Default (server)", text: $modelOverride)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled(true)
+                    #if os(iOS)
                     .textInputAutocapitalization(.never)
+                    #endif
 
                 Menu {
                     Button("Default (server)") {

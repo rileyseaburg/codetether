@@ -42,6 +42,16 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+# Parse arguments
+LOCAL_OPENCODE_PATH=""
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --local-opencode) LOCAL_OPENCODE_PATH="$2"; shift ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 # Configuration
 INSTALL_DIR="/opt/a2a-worker"
 CONFIG_DIR="/etc/a2a-worker"
@@ -73,6 +83,48 @@ mkdir -p "$INSTALL_DIR/.cache"
 ensure_dir "$INSTALL_DIR/.local/share/opencode"
 ensure_dir "$INSTALL_DIR/.config/opencode"
 ensure_dir "$INSTALL_DIR/.local/state/opencode"
+
+# Install local OpenCode binary if provided
+if [[ -n "$LOCAL_OPENCODE_PATH" ]]; then
+    log_info "Installing local OpenCode binary from $LOCAL_OPENCODE_PATH..."
+    if [[ -f "$LOCAL_OPENCODE_PATH" ]]; then
+        # Install to the path expected by config.json
+        ensure_dir "$INSTALL_DIR/bin"
+        cp "$LOCAL_OPENCODE_PATH" "$INSTALL_DIR/bin/opencode"
+        chmod +x "$INSTALL_DIR/bin/opencode"
+        chown -R "$WORKER_USER:$WORKER_USER" "$INSTALL_DIR/bin"
+        log_info "Local OpenCode binary installed to $INSTALL_DIR/bin/opencode"
+    else
+        log_error "Local OpenCode binary not found at $LOCAL_OPENCODE_PATH"
+        exit 1
+    fi
+else
+    # Auto-detect local opencode build from workspace
+    WORKSPACE_OPENCODE="$SCRIPT_DIR/../opencode/packages/opencode/dist"
+
+    # Detect architecture
+    arch=$(uname -m)
+    [[ "$arch" == "x86_64" ]] && arch="x64"
+    [[ "$arch" == "aarch64" ]] && arch="arm64"
+
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    [[ "$os" == "darwin" ]] && os="darwin" || os="linux"
+
+    LOCAL_BUILD="$WORKSPACE_OPENCODE/opencode-$os-$arch/bin/opencode"
+
+    if [[ -f "$LOCAL_BUILD" ]]; then
+        log_info "Found local OpenCode build at $LOCAL_BUILD"
+        ensure_dir "$INSTALL_DIR/bin"
+        cp "$LOCAL_BUILD" "$INSTALL_DIR/bin/opencode"
+        chmod +x "$INSTALL_DIR/bin/opencode"
+        chown -R "$WORKER_USER:$WORKER_USER" "$INSTALL_DIR/bin"
+        log_info "Local OpenCode binary installed to $INSTALL_DIR/bin/opencode"
+    else
+        log_warn "No local OpenCode build found. You may need to install it manually or run:"
+        log_warn "  cd opencode/packages/opencode && bun run build --single"
+        log_warn "  sudo $0 --local-opencode <path-to-binary>"
+    fi
+fi
 
 # Copy worker script
 log_info "Installing worker script..."

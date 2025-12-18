@@ -8,7 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Configuration
-KUBECONFIG=${KUBECONFIG:-"${PROJECT_ROOT}/quantum-forge-kubeconfig.yaml"}
 NAMESPACE=${NAMESPACE:-"a2a-server"}
 RELEASE_NAME=${RELEASE_NAME:-"a2a-server"}
 
@@ -58,27 +57,16 @@ log_success() { echo -e "${GREEN}✅ $1${NC}"; }
 log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 log_error() { echo -e "${RED}❌ $1${NC}"; }
 
-k() {
-    kubectl --kubeconfig "$KUBECONFIG" -n "$NAMESPACE" "$@"
-}
 
-require_kubeconfig() {
-    if [ ! -f "$KUBECONFIG" ]; then
-        log_error "Kubeconfig not found: $KUBECONFIG"
-        log_info "Provide a valid kubeconfig via the KUBECONFIG env var. Example:"
-        log_info "  KUBECONFIG=/path/to/quantum-forge-kubeconfig.yaml ./scripts/bluegreen-deploy.sh status"
-        log_info "Default expected path is: ${PROJECT_ROOT}/quantum-forge-kubeconfig.yaml"
-        exit 1
-    fi
-}
+
 
 require_cluster_access() {
     require_kubeconfig
 
     # Use a simple API call that requires auth; fail fast if we are unauthorized.
     local out
-    if ! out=$(kubectl --kubeconfig "$KUBECONFIG" get ns --request-timeout=10s 2>&1); then
-        log_error "Cannot access the Kubernetes API with kubeconfig: $KUBECONFIG"
+    if ! out=$(kubectl get ns --request-timeout=10s 2>&1); then
+        log_error "Cannot access the Kubernetes API."
         echo "$out" | sed 's/^/  /'
         log_info "Fix: ensure the kubeconfig has valid credentials and network access to the cluster."
         exit 1
@@ -182,7 +170,7 @@ helm_upgrade() {
         cmd+=(-f "$VALUES_FILE")
     fi
 
-    cmd+=(-n "$NAMESPACE" --create-namespace --kubeconfig "$KUBECONFIG")
+    cmd+=(-n "$NAMESPACE" --create-namespace )
 
     log_info "Executing Helm upgrade (release=$RELEASE_NAME, ns=$NAMESPACE, chart=$CHART_PATH)"
 
@@ -524,7 +512,6 @@ main() {
             echo "  CHART_SOURCE   - Chart source: 'local' or 'oci' (default: local)"
             echo "  CHART_VERSION  - OCI chart version (default: 0.4.2)"
             echo "  VALUES_FILE    - Path to values file"
-            echo "  KUBECONFIG     - Path to kubeconfig file"
 	            echo "  REGISTRY       - Container registry host (default: registry.quantum-forge.net)"
 	            echo "  IMAGE_REPO     - OCI namespace (default: library)"
 	            echo "  MARKETING_REPOSITORY - Marketing image repository override"

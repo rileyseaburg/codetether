@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkBreaks from 'remark-breaks'
+import remarkGfm from 'remark-gfm'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
@@ -22,19 +25,413 @@ interface Session {
     updated?: string
 }
 
+type TokenUsage = {
+    input?: number
+    output?: number
+    reasoning?: number
+    cache?: {
+        read?: number
+        write?: number
+    }
+}
+
+type ToolState = {
+    status?: string
+    title?: string
+    input?: unknown
+    output?: unknown
+    error?: unknown
+    metadata?: unknown
+    time?: unknown
+    raw?: unknown
+    attachments?: unknown
+}
+
+interface SessionPart {
+    id?: string
+    type: string
+    text?: string
+    tool?: string
+    callID?: string
+    state?: ToolState
+    reason?: string
+    cost?: number
+    tokens?: TokenUsage
+    // Patch/file parts (best-effort)
+    hash?: string
+    files?: string[]
+    filename?: string
+    url?: string
+    mime?: string
+    snapshot?: string
+}
+
 interface SessionMessage {
+    id?: string
+    sessionID?: string
     info?: {
         role?: string
         model?: string
-        content?: string
+        content?: unknown
+        cost?: number
+        tokens?: TokenUsage
+        parts?: SessionPart[]
     }
     role?: string
     model?: string
-    content?: string
-    parts?: Array<{
-        type: string
-        text?: string
-    }>
+    agent?: string
+    cost?: number | null
+    tokens?: TokenUsage | null
+    tool_calls?: unknown[]
+    toolCalls?: unknown[]
+    created_at?: string
+    time?: {
+        created?: string
+    }
+    parts?: SessionPart[]
+    // Some backends/clients may store event-ish data in the message object
+    type?: string
+    event_type?: string
+    part?: unknown
+}
+
+type NormalizedRole = 'user' | 'assistant' | 'system'
+
+type ToolEntry = {
+    tool: string
+    status?: string
+    title?: string
+    input?: unknown
+    output?: unknown
+    error?: unknown
+}
+
+type ChatItem = {
+    key: string
+    role: NormalizedRole
+    label: string
+    model?: string
+    createdAt?: string
+    text: string
+    reasoning?: string
+    tools?: ToolEntry[]
+    usage?: {
+        cost?: number
+        tokens?: TokenUsage
+    }
+    rawDetails?: string
+}
+
+function MarkdownMessage({ text }: { text: string }) {
+    if (!text) return null
+    return (
+        <div className="text-sm leading-relaxed break-words">
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkBreaks]}
+                components={{
+                    a: ({ children, ...props }: any) => (
+                        <a
+                            {...props}
+                            className="text-indigo-600 hover:underline dark:text-indigo-400"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {children}
+                        </a>
+                    ),
+                    code: ({ children, className, ...props }: any) => (
+                        <code
+                            {...props}
+                            className={`rounded bg-gray-100 dark:bg-gray-700/60 px-1 py-0.5 font-mono text-[0.9em] ${className || ''}`}
+                        >
+                            {children}
+                        </code>
+                    ),
+                    pre: ({ children, ...props }: any) => (
+                        <pre
+                            {...props}
+                            className="my-2 overflow-x-auto rounded-lg bg-gray-900/90 p-3 text-xs text-gray-100"
+                        >
+                            {children}
+                        </pre>
+                    ),
+                    p: ({ children, ...props }: any) => (
+                        <p {...props} className="mb-2 last:mb-0">
+                            {children}
+                        </p>
+                    ),
+                    ul: ({ children, ...props }: any) => (
+                        <ul {...props} className="mb-2 list-disc pl-5 last:mb-0">
+                            {children}
+                        </ul>
+                    ),
+                    ol: ({ children, ...props }: any) => (
+                        <ol {...props} className="mb-2 list-decimal pl-5 last:mb-0">
+                            {children}
+                        </ol>
+                    ),
+                }}
+            >
+                {text}
+            </ReactMarkdown>
+        </div>
+    )
+}
+
+function formatCost(cost?: number): string {
+    if (typeof cost !== 'number' || !Number.isFinite(cost)) return ''
+    // OpenCode reports cost in USD (float). Keep it compact but readable.
+    if (cost === 0) return '$0'
+    if (cost < 0.01) return `$${cost.toFixed(4)}`
+    if (cost < 1) return `$${cost.toFixed(3)}`
+    return `$${cost.toFixed(2)}`
+}
+
+function coerceTokenUsage(input: unknown): TokenUsage | undefined {
+    if (!input || typeof input !== 'object') return undefined
+    const obj = input as Record<string, unknown>
+    const cache = obj.cache && typeof obj.cache === 'object' ? (obj.cache as Record<string, unknown>) : undefined
+    const pickNum = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+    const tokens: TokenUsage = {
+        input: pickNum(obj.input),
+        output: pickNum(obj.output),
+        reasoning: pickNum(obj.reasoning),
+        cache: cache
+            ? {
+                read: pickNum(cache.read),
+                write: pickNum(cache.write),
+            }
+            : undefined,
+    }
+    if (
+        tokens.input === undefined &&
+        tokens.output === undefined &&
+        tokens.reasoning === undefined &&
+        tokens.cache?.read === undefined &&
+        tokens.cache?.write === undefined
+    ) {
+        return undefined
+    }
+    return tokens
+}
+
+function formatTokens(tokens?: TokenUsage): { summary: string; detail?: string } | null {
+    if (!tokens) return null
+    const input = tokens.input || 0
+    const output = tokens.output || 0
+    const reasoning = tokens.reasoning || 0
+    const cacheRead = tokens.cache?.read || 0
+    const cacheWrite = tokens.cache?.write || 0
+    const total = input + output + reasoning
+
+    const pieces: string[] = []
+    if (input) pieces.push(`${input} in`)
+    if (output) pieces.push(`${output} out`)
+    if (reasoning) pieces.push(`${reasoning} reasoning`)
+    if (cacheRead || cacheWrite) pieces.push(`cache ${cacheRead}r/${cacheWrite}w`)
+
+    return {
+        summary: `${total} tokens`,
+        detail: pieces.length ? pieces.join(' • ') : undefined,
+    }
+}
+
+function safeJsonStringify(value: unknown, maxLen = 8000): string {
+    try {
+        const text = JSON.stringify(value, null, 2)
+        return text.length > maxLen ? text.slice(0, maxLen) + '\n…' : text
+    } catch {
+        return String(value)
+    }
+}
+
+function normalizeMessage(msg: SessionMessage, index: number): ChatItem | null {
+    const info = (msg && typeof msg.info === 'object' && msg.info) ? msg.info : undefined
+
+    const roleRaw = (info?.role || msg.role || '')?.toString()
+    const normalizedRole: NormalizedRole =
+        roleRaw === 'human' || roleRaw === 'user'
+            ? 'user'
+            : roleRaw === 'assistant' || roleRaw === 'agent'
+                ? 'assistant'
+                : roleRaw
+                    ? ('system' as const)
+                    : ('system' as const)
+
+    const parts = (Array.isArray(msg.parts) ? msg.parts : undefined) || (Array.isArray(info?.parts) ? info?.parts : undefined) || []
+    const model = (info?.model || msg.model) ? String(info?.model || msg.model) : undefined
+    const createdAt = (msg.time?.created || msg.created_at) ? String(msg.time?.created || msg.created_at) : undefined
+
+    // Primary message shapes: parts[] or content string
+    const textParts = parts.filter((p) => p && p.type === 'text' && typeof p.text === 'string' && p.text)
+    const reasoningParts = parts.filter((p) => p && p.type === 'reasoning' && typeof p.text === 'string' && p.text)
+    const toolParts = parts.filter((p) => p && p.type === 'tool')
+    const stepFinishes = parts.filter((p) => p && p.type === 'step-finish')
+
+    const stepCostAny = stepFinishes.some((p) => typeof p.cost === 'number' && Number.isFinite(p.cost))
+    const stepCostSum = stepFinishes.reduce((acc, p) => (typeof p.cost === 'number' ? acc + p.cost : acc), 0)
+    const stepTokensSum: TokenUsage | undefined = stepFinishes.length
+        ? stepFinishes.reduce<TokenUsage>(
+            (acc, p) => {
+                const t = coerceTokenUsage(p.tokens)
+                if (!t) return acc
+                acc.input = (acc.input || 0) + (t.input || 0)
+                acc.output = (acc.output || 0) + (t.output || 0)
+                acc.reasoning = (acc.reasoning || 0) + (t.reasoning || 0)
+                if (t.cache) {
+                    acc.cache = acc.cache || {}
+                    acc.cache.read = (acc.cache.read || 0) + (t.cache.read || 0)
+                    acc.cache.write = (acc.cache.write || 0) + (t.cache.write || 0)
+                }
+                return acc
+            },
+            {}
+        )
+        : undefined
+
+    const textFromParts = textParts.map((p) => p.text || '').join('')
+    const reasoningFromParts = reasoningParts.map((p) => p.text || '').join('')
+
+    // Some backends store event-ish objects inside info.content; avoid dumping raw JSON into chat.
+    const content = info?.content ?? (msg as unknown as Record<string, unknown>)?.content
+
+    const cost =
+        (typeof msg.cost === 'number' ? msg.cost : undefined) ??
+        (typeof info?.cost === 'number' ? info.cost : undefined) ??
+        (stepCostAny ? stepCostSum : undefined)
+
+    const tokens =
+        coerceTokenUsage(msg.tokens) ??
+        coerceTokenUsage(info?.tokens) ??
+        stepTokensSum
+
+    const tools: ToolEntry[] = toolParts
+        .map((p) => {
+            const toolName = typeof p.tool === 'string' && p.tool ? p.tool : 'tool'
+            const state = p.state || {}
+            return {
+                tool: toolName,
+                status: typeof state.status === 'string' ? state.status : undefined,
+                title: typeof state.title === 'string' ? state.title : undefined,
+                input: state.input,
+                output: state.output,
+                error: state.error,
+            }
+        })
+        .filter((t) => t.tool)
+
+    // If parts exist, this is almost certainly a real message.
+    if (parts.length) {
+        const role = normalizedRole === 'system' ? 'assistant' : normalizedRole
+        return {
+            key: String(msg.id || (info as any)?.id || `${role}-${index}`),
+            role,
+            label: role === 'user' ? 'You' : role === 'assistant' ? 'Agent' : 'System',
+            model,
+            createdAt,
+            text: textFromParts || '',
+            reasoning: reasoningFromParts || undefined,
+            tools: tools.length ? tools : undefined,
+            usage: cost || tokens ? { cost, tokens } : undefined,
+        }
+    }
+
+    // Fallback: treat as event payload.
+    const eventObj: any =
+        content && typeof content === 'object'
+            ? content
+            : msg && typeof msg === 'object'
+                ? (msg as any)
+                : null
+
+    const eventType: string =
+        (eventObj?.event_type || eventObj?.type || msg.event_type || msg.type || '')?.toString()
+
+    const eventPart: any = eventObj?.part || eventObj?.properties?.part || msg.part
+
+    const getText = (obj: any): string => {
+        if (!obj) return ''
+        if (typeof obj === 'string') return obj
+        if (typeof obj.text === 'string') return obj.text
+        if (typeof obj.delta === 'string') return obj.delta
+        if (typeof obj.content === 'string') return obj.content
+        if (Array.isArray(obj.content)) return obj.content.map((c: any) => (typeof c?.text === 'string' ? c.text : typeof c === 'string' ? c : '')).join('')
+        return ''
+    }
+
+    if (eventType === 'text' || eventType === 'part.text') {
+        const text = getText(eventPart) || getText(eventObj)
+        return {
+            key: String((msg as any)?.id || `${eventType}-${index}`),
+            role: 'assistant',
+            label: 'Agent',
+            model,
+            createdAt,
+            text: text || '',
+        }
+    }
+
+    if (eventType === 'part.reasoning' || eventType === 'reasoning') {
+        const text = getText(eventPart) || getText(eventObj)
+        return {
+            key: String((msg as any)?.id || `${eventType}-${index}`),
+            role: 'assistant',
+            label: 'Agent',
+            model,
+            createdAt,
+            text: '',
+            reasoning: text || undefined,
+        }
+    }
+
+    if (eventType === 'step_finish' || eventType === 'part.step-finish' || eventType === 'step_finish') {
+        const t = coerceTokenUsage((eventPart as any)?.tokens || (eventObj as any)?.tokens)
+        const c = typeof (eventPart as any)?.cost === 'number' ? (eventPart as any).cost : typeof (eventObj as any)?.cost === 'number' ? (eventObj as any).cost : undefined
+        const tokenText = formatTokens(t)?.summary
+        return {
+            key: String((msg as any)?.id || `${eventType}-${index}`),
+            role: 'system',
+            label: 'System',
+            text: `Step finished${tokenText ? ` • ${tokenText}` : ''}${typeof c === 'number' ? ` • ${formatCost(c)}` : ''}`,
+            usage: c || t ? { cost: c, tokens: t } : undefined,
+            rawDetails: safeJsonStringify(eventObj),
+        }
+    }
+
+    if (eventType === 'step_start' || eventType === 'part.step-start') {
+        return {
+            key: String((msg as any)?.id || `${eventType}-${index}`),
+            role: 'system',
+            label: 'System',
+            text: 'Step started',
+        }
+    }
+
+    // If we still have nothing meaningful, don’t spam raw JSON in the main chat.
+    const fallbackText = typeof content === 'string' ? content : ''
+    if (fallbackText) {
+        return {
+            key: String(msg.id || `${normalizedRole}-${index}`),
+            role: normalizedRole,
+            label: normalizedRole === 'user' ? 'You' : normalizedRole === 'assistant' ? 'Agent' : 'System',
+            model,
+            createdAt,
+            text: fallbackText,
+        }
+    }
+
+    // Keep a small, collapsible debug record rather than a wall of JSON.
+    if (eventType) {
+        return {
+            key: String((msg as any)?.id || `${eventType}-${index}`),
+            role: 'system',
+            label: 'System',
+            text: `Event: ${eventType}`,
+            rawDetails: safeJsonStringify(eventObj),
+        }
+    }
+
+    return null
 }
 
 function ChatIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -342,59 +739,66 @@ export default function SessionsPage() {
         return date.toLocaleDateString()
     }
 
-    const extractContent = (msg: SessionMessage): string => {
-        const info = (msg.info || msg) as {
-            role?: string
-            model?: string
-            content?: unknown
-        }
-        const parts = msg.parts || []
+    const chatItems = useMemo(() => {
+        const raw = sessionMessages || []
+        const items: ChatItem[] = []
 
-        let content = ''
-        for (const part of parts) {
-            if (part.type === 'text' && part.text) {
-                content += part.text
-            }
+        for (let i = 0; i < raw.length; i++) {
+            const normalized = normalizeMessage(raw[i], i)
+            if (normalized) items.push(normalized)
         }
-        if (!content && info.content) {
-            content = typeof info.content === 'string' ? info.content : JSON.stringify(info.content)
-        }
-        return content
-    }
 
-    const chatMessages = useMemo(() => {
-        return (sessionMessages || []).map((msg) => {
-            const info = (msg.info || msg) as {
-                role?: string
-                model?: string
-                content?: unknown
+        // Merge adjacent assistant chunks (common when an API returns streaming-like events).
+        const merged: ChatItem[] = []
+        for (const item of items) {
+            const prev = merged[merged.length - 1]
+            if (
+                prev &&
+                item.role === 'assistant' &&
+                prev.role === 'assistant' &&
+                !item.tools?.length &&
+                !prev.tools?.length &&
+                !item.usage &&
+                !prev.usage &&
+                !item.rawDetails &&
+                !prev.rawDetails &&
+                item.model === prev.model &&
+                (item.text || item.reasoning)
+            ) {
+                merged[merged.length - 1] = {
+                    ...prev,
+                    text: prev.text + (item.text || ''),
+                    reasoning: (prev.reasoning || '') + (item.reasoning || ''),
+                }
+            } else {
+                merged.push(item)
             }
-            const role = (info.role || msg.role || 'unknown').toString()
-            const normalizedRole = role === 'human' ? 'user' : role
-            const content = extractContent(msg)
-            return {
-                role: normalizedRole,
-                model: info.model || msg.model,
-                content,
-            }
-        })
+        }
+
+        return merged
     }, [sessionMessages])
 
     const suggestedModels = useMemo(() => {
         const models = new Set<string>()
-        for (const m of chatMessages) {
+        for (const m of chatItems) {
             if (m.model) models.add(String(m.model))
         }
         // Also allow a few common placeholders without being prescriptive.
         // (Users can type any provider/model supported by their worker/OpenCode.)
         ;[
+            'google/gemini-3-flash-preview',
             'anthropic/claude-sonnet-4-20250514',
             'anthropic/claude-3-5-sonnet-latest',
+            'azure-anthropic/claude-opus-4-5',
             'openai/gpt-4.1',
             'openai/gpt-4o',
+            'glm/glm-4.6',
+            'glm/glm-4.5',
+            'z-ai/coding-plain-v1',
+            'z-ai/coding-plain-v2',
         ].forEach((m) => models.add(m))
         return Array.from(models).sort()
-    }, [chatMessages])
+    }, [chatItems])
 
     const onMessagesScroll = () => {
         const el = messagesContainerRef.current
@@ -483,7 +887,7 @@ export default function SessionsPage() {
                             </h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedSession
-                                    ? `Mode: ${selectedMode || selectedSession.agent || 'build'} • ${chatMessages.length} messages`
+                                    ? `Mode: ${selectedMode || selectedSession.agent || 'build'} • ${chatItems.length} messages`
                                     : 'Select a session on the left'}
                             </p>
                         </div>
@@ -557,41 +961,135 @@ export default function SessionsPage() {
                             <div className="h-full flex items-center justify-center">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Select a session to view the chat.</p>
                             </div>
-                        ) : chatMessages.length === 0 ? (
+                        ) : chatItems.length === 0 ? (
                             <div className="h-full flex items-center justify-center">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">No messages yet.</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {chatMessages.map((m, idx) => {
+                                {chatItems.map((m) => {
+                                    if (m.role === 'system') {
+                                        return (
+                                            <div key={m.key} className="flex justify-center">
+                                                <div className="max-w-[90%] rounded-full bg-gray-200/70 px-3 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                                                    {m.text || '—'}
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+
                                     const isUser = m.role === 'user'
-                                    const label = isUser ? 'You' : 'Agent'
+                                    const tokenInfo = formatTokens(m.usage?.tokens)
+                                    const costText = formatCost(m.usage?.cost)
+
                                     return (
-                                        <div
-                                            key={idx}
-                                            className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
-                                        >
+                                        <div key={m.key} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-[85%] ${isUser ? 'text-right' : 'text-left'}`}>
                                                 <div className="flex items-center gap-2 mb-1">
                                                     {!isUser ? (
-                                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{label}</span>
+                                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{m.label}</span>
                                                     ) : null}
                                                     {m.model ? (
                                                         <span className="text-[10px] text-gray-400 dark:text-gray-500">{m.model}</span>
                                                     ) : null}
+                                                    {m.createdAt ? (
+                                                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(m.createdAt)}</span>
+                                                    ) : null}
                                                     {isUser ? (
-                                                        <span className="ml-auto text-xs font-medium text-gray-600 dark:text-gray-300">{label}</span>
+                                                        <span className="ml-auto text-xs font-medium text-gray-600 dark:text-gray-300">{m.label}</span>
                                                     ) : null}
                                                 </div>
+
                                                 <div
                                                     className={`rounded-2xl px-4 py-3 shadow-sm ring-1 ${isUser
                                                         ? 'bg-indigo-600 text-white ring-indigo-700/40'
                                                         : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
                                                         }`}
                                                 >
-                                                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                                                        {m.content || (isUser ? '(empty message)' : '(no content)')}
-                                                    </div>
+                                                    {m.text ? (
+                                                        <MarkdownMessage text={m.text} />
+                                                    ) : (
+                                                        <div className="text-sm opacity-70">{isUser ? '(empty message)' : '(no content)'}</div>
+                                                    )}
+
+                                                    {m.reasoning ? (
+                                                        <details className={`mt-3 rounded-lg ${isUser ? 'bg-indigo-500/20' : 'bg-gray-100 dark:bg-gray-900/30'} p-3`}>
+                                                            <summary className="cursor-pointer select-none text-xs font-medium text-gray-700 dark:text-gray-200">
+                                                                Thinking
+                                                            </summary>
+                                                            <div className="mt-2">
+                                                                <MarkdownMessage text={m.reasoning} />
+                                                            </div>
+                                                        </details>
+                                                    ) : null}
+
+                                                    {m.tools && m.tools.length ? (
+                                                        <details className={`mt-3 rounded-lg ${isUser ? 'bg-indigo-500/20' : 'bg-gray-100 dark:bg-gray-900/30'} p-3`}>
+                                                            <summary className="cursor-pointer select-none text-xs font-medium text-gray-700 dark:text-gray-200">
+                                                                Tools ({m.tools.length})
+                                                            </summary>
+                                                            <div className="mt-2 space-y-2">
+                                                                {m.tools.map((t, idx) => (
+                                                                    <div key={`${t.tool}-${idx}`} className="rounded-md bg-white/60 dark:bg-gray-800/60 p-2 ring-1 ring-gray-200/70 dark:ring-white/10">
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <span className="text-xs font-semibold">{t.tool}</span>
+                                                                            {t.status ? (
+                                                                                <span className="text-[10px] rounded-full bg-gray-200 px-2 py-0.5 text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                                                                    {t.status}
+                                                                                </span>
+                                                                            ) : null}
+                                                                            {t.title ? (
+                                                                                <span className="text-[11px] text-gray-600 dark:text-gray-300">{t.title}</span>
+                                                                            ) : null}
+                                                                        </div>
+                                                                        {(t.input !== undefined || t.output !== undefined || t.error !== undefined) ? (
+                                                                            <div className="mt-2 space-y-2">
+                                                                                {t.input !== undefined ? (
+                                                                                    <details>
+                                                                                        <summary className="cursor-pointer text-[11px] text-gray-600 dark:text-gray-300">Input</summary>
+                                                                                        <pre className="mt-1 overflow-x-auto rounded bg-gray-900/90 p-2 text-[11px] text-gray-100">{safeJsonStringify(t.input, 4000)}</pre>
+                                                                                    </details>
+                                                                                ) : null}
+                                                                                {t.output !== undefined ? (
+                                                                                    <details>
+                                                                                        <summary className="cursor-pointer text-[11px] text-gray-600 dark:text-gray-300">Output</summary>
+                                                                                        <pre className="mt-1 overflow-x-auto rounded bg-gray-900/90 p-2 text-[11px] text-gray-100">{safeJsonStringify(t.output, 4000)}</pre>
+                                                                                    </details>
+                                                                                ) : null}
+                                                                                {t.error !== undefined ? (
+                                                                                    <details>
+                                                                                        <summary className="cursor-pointer text-[11px] text-red-600 dark:text-red-400">Error</summary>
+                                                                                        <pre className="mt-1 overflow-x-auto rounded bg-gray-900/90 p-2 text-[11px] text-gray-100">{safeJsonStringify(t.error, 4000)}</pre>
+                                                                                    </details>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ) : null}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </details>
+                                                    ) : null}
+
+                                                    {(tokenInfo || costText) ? (
+                                                        <div className={`mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] ${isUser ? 'text-indigo-100/90' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                            {tokenInfo ? (
+                                                                <span title={tokenInfo.detail || tokenInfo.summary}>
+                                                                    {tokenInfo.summary}
+                                                                    {tokenInfo.detail ? <span className="ml-2 opacity-80">({tokenInfo.detail})</span> : null}
+                                                                </span>
+                                                            ) : null}
+                                                            {costText ? <span>Cost {costText}</span> : null}
+                                                        </div>
+                                                    ) : null}
+
+                                                    {m.rawDetails ? (
+                                                        <details className="mt-3">
+                                                            <summary className={`cursor-pointer text-xs ${isUser ? 'text-indigo-100/90' : 'text-gray-600 dark:text-gray-300'}`}>
+                                                                Details
+                                                            </summary>
+                                                            <pre className="mt-2 overflow-x-auto rounded bg-gray-900/90 p-3 text-[11px] text-gray-100">{m.rawDetails}</pre>
+                                                        </details>
+                                                    ) : null}
                                                 </div>
                                             </div>
                                         </div>
@@ -614,7 +1112,7 @@ export default function SessionsPage() {
                                                 <span className="text-[10px] text-gray-400 dark:text-gray-500">streaming • {selectedMode || selectedSession.agent || 'build'}</span>
                                             </div>
                                             <div className="rounded-2xl px-4 py-3 shadow-sm ring-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10">
-                                                <div className="whitespace-pre-wrap text-sm leading-relaxed">{liveDraft}</div>
+                                                <MarkdownMessage text={liveDraft} />
                                             </div>
                                         </div>
                                     </div>

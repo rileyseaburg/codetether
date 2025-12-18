@@ -52,11 +52,12 @@ CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Age
 CodeTether Server provides the infrastructure layer for running AI agents in production:
 
 - **A2A Protocol Native** — Full implementation of the [A2A specification](https://a2a-protocol.org/specification.md) for agent-to-agent communication
-- **Distributed Workers** — Run agents across multiple machines with automatic task routing
+- **[Distributed Workers](features/distributed-workers.md)** — Run agents across multiple machines with automatic task routing
 - **Real-time Streaming** — SSE-based live output streaming for long-running agent tasks
 - **Session Management** — Resume conversations, sync across devices, maintain context
 - **Enterprise Security** — Keycloak OIDC, API tokens, audit logging
 - **OpenCode Bridge** — Native integration with OpenCode AI coding agents
+- **[Deploy Anywhere](deployment/docker.md)** — Run on Docker, Kubernetes, or bare metal with ease
 
 ## A2A Protocol Implementation
 

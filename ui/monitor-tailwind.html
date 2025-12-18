@@ -669,6 +669,7 @@
                 console.error('Failed to load models:', error);
                 // Fallback to basic models
                 state.models = [
+                    { id: 'google/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google' },
                     { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Anthropic' },
                     { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
                 ];
@@ -703,7 +704,7 @@
             }
 
             // Standard providers
-            const standardProviders = ['Anthropic', 'OpenAI', 'Google', 'DeepSeek', 'xAI'];
+            const standardProviders = ['Anthropic', 'OpenAI', 'Google', 'DeepSeek', 'xAI', 'Z.AI Coding Plan', 'Azure AI Foundry'];
             standardProviders.forEach(provider => {
                 const models = (byProvider[provider] || []).filter(m => !m.custom);
                 if (models.length > 0) {

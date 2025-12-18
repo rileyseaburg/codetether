@@ -10,6 +10,7 @@ CHART_VERSION ?= 0.4.2
 NAMESPACE ?= a2a-server
 RELEASE_NAME ?= codetether
 VALUES_FILE ?= chart/codetether-values.yaml
+RELOAD ?= 0
 
 # Local systemd worker (optional)
 LOCAL_WORKER_SERVICE ?= a2a-agent-worker
@@ -21,6 +22,8 @@ SUDO ?= sudo
 # Additional image names for full platform
 MARKETING_IMAGE_NAME = a2a-marketing
 DOCS_IMAGE_NAME = codetether-docs
+
+
 
 # Default target
 .PHONY: help
@@ -51,13 +54,16 @@ help: ## Show this help message
 	@echo "Other targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -vE '^(docker-|helm-|codetether-|bluegreen-|deploy-|rollback-|cleanup-|k8s|get-pods|describe-pod|scale-|rollout-|install|test|lint|format|run|docs)' | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
 	@echo ""
+	@echo "Worker management:"
+	@grep -E '^local-worker-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
 	@echo "Environment variables:"
 	@echo "  DOCKER_TAG      - Docker image tag (default: latest)"
 	@echo "  NAMESPACE       - Kubernetes namespace (default: a2a-server)"
 	@echo "  CHART_VERSION   - Helm chart version (default: 0.4.2)"
 	@echo "  VALUES_FILE     - Path to Helm values file"
-	@echo "  KUBECONFIG_PATH - Path to kubeconfig (default: quantum-forge-kubeconfig.yaml)"
 	@echo "  DEBUG           - Enable debug output for deployments"
+
 
 # Docker targets
 .PHONY: docker-build
@@ -220,6 +226,7 @@ install: ## Install Python dependencies
 .PHONY: install-dev
 install-dev: ## Install development dependencies
 	pip install -r requirements.txt -r requirements-test.txt
+	(cd marketing-site && npm install)
 
 .PHONY: test
 test: ## Run tests
@@ -239,13 +246,42 @@ format: ## Format code
 	python -m black a2a_server/
 	python -m isort a2a_server/
 
+# Python executable (use venv if available)
+PYTHON ?= $(shell if [ -f venv/bin/python3 ]; then echo venv/bin/python3; else echo python3; fi)
+
 .PHONY: run
 run: ## Run the server locally
-	python run_server.py run --host 0.0.0.0 --port $(PORT)
+	@if [ "$(RELOAD)" = "1" ]; then \
+		echo "🔄 Auto-reload enabled"; \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+	else \
+		$(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+	fi
 
 .PHONY: run-dev
-run-dev: ## Run the server in development mode
-	python run_server.py run --host 0.0.0.0 --port $(PORT) --reload
+run-dev: ## Run the server in development mode (starts Python and Next.js)
+	$(MAKE) run-all RELOAD=1
+
+.PHONY: dev
+dev: ## Alias for run-all (starts Python and Next.js)
+	$(MAKE) run-all RELOAD=1
+
+.PHONY: run-all
+run-all: ## Run Python server, React (Next.js) dev server, and a local worker
+	@echo "🚀 Starting Python server, React dev server, and local worker..."
+	@trap 'kill 0' EXIT; \
+	(cd marketing-site && npm run dev) & \
+	(if [ "$(RELOAD)" = "1" ]; then \
+		echo "🔄 Worker auto-reload enabled"; \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+	else \
+		$(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+	fi) & \
+	$(MAKE) run RELOAD=$(RELOAD)
+
+.PHONY: worker
+worker: ## Run a local worker
+	$(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
 
 # Keycloak utilities
 .PHONY: keycloak-client
@@ -362,8 +398,6 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 GIT_BRANCH_SAFE := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/\//-/g' || echo "unknown")
 
-# Kubeconfig path
-KUBECONFIG_PATH ?= quantum-forge-kubeconfig.yaml
 
 .PHONY: deploy-blue
 deploy-blue: ## Deploy to blue slot
@@ -401,24 +435,24 @@ deploy-status: ## Show blue-green deployment status
 bluegreen-deploy: ## Deploy with blue-green strategy (zero-downtime)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment..."
-	KUBECONFIG=$(KUBECONFIG_PATH) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: bluegreen-rollback
 bluegreen-rollback: ## Rollback blue-green deployment to previous version
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "↩️  Rolling back blue-green deployment..."
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh rollback
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh rollback
 
 .PHONY: bluegreen-status
 bluegreen-status: ## Show blue-green deployment status
 	@chmod +x scripts/bluegreen-deploy.sh
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh status
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) ./scripts/bluegreen-deploy.sh status
 
 .PHONY: bluegreen-oci
 bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push image and chart, then deploy with blue-green (OCI)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment with OCI chart..."
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
 
@@ -430,7 +464,7 @@ bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push im
 k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to dev environment
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting DEV environment blue-green deployment"
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
+	NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
 		VALUES_FILE=$(CHART_PATH)/values-dev.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
@@ -439,7 +473,7 @@ k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to 
 k8s-staging: docker-build-all docker-push-all ## Build and deploy all containers to staging environment
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting STAGING environment blue-green deployment"
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
+	NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
 		VALUES_FILE=$(CHART_PATH)/values-staging.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
@@ -450,7 +484,7 @@ k8s-prod: docker-build-all docker-push-all helm-package helm-push ## Build and d
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
 	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site"
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
@@ -462,7 +496,7 @@ k8s-prod-docs: docker-build-docs docker-push-docs ## Build and deploy Documentat
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Deploying DOCS only to production"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
-	KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
 		DOCS_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy-docs
@@ -582,27 +616,27 @@ deploy-now: ## Immediate deploy with existing chart (no build)
 
 .PHONY: get-pods
 get-pods: ## List pods in namespace
-	kubectl --kubeconfig $(KUBECONFIG_PATH) get pods -n $(NAMESPACE)
+	kubectl get pods -n $(NAMESPACE)
 
 .PHONY: describe-pod
 describe-pod: ## Describe pods in namespace
-	kubectl --kubeconfig $(KUBECONFIG_PATH) describe pod -n $(NAMESPACE)
+	kubectl describe pod -n $(NAMESPACE)
 
 .PHONY: scale-0
 scale-0: ## Scale deployment to 0 replicas
-	kubectl --kubeconfig $(KUBECONFIG_PATH) scale deployment a2a-server --replicas=0 -n $(NAMESPACE)
+	kubectl scale deployment a2a-server --replicas=0 -n $(NAMESPACE)
 
 .PHONY: scale-1
 scale-1: ## Scale deployment to 1 replica
-	kubectl --kubeconfig $(KUBECONFIG_PATH) scale deployment a2a-server --replicas=1 -n $(NAMESPACE)
+	kubectl scale deployment a2a-server --replicas=1 -n $(NAMESPACE)
 
 .PHONY: scale-2
 scale-2: ## Scale deployment to 2 replicas
-	kubectl --kubeconfig $(KUBECONFIG_PATH) scale deployment a2a-server --replicas=2 -n $(NAMESPACE)
+	kubectl scale deployment a2a-server --replicas=2 -n $(NAMESPACE)
 
 .PHONY: rollout-status
 rollout-status: ## Show deployment rollout status
-	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout status deployment/a2a-server -n $(NAMESPACE)
+	kubectl rollout status deployment/a2a-server -n $(NAMESPACE)
 
 # =============================================================================
 # CodeTether Deployment Targets
@@ -632,13 +666,13 @@ codetether-build-all: codetether-build-marketing codetether-build-docs docker-bu
 
 .PHONY: codetether-restart-marketing
 codetether-restart-marketing: ## Restart marketing deployment
-	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout restart deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE)
-	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout status deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE) --timeout=120s
+	kubectl rollout restart deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE)
+	kubectl rollout status deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE) --timeout=120s
 
 .PHONY: codetether-restart-docs
 codetether-restart-docs: ## Restart docs deployment
-	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout restart deployment/$(RELEASE_NAME)-docs -n $(NAMESPACE)
-	kubectl --kubeconfig $(KUBECONFIG_PATH) rollout status deployment/$(RELEASE_NAME)-docs -n $(NAMESPACE) --timeout=120s
+	kubectl rollout restart deployment/$(RELEASE_NAME)-docs -n $(NAMESPACE)
+	kubectl rollout status deployment/$(RELEASE_NAME)-docs -n $(NAMESPACE) --timeout=120s
 
 .PHONY: codetether-restart-api
 codetether-restart-api: ## Restart API deployment
@@ -674,3 +708,6 @@ codetether-status: ## Show CodeTether deployment status
 codetether-full-deploy: codetether-build-all helm-package helm-push codetether-deploy ## Full build and deploy pipeline
 
 
+.PHONY: test-models
+test-models:
+	source .venv/bin/activate && pip install aiohttp && python3 tests/verify_models.py
