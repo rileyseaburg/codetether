@@ -4,6 +4,10 @@ Documentation=https://github.com/rileyseaburg/A2A-Server-MCP
 After=network-online.target
 Wants=network-online.target
 
+# Restart burst protection (must be in [Unit])
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
 [Service]
 Type=simple
 User=a2a-worker
@@ -24,14 +28,12 @@ ExecStart=/opt/a2a-worker/venv/bin/python /opt/a2a-worker/worker.py --config /et
 # Restart policy
 Restart=always
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=full
-ProtectHome=read-only
-ReadWritePaths=/home /opt/a2a-worker
+ProtectHome=no
+ReadWritePaths=/opt/a2a-worker
 PrivateTmp=true
 
 # Resource limits

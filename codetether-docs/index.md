@@ -73,7 +73,7 @@ CodeTether implements the complete A2A Protocol specification:
 
 Plus CodeTether extensions:
 
-- **Distributed Task Queue** — Redis-backed task distribution across workers
+- **Distributed task coordination** — Redis-backed task/state coordination (workers poll the server over HTTP)
 - **OpenCode Integration** — AI coding agent bridge with codebase registration
 - **Monitor UI** — Web dashboard for real-time agent observation
 - **MCP Tools** — Model Context Protocol tool server
@@ -82,7 +82,7 @@ Plus CodeTether extensions:
 
 ```bash
 # Install
-pip install a2a-server-mcp
+pip install codetether
 
 # Run server
 codetether serve --port 8000
@@ -92,11 +92,10 @@ curl -X POST http://localhost:8000/v1/a2a \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-    "method": "tasks/send",
+        "method": "message/send",
     "params": {
       "message": {
-        "role": "user",
-        "parts": [{"text": "Analyze this codebase"}]
+                "parts": [{"type": "text", "content": "Analyze this codebase"}]
       }
     },
     "id": "1"
@@ -105,49 +104,14 @@ curl -X POST http://localhost:8000/v1/a2a \
 
 ## Architecture Overview
 
-```mermaid
-graph TB
-    subgraph Clients
-        UI[Web Dashboard]
-        CLI[CLI / SDK]
-        Agent[External Agents]
-    end
+At a high level:
 
-    subgraph CodeTether Server
-        API[FastAPI Server]
-        A2A[A2A Protocol Handler]
-        MCP[MCP Tool Server]
-        Monitor[Monitor API]
-    end
+- Clients talk to the API (`:8000`) for A2A JSON-RPC (`/v1/a2a`) and REST (`/v1/opencode/*`, `/v1/monitor/*`).
+- Workers run OpenCode and poll the server for pending tasks over HTTP.
+- Redis provides pub/sub plus shared task/state coordination.
+- The MCP server (`:9000`) exposes CodeTether capabilities as MCP tools.
 
-    subgraph Infrastructure
-        Redis[(Redis Broker)]
-        DB[(SQLite/Postgres)]
-        Keycloak[Keycloak Auth]
-    end
-
-    subgraph Workers
-        W1[Worker 1]
-        W2[Worker 2]
-        OC[OpenCode Bridge]
-    end
-
-    UI --> API
-    CLI --> API
-    Agent --> A2A
-
-    API --> A2A
-    API --> MCP
-    API --> Monitor
-
-    A2A --> Redis
-    Monitor --> DB
-    API --> Keycloak
-
-    Redis --> W1
-    Redis --> W2
-    Redis --> OC
-```
+For diagrams and deeper detail, see [Architecture](concepts/architecture.md).
 
 ## Next Steps
 

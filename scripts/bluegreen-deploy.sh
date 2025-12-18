@@ -20,6 +20,12 @@ IMAGE_REPO=${IMAGE_REPO:-"library"}  # e.g. "library"
 CHART_SOURCE=${CHART_SOURCE:-"local"}
 CHART_VERSION=${CHART_VERSION:-"0.4.2"}
 
+# Whether to pass a values file to Helm. Default: true.
+#
+# For one-off, low-risk operations (e.g. docs-only deploys), you may want to use
+# --reuse-values without also applying a values file.
+USE_VALUES_FILE=${USE_VALUES_FILE:-"true"}
+
 if [ "$CHART_SOURCE" = "oci" ]; then
     CHART_PATH="oci://${REGISTRY}/${IMAGE_REPO}/a2a-server"
     VALUES_FILE=${VALUES_FILE:-"${PROJECT_ROOT}/chart/codetether-values.yaml"}
@@ -54,6 +60,29 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 
 k() {
     kubectl --kubeconfig "$KUBECONFIG" -n "$NAMESPACE" "$@"
+}
+
+require_kubeconfig() {
+    if [ ! -f "$KUBECONFIG" ]; then
+        log_error "Kubeconfig not found: $KUBECONFIG"
+        log_info "Provide a valid kubeconfig via the KUBECONFIG env var. Example:"
+        log_info "  KUBECONFIG=/path/to/quantum-forge-kubeconfig.yaml ./scripts/bluegreen-deploy.sh status"
+        log_info "Default expected path is: ${PROJECT_ROOT}/quantum-forge-kubeconfig.yaml"
+        exit 1
+    fi
+}
+
+require_cluster_access() {
+    require_kubeconfig
+
+    # Use a simple API call that requires auth; fail fast if we are unauthorized.
+    local out
+    if ! out=$(kubectl --kubeconfig "$KUBECONFIG" get ns --request-timeout=10s 2>&1); then
+        log_error "Cannot access the Kubernetes API with kubeconfig: $KUBECONFIG"
+        echo "$out" | sed 's/^/  /'
+        log_info "Fix: ensure the kubeconfig has valid credentials and network access to the cluster."
+        exit 1
+    fi
 }
 
 get_next_color() {
@@ -149,7 +178,7 @@ helm_upgrade() {
         cmd+=(--version "$CHART_VERSION")
     fi
 
-    if [ -f "$VALUES_FILE" ]; then
+    if [ "$USE_VALUES_FILE" = "true" ] && [ -n "${VALUES_FILE:-}" ] && [ -f "$VALUES_FILE" ]; then
         cmd+=(-f "$VALUES_FILE")
     fi
 
@@ -164,7 +193,37 @@ helm_upgrade() {
     fi
 }
 
+deploy_docs_only() {
+    require_cluster_access
+
+    log_info "Deploying docs only (no backend blue/green changes)"
+    log_info "Namespace: $NAMESPACE"
+    log_info "Release: $RELEASE_NAME"
+    log_info "Docs image: ${DOCS_REPOSITORY}:${DOCS_TAG}"
+
+    local deploy_id
+    deploy_id="$(date +%s)"
+
+    local HELM_TIMEOUT="10m"
+    local previous_use_values_file="$USE_VALUES_FILE"
+    USE_VALUES_FILE="false"
+
+    local -a args=(
+        --reuse-values
+        --wait --timeout "${HELM_TIMEOUT}"
+        --set-string docs.image.repository="${DOCS_REPOSITORY}"
+        --set-string docs.image.tag="${DOCS_TAG}"
+        --set-string docs.rolloutId="${deploy_id}"
+    )
+
+    helm_upgrade "${args[@]}"
+
+    USE_VALUES_FILE="$previous_use_values_file"
+    log_success "Docs-only deploy completed"
+}
+
 deploy_bluegreen() {
+    require_cluster_access
     log_info "Starting Blue-Green Deployment (Helm-driven)"
     log_info "Namespace: $NAMESPACE"
     log_info "Release: $RELEASE_NAME"
@@ -346,6 +405,7 @@ deploy_bluegreen() {
 }
 
 rollback_bluegreen() {
+    require_cluster_access
     log_warning "Starting Blue-Green Rollback (Helm-driven)"
 
     local current_mode
@@ -411,6 +471,7 @@ rollback_bluegreen() {
 }
 
 show_status() {
+    require_cluster_access
     log_info "Blue-Green Deployment Status"
     echo ""
 
@@ -441,6 +502,9 @@ main() {
         deploy)
             deploy_bluegreen
             ;;
+        deploy-docs)
+            deploy_docs_only
+            ;;
         rollback)
             rollback_bluegreen
             ;;
@@ -448,7 +512,7 @@ main() {
             show_status
             ;;
         *)
-            echo "Usage: $0 {deploy|rollback|status}"
+            echo "Usage: $0 {deploy|deploy-docs|rollback|status}"
             echo ""
 	            echo "Environment variables:"
 	            echo "  BACKEND_TAG    - Backend image tag (default: latest)"

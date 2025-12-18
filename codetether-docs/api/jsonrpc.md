@@ -11,18 +11,19 @@ CodeTether implements the A2A Protocol JSON-RPC methods.
 
 ```
 POST /v1/a2a
+POST /  (alias)
 Content-Type: application/json
 ```
 
 ## Methods
 
-### tasks/send
+### message/send
 
-Send a task to the agent.
+Send a message to the agent.
 
-### tasks/sendSubscribe
+### message/stream
 
-Send and subscribe to streaming updates.
+Send a message and receive streaming updates (SSE-style payloads).
 
 ### tasks/get
 
@@ -31,5 +32,9 @@ Get task status.
 ### tasks/cancel
 
 Cancel a running task.
+
+### tasks/resubscribe
+
+Resubscribe to updates for an existing task.
 
 See [A2A Protocol Specification](https://a2a-protocol.org/specification.md) for full details.

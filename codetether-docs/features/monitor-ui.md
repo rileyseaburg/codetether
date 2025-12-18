@@ -12,7 +12,10 @@ CodeTether includes a web-based monitoring dashboard.
 Open in your browser:
 
 ```
-http://localhost:8000/monitor
+http://localhost:8000/v1/monitor/
+
+# Or, if you run the MCP HTTP server separately:
+http://localhost:9000/v1/monitor/
 ```
 
 ## Features

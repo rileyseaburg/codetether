@@ -617,6 +617,7 @@ struct ResumeSessionResponse: Codable {
     let message: String?
     let taskId: String?
     let sessionId: String?
+    let newSessionId: String?
     let activeSessionId: String?
     let error: String?
 
@@ -625,6 +626,7 @@ struct ResumeSessionResponse: Codable {
         case message
         case taskId = "task_id"
         case sessionId = "session_id"
+        case newSessionId = "new_session_id"
         case activeSessionId = "active_session_id"
         case error
     }

@@ -18,7 +18,7 @@ The Agent-to-Agent Protocol defines how AI agents communicate, collaborate, and 
 
 ## Specification Compliance
 
-CodeTether implements the complete A2A Protocol specification:
+CodeTether aims to be A2A-compliant and implements the core pieces used by this project:
 
 | Section | Feature | Status |
 |---------|---------|--------|
@@ -33,14 +33,14 @@ CodeTether implements the complete A2A Protocol specification:
 Every CodeTether server exposes an Agent Card at `/.well-known/agent-card.json`:
 
 ```bash
-curl https://codetether.run/.well-known/agent-card.json
+curl https://api.codetether.run/.well-known/agent-card.json
 ```
 
 ```json
 {
   "name": "CodeTether Server",
   "description": "Production A2A coordination server",
-  "url": "https://codetether.run",
+  "url": "https://api.codetether.run",
   "version": "1.0.0",
   "provider": {
     "organization": "CodeTether",
@@ -48,8 +48,8 @@ curl https://codetether.run/.well-known/agent-card.json
   },
   "capabilities": {
     "streaming": true,
-    "pushNotifications": true,
-    "stateTransitionHistory": true
+    "push_notifications": true,
+    "state_transition_history": true
   },
   "skills": [
     {
@@ -63,47 +63,44 @@ curl https://codetether.run/.well-known/agent-card.json
       "description": "AI-powered coding assistance via OpenCode"
     }
   ],
-  "authentication": {
-    "schemes": ["bearer"]
-  }
+  "authentication": [
+    {"scheme": "bearer"}
+  ]
 }
 ```
 
 ## JSON-RPC Methods
 
-CodeTether supports all standard A2A methods:
+CodeTether supports the following JSON-RPC methods:
 
-### tasks/send
+### message/send
 
 Send a task to the agent.
 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "tasks/send",
+  "method": "message/send",
   "params": {
-    "id": "task-123",
     "message": {
-      "role": "user",
-      "parts": [{"text": "Analyze this code"}]
+      "parts": [{"type": "text", "content": "Analyze this code"}]
     }
   },
   "id": "1"
 }
 ```
 
-### tasks/sendSubscribe
+### message/stream
 
 Send a task and subscribe to streaming updates.
 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "tasks/sendSubscribe",
+  "method": "message/stream",
   "params": {
     "message": {
-      "role": "user",
-      "parts": [{"text": "Generate a report"}]
+      "parts": [{"type": "text", "content": "Generate a report"}]
     }
   },
   "id": "1"
@@ -119,7 +116,7 @@ Get the current state of a task.
   "jsonrpc": "2.0",
   "method": "tasks/get",
   "params": {
-    "id": "task-123"
+    "task_id": "task-123"
   },
   "id": "2"
 }
@@ -134,7 +131,7 @@ Cancel a running task.
   "jsonrpc": "2.0",
   "method": "tasks/cancel",
   "params": {
-    "id": "task-123"
+    "task_id": "task-123"
   },
   "id": "3"
 }

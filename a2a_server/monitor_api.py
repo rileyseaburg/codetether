@@ -26,6 +26,7 @@ from pydantic import BaseModel
 import os
 import io
 import tempfile
+from functools import lru_cache
 
 # Import PostgreSQL persistence layer
 from . import database as db
@@ -1509,6 +1510,38 @@ class WatchModeConfig(BaseModel):
 opencode_router = APIRouter(prefix='/v1/opencode', tags=['opencode'])
 
 
+@lru_cache(maxsize=1)
+def _get_auth_tokens_set() -> set:
+    """Return the set of configured auth tokens (values only)."""
+    raw = os.environ.get('A2A_AUTH_TOKENS')
+    if not raw:
+        return set()
+    tokens: set = set()
+    for pair in raw.split(','):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if ':' in pair:
+            _, token = pair.split(':', 1)
+            token = token.strip()
+            if token:
+                tokens.add(token)
+    return tokens
+
+
+def _require_ingest_auth(request: Request) -> None:
+    """Optionally require Bearer auth when A2A_AUTH_TOKENS is configured."""
+    tokens = _get_auth_tokens_set()
+    if not tokens:
+        return
+    auth = request.headers.get('authorization') or request.headers.get('Authorization') or ''
+    if not auth.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail='Missing Bearer token')
+    token = auth.removeprefix('Bearer ').strip()
+    if not token or token not in tokens:
+        raise HTTPException(status_code=403, detail='Invalid token')
+
+
 @opencode_router.get('/status')
 async def opencode_status():
     """Check OpenCode integration status including local runtime sessions."""
@@ -1935,7 +1968,7 @@ async def get_runtime_session_messages(
                 'session_id': msg_data.get('sessionID', session_id),
                 'role': msg_data.get('role'),
                 'created_at': msg_data.get('time', {}).get('created'),
-                'model': msg_data.get('model'),
+                'model': _normalize_model_value(msg_data.get('model')),
                 'cost': msg_data.get('cost'),
                 'tokens': msg_data.get('tokens'),
                 'tool_calls': msg_data.get('tool_calls', []),
@@ -2023,154 +2056,52 @@ async def get_runtime_session_parts(
 
 @opencode_router.get('/models')
 async def list_models():
-    """List available AI models from OpenCode configuration."""
-    import os
-    import json
+    """List available AI models from registered workers in the database."""
+    all_models = []
+    model_ids = set()
 
-    models = []
+    # Get models from registered workers (reads from PostgreSQL/Redis/In-memory)
+    workers = await list_workers()
+    for worker in workers:
+        worker_models = worker.get('models', [])
+        for m in worker_models:
+            if m.get('id') and m['id'] not in model_ids:
+                # Mark as coming from a worker if not already present
+                if 'provider' in m:
+                    m['provider'] = f"{m['provider']} (via {worker.get('name', 'worker')})"
+                all_models.append(m)
+                model_ids.add(m['id'])
 
-    # Default models always available
-    default_models = [
-        # Azure Anthropic (custom)
-        {
-            'id': 'azure-anthropic/claude-opus-4-5',
-            'name': 'Claude Opus 4.5 (Azure)',
-            'provider': 'Azure AI Foundry',
-        },
-        # Anthropic
-        {
-            'id': 'anthropic/claude-sonnet-4-20250514',
-            'name': 'Claude Sonnet 4',
-            'provider': 'Anthropic',
-        },
-        {
-            'id': 'anthropic/claude-3-5-sonnet-20241022',
-            'name': 'Claude 3.5 Sonnet',
-            'provider': 'Anthropic',
-        },
-        {
-            'id': 'anthropic/claude-3-5-haiku-20241022',
-            'name': 'Claude 3.5 Haiku',
-            'provider': 'Anthropic',
-        },
-        # OpenAI
-        {
-            'id': 'openai/gpt-5.1-codex-max',
-            'name': 'GPT-5.1-Codex-Max (Preview)',
-            'provider': 'OpenAI',
-        },
-        # GPT-5.2 (API model names)
-        {
-            'id': 'openai/gpt-5.2',
-            'name': 'GPT-5.2 (Thinking)',
-            'provider': 'OpenAI',
-        },
-        {
-            'id': 'openai/gpt-5.2-chat-latest',
-            'name': 'GPT-5.2 (Instant)',
-            'provider': 'OpenAI',
-        },
-        {
-            'id': 'openai/gpt-5.2-pro',
-            'name': 'GPT-5.2 Pro',
-            'provider': 'OpenAI',
-        },
+    if all_models:
+        # Sort models: Gemini 3 Flash first, then by provider
+        all_models.sort(key=lambda x: (
+            0 if "gemini-3-flash" in x["id"].lower() else 1,
+            x.get("provider", ""),
+            x.get("name", "")
+        ))
 
-        {'id': 'openai/gpt-4o', 'name': 'GPT-4o', 'provider': 'OpenAI'},
-        {
-            'id': 'openai/gpt-4o-mini',
-            'name': 'GPT-4o Mini',
-            'provider': 'OpenAI',
-        },
-        {'id': 'openai/o1', 'name': 'o1', 'provider': 'OpenAI'},
-        {'id': 'openai/o1-mini', 'name': 'o1 Mini', 'provider': 'OpenAI'},
-        {'id': 'openai/o3-mini', 'name': 'o3 Mini', 'provider': 'OpenAI'},
-        # Google
-        {
-            'id': 'google/gemini-2.0-flash',
-            'name': 'Gemini 2.0 Flash',
-            'provider': 'Google',
-        },
-        {
-            'id': 'google/gemini-1.5-pro',
-            'name': 'Gemini 1.5 Pro',
-            'provider': 'Google',
-        },
-        {
-            'id': 'google/gemini-2.5-pro',
-            'name': 'Gemini 2.5 Pro',
-            'provider': 'Google',
-        },
-        # DeepSeek
-        {
-            'id': 'deepseek/deepseek-chat',
-            'name': 'DeepSeek Chat',
-            'provider': 'DeepSeek',
-        },
-        {
-            'id': 'deepseek/deepseek-reasoner',
-            'name': 'DeepSeek Reasoner',
-            'provider': 'DeepSeek',
-        },
-        # xAI
-        {'id': 'xai/grok-2', 'name': 'Grok 2', 'provider': 'xAI'},
-        {'id': 'xai/grok-3', 'name': 'Grok 3', 'provider': 'xAI'},
-        # Z.AI (GLM Coding Plan)
-        {'id': 'glm/glm-4.6', 'name': 'GLM-4.6', 'provider': 'Z.AI'},
-        {'id': 'glm/glm-4.5', 'name': 'GLM-4.5', 'provider': 'Z.AI'},
-    ]
+        # Find a good default (prefer Gemini 3 Flash)
+        default_model = 'google/gemini-3-flash-preview'
+        found_default = False
+        for m in all_models:
+            if m['id'] == default_model:
+                found_default = True
+                break
 
-    # Try to read OpenCode config for custom providers
-    config_paths = [
-        os.path.expanduser('~/.config/opencode/opencode.json'),
-        os.path.expanduser('~/.opencode.json'),
-        '/app/.config/opencode/opencode.json',
-    ]
+        if not found_default and all_models:
+            default_model = all_models[0]['id']
 
-    custom_models = []
-    for config_path in config_paths:
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, 'r') as f:
-                    config = json.load(f)
+        return {
+            'models': all_models,
+            'default': default_model
+        }
 
-                providers = config.get('provider', {})
-                for provider_id, provider_config in providers.items():
-                    provider_name = provider_config.get('name', provider_id)
-                    provider_models = provider_config.get('models', {})
-
-                    for model_id, model_config in provider_models.items():
-                        custom_models.append(
-                            {
-                                'id': f'{provider_id}/{model_id}',
-                                'name': model_config.get('name', model_id),
-                                'provider': provider_name,
-                                'custom': True,
-                                'capabilities': {
-                                    'reasoning': model_config.get(
-                                        'reasoning', False
-                                    ),
-                                    'attachment': model_config.get(
-                                        'attachment', False
-                                    ),
-                                    'tool_call': model_config.get(
-                                        'tool_call', False
-                                    ),
-                                },
-                            }
-                        )
-            except Exception as e:
-                logger.warning(
-                    f'Failed to read OpenCode config from {config_path}: {e}'
-                )
-
-    # Custom models first, then defaults
+    # Return empty list if no workers registered
     return {
-        'models': custom_models + default_models,
-        'default': custom_models[0]['id']
-        if custom_models
-        else 'azure-anthropic/claude-opus-4-5',
+        'models': [],
+        'default': None
     }
+
 
 
 def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
@@ -2754,8 +2685,8 @@ async def stream_agent_events(codebase_id: str, request: Request):
     opencode_port = codebase_meta.get('opencode_port')
     codebase_path = codebase_meta.get('path') or ''
 
-    # For remote workers, check if there are pending tasks and return task-based events
-    if worker_id and not opencode_port:
+    # For remote workers, use task-based events
+    if worker_id:
 
         async def remote_event_generator():
             """Stream events for remote worker codebases from task output/results.
@@ -3443,6 +3374,74 @@ class SessionResumeRequest(BaseModel):
     model: Optional[str] = None
 
 
+def _session_sort_key(session: Dict[str, Any]) -> tuple:
+    """Best-effort sort key across OpenCode/worker/DB session shapes."""
+
+    def _dt(value: Any) -> Optional[datetime]:
+        normalized = _normalize_iso_timestamp(value)
+        if not normalized:
+            return None
+        return _parse_iso_datetime(normalized)
+
+    updated = _dt(session.get('updated_at') or session.get('updated'))
+    created = _dt(session.get('created_at') or session.get('created'))
+    return (
+        updated or created or datetime.min,
+        created or datetime.min,
+        str(session.get('id') or ''),
+    )
+
+
+async def _merge_sessions_with_database(
+    codebase_id: str,
+    sessions: List[Dict[str, Any]],
+    limit: int = 500,
+) -> List[Dict[str, Any]]:
+    """Merge durable DB sessions into a source-specific session list."""
+    if not sessions:
+        return sessions
+    if not isinstance(sessions, list):
+        return []
+
+    sessions = [s for s in sessions if isinstance(s, dict)]
+    if not sessions:
+        return []
+
+    try:
+        persisted = await db.db_list_sessions(codebase_id=codebase_id, limit=limit)
+    except Exception as e:
+        logger.debug(f'Failed to merge DB sessions: {e}')
+        return sessions
+
+    if not persisted:
+        return sessions
+
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for s in sessions:
+        sid = s.get('id')
+        if isinstance(sid, str) and sid:
+            by_id[sid] = s
+
+    for p in persisted:
+        sid = p.get('id')
+        if not isinstance(sid, str) or not sid:
+            continue
+        if sid in by_id:
+            combined = dict(p)
+            combined.update(by_id[sid])
+            if isinstance(p.get('summary'), dict) and isinstance(by_id[sid].get('summary'), dict):
+                summary = dict(p['summary'])
+                summary.update(by_id[sid]['summary'])
+                combined['summary'] = summary
+            by_id[sid] = combined
+        else:
+            by_id[sid] = p
+
+    merged = list(by_id.values())
+    merged.sort(key=_session_sort_key, reverse=True)
+    return merged
+
+
 @opencode_router.get('/codebases/{codebase_id}/sessions')
 async def list_sessions(codebase_id: str):
     """List all sessions for a codebase from OpenCode's local storage or worker sync."""
@@ -3460,8 +3459,9 @@ async def list_sessions(codebase_id: str):
                 payload = json.loads(raw)
                 sessions = payload.get('sessions') if isinstance(payload, dict) else None
                 if sessions:
+                    merged = await _merge_sessions_with_database(codebase_id, sessions)
                     return {
-                        'sessions': sessions,
+                        'sessions': merged,
                         'source': 'worker_sync',
                         'synced_at': payload.get('updated_at') if isinstance(payload, dict) else None,
                     }
@@ -3470,7 +3470,8 @@ async def list_sessions(codebase_id: str):
 
     # Check if we have worker-synced sessions first (for remote codebases)
     if codebase_id in _worker_sessions and _worker_sessions[codebase_id]:
-        return {'sessions': _worker_sessions[codebase_id], 'source': 'worker_sync'}
+        merged = await _merge_sessions_with_database(codebase_id, _worker_sessions[codebase_id])
+        return {'sessions': merged, 'source': 'worker_sync'}
 
     # If we don't have a codebase locally, try to rehydrate it so we can query
     # the OpenCode API / local state for local codebases.
@@ -3488,7 +3489,8 @@ async def list_sessions(codebase_id: str):
                 ) as resp:
                     if resp.status == 200:
                         sessions = await resp.json()
-                        return {'sessions': sessions, 'source': 'opencode_api'}
+                        merged = await _merge_sessions_with_database(codebase_id, sessions)
+                        return {'sessions': merged, 'source': 'opencode_api'}
         except Exception as e:
             logger.warning(f'Failed to query OpenCode API: {e}')
 
@@ -3496,7 +3498,8 @@ async def list_sessions(codebase_id: str):
     if codebase:
         sessions = await _read_local_sessions(codebase.path)
         if sessions:
-            return {'sessions': sessions, 'source': 'local_state'}
+            merged = await _merge_sessions_with_database(codebase_id, sessions)
+            return {'sessions': merged, 'source': 'local_state'}
 
     # Durable fallback: PostgreSQL persistence (common for remote workers).
     try:
@@ -3529,6 +3532,15 @@ class SessionSyncRequest(BaseModel):
     sessions: List[Dict[str, Any]]
 
 
+class ExternalSessionIngestRequest(BaseModel):
+    """Ingest a non-OpenCode chat/session transcript (e.g. VS Code chat)."""
+
+    source: Optional[str] = None
+    worker_id: Optional[str] = None
+    session: Optional[Dict[str, Any]] = None
+    messages: Optional[List[Dict[str, Any]]] = None
+
+
 def _normalize_iso_timestamp(value: Any) -> Optional[str]:
     """Normalize timestamps coming from workers.
 
@@ -3558,6 +3570,186 @@ def _normalize_iso_timestamp(value: Any) -> Optional[str]:
             return None
 
     return None
+
+
+def _normalize_model_value(model: Any) -> Optional[str]:
+    """Normalize model values to string format.
+
+    OpenCode stores models as objects like {providerID: 'anthropic', modelID: 'claude-...'}.
+    We normalize to the standard 'provider/model' string format for the UI.
+    """
+    if model is None:
+        return None
+
+    if isinstance(model, str):
+        return model if model.strip() else None
+
+    if isinstance(model, dict):
+        provider_id = model.get('providerID')
+        model_id = model.get('modelID')
+        if provider_id and model_id:
+            return f"{provider_id}/{model_id}"
+
+    return None
+
+
+@opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/ingest')
+async def ingest_external_session(
+    codebase_id: str,
+    session_id: str,
+    payload: ExternalSessionIngestRequest,
+    request: Request,
+):
+    """Persist an externally-captured session transcript into durable storage.
+
+    This endpoint is designed for tools like a VS Code extension to upload chat
+    turns without overwriting the worker session caches (unlike /sessions/sync).
+    """
+    _require_ingest_auth(request)
+
+    source = (payload.source or 'external').strip() or 'external'
+    session_data: Dict[str, Any] = payload.session if isinstance(payload.session, dict) else {}
+    messages: List[Dict[str, Any]] = payload.messages if isinstance(payload.messages, list) else []
+
+    created_at = _normalize_iso_timestamp(
+        session_data.get('created_at') or session_data.get('created')
+    ) or datetime.now(timezone.utc).isoformat()
+    updated_at = _normalize_iso_timestamp(
+        session_data.get('updated_at') or session_data.get('updated')
+    ) or datetime.now(timezone.utc).isoformat()
+
+    summary: Dict[str, Any] = {}
+    if isinstance(session_data.get('summary'), dict):
+        summary = dict(session_data['summary'])
+    summary.setdefault('source', source)
+    if payload.worker_id:
+        summary.setdefault('worker_id', payload.worker_id)
+
+    await db.db_upsert_session(
+        {
+            'id': session_id,
+            'codebase_id': codebase_id,
+            'project_id': session_data.get('project_id') or session_data.get('projectID'),
+            'directory': session_data.get('directory') or session_data.get('path'),
+            'title': session_data.get('title'),
+            'version': session_data.get('version'),
+            'summary': summary,
+            'created_at': created_at,
+            'updated_at': updated_at,
+        }
+    )
+
+    def _stringify(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        try:
+            return json.dumps(value, ensure_ascii=False)
+        except Exception:
+            return str(value)
+
+    def _extract_message_content(msg: Dict[str, Any]) -> Optional[str]:
+        c = msg.get('content')
+        content_str = _stringify(c)
+        if isinstance(content_str, str) and content_str.strip():
+            return content_str
+
+        parts = msg.get('parts')
+        if isinstance(parts, list):
+            texts: List[str] = []
+            for p in parts:
+                if not isinstance(p, dict):
+                    continue
+                t = p.get('text')
+                if isinstance(t, str) and t:
+                    texts.append(t)
+            if texts:
+                return ''.join(texts)
+
+        info = msg.get('info')
+        if isinstance(info, dict):
+            ic = info.get('content')
+            ic_str = _stringify(ic)
+            if isinstance(ic_str, str) and ic_str.strip():
+                return ic_str
+
+        return None
+
+    def _extract_role(msg: Dict[str, Any]) -> Optional[str]:
+        r = msg.get('role')
+        if isinstance(r, str) and r:
+            return r
+        info = msg.get('info')
+        if isinstance(info, dict):
+            r2 = info.get('role')
+            if isinstance(r2, str) and r2:
+                return r2
+        return None
+
+    def _extract_model(msg: Dict[str, Any]) -> Optional[str]:
+        m = msg.get('model')
+        normalized = _normalize_model_value(m)
+        if normalized:
+            return normalized
+        info = msg.get('info')
+        if isinstance(info, dict):
+            m2 = info.get('model')
+            return _normalize_model_value(m2)
+        return None
+
+    def _extract_created_at(msg: Dict[str, Any]) -> Optional[str]:
+        ca = msg.get('created_at')
+        normalized = _normalize_iso_timestamp(ca)
+        if normalized:
+            return normalized
+        time_obj = msg.get('time')
+        if isinstance(time_obj, dict):
+            created = time_obj.get('created')
+            normalized2 = _normalize_iso_timestamp(created)
+            if normalized2:
+                return normalized2
+        return None
+
+    ingested = 0
+    for msg_data in messages:
+        if not isinstance(msg_data, dict):
+            continue
+        msg_id = msg_data.get('id')
+        if not isinstance(msg_id, str) or not msg_id:
+            msg_id = str(uuid.uuid4())
+
+        tokens = msg_data.get('tokens')
+        if not isinstance(tokens, dict):
+            tokens = {}
+
+        tool_calls = msg_data.get('tool_calls')
+        if not isinstance(tool_calls, list):
+            tool_calls = msg_data.get('toolCalls')
+        if not isinstance(tool_calls, list):
+            tool_calls = []
+
+        await db.db_upsert_message(
+            {
+                'id': msg_id,
+                'session_id': session_id,
+                'role': _extract_role(msg_data),
+                'content': _extract_message_content(msg_data),
+                'model': _extract_model(msg_data),
+                'cost': msg_data.get('cost'),
+                'tokens': tokens,
+                'tool_calls': tool_calls,
+                'created_at': _extract_created_at(msg_data) or datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        ingested += 1
+
+    return {
+        'success': True,
+        'session_id': session_id,
+        'source': source,
+        'messages_ingested': ingested,
+    }
 
 
 @opencode_router.post('/codebases/{codebase_id}/sessions/sync')
@@ -3675,13 +3867,13 @@ async def sync_session_messages(codebase_id: str, session_id: str, request: Mess
 
     def _extract_model(msg: Dict[str, Any]) -> Optional[str]:
         m = msg.get('model')
-        if isinstance(m, str) and m:
-            return m
+        normalized = _normalize_model_value(m)
+        if normalized:
+            return normalized
         info = msg.get('info')
         if isinstance(info, dict):
             m2 = info.get('model')
-            if isinstance(m2, str) and m2:
-                return m2
+            return _normalize_model_value(m2)
         return None
 
     def _extract_created_at(msg: Dict[str, Any]) -> Optional[str]:
@@ -3907,7 +4099,7 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
             logger.debug(f'Failed to log user resume prompt: {e}')
 
     # For remote workers, create a task with the session_id in metadata
-    if codebase.worker_id and not codebase.opencode_port:
+    if codebase.worker_id:
         task = bridge.create_task(
             codebase_id=codebase_id,
             title=f"Resume session: {request.prompt[:50] if request.prompt else 'Continue'}",
@@ -4233,6 +4425,8 @@ class WorkerRegistration(BaseModel):
     name: str
     capabilities: List[str] = []
     hostname: Optional[str] = None
+    models: List[Dict[str, Any]] = []
+    global_codebase_id: Optional[str] = None
 
 
 class TaskStatusUpdate(BaseModel):
@@ -4240,6 +4434,7 @@ class TaskStatusUpdate(BaseModel):
 
     status: str
     worker_id: str
+    session_id: Optional[str] = None
     result: Optional[str] = None
     error: Optional[str] = None
 
@@ -4252,6 +4447,8 @@ async def register_worker(registration: WorkerRegistration):
         'name': registration.name,
         'capabilities': registration.capabilities,
         'hostname': registration.hostname,
+        'models': registration.models,
+        'global_codebase_id': registration.global_codebase_id,
         'registered_at': datetime.utcnow().isoformat(),
         'last_seen': datetime.utcnow().isoformat(),
         'status': 'active',
@@ -4422,6 +4619,7 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
         status=status,
         result=update.result,
         error=update.error,
+        session_id=update.session_id,
     )
 
     if not task:
@@ -4446,6 +4644,7 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
             'task_id': task_id,
             'status': update.status,
             'worker_id': update.worker_id,
+            'session_id': update.session_id,
         },
     )
 

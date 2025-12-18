@@ -63,10 +63,22 @@ export default function DashboardPage() {
 
     const loadCodebases = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/codebases`)
+            const response = await fetch(`${API_URL}/v1/opencode/codebases/list`)
             if (response.ok) {
                 const data = await response.json()
-                setCodebases(data)
+                const items = Array.isArray(data) ? data : (data?.codebases ?? [])
+                setCodebases(
+                    (items as any[])
+                        .map((cb) => ({
+                            id: String(cb?.id ?? ''),
+                            name: String(cb?.name ?? cb?.id ?? ''),
+                            path: String(cb?.path ?? ''),
+                            description: typeof cb?.description === 'string' ? cb.description : undefined,
+                            status: String(cb?.status ?? 'unknown'),
+                            worker_id: typeof cb?.worker_id === 'string' ? cb.worker_id : undefined,
+                        }))
+                        .filter((cb) => cb.id)
+                )
             }
         } catch (error) {
             console.error('Failed to load codebases:', error)

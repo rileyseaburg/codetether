@@ -197,6 +197,14 @@ struct SessionDetailView: View {
     let codebaseId: String
     let session: SessionSummary
 
+    /// Default model override (shared with web's key name).
+    /// Empty string means: use server/model defaults.
+    @AppStorage("codetether.model.default") private var modelOverride: String = ""
+
+    /// Some resume paths can return a different session id (e.g. when OpenCode is started on-demand).
+    /// We keep a local effective id so subsequent messages + refreshes hit the right session.
+    @State private var effectiveSessionId: String
+
     @State private var draftMessage: String = ""
     @State private var isSending = false
     @State private var statusText: String?
@@ -204,6 +212,12 @@ struct SessionDetailView: View {
     @State private var activeTaskId: String?
     @State private var activeTaskStatus: TaskStatus?
     @State private var taskPolling: Task<Void, Never>?
+
+    init(codebaseId: String, session: SessionSummary) {
+        self.codebaseId = codebaseId
+        self.session = session
+        _effectiveSessionId = State(initialValue: session.id)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -254,7 +268,7 @@ struct SessionDetailView: View {
                     await MainActor.run {
                         viewModel.sessionMessages = []
                     }
-                    await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+                    await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: effectiveSessionId)
                     proxy.scrollTo("__bottom", anchor: .bottom)
                 }
             }
@@ -279,6 +293,37 @@ struct SessionDetailView: View {
                     .font(.caption2)
                     .foregroundColor(Color.liquidGlass.textMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Text("Model")
+                    .font(.caption)
+                    .foregroundColor(Color.liquidGlass.textMuted)
+
+                TextField(viewModel.defaultModel ?? "Default (server)", text: $modelOverride)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled(true)
+                    .textInputAutocapitalization(.never)
+
+                Menu {
+                    Button("Default (server)") {
+                        modelOverride = ""
+                    }
+
+                    let models = viewModel.availableModels
+                        .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+                    ForEach(models.prefix(40)) { model in
+                        Button(model.displayName) {
+                            modelOverride = model.id
+                        }
+                    }
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(10)
+                }
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
             HStack(alignment: .bottom, spacing: 10) {
@@ -307,21 +352,32 @@ struct SessionDetailView: View {
         let message = draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
 
+        let trimmedModel = modelOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model: String? = trimmedModel.isEmpty ? nil : trimmedModel
+
         isSending = true
         statusText = nil
         let resp = await viewModel.sendSessionPromptDetailed(
             codebaseId: codebaseId,
-            sessionId: session.id,
+            sessionId: effectiveSessionId,
             prompt: message,
-            agent: session.agent ?? "build"
+            agent: session.agent ?? "build",
+            model: model
         )
         if let resp, resp.success {
             draftMessage = ""
             statusText = resp.taskId != nil ? "Queued" : "Sent"
+
+            let nextSessionId = resp.activeSessionId ?? resp.newSessionId ?? resp.sessionId
+            if let nextSessionId, !nextSessionId.isEmpty, nextSessionId != effectiveSessionId {
+                effectiveSessionId = nextSessionId
+                statusText = "Session resumed"
+            }
+
             if let taskId = resp.taskId {
                 startPolling(taskId: taskId)
             }
-            await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+            await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: effectiveSessionId)
             await viewModel.loadSessions(for: codebaseId)
         } else {
             statusText = "Failed"
@@ -345,12 +401,12 @@ struct SessionDetailView: View {
                     }
                 }
 
-                await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+                await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: effectiveSessionId)
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
             }
 
             // One last refresh.
-            await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: session.id)
+            await viewModel.loadSessionMessages(codebaseId: codebaseId, sessionId: effectiveSessionId)
             await viewModel.loadSessions(for: codebaseId)
         }
     }

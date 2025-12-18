@@ -9,6 +9,8 @@ interface Codebase {
     name: string
     path: string
     status: string
+    worker_id?: string | null
+    opencode_port?: number | null
 }
 
 interface Session {
@@ -50,23 +52,53 @@ export default function SessionsPage() {
     const [selectedSession, setSelectedSession] = useState<Session | null>(null)
     const [sessionMessages, setSessionMessages] = useState<SessionMessage[]>([])
     const [draftMessage, setDraftMessage] = useState('')
+    const [selectedMode, setSelectedMode] = useState('build')
+    const [selectedModel, setSelectedModel] = useState('')
     const [loading, setLoading] = useState(false)
     const [actionStatus, setActionStatus] = useState<string | null>(null)
+    const [streamConnected, setStreamConnected] = useState(false)
+    const [streamStatus, setStreamStatus] = useState<string>('')
+    const [liveDraft, setLiveDraft] = useState<string>('')
     const messagesContainerRef = useRef<HTMLDivElement | null>(null)
     const messagesEndRef = useRef<HTMLDivElement | null>(null)
     const shouldAutoScrollRef = useRef(true)
+    const eventSourceRef = useRef<EventSource | null>(null)
+
+    const MODEL_STORAGE_KEY = 'codetether.model.default'
 
     const loadCodebases = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/codebases`)
+            const response = await fetch(`${API_URL}/v1/opencode/codebases/list`)
             if (response.ok) {
                 const data = await response.json()
-                setCodebases(data)
+                const items = Array.isArray(data) ? data : (data?.codebases ?? [])
+                setCodebases(
+                    (items as any[])
+                        .map((cb) => ({
+                            id: String(cb?.id ?? ''),
+                            name: String(cb?.name ?? cb?.id ?? ''),
+                            path: String(cb?.path ?? ''),
+                            status: String(cb?.status ?? 'unknown'),
+                            worker_id: typeof cb?.worker_id === 'string' ? cb.worker_id : null,
+                            opencode_port:
+                                typeof cb?.opencode_port === 'number'
+                                    ? cb.opencode_port
+                                    : cb?.opencode_port
+                                        ? Number(cb.opencode_port)
+                                        : null,
+                        }))
+                        .filter((cb) => cb.id)
+                )
             }
         } catch (error) {
             console.error('Failed to load codebases:', error)
         }
     }, [])
+
+    const selectedCodebaseMeta = useMemo(() => {
+        if (!selectedCodebase) return null
+        return codebases.find((c) => c.id === selectedCodebase) || null
+    }, [codebases, selectedCodebase])
 
     const loadSessions = useCallback(async (codebaseId: string) => {
         if (!codebaseId) {
@@ -102,6 +134,27 @@ export default function SessionsPage() {
     }, [loadCodebases])
 
     useEffect(() => {
+        // Load persisted model override (per-browser) so users can switch models easily.
+        try {
+            const saved = window.localStorage.getItem(MODEL_STORAGE_KEY)
+            if (saved) setSelectedModel(saved)
+        } catch {
+            // ignore
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    useEffect(() => {
+        // Persist model override.
+        try {
+            if (selectedModel) window.localStorage.setItem(MODEL_STORAGE_KEY, selectedModel)
+            else window.localStorage.removeItem(MODEL_STORAGE_KEY)
+        } catch {
+            // ignore
+        }
+    }, [selectedModel])
+
+    useEffect(() => {
         if (selectedCodebase) {
             loadSessions(selectedCodebase)
         }
@@ -112,6 +165,109 @@ export default function SessionsPage() {
             loadSessionMessages(selectedSession.id)
         }
     }, [selectedSession, loadSessionMessages])
+
+    useEffect(() => {
+        // Keep mode in sync with the selected session, but allow user override.
+        if (!selectedSession) return
+        const next = (selectedSession.agent || 'build').toString()
+        setSelectedMode(next)
+    }, [selectedSession])
+
+    useEffect(() => {
+        // Connect SSE stream for the selected codebase so we can show real-time output in the chat UI.
+        // Only attempt SSE when the codebase is streamable.
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close()
+            eventSourceRef.current = null
+        }
+
+        setStreamConnected(false)
+        setStreamStatus('')
+        setLiveDraft('')
+
+        if (!selectedCodebase || !selectedSession) return
+        if (!selectedCodebaseMeta) return
+
+        const canStream = Boolean(selectedCodebaseMeta.worker_id) || Boolean(selectedCodebaseMeta.opencode_port)
+        if (!canStream) {
+            setStreamStatus('Live stream unavailable (agent not running / no worker assigned)')
+            return
+        }
+
+        const es = new EventSource(`${API_URL}/v1/opencode/codebases/${selectedCodebase}/events`)
+        eventSourceRef.current = es
+
+        es.onopen = () => {
+            setStreamConnected(true)
+            setStreamStatus('Live')
+        }
+
+        es.onerror = () => {
+            setStreamConnected(false)
+            setStreamStatus('Disconnected')
+        }
+
+        const onStatus = (e: MessageEvent) => {
+            try {
+                const data = JSON.parse(e.data)
+                const sessionId = typeof data?.session_id === 'string' ? data.session_id : undefined
+                if (sessionId && selectedSession?.id && sessionId !== selectedSession.id) return
+
+                const msg = (data?.message || data?.status || '').toString()
+                if (msg) setStreamStatus(msg)
+
+                const statusValue = (data?.status || '').toString()
+                const eventType = (data?.event_type || data?.type || '').toString()
+                if ((statusValue === 'idle' || eventType === 'idle') && selectedSession?.id) {
+                    void loadSessionMessages(selectedSession.id)
+                    setLiveDraft('')
+                }
+            } catch {
+                // ignore
+            }
+        }
+
+        const onMessage = (e: MessageEvent) => {
+            // We receive a mix of OpenCode-transformed events and remote-worker task streams.
+            // If a session_id is present, filter to the selected session.
+            try {
+                const data = JSON.parse(e.data)
+                const sessionId = typeof data?.session_id === 'string' ? data.session_id : undefined
+
+                if (sessionId && selectedSession?.id && sessionId !== selectedSession.id) return
+
+                const eventType = (data?.event_type || data?.type || '').toString()
+                const isText =
+                    eventType === 'part.text' ||
+                    eventType === 'text' ||
+                    data?.type === 'text'
+                if (isText) {
+                    const delta = typeof data?.delta === 'string' ? data.delta : ''
+                    const content = typeof data?.content === 'string' ? data.content : ''
+                    const text = typeof data?.text === 'string' ? data.text : ''
+                    const next = delta || content || text
+                    if (next) {
+                        setLiveDraft((prev) => (prev ? prev + next : next))
+                    }
+                }
+            } catch {
+                // ignore
+            }
+        }
+
+        es.addEventListener('status', onStatus)
+        es.addEventListener('idle', onStatus)
+        es.addEventListener('message', onMessage)
+        es.addEventListener('part.text', onMessage)
+
+        return () => {
+            es.removeEventListener('status', onStatus)
+            es.removeEventListener('idle', onStatus)
+            es.removeEventListener('message', onMessage)
+            es.removeEventListener('part.text', onMessage)
+            es.close()
+        }
+    }, [selectedCodebase, selectedCodebaseMeta, selectedSession, loadSessionMessages])
 
     useEffect(() => {
         if (!selectedSession) return
@@ -130,7 +286,11 @@ export default function SessionsPage() {
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt || null, agent: session.agent || 'build' }),
+                    body: JSON.stringify({
+                        prompt: prompt || null,
+                        agent: selectedMode || session.agent || 'build',
+                        model: selectedModel?.trim() ? selectedModel.trim() : null,
+                    }),
                 }
             )
 
@@ -220,6 +380,22 @@ export default function SessionsPage() {
         })
     }, [sessionMessages])
 
+    const suggestedModels = useMemo(() => {
+        const models = new Set<string>()
+        for (const m of chatMessages) {
+            if (m.model) models.add(String(m.model))
+        }
+        // Also allow a few common placeholders without being prescriptive.
+        // (Users can type any provider/model supported by their worker/OpenCode.)
+        ;[
+            'anthropic/claude-sonnet-4-20250514',
+            'anthropic/claude-3-5-sonnet-latest',
+            'openai/gpt-4.1',
+            'openai/gpt-4o',
+        ].forEach((m) => models.add(m))
+        return Array.from(models).sort()
+    }, [chatMessages])
+
     const onMessagesScroll = () => {
         const el = messagesContainerRef.current
         if (!el) return
@@ -243,6 +419,9 @@ export default function SessionsPage() {
                                     setSelectedSession(null)
                                     setSessionMessages([])
                                     setActionStatus(null)
+                                    setStreamConnected(false)
+                                    setStreamStatus('')
+                                    setLiveDraft('')
                                 }}
                                 className="min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
                             >
@@ -268,7 +447,10 @@ export default function SessionsPage() {
                                     type="button"
                                     key={session.id}
                                     className={`w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedSession?.id === session.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}
-                                    onClick={() => setSelectedSession(session)}
+                                    onClick={() => {
+                                        setSelectedSession(session)
+                                        setSelectedMode((session.agent || 'build').toString())
+                                    }}
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0 flex-1">
@@ -301,11 +483,48 @@ export default function SessionsPage() {
                             </h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedSession
-                                    ? `${selectedSession.agent || 'build'} • ${chatMessages.length} messages`
+                                    ? `Mode: ${selectedMode || selectedSession.agent || 'build'} • ${chatMessages.length} messages`
                                     : 'Select a session on the left'}
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <div className="hidden sm:flex items-center gap-2">
+                                <span className={`h-2.5 w-2.5 rounded-full ${streamConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{streamStatus || (streamConnected ? 'Live' : 'Offline')}</span>
+                            </div>
+
+                            <select
+                                value={selectedMode}
+                                onChange={(e) => setSelectedMode(e.target.value)}
+                                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-2"
+                                title="Agent mode"
+                            >
+                                <option value="build">build</option>
+                                <option value="plan">plan</option>
+                                <option value="explore">explore</option>
+                                <option value="general">general</option>
+                            </select>
+
+                            <div className="hidden md:flex flex-col items-end">
+                                <label className="text-[10px] text-gray-400 dark:text-gray-500" htmlFor="ct-model">
+                                    Model (optional)
+                                </label>
+                                <input
+                                    id="ct-model"
+                                    value={selectedModel}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    list="ct-model-options"
+                                    placeholder="provider/model"
+                                    className="w-[220px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-2"
+                                    title="Override the model used when resuming/sending messages"
+                                />
+                                <datalist id="ct-model-options">
+                                    {suggestedModels.map((m) => (
+                                        <option key={m} value={m} />
+                                    ))}
+                                </datalist>
+                            </div>
+
                             {selectedSession ? (
                                 <>
                                     <button
@@ -365,11 +584,10 @@ export default function SessionsPage() {
                                                     ) : null}
                                                 </div>
                                                 <div
-                                                    className={`rounded-2xl px-4 py-3 shadow-sm ring-1 ${
-                                                        isUser
-                                                            ? 'bg-indigo-600 text-white ring-indigo-700/40'
-                                                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
-                                                    }`}
+                                                    className={`rounded-2xl px-4 py-3 shadow-sm ring-1 ${isUser
+                                                        ? 'bg-indigo-600 text-white ring-indigo-700/40'
+                                                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
+                                                        }`}
                                                 >
                                                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                                                         {m.content || (isUser ? '(empty message)' : '(no content)')}
@@ -384,6 +602,20 @@ export default function SessionsPage() {
                                     <div className="flex justify-start">
                                         <div className="rounded-2xl px-4 py-3 bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-white/10">
                                             <div className="text-sm text-gray-600 dark:text-gray-300">Thinking…</div>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {selectedSession && liveDraft ? (
+                                    <div className="flex justify-start">
+                                        <div className="max-w-[85%] text-left">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Agent</span>
+                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">streaming • {selectedMode || selectedSession.agent || 'build'}</span>
+                                            </div>
+                                            <div className="rounded-2xl px-4 py-3 shadow-sm ring-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10">
+                                                <div className="whitespace-pre-wrap text-sm leading-relaxed">{liveDraft}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 ) : null}

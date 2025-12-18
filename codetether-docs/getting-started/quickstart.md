@@ -15,7 +15,7 @@ Get CodeTether Server running and send your first task in 5 minutes.
 ## Step 1: Install CodeTether
 
 ```bash
-pip install a2a-server-mcp
+pip install codetether
 ```
 
 ## Step 2: Start the Server
@@ -28,9 +28,9 @@ You should see:
 
 ```
 INFO:     CodeTether Server starting...
-INFO:     A2A Protocol endpoint: http://0.0.0.0:8000/v1/a2a
+INFO:     A2A JSON-RPC endpoint: http://0.0.0.0:8000/v1/a2a (alias: /)
 INFO:     Agent Card: http://0.0.0.0:8000/.well-known/agent-card.json
-INFO:     Monitor UI: http://0.0.0.0:8000/monitor
+INFO:     Monitor UI: http://0.0.0.0:8000/v1/monitor/
 INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
@@ -72,11 +72,10 @@ curl -X POST http://localhost:8000/v1/a2a \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-    "method": "tasks/send",
+    "method": "message/send",
     "params": {
       "message": {
-        "role": "user",
-        "parts": [{"text": "Hello, CodeTether!"}]
+        "parts": [{"type": "text", "content": "Hello, CodeTether!"}]
       }
     },
     "id": "task-001"
@@ -89,15 +88,15 @@ Response:
 {
   "jsonrpc": "2.0",
   "result": {
-    "id": "task-abc123",
-    "status": {
-      "state": "completed"
+    "task": {
+      "id": "task-abc123",
+      "status": "completed"
     },
-    "artifacts": [
-      {
-        "parts": [{"text": "Hello! I'm CodeTether Server, ready to coordinate your agents."}]
-      }
-    ]
+    "message": {
+      "parts": [
+        {"type": "text", "content": "Hello! I'm CodeTether Server, ready to coordinate your agents."}
+      ]
+    }
   },
   "id": "task-001"
 }
@@ -105,7 +104,7 @@ Response:
 
 ## Step 5: Open the Monitor UI
 
-Open your browser to [http://localhost:8000/monitor](http://localhost:8000/monitor) to see:
+Open your browser to [http://localhost:8000/v1/monitor/](http://localhost:8000/v1/monitor/) to see:
 
 - Connected agents
 - Active tasks
@@ -117,7 +116,7 @@ Open your browser to [http://localhost:8000/monitor](http://localhost:8000/monit
 Install the client library:
 
 ```bash
-pip install a2a-server-mcp
+pip install codetether
 ```
 
 ```python

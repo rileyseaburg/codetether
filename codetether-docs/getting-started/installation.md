@@ -13,17 +13,36 @@ CodeTether Server can be installed in several ways depending on your needs.
 - Docker 20.10+ (for container deployment)
 - Redis 6+ (optional, for distributed workers)
 
-## Quick Install (pip)
+## Install via pip (recommended)
+
+If you have a Python environment already set up, pip is the simplest option.
 
 ```bash
-pip install a2a-server-mcp
+pip install codetether
 ```
 
 Verify the installation:
 
 ```bash
 codetether --version
-# CodeTether Server v1.0.0
+# 1.0.0
+```
+
+### Install from GitHub (pip)
+
+If you want the latest code (or you're installing before a PyPI release is published):
+
+```bash
+pip install "git+https://github.com/rileyseaburg/codetether.git@main"
+```
+
+## One-line install (shell)
+
+This installs CodeTether into a local virtual environment under `~/.codetether/venv`
+and links the CLI into `~/.local/bin`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rileyseaburg/codetether/main/scripts/install-codetether.sh | bash
 ```
 
 ## Docker
@@ -100,7 +119,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/rileyseaburg/codetether.git
-cd A2A-Server-MCP
+cd codetether
 ```
 
 Create a virtual environment:
@@ -121,7 +140,20 @@ pip install -e .
 Run the server:
 
 ```bash
-python run_server.py run --port 8000
+codetether --port 8000
+```
+
+## Agent Worker (systemd, Linux)
+
+To execute OpenCode tasks on machines that host codebases, install the agent worker.
+
+```bash
+git clone https://github.com/rileyseaburg/codetether.git
+cd codetether
+
+sudo ./agent_worker/install.sh
+sudo systemctl start a2a-agent-worker
+sudo journalctl -u a2a-agent-worker -f
 ```
 
 ## Kubernetes (Helm)
