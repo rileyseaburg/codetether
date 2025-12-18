@@ -100,7 +100,7 @@ The Agent Worker acts as a bridge between the CodeTether server and local codeba
 ```bash
 # Clone repository (if not already)
 git clone https://github.com/rileyseaburg/codetether.git
-cd A2A-Server-MCP
+cd codetether
 
 # Run installer as root
 sudo ./agent_worker/install.sh
@@ -192,7 +192,7 @@ The worker reads configuration from `/etc/a2a-worker/config.json`:
 | `codebases[].name` | string | directory name | Display name for the codebase |
 | `codebases[].path` | string | — | **Required.** Absolute path to codebase |
 | `codebases[].description` | string | `""` | Description of the codebase |
-| `session_message_sync_max_sessions` | integer | `3` | How many *most recent* sessions (per codebase) to also sync messages for (UI detail panel) |
+| `session_message_sync_max_sessions` | integer | `3` | How many *most recent* sessions (per codebase, including **global**) to also sync messages for (UI detail panel) |
 | `session_message_sync_max_messages` | integer | `100` | How many *most recent* messages (per session) to sync |
 | `capabilities` | array | `["opencode", "build", "deploy"]` | Worker capabilities to advertise |
 

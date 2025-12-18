@@ -23,6 +23,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -124,6 +125,22 @@ class AgentWorker:
         """Start the worker."""
         logger.info(f"Starting worker '{self.config.worker_name}' (ID: {self.config.worker_id})")
         logger.info(f"Connecting to server: {self.config.server_url}")
+
+        # Surface OpenCode credential discovery issues early (common when running under systemd).
+        try:
+            data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+            auth_path = Path(os.path.expanduser(data_home)) / "opencode" / "auth.json"
+            if auth_path.exists():
+                logger.info(f"OpenCode auth detected at: {auth_path}")
+            else:
+                logger.warning(
+                    "OpenCode auth.json not found for this worker. "
+                    f"Expected at: {auth_path}. "
+                    "OpenCode agents may fail with 'missing API key' unless you authenticate as this service user "
+                    "or import/copy auth.json into the worker's XDG data directory."
+                )
+        except Exception as e:
+            logger.debug(f"Failed to check OpenCode auth.json presence: {e}")
 
         self.running = True
 
@@ -357,6 +374,27 @@ class AgentWorker:
             await self.handle_register_codebase_task(task)
             return
 
+        # Lightweight test/utility agent types that do not require OpenCode.
+        # Useful for end-to-end validation of the CodeTether task queue.
+        if agent_type in ("echo", "noop"):
+            title = task.get("title")
+            logger.info(f"Executing lightweight task {task_id}: {title} (agent_type={agent_type})")
+
+            await self.update_task_status(task_id, "running")
+            try:
+                if agent_type == "noop":
+                    result = "ok"
+                else:
+                    # Echo returns the prompt/description verbatim.
+                    result = task.get("prompt", task.get("description", ""))
+
+                await self.update_task_status(task_id, "completed", result=result)
+                logger.info(f"Task {task_id} completed successfully (agent_type={agent_type})")
+            except Exception as e:
+                logger.error(f"Task {task_id} execution error (agent_type={agent_type}): {e}")
+                await self.update_task_status(task_id, "failed", error=str(e))
+            return
+
         # Regular task - requires existing codebase
         codebase = self.codebases.get(codebase_id)
 
@@ -475,6 +513,48 @@ class AgentWorker:
     ) -> Dict[str, Any]:
         """Run OpenCode agent on a codebase."""
 
+        def _recent_opencode_log_hint(returncode: int) -> Optional[str]:
+            """Best-effort hint for failures where OpenCode logs to file.
+
+            Avoid dumping full logs into task output (can be huge / sensitive).
+            Instead, point operators to the most recent log file and surface
+            common actionable errors (like missing API keys).
+            """
+
+            try:
+                data_home = os.environ.get(
+                    "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
+                )
+                log_dir = Path(os.path.expanduser(data_home)) / "opencode" / "log"
+                if not log_dir.exists() or not log_dir.is_dir():
+                    return None
+
+                logs = list(log_dir.glob("*.log"))
+                if not logs:
+                    return None
+
+                latest = max(logs, key=lambda p: p.stat().st_mtime)
+                age_s = time.time() - latest.stat().st_mtime
+                if age_s > 300:  # don't point at stale logs
+                    return None
+
+                try:
+                    tail_lines = latest.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+                except Exception:
+                    tail_lines = []
+
+                tail_text = "\n".join(tail_lines)
+                if "API key is missing" in tail_text or "AI_LoadAPIKeyError" in tail_text:
+                    return (
+                        "OpenCode is missing LLM credentials (e.g. ANTHROPIC_API_KEY). "
+                        "Set the required key(s) in /etc/a2a-worker/env and restart the worker. "
+                        f"OpenCode log: {latest}"
+                    )
+
+                return f"OpenCode exited with code {returncode}. See OpenCode log: {latest}"
+            except Exception:
+                return None
+
         # Check if opencode exists
         if not Path(self.opencode_bin).exists():
             return {"success": False, "error": f"OpenCode not found at {self.opencode_bin}"}
@@ -566,7 +646,9 @@ class AgentWorker:
             if process.returncode == 0:
                 return {"success": True, "output": stdout}
             else:
-                return {"success": False, "error": stderr or f"Exit code: {process.returncode}"}
+                hint = _recent_opencode_log_hint(process.returncode)
+                err = (stderr or "").strip()
+                return {"success": False, "error": err or hint or f"Exit code: {process.returncode}"}
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -590,9 +672,6 @@ class AgentWorker:
                     logger.debug(f"Failed to stream output: {resp.status}")
         except Exception as e:
             logger.debug(f"Failed to stream output: {e}")
-
-        except Exception as e:
-            return {"success": False, "error": str(e)}
 
     async def update_task_status(
         self,
@@ -1149,9 +1228,21 @@ class AgentWorker:
                 "sessions": global_sessions,
             }
 
+            async def _sync_recent_global_messages(target_codebase_id: str) -> None:
+                # Optionally sync recent session messages so the remote UI can show session detail.
+                max_sessions = getattr(self.config, "session_message_sync_max_sessions", 0) or 0
+                max_messages = getattr(self.config, "session_message_sync_max_messages", 0) or 0
+                if max_sessions > 0 and max_messages > 0:
+                    await self._report_recent_session_messages_to_server(
+                        codebase_id=target_codebase_id,
+                        sessions=global_sessions[:max_sessions],
+                        max_messages=max_messages,
+                    )
+
             async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
                     logger.debug(f"Synced {len(global_sessions)} global sessions")
+                    await _sync_recent_global_messages(global_codebase_id)
                 elif resp.status in (403, 404):
                     # Re-register and retry
                     self._global_codebase_id = None
@@ -1166,6 +1257,7 @@ class AgentWorker:
                         async with session.post(retry_url, json=payload) as retry_resp:
                             if retry_resp.status == 200:
                                 logger.debug(f"Synced {len(global_sessions)} global sessions (after re-register)")
+                                await _sync_recent_global_messages(new_id)
                             else:
                                 text = await retry_resp.text()
                                 logger.warning(f"Global session sync retry failed: {retry_resp.status} {text[:200]}")

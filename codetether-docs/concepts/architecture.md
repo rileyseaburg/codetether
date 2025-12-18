@@ -17,43 +17,69 @@ graph TB
         Agents[External Agents]
     end
 
-    subgraph "CodeTether Server"
-        API[FastAPI Server<br/>Port 8000]
-        A2A[A2A Protocol<br/>Handler]
-        Monitor[Monitor API]
-        OpenCode[OpenCode Bridge]
-        MCP[MCP Server<br/>Port 9000]
+    subgraph Edge[Ingress / DNS]
+        MKT[codetether.run]
+        DOCS[docs.codetether.run]
+        APIHOST[api.codetether.run]
     end
 
-    subgraph Infrastructure
-        Redis[(Redis<br/>Message Broker)]
-        DB[(SQLite/Postgres<br/>Persistence)]
-        Auth[Keycloak<br/>Authentication]
+    subgraph "Cluster / Services"
+        Marketing["Marketing Site<br/>(Next.js)<br/>Port 3000"]
+        DocsSite["Docs Site<br/>(MkDocs)<br/>Port 80"]
+
+        subgraph "CodeTether API"
+            API["FastAPI App<br/>Port 8000"]
+            A2A["A2A JSON-RPC Handler<br/>POST /v1/a2a (alias: /)"]
+            Monitor["Monitor API<br/>/v1/monitor/*"]
+            OpenCode["OpenCode Bridge<br/>/v1/opencode/*"]
+        end
+
+        MCP["MCP HTTP Server<br/>Port 9000<br/>/mcp/v1/*"]
+
+        Redis[("Redis<br/>Pub/Sub + task/state")]
     end
 
-    subgraph Workers
-        W1[Worker 1<br/>+ OpenCode]
-        W2[Worker 2<br/>+ OpenCode]
-        W3[Worker N<br/>+ OpenCode]
+    subgraph "Workers (systemd / containers)"
+        W1["Worker 1<br/>+ OpenCode"]
+        W2["Worker 2<br/>+ OpenCode"]
+        WN["Worker N<br/>+ OpenCode"]
     end
 
-    Web --> API
-    CLI --> API
-    Agents --> A2A
+    subgraph "External / Optional"
+        DB[("PostgreSQL<br/>optional persistence")]
+        S3[("S3/MinIO<br/>optional artifacts/state")]
+        Auth["Keycloak / OIDC<br/>optional auth"]
+        SQLite[("SQLite (local)<br/>OpenCode session cache")]
+    end
+
+    Web --> DOCS
+    CLI --> APIHOST
+    Agents --> APIHOST
+
+    MKT --> Marketing
+    DOCS --> DocsSite
+    APIHOST --> API
+    APIHOST --> MCP
 
     API --> A2A
     API --> Monitor
     API --> OpenCode
-    API --> MCP
 
-    A2A --> Redis
-    Monitor --> DB
-    OpenCode --> DB
-    API --> Auth
+    API --> Redis
+    Redis --> API
+    API --> DB
+    DB --> API
+    API --> S3
+    S3 --> API
+    API -. optional .-> Auth
+    OpenCode --> SQLite
 
-    Redis --> W1
-    Redis --> W2
-    Redis --> W3
+    W1 -->|poll /v1/opencode/tasks| API
+    W2 -->|poll /v1/opencode/tasks| API
+    WN -->|poll /v1/opencode/tasks| API
+    W1 -->|PUT status / POST output| API
+    W2 -->|PUT status / POST output| API
+    WN -->|PUT status / POST output| API
 ```
 
 ## Components
@@ -62,7 +88,7 @@ graph TB
 
 The main HTTP server handling:
 
-- **A2A Protocol** (`/v1/a2a`) - JSON-RPC 2.0 agent communication
+- **A2A Protocol** (`POST /v1/a2a`, alias: `POST /`) - JSON-RPC 2.0 agent communication
 - **REST APIs** (`/v1/monitor/*`, `/v1/opencode/*`) - Management and monitoring
 - **Agent Card** (`/.well-known/agent-card.json`) - A2A discovery
 - **Health Check** (`/health`) - Liveness/readiness probes
@@ -75,13 +101,20 @@ Model Context Protocol server for tool integration:
 - Allow external agents to use CodeTether tools
 - Bridge between A2A and MCP protocols
 
+In Kubernetes deployments, the MCP server is typically exposed through the same
+host as the API using a path prefix (e.g. `https://api.<domain>/mcp/v1/rpc`).
+
 ### Message Broker (Redis)
 
-Handles distributed communication:
+Handles distributed communication and coordination:
 
-- **Task Queue** - Distribute tasks to workers
-- **Pub/Sub** - Real-time event distribution
-- **Session State** - Shared state across instances
+- **Task state** - Persist and coordinate tasks across replicas
+- **Pub/Sub** - Agent discovery and inter-agent messaging
+- **Shared state** - Optional durability and cross-replica rehydration
+
+Note: workers do **not** consume tasks directly from Redis. Workers currently
+poll the server over HTTP for pending tasks and report status/output back to
+the server.
 
 ### OpenCode Bridge
 
@@ -113,18 +146,23 @@ sequenceDiagram
     participant W as Worker
     participant O as OpenCode
 
-    C->>S: POST /v1/a2a (tasks/send)
-    S->>R: Publish task
-    R->>W: Task notification
-    W->>O: Start agent
-    O->>W: Stream output
-    W->>R: Publish updates
-    R->>S: Update notification
-    S->>C: SSE events
-    O->>W: Complete
-    W->>R: Task complete
-    R->>S: Complete notification
-    S->>C: Final result
+    C->>S: POST /v1/opencode/codebases/{codebase_id}/tasks
+    S->>R: Persist task (pending)
+
+    W->>S: GET /v1/opencode/tasks?status=pending
+    S->>R: Read pending tasks
+    S-->>W: Return next task
+
+    W->>S: PUT /v1/opencode/tasks/{task_id}/status (running)
+    W->>O: Execute (OpenCode / echo / noop)
+
+    loop streaming output
+        W->>S: POST /v1/opencode/tasks/{task_id}/output
+        S-->>C: SSE event (/v1/opencode/codebases/{codebase_id}/events)
+    end
+
+    W->>S: PUT /v1/opencode/tasks/{task_id}/status (completed + result)
+    S-->>C: SSE event: complete
 ```
 
 ### Real-time Streaming Flow
@@ -133,18 +171,20 @@ sequenceDiagram
 sequenceDiagram
     participant C as Client
     participant S as Server
+    participant W as Worker
     participant O as OpenCode
 
     C->>S: GET /v1/opencode/codebases/{id}/events
     Note over C,S: SSE Connection Established
-    O->>S: Output chunk
+
+    W->>O: Run agent
+    O->>W: Output/tool updates
+    W->>S: POST /v1/opencode/tasks/{task_id}/output
     S->>C: event: output
-    O->>S: Tool use
-    S->>C: event: tool_use
-    O->>S: File change
-    S->>C: event: file_change
-    O->>S: Complete
+    W->>S: PUT /v1/opencode/tasks/{task_id}/status
     S->>C: event: complete
+
+    Note over W,S: In single-instance mode, the worker may be co-located with the server.
 ```
 
 ## Deployment Models
@@ -201,23 +241,29 @@ Full production deployment:
 │                  Kubernetes                      │
 │  ┌─────────────────────────────────────────┐    │
 │  │              Ingress                     │    │
-│  │   codetether.run → API Service           │    │
+│  │   codetether.run → Marketing             │    │
+│  │   docs.codetether.run → Docs             │    │
+│  │   api.codetether.run → API (8000)        │    │
+│  │   api.codetether.run/mcp → MCP (9000)    │    │
 │  └─────────────────────────────────────────┘    │
 │                                                  │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │ API Pod 1    │  │ API Pod 2    │ ← HPA      │
-│  │ (Deployment) │  │ (Deployment) │            │
-│  └──────────────┘  └──────────────┘            │
+│  ┌──────────────────────────────┐              │
+│  │ API Deploy (blue/green)      │              │
+│  │ - codetether-a2a-server-blue │              │
+│  │ - codetether-a2a-server-green│              │
+│  └──────────────────────────────┘              │
 │                                                  │
 │  ┌──────────────┐  ┌──────────────┐            │
-│  │ Worker Pod 1 │  │ Worker Pod 2 │ ← HPA      │
-│  │ (StatefulSet)│  │ (StatefulSet)│            │
+│  │ Marketing     │  │ Docs         │            │
+│  │ (Deployment)  │  │ (Deployment) │            │
 │  └──────────────┘  └──────────────┘            │
 │                                                  │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │    Redis     │  │   Postgres   │            │
-│  │ (StatefulSet)│  │ (StatefulSet)│            │
-│  └──────────────┘  └──────────────┘            │
+│  ┌──────────────┐                              │
+│  │    Redis     │                              │
+│  │ (Deployment) │                              │
+│  └──────────────┘                              │
+│                                                  │
+│  External (optional): PostgreSQL, S3/MinIO, Keycloak│
 └─────────────────────────────────────────────────┘
 ```
 
@@ -241,4 +287,4 @@ Full production deployment:
 
 - [Installation](../getting-started/installation.md)
 - [Kubernetes Deployment](../deployment/kubernetes.md)
-- [Distributed Workers](distributed-workers.md)
+- [Distributed Workers](../features/distributed-workers.md)

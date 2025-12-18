@@ -423,12 +423,13 @@ class A2AClient: ObservableObject {
                 message: obj["message"] as? String,
                 taskId: obj["task_id"] as? String,
                 sessionId: obj["session_id"] as? String,
+                newSessionId: obj["new_session_id"] as? String,
                 activeSessionId: obj["active_session_id"] as? String,
                 error: obj["error"] as? String
             )
         }
 
-        return ResumeSessionResponse(success: true, message: nil, taskId: nil, sessionId: sessionId, activeSessionId: sessionId, error: nil)
+        return ResumeSessionResponse(success: true, message: nil, taskId: nil, sessionId: sessionId, newSessionId: nil, activeSessionId: sessionId, error: nil)
     }
 
     func fetchTasks() async throws -> [AgentTask] {

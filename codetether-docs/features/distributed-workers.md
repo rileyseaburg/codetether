@@ -27,7 +27,7 @@ Workers are separate processes that:
 ```bash
 # Clone repository
 git clone https://github.com/rileyseaburg/codetether.git
-cd A2A-Server-MCP
+cd codetether
 
 # Run installer as root
 sudo ./agent_worker/install.sh

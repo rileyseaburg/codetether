@@ -11,11 +11,11 @@ CodeTether Server exposes multiple API endpoints for different purposes.
 
 | Endpoint | Port | Protocol | Description |
 |----------|------|----------|-------------|
-| `/v1/a2a` | 8000 | JSON-RPC 2.0 | A2A Protocol - agent-to-agent communication |
+| `/v1/a2a` | 8000 | JSON-RPC 2.0 | A2A Protocol - agent-to-agent communication (alias: `POST /`) |
 | `/v1/opencode/*` | 8000 | REST | OpenCode integration - codebase & session management |
 | `/v1/monitor/*` | 8000 | REST | Monitoring - agents, messages, stats |
 | `/v1/auth/*` | 8000 | REST | Authentication - tokens, sessions |
-| `/mcp/*` | 9000 | JSON-RPC | MCP Protocol - tool integration |
+| `/mcp/v1/*` | 9000 | JSON-RPC | MCP Protocol - tool integration |
 | `/.well-known/agent-card.json` | 8000 | REST | A2A agent discovery |
 | `/health` | 8000 | REST | Health check |
 
@@ -30,7 +30,10 @@ GET/POST https://codetether.example.com/v1/opencode/...
 GET/POST https://codetether.example.com/v1/monitor/...
 
 # MCP Protocol
-POST https://codetether.example.com:9000/mcp
+POST https://codetether.example.com:9000/mcp/v1/rpc
+
+# MCP Protocol (when exposed via ingress)
+POST https://codetether.example.com/mcp/v1/rpc
 ```
 
 ## Authentication

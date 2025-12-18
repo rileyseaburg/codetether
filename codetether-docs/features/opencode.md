@@ -242,14 +242,16 @@ For scaling, run OpenCode agents on dedicated worker machines:
 ### On Worker Machine
 
 ```bash
-# Install the worker
-pip install a2a-server-mcp
+# Install CodeTether (includes the worker CLI)
+pip install codetether
 
-# Run worker with OpenCode
-codetether worker \
+# Run the worker (manual mode)
+# Note: you can pass --codebase multiple times. Format: name:path (or just a path).
+codetether-worker \
   --server https://codetether.example.com \
   --name worker-1 \
-  --codebases /projects/app1,/projects/app2
+  --codebase app1:/projects/app1 \
+  --codebase app2:/projects/app2
 ```
 
 ### Register Worker Codebases

@@ -39,11 +39,10 @@ stateDiagram-v2
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "tasks/send",
+  "method": "message/send",
   "params": {
     "message": {
-      "role": "user",
-      "parts": [{"text": "Analyze this codebase"}]
+      "parts": [{"type": "text", "content": "Analyze this codebase"}]
     }
   },
   "id": "1"
