@@ -1,0 +1,64 @@
+{
+  "name": "codetether-chat",
+  "displayName": "CodeTether Chat",
+  "description": "VS Code chat participant that persists chat sessions to CodeTether.",
+  "version": "0.0.1",
+  "publisher": "codetether",
+  "license": "ISC",
+  "engines": {
+    "vscode": "^1.107.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onChat:codetether",
+    "onCommand:codetether.pickCodebase"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "codetether",
+        "name": "CodeTether",
+        "fullName": "CodeTether Chat",
+        "description": "Chat via VS Code LM and upload transcripts to CodeTether sessions."
+      }
+    ],
+    "commands": [
+      {
+        "command": "codetether.pickCodebase",
+        "title": "CodeTether: Pick Codebase"
+      }
+    ],
+    "configuration": {
+      "title": "CodeTether",
+      "properties": {
+        "codetether.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Base URL of your CodeTether server (e.g. http://localhost:8000)."
+        },
+        "codetether.apiToken": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Bearer token (matches a token value from A2A_AUTH_TOKENS)."
+        },
+        "codetether.codebaseId": {
+          "type": "string",
+          "default": "",
+          "description": "Optional override for the CodeTether codebase_id to associate sessions with."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.107.0",
+    "typescript": "^5.6.3"
+  }
+}
