@@ -20,7 +20,9 @@ from typing import Any, Dict, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 # Database URL from environment
-DATABASE_URL = os.environ.get('DATABASE_URL', os.environ.get('A2A_DATABASE_URL', ''))
+DATABASE_URL = os.environ.get(
+    'DATABASE_URL', os.environ.get('A2A_DATABASE_URL', '')
+)
 
 # Module-level state
 _pool = None
@@ -66,6 +68,7 @@ async def get_pool():
 
         try:
             import asyncpg
+
             _pool = await asyncpg.create_pool(
                 DATABASE_URL,
                 min_size=1,
@@ -81,7 +84,9 @@ async def get_pool():
 
             return _pool
         except ImportError:
-            logger.warning('asyncpg not installed, PostgreSQL persistence disabled')
+            logger.warning(
+                'asyncpg not installed, PostgreSQL persistence disabled'
+            )
             return None
         except Exception as e:
             logger.error(f'Failed to create PostgreSQL pool: {e}')
@@ -96,7 +101,7 @@ async def _init_schema():
 
     async with pool.acquire() as conn:
         # Workers table
-        await conn.execute('''
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS workers (
                 worker_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -108,22 +113,26 @@ async def _init_schema():
                 last_seen TIMESTAMPTZ DEFAULT NOW(),
                 status TEXT DEFAULT 'active'
             )
-        ''')
+        """)
 
         # Migration: Add models column if it doesn't exist
         try:
-            await conn.execute('ALTER TABLE workers ADD COLUMN IF NOT EXISTS models JSONB DEFAULT \'[]\'::jsonb')
+            await conn.execute(
+                "ALTER TABLE workers ADD COLUMN IF NOT EXISTS models JSONB DEFAULT '[]'::jsonb"
+            )
         except Exception:
             pass
 
         # Migration: Add global_codebase_id column if it doesn't exist
         try:
-            await conn.execute('ALTER TABLE workers ADD COLUMN IF NOT EXISTS global_codebase_id TEXT')
+            await conn.execute(
+                'ALTER TABLE workers ADD COLUMN IF NOT EXISTS global_codebase_id TEXT'
+            )
         except Exception:
             pass
 
         # Codebases table
-        await conn.execute('''
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS codebases (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -137,10 +146,10 @@ async def _init_schema():
                 session_id TEXT,
                 opencode_port INTEGER
             )
-        ''')
+        """)
 
         # Tasks table
-        await conn.execute('''
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY,
                 codebase_id TEXT REFERENCES codebases(id) ON DELETE CASCADE,
@@ -158,10 +167,10 @@ async def _init_schema():
                 started_at TIMESTAMPTZ,
                 completed_at TIMESTAMPTZ
             )
-        ''')
+        """)
 
         # Sessions table (for worker-synced OpenCode sessions)
-        await conn.execute('''
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
                 codebase_id TEXT REFERENCES codebases(id) ON DELETE CASCADE,
@@ -173,10 +182,10 @@ async def _init_schema():
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             )
-        ''')
+        """)
 
         # Messages table (for session messages)
-        await conn.execute('''
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS session_messages (
                 id TEXT PRIMARY KEY,
                 session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
@@ -188,20 +197,42 @@ async def _init_schema():
                 tool_calls JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             )
-        ''')
+        """)
 
         # Create indexes
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_workers_last_seen ON workers(last_seen)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_codebases_worker ON codebases(worker_id)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_codebases_status ON codebases(status)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_codebases_path ON codebases(path)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_tasks_codebase ON tasks(codebase_id)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_tasks_worker ON tasks(worker_id)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority DESC, created_at ASC)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_codebase ON sessions(codebase_id)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)')
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_workers_last_seen ON workers(last_seen)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_codebases_worker ON codebases(worker_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_codebases_status ON codebases(status)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_codebases_path ON codebases(path)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tasks_codebase ON tasks(codebase_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tasks_worker ON tasks(worker_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority DESC, created_at ASC)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_sessions_codebase ON sessions(codebase_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)'
+        )
 
         logger.info('✓ PostgreSQL schema initialized')
 
@@ -219,6 +250,7 @@ async def close_pool():
 # Worker Operations
 # ========================================
 
+
 async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
     """Insert or update a worker in the database."""
     pool = await get_pool()
@@ -227,7 +259,8 @@ async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
 
     try:
         async with pool.acquire() as conn:
-            await conn.execute('''
+            await conn.execute(
+                """
                 INSERT INTO workers (worker_id, name, capabilities, hostname, models, global_codebase_id, registered_at, last_seen, status)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (worker_id)
@@ -239,15 +272,17 @@ async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
                     global_codebase_id = EXCLUDED.global_codebase_id,
                     last_seen = EXCLUDED.last_seen,
                     status = EXCLUDED.status
-            ''',
+            """,
                 worker_info.get('worker_id'),
                 worker_info.get('name'),
                 json.dumps(worker_info.get('capabilities', [])),
                 worker_info.get('hostname'),
                 json.dumps(worker_info.get('models', [])),
                 worker_info.get('global_codebase_id'),
-                _parse_timestamp(worker_info.get('registered_at')) or datetime.utcnow(),
-                _parse_timestamp(worker_info.get('last_seen')) or datetime.utcnow(),
+                _parse_timestamp(worker_info.get('registered_at'))
+                or datetime.utcnow(),
+                _parse_timestamp(worker_info.get('last_seen'))
+                or datetime.utcnow(),
                 worker_info.get('status', 'active'),
             )
         return True
@@ -264,7 +299,9 @@ async def db_delete_worker(worker_id: str) -> bool:
 
     try:
         async with pool.acquire() as conn:
-            await conn.execute('DELETE FROM workers WHERE worker_id = $1', worker_id)
+            await conn.execute(
+                'DELETE FROM workers WHERE worker_id = $1', worker_id
+            )
         return True
     except Exception as e:
         logger.error(f'Failed to delete worker: {e}')
@@ -279,7 +316,9 @@ async def db_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
 
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow('SELECT * FROM workers WHERE worker_id = $1', worker_id)
+            row = await conn.fetchrow(
+                'SELECT * FROM workers WHERE worker_id = $1', worker_id
+            )
             if row:
                 return _row_to_worker(row)
         return None
@@ -299,10 +338,12 @@ async def db_list_workers(status: Optional[str] = None) -> List[Dict[str, Any]]:
             if status:
                 rows = await conn.fetch(
                     'SELECT * FROM workers WHERE status = $1 ORDER BY last_seen DESC',
-                    status
+                    status,
                 )
             else:
-                rows = await conn.fetch('SELECT * FROM workers ORDER BY last_seen DESC')
+                rows = await conn.fetch(
+                    'SELECT * FROM workers ORDER BY last_seen DESC'
+                )
             return [_row_to_worker(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list workers: {e}')
@@ -319,7 +360,7 @@ async def db_update_worker_heartbeat(worker_id: str) -> bool:
         async with pool.acquire() as conn:
             result = await conn.execute(
                 'UPDATE workers SET last_seen = NOW() WHERE worker_id = $1',
-                worker_id
+                worker_id,
             )
             return 'UPDATE 1' in result
     except Exception as e:
@@ -332,11 +373,17 @@ def _row_to_worker(row) -> Dict[str, Any]:
     return {
         'worker_id': row['worker_id'],
         'name': row['name'],
-        'capabilities': json.loads(row['capabilities']) if isinstance(row['capabilities'], str) else row['capabilities'],
+        'capabilities': json.loads(row['capabilities'])
+        if isinstance(row['capabilities'], str)
+        else row['capabilities'],
         'hostname': row['hostname'],
-        'models': json.loads(row['models']) if isinstance(row['models'], str) else row['models'],
+        'models': json.loads(row['models'])
+        if isinstance(row['models'], str)
+        else row['models'],
         'global_codebase_id': row['global_codebase_id'],
-        'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,
+        'registered_at': row['registered_at'].isoformat()
+        if row['registered_at']
+        else None,
         'last_seen': row['last_seen'].isoformat() if row['last_seen'] else None,
         'status': row['status'],
     }
@@ -345,6 +392,7 @@ def _row_to_worker(row) -> Dict[str, Any]:
 # ========================================
 # Codebase Operations
 # ========================================
+
 
 async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
     """Insert or update a codebase in the database."""
@@ -357,7 +405,8 @@ async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
         created_at = codebase.get('created_at') or codebase.get('registered_at')
 
         async with pool.acquire() as conn:
-            await conn.execute('''
+            await conn.execute(
+                """
                 INSERT INTO codebases (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, opencode_port)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 ON CONFLICT (id)
@@ -371,7 +420,7 @@ async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
                     status = EXCLUDED.status,
                     session_id = EXCLUDED.session_id,
                     opencode_port = EXCLUDED.opencode_port
-            ''',
+            """,
                 codebase.get('id'),
                 codebase.get('name'),
                 codebase.get('path'),
@@ -379,7 +428,8 @@ async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
                 codebase.get('worker_id'),
                 json.dumps(codebase.get('agent_config', {})),
                 _parse_timestamp(created_at) or datetime.utcnow(),
-                _parse_timestamp(codebase.get('updated_at')) or datetime.utcnow(),
+                _parse_timestamp(codebase.get('updated_at'))
+                or datetime.utcnow(),
                 codebase.get('status', 'active'),
                 codebase.get('session_id'),
                 codebase.get('opencode_port'),
@@ -398,7 +448,9 @@ async def db_delete_codebase(codebase_id: str) -> bool:
 
     try:
         async with pool.acquire() as conn:
-            await conn.execute('DELETE FROM codebases WHERE id = $1', codebase_id)
+            await conn.execute(
+                'DELETE FROM codebases WHERE id = $1', codebase_id
+            )
         return True
     except Exception as e:
         logger.error(f'Failed to delete codebase: {e}')
@@ -413,7 +465,9 @@ async def db_get_codebase(codebase_id: str) -> Optional[Dict[str, Any]]:
 
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow('SELECT * FROM codebases WHERE id = $1', codebase_id)
+            row = await conn.fetchrow(
+                'SELECT * FROM codebases WHERE id = $1', codebase_id
+            )
             if row:
                 return _row_to_codebase(row)
         return None
@@ -422,7 +476,9 @@ async def db_get_codebase(codebase_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def db_list_codebases(worker_id: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+async def db_list_codebases(
+    worker_id: Optional[str] = None, status: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """List all codebases, optionally filtered by worker or status."""
     pool = await get_pool()
     if not pool:
@@ -486,8 +542,12 @@ def _row_to_codebase(row) -> Dict[str, Any]:
         'description': row['description'],
         'worker_id': row['worker_id'],
         'agent_config': agent_config,
-        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
-        'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
+        'created_at': row['created_at'].isoformat()
+        if row['created_at']
+        else None,
+        'updated_at': row['updated_at'].isoformat()
+        if row['updated_at']
+        else None,
         'status': row['status'],
         'session_id': row['session_id'],
         'opencode_port': row['opencode_port'],
@@ -498,6 +558,7 @@ def _row_to_codebase(row) -> Dict[str, Any]:
 # Task Operations
 # ========================================
 
+
 async def db_upsert_task(task: Dict[str, Any]) -> bool:
     """Insert or update a task in the database."""
     pool = await get_pool()
@@ -506,7 +567,8 @@ async def db_upsert_task(task: Dict[str, Any]) -> bool:
 
     try:
         async with pool.acquire() as conn:
-            await conn.execute('''
+            await conn.execute(
+                """
                 INSERT INTO tasks (id, codebase_id, title, prompt, agent_type, status, priority, worker_id, result, error, metadata, created_at, updated_at, started_at, completed_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                 ON CONFLICT (id)
@@ -518,7 +580,7 @@ async def db_upsert_task(task: Dict[str, Any]) -> bool:
                     updated_at = NOW(),
                     started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
                     completed_at = EXCLUDED.completed_at
-            ''',
+            """,
                 task.get('id'),
                 task.get('codebase_id'),
                 task.get('title'),
@@ -549,7 +611,9 @@ async def db_get_task(task_id: str) -> Optional[Dict[str, Any]]:
 
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow('SELECT * FROM tasks WHERE id = $1', task_id)
+            row = await conn.fetchrow(
+                'SELECT * FROM tasks WHERE id = $1', task_id
+            )
             if row:
                 return _row_to_task(row)
         return None
@@ -590,7 +654,9 @@ async def db_list_tasks(
                 params.append(worker_id)
                 param_idx += 1
 
-            query += f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
+            query += (
+                f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
+            )
             params.append(limit)
 
             rows = await conn.fetch(query, *params)
@@ -600,7 +666,9 @@ async def db_list_tasks(
         return []
 
 
-async def db_get_next_pending_task(codebase_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+async def db_get_next_pending_task(
+    codebase_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """Get the next pending task (highest priority, oldest first)."""
     pool = await get_pool()
     if not pool:
@@ -609,19 +677,22 @@ async def db_get_next_pending_task(codebase_id: Optional[str] = None) -> Optiona
     try:
         async with pool.acquire() as conn:
             if codebase_id:
-                row = await conn.fetchrow('''
+                row = await conn.fetchrow(
+                    """
                     SELECT * FROM tasks
                     WHERE status = 'pending' AND codebase_id = $1
                     ORDER BY priority DESC, created_at ASC
                     LIMIT 1
-                ''', codebase_id)
+                """,
+                    codebase_id,
+                )
             else:
-                row = await conn.fetchrow('''
+                row = await conn.fetchrow("""
                     SELECT * FROM tasks
                     WHERE status = 'pending'
                     ORDER BY priority DESC, created_at ASC
                     LIMIT 1
-                ''')
+                """)
             if row:
                 return _row_to_task(row)
         return None
@@ -649,7 +720,8 @@ async def db_update_task_status(
             param_idx = 3
 
             if worker_id:
-                updates.append(f'worker_id = ${param_idx}')
+                # Include tasks assigned to this worker OR unassigned tasks
+                query += f' AND (worker_id = ${param_idx} OR worker_id IS NULL)'
                 params.append(worker_id)
                 param_idx += 1
 
@@ -696,16 +768,25 @@ def _row_to_task(row) -> Dict[str, Any]:
         'result': row['result'],
         'error': row['error'],
         'metadata': metadata,
-        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
-        'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
-        'started_at': row['started_at'].isoformat() if row['started_at'] else None,
-        'completed_at': row['completed_at'].isoformat() if row['completed_at'] else None,
+        'created_at': row['created_at'].isoformat()
+        if row['created_at']
+        else None,
+        'updated_at': row['updated_at'].isoformat()
+        if row['updated_at']
+        else None,
+        'started_at': row['started_at'].isoformat()
+        if row['started_at']
+        else None,
+        'completed_at': row['completed_at'].isoformat()
+        if row['completed_at']
+        else None,
     }
 
 
 # ========================================
 # Session Operations
 # ========================================
+
 
 async def db_upsert_session(session: Dict[str, Any]) -> bool:
     """Insert or update a session in the database."""
@@ -715,7 +796,8 @@ async def db_upsert_session(session: Dict[str, Any]) -> bool:
 
     try:
         async with pool.acquire() as conn:
-            await conn.execute('''
+            await conn.execute(
+                """
                 INSERT INTO sessions (id, codebase_id, project_id, directory, title, version, summary, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (id)
@@ -724,7 +806,7 @@ async def db_upsert_session(session: Dict[str, Any]) -> bool:
                     version = EXCLUDED.version,
                     summary = EXCLUDED.summary,
                     updated_at = NOW()
-            ''',
+            """,
                 session.get('id'),
                 session.get('codebase_id'),
                 session.get('project_id'),
@@ -732,8 +814,10 @@ async def db_upsert_session(session: Dict[str, Any]) -> bool:
                 session.get('title'),
                 session.get('version'),
                 json.dumps(session.get('summary', {})),
-                _parse_timestamp(session.get('created_at')) or datetime.utcnow(),
-                _parse_timestamp(session.get('updated_at')) or datetime.utcnow(),
+                _parse_timestamp(session.get('created_at'))
+                or datetime.utcnow(),
+                _parse_timestamp(session.get('updated_at'))
+                or datetime.utcnow(),
             )
         return True
     except Exception as e:
@@ -741,7 +825,9 @@ async def db_upsert_session(session: Dict[str, Any]) -> bool:
         return False
 
 
-async def db_list_sessions(codebase_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+async def db_list_sessions(
+    codebase_id: str, limit: int = 50
+) -> List[Dict[str, Any]]:
     """List sessions for a codebase."""
     pool = await get_pool()
     if not pool:
@@ -749,19 +835,25 @@ async def db_list_sessions(codebase_id: str, limit: int = 50) -> List[Dict[str, 
 
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch('''
+            rows = await conn.fetch(
+                """
                 SELECT * FROM sessions
                 WHERE codebase_id = $1
                 ORDER BY updated_at DESC
                 LIMIT $2
-            ''', codebase_id, limit)
+            """,
+                codebase_id,
+                limit,
+            )
             return [_row_to_session(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list sessions: {e}')
         return []
 
 
-async def db_list_all_sessions(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+async def db_list_all_sessions(
+    limit: int = 100, offset: int = 0
+) -> List[Dict[str, Any]]:
     """List all sessions across all codebases."""
     pool = await get_pool()
     if not pool:
@@ -769,13 +861,17 @@ async def db_list_all_sessions(limit: int = 100, offset: int = 0) -> List[Dict[s
 
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch('''
+            rows = await conn.fetch(
+                """
                 SELECT s.*, c.name as codebase_name, c.path as codebase_path
                 FROM sessions s
                 LEFT JOIN codebases c ON s.codebase_id = c.id
                 ORDER BY s.updated_at DESC
                 LIMIT $1 OFFSET $2
-            ''', limit, offset)
+            """,
+                limit,
+                offset,
+            )
             sessions = []
             for row in rows:
                 session = _row_to_session(row)
@@ -796,7 +892,9 @@ async def db_get_session(session_id: str) -> Optional[Dict[str, Any]]:
 
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow('SELECT * FROM sessions WHERE id = $1', session_id)
+            row = await conn.fetchrow(
+                'SELECT * FROM sessions WHERE id = $1', session_id
+            )
             if row:
                 return _row_to_session(row)
         return None
@@ -821,14 +919,19 @@ def _row_to_session(row) -> Dict[str, Any]:
         'title': row['title'],
         'version': row['version'],
         'summary': summary,
-        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
-        'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
+        'created_at': row['created_at'].isoformat()
+        if row['created_at']
+        else None,
+        'updated_at': row['updated_at'].isoformat()
+        if row['updated_at']
+        else None,
     }
 
 
 # ========================================
 # Session Message Operations
 # ========================================
+
 
 async def db_upsert_message(message: Dict[str, Any]) -> bool:
     """Insert or update a session message."""
@@ -838,7 +941,8 @@ async def db_upsert_message(message: Dict[str, Any]) -> bool:
 
     try:
         async with pool.acquire() as conn:
-            await conn.execute('''
+            await conn.execute(
+                """
                 INSERT INTO session_messages (id, session_id, role, content, model, cost, tokens, tool_calls, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (id)
@@ -846,7 +950,7 @@ async def db_upsert_message(message: Dict[str, Any]) -> bool:
                     content = EXCLUDED.content,
                     tokens = EXCLUDED.tokens,
                     tool_calls = EXCLUDED.tool_calls
-            ''',
+            """,
                 message.get('id'),
                 message.get('session_id'),
                 message.get('role'),
@@ -855,7 +959,8 @@ async def db_upsert_message(message: Dict[str, Any]) -> bool:
                 message.get('cost'),
                 json.dumps(message.get('tokens', {})),
                 json.dumps(message.get('tool_calls', [])),
-                _parse_timestamp(message.get('created_at')) or datetime.utcnow(),
+                _parse_timestamp(message.get('created_at'))
+                or datetime.utcnow(),
             )
         return True
     except Exception as e:
@@ -863,7 +968,9 @@ async def db_upsert_message(message: Dict[str, Any]) -> bool:
         return False
 
 
-async def db_list_messages(session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+async def db_list_messages(
+    session_id: str, limit: int = 50
+) -> List[Dict[str, Any]]:
     """List messages for a session."""
     pool = await get_pool()
     if not pool:
@@ -871,12 +978,16 @@ async def db_list_messages(session_id: str, limit: int = 50) -> List[Dict[str, A
 
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch('''
+            rows = await conn.fetch(
+                """
                 SELECT * FROM session_messages
                 WHERE session_id = $1
                 ORDER BY created_at ASC
                 LIMIT $2
-            ''', session_id, limit)
+            """,
+                session_id,
+                limit,
+            )
             return [_row_to_message(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list messages: {e}')
@@ -906,13 +1017,16 @@ def _row_to_message(row) -> Dict[str, Any]:
         'cost': row['cost'],
         'tokens': tokens,
         'tool_calls': tool_calls,
-        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+        'created_at': row['created_at'].isoformat()
+        if row['created_at']
+        else None,
     }
 
 
 # ========================================
 # Health Check
 # ========================================
+
 
 async def db_health_check() -> Dict[str, Any]:
     """Check database health and return stats."""
@@ -931,7 +1045,9 @@ async def db_health_check() -> Dict[str, Any]:
 
             # Get counts
             worker_count = await conn.fetchval('SELECT COUNT(*) FROM workers')
-            codebase_count = await conn.fetchval('SELECT COUNT(*) FROM codebases')
+            codebase_count = await conn.fetchval(
+                'SELECT COUNT(*) FROM codebases'
+            )
             task_count = await conn.fetchval('SELECT COUNT(*) FROM tasks')
             session_count = await conn.fetchval('SELECT COUNT(*) FROM sessions')
 

@@ -20,7 +20,7 @@ from pydantic import BaseModel
 import uvicorn
 
 from .models import Message, Part
-from .monitor_api import monitor_router, log_agent_message
+from .monitor_api import monitor_router, nextauth_router, log_agent_message
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,9 @@ class MCPHTTPServer:
 
         # Include the monitor router for UI and monitoring endpoints
         self.app.include_router(monitor_router)
+
+        # Include NextAuth compatibility routes for Cypress
+        self.app.include_router(nextauth_router)
 
         self._setup_routes()
 

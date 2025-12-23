@@ -227,7 +227,17 @@ fi
 # Set ownership
 log_info "Setting permissions..."
 chown -R "$WORKER_USER:$WORKER_USER" "$INSTALL_DIR"
-chown -R "$WORKER_USER:$WORKER_USER" "$CONFIG_DIR"
+
+# Config directory: owned by installing user for easy editing, readable by worker
+if [[ -n "$REAL_USER" ]] && [[ "$REAL_USER" != "root" ]]; then
+    log_info "Setting config ownership to $REAL_USER (editable without sudo)"
+    chown -R "$REAL_USER:$REAL_USER" "$CONFIG_DIR"
+    chmod 755 "$CONFIG_DIR"
+    chmod 644 "$CONFIG_DIR/config.json" 2>/dev/null || true
+    chmod 644 "$CONFIG_DIR/env" 2>/dev/null || true
+else
+    chown -R "$WORKER_USER:$WORKER_USER" "$CONFIG_DIR"
+fi
 
 # Install systemd service
 log_info "Installing systemd service..."
@@ -242,12 +252,30 @@ log_info "============================================"
 log_info "CodeTether Agent Worker installed successfully!"
 log_info "============================================"
 echo ""
+log_info "Configuration files (editable without sudo):"
+echo "  - $CONFIG_DIR/config.json  # Worker settings and codebases"
+echo "  - $CONFIG_DIR/env          # Environment variables (server URL, API keys)"
+echo ""
+log_info "Key configuration options:"
+echo "  config.json:"
+echo "    server_url: API server URL (default: https://api.codetether.run)"
+echo "    codebases:  List of codebases to register with the server"
+echo ""
+echo "  env file:"
+echo "    A2A_SERVER_URL: Overrides server_url from config.json"
+echo "    A2A_WORKER_NAME: Custom worker name"
+echo "    A2A_WORKER_ID: Persistent worker ID (auto-generated if not set)"
+echo ""
 log_info "Next steps:"
-echo "  1. Edit configuration: sudo nano $CONFIG_DIR/config.json"
-echo "  2. Add your codebases to the config"
+echo "  1. Edit configuration: nano $CONFIG_DIR/config.json"
+echo "  2. Set server URL in env: nano $CONFIG_DIR/env"
 echo "  3. Start the service: sudo systemctl start a2a-agent-worker"
 echo "  4. Check status: sudo systemctl status a2a-agent-worker"
 echo "  5. View logs: sudo journalctl -u a2a-agent-worker -f"
 echo ""
 log_info "Quick start command:"
 echo "  sudo systemctl start a2a-agent-worker && sudo journalctl -u a2a-agent-worker -f"
+echo ""
+log_info "To connect to a local development server:"
+echo "  1. Set A2A_SERVER_URL=http://localhost:8000 in $CONFIG_DIR/env"
+echo "  2. sudo systemctl restart a2a-agent-worker"

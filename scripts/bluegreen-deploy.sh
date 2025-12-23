@@ -57,18 +57,19 @@ log_success() { echo -e "${GREEN}✅ $1${NC}"; }
 log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 log_error() { echo -e "${RED}❌ $1${NC}"; }
 
-
-
+# kubectl wrapper that always targets the configured namespace
+k() {
+    kubectl -n "$NAMESPACE" "$@"
+}
 
 require_cluster_access() {
-    require_kubeconfig
 
     # Use a simple API call that requires auth; fail fast if we are unauthorized.
     local out
     if ! out=$(kubectl get ns --request-timeout=10s 2>&1); then
         log_error "Cannot access the Kubernetes API."
         echo "$out" | sed 's/^/  /'
-        log_info "Fix: ensure the kubeconfig has valid credentials and network access to the cluster."
+        log_info "Fix: ensure the has valid credentials and network access to the cluster."
         exit 1
     fi
 }

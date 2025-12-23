@@ -91,6 +91,9 @@ cd A2A-Server-MCP && pip install -r requirements.txt
 # Optional (recommended): install the package + CLI
 pip install -e .
 
+# For production (PostgreSQL persistence):
+export DATABASE_URL=postgresql://user:password@host:5432/a2a_server
+
 # Start the server (defaults to `run`)
 codetether --port 8000
 ```
@@ -141,6 +144,17 @@ To connect a local worker to the production CodeTether service:
    ```bash
    sudo systemctl restart a2a-agent-worker
    ```
+   ```
+   # Or use the makefile shortcut:
+   make local-worker-restart
+   ```
+
+**How it works:**
+- Worker discovers local OpenCode sessions from `~/.local/share/opencode/storage/`
+- Worker syncs sessions to PostgreSQL via `/v1/opencode/codebases/{id}/sessions/sync`
+- Worker syncs session messages via `/v1/opencode/codebases/{id}/sessions/{id}/messages/sync`
+- Monitor UI and production API read sessions from PostgreSQL
+- Use `make local-worker-restart` to restart the worker service
 
 **That's it.** Your agent platform is running at `http://localhost:8000`
 
@@ -179,13 +193,14 @@ curl http://localhost:8000/v1/opencode/codebases/{id}/events
 
 ## 🏗️ Architecture
 
-CodeTether is built on **four core pillars**:
+CodeTether is built on **five core pillars**:
 
 | Component | Purpose | Technology |
 |-----------|---------|------------|
 | **A2A Protocol Server** | Agent communication & orchestration | Python, FastAPI, Redis |
 | **Distributed Workers** | Scale agent execution across machines | Python, Redis, Systemd/K8s |
 | **MCP Integration** | Tool access & resource management | Model Context Protocol |
+| **PostgreSQL Database** | Durable storage for sessions, codebases, tasks | PostgreSQL, asyncpg |
 | **OpenCode Bridge** | AI-powered code generation | Local OpenCode fork, Claude/GPT-4 |
 
 ### Platform Components
@@ -200,14 +215,22 @@ codetether/
 └── 🏠 Marketing Site      # Next.js landing page
 ```
 
+**Data Flow:**
+```
+OpenCode Storage (local) → Worker → PostgreSQL → Bridge/API → Monitor UI
+```
+
+Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode bridge and Monitor UI read from PostgreSQL, providing a consistent view across server replicas and restarts.
+
 ## 📦 What's Included
 
 ### Core Platform
 - ✅ Full A2A Protocol implementation
 - ✅ MCP tool integration
 - ✅ Redis message broker
+- ✅ PostgreSQL durable storage (sessions, codebases, tasks)
 - ✅ SSE real-time streaming
-- ✅ Session persistence & resumption
+- ✅ Worker sync to PostgreSQL from OpenCode storage
 
 ### Enterprise Features
 - ✅ Keycloak SSO integration
@@ -231,7 +254,8 @@ codetether/
 
 | Environment | Command | Description |
 |-------------|---------|-------------|
-| **Local** | `python run_server.py` | Development mode |
+| **Local** | `python run_server.py` or `make run` | Development mode |
+| **Production** | `DATABASE_URL=... make k8s-prod` | Full PostgreSQL persistence |
 | **Docker** | `docker-compose up` | Single container |
 | **Kubernetes** | `make k8s-prod` | Full production stack |
 
@@ -247,6 +271,85 @@ make k8s-prod
 # ✅ Documentation (docs.codetether.run)
 # ✅ Redis cluster
 ```
+
+## 🔧 Environment Variables
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|------------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` | Yes (production) |
+| `A2A_REDIS_URL` | Redis URL for message broker | `redis://localhost:6379` | No |
+| `A2A_AUTH_TOKENS` | Comma-separated auth tokens (format: `name:token,name2:token2`) | `""` | No |
+| `OPENCODE_HOST` | Host where OpenCode API is running (container→host) | `localhost` | No |
+| `OPENCODE_PORT` | Default OpenCode server port | `9777` | No |
+| `A2A_SERVER_URL` | Production server URL (for workers) | `http://localhost:8000` | No |
+
+**Setting DATABASE_URL:**
+```bash
+# Local development (with PostgreSQL):
+export DATABASE_URL=postgresql://a2a:a2a_password@localhost:5432/a2a_server
+
+# Production:
+export DATABASE_URL=postgresql://user:password@prod-db:5432/a2a_server
+```
+
+## 🐛 Troubleshooting
+
+### Sessions Not Appearing in UI?
+
+If you don't see sessions in the production API for a codebase (like "spotlessbinco"):
+
+1. **Check worker is running:**
+   ```bash
+   sudo systemctl status a2a-agent-worker
+   ```
+
+2. **Check worker logs for sync errors:**
+   ```bash
+   sudo journalctl -fu a2a-agent-worker | grep -i "session\|sync"
+   ```
+
+3. **Verify sessions are in PostgreSQL:**
+   ```bash
+   # Via API:
+   curl http://localhost:8000/v1/opencode/database/sessions
+
+   # Or via psql:
+   psql -d a2a_server -c "SELECT id, codebase_id, title FROM sessions ORDER BY updated_at DESC LIMIT 10;"
+   ```
+
+4. **Restart worker to force re-sync:**
+   ```bash
+   make local-worker-restart
+   ```
+
+**How it works:**
+- Workers read local OpenCode storage from `~/.local/share/opencode/`
+- Workers POST sessions to `/v1/opencode/codebases/{id}/sessions/sync`
+- Server persists to PostgreSQL via `db_upsert_session()`
+- Monitor UI reads from PostgreSQL via `db_list_sessions()`
+- No SQLite involved! All data goes through PostgreSQL
+
+### Worker Not Connecting?
+
+1. **Check `DATABASE_URL` in worker env:**
+   ```bash
+   cat /etc/a2a-worker/env
+   # Should contain: DATABASE_URL=postgresql://...
+   ```
+
+2. **Check network connectivity:**
+   ```bash
+   curl -v https://api.codetether.run/v1/health
+   ```
+
+3. **Verify worker is registered:**
+   ```bash
+   curl http://localhost:8000/v1/opencode/database/workers
+   ```
+
+For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs.codetether.run/troubleshooting/)
+
+### Production Deployment
 
 ## 🔌 Integrations
 

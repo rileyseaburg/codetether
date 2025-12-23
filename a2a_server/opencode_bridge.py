@@ -3,15 +3,25 @@ OpenCode Bridge - Integrates OpenCode AI coding agent with A2A Server
 
 This module provides a bridge between the A2A protocol server and OpenCode,
 allowing web UI triggers to start AI agents working on registered codebases.
+
+Architecture:
+- Workers sync codebases, tasks, and sessions to PostgreSQL (via database.py)
+- Bridge reads from PostgreSQL for a consistent view across replicas
+- No SQLite persistence - all durable storage is in PostgreSQL
+- In-memory caches are used for performance but are not authoritative
+
+Production usage:
+- Configure DATABASE_URL environment variable to point to PostgreSQL
+- Workers register codebases and sync session state to PostgreSQL
+- Multiple server replicas can read the same PostgreSQL data
+- Monitor API queries PostgreSQL directly for session listings
 """
 
 import asyncio
 import json
 import logging
 import os
-import sqlite3
 import subprocess
-import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,13 +31,10 @@ from typing import Any, Dict, List, Optional, Callable
 
 import aiohttp
 
-logger = logging.getLogger(__name__)
+# Import PostgreSQL database module
+from . import database as db
 
-# Default database path - use env var or /tmp fallback
-DEFAULT_OPENCODE_DB_PATH = os.environ.get(
-    'OPENCODE_DB_PATH',
-    os.path.join(os.path.dirname(__file__), '..', 'data', 'opencode.db'),
-)
+logger = logging.getLogger(__name__)
 
 # OpenCode host configuration - allows container to connect to host VM's opencode
 # Use 'host.docker.internal' when running in Docker on Linux/Mac/Windows
@@ -183,7 +190,7 @@ class OpenCodeBridge:
             opencode_bin: Path to opencode binary (auto-detected if None)
             default_port: Default port for OpenCode server
             auto_start: Whether to auto-start OpenCode when triggering
-            db_path: Path to SQLite database for persistence
+            db_path: DEPRECATED - bridge now uses PostgreSQL from database.py
             opencode_host: Host where OpenCode API is running (for container->host)
         """
         self.opencode_bin = opencode_bin or self._find_opencode_binary()
@@ -192,22 +199,10 @@ class OpenCodeBridge:
         # OpenCode host - allows container to connect to host VM's opencode
         self.opencode_host = opencode_host or OPENCODE_HOST
 
-        # Database persistence
-        self.db_path = db_path or DEFAULT_OPENCODE_DB_PATH
-        self._db_lock = threading.Lock()
-        self._local = threading.local()
-        self._use_sqlite = False
-
-        # Initialize SQLite database
-        self._init_database()
-
-        # In-memory caches (populated from DB)
+        # In-memory caches (populated from PostgreSQL on demand)
         self._codebases: Dict[str, RegisteredCodebase] = {}
         self._tasks: Dict[str, AgentTask] = {}  # task_id -> task
         self._codebase_tasks: Dict[str, List[str]] = {}  # codebase_id -> [task_ids]
-
-        # Load persisted data
-        self._load_from_database()
 
         # Watch mode background tasks
         self._watch_tasks: Dict[str, asyncio.Task] = {}  # codebase_id -> asyncio task
@@ -229,7 +224,7 @@ class OpenCodeBridge:
 
         logger.info(f"OpenCode bridge initialized with binary: {self.opencode_bin}")
         logger.info(f"OpenCode host: {self.opencode_host}:{self.default_port}")
-        logger.info(f"Using database: {self.db_path} (sqlite={self._use_sqlite})")
+        logger.info(f"Using PostgreSQL database for persistence")
 
     def _get_opencode_base_url(self, port: Optional[int] = None) -> str:
         """
@@ -240,234 +235,59 @@ class OpenCodeBridge:
         p = port or self.default_port
         return f"http://{self.opencode_host}:{p}"
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, 'conn') or self._local.conn is None:
-            self._local.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
-
-    def _init_database(self) -> bool:
-        """Initialize SQLite database schema."""
+    async def _save_codebase(self, codebase: RegisteredCodebase):
+        """Save or update a codebase in PostgreSQL."""
         try:
-            # Ensure directory exists
-            db_dir = os.path.dirname(self.db_path)
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            # Codebases table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS codebases (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    path TEXT NOT NULL,
-                    description TEXT DEFAULT '',
-                    registered_at TEXT NOT NULL,
-                    agent_config TEXT DEFAULT '{}',
-                    last_triggered TEXT,
-                    status TEXT DEFAULT 'idle',
-                    opencode_port INTEGER,
-                    session_id TEXT,
-                    watch_mode INTEGER DEFAULT 0,
-                    watch_interval INTEGER DEFAULT 5,
-                    worker_id TEXT
-                )
-            ''')
-
-            # Try to add worker_id column if table already exists (migration)
-            try:
-                cursor.execute('ALTER TABLE codebases ADD COLUMN worker_id TEXT')
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-
-            # Tasks table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id TEXT PRIMARY KEY,
-                    codebase_id TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    prompt TEXT NOT NULL,
-                    agent_type TEXT DEFAULT 'build',
-                    status TEXT DEFAULT 'pending',
-                    priority INTEGER DEFAULT 0,
-                    created_at TEXT NOT NULL,
-                    started_at TEXT,
-                    completed_at TEXT,
-                    result TEXT,
-                    error TEXT,
-                    session_id TEXT,
-                    metadata TEXT DEFAULT '{}',
-                    FOREIGN KEY (codebase_id) REFERENCES codebases(id)
-                )
-            ''')
-
-            # Index for faster task queries
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_tasks_codebase_status
-                ON tasks(codebase_id, status)
-            ''')
-
-            conn.commit()
-            conn.close()
-
-            self._use_sqlite = True
-            logger.info(f"✓ SQLite database initialized at {self.db_path}")
-            return True
-
+            await db.db_upsert_codebase({
+                'id': codebase.id,
+                'name': codebase.name,
+                'path': codebase.path,
+                'description': codebase.description,
+                'worker_id': codebase.worker_id,
+                'agent_config': codebase.agent_config,
+                'created_at': codebase.registered_at.isoformat(),
+                'updated_at': datetime.utcnow().isoformat(),
+                'status': codebase.status.value,
+                'session_id': codebase.session_id,
+                'opencode_port': codebase.opencode_port,
+            })
         except Exception as e:
-            logger.warning(f"Failed to initialize SQLite: {e}, using in-memory only")
-            self._use_sqlite = False
-            return False
+            logger.error(f"Failed to save codebase to PostgreSQL: {e}")
 
-    def _load_from_database(self):
-        """Load codebases and tasks from database into memory."""
-        if not self._use_sqlite:
-            return
-
+    async def _delete_codebase(self, codebase_id: str):
+        """Delete a codebase from PostgreSQL."""
         try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            # Load codebases
-            cursor.execute('SELECT * FROM codebases')
-            for row in cursor.fetchall():
-                codebase = RegisteredCodebase(
-                    id=row['id'],
-                    name=row['name'],
-                    path=row['path'],
-                    description=row['description'] or '',
-                    registered_at=datetime.fromisoformat(row['registered_at']),
-                    agent_config=json.loads(row['agent_config'] or '{}'),
-                    last_triggered=datetime.fromisoformat(row['last_triggered']) if row['last_triggered'] else None,
-                    status=AgentStatus(row['status']) if row['status'] else AgentStatus.IDLE,
-                    opencode_port=row['opencode_port'],
-                    session_id=row['session_id'],
-                    watch_mode=bool(row['watch_mode']),
-                    watch_interval=row['watch_interval'] or 5,
-                    worker_id=row['worker_id'] if 'worker_id' in row.keys() else None,
-                )
-                self._codebases[codebase.id] = codebase
-
-            # Load tasks
-            cursor.execute('SELECT * FROM tasks ORDER BY priority DESC, created_at ASC')
-            for row in cursor.fetchall():
-                task = AgentTask(
-                    id=row['id'],
-                    codebase_id=row['codebase_id'],
-                    title=row['title'],
-                    prompt=row['prompt'],
-                    agent_type=row['agent_type'] or 'build',
-                    status=AgentTaskStatus(row['status']) if row['status'] else AgentTaskStatus.PENDING,
-                    priority=row['priority'] or 0,
-                    created_at=datetime.fromisoformat(row['created_at']),
-                    started_at=datetime.fromisoformat(row['started_at']) if row['started_at'] else None,
-                    completed_at=datetime.fromisoformat(row['completed_at']) if row['completed_at'] else None,
-                    result=row['result'],
-                    error=row['error'],
-                    session_id=row['session_id'],
-                    metadata=json.loads(row['metadata'] or '{}'),
-                )
-                self._tasks[task.id] = task
-
-                # Build codebase tasks index
-                if task.codebase_id not in self._codebase_tasks:
-                    self._codebase_tasks[task.codebase_id] = []
-                self._codebase_tasks[task.codebase_id].append(task.id)
-
-            logger.info(f"Loaded {len(self._codebases)} codebases and {len(self._tasks)} tasks from database")
-
+            await db.db_delete_codebase(codebase_id)
         except Exception as e:
-            logger.error(f"Failed to load from database: {e}")
+            logger.error(f"Failed to delete codebase from PostgreSQL: {e}")
 
-    def _save_codebase(self, codebase: RegisteredCodebase):
-        """Save or update a codebase in the database."""
-        if not self._use_sqlite:
-            return
-
+    async def _save_task(self, task: AgentTask):
+        """Save or update a task in PostgreSQL."""
         try:
-            with self._db_lock:
-                conn = self._get_connection()
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT OR REPLACE INTO codebases
-                    (id, name, path, description, registered_at, agent_config,
-                     last_triggered, status, opencode_port, session_id, watch_mode, watch_interval, worker_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    codebase.id,
-                    codebase.name,
-                    codebase.path,
-                    codebase.description,
-                    codebase.registered_at.isoformat(),
-                    json.dumps(codebase.agent_config),
-                    codebase.last_triggered.isoformat() if codebase.last_triggered else None,
-                    codebase.status.value,
-                    codebase.opencode_port,
-                    codebase.session_id,
-                    1 if codebase.watch_mode else 0,
-                    codebase.watch_interval,
-                    codebase.worker_id,
-                ))
-                conn.commit()
+            await db.db_upsert_task({
+                'id': task.id,
+                'codebase_id': task.codebase_id,
+                'title': task.title,
+                'prompt': task.prompt,
+                'agent_type': task.agent_type,
+                'status': task.status.value,
+                'priority': task.priority,
+                'worker_id': None,  # Will be set by worker when claimed
+                'result': task.result,
+                'error': task.error,
+                'metadata': task.metadata,
+                'created_at': task.created_at.isoformat(),
+                'updated_at': datetime.utcnow().isoformat(),
+                'started_at': task.started_at.isoformat() if task.started_at else None,
+                'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+            })
         except Exception as e:
-            logger.error(f"Failed to save codebase: {e}")
+            logger.error(f"Failed to save task to PostgreSQL: {e}")
 
-    def _delete_codebase(self, codebase_id: str):
-        """Delete a codebase from the database."""
-        if not self._use_sqlite:
-            return
-
-        try:
-            with self._db_lock:
-                conn = self._get_connection()
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM codebases WHERE id = ?', (codebase_id,))
-                cursor.execute('DELETE FROM tasks WHERE codebase_id = ?', (codebase_id,))
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to delete codebase: {e}")
-
-    def _save_task(self, task: AgentTask):
-        """Save or update a task in the database."""
-        if not self._use_sqlite:
-            return
-
-        try:
-            with self._db_lock:
-                conn = self._get_connection()
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT OR REPLACE INTO tasks
-                    (id, codebase_id, title, prompt, agent_type, status, priority,
-                     created_at, started_at, completed_at, result, error, session_id, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    task.id,
-                    task.codebase_id,
-                    task.title,
-                    task.prompt,
-                    task.agent_type,
-                    task.status.value,
-                    task.priority,
-                    task.created_at.isoformat(),
-                    task.started_at.isoformat() if task.started_at else None,
-                    task.completed_at.isoformat() if task.completed_at else None,
-                    task.result,
-                    task.error,
-                    task.session_id,
-                    json.dumps(task.metadata),
-                ))
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to save task: {e}")
-
-    def _update_codebase_status(self, codebase: RegisteredCodebase, status: AgentStatus):
-        """Update codebase status and persist to database."""
+    async def _update_codebase_status(self, codebase: RegisteredCodebase, status: AgentStatus):
+        """Update codebase status and persist to PostgreSQL."""
         codebase.status = status
-        self._save_codebase(codebase)
+        await self._save_codebase(codebase)
 
     def _find_opencode_binary(self) -> str:
         """Find the opencode binary in common locations."""
@@ -525,7 +345,7 @@ class OpenCodeBridge:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    def register_codebase(
+    async def register_codebase(
         self,
         name: str,
         path: str,
@@ -567,7 +387,7 @@ class OpenCodeBridge:
                 codebase.worker_id = worker_id
                 codebase.opencode_port = None  # Clear local port if it's now remote
             codebase.status = AgentStatus.IDLE
-            self._save_codebase(codebase)  # Persist update
+            await self._save_codebase(codebase)  # Persist update
 
             worker_info = f" (worker: {worker_id})" if worker_id else ""
             logger.info(
@@ -599,7 +419,7 @@ class OpenCodeBridge:
                 codebase.worker_id = worker_id
                 codebase.opencode_port = None  # Clear local port if it's now remote
             codebase.status = AgentStatus.IDLE
-            self._save_codebase(codebase)  # Persist update
+            await self._save_codebase(codebase)  # Persist update
 
             worker_info = f" (worker: {worker_id})" if worker_id else ""
             logger.info(
@@ -622,22 +442,22 @@ class OpenCodeBridge:
         )
 
         self._codebases[codebase_id] = codebase
-        self._save_codebase(codebase)  # Persist to database
+        await self._save_codebase(codebase)  # Persist to database
 
         worker_info = f" (worker: {worker_id})" if worker_id else ""
         logger.info(f"Registered codebase: {name} ({codebase_id}) at {path}{worker_info}")
 
         return codebase
 
-    def unregister_codebase(self, codebase_id: str) -> bool:
+    async def unregister_codebase(self, codebase_id: str) -> bool:
         """Remove a codebase from the registry."""
         if codebase_id in self._codebases:
             # Stop any running agent
             if codebase_id in self._processes:
-                asyncio.create_task(self.stop_agent(codebase_id))
+                await self.stop_agent(codebase_id)
 
             del self._codebases[codebase_id]
-            self._delete_codebase(codebase_id)  # Remove from database
+            await self._delete_codebase(codebase_id)  # Remove from database
             logger.info(f"Unregistered codebase: {codebase_id}")
             return True
         return False
@@ -690,7 +510,7 @@ class OpenCodeBridge:
 
             self._processes[codebase.id] = process
             codebase.opencode_port = port
-            self._update_codebase_status(codebase, AgentStatus.RUNNING)
+            await self._update_codebase_status(codebase, AgentStatus.RUNNING)
 
             # Wait a moment for server to start
             await asyncio.sleep(2)
@@ -706,7 +526,7 @@ class OpenCodeBridge:
 
         except Exception as e:
             logger.error(f"Failed to start OpenCode server: {e}")
-            self._update_codebase_status(codebase, AgentStatus.ERROR)
+            await self._update_codebase_status(codebase, AgentStatus.ERROR)
             raise
 
     async def stop_agent(self, codebase_id: str) -> bool:
@@ -725,7 +545,7 @@ class OpenCodeBridge:
 
             del self._processes[codebase_id]
 
-        self._update_codebase_status(codebase, AgentStatus.STOPPED)
+        await self._update_codebase_status(codebase, AgentStatus.STOPPED)
         codebase.opencode_port = None
 
         # Free port allocation
@@ -757,7 +577,7 @@ class OpenCodeBridge:
 
         # For remote workers, create a task instead of local execution
         if codebase.worker_id:
-            task = self.create_task(
+            task = await self.create_task(
                 codebase_id=request.codebase_id,
                 title=request.prompt[:80] + ("..." if len(request.prompt) > 80 else ""),
                 prompt=request.prompt,
@@ -808,7 +628,7 @@ class OpenCodeBridge:
 
             codebase.session_id = session_id
             codebase.last_triggered = datetime.utcnow()
-            self._update_codebase_status(codebase, AgentStatus.BUSY)
+            await self._update_codebase_status(codebase, AgentStatus.BUSY)
 
             # Build prompt parts
             parts = [{"type": "text", "text": request.prompt}]
@@ -861,7 +681,7 @@ class OpenCodeBridge:
 
         except Exception as e:
             logger.error(f"Failed to trigger agent: {e}")
-            self._update_codebase_status(codebase, AgentStatus.ERROR)
+            await self._update_codebase_status(codebase, AgentStatus.ERROR)
             return AgentTriggerResponse(
                 success=False,
                 error=str(e),
@@ -998,7 +818,7 @@ class OpenCodeBridge:
                 if resp.status != 200:
                     raise RuntimeError(f"Failed to send message: {await resp.text()}")
 
-            self._update_codebase_status(codebase, AgentStatus.BUSY)
+            await self._update_codebase_status(codebase, AgentStatus.BUSY)
             codebase.last_triggered = datetime.utcnow()
 
             return AgentTriggerResponse(
@@ -1030,7 +850,7 @@ class OpenCodeBridge:
                 f"{base_url}/session/{codebase.session_id}/interrupt"
             ) as resp:
                 if resp.status == 200:
-                    self._update_codebase_status(codebase, AgentStatus.RUNNING)
+                    await self._update_codebase_status(codebase, AgentStatus.RUNNING)
                     logger.info(f"Interrupted agent for {codebase.name}")
                     return True
 
@@ -1062,7 +882,7 @@ class OpenCodeBridge:
     # Task Management
     # ========================================
 
-    def create_task(
+    async def create_task(
         self,
         codebase_id: str,
         title: str,
@@ -1106,7 +926,7 @@ class OpenCodeBridge:
         self._codebase_tasks[codebase_id].append(task_id)
 
         # Persist to database
-        self._save_task(task)
+        await self._save_task(task)
 
         logger.info(f"Created task {task_id} for {codebase_name}: {title}")
 
@@ -1143,7 +963,7 @@ class OpenCodeBridge:
         pending = self.list_tasks(codebase_id=codebase_id, status=AgentTaskStatus.PENDING)
         return pending[0] if pending else None
 
-    def update_task_status(
+    async def update_task_status(
         self,
         task_id: str,
         status: AgentTaskStatus,
@@ -1179,13 +999,13 @@ class OpenCodeBridge:
             task.error = error
 
         # Persist to database
-        self._save_task(task)
+        await self._save_task(task)
 
         asyncio.create_task(self._notify_task_update(task))
 
         return task
 
-    def cancel_task(self, task_id: str) -> bool:
+    async def cancel_task(self, task_id: str) -> bool:
         """Cancel a pending task."""
         task = self._tasks.get(task_id)
         if not task:
@@ -1198,7 +1018,7 @@ class OpenCodeBridge:
         task.completed_at = datetime.utcnow()
 
         # Persist to database
-        self._save_task(task)
+        await self._save_task(task)
 
         asyncio.create_task(self._notify_task_update(task))
 
@@ -1247,7 +1067,7 @@ class OpenCodeBridge:
         if codebase.worker_id:
             codebase.watch_mode = True
             codebase.watch_interval = interval
-            self._update_codebase_status(codebase, AgentStatus.WATCHING)
+            await self._update_codebase_status(codebase, AgentStatus.WATCHING)
             logger.info(f"Watch mode enabled for {codebase.name} (remote worker: {codebase.worker_id})")
             await self._notify_status_change(codebase)
             return True
@@ -1262,7 +1082,7 @@ class OpenCodeBridge:
 
         codebase.watch_mode = True
         codebase.watch_interval = interval
-        self._update_codebase_status(codebase, AgentStatus.WATCHING)
+        await self._update_codebase_status(codebase, AgentStatus.WATCHING)
 
         # Start background task for local execution
         watch_task = asyncio.create_task(self._watch_loop(codebase_id))
@@ -1282,7 +1102,7 @@ class OpenCodeBridge:
         # For remote workers, just update the flag
         if codebase.worker_id:
             codebase.watch_mode = False
-            self._update_codebase_status(codebase, AgentStatus.IDLE)
+            await self._update_codebase_status(codebase, AgentStatus.IDLE)
             logger.info(f"Watch mode disabled for {codebase.name} (remote worker)")
             await self._notify_status_change(codebase)
             return True
@@ -1298,7 +1118,7 @@ class OpenCodeBridge:
             del self._watch_tasks[codebase_id]
 
         codebase.watch_mode = False
-        self._update_codebase_status(codebase, AgentStatus.RUNNING if codebase.opencode_port else AgentStatus.IDLE)
+        await self._update_codebase_status(codebase, AgentStatus.RUNNING if codebase.opencode_port else AgentStatus.IDLE)
 
         logger.info(f"Stopped watch mode for {codebase.name}")
         await self._notify_status_change(codebase)
@@ -1346,7 +1166,7 @@ class OpenCodeBridge:
         await self._notify_task_update(task)
 
         # Update codebase status
-        self._update_codebase_status(codebase, AgentStatus.BUSY)
+        await self._update_codebase_status(codebase, AgentStatus.BUSY)
         await self._notify_status_change(codebase)
 
         try:
@@ -1381,9 +1201,9 @@ class OpenCodeBridge:
         finally:
             # Restore codebase status if in watch mode
             if codebase.watch_mode:
-                self._update_codebase_status(codebase, AgentStatus.WATCHING)
+                await self._update_codebase_status(codebase, AgentStatus.WATCHING)
             else:
-                self._update_codebase_status(codebase, AgentStatus.RUNNING)
+                await self._update_codebase_status(codebase, AgentStatus.RUNNING)
 
             await self._notify_status_change(codebase)
             await self._notify_task_update(task)

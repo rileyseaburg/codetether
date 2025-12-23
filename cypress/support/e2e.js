@@ -15,9 +15,11 @@
 
 // Import commands.js using ES2015 syntax:
 import './commands'
+import './keycloak-commands'
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
+// require('./keycloak-commands')
 
 // Custom command to wait for A2A server to be ready
 Cypress.Commands.add('waitForA2AServer', (url = 'http://localhost:8000') => {
@@ -36,7 +38,7 @@ Cypress.Commands.add('waitForA2AServer', (url = 'http://localhost:8000') => {
 Cypress.Commands.add('sendA2ARequest', (method, params = {}, options = {}) => {
   const baseUrl = options.baseUrl || 'http://localhost:8000'
   const requestId = options.id || Date.now().toString()
-  
+
   const request = {
     jsonrpc: '2.0',
     method: method,

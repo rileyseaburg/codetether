@@ -39,7 +39,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-    ]
+    ],
 )
 logger = logging.getLogger('a2a-worker')
 
@@ -47,6 +47,7 @@ logger = logging.getLogger('a2a-worker')
 @dataclass
 class WorkerConfig:
     """Configuration for the agent worker."""
+
     server_url: str
     worker_name: str
     worker_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
@@ -59,16 +60,19 @@ class WorkerConfig:
     # Optional message sync (for session detail view on remote codebases)
     session_message_sync_max_sessions: int = 3
     session_message_sync_max_messages: int = 100
-    capabilities: List[str] = field(default_factory=lambda: ["opencode", "build", "deploy"])
+    capabilities: List[str] = field(
+        default_factory=lambda: ['opencode', 'build', 'deploy']
+    )
 
 
 @dataclass
 class LocalCodebase:
     """A codebase registered with this worker."""
+
     id: str  # Server-assigned ID
     name: str
     path: str
-    description: str = ""
+    description: str = ''
 
 
 class AgentWorker:
@@ -84,41 +88,60 @@ class AgentWorker:
         self.opencode_bin = config.opencode_bin or self._find_opencode_binary()
         self.active_processes: Dict[str, subprocess.Popen] = {}
         self._opencode_storage_path: Optional[Path] = None
-        self._global_codebase_id: Optional[str] = None  # Cached ID for global sessions codebase
+        self._global_codebase_id: Optional[str] = (
+            None  # Cached ID for global sessions codebase
+        )
 
     def _find_opencode_binary(self) -> str:
         """Find the opencode binary."""
         locations = [
-            str(Path.home() / ".local" / "bin" / "opencode"),
-            str(Path.home() / "bin" / "opencode"),
-            "/usr/local/bin/opencode",
-            "/usr/bin/opencode",
+            str(Path.home() / '.local' / 'bin' / 'opencode'),
+            str(Path.home() / 'bin' / 'opencode'),
+            '/usr/local/bin/opencode',
+            '/usr/bin/opencode',
             # Check in the A2A project
-            str(Path(__file__).parent.parent / "opencode" / "packages" / "opencode" / "bin" / "opencode"),
+            str(
+                Path(__file__).parent.parent
+                / 'opencode'
+                / 'packages'
+                / 'opencode'
+                / 'bin'
+                / 'opencode'
+            ),
         ]
 
         for loc in locations:
             if Path(loc).exists() and os.access(loc, os.X_OK):
-                logger.info(f"Found opencode at: {loc}")
+                logger.info(f'Found opencode at: {loc}')
                 return loc
 
         # Try PATH
         try:
-            result = subprocess.run(["which", "opencode"], capture_output=True, text=True)
+            result = subprocess.run(
+                ['which', 'opencode'], capture_output=True, text=True
+            )
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception:
             pass
 
-        logger.warning("OpenCode binary not found, some features may not work")
-        return "opencode"
+        logger.warning('OpenCode binary not found, some features may not work')
+        return 'opencode'
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
+        """Get or create HTTP session with connection pooling."""
         if self.session is None or self.session.closed:
+            # Configure connection pool for better performance under load
+            connector = aiohttp.TCPConnector(
+                limit=100,  # Total connection pool size
+                limit_per_host=30,  # Max connections per host
+                ttl_dns_cache=300,  # DNS cache TTL in seconds
+                enable_cleanup_closed=True,  # Clean up closed connections
+            )
             self.session = aiohttp.ClientSession(
+                connector=connector,
                 timeout=aiohttp.ClientTimeout(total=30),
-                headers={"Content-Type": "application/json"}
+                headers={'Content-Type': 'application/json'},
             )
         return self.session
 
@@ -126,53 +149,174 @@ class AgentWorker:
         """Get set of provider IDs that have authentication configured."""
         authenticated = set()
         try:
-            data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-            auth_path = Path(os.path.expanduser(data_home)) / "opencode" / "auth.json"
+            data_home = os.environ.get('XDG_DATA_HOME') or os.path.expanduser(
+                '~/.local/share'
+            )
+            auth_path = (
+                Path(os.path.expanduser(data_home)) / 'opencode' / 'auth.json'
+            )
             if auth_path.exists():
-                with open(auth_path, "r", encoding="utf-8") as f:
+                with open(auth_path, 'r', encoding='utf-8') as f:
                     auth_data = json.load(f)
                 for provider_id, provider_auth in auth_data.items():
                     if isinstance(provider_auth, dict):
                         # Check if provider has valid auth (key or oauth tokens)
-                        has_key = bool(provider_auth.get("key"))
-                        has_oauth = bool(provider_auth.get("access") or provider_auth.get("refresh"))
+                        has_key = bool(provider_auth.get('key'))
+                        has_oauth = bool(
+                            provider_auth.get('access')
+                            or provider_auth.get('refresh')
+                        )
                         if has_key or has_oauth:
                             authenticated.add(provider_id)
-                            logger.debug(f"Provider '{provider_id}' has authentication configured")
-                logger.info(f"Found {len(authenticated)} authenticated providers: {sorted(authenticated)}")
+                            logger.debug(
+                                f"Provider '{provider_id}' has authentication configured"
+                            )
+                logger.info(
+                    f'Found {len(authenticated)} authenticated providers: {sorted(authenticated)}'
+                )
         except Exception as e:
-            logger.warning(f"Failed to read OpenCode auth.json: {e}")
+            logger.warning(f'Failed to read OpenCode auth.json: {e}')
         return authenticated
+
+    async def sync_api_keys_from_server(
+        self, user_id: Optional[str] = None
+    ) -> bool:
+        """
+        Sync API keys from the server (Vault-backed) to local OpenCode auth.json.
+
+        This allows users to manage their API keys in the web UI and have them
+        automatically synced to workers.
+
+        Args:
+            user_id: Optional user ID to sync keys for. If not provided,
+                     syncs keys for the codebase owner.
+
+        Returns:
+            True if sync was successful, False otherwise.
+        """
+        try:
+            session = await self._get_session()
+
+            # Build sync URL with optional user_id
+            sync_url = f'{self.config.server_url}/v1/opencode/api-keys/sync'
+            params = {'worker_id': self.config.worker_id}
+            if user_id:
+                params['user_id'] = user_id
+
+            async with session.get(sync_url, params=params) as resp:
+                if resp.status != 200:
+                    logger.warning(
+                        f'Failed to sync API keys: HTTP {resp.status}'
+                    )
+                    return False
+
+                data = await resp.json()
+
+            # Get paths for auth.json and opencode.json
+            data_home = os.environ.get('XDG_DATA_HOME') or os.path.expanduser(
+                '~/.local/share'
+            )
+            config_home = os.environ.get(
+                'XDG_CONFIG_HOME'
+            ) or os.path.expanduser('~/.config')
+
+            auth_path = Path(data_home) / 'opencode' / 'auth.json'
+            config_path = Path(config_home) / 'opencode' / 'opencode.json'
+
+            # Merge server keys with existing local auth.json
+            server_auth = data.get('auth', {})
+            if server_auth:
+                existing_auth = {}
+                if auth_path.exists():
+                    try:
+                        with open(auth_path, 'r', encoding='utf-8') as f:
+                            existing_auth = json.load(f)
+                    except Exception as e:
+                        logger.warning(
+                            f'Failed to read existing auth.json: {e}'
+                        )
+
+                # Merge: server keys override local for same provider
+                merged_auth = {**existing_auth, **server_auth}
+
+                # Write merged auth
+                auth_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(auth_path, 'w', encoding='utf-8') as f:
+                    json.dump(merged_auth, f, indent=2)
+
+                logger.info(
+                    f'Synced {len(server_auth)} API keys from server '
+                    f'(total: {len(merged_auth)} providers)'
+                )
+
+            # Merge server provider configs with existing opencode.json
+            server_providers = data.get('providers', {})
+            if server_providers:
+                existing_config = {}
+                if config_path.exists():
+                    try:
+                        with open(config_path, 'r', encoding='utf-8') as f:
+                            existing_config = json.load(f)
+                    except Exception as e:
+                        logger.warning(
+                            f'Failed to read existing opencode.json: {e}'
+                        )
+
+                # Merge provider configs
+                existing_providers = existing_config.get('provider', {})
+                merged_providers = {**existing_providers, **server_providers}
+                existing_config['provider'] = merged_providers
+
+                # Write merged config
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(existing_config, f, indent=2)
+
+                logger.info(
+                    f'Synced {len(server_providers)} provider configs from server'
+                )
+
+            return True
+
+        except Exception as e:
+            logger.error(f'Failed to sync API keys from server: {e}')
+            return False
 
     async def start(self):
         """Start the worker."""
-        logger.info(f"Starting worker '{self.config.worker_name}' (ID: {self.config.worker_id})")
-        logger.info(f"Connecting to server: {self.config.server_url}")
+        logger.info(
+            f"Starting worker '{self.config.worker_name}' (ID: {self.config.worker_id})"
+        )
+        logger.info(f'Connecting to server: {self.config.server_url}')
 
         # Surface OpenCode credential discovery issues early (common when running under systemd).
         try:
-            data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-            auth_path = Path(os.path.expanduser(data_home)) / "opencode" / "auth.json"
+            data_home = os.environ.get('XDG_DATA_HOME') or os.path.expanduser(
+                '~/.local/share'
+            )
+            auth_path = (
+                Path(os.path.expanduser(data_home)) / 'opencode' / 'auth.json'
+            )
             if auth_path.exists():
-                logger.info(f"OpenCode auth detected at: {auth_path}")
+                logger.info(f'OpenCode auth detected at: {auth_path}')
             else:
                 logger.warning(
-                    "OpenCode auth.json not found for this worker. "
-                    f"Expected at: {auth_path}. "
+                    'OpenCode auth.json not found for this worker. '
+                    f'Expected at: {auth_path}. '
                     "OpenCode agents may fail with 'missing API key' unless you authenticate as this service user "
                     "or import/copy auth.json into the worker's XDG data directory."
                 )
         except Exception as e:
-            logger.debug(f"Failed to check OpenCode auth.json presence: {e}")
+            logger.debug(f'Failed to check OpenCode auth.json presence: {e}')
 
         self.running = True
 
         # Register global pseudo-codebase first so we can include its ID in worker registration
-        logger.info("Registering global pseudo-codebase...")
+        logger.info('Registering global pseudo-codebase...')
         self._global_codebase_id = await self.register_codebase(
-            name="global",
+            name='global',
             path=str(Path.home()),
-            description="Global OpenCode sessions (not project-specific)",
+            description='Global OpenCode sessions (not project-specific)',
         )
 
         # Register worker with server
@@ -181,13 +325,17 @@ class AgentWorker:
         # Register configured codebases
         for cb_config in self.config.codebases:
             await self.register_codebase(
-                name=cb_config.get("name", Path(cb_config["path"]).name),
-                path=cb_config["path"],
-                description=cb_config.get("description", ""),
+                name=cb_config.get('name', Path(cb_config['path']).name),
+                path=cb_config['path'],
+                description=cb_config.get('description', ''),
             )
 
+        # Sync API keys from server (allows web UI key management)
+        logger.info('Syncing API keys from server...')
+        await self.sync_api_keys_from_server()
+
         # Immediately sync sessions on startup
-        logger.info("Syncing sessions with server...")
+        logger.info('Syncing sessions with server...')
         await self.report_sessions_to_server()
 
         # Start polling loop
@@ -195,12 +343,12 @@ class AgentWorker:
 
     async def stop(self):
         """Stop the worker gracefully."""
-        logger.info("Stopping worker...")
+        logger.info('Stopping worker...')
         self.running = False
 
         # Kill any active processes
         for task_id, process in list(self.active_processes.items()):
-            logger.info(f"Terminating process for task {task_id}")
+            logger.info(f'Terminating process for task {task_id}')
             process.terminate()
             try:
                 process.wait(timeout=5)
@@ -211,7 +359,7 @@ class AgentWorker:
         try:
             await self.unregister_worker()
         except Exception as e:
-            logger.debug(f"Failed to unregister worker during shutdown: {e}")
+            logger.debug(f'Failed to unregister worker during shutdown: {e}')
 
         # Close session properly
         if self.session is not None and not self.session.closed:
@@ -219,7 +367,7 @@ class AgentWorker:
             # Wait for underlying connector to close
             await asyncio.sleep(0.1)
 
-        logger.info("Worker stopped")
+        logger.info('Worker stopped')
 
     async def _get_available_models(self) -> List[Dict[str, Any]]:
         """Fetch available models from local OpenCode instance.
@@ -229,7 +377,9 @@ class AgentWorker:
         # Get authenticated providers first
         authenticated_providers = self._get_authenticated_providers()
         if not authenticated_providers:
-            logger.warning("No authenticated providers found - no models will be registered")
+            logger.warning(
+                'No authenticated providers found - no models will be registered'
+            )
             return []
 
         all_models = []
@@ -237,27 +387,39 @@ class AgentWorker:
         # Try default port first
         port = 9777
         try:
-            url = f"http://localhost:{port}/provider"
+            url = f'http://localhost:{port}/provider'
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=2) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        all_providers = data.get("all", [])
+                        all_providers = data.get('all', [])
                         for provider in all_providers:
-                            provider_id = provider.get("id")
-                            provider_name = provider.get("name", provider_id)
-                            for model_id, model_info in provider.get("models", {}).items():
-                                all_models.append({
-                                    "id": f"{provider_id}/{model_id}",
-                                    "name": model_info.get("name", model_id),
-                                    "provider": provider_name,
-                                    "provider_id": provider_id,
-                                    "capabilities": {
-                                        "reasoning": model_info.get("reasoning", False),
-                                        "attachment": model_info.get("attachment", False),
-                                        "tool_call": model_info.get("tool_call", False),
+                            provider_id = provider.get('id')
+                            provider_name = provider.get('name', provider_id)
+                            for model_id, model_info in provider.get(
+                                'models', {}
+                            ).items():
+                                all_models.append(
+                                    {
+                                        'id': f'{provider_id}/{model_id}',
+                                        'name': model_info.get(
+                                            'name', model_id
+                                        ),
+                                        'provider': provider_name,
+                                        'provider_id': provider_id,
+                                        'capabilities': {
+                                            'reasoning': model_info.get(
+                                                'reasoning', False
+                                            ),
+                                            'attachment': model_info.get(
+                                                'attachment', False
+                                            ),
+                                            'tool_call': model_info.get(
+                                                'tool_call', False
+                                            ),
+                                        },
                                     }
-                                })
+                                )
         except Exception:
             # OpenCode might not be running
             pass
@@ -265,56 +427,71 @@ class AgentWorker:
         # Fallback: Try CLI if no models found via API
         if not all_models:
             try:
-                logger.info(f"Trying CLI: {self.opencode_bin} models")
+                logger.info(f'Trying CLI: {self.opencode_bin} models')
                 if self.opencode_bin and os.path.exists(self.opencode_bin):
                     proc = await asyncio.create_subprocess_exec(
-                        self.opencode_bin, "models",
+                        self.opencode_bin,
+                        'models',
                         stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
+                        stderr=asyncio.subprocess.PIPE,
                     )
                     stdout, stderr = await proc.communicate()
                     if proc.returncode == 0:
                         lines = stdout.decode().strip().splitlines()
                         for line in lines:
                             line = line.strip()
-                            if not line: continue
+                            if not line:
+                                continue
                             # Format is provider/model
-                            parts = line.split("/", 1)
+                            parts = line.split('/', 1)
                             if len(parts) == 2:
                                 provider, model_name = parts
-                                all_models.append({
-                                    "id": line,
-                                    "name": model_name,
-                                    "provider": provider,
-                                    "provider_id": provider,
-                                    "capabilities": {
-                                        "reasoning": False,
-                                        "attachment": False,
-                                        "tool_call": True,
+                                all_models.append(
+                                    {
+                                        'id': line,
+                                        'name': model_name,
+                                        'provider': provider,
+                                        'provider_id': provider,
+                                        'capabilities': {
+                                            'reasoning': False,
+                                            'attachment': False,
+                                            'tool_call': True,
+                                        },
                                     }
-                                })
+                                )
                     else:
-                        logger.warning(f"CLI failed with code {proc.returncode}: {stderr.decode()}")
+                        logger.warning(
+                            f'CLI failed with code {proc.returncode}: {stderr.decode()}'
+                        )
                 else:
-                    logger.warning(f"OpenCode binary not found or not executable: {self.opencode_bin}")
+                    logger.warning(
+                        f'OpenCode binary not found or not executable: {self.opencode_bin}'
+                    )
             except Exception as e:
-                logger.warning(f"Failed to list models via CLI: {e}")
+                logger.warning(f'Failed to list models via CLI: {e}')
 
         # Filter to only authenticated providers
         authenticated_models = []
         for model in all_models:
-            provider_id = model.get("provider_id") or model.get("provider", "")
+            provider_id = model.get('provider_id') or model.get('provider', '')
             if provider_id in authenticated_providers:
                 authenticated_models.append(model)
 
         logger.info(
-            f"Discovered {len(all_models)} total models, "
-            f"{len(authenticated_models)} from authenticated providers"
+            f'Discovered {len(all_models)} total models, '
+            f'{len(authenticated_models)} from authenticated providers'
         )
 
         if authenticated_models:
-            providers_with_models = sorted(set(m.get("provider_id", m.get("provider")) for m in authenticated_models))
-            logger.info(f"Authenticated providers with models: {providers_with_models}")
+            providers_with_models = sorted(
+                set(
+                    m.get('provider_id', m.get('provider'))
+                    for m in authenticated_models
+                )
+            )
+            logger.info(
+                f'Authenticated providers with models: {providers_with_models}'
+            )
 
         return authenticated_models
 
@@ -323,59 +500,90 @@ class AgentWorker:
         try:
             # Ensure global codebase is registered
             if not self._global_codebase_id:
-                logger.info("Global codebase not registered, attempting registration...")
+                logger.info(
+                    'Global codebase not registered, attempting registration...'
+                )
                 self._global_codebase_id = await self.register_codebase(
-                    name="global",
+                    name='global',
                     path=str(Path.home()),
-                    description="Global OpenCode sessions (not project-specific)",
+                    description='Global OpenCode sessions (not project-specific)',
                 )
 
             # Get available models before registering
             models = await self._get_available_models()
-            logger.info(f"Models to register: {len(models)}")
+            logger.info(f'Models to register: {len(models)}')
 
             session = await self._get_session()
-            url = f"{self.config.server_url}/v1/opencode/workers/register"
+            url = f'{self.config.server_url}/v1/opencode/workers/register'
 
             payload = {
-                "worker_id": self.config.worker_id,
-                "name": self.config.worker_name,
-                "capabilities": self.config.capabilities,
-                "hostname": os.uname().nodename,
-                "models": models,
-                "global_codebase_id": self._global_codebase_id,
+                'worker_id': self.config.worker_id,
+                'name': self.config.worker_name,
+                'capabilities': self.config.capabilities,
+                'hostname': os.uname().nodename,
+                'models': models,
+                'global_codebase_id': self._global_codebase_id,
             }
 
             async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    logger.info(f"Worker registered successfully: {data}")
+                    logger.info(f'Worker registered successfully: {data}')
                 else:
                     text = await resp.text()
-                    logger.warning(f"Worker registration returned {resp.status}: {text}")
+                    logger.warning(
+                        f'Worker registration returned {resp.status}: {text}'
+                    )
                     # Continue anyway - server might not have this endpoint yet
 
         except Exception as e:
-            logger.warning(f"Failed to register worker (continuing anyway): {e}")
+            logger.warning(
+                f'Failed to register worker (continuing anyway): {e}'
+            )
 
     async def unregister_worker(self):
         """Unregister this worker from the A2A server."""
         try:
             session = await self._get_session()
-            url = f"{self.config.server_url}/v1/opencode/workers/{self.config.worker_id}/unregister"
+            url = f'{self.config.server_url}/v1/opencode/workers/{self.config.worker_id}/unregister'
 
             async with session.post(url) as resp:
                 if resp.status == 200:
-                    logger.info("Worker unregistered successfully")
+                    logger.info('Worker unregistered successfully')
 
         except Exception as e:
-            logger.debug(f"Failed to unregister worker: {e}")
+            logger.debug(f'Failed to unregister worker: {e}')
 
-    async def register_codebase(self, name: str, path: str, description: str = "") -> Optional[str]:
+    async def send_heartbeat(self) -> bool:
+        """Send heartbeat to the A2A server to indicate worker is alive.
+
+        Returns True if heartbeat was successful, False otherwise.
+        """
+        try:
+            session = await self._get_session()
+            url = f'{self.config.server_url}/v1/opencode/workers/{self.config.worker_id}/heartbeat'
+
+            async with session.post(
+                url, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status == 200:
+                    logger.debug('Heartbeat sent successfully')
+                    return True
+                else:
+                    logger.warning(f'Heartbeat returned {resp.status}')
+                    return False
+
+        except Exception as e:
+            logger.debug(f'Failed to send heartbeat: {e}')
+            return False
+
+    async def register_codebase(
+        self, name: str, path: str, description: str = ''
+    ) -> Optional[str]:
         """Register a local codebase with the A2A server."""
         # Validate path exists locally
         if not os.path.isdir(path):
-            logger.error(f"Codebase path does not exist: {path}")
+            logger.error(f'Codebase path does not exist: {path}')
             return None
 
         # Normalize for comparisons / de-duping when re-registering.
@@ -383,27 +591,30 @@ class AgentWorker:
 
         try:
             session = await self._get_session()
-            url = f"{self.config.server_url}/v1/opencode/codebases"
+            url = f'{self.config.server_url}/v1/opencode/codebases'
 
             payload = {
-                "name": name,
-                "path": normalized_path,
-                "description": description,
-                "worker_id": self.config.worker_id,  # Associate with this worker
+                'name': name,
+                'path': normalized_path,
+                'description': description,
+                'worker_id': self.config.worker_id,  # Associate with this worker
             }
 
             async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    codebase_data = data.get("codebase", data)
-                    codebase_id = codebase_data.get("id")
+                    codebase_data = data.get('codebase', data)
+                    codebase_id = codebase_data.get('id')
 
                     # If we're re-registering after a server restart, the
                     # server may assign a new codebase ID for the same path.
                     # Remove any stale local entries for this path.
                     stale_ids = [
-                        cid for cid, cb in self.codebases.items()
-                        if os.path.abspath(os.path.expanduser(cb.path)) == normalized_path and cid != codebase_id
+                        cid
+                        for cid, cb in self.codebases.items()
+                        if os.path.abspath(os.path.expanduser(cb.path))
+                        == normalized_path
+                        and cid != codebase_id
                     ]
                     for cid in stale_ids:
                         self.codebases.pop(cid, None)
@@ -415,26 +626,43 @@ class AgentWorker:
                         description=description,
                     )
 
-                    logger.info(f"Registered codebase '{name}' (ID: {codebase_id}) at {path}")
+                    logger.info(
+                        f"Registered codebase '{name}' (ID: {codebase_id}) at {path}"
+                    )
                     return codebase_id
                 else:
                     text = await resp.text()
-                    logger.error(f"Failed to register codebase: {resp.status} - {text}")
+                    logger.error(
+                        f'Failed to register codebase: {resp.status} - {text}'
+                    )
                     return None
 
         except Exception as e:
-            logger.error(f"Failed to register codebase: {e}")
+            logger.error(f'Failed to register codebase: {e}')
             return None
 
     async def poll_loop(self):
         """Main loop - poll for tasks and execute them."""
-        logger.info(f"Starting poll loop (interval: {self.config.poll_interval}s)")
+        logger.info(
+            f'Starting poll loop (interval: {self.config.poll_interval}s)'
+        )
 
         session_sync_counter = 0
-        session_sync_interval = 12  # Sync sessions every 12 poll cycles (60s at 5s interval)
+        session_sync_interval = (
+            12  # Sync sessions every 12 poll cycles (60s at 5s interval)
+        )
+        heartbeat_counter = 0
+        heartbeat_interval = (
+            3  # Send heartbeat every 3 poll cycles (15s at 5s interval)
+        )
 
         # Track if we've successfully registered at least once
         registered_once = False
+
+        # Exponential backoff state for error recovery
+        consecutive_errors = 0
+        max_backoff = 60  # Maximum backoff in seconds
+        base_backoff = 2  # Base for exponential backoff
 
         while self.running:
             try:
@@ -442,6 +670,18 @@ class AgentWorker:
                 if not registered_once:
                     await self.register_worker()
                     registered_once = True
+
+                # Send heartbeat to keep worker alive on server
+                heartbeat_counter += 1
+                if heartbeat_counter >= heartbeat_interval:
+                    heartbeat_counter = 0
+                    heartbeat_success = await self.send_heartbeat()
+                    if not heartbeat_success:
+                        # Heartbeat failed - try to re-register
+                        logger.warning(
+                            'Heartbeat failed, attempting re-registration'
+                        )
+                        await self.register_worker()
 
                 # Get pending tasks for our codebases
                 tasks = await self.get_pending_tasks()
@@ -451,9 +691,12 @@ class AgentWorker:
                         break
 
                     # Check if this task is for one of our codebases
-                    codebase_id = task.get("codebase_id")
+                    codebase_id = task.get('codebase_id')
                     # Also allow special "__pending__" registration tasks that any worker can claim.
-                    if codebase_id in self.codebases or codebase_id == "__pending__":
+                    if (
+                        codebase_id in self.codebases
+                        or codebase_id == '__pending__'
+                    ):
                         await self.execute_task(task)
 
                 # Periodically sync sessions
@@ -468,19 +711,50 @@ class AgentWorker:
                     # Also re-register codebases in case the server lost state.
                     for cb_config in self.config.codebases:
                         await self.register_codebase(
-                            name=cb_config.get("name", Path(cb_config["path"]).name),
-                            path=cb_config["path"],
-                            description=cb_config.get("description", ""),
+                            name=cb_config.get(
+                                'name', Path(cb_config['path']).name
+                            ),
+                            path=cb_config['path'],
+                            description=cb_config.get('description', ''),
                         )
 
                     await self.report_sessions_to_server()
 
+                # Reset error counter on successful iteration
+                consecutive_errors = 0
+                await asyncio.sleep(self.config.poll_interval)
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in poll loop: {e}")
+                consecutive_errors += 1
+                # Calculate backoff with exponential increase, capped at max_backoff
+                backoff = min(base_backoff**consecutive_errors, max_backoff)
+                logger.error(
+                    f'Error in poll loop (attempt {consecutive_errors}): {e}. '
+                    f'Retrying in {backoff}s'
+                )
 
-            await asyncio.sleep(self.config.poll_interval)
+                # If we've had multiple consecutive errors, try to re-register
+                if consecutive_errors >= 3:
+                    logger.warning(
+                        'Multiple consecutive errors, attempting re-registration'
+                    )
+                    try:
+                        await self.register_worker()
+                        # Re-register codebases too
+                        for cb_config in self.config.codebases:
+                            await self.register_codebase(
+                                name=cb_config.get(
+                                    'name', Path(cb_config['path']).name
+                                ),
+                                path=cb_config['path'],
+                                description=cb_config.get('description', ''),
+                            )
+                    except Exception as re_err:
+                        logger.error(f'Re-registration failed: {re_err}')
+
+                await asyncio.sleep(backoff)
 
     async def get_pending_tasks(self) -> List[Dict[str, Any]]:
         """Get pending tasks from the server."""
@@ -490,10 +764,10 @@ class AgentWorker:
             # Get tasks for our worker's codebases
             codebase_ids = list(self.codebases.keys())
 
-            url = f"{self.config.server_url}/v1/opencode/tasks"
+            url = f'{self.config.server_url}/v1/opencode/tasks'
             params = {
-                "status": "pending",
-                "worker_id": self.config.worker_id,
+                'status': 'pending',
+                'worker_id': self.config.worker_id,
             }
 
             async with session.get(url, params=params) as resp:
@@ -503,67 +777,80 @@ class AgentWorker:
                     # 1. Tasks for our registered codebases
                     # 2. Registration tasks (codebase_id = '__pending__') that any worker can claim
                     return [
-                        t for t in tasks
-                        if t.get("codebase_id") in self.codebases
-                        or t.get("codebase_id") == "__pending__"
+                        t
+                        for t in tasks
+                        if t.get('codebase_id') in self.codebases
+                        or t.get('codebase_id') == '__pending__'
                     ]
                 else:
                     return []
 
         except Exception as e:
-            logger.debug(f"Failed to get pending tasks: {e}")
+            logger.debug(f'Failed to get pending tasks: {e}')
             return []
 
     async def execute_task(self, task: Dict[str, Any]):
         """Execute a task using OpenCode or handle special task types."""
-        task_id = task.get("id")
-        codebase_id = task.get("codebase_id")
-        agent_type = task.get("agent_type", "build")
+        task_id = task.get('id')
+        codebase_id = task.get('codebase_id')
+        agent_type = task.get('agent_type', 'build')
 
         # Handle special task types
-        if agent_type == "register_codebase":
+        if agent_type == 'register_codebase':
             await self.handle_register_codebase_task(task)
             return
 
         # Lightweight test/utility agent types that do not require OpenCode.
         # Useful for end-to-end validation of the CodeTether task queue.
-        if agent_type in ("echo", "noop"):
-            title = task.get("title")
-            logger.info(f"Executing lightweight task {task_id}: {title} (agent_type={agent_type})")
+        if agent_type in ('echo', 'noop'):
+            title = task.get('title')
+            logger.info(
+                f'Executing lightweight task {task_id}: {title} (agent_type={agent_type})'
+            )
 
-            await self.update_task_status(task_id, "running")
+            await self.update_task_status(task_id, 'running')
             try:
-                if agent_type == "noop":
-                    result = "ok"
+                if agent_type == 'noop':
+                    result = 'ok'
                 else:
                     # Echo returns the prompt/description verbatim.
-                    result = task.get("prompt", task.get("description", ""))
+                    result = task.get('prompt', task.get('description', ''))
 
-                await self.update_task_status(task_id, "completed", result=result)
-                logger.info(f"Task {task_id} completed successfully (agent_type={agent_type})")
+                await self.update_task_status(
+                    task_id, 'completed', result=result
+                )
+                logger.info(
+                    f'Task {task_id} completed successfully (agent_type={agent_type})'
+                )
             except Exception as e:
-                logger.error(f"Task {task_id} execution error (agent_type={agent_type}): {e}")
-                await self.update_task_status(task_id, "failed", error=str(e))
+                logger.error(
+                    f'Task {task_id} execution error (agent_type={agent_type}): {e}'
+                )
+                await self.update_task_status(task_id, 'failed', error=str(e))
             return
 
         # Regular task - requires existing codebase
         codebase = self.codebases.get(codebase_id)
 
         if not codebase:
-            logger.error(f"Codebase {codebase_id} not found for task {task_id}")
+            logger.error(f'Codebase {codebase_id} not found for task {task_id}')
             return
 
-        logger.info(f"Executing task {task_id}: {task.get('title')}")
+        logger.info(f'Executing task {task_id}: {task.get("title")}')
 
         # Claim the task
-        await self.update_task_status(task_id, "running")
+        await self.update_task_status(task_id, 'running')
 
         try:
             # Build the prompt
-            prompt = task.get("prompt", task.get("description", ""))
-            metadata = task.get("metadata", {})
-            model = metadata.get("model")  # e.g., "anthropic/claude-sonnet-4-20250514"
-            resume_session_id = metadata.get("resume_session_id")  # Session to resume
+            prompt = task.get('prompt', task.get('description', ''))
+            metadata = task.get('metadata', {})
+            model = metadata.get(
+                'model'
+            )  # e.g., "anthropic/claude-sonnet-4-20250514"
+            resume_session_id = metadata.get(
+                'resume_session_id'
+            )  # Session to resume
 
             # Run OpenCode
             result = await self.run_opencode(
@@ -576,24 +863,24 @@ class AgentWorker:
                 session_id=resume_session_id,
             )
 
-            if result["success"]:
+            if result['success']:
                 await self.update_task_status(
                     task_id,
-                    "completed",
-                    result=result.get("output", "Task completed successfully")
+                    'completed',
+                    result=result.get('output', 'Task completed successfully'),
                 )
-                logger.info(f"Task {task_id} completed successfully")
+                logger.info(f'Task {task_id} completed successfully')
             else:
                 await self.update_task_status(
                     task_id,
-                    "failed",
-                    error=result.get("error", "Unknown error")
+                    'failed',
+                    error=result.get('error', 'Unknown error'),
                 )
-                logger.error(f"Task {task_id} failed: {result.get('error')}")
+                logger.error(f'Task {task_id} failed: {result.get("error")}')
 
         except Exception as e:
-            logger.error(f"Task {task_id} execution error: {e}")
-            await self.update_task_status(task_id, "failed", error=str(e))
+            logger.error(f'Task {task_id} execution error: {e}')
+            await self.update_task_status(task_id, 'failed', error=str(e))
 
     async def handle_register_codebase_task(self, task: Dict[str, Any]):
         """
@@ -602,33 +889,35 @@ class AgentWorker:
         This validates the path exists locally and registers the codebase
         with this worker's ID.
         """
-        task_id = task.get("id")
-        metadata = task.get("metadata", {})
+        task_id = task.get('id')
+        metadata = task.get('metadata', {})
 
-        name = metadata.get("name", "Unknown")
-        path = metadata.get("path")
-        description = metadata.get("description", "")
+        name = metadata.get('name', 'Unknown')
+        path = metadata.get('path')
+        description = metadata.get('description', '')
 
-        logger.info(f"Handling registration task {task_id}: {name} at {path}")
+        logger.info(f'Handling registration task {task_id}: {name} at {path}')
 
         # Claim the task
-        await self.update_task_status(task_id, "running")
+        await self.update_task_status(task_id, 'running')
 
         try:
             # Validate path exists locally on this worker
             if not path:
                 await self.update_task_status(
-                    task_id, "failed",
-                    error="No path provided in registration task"
+                    task_id,
+                    'failed',
+                    error='No path provided in registration task',
                 )
                 return
 
             if not os.path.isdir(path):
                 await self.update_task_status(
-                    task_id, "failed",
-                    error=f"Path does not exist on this worker: {path}"
+                    task_id,
+                    'failed',
+                    error=f'Path does not exist on this worker: {path}',
                 )
-                logger.warning(f"Registration failed - path not found: {path}")
+                logger.warning(f'Registration failed - path not found: {path}')
                 return
 
             # Path exists! Register it with the server (with our worker_id)
@@ -640,26 +929,30 @@ class AgentWorker:
 
             if codebase_id:
                 await self.update_task_status(
-                    task_id, "completed",
-                    result=f"Codebase registered successfully with ID: {codebase_id}"
+                    task_id,
+                    'completed',
+                    result=f'Codebase registered successfully with ID: {codebase_id}',
                 )
-                logger.info(f"Registration task {task_id} completed: {name} -> {codebase_id}")
+                logger.info(
+                    f'Registration task {task_id} completed: {name} -> {codebase_id}'
+                )
             else:
                 await self.update_task_status(
-                    task_id, "failed",
-                    error="Failed to register codebase with server"
+                    task_id,
+                    'failed',
+                    error='Failed to register codebase with server',
                 )
 
         except Exception as e:
-            logger.error(f"Registration task {task_id} error: {e}")
-            await self.update_task_status(task_id, "failed", error=str(e))
+            logger.error(f'Registration task {task_id} error: {e}')
+            await self.update_task_status(task_id, 'failed', error=str(e))
 
     async def run_opencode(
         self,
         codebase_id: str,
         codebase_path: str,
         prompt: str,
-        agent_type: str = "build",
+        agent_type: str = 'build',
         task_id: Optional[str] = None,
         model: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -669,9 +962,9 @@ class AgentWorker:
         def _extract_session_id(obj: Any) -> Optional[str]:
             """Best-effort extraction of an OpenCode session id from JSON output."""
             if isinstance(obj, dict):
-                for k in ("sessionID", "session_id", "sessionId", "session"):
+                for k in ('sessionID', 'session_id', 'sessionId', 'session'):
                     v = obj.get(k)
-                    if isinstance(v, str) and v.startswith("ses_"):
+                    if isinstance(v, str) and v.startswith('ses_'):
                         return v
                 for v in obj.values():
                     found = _extract_session_id(v)
@@ -696,30 +989,67 @@ class AgentWorker:
 
                 session = await self._get_session()
                 url = (
-                    f"{self.config.server_url}/v1/opencode/codebases/{codebase_id}"
-                    f"/sessions/{target_session_id}/messages/sync"
+                    f'{self.config.server_url}/v1/opencode/codebases/{codebase_id}'
+                    f'/sessions/{target_session_id}/messages/sync'
                 )
                 payload = {
-                    "worker_id": self.config.worker_id,
-                    "messages": messages,
+                    'worker_id': self.config.worker_id,
+                    'messages': messages,
                 }
                 async with session.post(url, json=payload) as resp:
                     return resp.status == 200
             except Exception as e:
-                logger.debug(f"Eager message sync failed for session {target_session_id}: {e}")
+                logger.debug(
+                    f'Eager message sync failed for session {target_session_id}: {e}'
+                )
                 return False
 
         def _messages_fingerprint(messages: List[Dict[str, Any]]) -> str:
-            """Cheap-ish fingerprint so we only sync when something changes."""
+            """Fingerprint that detects any message update for reliable sync.
+
+            Computes a fingerprint based on:
+            - Total message count
+            - Last message ID and parts count
+            - Sum of all parts across all messages (detects updates to any message)
+            - Last part ID from each message (detects new parts added anywhere)
+
+            This ensures the worker syncs to the database every time any message
+            is updated, not just when new messages are added.
+            """
             if not messages:
-                return ""
+                return ''
             last = messages[-1]
-            last_id = last.get("id") or ""
-            parts = last.get("parts")
-            parts_len = len(parts) if isinstance(parts, list) else 0
+            last_id = last.get('id') or ''
+            last_parts = last.get('parts')
+            last_parts_len = (
+                len(last_parts) if isinstance(last_parts, list) else 0
+            )
             # Include total message count and last created timestamp when available.
-            created = ((last.get("time") or {}) if isinstance(last.get("time"), dict) else {}).get("created") or ""
-            return f"{len(messages)}|{last_id}|{parts_len}|{created}"
+            created = (
+                (last.get('time') or {})
+                if isinstance(last.get('time'), dict)
+                else {}
+            ).get('created') or ''
+
+            # Sum all parts across all messages to detect any message update
+            total_parts = 0
+            last_part_ids = []
+            for msg in messages:
+                parts = msg.get('parts')
+                if isinstance(parts, list):
+                    total_parts += len(parts)
+                    # Track the last part ID from each message to detect new parts
+                    if parts:
+                        last_part = parts[-1]
+                        if isinstance(last_part, dict):
+                            last_part_ids.append(last_part.get('id') or '')
+
+            # Include hash of last part IDs to detect updates within messages
+            part_ids_hash = (
+                hash(tuple(last_part_ids)) & 0xFFFFFFFF
+            )  # 32-bit hash
+
+            return f'{len(messages)}|{last_id}|{last_parts_len}|{created}|{total_parts}|{part_ids_hash}'
 
         async def _infer_active_session_id(
             *,
@@ -732,7 +1062,7 @@ class AgentWorker:
                 if not sessions:
                     return None
                 top = sessions[0]
-                sid = top.get("id")
+                sid = top.get('id')
                 if not isinstance(sid, str) or not sid:
                     return None
 
@@ -741,7 +1071,7 @@ class AgentWorker:
                     return sid
 
                 # Or sessions updated after the task started.
-                updated = top.get("updated")
+                updated = top.get('updated')
                 if isinstance(updated, str) and updated:
                     try:
                         # worker writes naive isoformat; treat as local time.
@@ -764,13 +1094,15 @@ class AgentWorker:
 
             try:
                 data_home = os.environ.get(
-                    "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
+                    'XDG_DATA_HOME', str(Path.home() / '.local' / 'share')
                 )
-                log_dir = Path(os.path.expanduser(data_home)) / "opencode" / "log"
+                log_dir = (
+                    Path(os.path.expanduser(data_home)) / 'opencode' / 'log'
+                )
                 if not log_dir.exists() or not log_dir.is_dir():
                     return None
 
-                logs = list(log_dir.glob("*.log"))
+                logs = list(log_dir.glob('*.log'))
                 if not logs:
                     return None
 
@@ -780,49 +1112,61 @@ class AgentWorker:
                     return None
 
                 try:
-                    tail_lines = latest.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+                    tail_lines = latest.read_text(
+                        encoding='utf-8', errors='replace'
+                    ).splitlines()[-80:]
                 except Exception:
                     tail_lines = []
 
-                tail_text = "\n".join(tail_lines)
-                if "API key is missing" in tail_text or "AI_LoadAPIKeyError" in tail_text:
+                tail_text = '\n'.join(tail_lines)
+                if (
+                    'API key is missing' in tail_text
+                    or 'AI_LoadAPIKeyError' in tail_text
+                ):
                     return (
-                        "OpenCode is missing LLM credentials (e.g. ANTHROPIC_API_KEY). "
-                        "Set the required key(s) in /etc/a2a-worker/env and restart the worker. "
-                        f"OpenCode log: {latest}"
+                        'OpenCode is missing LLM credentials (e.g. ANTHROPIC_API_KEY). '
+                        'Set the required key(s) in /etc/a2a-worker/env and restart the worker. '
+                        f'OpenCode log: {latest}'
                     )
 
-                return f"OpenCode exited with code {returncode}. See OpenCode log: {latest}"
+                return f'OpenCode exited with code {returncode}. See OpenCode log: {latest}'
             except Exception:
                 return None
 
         # Check if opencode exists
         if not Path(self.opencode_bin).exists():
-            return {"success": False, "error": f"OpenCode not found at {self.opencode_bin}"}
+            return {
+                'success': False,
+                'error': f'OpenCode not found at {self.opencode_bin}',
+            }
 
         # Build command using 'opencode run' with proper flags
         cmd = [
             self.opencode_bin,
-            "run",
-            "--agent", agent_type,
-            "--format", "json",
+            'run',
+            '--agent',
+            agent_type,
+            '--format',
+            'json',
         ]
 
         # Add model if specified (format: provider/model)
         if model:
-            cmd.extend(["--model", model])
+            cmd.extend(['--model', model])
 
         # Add session resumption if specified
         if session_id:
-            cmd.extend(["--session", session_id])
-            logger.info(f"Resuming session: {session_id}")
+            cmd.extend(['--session', session_id])
+            logger.info(f'Resuming session: {session_id}')
 
         # Add the prompt as the last argument
         cmd.append(prompt)
 
-        log_model = f" --model {model}" if model else ""
-        log_session = f" --session {session_id}" if session_id else ""
-        logger.info(f"Running: {self.opencode_bin} run --agent {agent_type}{log_model}{log_session} ...")
+        log_model = f' --model {model}' if model else ''
+        log_session = f' --session {session_id}' if session_id else ''
+        logger.info(
+            f'Running: {self.opencode_bin} run --agent {agent_type}{log_model}{log_session} ...'
+        )
 
         try:
             start_epoch_s = time.time()
@@ -830,7 +1174,9 @@ class AgentWorker:
             if not session_id:
                 try:
                     known_sessions_before = {
-                        str(s.get("id")) for s in self.get_sessions_for_codebase(codebase_path) if s.get("id")
+                        str(s.get('id'))
+                        for s in self.get_sessions_for_codebase(codebase_path)
+                        if s.get('id')
                     }
                 except Exception:
                     known_sessions_before = set()
@@ -846,7 +1192,7 @@ class AgentWorker:
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,  # Line buffered
-                env={**os.environ, "NO_COLOR": "1"},
+                env={**os.environ, 'NO_COLOR': '1'},
             )
 
             if task_id:
@@ -855,11 +1201,18 @@ class AgentWorker:
             # Eagerly sync the *active* session messages while the task runs.
             eager_sync_interval = 1.0
             try:
-                eager_sync_interval = float(os.environ.get("A2A_ACTIVE_SESSION_SYNC_INTERVAL", eager_sync_interval))
+                eager_sync_interval = float(
+                    os.environ.get(
+                        'A2A_ACTIVE_SESSION_SYNC_INTERVAL', eager_sync_interval
+                    )
+                )
             except Exception:
                 eager_sync_interval = 1.0
 
-            max_messages = getattr(self.config, "session_message_sync_max_messages", 0) or 0
+            max_messages = (
+                getattr(self.config, 'session_message_sync_max_messages', 0)
+                or 0
+            )
             if max_messages <= 0:
                 max_messages = 100
 
@@ -878,11 +1231,13 @@ class AgentWorker:
 
                     if active_session_id and task_id and not session_attached:
                         # Attach the session id to the running task so UIs can deep-link.
-                        await self.update_task_status(task_id, "running", session_id=active_session_id)
+                        await self.update_task_status(
+                            task_id, 'running', session_id=active_session_id
+                        )
                         session_attached = True
 
                     if active_session_id:
-                        # Only sync when something changed.
+                        # Sync whenever the message fingerprint changes (any message update).
                         try:
                             current_messages = self.get_session_messages(
                                 str(active_session_id),
@@ -896,8 +1251,11 @@ class AgentWorker:
                                 )
                                 if ok:
                                     last_fp = fp
+                                    logger.debug(
+                                        f'Synced messages for session {active_session_id} (fingerprint changed)'
+                                    )
                         except Exception as e:
-                            logger.debug(f"Eager sync loop read failed: {e}")
+                            logger.debug(f'Eager sync loop read failed: {e}')
 
                     await asyncio.sleep(max(0.2, eager_sync_interval))
 
@@ -930,7 +1288,11 @@ class AgentWorker:
                     ret = process.poll()
 
                     # Read available output without blocking the event loop.
-                    streams = [s for s in (process.stdout, process.stderr) if s is not None]
+                    streams = [
+                        s
+                        for s in (process.stdout, process.stderr)
+                        if s is not None
+                    ]
                     if streams:
                         readable, _, _ = select.select(streams, [], [], 0)
                         for s in readable:
@@ -945,17 +1307,24 @@ class AgentWorker:
                                 if not active_session_id:
                                     try:
                                         obj = json.loads(line)
-                                        active_session_id = _extract_session_id(obj) or active_session_id
+                                        active_session_id = (
+                                            _extract_session_id(obj)
+                                            or active_session_id
+                                        )
                                     except Exception:
                                         pass
 
                                 # Stream output to server
                                 if task_id:
-                                    await self.stream_task_output(task_id, line.strip())
+                                    await self.stream_task_output(
+                                        task_id, line.strip()
+                                    )
                             else:
                                 stderr_lines.append(line)
                                 if task_id:
-                                    await self.stream_task_output(task_id, f"[stderr] {line.strip()}")
+                                    await self.stream_task_output(
+                                        task_id, f'[stderr] {line.strip()}'
+                                    )
 
                     if ret is not None:
                         # Process finished, read remaining output
@@ -964,13 +1333,15 @@ class AgentWorker:
                             if remaining:
                                 output_lines.append(remaining)
                                 if task_id:
-                                    await self.stream_task_output(task_id, remaining.strip())
+                                    await self.stream_task_output(
+                                        task_id, remaining.strip()
+                                    )
                         break
 
                     # Small sleep to prevent busy loop
                     await asyncio.sleep(0.05)
 
-                stdout = "".join(output_lines)
+                stdout = ''.join(output_lines)
                 if process.stderr:
                     try:
                         remaining_err = process.stderr.read()
@@ -978,13 +1349,16 @@ class AgentWorker:
                             stderr_lines.append(remaining_err)
                     except Exception:
                         pass
-                stderr = "".join(stderr_lines)
+                stderr = ''.join(stderr_lines)
 
             except subprocess.TimeoutExpired:
                 process.kill()
-                stdout = "".join(output_lines)
-                stderr = process.stderr.read() if process.stderr else ""
-                return {"success": False, "error": "Task timed out after 10 minutes"}
+                stdout = ''.join(output_lines)
+                stderr = process.stderr.read() if process.stderr else ''
+                return {
+                    'success': False,
+                    'error': 'Task timed out after 10 minutes',
+                }
             finally:
                 if task_id and task_id in self.active_processes:
                     del self.active_processes[task_id]
@@ -995,14 +1369,17 @@ class AgentWorker:
                         pass
 
             if process.returncode == 0:
-                return {"success": True, "output": stdout}
+                return {'success': True, 'output': stdout}
             else:
                 hint = _recent_opencode_log_hint(process.returncode)
-                err = (stderr or "").strip()
-                return {"success": False, "error": err or hint or f"Exit code: {process.returncode}"}
+                err = (stderr or '').strip()
+                return {
+                    'success': False,
+                    'error': err or hint or f'Exit code: {process.returncode}',
+                }
 
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {'success': False, 'error': str(e)}
 
     async def stream_task_output(self, task_id: str, output: str):
         """Stream output chunk to the server."""
@@ -1010,19 +1387,19 @@ class AgentWorker:
             return
         try:
             session = await self._get_session()
-            url = f"{self.config.server_url}/v1/opencode/tasks/{task_id}/output"
+            url = f'{self.config.server_url}/v1/opencode/tasks/{task_id}/output'
 
             payload = {
-                "worker_id": self.config.worker_id,
-                "output": output,
-                "timestamp": datetime.now().isoformat(),
+                'worker_id': self.config.worker_id,
+                'output': output,
+                'timestamp': datetime.now().isoformat(),
             }
 
             async with session.post(url, json=payload) as resp:
                 if resp.status != 200:
-                    logger.debug(f"Failed to stream output: {resp.status}")
+                    logger.debug(f'Failed to stream output: {resp.status}')
         except Exception as e:
-            logger.debug(f"Failed to stream output: {e}")
+            logger.debug(f'Failed to stream output: {e}')
 
     async def update_task_status(
         self,
@@ -1035,26 +1412,28 @@ class AgentWorker:
         """Update task status on the server."""
         try:
             session = await self._get_session()
-            url = f"{self.config.server_url}/v1/opencode/tasks/{task_id}/status"
+            url = f'{self.config.server_url}/v1/opencode/tasks/{task_id}/status'
 
             payload = {
-                "status": status,
-                "worker_id": self.config.worker_id,
+                'status': status,
+                'worker_id': self.config.worker_id,
             }
             if session_id:
-                payload["session_id"] = session_id
+                payload['session_id'] = session_id
             if result:
-                payload["result"] = result
+                payload['result'] = result
             if error:
-                payload["error"] = error
+                payload['error'] = error
 
             async with session.put(url, json=payload) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    logger.warning(f"Failed to update task status: {resp.status} - {text}")
+                    logger.warning(
+                        f'Failed to update task status: {resp.status} - {text}'
+                    )
 
         except Exception as e:
-            logger.error(f"Failed to update task status: {e}")
+            logger.error(f'Failed to update task status: {e}')
 
     def _get_opencode_storage_path(self) -> Path:
         """Get the OpenCode global storage path.
@@ -1080,35 +1459,41 @@ class AgentWorker:
 
         def _storage_has_message_data(storage: Path) -> bool:
             """Return True if this storage appears to contain message/part data."""
-            return _dir_has_any_children(storage / "message") and _dir_has_any_children(storage / "part")
+            return _dir_has_any_children(
+                storage / 'message'
+            ) and _dir_has_any_children(storage / 'part')
 
         def _storage_match_score(storage: Path) -> int:
             """Return how many registered codebases appear in this OpenCode storage's project list."""
             codebase_paths: List[str] = [
-                cb.get("path") for cb in (self.config.codebases or []) if cb.get("path")
+                cb.get('path')
+                for cb in (self.config.codebases or [])
+                if cb.get('path')
             ]
             if not codebase_paths:
                 return 0
 
-            project_dir = storage / "project"
+            project_dir = storage / 'project'
             if not project_dir.exists() or not project_dir.is_dir():
                 return 0
 
             # Compare resolved paths to handle symlinks/relative config.
             try:
-                resolved_codebases = {str(Path(p).resolve()) for p in codebase_paths}
+                resolved_codebases = {
+                    str(Path(p).resolve()) for p in codebase_paths
+                }
             except Exception:
                 resolved_codebases = set(codebase_paths)
 
             matched: set[str] = set()
 
-            for project_file in project_dir.glob("*.json"):
-                if project_file.stem == "global":
+            for project_file in project_dir.glob('*.json'):
+                if project_file.stem == 'global':
                     continue
                 try:
-                    with open(project_file, "r", encoding="utf-8") as f:
+                    with open(project_file, 'r', encoding='utf-8') as f:
                         project = json.load(f)
-                    worktree = project.get("worktree")
+                    worktree = project.get('worktree')
                     if not worktree:
                         continue
                     try:
@@ -1129,8 +1514,8 @@ class AgentWorker:
         # 1) Explicit override (config/env)
         override = (
             self.config.opencode_storage_path
-            or os.environ.get("A2A_OPENCODE_STORAGE_PATH")
-            or os.environ.get("OPENCODE_STORAGE_PATH")
+            or os.environ.get('A2A_OPENCODE_STORAGE_PATH')
+            or os.environ.get('OPENCODE_STORAGE_PATH')
         )
         if override:
             override_path = Path(os.path.expanduser(override)).resolve()
@@ -1138,33 +1523,53 @@ class AgentWorker:
 
         # 2) Standard per-user location for the current service user
         xdg_data = os.environ.get(
-            "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
+            'XDG_DATA_HOME', str(Path.home() / '.local' / 'share')
         )
-        candidates.append(Path(os.path.expanduser(xdg_data)) / "opencode" / "storage")
+        candidates.append(
+            Path(os.path.expanduser(xdg_data)) / 'opencode' / 'storage'
+        )
 
         # 3) Heuristic: infer /home/<user> from codebase paths
         inferred_users: List[str] = []
         for cb in self.config.codebases:
-            p = cb.get("path")
+            p = cb.get('path')
             if not p:
                 continue
             parts = Path(p).parts
-            if len(parts) >= 3 and parts[0] == "/" and parts[1] == "home":
+            if len(parts) >= 3 and parts[0] == '/' and parts[1] == 'home':
                 inferred_users.append(parts[2])
 
         # Also infer from the opencode binary path (often /home/<user>/.opencode/bin/opencode)
         try:
             bin_parts = Path(self.opencode_bin).parts
-            if len(bin_parts) >= 3 and bin_parts[0] == "/" and bin_parts[1] == "home":
+            if (
+                len(bin_parts) >= 3
+                and bin_parts[0] == '/'
+                and bin_parts[1] == 'home'
+            ):
                 inferred_users.append(bin_parts[2])
         except Exception:
             pass
 
         for user in dict.fromkeys(inferred_users):  # preserve order, de-dupe
-            candidates.append(Path("/home") / user / ".local" / "share" / "opencode" / "storage")
+            candidates.append(
+                Path('/home')
+                / user
+                / '.local'
+                / 'share'
+                / 'opencode'
+                / 'storage'
+            )
 
         inferred_candidate_paths = {
-            (Path("/home") / user / ".local" / "share" / "opencode" / "storage").resolve()
+            (
+                Path('/home')
+                / user
+                / '.local'
+                / 'share'
+                / 'opencode'
+                / 'storage'
+            ).resolve()
             for user in dict.fromkeys(inferred_users)
         }
 
@@ -1181,19 +1586,27 @@ class AgentWorker:
                     # Explicit override wins if it exists.
                     if override_path is not None and c == override_path:
                         self._opencode_storage_path = c
-                        logger.info(f"Using OpenCode storage at (override): {c}")
+                        logger.info(
+                            f'Using OpenCode storage at (override): {c}'
+                        )
                         return c
 
                     # Otherwise, score by how many registered codebases this storage contains.
                     score_codebases = _storage_match_score(c)
                     has_message_data = 1 if _storage_has_message_data(c) else 0
-                    inferred_bonus = 1 if c.resolve() in inferred_candidate_paths else 0
+                    inferred_bonus = (
+                        1 if c.resolve() in inferred_candidate_paths else 0
+                    )
 
                     # Prefer:
                     #  1) Storage that matches registered codebases
                     #  2) Storage that actually contains message/part data (for session detail UI)
                     #  3) Inferred /home/<user> storage over service-account storage when tied
-                    score_tuple = (score_codebases, has_message_data, inferred_bonus)
+                    score_tuple = (
+                        score_codebases,
+                        has_message_data,
+                        inferred_bonus,
+                    )
 
                     if best_tuple is None or score_tuple > best_tuple:
                         best_tuple = score_tuple
@@ -1205,7 +1618,7 @@ class AgentWorker:
             if best_tuple[0] > 0:
                 self._opencode_storage_path = best_match
                 logger.info(
-                    f"Using OpenCode storage at: {best_match} (matched {best_tuple[0]} codebase(s))"
+                    f'Using OpenCode storage at: {best_match} (matched {best_tuple[0]} codebase(s))'
                 )
                 return best_match
 
@@ -1214,7 +1627,7 @@ class AgentWorker:
             if best_tuple[1] > 0 or best_tuple[2] > 0:
                 self._opencode_storage_path = best_match
                 logger.info(
-                    "Using OpenCode storage at: %s (best available; message_data=%s, inferred_home=%s)",
+                    'Using OpenCode storage at: %s (best available; message_data=%s, inferred_home=%s)',
                     best_match,
                     bool(best_tuple[1]),
                     bool(best_tuple[2]),
@@ -1225,75 +1638,88 @@ class AgentWorker:
             # Fall back to *something* that exists, but warn because it might be empty/wrong.
             self._opencode_storage_path = first_existing
             logger.warning(
-                "OpenCode storage path exists but did not match any registered codebase projects; "
-                f"falling back to: {first_existing}"
+                'OpenCode storage path exists but did not match any registered codebase projects; '
+                f'falling back to: {first_existing}'
             )
             return first_existing
 
         # Final fallback (even if it doesn't exist yet)
-        self._opencode_storage_path = candidates[0] if candidates else (Path.home() / ".local" / "share" / "opencode" / "storage")
-        logger.warning(f"OpenCode storage path not found on disk; defaulting to: {self._opencode_storage_path}")
+        self._opencode_storage_path = (
+            candidates[0]
+            if candidates
+            else (Path.home() / '.local' / 'share' / 'opencode' / 'storage')
+        )
+        logger.warning(
+            f'OpenCode storage path not found on disk; defaulting to: {self._opencode_storage_path}'
+        )
         return self._opencode_storage_path
 
     def _get_project_id_for_path(self, codebase_path: str) -> Optional[str]:
         """Get the OpenCode project ID (hash) for a given codebase path."""
         storage_path = self._get_opencode_storage_path()
-        project_dir = storage_path / "project"
+        project_dir = storage_path / 'project'
 
         if not project_dir.exists():
             return None
 
         # Read all project files to find the matching worktree
-        for project_file in project_dir.glob("*.json"):
-            if project_file.stem == "global":
+        for project_file in project_dir.glob('*.json'):
+            if project_file.stem == 'global':
                 continue
             try:
-                with open(project_file, "r", encoding="utf-8") as f:
+                with open(project_file, 'r', encoding='utf-8') as f:
                     project = json.load(f)
-                worktree = project.get("worktree")
+                worktree = project.get('worktree')
                 if worktree:
                     try:
-                        if Path(worktree).resolve() == Path(codebase_path).resolve():
-                            return project.get("id")
+                        if (
+                            Path(worktree).resolve()
+                            == Path(codebase_path).resolve()
+                        ):
+                            return project.get('id')
                     except Exception:
                         if worktree == codebase_path:
-                            return project.get("id")
+                            return project.get('id')
             except Exception:
                 continue
 
         return None
 
-    def get_sessions_for_codebase(self, codebase_path: str) -> List[Dict[str, Any]]:
+    def get_sessions_for_codebase(
+        self, codebase_path: str
+    ) -> List[Dict[str, Any]]:
         """Get all OpenCode sessions for a codebase."""
         project_id = self._get_project_id_for_path(codebase_path)
         if not project_id:
-            logger.debug(f"No OpenCode project ID found for {codebase_path}")
+            logger.debug(f'No OpenCode project ID found for {codebase_path}')
             return []
 
         storage_path = self._get_opencode_storage_path()
-        session_dir = storage_path / "session" / project_id
+        session_dir = storage_path / 'session' / project_id
 
         if not session_dir.exists():
             return []
 
         sessions: List[Dict[str, Any]] = []
-        for session_file in session_dir.glob("ses_*.json"):
+        for session_file in session_dir.glob('ses_*.json'):
             try:
                 with open(session_file) as f:
                     session_data = json.load(f)
                     # Convert timestamps from milliseconds to ISO format
-                    time_data = session_data.get("time", {})
-                    created_ms = time_data.get("created", 0)
-                    updated_ms = time_data.get("updated", 0)
+                    time_data = session_data.get('time', {})
+                    created_ms = time_data.get('created', 0)
+                    updated_ms = time_data.get('updated', 0)
 
-                    session_id = session_data.get("id")
+                    session_id = session_data.get('id')
                     # OpenCode stores messages separately; count message files for UI convenience.
                     msg_count = 0
                     if session_id:
-                        msg_dir = storage_path / "message" / str(session_id)
+                        msg_dir = storage_path / 'message' / str(session_id)
                         try:
                             if msg_dir.exists():
-                                msg_count = len(list(msg_dir.glob("msg_*.json")))
+                                msg_count = len(
+                                    list(msg_dir.glob('msg_*.json'))
+                                )
                         except Exception:
                             msg_count = 0
 
@@ -1308,50 +1734,54 @@ class AgentWorker:
                         else None
                     )
 
-                    sessions.append({
-                        "id": session_id,
-                        "title": session_data.get("title", "Untitled"),
-                        "directory": session_data.get("directory"),
-                        "project_id": project_id,
-                        # Match the UI expectations from monitor-tailwind.html
-                        "created": created_iso,
-                        "updated": updated_iso,
-                        "messageCount": msg_count,
-                        "summary": session_data.get("summary", {}),
-                        "version": session_data.get("version"),
-                    })
+                    sessions.append(
+                        {
+                            'id': session_id,
+                            'title': session_data.get('title', 'Untitled'),
+                            'directory': session_data.get('directory'),
+                            'project_id': project_id,
+                            # Match the UI expectations from monitor-tailwind.html
+                            'created': created_iso,
+                            'updated': updated_iso,
+                            'messageCount': msg_count,
+                            'summary': session_data.get('summary', {}),
+                            'version': session_data.get('version'),
+                        }
+                    )
             except Exception as e:
-                logger.debug(f"Error reading session file {session_file}: {e}")
+                logger.debug(f'Error reading session file {session_file}: {e}')
                 continue
 
         # Sort by updated time descending
-        sessions.sort(key=lambda s: s.get("updated") or "", reverse=True)
+        sessions.sort(key=lambda s: s.get('updated') or '', reverse=True)
         return sessions
 
     def get_global_sessions(self) -> List[Dict[str, Any]]:
         """Get all global OpenCode sessions (not associated with a specific project)."""
         storage_path = self._get_opencode_storage_path()
-        session_dir = storage_path / "session" / "global"
+        session_dir = storage_path / 'session' / 'global'
 
         if not session_dir.exists():
             return []
 
         sessions: List[Dict[str, Any]] = []
-        for session_file in session_dir.glob("ses_*.json"):
+        for session_file in session_dir.glob('ses_*.json'):
             try:
                 with open(session_file) as f:
                     session_data = json.load(f)
-                    time_data = session_data.get("time", {})
-                    created_ms = time_data.get("created", 0)
-                    updated_ms = time_data.get("updated", 0)
+                    time_data = session_data.get('time', {})
+                    created_ms = time_data.get('created', 0)
+                    updated_ms = time_data.get('updated', 0)
 
-                    session_id = session_data.get("id")
+                    session_id = session_data.get('id')
                     msg_count = 0
                     if session_id:
-                        msg_dir = storage_path / "message" / str(session_id)
+                        msg_dir = storage_path / 'message' / str(session_id)
                         try:
                             if msg_dir.exists():
-                                msg_count = len(list(msg_dir.glob("msg_*.json")))
+                                msg_count = len(
+                                    list(msg_dir.glob('msg_*.json'))
+                                )
                         except Exception:
                             msg_count = 0
 
@@ -1366,34 +1796,44 @@ class AgentWorker:
                         else None
                     )
 
-                    sessions.append({
-                        "id": session_id,
-                        "title": session_data.get("title", "Untitled"),
-                        "directory": session_data.get("directory"),
-                        "project_id": "global",
-                        "created": created_iso,
-                        "updated": updated_iso,
-                        "messageCount": msg_count,
-                        "summary": session_data.get("summary", {}),
-                        "version": session_data.get("version"),
-                    })
+                    sessions.append(
+                        {
+                            'id': session_id,
+                            'title': session_data.get('title', 'Untitled'),
+                            'directory': session_data.get('directory'),
+                            'project_id': 'global',
+                            'created': created_iso,
+                            'updated': updated_iso,
+                            'messageCount': msg_count,
+                            'summary': session_data.get('summary', {}),
+                            'version': session_data.get('version'),
+                        }
+                    )
             except Exception as e:
-                logger.debug(f"Error reading global session file {session_file}: {e}")
+                logger.debug(
+                    f'Error reading global session file {session_file}: {e}'
+                )
                 continue
 
-        sessions.sort(key=lambda s: s.get("updated") or "", reverse=True)
+        sessions.sort(key=lambda s: s.get('updated') or '', reverse=True)
         return sessions
 
-    def get_session_messages(self, session_id: str, max_messages: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_session_messages(
+        self, session_id: str, max_messages: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """Get messages (including parts) for a specific session from OpenCode storage."""
         storage_path = self._get_opencode_storage_path()
-        message_dir = storage_path / "message" / session_id
+        message_dir = storage_path / 'message' / session_id
 
         if not message_dir.exists():
             return []
 
-        msg_files = sorted(message_dir.glob("msg_*.json"))
-        if max_messages is not None and max_messages > 0 and len(msg_files) > max_messages:
+        msg_files = sorted(message_dir.glob('msg_*.json'))
+        if (
+            max_messages is not None
+            and max_messages > 0
+            and len(msg_files) > max_messages
+        ):
             msg_files = msg_files[-max_messages:]
 
         messages: List[Dict[str, Any]] = []
@@ -1402,21 +1842,21 @@ class AgentWorker:
                 with open(msg_file) as f:
                     msg_data = json.load(f)
 
-                msg_id = msg_data.get("id")
-                role = msg_data.get("role")
-                agent = msg_data.get("agent")
-                model_obj = msg_data.get("model") or {}
+                msg_id = msg_data.get('id')
+                role = msg_data.get('role')
+                agent = msg_data.get('agent')
+                model_obj = msg_data.get('model') or {}
                 model = None
                 if isinstance(model_obj, dict):
-                    provider_id = model_obj.get("providerID")
-                    model_id = model_obj.get("modelID")
+                    provider_id = model_obj.get('providerID')
+                    model_id = model_obj.get('modelID')
                     if provider_id and model_id:
-                        model = f"{provider_id}/{model_id}"
+                        model = f'{provider_id}/{model_id}'
                 elif isinstance(model_obj, str):
                     model = model_obj
 
-                time_data = msg_data.get("time", {}) or {}
-                created_ms = time_data.get("created", 0)
+                time_data = msg_data.get('time', {}) or {}
+                created_ms = time_data.get('created', 0)
                 created_iso = (
                     datetime.fromtimestamp(created_ms / 1000).isoformat()
                     if created_ms
@@ -1426,44 +1866,58 @@ class AgentWorker:
                 # Load message parts (text/tool/step/etc)
                 parts: List[Dict[str, Any]] = []
                 if msg_id:
-                    parts_dir = storage_path / "part" / str(msg_id)
+                    parts_dir = storage_path / 'part' / str(msg_id)
                     if parts_dir.exists() and parts_dir.is_dir():
-                        for part_file in sorted(parts_dir.glob("prt_*.json")):
+                        for part_file in sorted(parts_dir.glob('prt_*.json')):
                             try:
-                                with open(part_file, "r", encoding="utf-8") as f:
+                                with open(
+                                    part_file, 'r', encoding='utf-8'
+                                ) as f:
                                     part_data = json.load(f)
                                 part_obj: Dict[str, Any] = {
-                                    "id": part_data.get("id"),
-                                    "type": part_data.get("type"),
+                                    'id': part_data.get('id'),
+                                    'type': part_data.get('type'),
                                 }
-                                for k in ("text", "tool", "state", "reason", "callID", "cost", "tokens"):
+                                for k in (
+                                    'text',
+                                    'tool',
+                                    'state',
+                                    'reason',
+                                    'callID',
+                                    'cost',
+                                    'tokens',
+                                ):
                                     if k in part_data:
                                         part_obj[k] = part_data.get(k)
                                 parts.append(part_obj)
                             except Exception as e:
-                                logger.debug(f"Error reading part file {part_file}: {e}")
+                                logger.debug(
+                                    f'Error reading part file {part_file}: {e}'
+                                )
 
                 messages.append(
                     {
-                        "id": msg_id,
-                        "sessionID": msg_data.get("sessionID") or session_id,
-                        "role": role,
-                        "time": {"created": created_iso},
-                        "agent": agent,
-                        "model": model,
+                        'id': msg_id,
+                        'sessionID': msg_data.get('sessionID') or session_id,
+                        'role': role,
+                        'time': {'created': created_iso},
+                        'agent': agent,
+                        'model': model,
                         # OpenCode message-level metadata (preferred for UI stats)
-                        "cost": msg_data.get("cost"),
-                        "tokens": msg_data.get("tokens"),
-                        "tool_calls": msg_data.get("tool_calls") or msg_data.get("toolCalls") or [],
-                        "parts": parts,
+                        'cost': msg_data.get('cost'),
+                        'tokens': msg_data.get('tokens'),
+                        'tool_calls': msg_data.get('tool_calls')
+                        or msg_data.get('toolCalls')
+                        or [],
+                        'parts': parts,
                     }
                 )
             except Exception as e:
-                logger.debug(f"Error reading message file {msg_file}: {e}")
+                logger.debug(f'Error reading message file {msg_file}: {e}')
                 continue
 
         # Sort by created time ascending (ISO or None)
-        messages.sort(key=lambda m: (m.get("time") or {}).get("created") or "")
+        messages.sort(key=lambda m: (m.get('time') or {}).get('created') or '')
         return messages
 
     async def report_sessions_to_server(self):
@@ -1475,25 +1929,25 @@ class AgentWorker:
                 sessions = self.get_sessions_for_codebase(codebase.path)
                 logger.info(
                     f"Discovered {len(sessions)} OpenCode sessions for codebase '{codebase.name}' "
-                    f"(id={codebase_id}, path={codebase.path})"
+                    f'(id={codebase_id}, path={codebase.path})'
                 )
                 if not sessions:
                     continue
 
                 session = await self._get_session()
-                url = f"{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/sync"
+                url = f'{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/sync'
 
                 payload = {
-                    "worker_id": self.config.worker_id,
-                    "sessions": sessions,
+                    'worker_id': self.config.worker_id,
+                    'sessions': sessions,
                 }
 
                 async def _post_sessions(target_codebase_id: str) -> int:
-                    target_url = f"{self.config.server_url}/v1/opencode/codebases/{target_codebase_id}/sessions/sync"
+                    target_url = f'{self.config.server_url}/v1/opencode/codebases/{target_codebase_id}/sessions/sync'
                     async with session.post(target_url, json=payload) as resp:
                         if resp.status == 200:
                             logger.debug(
-                                f"Synced {len(sessions)} sessions for {codebase.name} (codebase_id={target_codebase_id})"
+                                f'Synced {len(sessions)} sessions for {codebase.name} (codebase_id={target_codebase_id})'
                             )
                             return 200
 
@@ -1508,7 +1962,7 @@ class AgentWorker:
                             target_codebase_id,
                             codebase.path,
                             resp.status,
-                            (text[:500] + "…") if len(text) > 500 else text,
+                            (text[:500] + '…') if len(text) > 500 else text,
                         )
                         return resp.status
 
@@ -1540,8 +1994,14 @@ class AgentWorker:
                         await _post_sessions(codebase_id)
 
                 # Optionally sync recent session messages so the UI can show session details
-                max_sessions = getattr(self.config, "session_message_sync_max_sessions", 0) or 0
-                max_messages = getattr(self.config, "session_message_sync_max_messages", 0) or 0
+                max_sessions = (
+                    getattr(self.config, 'session_message_sync_max_sessions', 0)
+                    or 0
+                )
+                max_messages = (
+                    getattr(self.config, 'session_message_sync_max_messages', 0)
+                    or 0
+                )
                 if max_sessions > 0 and max_messages > 0:
                     await self._report_recent_session_messages_to_server(
                         codebase_id=codebase_id,
@@ -1550,7 +2010,9 @@ class AgentWorker:
                     )
 
             except Exception as e:
-                logger.debug(f"Failed to sync sessions for {codebase.name}: {e}")
+                logger.debug(
+                    f'Failed to sync sessions for {codebase.name}: {e}'
+                )
 
         # Also sync global sessions (not associated with any specific project)
         await self._report_global_sessions_to_server()
@@ -1562,7 +2024,9 @@ class AgentWorker:
             if not global_sessions:
                 return
 
-            logger.info(f"Discovered {len(global_sessions)} global OpenCode sessions")
+            logger.info(
+                f'Discovered {len(global_sessions)} global OpenCode sessions'
+            )
 
             # Ensure we have a "global" codebase registered
             global_codebase_id = self._global_codebase_id
@@ -1570,16 +2034,24 @@ class AgentWorker:
                 return
 
             session = await self._get_session()
-            url = f"{self.config.server_url}/v1/opencode/codebases/{global_codebase_id}/sessions/sync"
+            url = f'{self.config.server_url}/v1/opencode/codebases/{global_codebase_id}/sessions/sync'
             payload = {
-                "worker_id": self.config.worker_id,
-                "sessions": global_sessions,
+                'worker_id': self.config.worker_id,
+                'sessions': global_sessions,
             }
 
-            async def _sync_recent_global_messages(target_codebase_id: str) -> None:
+            async def _sync_recent_global_messages(
+                target_codebase_id: str,
+            ) -> None:
                 # Optionally sync recent session messages so the remote UI can show session detail.
-                max_sessions = getattr(self.config, "session_message_sync_max_sessions", 0) or 0
-                max_messages = getattr(self.config, "session_message_sync_max_messages", 0) or 0
+                max_sessions = (
+                    getattr(self.config, 'session_message_sync_max_sessions', 0)
+                    or 0
+                )
+                max_messages = (
+                    getattr(self.config, 'session_message_sync_max_messages', 0)
+                    or 0
+                )
                 if max_sessions > 0 and max_messages > 0:
                     await self._report_recent_session_messages_to_server(
                         codebase_id=target_codebase_id,
@@ -1589,32 +2061,42 @@ class AgentWorker:
 
             async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
-                    logger.debug(f"Synced {len(global_sessions)} global sessions")
+                    logger.debug(
+                        f'Synced {len(global_sessions)} global sessions'
+                    )
                     await _sync_recent_global_messages(global_codebase_id)
                 elif resp.status in (403, 404):
                     # Re-register and retry
                     self._global_codebase_id = None
                     new_id = await self.register_codebase(
-                        name="global",
+                        name='global',
                         path=str(Path.home()),
-                        description="Global OpenCode sessions (not project-specific)",
+                        description='Global OpenCode sessions (not project-specific)',
                     )
                     if new_id:
                         self._global_codebase_id = new_id
-                        retry_url = f"{self.config.server_url}/v1/opencode/codebases/{new_id}/sessions/sync"
-                        async with session.post(retry_url, json=payload) as retry_resp:
+                        retry_url = f'{self.config.server_url}/v1/opencode/codebases/{new_id}/sessions/sync'
+                        async with session.post(
+                            retry_url, json=payload
+                        ) as retry_resp:
                             if retry_resp.status == 200:
-                                logger.debug(f"Synced {len(global_sessions)} global sessions (after re-register)")
+                                logger.debug(
+                                    f'Synced {len(global_sessions)} global sessions (after re-register)'
+                                )
                                 await _sync_recent_global_messages(new_id)
                             else:
                                 text = await retry_resp.text()
-                                logger.warning(f"Global session sync retry failed: {retry_resp.status} {text[:200]}")
+                                logger.warning(
+                                    f'Global session sync retry failed: {retry_resp.status} {text[:200]}'
+                                )
                 else:
                     text = await resp.text()
-                    logger.warning(f"Global session sync failed: {resp.status} {text[:200]}")
+                    logger.warning(
+                        f'Global session sync failed: {resp.status} {text[:200]}'
+                    )
 
         except Exception as e:
-            logger.warning(f"Failed to sync global sessions: {e}")
+            logger.warning(f'Failed to sync global sessions: {e}')
 
     async def _report_recent_session_messages_to_server(
         self,
@@ -1626,29 +2108,35 @@ class AgentWorker:
         try:
             session = await self._get_session()
             for ses in sessions:
-                session_id = ses.get("id")
+                session_id = ses.get('id')
                 if not session_id:
                     continue
 
-                messages = self.get_session_messages(str(session_id), max_messages=max_messages)
+                messages = self.get_session_messages(
+                    str(session_id), max_messages=max_messages
+                )
                 if not messages:
                     continue
 
-                url = f"{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/{session_id}/messages/sync"
+                url = f'{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/{session_id}/messages/sync'
                 payload = {
-                    "worker_id": self.config.worker_id,
-                    "messages": messages,
+                    'worker_id': self.config.worker_id,
+                    'messages': messages,
                 }
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 200:
                         logger.debug(
-                            f"Synced {len(messages)} messages for session {session_id} (codebase {codebase_id})"
+                            f'Synced {len(messages)} messages for session {session_id} (codebase {codebase_id})'
                         )
                     else:
                         text = await resp.text()
-                        logger.debug(f"Message sync returned {resp.status}: {text}")
+                        logger.debug(
+                            f'Message sync returned {resp.status}: {text}'
+                        )
         except Exception as e:
-            logger.debug(f"Failed to sync session messages for codebase {codebase_id}: {e}")
+            logger.debug(
+                f'Failed to sync session messages for codebase {codebase_id}: {e}'
+            )
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -1658,13 +2146,13 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             with open(config_path) as f:
                 return json.load(f)
         except Exception as e:
-            logger.warning(f"Failed to load config from {config_path}: {e}")
+            logger.warning(f'Failed to load config from {config_path}: {e}')
 
     # Check default locations
     default_paths = [
-        Path.home() / ".config" / "a2a-worker" / "config.json",
-        Path("/etc/a2a-worker/config.json"),
-        Path("worker-config.json"),
+        Path.home() / '.config' / 'a2a-worker' / 'config.json',
+        Path('/etc/a2a-worker/config.json'),
+        Path('worker-config.json'),
     ]
 
     for path in default_paths:
@@ -1680,58 +2168,46 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="A2A Agent Worker")
+    parser = argparse.ArgumentParser(description='A2A Agent Worker')
+    parser.add_argument('--server', '-s', default=None, help='A2A server URL')
+    parser.add_argument('--name', '-n', default=None, help='Worker name')
     parser.add_argument(
-        "--server", "-s",
+        '--worker-id',
         default=None,
-        help="A2A server URL"
+        help='Stable worker id (recommended for systemd/k8s). If omitted, a random id is generated.',
+    )
+    parser.add_argument('--config', '-c', help='Path to config file')
+    parser.add_argument(
+        '--codebase',
+        '-b',
+        action='append',
+        help='Codebase to register (format: name:path or just path)',
     )
     parser.add_argument(
-        "--name", "-n",
-        default=None,
-        help="Worker name"
-    )
-    parser.add_argument(
-        "--worker-id",
-        default=None,
-        help="Stable worker id (recommended for systemd/k8s). If omitted, a random id is generated."
-    )
-    parser.add_argument(
-        "--config", "-c",
-        help="Path to config file"
-    )
-    parser.add_argument(
-        "--codebase", "-b",
-        action="append",
-        help="Codebase to register (format: name:path or just path)"
-    )
-    parser.add_argument(
-        "--poll-interval", "-i",
+        '--poll-interval',
+        '-i',
         type=int,
         default=None,
-        help="Poll interval in seconds"
+        help='Poll interval in seconds',
     )
-    parser.add_argument(
-        "--opencode",
-        help="Path to opencode binary"
-    )
+    parser.add_argument('--opencode', help='Path to opencode binary')
 
     parser.add_argument(
-        "--opencode-storage-path",
+        '--opencode-storage-path',
         default=None,
-        help="Override OpenCode storage path (directory containing project/, session/, message/, part/)"
+        help='Override OpenCode storage path (directory containing project/, session/, message/, part/)',
     )
     parser.add_argument(
-        "--session-message-sync-max-sessions",
+        '--session-message-sync-max-sessions',
         type=int,
         default=None,
-        help="How many most-recent sessions per codebase to sync messages for (0 disables)"
+        help='How many most-recent sessions per codebase to sync messages for (0 disables)',
     )
     parser.add_argument(
-        "--session-message-sync-max-messages",
+        '--session-message-sync-max-messages',
         type=int,
         default=None,
-        help="How many most-recent messages per session to sync (0 disables)"
+        help='How many most-recent messages per session to sync (0 disables)',
     )
 
     args = parser.parse_args()
@@ -1742,28 +2218,28 @@ async def main():
     # Honor config file values when CLI flags are not explicitly provided.
     # Note: argparse does not tell us whether a value came from a default or
     # from an explicit flag, so we detect explicit flags via sys.argv.
-    server_flag_set = ("--server" in sys.argv) or ("-s" in sys.argv)
-    name_flag_set = ("--name" in sys.argv) or ("-n" in sys.argv)
-    worker_id_flag_set = ("--worker-id" in sys.argv)
-    poll_flag_set = ("--poll-interval" in sys.argv) or ("-i" in sys.argv)
+    server_flag_set = ('--server' in sys.argv) or ('-s' in sys.argv)
+    name_flag_set = ('--name' in sys.argv) or ('-n' in sys.argv)
+    worker_id_flag_set = '--worker-id' in sys.argv
+    poll_flag_set = ('--poll-interval' in sys.argv) or ('-i' in sys.argv)
 
     # Resolve server_url with precedence: CLI flag > env > config > default
     if server_flag_set and args.server:
         server_url = args.server
-    elif os.environ.get("A2A_SERVER_URL"):
-        server_url = os.environ["A2A_SERVER_URL"]
-    elif file_config.get("server_url"):
-        server_url = file_config["server_url"]
+    elif os.environ.get('A2A_SERVER_URL'):
+        server_url = os.environ['A2A_SERVER_URL']
+    elif file_config.get('server_url'):
+        server_url = file_config['server_url']
     else:
-        server_url = "https://api.codetether.run"
+        server_url = 'https://api.codetether.run'
 
     # Resolve worker_name with precedence: CLI flag > env > config > hostname
     if name_flag_set and args.name:
         worker_name = args.name
-    elif os.environ.get("A2A_WORKER_NAME"):
-        worker_name = os.environ["A2A_WORKER_NAME"]
-    elif file_config.get("worker_name"):
-        worker_name = file_config["worker_name"]
+    elif os.environ.get('A2A_WORKER_NAME'):
+        worker_name = os.environ['A2A_WORKER_NAME']
+    elif file_config.get('worker_name'):
+        worker_name = file_config['worker_name']
     else:
         worker_name = os.uname().nodename
 
@@ -1771,19 +2247,19 @@ async def main():
     worker_id: Optional[str] = None
     if worker_id_flag_set and args.worker_id:
         worker_id = args.worker_id
-    elif os.environ.get("A2A_WORKER_ID"):
-        worker_id = os.environ["A2A_WORKER_ID"]
-    elif file_config.get("worker_id"):
-        worker_id = file_config["worker_id"]
+    elif os.environ.get('A2A_WORKER_ID'):
+        worker_id = os.environ['A2A_WORKER_ID']
+    elif file_config.get('worker_id'):
+        worker_id = file_config['worker_id']
 
     # Resolve poll_interval with precedence: CLI flag > env > config > default
     poll_interval_raw = None
     if poll_flag_set and (args.poll_interval is not None):
         poll_interval_raw = args.poll_interval
-    elif os.environ.get("A2A_POLL_INTERVAL"):
-        poll_interval_raw = os.environ.get("A2A_POLL_INTERVAL")
-    elif file_config.get("poll_interval") is not None:
-        poll_interval_raw = file_config.get("poll_interval")
+    elif os.environ.get('A2A_POLL_INTERVAL'):
+        poll_interval_raw = os.environ.get('A2A_POLL_INTERVAL')
+    elif file_config.get('poll_interval') is not None:
+        poll_interval_raw = file_config.get('poll_interval')
     else:
         poll_interval_raw = 5
 
@@ -1791,72 +2267,74 @@ async def main():
         poll_interval = int(poll_interval_raw)
     except (TypeError, ValueError):
         poll_interval = 5
-        logger.warning(
-            "Invalid poll_interval value; falling back to 5 seconds"
-        )
+        logger.warning('Invalid poll_interval value; falling back to 5 seconds')
 
-    capabilities = file_config.get("capabilities")
+    capabilities = file_config.get('capabilities')
     if not isinstance(capabilities, list):
         capabilities = None
 
     # Build codebase list
-    codebases = file_config.get("codebases", [])
+    codebases = file_config.get('codebases', [])
     if args.codebase:
         for cb in args.codebase:
-            if ":" in cb:
-                name, path = cb.split(":", 1)
+            if ':' in cb:
+                name, path = cb.split(':', 1)
             else:
                 name = Path(cb).name
                 path = cb
-            codebases.append({"name": name, "path": os.path.abspath(path)})
+            codebases.append({'name': name, 'path': os.path.abspath(path)})
 
     # Create config
     config_kwargs: Dict[str, Any] = {
-        "server_url": server_url,
-        "worker_name": worker_name,
-        "codebases": codebases,
-        "poll_interval": poll_interval,
-        "opencode_bin": args.opencode or file_config.get("opencode_bin"),
-        "opencode_storage_path": (
+        'server_url': server_url,
+        'worker_name': worker_name,
+        'codebases': codebases,
+        'poll_interval': poll_interval,
+        'opencode_bin': args.opencode or file_config.get('opencode_bin'),
+        'opencode_storage_path': (
             args.opencode_storage_path
-            or os.environ.get("A2A_OPENCODE_STORAGE_PATH")
-            or file_config.get("opencode_storage_path")
+            or os.environ.get('A2A_OPENCODE_STORAGE_PATH')
+            or file_config.get('opencode_storage_path')
         ),
     }
 
     if worker_id:
-        config_kwargs["worker_id"] = worker_id
+        config_kwargs['worker_id'] = worker_id
 
     # Optional session message sync tuning
     if args.session_message_sync_max_sessions is not None:
-        config_kwargs["session_message_sync_max_sessions"] = args.session_message_sync_max_sessions
-    elif os.environ.get("A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS"):
+        config_kwargs['session_message_sync_max_sessions'] = (
+            args.session_message_sync_max_sessions
+        )
+    elif os.environ.get('A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS'):
         try:
-            config_kwargs["session_message_sync_max_sessions"] = int(
-                os.environ["A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS"]
+            config_kwargs['session_message_sync_max_sessions'] = int(
+                os.environ['A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS']
             )
         except ValueError:
             pass
-    elif file_config.get("session_message_sync_max_sessions") is not None:
-        config_kwargs["session_message_sync_max_sessions"] = file_config.get(
-            "session_message_sync_max_sessions"
+    elif file_config.get('session_message_sync_max_sessions') is not None:
+        config_kwargs['session_message_sync_max_sessions'] = file_config.get(
+            'session_message_sync_max_sessions'
         )
 
     if args.session_message_sync_max_messages is not None:
-        config_kwargs["session_message_sync_max_messages"] = args.session_message_sync_max_messages
-    elif os.environ.get("A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES"):
+        config_kwargs['session_message_sync_max_messages'] = (
+            args.session_message_sync_max_messages
+        )
+    elif os.environ.get('A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES'):
         try:
-            config_kwargs["session_message_sync_max_messages"] = int(
-                os.environ["A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES"]
+            config_kwargs['session_message_sync_max_messages'] = int(
+                os.environ['A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES']
             )
         except ValueError:
             pass
-    elif file_config.get("session_message_sync_max_messages") is not None:
-        config_kwargs["session_message_sync_max_messages"] = file_config.get(
-            "session_message_sync_max_messages"
+    elif file_config.get('session_message_sync_max_messages') is not None:
+        config_kwargs['session_message_sync_max_messages'] = file_config.get(
+            'session_message_sync_max_messages'
         )
     if capabilities is not None:
-        config_kwargs["capabilities"] = capabilities
+        config_kwargs['capabilities'] = capabilities
 
     config = WorkerConfig(**config_kwargs)
 
@@ -1867,7 +2345,7 @@ async def main():
     loop = asyncio.get_event_loop()
 
     def signal_handler():
-        logger.info("Received shutdown signal")
+        logger.info('Received shutdown signal')
         worker.running = False
 
     for sig in (signal.SIGTERM, signal.SIGINT):
@@ -1884,5 +2362,5 @@ async def main():
         await asyncio.sleep(0.25)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())

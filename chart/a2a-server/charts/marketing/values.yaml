@@ -36,4 +36,9 @@ resources:
     cpu: 50m
     memory: 128Mi
 
+# Keycloak OIDC configuration
+keycloak:
+  # Name of the Kubernetes secret containing KEYCLOAK_CLIENT_SECRET and NEXTAUTH_SECRET
+  secretName: ""
+
 env: {}

@@ -53,7 +53,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" className={clsx('bg-gray-50 dark:bg-gray-950 antialiased', inter.variable)}>
-            <body className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+            <body className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
                 <AuthProvider>{children}</AuthProvider>
             </body>
         </html>

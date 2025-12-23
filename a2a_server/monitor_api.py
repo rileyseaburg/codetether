@@ -20,8 +20,13 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from collections import deque
 from dataclasses import dataclass, asdict
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
+from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi.responses import (
+    StreamingResponse,
+    HTMLResponse,
+    FileResponse,
+    JSONResponse,
+)
 from pydantic import BaseModel
 import os
 import io
@@ -1220,7 +1225,9 @@ async def _get_redis_client():
             logger.info('✓ OpenCode worker sync store using Redis')
             return _redis_client
         except Exception as e:
-            logger.warning(f'OpenCode worker sync store: Redis unavailable ({e}); falling back to in-memory')
+            logger.warning(
+                f'OpenCode worker sync store: Redis unavailable ({e}); falling back to in-memory'
+            )
             _redis_client = None
             return None
 
@@ -1332,7 +1339,9 @@ async def _redis_upsert_codebase_meta(codebase: Dict[str, Any]) -> None:
 
     try:
         await client.sadd(_redis_key_codebases_index(), codebase_id)
-        await client.set(_redis_key_codebase_meta(codebase_id), json.dumps(codebase))
+        await client.set(
+            _redis_key_codebase_meta(codebase_id), json.dumps(codebase)
+        )
     except Exception as e:
         logger.debug(f'Failed to persist codebase meta to Redis: {e}')
 
@@ -1376,7 +1385,9 @@ async def _redis_list_codebase_meta() -> List[Dict[str, Any]]:
         return []
 
 
-async def _redis_get_codebase_meta(codebase_id: str) -> Optional[Dict[str, Any]]:
+async def _redis_get_codebase_meta(
+    codebase_id: str,
+) -> Optional[Dict[str, Any]]:
     client = await _get_redis_client()
     if not client:
         return None
@@ -1459,7 +1470,9 @@ async def _rehydrate_codebase_into_bridge(codebase_id: str):
         )
         return codebase
     except Exception as e:
-        logger.debug(f'Failed to rehydrate codebase {codebase_id} into bridge: {e}')
+        logger.debug(
+            f'Failed to rehydrate codebase {codebase_id} into bridge: {e}'
+        )
         return None
 
 
@@ -1534,7 +1547,11 @@ def _require_ingest_auth(request: Request) -> None:
     tokens = _get_auth_tokens_set()
     if not tokens:
         return
-    auth = request.headers.get('authorization') or request.headers.get('Authorization') or ''
+    auth = (
+        request.headers.get('authorization')
+        or request.headers.get('Authorization')
+        or ''
+    )
     if not auth.startswith('Bearer '):
         raise HTTPException(status_code=401, detail='Missing Bearer token')
     token = auth.removeprefix('Bearer ').strip()
@@ -1566,18 +1583,28 @@ async def opencode_status():
             projects_dir = os.path.join(path, 'project')
             sessions_dir = os.path.join(path, 'session')
             if os.path.isdir(projects_dir):
-                runtime_projects = len([f for f in os.listdir(projects_dir) if f.endswith('.json')])
+                runtime_projects = len(
+                    [f for f in os.listdir(projects_dir) if f.endswith('.json')]
+                )
             if os.path.isdir(sessions_dir):
                 for proj_id in os.listdir(sessions_dir):
                     proj_sessions = os.path.join(sessions_dir, proj_id)
                     if os.path.isdir(proj_sessions):
-                        runtime_sessions += len([f for f in os.listdir(proj_sessions) if f.endswith('.json')])
+                        runtime_sessions += len(
+                            [
+                                f
+                                for f in os.listdir(proj_sessions)
+                                if f.endswith('.json')
+                            ]
+                        )
             break
 
     if bridge is None:
         return {
             'available': runtime_available,
-            'message': 'OpenCode runtime detected' if runtime_available else 'OpenCode not available',
+            'message': 'OpenCode runtime detected'
+            if runtime_available
+            else 'OpenCode not available',
             'opencode_binary': None,
             'registered_codebases': 0,
             'runtime': {
@@ -1585,7 +1612,9 @@ async def opencode_status():
                 'storage_path': storage_path,
                 'projects': runtime_projects,
                 'sessions': runtime_sessions,
-            } if runtime_available else None,
+            }
+            if runtime_available
+            else None,
         }
 
     registered_codebases = len(bridge.list_codebases())
@@ -1608,7 +1637,9 @@ async def opencode_status():
             'storage_path': storage_path,
             'projects': runtime_projects,
             'sessions': runtime_sessions,
-        } if runtime_available else None,
+        }
+        if runtime_available
+        else None,
     }
 
 
@@ -1678,8 +1709,7 @@ async def database_workers():
 
 # XDG Base Directory paths for OpenCode storage
 OPENCODE_DATA_DIR = os.environ.get(
-    'OPENCODE_DATA_DIR',
-    os.path.expanduser('~/.local/share/opencode')
+    'OPENCODE_DATA_DIR', os.path.expanduser('~/.local/share/opencode')
 )
 OPENCODE_STORAGE_DIR = os.path.join(OPENCODE_DATA_DIR, 'storage')
 
@@ -1703,6 +1733,7 @@ async def _read_json_file(filepath: str) -> Optional[Dict[str, Any]]:
     """Read and parse a JSON file."""
     try:
         import aiofiles
+
         async with aiofiles.open(filepath, 'r') as f:
             content = await f.read()
             return json.loads(content)
@@ -1745,13 +1776,21 @@ async def opencode_runtime_status():
     session_count = 0
 
     if os.path.isdir(projects_dir):
-        project_count = len([f for f in os.listdir(projects_dir) if f.endswith('.json')])
+        project_count = len(
+            [f for f in os.listdir(projects_dir) if f.endswith('.json')]
+        )
 
     if os.path.isdir(sessions_dir):
         for project_id in os.listdir(sessions_dir):
             project_sessions_dir = os.path.join(sessions_dir, project_id)
             if os.path.isdir(project_sessions_dir):
-                session_count += len([f for f in os.listdir(project_sessions_dir) if f.endswith('.json')])
+                session_count += len(
+                    [
+                        f
+                        for f in os.listdir(project_sessions_dir)
+                        if f.endswith('.json')
+                    ]
+                )
 
     return {
         'available': True,
@@ -1775,7 +1814,7 @@ async def list_opencode_projects():
     if not storage_path:
         raise HTTPException(
             status_code=503,
-            detail='OpenCode storage not available on this system'
+            detail='OpenCode storage not available on this system',
         )
 
     projects_dir = os.path.join(storage_path, 'project')
@@ -1799,17 +1838,25 @@ async def list_opencode_projects():
             session_count = 0
             project_sessions_dir = os.path.join(sessions_dir, project_id)
             if os.path.isdir(project_sessions_dir):
-                session_count = len([f for f in os.listdir(project_sessions_dir) if f.endswith('.json')])
+                session_count = len(
+                    [
+                        f
+                        for f in os.listdir(project_sessions_dir)
+                        if f.endswith('.json')
+                    ]
+                )
 
-            projects.append({
-                'id': project_id,
-                'worktree': project_data.get('worktree', '/'),
-                'vcs': project_data.get('vcs'),
-                'vcs_dir': project_data.get('vcsDir'),
-                'created_at': project_data.get('time', {}).get('created'),
-                'updated_at': project_data.get('time', {}).get('updated'),
-                'session_count': session_count,
-            })
+            projects.append(
+                {
+                    'id': project_id,
+                    'worktree': project_data.get('worktree', '/'),
+                    'vcs': project_data.get('vcs'),
+                    'vcs_dir': project_data.get('vcsDir'),
+                    'created_at': project_data.get('time', {}).get('created'),
+                    'updated_at': project_data.get('time', {}).get('updated'),
+                    'session_count': session_count,
+                }
+            )
 
     # Sort by most recently updated
     projects.sort(key=lambda p: p.get('updated_at') or 0, reverse=True)
@@ -1834,7 +1881,7 @@ async def list_all_runtime_sessions(
     if not storage_path:
         raise HTTPException(
             status_code=503,
-            detail='OpenCode storage not available on this system'
+            detail='OpenCode storage not available on this system',
         )
 
     sessions_dir = os.path.join(storage_path, 'session')
@@ -1846,9 +1893,17 @@ async def list_all_runtime_sessions(
 
     # Determine which project directories to scan
     if project_id:
-        project_dirs = [project_id] if os.path.isdir(os.path.join(sessions_dir, project_id)) else []
+        project_dirs = (
+            [project_id]
+            if os.path.isdir(os.path.join(sessions_dir, project_id))
+            else []
+        )
     else:
-        project_dirs = [d for d in os.listdir(sessions_dir) if os.path.isdir(os.path.join(sessions_dir, d))]
+        project_dirs = [
+            d
+            for d in os.listdir(sessions_dir)
+            if os.path.isdir(os.path.join(sessions_dir, d))
+        ]
 
     for proj_id in project_dirs:
         project_sessions_dir = os.path.join(sessions_dir, proj_id)
@@ -1861,22 +1916,28 @@ async def list_all_runtime_sessions(
             session_data = await _read_json_file(filepath)
 
             if session_data:
-                all_sessions.append({
-                    'id': session_data.get('id', filename[:-5]),
-                    'project_id': session_data.get('projectID', proj_id),
-                    'directory': session_data.get('directory'),
-                    'title': session_data.get('title', 'Untitled Session'),
-                    'version': session_data.get('version'),
-                    'created_at': session_data.get('time', {}).get('created'),
-                    'updated_at': session_data.get('time', {}).get('updated'),
-                    'summary': session_data.get('summary', {}),
-                })
+                all_sessions.append(
+                    {
+                        'id': session_data.get('id', filename[:-5]),
+                        'project_id': session_data.get('projectID', proj_id),
+                        'directory': session_data.get('directory'),
+                        'title': session_data.get('title', 'Untitled Session'),
+                        'version': session_data.get('version'),
+                        'created_at': session_data.get('time', {}).get(
+                            'created'
+                        ),
+                        'updated_at': session_data.get('time', {}).get(
+                            'updated'
+                        ),
+                        'summary': session_data.get('summary', {}),
+                    }
+                )
 
     # Sort by most recently updated
     all_sessions.sort(key=lambda s: s.get('updated_at') or 0, reverse=True)
 
     total = len(all_sessions)
-    paginated = all_sessions[offset:offset + limit]
+    paginated = all_sessions[offset : offset + limit]
 
     return {
         'sessions': paginated,
@@ -1898,7 +1959,7 @@ async def get_runtime_session(session_id: str):
     if not storage_path:
         raise HTTPException(
             status_code=503,
-            detail='OpenCode storage not available on this system'
+            detail='OpenCode storage not available on this system',
         )
 
     sessions_dir = os.path.join(storage_path, 'session')
@@ -1920,13 +1981,19 @@ async def get_runtime_session(session_id: str):
                         'directory': session_data.get('directory'),
                         'title': session_data.get('title', 'Untitled Session'),
                         'version': session_data.get('version'),
-                        'created_at': session_data.get('time', {}).get('created'),
-                        'updated_at': session_data.get('time', {}).get('updated'),
+                        'created_at': session_data.get('time', {}).get(
+                            'created'
+                        ),
+                        'updated_at': session_data.get('time', {}).get(
+                            'updated'
+                        ),
                         'summary': session_data.get('summary', {}),
                     }
                 }
 
-    raise HTTPException(status_code=404, detail=f'Session {session_id} not found')
+    raise HTTPException(
+        status_code=404, detail=f'Session {session_id} not found'
+    )
 
 
 @opencode_router.get('/runtime/sessions/{session_id}/messages')
@@ -1945,7 +2012,7 @@ async def get_runtime_session_messages(
     if not storage_path:
         raise HTTPException(
             status_code=503,
-            detail='OpenCode storage not available on this system'
+            detail='OpenCode storage not available on this system',
         )
 
     messages_dir = os.path.join(storage_path, 'message', session_id)
@@ -1963,22 +2030,24 @@ async def get_runtime_session_messages(
         msg_data = await _read_json_file(filepath)
 
         if msg_data:
-            all_messages.append({
-                'id': msg_data.get('id', filename[:-5]),
-                'session_id': msg_data.get('sessionID', session_id),
-                'role': msg_data.get('role'),
-                'created_at': msg_data.get('time', {}).get('created'),
-                'model': _normalize_model_value(msg_data.get('model')),
-                'cost': msg_data.get('cost'),
-                'tokens': msg_data.get('tokens'),
-                'tool_calls': msg_data.get('tool_calls', []),
-            })
+            all_messages.append(
+                {
+                    'id': msg_data.get('id', filename[:-5]),
+                    'session_id': msg_data.get('sessionID', session_id),
+                    'role': msg_data.get('role'),
+                    'created_at': msg_data.get('time', {}).get('created'),
+                    'model': _normalize_model_value(msg_data.get('model')),
+                    'cost': msg_data.get('cost'),
+                    'tokens': msg_data.get('tokens'),
+                    'tool_calls': msg_data.get('tool_calls', []),
+                }
+            )
 
     # Sort by created time
     all_messages.sort(key=lambda m: m.get('created_at') or 0)
 
     total = len(all_messages)
-    paginated = all_messages[offset:offset + limit]
+    paginated = all_messages[offset : offset + limit]
 
     return {
         'messages': paginated,
@@ -2006,7 +2075,7 @@ async def get_runtime_session_parts(
     if not storage_path:
         raise HTTPException(
             status_code=503,
-            detail='OpenCode storage not available on this system'
+            detail='OpenCode storage not available on this system',
         )
 
     # Parts are stored per message: storage/part/{message_id}/*.json
@@ -2068,17 +2137,21 @@ async def list_models():
             if m.get('id') and m['id'] not in model_ids:
                 # Mark as coming from a worker if not already present
                 if 'provider' in m:
-                    m['provider'] = f"{m['provider']} (via {worker.get('name', 'worker')})"
+                    m['provider'] = (
+                        f'{m["provider"]} (via {worker.get("name", "worker")})'
+                    )
                 all_models.append(m)
                 model_ids.add(m['id'])
 
     if all_models:
         # Sort models: Gemini 3 Flash first, then by provider
-        all_models.sort(key=lambda x: (
-            0 if "gemini-3-flash" in x["id"].lower() else 1,
-            x.get("provider", ""),
-            x.get("name", "")
-        ))
+        all_models.sort(
+            key=lambda x: (
+                0 if 'gemini-3-flash' in x['id'].lower() else 1,
+                x.get('provider', ''),
+                x.get('name', ''),
+            )
+        )
 
         # Find a good default (prefer Gemini 3 Flash)
         default_model = 'google/gemini-3-flash-preview'
@@ -2091,17 +2164,10 @@ async def list_models():
         if not found_default and all_models:
             default_model = all_models[0]['id']
 
-        return {
-            'models': all_models,
-            'default': default_model
-        }
+        return {'models': all_models, 'default': default_model}
 
     # Return empty list if no workers registered
-    return {
-        'models': [],
-        'default': None
-    }
-
+    return {'models': [], 'default': None}
 
 
 def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
@@ -2159,7 +2225,9 @@ def _codebase_sort_key(cb: Dict[str, Any]) -> tuple:
 
 async def _get_active_worker_ids() -> set:
     """Best-effort set of worker_ids considered "active" based on last_seen."""
-    window_seconds = int(os.environ.get('A2A_WORKER_ACTIVE_WINDOW_SECONDS', '300'))
+    window_seconds = int(
+        os.environ.get('A2A_WORKER_ACTIVE_WINDOW_SECONDS', '300')
+    )
     now = datetime.utcnow()
 
     db_workers = await db.db_list_workers()
@@ -2216,8 +2284,7 @@ def _dedupe_codebases_by_path(
             continue
 
         active_candidates = [
-            cb for cb in cbs
-            if cb.get('worker_id') in active_worker_ids
+            cb for cb in cbs if cb.get('worker_id') in active_worker_ids
         ]
         if active_candidates:
             candidates = active_candidates
@@ -2230,13 +2297,17 @@ def _dedupe_codebases_by_path(
         # Provide visibility into de-duping without breaking older clients.
         chosen = dict(chosen)
         chosen['path'] = path
-        chosen['aliases'] = [cb.get('id') for cb in cbs if cb.get('id') != chosen.get('id')]
+        chosen['aliases'] = [
+            cb.get('id') for cb in cbs if cb.get('id') != chosen.get('id')
+        ]
         chosen['duplicate_count'] = len(cbs)
         deduped.append(chosen)
 
     # Keep stable ordering
     deduped.sort(key=lambda cb: (cb.get('name') or '', cb.get('path') or ''))
-    passthrough.sort(key=lambda cb: (cb.get('name') or '', str(cb.get('id') or '')))
+    passthrough.sort(
+        key=lambda cb: (cb.get('name') or '', str(cb.get('id') or ''))
+    )
     return deduped + passthrough
 
 
@@ -2312,7 +2383,9 @@ async def register_codebase(registration: CodebaseRegistration):
     # The worker has already validated the path exists on its machine
     if registration.worker_id:
         try:
-            normalized_path = _normalize_codebase_path(registration.path) or registration.path
+            normalized_path = (
+                _normalize_codebase_path(registration.path) or registration.path
+            )
 
             # If we've seen this path before (e.g., after a server restart), reuse
             # the existing codebase ID from PostgreSQL to prevent duplicates.
@@ -2325,7 +2398,7 @@ async def register_codebase(registration: CodebaseRegistration):
             except Exception:
                 existing_id = None
 
-            codebase = bridge.register_codebase(
+            codebase = await bridge.register_codebase(
                 name=registration.name,
                 path=normalized_path,
                 description=registration.description,
@@ -2362,11 +2435,13 @@ async def register_codebase(registration: CodebaseRegistration):
     # Check if any workers are registered (check all sources)
     db_workers = await db.db_list_workers()
     redis_workers = await _redis_list_workers()
-    all_workers = list(_registered_workers.values()) + db_workers + redis_workers
+    all_workers = (
+        list(_registered_workers.values()) + db_workers + redis_workers
+    )
     if not all_workers:
         raise HTTPException(
             status_code=400,
-            detail='No workers available. Start a worker on the machine with access to this path.'
+            detail='No workers available. Start a worker on the machine with access to this path.',
         )
 
     # Create a "register_codebase" task that workers will pick up
@@ -2402,8 +2477,7 @@ async def register_codebase(registration: CodebaseRegistration):
         }
     else:
         raise HTTPException(
-            status_code=500,
-            detail='Failed to create registration task'
+            status_code=500, detail='Failed to create registration task'
         )
 
 
@@ -2483,15 +2557,13 @@ async def unregister_codebase(codebase_id: str):
 @opencode_router.post('/codebases/{codebase_id}/trigger')
 async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     """Trigger an OpenCode agent to work on a codebase."""
-    bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
-
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
+    # Look up codebase from database (primary source of truth)
+    db_codebase = await db.db_get_codebase(codebase_id)
+    if not db_codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
+
+    codebase_name = db_codebase.get('name', codebase_id)
+    worker_id = db_codebase.get('worker_id')
 
     # Log the user's prompt separately so monitoring/UIs attribute it to the human.
     # (Otherwise the prompt text often appears inside system/agent log lines.)
@@ -2503,7 +2575,7 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
             metadata={
                 'action': 'opencode.trigger',
                 'codebase_id': codebase_id,
-                'codebase_name': codebase.name,
+                'codebase_name': codebase_name,
                 'agent': trigger.agent,
                 'model': trigger.model,
             },
@@ -2511,35 +2583,51 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     except Exception as e:
         logger.debug(f'Failed to log user trigger prompt: {e}')
 
-    # Create trigger request
-    from .opencode_bridge import AgentTriggerRequest
+    # Create a task in the database for the worker to pick up
+    task_id = str(uuid.uuid4())
+    task_title = trigger.prompt[:80] + (
+        '...' if len(trigger.prompt) > 80 else ''
+    )
+    task_data = {
+        'id': task_id,
+        'codebase_id': codebase_id,
+        'title': task_title,
+        'prompt': trigger.prompt,
+        'agent_type': trigger.agent,
+        'status': 'pending',
+        'priority': 0,
+        'metadata': {
+            'model': trigger.model,
+            'files': trigger.files,
+            **(trigger.metadata or {}),
+        },
+        'worker_id': worker_id,
+    }
+    await db.db_upsert_task(task_data)
 
-    request = AgentTriggerRequest(
-        codebase_id=codebase_id,
-        prompt=trigger.prompt,
-        agent=trigger.agent,
-        model=trigger.model,
-        files=trigger.files,
-        metadata=trigger.metadata,
+    logger.info(
+        f'Created task {task_id} for codebase {codebase_name} (worker: {worker_id})'
     )
 
-    # Trigger the agent
-    response = await bridge.trigger_agent(request)
-
     # Log the trigger
-    if response.success:
-        await monitoring_service.log_message(
-            agent_name='OpenCode Bridge',
-            content=f"Triggered agent '{trigger.agent}' on {codebase.name}",
-            message_type='system',
-            metadata={
-                'codebase_id': codebase_id,
-                'agent': trigger.agent,
-                'session_id': response.session_id,
-            },
-        )
+    await monitoring_service.log_message(
+        agent_name='OpenCode Bridge',
+        content=f"Triggered agent '{trigger.agent}' on {codebase_name}",
+        message_type='system',
+        metadata={
+            'codebase_id': codebase_id,
+            'agent': trigger.agent,
+            'task_id': task_id,
+        },
+    )
 
-    return response.to_dict()
+    return {
+        'success': True,
+        'session_id': task_id,
+        'message': f'Task queued for worker (task: {task_id})',
+        'codebase_id': codebase_id,
+        'agent': trigger.agent,
+    }
 
 
 @opencode_router.post('/codebases/{codebase_id}/message')
@@ -2785,10 +2873,14 @@ async def stream_agent_events(codebase_id: str, request: Request):
                     )
 
                     for t in recent_tasks:
-                        task_metadata = (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                        task_metadata = (
+                            (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                        )
                         resume_session_id = None
                         try:
-                            resume_session_id = task_metadata.get('resume_session_id')
+                            resume_session_id = task_metadata.get(
+                                'resume_session_id'
+                            )
                         except Exception:
                             resume_session_id = None
 
@@ -2835,8 +2927,12 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             and t.id not in emitted_task_ids
                         ):
                             payload = {
-                                'type': 'error' if current_status == 'failed' else 'status',
-                                'message': t.error or t.result or f'Task {current_status}',
+                                'type': 'error'
+                                if current_status == 'failed'
+                                else 'status',
+                                'message': t.error
+                                or t.result
+                                or f'Task {current_status}',
                                 'task_id': t.id,
                                 'title': t.title,
                                 'resume_session_id': resume_session_id,
@@ -2912,10 +3008,14 @@ async def stream_agent_events(codebase_id: str, request: Request):
                     )
 
                     for t in recent_tasks:
-                        task_metadata = (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                        task_metadata = (
+                            (t.metadata or {}) if hasattr(t, 'metadata') else {}
+                        )
                         resume_session_id = None
                         try:
-                            resume_session_id = task_metadata.get('resume_session_id')
+                            resume_session_id = task_metadata.get(
+                                'resume_session_id'
+                            )
                         except Exception:
                             resume_session_id = None
 
@@ -2933,7 +3033,11 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
                         # Emit completed/failed terminal payload once.
                         status_value = t.status.value
-                        if status_value == 'completed' and t.result and t.id not in emitted_task_ids:
+                        if (
+                            status_value == 'completed'
+                            and t.result
+                            and t.id not in emitted_task_ids
+                        ):
                             payload = {
                                 'type': 'status',
                                 'message': 'Task completed',
@@ -2945,7 +3049,11 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             }
                             yield f'event: message\ndata: {json.dumps(payload)}\n\n'
                             emitted_task_ids.add(t.id)
-                        elif status_value == 'failed' and (t.error or t.result) and t.id not in emitted_task_ids:
+                        elif (
+                            status_value == 'failed'
+                            and (t.error or t.result)
+                            and t.id not in emitted_task_ids
+                        ):
                             payload = {
                                 'type': 'error',
                                 'message': t.error or 'Task failed',
@@ -3217,27 +3325,16 @@ async def get_session_messages(codebase_id: str, limit: int = 50):
 async def list_all_tasks(
     codebase_id: Optional[str] = None,
     status: Optional[str] = None,
+    worker_id: Optional[str] = None,
 ):
-    """List all agent tasks, optionally filtered by codebase or status."""
-    bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
-
-    from .opencode_bridge import AgentTaskStatus
-
-    task_status = None
-    if status:
-        try:
-            task_status = AgentTaskStatus(status)
-        except ValueError:
-            raise HTTPException(
-                status_code=400, detail=f'Invalid status: {status}'
-            )
-
-    tasks = bridge.list_tasks(codebase_id=codebase_id, status=task_status)
-    return [t.to_dict() for t in tasks]
+    """List all agent tasks, optionally filtered by codebase, status, or worker."""
+    # Use database as primary source of truth for tasks
+    tasks = await db.db_list_tasks(
+        codebase_id=codebase_id,
+        status=status,
+        worker_id=worker_id,
+    )
+    return tasks
 
 
 @opencode_router.post('/codebases/{codebase_id}/tasks')
@@ -3306,25 +3403,12 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
 @opencode_router.get('/codebases/{codebase_id}/tasks')
 async def list_codebase_tasks(codebase_id: str, status: Optional[str] = None):
     """List all tasks for a specific codebase."""
-    bridge = get_opencode_bridge()
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
-        )
-
-    from .opencode_bridge import AgentTaskStatus
-
-    task_status = None
-    if status:
-        try:
-            task_status = AgentTaskStatus(status)
-        except ValueError:
-            raise HTTPException(
-                status_code=400, detail=f'Invalid status: {status}'
-            )
-
-    tasks = bridge.list_tasks(codebase_id=codebase_id, status=task_status)
-    return [t.to_dict() for t in tasks]
+    # Use database as primary source of truth for tasks
+    tasks = await db.db_list_tasks(
+        codebase_id=codebase_id,
+        status=status,
+    )
+    return tasks
 
 
 @opencode_router.get('/tasks/{task_id}')
@@ -3369,8 +3453,9 @@ async def cancel_task(task_id: str):
 
 class SessionResumeRequest(BaseModel):
     """Request to resume a session."""
+
     prompt: Optional[str] = None
-    agent: str = "build"
+    agent: str = 'build'
     model: Optional[str] = None
 
 
@@ -3408,7 +3493,9 @@ async def _merge_sessions_with_database(
         return []
 
     try:
-        persisted = await db.db_list_sessions(codebase_id=codebase_id, limit=limit)
+        persisted = await db.db_list_sessions(
+            codebase_id=codebase_id, limit=limit
+        )
     except Exception as e:
         logger.debug(f'Failed to merge DB sessions: {e}')
         return sessions
@@ -3429,7 +3516,9 @@ async def _merge_sessions_with_database(
         if sid in by_id:
             combined = dict(p)
             combined.update(by_id[sid])
-            if isinstance(p.get('summary'), dict) and isinstance(by_id[sid].get('summary'), dict):
+            if isinstance(p.get('summary'), dict) and isinstance(
+                by_id[sid].get('summary'), dict
+            ):
                 summary = dict(p['summary'])
                 summary.update(by_id[sid]['summary'])
                 combined['summary'] = summary
@@ -3454,23 +3543,35 @@ async def list_sessions(codebase_id: str):
     redis_client = await _get_redis_client()
     if redis_client is not None:
         try:
-            raw = await redis_client.get(_redis_key_worker_sessions(codebase_id))
+            raw = await redis_client.get(
+                _redis_key_worker_sessions(codebase_id)
+            )
             if raw:
                 payload = json.loads(raw)
-                sessions = payload.get('sessions') if isinstance(payload, dict) else None
+                sessions = (
+                    payload.get('sessions')
+                    if isinstance(payload, dict)
+                    else None
+                )
                 if sessions:
-                    merged = await _merge_sessions_with_database(codebase_id, sessions)
+                    merged = await _merge_sessions_with_database(
+                        codebase_id, sessions
+                    )
                     return {
                         'sessions': merged,
                         'source': 'worker_sync',
-                        'synced_at': payload.get('updated_at') if isinstance(payload, dict) else None,
+                        'synced_at': payload.get('updated_at')
+                        if isinstance(payload, dict)
+                        else None,
                     }
         except Exception as e:
             logger.debug(f'Failed to read worker sessions from Redis: {e}')
 
     # Check if we have worker-synced sessions first (for remote codebases)
     if codebase_id in _worker_sessions and _worker_sessions[codebase_id]:
-        merged = await _merge_sessions_with_database(codebase_id, _worker_sessions[codebase_id])
+        merged = await _merge_sessions_with_database(
+            codebase_id, _worker_sessions[codebase_id]
+        )
         return {'sessions': merged, 'source': 'worker_sync'}
 
     # If we don't have a codebase locally, try to rehydrate it so we can query
@@ -3489,7 +3590,9 @@ async def list_sessions(codebase_id: str):
                 ) as resp:
                     if resp.status == 200:
                         sessions = await resp.json()
-                        merged = await _merge_sessions_with_database(codebase_id, sessions)
+                        merged = await _merge_sessions_with_database(
+                            codebase_id, sessions
+                        )
                         return {'sessions': merged, 'source': 'opencode_api'}
         except Exception as e:
             logger.warning(f'Failed to query OpenCode API: {e}')
@@ -3503,7 +3606,9 @@ async def list_sessions(codebase_id: str):
 
     # Durable fallback: PostgreSQL persistence (common for remote workers).
     try:
-        persisted = await db.db_list_sessions(codebase_id=codebase_id, limit=500)
+        persisted = await db.db_list_sessions(
+            codebase_id=codebase_id, limit=500
+        )
         if persisted:
             return {'sessions': persisted, 'source': 'database'}
     except Exception as e:
@@ -3528,6 +3633,7 @@ async def list_sessions(codebase_id: str):
 
 class SessionSyncRequest(BaseModel):
     """Request model for syncing sessions from a worker."""
+
     worker_id: str
     sessions: List[Dict[str, Any]]
 
@@ -3588,7 +3694,7 @@ def _normalize_model_value(model: Any) -> Optional[str]:
         provider_id = model.get('providerID')
         model_id = model.get('modelID')
         if provider_id and model_id:
-            return f"{provider_id}/{model_id}"
+            return f'{provider_id}/{model_id}'
 
     return None
 
@@ -3608,15 +3714,25 @@ async def ingest_external_session(
     _require_ingest_auth(request)
 
     source = (payload.source or 'external').strip() or 'external'
-    session_data: Dict[str, Any] = payload.session if isinstance(payload.session, dict) else {}
-    messages: List[Dict[str, Any]] = payload.messages if isinstance(payload.messages, list) else []
+    session_data: Dict[str, Any] = (
+        payload.session if isinstance(payload.session, dict) else {}
+    )
+    messages: List[Dict[str, Any]] = (
+        payload.messages if isinstance(payload.messages, list) else []
+    )
 
-    created_at = _normalize_iso_timestamp(
-        session_data.get('created_at') or session_data.get('created')
-    ) or datetime.now(timezone.utc).isoformat()
-    updated_at = _normalize_iso_timestamp(
-        session_data.get('updated_at') or session_data.get('updated')
-    ) or datetime.now(timezone.utc).isoformat()
+    created_at = (
+        _normalize_iso_timestamp(
+            session_data.get('created_at') or session_data.get('created')
+        )
+        or datetime.now(timezone.utc).isoformat()
+    )
+    updated_at = (
+        _normalize_iso_timestamp(
+            session_data.get('updated_at') or session_data.get('updated')
+        )
+        or datetime.now(timezone.utc).isoformat()
+    )
 
     summary: Dict[str, Any] = {}
     if isinstance(session_data.get('summary'), dict):
@@ -3629,8 +3745,10 @@ async def ingest_external_session(
         {
             'id': session_id,
             'codebase_id': codebase_id,
-            'project_id': session_data.get('project_id') or session_data.get('projectID'),
-            'directory': session_data.get('directory') or session_data.get('path'),
+            'project_id': session_data.get('project_id')
+            or session_data.get('projectID'),
+            'directory': session_data.get('directory')
+            or session_data.get('path'),
             'title': session_data.get('title'),
             'version': session_data.get('version'),
             'summary': summary,
@@ -3739,7 +3857,8 @@ async def ingest_external_session(
                 'cost': msg_data.get('cost'),
                 'tokens': tokens,
                 'tool_calls': tool_calls,
-                'created_at': _extract_created_at(msg_data) or datetime.now(timezone.utc).isoformat(),
+                'created_at': _extract_created_at(msg_data)
+                or datetime.now(timezone.utc).isoformat(),
             }
         )
         ingested += 1
@@ -3772,17 +3891,19 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
             updated_at = _normalize_iso_timestamp(
                 session_data.get('updated_at') or session_data.get('updated')
             )
-            await db.db_upsert_session({
-                'id': session_data.get('id'),
-                'codebase_id': codebase_id,
-                'project_id': session_data.get('project_id'),
-                'directory': session_data.get('directory'),
-                'title': session_data.get('title'),
-                'version': session_data.get('version'),
-                'summary': session_data.get('summary', {}),
-                'created_at': created_at,
-                'updated_at': updated_at,
-            })
+            await db.db_upsert_session(
+                {
+                    'id': session_data.get('id'),
+                    'codebase_id': codebase_id,
+                    'project_id': session_data.get('project_id'),
+                    'directory': session_data.get('directory'),
+                    'title': session_data.get('title'),
+                    'version': session_data.get('version'),
+                    'summary': session_data.get('summary', {}),
+                    'created_at': created_at,
+                    'updated_at': updated_at,
+                }
+            )
         except Exception as e:
             logger.debug(f'Failed to persist session to PostgreSQL: {e}')
 
@@ -3803,18 +3924,25 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
         except Exception as e:
             logger.debug(f'Failed to persist worker sessions to Redis: {e}')
 
-    logger.info(f'Synced {len(request.sessions)} sessions for codebase {codebase_id} from worker {request.worker_id}')
+    logger.info(
+        f'Synced {len(request.sessions)} sessions for codebase {codebase_id} from worker {request.worker_id}'
+    )
     return {'success': True, 'sessions_count': len(request.sessions)}
 
 
 class MessageSyncRequest(BaseModel):
     """Request model for syncing messages from a worker."""
+
     worker_id: str
     messages: List[Dict[str, Any]]
 
 
-@opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/messages/sync')
-async def sync_session_messages(codebase_id: str, session_id: str, request: MessageSyncRequest):
+@opencode_router.post(
+    '/codebases/{codebase_id}/sessions/{session_id}/messages/sync'
+)
+async def sync_session_messages(
+    codebase_id: str, session_id: str, request: MessageSyncRequest
+):
     """Receive synced messages from a worker.
 
     This endpoint accepts message data from workers and persists it to PostgreSQL
@@ -3892,17 +4020,19 @@ async def sync_session_messages(codebase_id: str, session_id: str, request: Mess
     # Best-effort persist to PostgreSQL (primary persistence)
     for msg_data in request.messages:
         try:
-            await db.db_upsert_message({
-                'id': msg_data.get('id'),
-                'session_id': session_id,
-                'role': _extract_role(msg_data),
-                'content': _extract_message_content(msg_data),
-                'model': _extract_model(msg_data),
-                'cost': msg_data.get('cost'),
-                'tokens': msg_data.get('tokens', {}),
-                'tool_calls': msg_data.get('tool_calls', []),
-                'created_at': _extract_created_at(msg_data),
-            })
+            await db.db_upsert_message(
+                {
+                    'id': msg_data.get('id'),
+                    'session_id': session_id,
+                    'role': _extract_role(msg_data),
+                    'content': _extract_message_content(msg_data),
+                    'model': _extract_model(msg_data),
+                    'cost': msg_data.get('cost'),
+                    'tokens': msg_data.get('tokens', {}),
+                    'tool_calls': msg_data.get('tool_calls', []),
+                    'created_at': _extract_created_at(msg_data),
+                }
+            )
         except Exception as e:
             logger.debug(f'Failed to persist message to PostgreSQL: {e}')
 
@@ -3967,7 +4097,9 @@ async def get_session(codebase_id: str, session_id: str):
 
 
 @opencode_router.get('/codebases/{codebase_id}/sessions/{session_id}/messages')
-async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: int = 100):
+async def get_session_messages_by_id(
+    codebase_id: str, session_id: str, limit: int = 100
+):
     """Get messages from a specific session."""
     import aiohttp
 
@@ -3981,13 +4113,19 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
             raw = await redis_client.get(_redis_key_worker_messages(session_id))
             if raw:
                 payload = json.loads(raw)
-                messages = payload.get('messages') if isinstance(payload, dict) else None
+                messages = (
+                    payload.get('messages')
+                    if isinstance(payload, dict)
+                    else None
+                )
                 if messages:
                     return {
                         'messages': messages[:limit],
                         'session_id': session_id,
                         'source': 'worker_sync',
-                        'synced_at': payload.get('updated_at') if isinstance(payload, dict) else None,
+                        'synced_at': payload.get('updated_at')
+                        if isinstance(payload, dict)
+                        else None,
                     }
         except Exception as e:
             logger.debug(f'Failed to read worker messages from Redis: {e}')
@@ -3995,7 +4133,11 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
     # Check if we have worker-synced messages
     if session_id in _worker_messages and _worker_messages[session_id]:
         messages = _worker_messages[session_id][:limit]
-        return {'messages': messages, 'session_id': session_id, 'source': 'worker_sync'}
+        return {
+            'messages': messages,
+            'session_id': session_id,
+            'source': 'worker_sync',
+        }
 
     # If we don't have a codebase locally, try to rehydrate it so we can query
     # the OpenCode API / local state for local codebases.
@@ -4021,11 +4163,17 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
     if codebase:
         messages = await _read_local_session_messages(codebase.path, session_id)
         if messages:
-            return {'messages': messages[:limit], 'session_id': session_id, 'source': 'local_state'}
+            return {
+                'messages': messages[:limit],
+                'session_id': session_id,
+                'source': 'local_state',
+            }
 
     # Final fallback: PostgreSQL persistence (common for remote workers).
     try:
-        persisted = await db.db_list_messages(session_id=session_id, limit=limit)
+        persisted = await db.db_list_messages(
+            session_id=session_id, limit=limit
+        )
         if persisted:
             # Normalize DB rows into the shape expected by the Swift client
             # (SessionMessage: {id, sessionID, role, info{...}, time{created}, model, ...}).
@@ -4063,7 +4211,9 @@ async def get_session_messages_by_id(codebase_id: str, session_id: str, limit: i
 
 
 @opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/resume')
-async def resume_session(codebase_id: str, session_id: str, request: SessionResumeRequest):
+async def resume_session(
+    codebase_id: str, session_id: str, request: SessionResumeRequest
+):
     """Resume an old session and optionally send a new prompt."""
     import aiohttp
 
@@ -4102,13 +4252,13 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
     if codebase.worker_id:
         task = bridge.create_task(
             codebase_id=codebase_id,
-            title=f"Resume session: {request.prompt[:50] if request.prompt else 'Continue'}",
-            prompt=request.prompt or "Continue where we left off",
+            title=f'Resume session: {request.prompt[:50] if request.prompt else "Continue"}',
+            prompt=request.prompt or 'Continue where we left off',
             agent_type=request.agent,
             metadata={
                 'resume_session_id': session_id,
                 'model': request.model,
-            }
+            },
         )
         return {
             'success': True,
@@ -4131,11 +4281,17 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
                 ) as resp:
                     if resp.status != 200:
                         error = await resp.text()
-                        raise HTTPException(status_code=resp.status, detail=f'Failed to init session: {error}')
+                        raise HTTPException(
+                            status_code=resp.status,
+                            detail=f'Failed to init session: {error}',
+                        )
 
                 # If there's a prompt, send a message
                 if request.prompt:
-                    payload = {'content': request.prompt, 'agent': request.agent}
+                    payload = {
+                        'content': request.prompt,
+                        'agent': request.agent,
+                    }
                     # Best-effort: allow overriding model when OpenCode supports it.
                     if request.model:
                         payload['model'] = request.model
@@ -4188,7 +4344,7 @@ async def resume_session(codebase_id: str, session_id: str, request: SessionResu
 
     trigger_request = AgentTriggerRequest(
         codebase_id=codebase_id,
-        prompt=request.prompt or "Continue the conversation",
+        prompt=request.prompt or 'Continue the conversation',
         agent=request.agent,
         model=request.model,
         metadata={'resume_session_id': session_id},
@@ -4224,15 +4380,20 @@ async def _read_local_sessions(codebase_path: str) -> List[Dict[str, Any]]:
         try:
             with open(session_file, 'r') as f:
                 session_data = json.load(f)
-                sessions.append({
-                    'id': session_data.get('id', os.path.basename(session_file).replace('.json', '')),
-                    'created': session_data.get('created'),
-                    'updated': session_data.get('updated'),
-                    'title': session_data.get('title', 'Untitled Session'),
-                    'agent': session_data.get('agent'),
-                    'model': session_data.get('model'),
-                    'messageCount': len(session_data.get('messages', [])),
-                })
+                sessions.append(
+                    {
+                        'id': session_data.get(
+                            'id',
+                            os.path.basename(session_file).replace('.json', ''),
+                        ),
+                        'created': session_data.get('created'),
+                        'updated': session_data.get('updated'),
+                        'title': session_data.get('title', 'Untitled Session'),
+                        'agent': session_data.get('agent'),
+                        'model': session_data.get('model'),
+                        'messageCount': len(session_data.get('messages', [])),
+                    }
+                )
         except Exception as e:
             logger.warning(f'Failed to read session file {session_file}: {e}')
 
@@ -4241,9 +4402,13 @@ async def _read_local_sessions(codebase_path: str) -> List[Dict[str, Any]]:
     return sessions
 
 
-async def _read_local_session(codebase_path: str, session_id: str) -> Optional[Dict[str, Any]]:
+async def _read_local_session(
+    codebase_path: str, session_id: str
+) -> Optional[Dict[str, Any]]:
     """Read a specific session from OpenCode's local state directory."""
-    session_file = os.path.join(codebase_path, '.opencode', 'state', 'session', f'{session_id}.json')
+    session_file = os.path.join(
+        codebase_path, '.opencode', 'state', 'session', f'{session_id}.json'
+    )
 
     if not os.path.exists(session_file):
         return None
@@ -4256,7 +4421,9 @@ async def _read_local_session(codebase_path: str, session_id: str) -> Optional[D
         return None
 
 
-async def _read_local_session_messages(codebase_path: str, session_id: str) -> List[Dict[str, Any]]:
+async def _read_local_session_messages(
+    codebase_path: str, session_id: str
+) -> List[Dict[str, Any]]:
     """Read messages from a session's local state."""
     session_data = await _read_local_session(codebase_path, session_id)
     if session_data:
@@ -4567,12 +4734,42 @@ async def worker_heartbeat(worker_id: str):
     """Update worker last-seen timestamp."""
     now = datetime.utcnow().isoformat()
 
-    # Update in-memory
+    # Update in-memory cache
     if worker_id in _registered_workers:
         _registered_workers[worker_id]['last_seen'] = now
 
-    # Update PostgreSQL
-    await db.db_update_worker_heartbeat(worker_id)
+    # Update PostgreSQL - check if it actually updated a row
+    db_updated = await db.db_update_worker_heartbeat(worker_id)
+
+    # If worker wasn't in DB, it may need to be re-registered
+    # This can happen after DB reset while in-memory cache still has worker
+    if not db_updated:
+        # Check if we have the worker info to re-insert
+        worker_info = _registered_workers.get(worker_id)
+        if worker_info:
+            # Re-insert worker into DB
+            worker_info['last_seen'] = now
+            await db.db_upsert_worker(worker_info)
+            logger.info(
+                f'Re-inserted worker {worker_id} into DB during heartbeat'
+            )
+        else:
+            # Try to get from Redis and re-insert
+            redis_worker = await _redis_get_worker(worker_id)
+            if redis_worker:
+                redis_worker['last_seen'] = now
+                await db.db_upsert_worker(redis_worker)
+                await _redis_upsert_worker(redis_worker)
+                logger.info(
+                    f'Re-inserted worker {worker_id} from Redis into DB during heartbeat'
+                )
+                return {'success': True}
+            else:
+                # Worker not found anywhere - return 404 so worker re-registers
+                raise HTTPException(
+                    status_code=404,
+                    detail='Worker not found - please re-register',
+                )
 
     # Update Redis
     if worker_id in _registered_workers:
@@ -4583,15 +4780,6 @@ async def worker_heartbeat(worker_id: str):
         if db_worker:
             db_worker['last_seen'] = now
             await _redis_upsert_worker(db_worker)
-            return {'success': True}
-
-        redis_worker = await _redis_get_worker(worker_id)
-        if redis_worker:
-            redis_worker['last_seen'] = now
-            await _redis_upsert_worker(redis_worker)
-            return {'success': True}
-
-        raise HTTPException(status_code=404, detail='Worker not found')
 
     return {'success': True}
 
@@ -4627,7 +4815,9 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
 
     # Update worker last-seen
     if update.worker_id in _registered_workers:
-        _registered_workers[update.worker_id]['last_seen'] = datetime.utcnow().isoformat()
+        _registered_workers[update.worker_id]['last_seen'] = (
+            datetime.utcnow().isoformat()
+        )
         await _redis_upsert_worker(_registered_workers[update.worker_id])
     else:
         # Best-effort: keep Redis mirror fresh even if this instance missed initial registration.
@@ -4653,6 +4843,7 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
 
 class TaskOutputChunk(BaseModel):
     """Model for streaming task output."""
+
     worker_id: str
     output: str
     timestamp: Optional[str] = None
@@ -4664,11 +4855,13 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
     if task_id not in _task_output_streams:
         _task_output_streams[task_id] = []
 
-    _task_output_streams[task_id].append({
-        'output': chunk.output,
-        'timestamp': chunk.timestamp or datetime.utcnow().isoformat(),
-        'worker_id': chunk.worker_id,
-    })
+    _task_output_streams[task_id].append(
+        {
+            'output': chunk.output,
+            'timestamp': chunk.timestamp or datetime.utcnow().isoformat(),
+            'worker_id': chunk.worker_id,
+        }
+    )
 
     # Keep only last 1000 lines per task
     if len(_task_output_streams[task_id]) > 1000:
@@ -4729,7 +4922,11 @@ async def stream_task_output_sse(task_id: str, request: Request):
             bridge = get_opencode_bridge()
             if bridge:
                 task = bridge.get_task(task_id)
-                if task and task.status.value in ('completed', 'failed', 'cancelled'):
+                if task and task.status.value in (
+                    'completed',
+                    'failed',
+                    'cancelled',
+                ):
                     yield {
                         'event': 'done',
                         'data': json.dumps({'status': task.status.value}),
@@ -5060,11 +5257,266 @@ async def auth_status():
     }
 
 
+# NextAuth Compatibility Router (for Cypress tests)
+nextauth_router = APIRouter(prefix='/api/auth', tags=['nextauth'])
+
+
+@nextauth_router.get('/csrf')
+async def get_csrf():
+    """NextAuth compatibility: Get CSRF token."""
+    return {'csrfToken': 'mock-csrf-token-' + str(uuid.uuid4())}
+
+
+@nextauth_router.post('/signin/keycloak')
+async def signin_keycloak(request: Request):
+    """NextAuth compatibility: Initiate Keycloak signin."""
+    auth = get_keycloak_auth()
+    if not auth:
+        raise HTTPException(status_code=503, detail='Auth service unavailable')
+
+    # Construct Keycloak auth URL
+    # The Cypress command expects a redirect or a location header.
+    try:
+        # Try to get callbackUrl from form data
+        form_data = await request.form()
+        callback_url = form_data.get('callbackUrl')
+    except Exception:
+        callback_url = None
+
+    if not callback_url:
+        callback_url = 'http://localhost:3001/api/auth/callback/keycloak'
+
+    from urllib.parse import urlencode
+
+    params = {
+        'client_id': auth.client_id,
+        'redirect_uri': callback_url,
+        'response_type': 'code',
+        'scope': 'openid profile email',
+        'state': str(uuid.uuid4()),
+    }
+
+    auth_url = f'{auth.auth_url}?{urlencode(params)}'
+
+    # Return 200 with the URL in the body and Location header
+    # Cypress cy.request() will follow redirects if followRedirect is true (default)
+    # or we can just return the URL for the test to use.
+    return JSONResponse(
+        status_code=200,
+        content={'url': auth_url},
+        headers={'Location': auth_url},
+    )
+
+
+@nextauth_router.get('/session')
+async def get_nextauth_session(request: Request):
+    """NextAuth compatibility: Get current session."""
+    # Return a mock session for Cypress tests if needed
+    # For now, return empty to indicate no session
+    return {}
+
+
+@nextauth_router.get('/callback/keycloak')
+async def nextauth_callback(code: str, state: str):
+    """NextAuth compatibility: Handle Keycloak callback."""
+    # This would normally exchange the code for a token and set a cookie.
+    # For Cypress, we can just redirect back to the app.
+    return JSONResponse(
+        status_code=302,
+        headers={'Location': 'http://localhost:3001/dashboard'},
+    )
+
+
+# =============================================================================
+# API Key Management Endpoints (Per-User, Vault-backed)
+# =============================================================================
+# These endpoints allow users to manage their LLM provider API keys through the UI.
+# Keys are stored in HashiCorp Vault, scoped to the authenticated Keycloak user.
+
+from .vault_client import (
+    KNOWN_PROVIDERS,
+    get_user_api_key,
+    set_user_api_key,
+    delete_user_api_key,
+    list_user_api_keys,
+    get_all_user_api_keys,
+    get_worker_sync_data,
+    check_vault_connection,
+    test_api_key as vault_test_api_key,
+)
+from .keycloak_auth import get_current_user, require_auth, UserSession
+
+
+class APIKeyCreate(BaseModel):
+    """Request model for creating/updating an API key."""
+
+    provider_id: str  # e.g., 'anthropic', 'openai', 'minimax-m2'
+    api_key: str
+    provider_name: Optional[str] = None  # Display name
+    base_url: Optional[str] = None  # Custom base URL for provider
+
+
+@opencode_router.get('/providers')
+async def list_providers():
+    """List all known LLM providers with their configuration."""
+    return {
+        'providers': [
+            {
+                'id': pid,
+                'name': pconfig.get('name', pid),
+                'description': pconfig.get('description', ''),
+                'npm': pconfig.get('npm'),
+                'has_base_url': 'base_url' in pconfig,
+                'requires_base_url': pconfig.get('requires_base_url', False),
+                'has_models': 'models' in pconfig,
+                'auth_type': pconfig.get('auth_type', 'api'),
+            }
+            for pid, pconfig in KNOWN_PROVIDERS.items()
+        ]
+    }
+
+
+@opencode_router.get('/vault/status')
+async def vault_status():
+    """Check Vault connectivity status."""
+    return await check_vault_connection()
+
+
+@opencode_router.get('/api-keys')
+async def list_api_keys(
+    user: Optional[UserSession] = Depends(get_current_user),
+):
+    """List all configured API keys for the current user (without exposing full keys)."""
+    if not user:
+        raise HTTPException(status_code=401, detail='Authentication required')
+
+    all_keys = await get_all_user_api_keys(user.user_id)
+
+    return {
+        'keys': [
+            {
+                'provider_id': pid,
+                'provider_name': data.get('provider_name')
+                or KNOWN_PROVIDERS.get(pid, {}).get('name', pid),
+                'key_preview': f'...{data["api_key"][-4:]}'
+                if data.get('api_key') and len(data['api_key']) > 4
+                else '****',
+                'updated_at': data.get('updated_at', ''),
+                'has_base_url': 'base_url' in data,
+            }
+            for pid, data in all_keys.items()
+        ],
+        'user_id': user.user_id,
+    }
+
+
+@opencode_router.post('/api-keys')
+async def create_or_update_api_key(
+    key_data: APIKeyCreate,
+    user: Optional[UserSession] = Depends(get_current_user),
+):
+    """Create or update an API key for a provider for the current user."""
+    if not user:
+        raise HTTPException(status_code=401, detail='Authentication required')
+
+    if not key_data.provider_id or not key_data.api_key:
+        raise HTTPException(
+            status_code=400, detail='provider_id and api_key are required'
+        )
+
+    # Get provider name from known providers or use provided name
+    provider_name = key_data.provider_name or KNOWN_PROVIDERS.get(
+        key_data.provider_id, {}
+    ).get('name', key_data.provider_id)
+
+    result = await set_user_api_key(
+        user_id=user.user_id,
+        provider_id=key_data.provider_id,
+        api_key=key_data.api_key,
+        provider_name=provider_name,
+        base_url=key_data.base_url,
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=500, detail='Failed to save API key to Vault'
+        )
+
+    return {
+        'success': True,
+        'provider_id': key_data.provider_id,
+        'provider_name': provider_name,
+        'message': f'API key for {provider_name} saved successfully',
+    }
+
+
+@opencode_router.delete('/api-keys/{provider_id}')
+async def delete_api_key(
+    provider_id: str,
+    user: Optional[UserSession] = Depends(get_current_user),
+):
+    """Delete an API key for a provider for the current user."""
+    if not user:
+        raise HTTPException(status_code=401, detail='Authentication required')
+
+    result = await delete_user_api_key(user.user_id, provider_id)
+    if not result:
+        raise HTTPException(
+            status_code=404, detail=f'API key for {provider_id} not found'
+        )
+
+    return {'success': True, 'message': f'API key for {provider_id} deleted'}
+
+
+@opencode_router.get('/api-keys/sync')
+async def get_api_keys_for_sync(
+    user_id: Optional[str] = None,
+    worker_id: Optional[str] = None,
+    user: Optional[UserSession] = Depends(get_current_user),
+):
+    """
+    Get all API keys for worker sync.
+
+    If user_id is provided (worker request), returns that user's keys.
+    Otherwise, returns the authenticated user's keys.
+
+    Workers should authenticate and provide the user_id for the codebase owner.
+    """
+    # Determine which user's keys to fetch
+    target_user_id = user_id
+    if not target_user_id and user:
+        target_user_id = user.user_id
+
+    if not target_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail='user_id required or authentication required',
+        )
+
+    # TODO: In production, verify worker has permission to access this user's keys
+    # This could be done by checking if the worker is assigned to a codebase owned by the user
+
+    sync_data = await get_worker_sync_data(target_user_id)
+    return sync_data
+
+
+@opencode_router.post('/api-keys/test')
+async def test_api_key_endpoint(
+    key_data: APIKeyCreate,
+    user: Optional[UserSession] = Depends(get_current_user),
+):
+    """Test an API key by making a simple request to the provider."""
+    # Allow testing without auth (just testing the key itself)
+    result = await vault_test_api_key(key_data.provider_id, key_data.api_key)
+    return result
+
+
 # Export the monitoring service, routers and helpers
 __all__ = [
     'monitor_router',
     'opencode_router',
     'auth_router',
+    'nextauth_router',
     'monitoring_service',
     'log_agent_message',
     'get_opencode_bridge',

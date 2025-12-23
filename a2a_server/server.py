@@ -44,6 +44,7 @@ from .monitor_api import (
     monitor_router,
     opencode_router,
     auth_router,
+    nextauth_router,
     monitoring_service,
     log_agent_message,
 )
@@ -198,6 +199,9 @@ class A2AServer:
 
         # Include authentication routes
         self.app.include_router(auth_router)
+
+        # Include NextAuth compatibility routes for Cypress
+        self.app.include_router(nextauth_router)
 
     async def _handle_jsonrpc_request(
         self,
