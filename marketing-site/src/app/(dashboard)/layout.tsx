@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -12,6 +12,7 @@ const navigation = [
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
     { name: 'Output', href: '/dashboard/output', icon: TerminalIcon },
     { name: 'Activity', href: '/dashboard/activity', icon: BoltIcon },
+    { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
 ]
 
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -102,6 +103,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const pathname = usePathname()
     const { data: session } = useSession()
 
+    useEffect(() => {
+        setDarkMode(true)
+        document.documentElement.classList.add('dark')
+    }, [])
+
     const toggleDarkMode = () => {
         setDarkMode(!darkMode)
         document.documentElement.classList.toggle('dark')
@@ -112,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     return (
-        <div className={clsx('min-h-screen bg-gray-100', darkMode && 'dark')}>
+        <div className={clsx('h-screen bg-gray-100 overflow-hidden', darkMode && 'dark')}>
             {/* Mobile sidebar backdrop */}
             {sidebarOpen && (
                 <div
@@ -316,8 +322,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Main content */}
-                <main className="py-6">
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <main className="flex flex-col min-h-0 overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex-1 min-h-0 w-full">
                         {children}
                     </div>
                 </main>

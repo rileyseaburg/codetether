@@ -1,6 +1,6 @@
 {
     "server_url": "https://api.codetether.run",
-    "worker_name": "dev-vm-worker",
+    "worker_name": "my-worker",
     "poll_interval": 5,
     "opencode_bin": null,
     "opencode_storage_path": null,
@@ -8,9 +8,9 @@
     "session_message_sync_max_messages": 200,
     "codebases": [
         {
-            "name": "spotlessbinco",
-            "path": "/home/riley/spotlessbinco",
-            "description": "Spotless Bin Co website"
+            "name": "my-project",
+            "path": "/path/to/your/project",
+            "description": "Description of your project"
         }
     ],
     "capabilities": [

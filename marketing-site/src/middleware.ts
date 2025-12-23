@@ -2,7 +2,14 @@ import { auth } from '@/auth'
 import { NextResponse } from 'next/server'
 
 export default auth((req) => {
-    const { pathname } = req.nextUrl
+    const { pathname, searchParams } = req.nextUrl
+
+    // Allow bypass for E2E testing with special header or query param
+    const cypressBypass = req.headers.get('x-cypress-test') === 'true' ||
+                          searchParams.get('cypress') === 'true'
+    if (cypressBypass && process.env.NODE_ENV !== 'production') {
+        return NextResponse.next()
+    }
 
     // Protected routes that require authentication
     const protectedRoutes = ['/dashboard']

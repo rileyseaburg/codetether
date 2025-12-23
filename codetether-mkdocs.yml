@@ -57,6 +57,7 @@ nav:
       - Environment Variables: reference/environment-variables.md
       - CLI Reference: reference/cli.md
       - Error Codes: reference/errors.md
+      - Troubleshooting: reference/troubleshooting.md
   - A2A Protocol Spec: https://a2a-protocol.org/
 
 # Repository

@@ -42,11 +42,11 @@ replicaCount: 1
 # 2) wait for the inactive color to be Ready
 # 3) helm upgrade with mode=bluegreen (traffic switches)
 blueGreen:
-  enabled: false
+  enabled: true
   # One of: legacy | bluegreen
-  mode: legacy
+  mode: bluegreen
   # Which color the Service should route to when mode=bluegreen
-  serviceColor: blue
+  serviceColor: green
   # Optional rollout IDs. When set, the value is added to the Pod template
   # as an annotation to force Kubernetes to roll that specific workload.
   #

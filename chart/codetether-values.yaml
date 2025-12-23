@@ -33,6 +33,9 @@ marketing:
     host: codetether.run
     tls:
       secretName: codetether-marketing-tls
+  # Keycloak secret containing KEYCLOAK_CLIENT_SECRET and NEXTAUTH_SECRET
+  keycloak:
+    secretName: "keycloak-client-secret"
   env:
     AUTH_URL: "https://codetether.run"
     AUTH_TRUST_HOST: "true"

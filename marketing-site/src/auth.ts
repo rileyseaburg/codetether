@@ -22,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (profile) {
                 token.email = profile.email
                 token.name = profile.name
-                token.preferred_username = profile.preferred_username
+                token.preferred_username = profile.name
             }
             return token
         },
@@ -31,7 +31,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             session.accessToken = token.accessToken as string
             session.refreshToken = token.refreshToken as string
             session.idToken = token.idToken as string
-            if (token.preferred_username) {
+            if (token.preferred_username && session.user) {
                 session.user.name = token.preferred_username as string
             }
             return session
@@ -44,7 +44,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session: {
         strategy: 'jwt',
     },
-    trustHost: true,
 })
 
 // Extend the Session type to include our custom properties
