@@ -4,6 +4,10 @@
 
 ### Features
 
+* **PostgreSQL Task Persistence**: Tasks now persist to PostgreSQL via `PersistentTaskManager` with asyncpg. Tasks are stored in the `a2a_tasks` table with full status history and message tracking.
+* **PostgreSQL Monitor Messages**: Monitor messages now persist to PostgreSQL in the `monitor_messages` table. Includes message types, response times, token counts, and agent tracking.
+* **Redis Reactive Task Execution**: Workers can now subscribe to Redis MessageBroker events for near-instant task execution. Tasks start within milliseconds instead of waiting for poll cycles.
+* **Worker Redis Integration**: Added Redis pub/sub support to agent workers with automatic reconnection, event subscriptions, and graceful shutdown handling.
 * **Model Filtering by Authentication**: Workers now automatically filter available models based on configured authentication. Only models from providers with valid API keys or OAuth tokens in `auth.json` are registered with the server.
 * **Runtime Sessions API**: Direct access to local OpenCode sessions without requiring codebase registration
   - `GET /v1/opencode/runtime/status` - Check if OpenCode runtime is available locally

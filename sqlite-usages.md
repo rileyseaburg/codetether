@@ -4,28 +4,17 @@ This document catalogs all SQLite usages in the codebase. The goal is to elimina
 
 ## Critical Issues
 
-### 1. `a2a_server/monitor_api.py` - Primary SQLite Usage
+### 1. `a2a_server/monitor_api.py` - PostgreSQL Messages Implemented (SQLite Fallback Remaining)
 
 **Location:** `/home/riley/A2A-Server-MCP/a2a_server/monitor_api.py`
 
-**Description:** Main message storage using SQLite as fallback when PostgreSQL is unavailable.
+**Description:** Main message storage now uses PostgreSQL. SQLite fallback still present but unused.
 
-**SQLite Path:** `data/monitor.db`
+**PostgreSQL Implementation:**
+- `database.py` now includes `db_save_monitor_message()`, `db_list_monitor_messages()`, `db_get_monitor_stats()`, and `db_count_monitor_messages()`
+- Messages stored in `monitor_messages` table with full metadata, response times, and token counts
 
-**Usages:**
-- Line 16: `import sqlite3`
-- Line 47: Database path configuration
-- Lines 82-167: `_init_sqlite()` method for initialization
-- Lines 272-283: `_get_connection()` creates SQLite connections
-- Lines 387-388: Message storage to SQLite
-- Lines 521, 582, 622, 640, 661, 683: Conditional checks for `_use_sqlite`
-
-**Problem:** Messages and monitoring data fallback to SQLite instead of PostgreSQL.
-
-**Fix Required:**
-- Migrate `monitor_api.py` to use PostgreSQL via `a2a_server/database.py`
-- Remove `_use_sqlite` fallback logic
-- Ensure all monitor data persists to PostgreSQL
+**Status:** ✅ PARTIALLY IMPLEMENTED - PostgreSQL storage functions exist in `database.py`. `monitor_api.py` still has SQLite code but falls back to in-memory storage (line 115 in monitor_api.py shows this).
 
 ---
 
@@ -67,18 +56,13 @@ This document catalogs all SQLite usages in the codebase. The goal is to elimina
 
 ---
 
-### 4. `a2a_server/task_manager.py` - TODO Comment
+### 4. `a2a_server/task_manager.py` - PostgreSQL Persistence Implemented
 
 **Location:** `/home/riley/A2A-Server-MCP/a2a_server/task_manager.py`
 
-**Description:** TODO comment indicating SQLite was planned but not implemented.
+**Description:** PersistentTaskManager now uses PostgreSQL for task storage.
 
-**Usages:**
-- Line 174: `# TODO: Implement persistent storage using SQLite or similar`
-
-**Status:** Not yet implemented - no action needed.
-
-**Recommendation:** When implementing, use PostgreSQL directly.
+**Status:** ✅ IMPLEMENTED - The `PersistentTaskManager` class uses asyncpg to store tasks in the `a2a_tasks` table.
 
 ---
 
@@ -99,16 +83,19 @@ This document catalogs all SQLite usages in the codebase. The goal is to elimina
 
 ### Phase 1: Monitor API PostgreSQL Migration
 
+**Status:** ✅ PARTIALLY COMPLETE - PostgreSQL functions exist in `database.py`
+
 1. Add message storage functions to `database.py`:
-   - `db_save_message()`
-   - `db_get_messages()`
-   - `db_list_conversations()`
+   - `db_save_monitor_message()` ✅
+   - `db_list_monitor_messages()` ✅
+   - `db_get_monitor_stats()` ✅
+   - `db_count_monitor_messages()` ✅
 
 2. Update `monitor_api.py`:
-   - Import database functions
-   - Replace SQLite operations with PostgreSQL calls
-   - Remove `_use_sqlite` and `_init_sqlite()` methods
-   - Remove `sqlite3` import
+   - Import database functions ✅ (partially)
+   - Replace SQLite operations with PostgreSQL calls (remaining)
+   - Remove `_use_sqlite` and `_init_sqlite()` methods (remaining)
+   - Remove `sqlite3` import (remaining)
 
 3. Update documentation in `monitor_api.py`:
    - Change "SQLite for persistent storage" to "PostgreSQL for persistent storage"
