@@ -40,18 +40,20 @@ export default function SessionsPage() {
     const onSend = async () => { if (selectedSession && draftMessage.trim()) { await resumeSession(selectedSession, draftMessage.trim()); setDraftMessage('') } }
 
     return (
-        <main aria-label="Chat sessions dashboard" className="flex flex-col gap-6 min-h-0">
+        <main aria-label="Chat sessions dashboard" className="flex flex-col min-h-0 h-screen overflow-hidden">
             {/* Skip link for keyboard users */}
-            <a
-                href="#chat-message-input"
-                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-md"
-            >
-                Skip to message input
-            </a>
+            <div className="relative shrink-0">
+                <a
+                    href="#chat-message-input"
+                    className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-md"
+                >
+                    Skip to message input
+                </a>
+            </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 min-h-0 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 flex-1 min-h-0 overflow-hidden px-4 pb-4">
                 {/* Session sidebar */}
-                <aside className="lg:col-span-4 min-h-0 flex flex-col" aria-label="Session list sidebar">
+                <aside className="md:col-span-4 lg:col-span-3 min-h-0 flex flex-col h-full" aria-label="Session list sidebar">
                     <SessionList
                         codebases={codebases}
                         sessions={sessions}
@@ -63,9 +65,9 @@ export default function SessionsPage() {
                 </aside>
 
                 {/* Chat area */}
-                <div className="lg:col-span-8 min-h-0">
+                <div className="md:col-span-8 lg:col-span-9 flex flex-col min-h-0 overflow-hidden">
                     <div
-                        className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10 flex flex-col overflow-hidden"
+                        className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10 flex flex-col overflow-hidden flex-1 min-h-0"
                         role="region"
                         aria-label={selectedSession ? `Chat: ${selectedSession.title || 'Untitled session'}` : 'Chat panel'}
                     >

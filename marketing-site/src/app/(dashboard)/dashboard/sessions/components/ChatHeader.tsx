@@ -24,10 +24,10 @@ export function ChatHeader(p: Props) {
 
     return (
         <header
-            className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3"
+            className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
             aria-label="Chat session header"
         >
-            <div className="min-w-0">
+            <div className="min-w-0 w-full sm:w-auto">
                 <h2 id="chat-title" className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                     {sessionTitle}
                 </h2>
@@ -45,7 +45,7 @@ export function ChatHeader(p: Props) {
                     )}
                 </p>
             </div>
-            <div className="flex items-center gap-2" role="toolbar" aria-label="Chat controls">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap" role="toolbar" aria-label="Chat controls">
                 <StreamStatus connected={p.streamConnected} status={p.streamStatus} />
                 <ModeSelector value={p.selectedMode} onChange={p.onModeChange} />
                 <ModelSelector value={p.selectedModel} suggestions={p.suggestedModels} onChange={p.onModelChange} />

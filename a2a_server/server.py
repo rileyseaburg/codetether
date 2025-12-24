@@ -37,7 +37,8 @@ from .models import (
     LiveKitTokenRequest,
     LiveKitTokenResponse,
 )
-from .task_manager import TaskManager, InMemoryTaskManager
+from .task_manager import TaskManager, PersistentTaskManager
+from .database import DATABASE_URL
 from .message_broker import MessageBroker, InMemoryMessageBroker
 from .agent_card import AgentCard
 from .monitor_api import (
@@ -74,7 +75,7 @@ class A2AServer:
         auth_callback: Optional[Callable[[str], bool]] = None,
     ):
         self.agent_card = agent_card
-        self.task_manager = task_manager or InMemoryTaskManager()
+        self.task_manager = task_manager or PersistentTaskManager(DATABASE_URL)
         self.message_broker = message_broker or InMemoryMessageBroker()
         self.auth_callback = auth_callback
 

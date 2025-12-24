@@ -270,7 +270,6 @@ dev: ## Alias for run-all (starts Python and Next.js)
 run-all: ## Run Python server, React (Next.js) dev server, and a local worker
 	@echo "🚀 Starting Python server, React dev server, and local worker..."
 	@trap 'kill 0' EXIT; \
-	(cd marketing-site && npm run dev) & \
 	(if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 Worker auto-reload enabled"; \
 		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \

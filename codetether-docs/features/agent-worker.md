@@ -10,11 +10,15 @@ The **Agent Worker** is a standalone daemon that runs on machines with codebases
 !!! success "Zero-Touch Automation"
     Once configured, the Agent Worker autonomously pulls tasks from the server, executes them using OpenCode, and reports results—all without human intervention.
 
+!!! tip "Reactive Execution"
+    Workers now support **real-time task execution** via Redis MessageBroker events. Tasks start within milliseconds of creation instead of waiting for the next poll cycle.
+
 ## Overview
 
 The Agent Worker provides:
 
 - **Remote Task Execution**: Run AI agents on machines where codebases live
+- **Reactive Task Execution**: Near-instant task start via Redis pub/sub events
 - **Codebase Registration**: Automatically register local codebases with the server
 - **Session Sync**: Report OpenCode session history to the central server
 - **Output Streaming**: Real-time task output streaming to the server
@@ -24,21 +28,30 @@ The Agent Worker provides:
 ```mermaid
 sequenceDiagram
     participant Server as CodeTether Server
+    participant Redis as Redis (MessageBroker)
     participant Worker as Agent Worker
     participant OpenCode as OpenCode CLI
     participant Codebase as Local Codebase
 
     Worker->>Server: Register worker
     Worker->>Server: Register codebases
+    Worker->>Redis: Subscribe to task events
 
-    loop Poll Interval
-        Worker->>Server: Get pending tasks
-        Server-->>Worker: Task list
+    par Reactive Path (instant)
+        Server->>Redis: Publish task.created event
+        Redis->>Worker: Push event
         Worker->>OpenCode: Execute task
-        OpenCode->>Codebase: Read/modify files
-        Worker->>Server: Stream output
-        Worker->>Server: Report completion
+    and Polling Path (fallback)
+        loop Poll Interval
+            Worker->>Server: Get pending tasks
+            Server-->>Worker: Task list
+            Worker->>OpenCode: Execute task
+        end
     end
+
+    OpenCode->>Codebase: Read/modify files
+    Worker->>Server: Stream output
+    Worker->>Server: Report completion
 
     loop Session Sync
         Worker->>Server: Sync OpenCode sessions
@@ -49,6 +62,42 @@ sequenceDiagram
 
 The Agent Worker acts as a bridge between the CodeTether server and local codebases:
 
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Remote Machine                            │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                  Agent Worker Daemon                     │    │
+│  │  ┌─────────────┐  ┌───────────────┐  ┌────────────────┐  │    │
+│  │  │ Event Sub   │  │   Poller      │  │    Executor    │  │    │
+│  │  │ (Redis)     │  │  (fallback)   │  │   (opencode)   │  │    │
+│  │  └──────┬──────┘  └───────┬───────┘  └───────┬────────┘  │    │
+│  │         │                 │                  │            │    │
+│  │         └─────────────────┼──────────────────┘            │    │
+│  │                           │                               │    │
+│  └───────────────────────────┼───────────────────────────────┘    │
+│                              │                                    │
+│  ┌───────────────────────────┼────────────────────────────────┐   │
+│  │   /home/user/project-a    │    /home/user/project-b        │   │
+│  │        Codebase 1         │         Codebase 2             │   │
+│  └───────────────────────────┴────────────────────────────────┘   │
+│                              │                                    │
+│                              ▼                                    │
+│                      OpenCode Binary                              │
+│                     ~/.local/bin/opencode                         │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+               ┌────────────────┴────────────────┐
+               │                                 │
+               ▼                                 ▼
+     ┌─────────────────┐              ┌─────────────────┐
+     │  CodeTether API │              │  Redis Server   │
+     │  api.codetether │              │  (MessageBroker)│
+     │      .run       │              └─────────────────┘
+     └─────────────────┘                        │
+               │                                │
+               │                        Workers subscribe to
+               │                        task.created events
+               └────────────────────────────────┘
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Remote Machine                            │
@@ -86,7 +135,8 @@ The Agent Worker acts as a bridge between the CodeTether server and local codeba
 
 | Component | Purpose |
 |-----------|---------|
-| **Poller** | Fetches pending tasks from the server at configurable intervals |
+| **Poller** | Fetches pending tasks from the server at configurable intervals (fallback) |
+| **Event Subscriber** | Receives real-time task events via Redis MessageBroker |
 | **Executor** | Runs OpenCode agents on local codebases |
 | **Reporter** | Streams task output and syncs session history |
 | **Lifecycle Manager** | Handles worker registration, signals, and cleanup |
@@ -195,6 +245,7 @@ The worker reads configuration from `/etc/a2a-worker/config.json`:
 | `session_message_sync_max_sessions` | integer | `3` | How many *most recent* sessions (per codebase, including **global**) to also sync messages for (UI detail panel) |
 | `session_message_sync_max_messages` | integer | `100` | How many *most recent* messages (per session) to sync |
 | `capabilities` | array | `["opencode", "build", "deploy"]` | Worker capabilities to advertise |
+| `redis_url` | string | `redis://localhost:6379` | Redis URL for MessageBroker control plane events (enables reactive task execution) |
 
 ### Model Filtering & Authentication
 
@@ -216,6 +267,10 @@ A2A_SERVER_URL=https://api.codetether.run
 A2A_WORKER_NAME=production-worker-1
 A2A_POLL_INTERVAL=10
 
+# Redis URL for reactive task execution (MessageBroker)
+# Leave unset to use server's Redis if available, or disable reactive mode:
+# A2A_REDIS_URL=redis://localhost:6379
+
 # If the worker runs as a service user (e.g. /opt/a2a-worker) but OpenCode sessions
 # live under a different user's home, point the worker at that storage:
 # A2A_OPENCODE_STORAGE_PATH=/home/riley/.local/share/opencode/storage
@@ -230,6 +285,7 @@ A2A_POLL_INTERVAL=10
 | `A2A_SERVER_URL` | CodeTether server URL |
 | `A2A_WORKER_NAME` | Worker identifier |
 | `A2A_POLL_INTERVAL` | Poll interval in seconds |
+| `A2A_REDIS_URL` | Redis URL for MessageBroker control plane events (enables reactive task execution; leave unset to auto-detect from server) |
 | `A2A_OPENCODE_STORAGE_PATH` | Override OpenCode storage path (useful under systemd service accounts) |
 | `A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS` | Number of recent sessions to sync messages for |
 | `A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES` | Number of recent messages to sync per session |
@@ -303,6 +359,7 @@ python3 agent_worker/worker.py \
 | `--opencode-storage-path` | — | Override OpenCode storage directory |
 | `--session-message-sync-max-sessions` | — | Recent sessions per codebase to sync messages for |
 | `--session-message-sync-max-messages` | — | Recent messages per session to sync |
+| `--redis-url` | — | Redis URL for MessageBroker events (e.g., `redis://localhost:6379`) |
 
 ---
 
@@ -339,7 +396,45 @@ POST /v1/opencode/codebases
 !!! info "Worker Affinity"
     Tasks for a codebase are routed only to the worker that registered it. This ensures tasks execute where the code actually lives.
 
-### 3. Task Polling
+### 3. Reactive Task Execution (MessageBroker)
+
+When Redis is configured, workers subscribe to the MessageBroker for real-time task events:
+
+```mermaid
+sequenceDiagram
+    participant Server
+    participant Redis
+    participant Worker
+
+    Server->>Redis: Publish task.created event
+    Redis->>Worker: Push event (instant)
+    Worker->>Worker: Fetch task details
+    Worker->>OpenCode: Execute task
+```
+
+**Benefits:**
+- **Near-instant task start**: Tasks begin within milliseconds of creation
+- **Reduced latency**: No waiting for poll interval
+- **Battery efficient**: No periodic polling overhead
+
+**Configuration:**
+```json
+{
+    "redis_url": "redis://localhost:6379"
+}
+```
+
+Or via environment:
+```bash
+A2A_REDIS_URL=redis://localhost:6379
+```
+
+The worker automatically detects the server's Redis URL if configured. If Redis is unavailable, the worker seamlessly falls back to polling.
+
+!!! tip "How It Works"
+    When a task is created, the server publishes a `task.created` event to Redis. Workers subscribed to events for their registered codebases receive the event immediately, fetch the full task details, and start execution.
+
+### 4. Task Polling
 
 The worker polls for pending tasks:
 
@@ -349,7 +444,7 @@ GET /v1/opencode/tasks?status=pending&worker_id=abc123
 
 Only tasks assigned to this worker's codebases are returned.
 
-### 4. Task Execution
+### 5. Task Execution
 
 When a task is received:
 
@@ -363,7 +458,7 @@ When a task is received:
 opencode run --agent build --format json "Add unit tests for auth module"
 ```
 
-### 5. Session Sync
+### 6. Session Sync
 
 Every ~60 seconds, the worker syncs OpenCode session history:
 

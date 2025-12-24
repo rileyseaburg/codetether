@@ -52,8 +52,8 @@ export default function RootLayout({
     children: React.ReactNode
 }) {
     return (
-        <html lang="en" className={clsx('bg-gray-50 dark:bg-gray-950 antialiased', inter.variable)}>
-            <body className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
+        <html lang="en" style={{ maxHeight: '100vh' }} className={clsx('bg-gray-50 dark:bg-blue-950 antialiased', inter.variable)}>
+            <body style={{ maxHeight: '100vh' }} className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
                 <AuthProvider>{children}</AuthProvider>
             </body>
         </html>
