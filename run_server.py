@@ -14,7 +14,7 @@ from typing import Optional
 
 from a2a_server.config import load_config, create_agent_config
 from a2a_server.agent_card import create_agent_card
-from a2a_server.task_manager import InMemoryTaskManager
+from a2a_server.task_manager import PersistentTaskManager
 from a2a_server.redis_task_manager import RedisTaskManager
 from a2a_server.message_broker import MessageBroker, InMemoryMessageBroker
 from a2a_server.server import A2AServer, CustomA2AAgent
@@ -86,7 +86,7 @@ async def create_server(
                 redis_available = True
                 print(f"✓ Redis detected and available at {config.redis_url}")
         except Exception as e:
-            print(f"⚠ Redis not available ({e}), using in-memory storage")
+            print(f"⚠ Redis not available ({e}), using PostgreSQL task storage")
             redis_available = False
 
     # Create components with Redis if available
@@ -96,9 +96,9 @@ async def create_server(
         message_broker = MessageBroker(config.redis_url)
         print("✓ Using Redis for task persistence and message broker")
     else:
-        task_manager = InMemoryTaskManager()
+        task_manager = PersistentTaskManager(config.database_url)
         message_broker = InMemoryMessageBroker()
-        print("✓ Using in-memory task manager and message broker")
+        print("✓ Using PostgreSQL task manager and in-memory message broker")
 
     # Create authentication callback if needed
     auth_callback = None

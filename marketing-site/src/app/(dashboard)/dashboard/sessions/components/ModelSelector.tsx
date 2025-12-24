@@ -8,7 +8,7 @@ export function ModelSelector({ value, suggestions, onChange }: ModelSelectorPro
     const hasSuggestions = suggestions.length > 0
 
     return (
-        <div className="hidden md:flex flex-col items-end">
+        <div className="hidden sm:flex flex-col items-end">
             <label
                 className="text-[10px] text-gray-400 dark:text-gray-500"
                 htmlFor="ct-model"
@@ -22,7 +22,7 @@ export function ModelSelector({ value, suggestions, onChange }: ModelSelectorPro
                 onChange={(e) => onChange(e.target.value)}
                 list="ct-model-options"
                 placeholder="provider/model"
-                className="w-[220px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-[160px] sm:w-[200px] md:w-[220px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 aria-describedby="model-hint"
                 autoComplete="off"
             />

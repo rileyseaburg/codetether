@@ -129,7 +129,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Mobile sidebar */}
             <div className={clsx(
-                'fixed inset-y-0 left-0 z-50 w-72 bg-indigo-700 dark:bg-gray-800 lg:hidden transform transition-transform duration-300',
+                'fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-indigo-700 dark:bg-gray-800 lg:hidden transform transition-transform duration-300',
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             )}>
                 <div className="flex h-16 items-center justify-between px-6 border-b border-indigo-600 dark:border-gray-700">
@@ -167,7 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Desktop sidebar */}
-            <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-56 lg:flex-col">
+            <div className="hidden md:fixed md:inset-y-0 md:z-50 md:flex md:w-60 lg:w-56 lg:flex-col">
                 <div className="flex grow flex-col overflow-y-auto bg-indigo-700 dark:bg-gray-800">
                     <div className="flex h-16 items-center px-4 border-b border-indigo-600 dark:border-gray-700">
                         <Link href="/dashboard" className="flex items-center gap-2">
@@ -214,21 +214,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Main content wrapper */}
-            <div className="lg:pl-56">
+            <div className="md:pl-60 lg:pl-52">
                 {/* Top navbar */}
-                <div className="sticky top-0 z-40 flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
+                <div className="sticky top-0 z-40 flex h-16 items-center gap-x-2 border-b border-gray-200 bg-white px-2 sm:px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
                     {/* Mobile menu button */}
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="lg:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-200"
+                        className="md:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-200"
                     >
                         <MenuIcon className="h-6 w-6" />
                     </button>
 
                     {/* Separator */}
-                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 lg:hidden" />
+                    <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 md:hidden" />
 
-                    <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+                    <div className="flex flex-1 gap-x-2 self-stretch overflow-hidden sm:gap-x-6">
                         {/* Status indicators */}
                         <div className="hidden md:flex items-center gap-4 ml-auto">
                             <div className="flex items-center gap-2">
@@ -238,14 +238,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
 
                         {/* Right actions */}
-                        <div className="flex items-center gap-x-3 ml-auto md:ml-0">
+                        <div className="flex items-center gap-x-2 ml-auto md:ml-0 sm:gap-x-3">
                             <button
                                 onClick={toggleDarkMode}
                                 className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
                             >
                                 {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
                             </button>
-                            <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+                            <button className="hidden sm:block rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
                                 <CogIcon className="h-5 w-5" />
                             </button>
 
@@ -254,7 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <div className="relative">
                                     <button
                                         onClick={() => setUserMenuOpen(!userMenuOpen)}
-                                        className="flex items-center gap-2 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        className="flex items-center gap-1 sm:gap-2 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
                                     >
                                         {session.user.image ? (
                                             <img
@@ -267,7 +267,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
                                             </div>
                                         )}
-                                        <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        <span className="hidden xs:hidden sm:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 max-w-20 sm:max-w-none truncate">
                                             {session.user.name || session.user.email}
                                         </span>
                                     </button>
@@ -278,7 +278,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 className="fixed inset-0 z-10"
                                                 onClick={() => setUserMenuOpen(false)}
                                             />
-                                            <div className="absolute right-0 z-20 mt-2 w-48 rounded-md bg-white dark:bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5">
+                                            <div className="absolute right-0 sm:right-auto sm:left-0 z-20 mt-2 w-48 rounded-md bg-white dark:bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5">
                                                 <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                                     Signed in as
                                                     <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -313,7 +313,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                             <Link
                                 href="/"
-                                className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                                className="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                             >
                                 ← Back to Site
                             </Link>
@@ -323,7 +323,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Main content */}
                 <main className="flex flex-col min-h-0 overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex-1 min-h-0 w-full">
+                    <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 flex-1 min-h-0">
                         {children}
                     </div>
                 </main>

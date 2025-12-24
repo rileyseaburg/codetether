@@ -86,17 +86,27 @@ sudo journalctl -u a2a-agent-worker -n 100 --no-pager
 graph LR
     S[CodeTether Server] --> PG[(PostgreSQL)]
     S --> R[(Redis)]
-    R --> W1[Worker 1]
-    R --> W2[Worker 2]
-    R --> W3[Worker N]
+
+    subgraph Workers
+        R --> W1[Worker 1]
+        R --> W2[Worker 2]
+        R --> W3[Worker N]
+    end
 
     W1 --> OC1[OpenCode]
     W2 --> OC2[OpenCode]
     W3 --> OC3[OpenCode]
+
+    W1 -.-> R[Redis Events]
+    W2 -.-> R
+    W3 -.-> R
 ```
 
 !!! tip "Durable Persistence with PostgreSQL"
     When `DATABASE_URL` is configured, workers, codebases, and sessions persist across server restarts and work correctly with multiple replicas. Without PostgreSQL, data is stored in Redis (shared) or in-memory (single instance only).
+
+!!! tip "Reactive Task Execution"
+    Workers subscribe to Redis MessageBroker events for near-instant task execution. Configure `A2A_REDIS_URL` on workers to enable real-time task delivery.
 
 ## Configuration Options
 
@@ -104,10 +114,11 @@ graph LR
 |--------|---------|-------------|
 | `server_url` | — | CodeTether server URL (required) |
 | `worker_name` | hostname | Unique worker identifier |
-| `poll_interval` | 5 | Seconds between task polls |
+| `poll_interval` | 5 | Seconds between task polls (fallback when reactive mode is unavailable) |
 | `codebases` | [] | Array of codebase objects to register |
 | `opencode_bin` | auto-detect | Path to OpenCode binary |
 | `capabilities` | ["opencode", "build", "deploy"] | Advertised capabilities |
+| `redis_url` | `redis://localhost:6379` | Redis URL for MessageBroker reactive task execution |
 
 ## Environment Variables
 
@@ -115,7 +126,17 @@ graph LR
 export A2A_SERVER_URL=https://api.codetether.run
 export A2A_WORKER_NAME=worker-1
 export A2A_POLL_INTERVAL=5
+
+# Enable reactive task execution via Redis MessageBroker
+export A2A_REDIS_URL=redis://localhost:6379
 ```
+
+| Variable | Description |
+|----------|-------------|
+| `A2A_SERVER_URL` | CodeTether server URL |
+| `A2A_WORKER_NAME` | Worker identifier |
+| `A2A_POLL_INTERVAL` | Poll interval in seconds (fallback for reactive mode) |
+| `A2A_REDIS_URL` | Redis URL for real-time task events (optional, enables reactive execution) |
 
 ## Systemd Service
 

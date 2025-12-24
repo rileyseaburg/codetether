@@ -29,11 +29,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable, Set
-import os
+from typing import Any, Dict, List, Optional
 
 import aiohttp
-import redis.asyncio as redis_async
 
 # Configure logging
 logging.basicConfig(
@@ -65,8 +63,6 @@ class WorkerConfig:
     capabilities: List[str] = field(
         default_factory=lambda: ['opencode', 'build', 'deploy']
     )
-    # Redis URL for MessageBroker control plane events
-    redis_url: str = 'redis://localhost:6379'
 
 
 @dataclass
@@ -95,14 +91,6 @@ class AgentWorker:
         self._global_codebase_id: Optional[str] = (
             None  # Cached ID for global sessions codebase
         )
-        # Redis/MessageBroker for control plane events
-        self._redis: Optional[redis_async.Redis] = None
-        self._pubsub: Optional[Any] = None
-        self._subscribers: Dict[str, Set[Callable[[str, Any], None]]] = {}
-        self._subscription_task: Optional[asyncio.Task] = None
-        self._known_task_ids: Set[str] = (
-            set()
-        )  # Track tasks we've seen to avoid duplicates
 
     def _find_opencode_binary(self) -> str:
         """Find the opencode binary."""
@@ -189,135 +177,6 @@ class AgentWorker:
         except Exception as e:
             logger.warning(f'Failed to read OpenCode auth.json: {e}')
         return authenticated
-
-    async def _connect_redis(self) -> bool:
-        """Connect to Redis for MessageBroker events."""
-        try:
-            self._redis = redis_async.from_url(self.config.redis_url)
-            self._pubsub = self._redis.pubsub()
-            logger.info(f'Connected to Redis at {self.config.redis_url}')
-            return True
-        except Exception as e:
-            logger.warning(f'Failed to connect to Redis: {e}')
-            return False
-
-    async def _disconnect_redis(self):
-        """Disconnect from Redis."""
-        if self._subscription_task:
-            self._subscription_task.cancel()
-            try:
-                await self._subscription_task
-            except asyncio.CancelledError:
-                pass
-        if self._pubsub:
-            await self._pubsub.close()
-        if self._redis:
-            await self._redis.close()
-        logger.info('Redis connection closed')
-
-    async def _subscribe_to_events(
-        self, event_type: str, handler: Callable
-    ) -> None:
-        """Subscribe to events of a specific type."""
-        channel = f'events:{event_type}'
-        if channel not in self._subscribers:
-            self._subscribers[channel] = set()
-            if self._pubsub:
-                await self._pubsub.subscribe(channel)
-        self._subscribers[channel].add(handler)
-        logger.debug(f'Subscribed to events: {event_type}')
-
-    async def _unsubscribe_from_events(
-        self, event_type: str, handler: Callable
-    ) -> None:
-        """Unsubscribe from events of a specific type."""
-        channel = f'events:{event_type}'
-        if channel in self._subscribers:
-            self._subscribers[channel].discard(handler)
-            if not self._subscribers[channel] and self._pubsub:
-                await self._pubsub.unsubscribe(channel)
-                del self._subscribers[channel]
-
-    async def _redis_subscription_loop(self):
-        """Main loop for receiving Redis pub/sub messages."""
-        if not self._pubsub:
-            return
-
-        try:
-            async for message in self._pubsub.listen():
-                if not self.running:
-                    break
-
-                if message['type'] == 'message':
-                    try:
-                        event_data = json.loads(message['data'])
-                        event_type = event_data.get('type', '')
-                        data = event_data.get('data', {})
-
-                        # Notify all handlers for this event type
-                        handlers = self._subscribers.get(
-                            message['channel'], set()
-                        ).copy()
-                        for handler in handlers:
-                            try:
-                                if asyncio.iscoroutinefunction(handler):
-                                    await handler(event_type, data)
-                                else:
-                                    handler(event_type, data)
-                            except Exception as e:
-                                logger.error(f'Error in event handler: {e}')
-
-                    except json.JSONDecodeError as e:
-                        logger.warning(f'Failed to decode event data: {e}')
-
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error(f'Error in Redis subscription loop: {e}')
-
-    async def _handle_task_created_event(self, event_type: str, data: Any):
-        """Handle task.created events from MessageBroker."""
-        task_id = data.get('task_id')
-        codebase_id = data.get('codebase_id')
-
-        # Skip if we've already seen this task
-        if task_id in self._known_task_ids:
-            return
-        self._known_task_ids.add(task_id)
-
-        # Check if this task is for one of our codebases
-        if codebase_id in self.codebases:
-            logger.info(
-                f'Received task.created event for task {task_id} (codebase: {codebase_id})'
-            )
-            # Fetch full task details from server
-            try:
-                tasks = await self.get_pending_tasks()
-                task = next((t for t in tasks if t.get('id') == task_id), None)
-                if task:
-                    await self.execute_task(task)
-            except Exception as e:
-                logger.error(f'Failed to execute task {task_id}: {e}')
-
-    async def _start_redis_subscriptions(self):
-        """Start Redis subscriptions for control plane events."""
-        try:
-            if await self._connect_redis():
-                # Subscribe to task events
-                await self._subscribe_to_events(
-                    'task.created', self._handle_task_created_event
-                )
-                await self._subscribe_to_events(
-                    'task.updated', self._handle_task_created_event
-                )
-
-                # Start subscription loop
-                self._subscription_task = asyncio.create_task(
-                    self._redis_subscription_loop()
-                )
-                logger.info('Redis control plane subscriptions started')
-        except Exception as e:
-            logger.warning(f'Failed to start Redis subscriptions: {e}')
 
     async def sync_api_keys_from_server(
         self, user_id: Optional[str] = None
@@ -479,10 +338,6 @@ class AgentWorker:
         logger.info('Syncing sessions with server...')
         await self.report_sessions_to_server()
 
-        # Start Redis control plane subscriptions
-        logger.info('Starting Redis control plane subscriptions...')
-        await self._start_redis_subscriptions()
-
         # Start polling loop
         await self.poll_loop()
 
@@ -505,9 +360,6 @@ class AgentWorker:
             await self.unregister_worker()
         except Exception as e:
             logger.debug(f'Failed to unregister worker during shutdown: {e}')
-
-        # Disconnect from Redis control plane
-        await self._disconnect_redis()
 
         # Close session properly
         if self.session is not None and not self.session.closed:
@@ -2357,11 +2209,6 @@ async def main():
         default=None,
         help='How many most-recent messages per session to sync (0 disables)',
     )
-    parser.add_argument(
-        '--redis-url',
-        default=None,
-        help='Redis URL for MessageBroker control plane events (default: redis://localhost:6379)',
-    )
 
     args = parser.parse_args()
 
@@ -2448,12 +2295,6 @@ async def main():
             args.opencode_storage_path
             or os.environ.get('A2A_OPENCODE_STORAGE_PATH')
             or file_config.get('opencode_storage_path')
-        ),
-        'redis_url': (
-            args.redis_url
-            or os.environ.get('A2A_REDIS_URL')
-            or file_config.get('redis_url')
-            or 'redis://localhost:6379'
         ),
     }
 

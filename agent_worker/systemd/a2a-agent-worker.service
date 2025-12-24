@@ -17,6 +17,8 @@ Group=a2a-worker
 Environment=A2A_SERVER_URL=https://api.codetether.run
 Environment=A2A_WORKER_NAME=%H
 Environment=A2A_POLL_INTERVAL=5
+# Redis for reactive task execution (uncomment and configure in /etc/a2a-worker/env)
+# Environment=A2A_REDIS_URL=redis://localhost:6379
 EnvironmentFile=-/etc/a2a-worker/env
 
 # Working directory

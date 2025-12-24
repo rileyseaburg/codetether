@@ -112,13 +112,6 @@ class PersistentMessageStore:
                 )
                 return
 
-        # Try SQLite
-        if self._init_sqlite():
-            print(f'✓ Using SQLite storage at {self.db_path}')
-            return
-
-        # Fallback to in-memory
-        print('⚠ Using in-memory storage (data will be lost on restart)')
 
     def _init_minio(self) -> bool:
         """Initialize MinIO/S3 storage backend."""

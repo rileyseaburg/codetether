@@ -20,8 +20,12 @@ from typing import Any, Dict, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 # Database URL from environment
+# Use config default if no environment variable set
+DEFAULT_DATABASE_URL = (
+    'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server'
+)
 DATABASE_URL = os.environ.get(
-    'DATABASE_URL', os.environ.get('A2A_DATABASE_URL', '')
+    'DATABASE_URL', os.environ.get('A2A_DATABASE_URL', DEFAULT_DATABASE_URL)
 )
 
 # Module-level state
@@ -196,6 +200,21 @@ async def _init_schema():
                 tokens JSONB DEFAULT '{}'::jsonb,
                 tool_calls JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        # Monitor messages table (for agent monitoring)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS monitor_messages (
+                id TEXT PRIMARY KEY,
+                timestamp TIMESTAMPTZ DEFAULT NOW(),
+                type TEXT NOT NULL,
+                agent_name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                metadata JSONB DEFAULT '{}'::jsonb,
+                response_time REAL,
+                tokens INTEGER,
+                error TEXT
             )
         """)
 
@@ -1068,3 +1087,132 @@ async def db_health_check() -> Dict[str, Any]:
             'available': False,
             'message': f'PostgreSQL error: {e}',
         }
+
+
+# ========================================
+# Monitor/Messages Operations
+# ========================================
+
+
+async def db_save_monitor_message(message: Dict[str, Any]) -> bool:
+    """Save a monitor message to the database."""
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO monitor_messages
+                (id, timestamp, type, agent_name, content, metadata, response_time, tokens, error)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT (id) DO NOTHING
+            """,
+                message.get('id'),
+                _parse_timestamp(message.get('timestamp')) or datetime.utcnow(),
+                message.get('type'),
+                message.get('agent_name'),
+                message.get('content'),
+                json.dumps(message.get('metadata', {})),
+                message.get('response_time'),
+                message.get('tokens'),
+                message.get('error'),
+            )
+        return True
+    except Exception as e:
+        logger.error(f'Failed to save monitor message: {e}')
+        return False
+
+
+async def db_list_monitor_messages(
+    limit: int = 100,
+    agent_name: Optional[str] = None,
+    msg_type: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """List monitor messages from the database."""
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            query = 'SELECT * FROM monitor_messages WHERE 1=1'
+            params = []
+            param_idx = 1
+
+            if agent_name:
+                query += f' AND agent_name = ${param_idx}'
+                params.append(agent_name)
+                param_idx += 1
+
+            if msg_type:
+                query += f' AND type = ${param_idx}'
+                params.append(msg_type)
+                param_idx += 1
+
+            query += f' ORDER BY timestamp DESC LIMIT ${param_idx}'
+            params.append(limit)
+
+            rows = await conn.fetch(query, *params)
+            return [_row_to_monitor_message(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list monitor messages: {e}')
+        return []
+
+
+async def db_get_monitor_stats() -> Dict[str, Any]:
+    """Get monitor statistics from the database."""
+    pool = await get_pool()
+    if not pool:
+        return {}
+
+    try:
+        async with pool.acquire() as conn:
+            stats = await conn.fetchrow("""
+                SELECT
+                    COUNT(*) as total_messages,
+                    SUM(CASE WHEN type = 'tool' THEN 1 ELSE 0 END) as tool_calls,
+                    SUM(CASE WHEN type = 'error' THEN 1 ELSE 0 END) as errors,
+                    COALESCE(SUM(tokens), 0) as total_tokens,
+                    COUNT(DISTINCT agent_name) as unique_agents
+                FROM monitor_messages
+            """)
+            return dict(stats) if stats else {}
+    except Exception as e:
+        logger.error(f'Failed to get monitor stats: {e}')
+        return {}
+
+
+async def db_count_monitor_messages() -> int:
+    """Count total monitor messages."""
+    pool = await get_pool()
+    if not pool:
+        return 0
+
+    try:
+        async with pool.acquire() as conn:
+            return await conn.fetchval('SELECT COUNT(*) FROM monitor_messages')
+    except Exception:
+        return 0
+
+
+def _row_to_monitor_message(row) -> Dict[str, Any]:
+    """Convert a database row to a monitor message dict."""
+    metadata = row['metadata']
+    if isinstance(metadata, str):
+        metadata = json.loads(metadata)
+    elif metadata is None:
+        metadata = {}
+
+    return {
+        'id': row['id'],
+        'timestamp': row['timestamp'].isoformat() if row['timestamp'] else None,
+        'type': row['type'],
+        'agent_name': row['agent_name'],
+        'content': row['content'],
+        'metadata': metadata,
+        'response_time': row['response_time'],
+        'tokens': row['tokens'],
+        'error': row['error'],
+    }

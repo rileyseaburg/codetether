@@ -13,19 +13,24 @@ load_dotenv()
 
 class ServerConfig(BaseModel):
     """Configuration for the A2A server."""
-    host: str = "0.0.0.0"
+
+    host: str = '0.0.0.0'
     port: int = 8000
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = 'redis://localhost:6379'
+    database_url: str = (
+        'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server'
+    )
     auth_enabled: bool = False
     auth_tokens: Optional[Dict[str, str]] = None
-    log_level: str = "INFO"
+    log_level: str = 'INFO'
     # OpenCode host configuration - use host.docker.internal for container->host communication
-    opencode_host: str = "localhost"
+    opencode_host: str = 'localhost'
     opencode_port: int = 9777
 
 
 class AgentConfig(BaseModel):
     """Configuration for an A2A agent."""
+
     name: str
     description: str
     organization: str
@@ -39,15 +44,19 @@ class AgentConfig(BaseModel):
 def load_config() -> ServerConfig:
     """Load configuration from environment variables."""
     return ServerConfig(
-        host=os.getenv("A2A_HOST", "0.0.0.0"),
-        port=int(os.getenv("A2A_PORT", "8000")),
-        redis_url=os.getenv("A2A_REDIS_URL", "redis://localhost:6379"),
-        auth_enabled=os.getenv("A2A_AUTH_ENABLED", "false").lower() == "true",
-        auth_tokens=_parse_auth_tokens(os.getenv("A2A_AUTH_TOKENS")),
-        log_level=os.getenv("A2A_LOG_LEVEL", "INFO"),
+        host=os.getenv('A2A_HOST', '0.0.0.0'),
+        port=int(os.getenv('A2A_PORT', '8000')),
+        redis_url=os.getenv('A2A_REDIS_URL', 'redis://localhost:6379'),
+        database_url=os.getenv(
+            'DATABASE_URL',
+            'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server',
+        ),
+        auth_enabled=os.getenv('A2A_AUTH_ENABLED', 'false').lower() == 'true',
+        auth_tokens=_parse_auth_tokens(os.getenv('A2A_AUTH_TOKENS')),
+        log_level=os.getenv('A2A_LOG_LEVEL', 'INFO'),
         # OpenCode host - use host.docker.internal when running in container
-        opencode_host=os.getenv("OPENCODE_HOST", "localhost"),
-        opencode_port=int(os.getenv("OPENCODE_PORT", "9777"))
+        opencode_host=os.getenv('OPENCODE_HOST', 'localhost'),
+        opencode_port=int(os.getenv('OPENCODE_PORT', '9777')),
     )
 
 
@@ -57,9 +66,9 @@ def _parse_auth_tokens(tokens_str: Optional[str]) -> Optional[Dict[str, str]]:
         return None
 
     tokens = {}
-    for token_pair in tokens_str.split(","):
-        if ":" in token_pair:
-            name, token = token_pair.split(":", 1)
+    for token_pair in tokens_str.split(','):
+        if ':' in token_pair:
+            name, token = token_pair.split(':', 1)
             tokens[name.strip()] = token.strip()
 
     return tokens if tokens else None
@@ -68,13 +77,13 @@ def _parse_auth_tokens(tokens_str: Optional[str]) -> Optional[Dict[str, str]]:
 def create_agent_config(
     name: str,
     description: str,
-    organization: str = "A2A Server",
-    organization_url: str = "https://github.com/rileyseaburg/codetether",
-    port: Optional[int] = None
+    organization: str = 'A2A Server',
+    organization_url: str = 'https://github.com/rileyseaburg/codetether',
+    port: Optional[int] = None,
 ) -> AgentConfig:
     """Create an agent configuration."""
     if port and not port == 8000:
-        base_url = f"http://localhost:{port}"
+        base_url = f'http://localhost:{port}'
     else:
         base_url = None
 
@@ -83,5 +92,5 @@ def create_agent_config(
         description=description,
         organization=organization,
         organization_url=organization_url,
-        base_url=base_url
+        base_url=base_url,
     )

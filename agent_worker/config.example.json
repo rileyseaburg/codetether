@@ -6,6 +6,7 @@
     "opencode_storage_path": null,
     "session_message_sync_max_sessions": 10,
     "session_message_sync_max_messages": 200,
+    "redis_url": "redis://localhost:6379",
     "codebases": [
         {
             "name": "my-project",
