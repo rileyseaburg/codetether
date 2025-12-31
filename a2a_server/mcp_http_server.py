@@ -35,18 +35,18 @@ from .worker_sse import (
     setup_task_creation_hook,
 )
 
-# Import spotlessbinco marketing tools
+# Import marketing tools
 try:
-    from .spotlessbinco_tools import (
-        get_spotlessbinco_tools,
-        SPOTLESSBINCO_TOOL_HANDLERS,
+    from .marketing_tools import (
+        get_marketing_tools,
+        MARKETING_TOOL_HANDLERS,
     )
 
-    SPOTLESSBINCO_TOOLS_AVAILABLE = True
+    MARKETING_TOOLS_AVAILABLE = True
 except ImportError:
-    SPOTLESSBINCO_TOOLS_AVAILABLE = False
-    get_spotlessbinco_tools = lambda: []
-    SPOTLESSBINCO_TOOL_HANDLERS = {}
+    MARKETING_TOOLS_AVAILABLE = False
+    get_marketing_tools = lambda: []
+    MARKETING_TOOL_HANDLERS = {}
 
 logger = logging.getLogger(__name__)
 
@@ -362,12 +362,10 @@ class MCPHTTPServer:
             },
         ]
 
-        # Add spotlessbinco marketing tools if available
-        if SPOTLESSBINCO_TOOLS_AVAILABLE:
-            tools.extend(get_spotlessbinco_tools())
-            logger.info(
-                f'Added {len(get_spotlessbinco_tools())} spotlessbinco marketing tools'
-            )
+        # Add marketing tools if available
+        if MARKETING_TOOLS_AVAILABLE:
+            tools.extend(get_marketing_tools())
+            logger.info(f'Added {len(get_marketing_tools())} marketing tools')
 
         return tools
 
@@ -390,9 +388,9 @@ class MCPHTTPServer:
             }
         ]
 
-        # Still include spotlessbinco tools even without A2A server
-        if SPOTLESSBINCO_TOOLS_AVAILABLE:
-            fallback.extend(get_spotlessbinco_tools())
+        # Still include marketing tools even without A2A server
+        if MARKETING_TOOLS_AVAILABLE:
+            fallback.extend(get_marketing_tools())
 
         return fallback
 
@@ -800,12 +798,12 @@ class MCPHTTPServer:
             elif tool_name == 'get_tool_schema':
                 return await self._get_tool_schema(arguments)
 
-            # Check if it's a spotlessbinco tool
+            # Check if it's a marketing tool
             elif (
-                SPOTLESSBINCO_TOOLS_AVAILABLE
-                and tool_name in SPOTLESSBINCO_TOOL_HANDLERS
+                MARKETING_TOOLS_AVAILABLE
+                and tool_name in MARKETING_TOOL_HANDLERS
             ):
-                handler = SPOTLESSBINCO_TOOL_HANDLERS[tool_name]
+                handler = MARKETING_TOOL_HANDLERS[tool_name]
                 return await handler(arguments)
 
             else:
