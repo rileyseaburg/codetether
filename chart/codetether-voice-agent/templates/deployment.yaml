@@ -1,0 +1,81 @@
+{{- define "codetether-voice-agent.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "codetether-voice-agent.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codetether-voice-agent.fullname" . }}
+  labels:
+    {{- include "codetether-voice-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "codetether-voice-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.pod.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "codetether-voice-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "codetether-voice-agent.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- if .Values.secrets.useK8sSecrets }}
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.googleApiKey.secretName }}
+                  key: {{ .Values.secrets.googleApiKey.key }}
+                  optional: true
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.livekitApiKey.secretName }}
+                  key: {{ .Values.secrets.livekitApiKey.key }}
+                  optional: true
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.livekitApiSecret.secretName }}
+                  key: {{ .Values.secrets.livekitApiSecret.key }}
+                  optional: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

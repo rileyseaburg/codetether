@@ -187,6 +187,12 @@ class Task(BaseModel):
     messages: Optional[List['Message']] = Field(
         None, description='Messages exchanged during the task'
     )
+    worker_id: Optional[str] = Field(
+        None, description='ID of the worker that claimed this task'
+    )
+    claimed_at: Optional[datetime] = Field(
+        None, description='When the task was claimed by a worker'
+    )
 
 
 class Part(BaseModel):

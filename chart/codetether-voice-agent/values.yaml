@@ -1,0 +1,91 @@
+replicaCount: 1
+
+image:
+  repository: registry.quantum-forge.net/library/codetether-voice-agent
+  tag: "0.1.0"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: registry-credentials
+
+serviceAccount:
+  create: true
+  name: codetether-voice-agent
+  annotations:
+    vault.hashicorp.com/agent-role: codetether-voice-agent
+
+pod:
+  annotations:
+    vault.hashicorp.com/agent-inject-secret-google-api-key: "quantum-forge/kv/data/google# GOOGLE_API_KEY"
+    vault.hashicorp.com/agent-inject-secret-livekit-api-key: "quantum-forge/kv/data/livekit# LIVEKIT_API_KEY"
+    vault.hashicorp.com/agent-inject-secret-livekit-api-secret: "quantum-forge/kv/data/livekit# LIVEKIT_API_SECRET"
+    vault.hashicorp.com/agent-inject-template-google-api-key: |
+      {{- with secret "quantum-forge/kv/data/google" -}}
+      GOOGLE_API_KEY={{ .Data.data.GOOGLE_API_KEY }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-livekit-api-key: |
+      {{- with secret "quantum-forge/kv/data/livekit" -}}
+      LIVEKIT_API_KEY={{ .Data.data.LIVEKIT_API_KEY }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-livekit-api-secret: |
+      {{- with secret "quantum-forge/kv/data/livekit" -}}
+      LIVEKIT_API_SECRET={{ .Data.data.LIVEKIT_API_SECRET }}
+      {{- end }}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2
+    memory: 4Gi
+
+# Secrets configuration - set these to your secret names or use Vault injection
+secrets:
+  # Set to true to use K8s secrets, false to use Vault injection
+  useK8sSecrets: false
+  googleApiKey:
+    secretName: "google-api-key"
+    key: "GOOGLE_API_KEY"
+  livekitApiKey:
+    secretName: "livekit-api-key"
+    key: "LIVEKIT_API_KEY"
+  livekitApiSecret:
+    secretName: "livekit-api-secret"
+    key: "LIVEKIT_API_SECRET"
+
+env:
+  - name: LIVEKIT_URL
+    value: "wss://live.quantum-forge.net"
+  - name: CODETETHER_API_URL
+    value: "https://api.codetether.run"
+  - name: FUNCTIONGEMMA_MODEL_PATH
+    value: "google/functiongemma-270m-it"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

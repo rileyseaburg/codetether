@@ -1284,12 +1284,25 @@
 
         .task-meta {
             display: flex;
-            gap: 15px;
+            flex-wrap: wrap;
+            gap: 8px;
             font-size: 0.85em;
             color: #6c757d;
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid #e9ecef;
+        }
+
+        .task-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .task-badges .task-badge {
+            font-size: 0.75em;
+            padding: 3px 8px;
         }
 
         .task-actions {
@@ -1317,6 +1330,36 @@
         .task-badge.working {
             background: #cfe2ff;
             color: #084298;
+        }
+
+        .task-badge.agent-type {
+            background: #e8eaf6;
+            color: #3f51b5;
+        }
+
+        .task-badge.codebase {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .task-badge.priority-low {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .task-badge.priority-normal {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .task-badge.priority-high {
+            background: #ffe0b2;
+            color: #e65100;
+        }
+
+        .task-badge.priority-urgent {
+            background: #f8d7da;
+            color: #842029;
         }
 
         .codebase-tasks {
@@ -1665,11 +1708,17 @@
                 <button class="close-modal" onclick="closeTaskModal()">×</button>
             </div>
             <form onsubmit="submitTask(event)">
-                <input type="hidden" id="taskCodebaseId" value="">
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Codebase</label>
+                <select id="taskCodebase">
+                    <option value="global">Global (Any Worker)</option>
+                </select>
 
-                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Assign to Agent *</label>
-                <select id="taskAgent" class="priority-select" required>
-                    <option value="">Select an agent...</option>
+                <label style="font-weight: 600; margin-bottom: 5px; display: block;">Agent Type *</label>
+                <select id="taskAgentType" required>
+                    <option value="build">Build</option>
+                    <option value="plan">Plan</option>
+                    <option value="general" selected>General</option>
+                    <option value="explore">Explore</option>
                 </select>
 
                 <label style="font-weight: 600; margin-bottom: 5px; display: block;">Task Title *</label>

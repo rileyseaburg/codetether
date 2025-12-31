@@ -618,6 +618,64 @@
         </div>
     </div>
 
+    <!-- Create Task Modal -->
+    <div id="create-task-modal" class="hidden fixed inset-0 z-50">
+        <div class="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75" onclick="closeCreateTaskModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create Task</h3>
+                        <form id="create-task-form" onsubmit="createTask(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                                    <input name="title" type="text" placeholder="Task title"
+                                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description / Prompt</label>
+                                    <textarea name="prompt" rows="4" placeholder="Enter task instructions..."
+                                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 placeholder-gray-400"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Codebase</label>
+                                    <select name="codebase" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                        <option value="">Global (no codebase)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agent Type</label>
+                                    <select name="agent_type" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                        <option value="build">🔧 Build - Full access agent</option>
+                                        <option value="plan">📋 Plan - Read-only analysis</option>
+                                        <option value="general">💬 General - General purpose</option>
+                                        <option value="explore">🔍 Explore - Codebase search</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                                    <select name="priority" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                        <option value="0">Normal</option>
+                                        <option value="1">Low</option>
+                                        <option value="3">High</option>
+                                        <option value="4">Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-6 flex gap-3 justify-end">
+                                <button type="button" onclick="closeCreateTaskModal()"
+                                    class="rounded-md px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+                                <button type="submit"
+                                    class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500">Create Task</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast container -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
 
@@ -964,6 +1022,15 @@
         }
 
         // Render functions
+        function getPriorityBadge(priority) {
+            switch (priority) {
+                case 4: return '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Urgent</span>';
+                case 3: return '<span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">High</span>';
+                case 1: return '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Low</span>';
+                default: return '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Normal</span>';
+            }
+        }
+
         function renderCodebases() {
             const container = document.getElementById('codebases-list');
             if (state.codebases.length === 0) {
@@ -1029,9 +1096,12 @@
                             <p class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(task.title || task.prompt?.substring(0, 50) || 'Untitled')}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${task.agent_type} • ${new Date(task.created_at).toLocaleTimeString()}</p>
                         </div>
-                        <span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(task.status)}">
-                            ${task.status}
-                        </span>
+                        <div class="flex flex-col items-end gap-2">
+                            ${getPriorityBadge(task.priority)}
+                            <span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(task.status)}">
+                                ${task.status}
+                            </span>
+                        </div>
                     </div>
                     ${task.result ? `
                         <button onclick="viewTaskResult('${task.id}')" class="mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
@@ -1595,8 +1665,55 @@
         }
 
         function openCreateTaskModal() {
-            switchTab('codebases');
-            showToast('Use the Trigger Agent form to create tasks', 'info');
+            const modal = document.getElementById('create-task-modal');
+            const codebaseSelect = modal.querySelector('select[name="codebase"]');
+            codebaseSelect.innerHTML = '<option value="">Global (no codebase)</option>' +
+                state.codebases.map(cb => `<option value="${cb.id}">${escapeHtml(cb.name)}</option>`).join('');
+            modal.classList.remove('hidden');
+        }
+
+        function closeCreateTaskModal() {
+            document.getElementById('create-task-modal').classList.add('hidden');
+            document.getElementById('create-task-form').reset();
+        }
+
+        async function createTask(e) {
+            e.preventDefault();
+            const form = e.target;
+            const payload = {
+                title: form.title.value,
+                prompt: form.prompt.value,
+                codebase_id: form.codebase.value || 'global',
+                agent_type: form.agent_type.value || 'build',
+                priority: parseInt(form.priority.value) || 0
+            };
+
+            if (!payload.title || !payload.prompt) {
+                showToast('Title and prompt are required', 'error');
+                return;
+            }
+
+            try {
+                const codebaseId = form.codebase.value || 'global';
+                const response = await fetch(`${state.serverUrl}/v1/opencode/codebases/${codebaseId}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showToast('Task created successfully!', 'success');
+                    closeCreateTaskModal();
+                    await loadTasks();
+                    switchTab('tasks');
+                } else {
+                    const error = await response.json();
+                    showToast(error.detail || 'Failed to create task', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to create task:', error);
+                showToast('Failed to create task', 'error');
+            }
         }
 
         // Helpers

@@ -112,7 +112,6 @@ class PersistentMessageStore:
                 )
                 return
 
-
     def _init_minio(self) -> bool:
         """Initialize MinIO/S3 storage backend."""
         try:
@@ -1404,6 +1403,58 @@ def get_opencode_bridge():
 
             _opencode_bridge = OpenCodeBridge()
             logger.info('OpenCode bridge initialized')
+
+            # Set up SSE worker notification hook for task updates
+            try:
+                from .worker_sse import (
+                    get_worker_registry,
+                    notify_workers_of_new_task,
+                )
+
+                async def _on_task_update(task):
+                    """Notify SSE-connected workers when a task is created/updated."""
+                    # Only notify for pending tasks (new tasks that need workers)
+                    if (
+                        hasattr(task, 'status')
+                        and task.status.value == 'pending'
+                    ):
+                        task_data = {
+                            'id': task.id,
+                            'title': task.title,
+                            'description': task.prompt,
+                            'codebase_id': task.codebase_id,
+                            'agent_type': task.agent_type,
+                            'model': task.model,
+                            'priority': task.priority,
+                            'status': task.status.value,
+                            'created_at': task.created_at.isoformat()
+                            if task.created_at
+                            else None,
+                        }
+                        try:
+                            notified = await notify_workers_of_new_task(
+                                task_data
+                            )
+                            if notified:
+                                logger.debug(
+                                    f'Task {task.id} notified {len(notified)} SSE workers'
+                                )
+                        except Exception as e:
+                            logger.warning(
+                                f'Failed to notify SSE workers of task {task.id}: {e}'
+                            )
+
+                _opencode_bridge.on_task_update(_on_task_update)
+                logger.info(
+                    'SSE worker notification hook installed on OpenCode bridge'
+                )
+            except ImportError:
+                logger.debug(
+                    'worker_sse not available, SSE notifications disabled'
+                )
+            except Exception as e:
+                logger.warning(f'Failed to set up SSE worker hook: {e}')
+
         except Exception as e:
             logger.warning(f'Failed to initialize OpenCode bridge: {e}')
             _opencode_bridge = None
@@ -5504,10 +5555,202 @@ async def test_api_key_endpoint(
     return result
 
 
+AVAILABLE_VOICES = [
+    {'id': 'puck', 'name': 'Puck', 'description': 'Friendly and approachable'},
+    {'id': 'charon', 'name': 'Charon', 'description': 'Deep and authoritative'},
+    {'id': 'kore', 'name': 'Kore', 'description': 'Warm and conversational'},
+    {'id': 'fenrir', 'name': 'Fenrir', 'description': 'Energetic and dynamic'},
+    {'id': 'aoede', 'name': 'Aoede', 'description': 'Calm and soothing'},
+]
+
+
+class VoiceSessionRequest(BaseModel):
+    codebase_id: Optional[str] = None
+    session_id: Optional[str] = None
+    voice: str = 'puck'
+    mode: str = 'chat'
+    playback_style: str = 'verbatim'
+    user_id: Optional[str] = None
+
+
+class VoiceSessionResponse(BaseModel):
+    room_name: str
+    access_token: str
+    livekit_url: str
+    voice: str
+    mode: str
+    playback_style: str
+    expires_at: str
+
+
+voice_router = APIRouter(prefix='/v1/voice', tags=['voice'])
+
+
+def get_livekit_bridge():
+    """Get or create the LiveKit bridge instance."""
+    try:
+        from .livekit_bridge import create_livekit_bridge
+
+        bridge = create_livekit_bridge()
+        if bridge:
+            logger.info('LiveKit bridge initialized for voice API')
+        else:
+            logger.info(
+                'LiveKit bridge not configured - voice features disabled'
+            )
+        return bridge
+    except Exception as e:
+        logger.warning(f'Failed to initialize LiveKit bridge: {e}')
+        return None
+
+
+@voice_router.get('/voices')
+async def list_voices():
+    """List available voice options."""
+    return {'voices': AVAILABLE_VOICES}
+
+
+@voice_router.post('/sessions', response_model=VoiceSessionResponse)
+async def create_voice_session(request: VoiceSessionRequest):
+    """Start a new voice session."""
+    bridge = get_livekit_bridge()
+    if not bridge:
+        raise HTTPException(
+            status_code=503,
+            detail='LiveKit not available - voice sessions require LiveKit configuration',
+        )
+
+    if request.voice not in [v['id'] for v in AVAILABLE_VOICES]:
+        raise HTTPException(
+            status_code=400,
+            detail=f'Invalid voice: {request.voice}. Available voices: {[v["id"] for v in AVAILABLE_VOICES]}',
+        )
+
+    if request.mode not in ['chat', 'playback']:
+        raise HTTPException(
+            status_code=400, detail='Mode must be "chat" or "playback"'
+        )
+
+    if request.playback_style not in ['verbatim', 'summary']:
+        raise HTTPException(
+            status_code=400,
+            detail='Playback style must be "verbatim" or "summary"',
+        )
+
+    room_name = f'voice-{uuid.uuid4().hex[:12]}'
+
+    metadata = {
+        'voice': request.voice,
+        'mode': request.mode,
+        'playback_style': request.playback_style,
+        'codebase_id': request.codebase_id,
+        'session_id': request.session_id,
+        'user_id': request.user_id,
+    }
+
+    try:
+        await bridge.create_room(room_name=room_name, metadata=metadata)
+    except Exception as e:
+        logger.error(f'Failed to create LiveKit room: {e}')
+        raise HTTPException(
+            status_code=500, detail=f'Failed to create voice room: {str(e)}'
+        )
+
+    user_identity = request.user_id or f'user-{uuid.uuid4().hex[:8]}'
+
+    try:
+        access_token = bridge.mint_access_token(
+            identity=user_identity,
+            room_name=room_name,
+            a2a_role='participant',
+            metadata=json.dumps(metadata),
+            ttl_minutes=60,
+        )
+    except Exception as e:
+        logger.error(f'Failed to mint access token: {e}')
+        try:
+            await bridge.delete_room(room_name)
+        except:
+            pass
+        raise HTTPException(
+            status_code=500, detail=f'Failed to generate access token: {str(e)}'
+        )
+
+    expires_at = datetime.now() + timedelta(minutes=60)
+
+    logger.info(f'Created voice session {room_name} with voice {request.voice}')
+
+    return VoiceSessionResponse(
+        room_name=room_name,
+        access_token=access_token,
+        livekit_url=bridge.livekit_url,
+        voice=request.voice,
+        mode=request.mode,
+        playback_style=request.playback_style,
+        expires_at=expires_at.isoformat(),
+    )
+
+
+@voice_router.get('/sessions/{room_name}')
+async def get_voice_session(room_name: str):
+    """Get session info for a voice session."""
+    bridge = get_livekit_bridge()
+    if not bridge:
+        raise HTTPException(status_code=503, detail='LiveKit not available')
+
+    room_info = await bridge.get_room_info(room_name)
+    if not room_info:
+        raise HTTPException(
+            status_code=404, detail=f'Room {room_name} not found'
+        )
+
+    metadata_str = room_info.get('metadata', '')
+    metadata = {}
+    if metadata_str:
+        try:
+            metadata = (
+                json.loads(metadata_str)
+                if isinstance(metadata_str, str)
+                else metadata_str
+            )
+        except:
+            pass
+
+    return {
+        'room_name': room_name,
+        'status': 'active',
+        'num_participants': room_info.get('num_participants', 0),
+        'created_at': room_info.get('creation_time'),
+        'voice': metadata.get('voice'),
+        'mode': metadata.get('mode'),
+        'playback_style': metadata.get('playback_style'),
+        'codebase_id': metadata.get('codebase_id'),
+        'session_id': metadata.get('session_id'),
+    }
+
+
+@voice_router.delete('/sessions/{room_name}')
+async def delete_voice_session(room_name: str):
+    """End a voice session."""
+    bridge = get_livekit_bridge()
+    if not bridge:
+        raise HTTPException(status_code=503, detail='LiveKit not available')
+
+    success = await bridge.delete_room(room_name)
+    if not success:
+        raise HTTPException(
+            status_code=500, detail=f'Failed to delete room {room_name}'
+        )
+
+    logger.info(f'Deleted voice session {room_name}')
+    return {'success': True, 'room_name': room_name}
+
+
 # Export the monitoring service, routers and helpers
 __all__ = [
     'monitor_router',
     'opencode_router',
+    'voice_router',
     'auth_router',
     'nextauth_router',
     'monitoring_service',

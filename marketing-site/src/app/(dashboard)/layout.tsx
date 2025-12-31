@@ -118,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     return (
-        <div className={clsx('h-screen bg-gray-100 overflow-hidden', darkMode && 'dark')}>
+        <div className={clsx('h-screen overflow-hidden relative', darkMode && 'dark')}>
             {/* Mobile sidebar backdrop */}
             {sidebarOpen && (
                 <div
@@ -214,9 +214,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Main content wrapper */}
-            <div className="md:pl-60 lg:pl-52">
+            <div className="absolute inset-0 md:left-60 lg:left-52 flex flex-col overflow-hidden">
                 {/* Top navbar */}
-                <div className="sticky top-0 z-40 flex h-16 items-center gap-x-2 border-b border-gray-200 bg-white px-2 sm:px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
+                <div className="shrink-0 z-40 flex h-16 items-center gap-x-2 border-b border-gray-200 bg-white px-2 sm:px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
                     {/* Mobile menu button */}
                     <button
                         onClick={() => setSidebarOpen(true)}
@@ -322,10 +322,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Main content */}
-                <main className="flex flex-col min-h-0 overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
-                    <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 flex-1 min-h-0">
-                        {children}
-                    </div>
+                <main className="flex-1 min-h-0 overflow-hidden px-3 sm:px-4 md:px-6 lg:px-8 py-4">
+                    {children}
                 </main>
             </div>
         </div>

@@ -161,6 +161,7 @@ struct CreateTaskSheet: View {
     @State private var context = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var selectedAgentType: String = "build"
     
     var body: some View {
         NavigationStack {
@@ -247,6 +248,16 @@ struct CreateTaskSheet: View {
                         }
                         .padding(.horizontal)
                         
+                        // Agent Type
+                        Section("Agent Type") {
+                            Picker("Select Agent Type", selection: $selectedAgentType) {
+                                Text("Build").tag("build")
+                                Text("Plan").tag("plan")
+                                Text("General").tag("general")
+                                Text("Explore").tag("explore")
+                            }
+                        }
+                        
                         // Context
                         GlassTextField(
                             title: "Additional Context (Optional)",
@@ -299,7 +310,8 @@ struct CreateTaskSheet: View {
                     title: title,
                     description: description,
                     priority: priority,
-                    context: context.isEmpty ? nil : context
+                    context: context.isEmpty ? nil : context,
+                    agentType: selectedAgentType
                 )
                 dismiss()
             } catch {
