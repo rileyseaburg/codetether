@@ -420,13 +420,14 @@ class MonitorViewModel: ObservableObject {
         }
     }
 
-    func createTask(codebase: Codebase, title: String, description: String, priority: TaskPriority, context: String?) async throws {
+    func createTask(codebase: Codebase, title: String, description: String, priority: TaskPriority, context: String?, agentType: String = "build") async throws {
         let task = try await client.createTask(
             codebaseId: codebase.id,
             title: title,
             description: description,
             priority: priority,
-            context: context
+            context: context,
+            agentType: agentType
         )
         tasks.insert(task, at: 0)
     }

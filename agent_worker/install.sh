@@ -135,7 +135,7 @@ chmod +x "$INSTALL_DIR/worker.py"
 log_info "Creating Python virtual environment..."
 python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
-"$INSTALL_DIR/venv/bin/pip" install aiohttp
+"$INSTALL_DIR/venv/bin/pip" install aiohttp redis
 
 # Install config file if not exists
 if [[ ! -f "$CONFIG_DIR/config.json" ]]; then

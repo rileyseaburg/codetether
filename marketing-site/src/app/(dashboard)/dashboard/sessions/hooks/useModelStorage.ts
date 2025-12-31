@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react'
 
 const MODEL_STORAGE_KEY = 'codetether.model.default'
 
-export function useModelStorage() {
-    const [selectedModel, setSelectedModel] = useState('')
+function getStoredModel(): string {
+    if (typeof window === 'undefined') return ''
+    try {
+        return window.localStorage.getItem(MODEL_STORAGE_KEY) ?? ''
+    } catch {
+        return ''
+    }
+}
 
-    useEffect(() => {
-        try {
-            const saved = window.localStorage.getItem(MODEL_STORAGE_KEY)
-            if (saved) setSelectedModel(saved)
-        } catch {
-            // ignore
-        }
-    }, [])
+export function useModelStorage() {
+    const [selectedModel, setSelectedModel] = useState(getStoredModel)
 
     useEffect(() => {
         try {

@@ -1350,10 +1350,17 @@ class AgentMonitor {
             : 'No description';
         const taskIdDisplay = normalizedTask.id ? `${String(normalizedTask.id).substring(0, 8)}...` : 'Unknown';
 
+        const priorityClass = normalizedTask.priority > 10 ? 'priority-urgent' : (normalizedTask.priority > 5 ? 'priority-high' : (normalizedTask.priority > 0 ? 'priority-normal' : 'priority-low'));
+        const priorityLabel = normalizedTask.priority > 10 ? '🔴 Urgent' : (normalizedTask.priority > 5 ? '🟠 High' : (normalizedTask.priority > 0 ? '🟡 Normal' : '🟢 Low'));
+        const priorityBadge = normalizedTask.priority >= 0 ? `<span class="task-badge ${priorityClass}">${priorityLabel}</span>` : '';
+        const agentBadge = normalizedTask.agent_type ? `<span class="task-badge agent-type">🤖 ${normalizedTask.agent_type}</span>` : '';
+        const codebaseDisplay = normalizedTask.codebase_id && normalizedTask.codebase_id !== 'global' ? `<span class="task-badge codebase">📁 ${String(normalizedTask.codebase_id).substring(0, 16)}</span>` : '';
+
         taskEl.innerHTML = `
             <div class="task-header">
                 <div>
                     <div class="task-title">${this.escapeHtml(normalizedTask.title)}</div>
+                    <div class="task-badges">${priorityBadge}${agentBadge}${codebaseDisplay}</div>
                 </div>
                 <span class="task-status ${normalizedTask.status}">${normalizedTask.status}</span>
             </div>
@@ -1392,6 +1399,9 @@ class AgentMonitor {
                         <div><strong>Status:</strong> ${normalizedTask.status}</div>
                         <div><strong>Created:</strong> ${normalizedTask.created_at ? new Date(normalizedTask.created_at).toLocaleString() : 'Unknown'}</div>
                         <div><strong>Updated:</strong> ${normalizedTask.updated_at ? new Date(normalizedTask.updated_at).toLocaleString() : 'Unknown'}</div>
+                        <div><strong>Agent Type:</strong> ${normalizedTask.agent_type || 'build'}</div>
+                        <div><strong>Priority:</strong> ${normalizedTask.priority || 0}</div>
+                        ${normalizedTask.codebase_id ? `<div><strong>Codebase ID:</strong> ${this.escapeHtml(String(normalizedTask.codebase_id))}</div>` : ''}
                     </div>
                 </div>
                 <div class="task-actions" style="margin-top: 20px; display: flex; gap: 10px;">
@@ -1473,7 +1483,10 @@ class AgentMonitor {
                 description: '',
                 status: 'pending',
                 created_at: null,
-                updated_at: null
+                updated_at: null,
+                codebase_id: null,
+                agent_type: 'build',
+                priority: 0
             };
         }
 
@@ -1483,6 +1496,9 @@ class AgentMonitor {
         const status = (task.status || task.state || 'pending').toString();
         const createdAt = task.created_at || task.createdAt || task.created || null;
         const updatedAt = task.updated_at || task.updatedAt || task.updated || createdAt;
+        const codebaseId = task.codebase_id || task.codebaseId || null;
+        const agentType = task.agent_type || task.agentType || 'build';
+        const priority = task.priority || 0;
 
         return {
             ...task,
@@ -1491,7 +1507,10 @@ class AgentMonitor {
             description: description !== null && description !== undefined ? String(description) : '',
             status,
             created_at: createdAt,
-            updated_at: updatedAt
+            updated_at: updatedAt,
+            codebase_id: codebaseId,
+            agent_type: agentType,
+            priority: priority
         };
     }
 
@@ -1923,6 +1942,11 @@ class AgentMonitor {
 
             const description = prompt('Enter task description (optional):');
 
+            const codebaseId = prompt('Enter codebase ID (optional, leave empty for global):');
+            const agentType = prompt('Enter agent type (build, plan, general, explore):', 'build');
+            const priorityStr = prompt('Enter priority (0-100, default 0):', '0');
+            const priority = parseInt(priorityStr) || 0;
+
             try {
                 // For MCP endpoints, we need to try port 9000 if not on the same port
                 let mcpServerUrl = this.getServerUrl();
@@ -1940,7 +1964,10 @@ class AgentMonitor {
                     },
                     body: JSON.stringify({
                         title: title,
-                        description: description || ''
+                        prompt: description || '',
+                        codebase_id: codebaseId || 'global',
+                        agent_type: agentType || 'build',
+                        priority: priority
                     })
                 });
 
@@ -2213,24 +2240,23 @@ function createNewTask() {
 
 function openTaskModal(codebaseId = null) {
     const modal = document.getElementById('taskModal');
-    const agentSelect = document.getElementById('taskAgent');
+    const codebaseSelect = document.getElementById('taskCodebase');
 
-    // Populate agent dropdown with registered codebases
-    agentSelect.innerHTML = '<option value="">Select an agent...</option>';
+    // Populate codebase dropdown with registered codebases
+    codebaseSelect.innerHTML = '<option value="global">Global (Any Worker)</option>';
     monitor.codebases.forEach(cb => {
         const option = document.createElement('option');
         option.value = cb.id;
-        option.textContent = `${cb.name} (${cb.status})`;
+        option.textContent = `${cb.name}`;
         if (cb.status === 'watching') {
-            option.textContent += ' 👁️ Watching';
+            option.textContent += ' 👁️';
         }
-        agentSelect.appendChild(option);
+        codebaseSelect.appendChild(option);
     });
 
-    // Pre-select agent if provided
+    // Pre-select codebase if provided
     if (codebaseId) {
-        agentSelect.value = codebaseId;
-        document.getElementById('taskCodebaseId').value = codebaseId;
+        codebaseSelect.value = codebaseId;
     }
 
     modal.style.display = 'flex';
@@ -2245,21 +2271,22 @@ function closeTaskModal() {
     document.getElementById('taskDescription').value = '';
     document.getElementById('taskPriority').value = '2';
     document.getElementById('taskContext').value = '';
-    document.getElementById('taskAgent').value = '';
-    document.getElementById('taskCodebaseId').value = '';
+    document.getElementById('taskCodebase').value = 'global';
+    document.getElementById('taskAgentType').value = 'general';
 }
 
 async function submitTask(event) {
     event.preventDefault();
 
-    const codebaseId = document.getElementById('taskAgent').value;
+    const codebaseId = document.getElementById('taskCodebase').value;
+    const agentType = document.getElementById('taskAgentType').value;
     const title = document.getElementById('taskTitle').value;
     const description = document.getElementById('taskDescription').value;
     const priority = parseInt(document.getElementById('taskPriority').value);
     const context = document.getElementById('taskContext').value;
 
-    if (!codebaseId) {
-        monitor.showToast('Please select an agent', 'error');
+    if (!title) {
+        monitor.showToast('Please enter a task title', 'error');
         return;
     }
 
@@ -2272,7 +2299,8 @@ async function submitTask(event) {
                 title: title,
                 description: description,
                 priority: priority,
-                context: context || null
+                context: context || null,
+                agent_type: agentType
             })
         });
 

@@ -1,6 +1,37 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] - 2024-12-29
+
+### Features
+
+* **Marketing Coordinator Agent**: New strategic marketing orchestration agent that plans and coordinates marketing initiatives via the task queue.
+  - Creates tasks for workers to execute marketing operations (creative generation, campaign launches, audience building)
+  - Uses AI (Claude Opus 4.5 via Azure AI Foundry) for initiative planning and strategy
+  - Initiative lifecycle management: draft → planning → executing → monitoring
+  - Database-backed initiative persistence with PostgreSQL
+  - Task-based architecture: Coordinator creates tasks → Workers execute via OpenCode → MCP tools call spotlessbinco APIs
+
+* **Spotless Bin Co MCP Tools**: 27 new MCP tools exposing marketing services:
+  - **Creative**: `spotless_generate_creative`, `spotless_batch_generate_creatives`, `spotless_get_top_creatives`, `spotless_analyze_creative_performance`
+  - **Campaigns**: `spotless_create_campaign`, `spotless_update_campaign_status`, `spotless_update_campaign_budget`, `spotless_get_campaign_metrics`, `spotless_list_campaigns`
+  - **Automations**: `spotless_create_automation`, `spotless_trigger_automation`, `spotless_list_automations`, `spotless_update_automation_status`
+  - **Audiences**: `spotless_create_geo_audience`, `spotless_create_lookalike_audience`, `spotless_create_custom_audience`, `spotless_get_trash_zone_zips`
+  - **Analytics**: `spotless_get_unified_metrics`, `spotless_get_roi_metrics`, `spotless_get_channel_performance`, `spotless_thompson_sample_budget`, `spotless_get_conversion_attribution`
+  - **Platform Sync**: `spotless_sync_facebook_metrics`, `spotless_sync_tiktok_metrics`, `spotless_sync_google_metrics`, `spotless_send_facebook_conversion`, `spotless_send_tiktok_event`
+
+* **Enhanced Tool Discovery**: Added new search categories for marketing tools: `creative`, `campaigns`, `automations`, `audiences`, `analytics`, `platform_sync`, `marketing`, `spotless`
+
+### Architecture
+
+* **Task-Based Orchestration**: Marketing Coordinator now creates tasks for workers instead of making direct API calls:
+  ```
+  Coordinator → Creates Task → A2A Queue → Worker picks up → OpenCode executes → MCP tool calls API
+  ```
+  This enables distributed execution, better monitoring, and resilience.
+
+* **MCP Tool Integration**: All spotlessbinco marketing services are now accessible via MCP tools, allowing any agent to orchestrate marketing operations through the standard MCP protocol.
+
+## [0.4.0] - 2024-12-24
 
 ### Features
 

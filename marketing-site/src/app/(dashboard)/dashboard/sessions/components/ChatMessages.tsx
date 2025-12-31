@@ -3,25 +3,34 @@ import type { ChatItem, Session } from '../types'
 import { ChatMessage } from './ChatMessage'
 import { LiveDraftMessage } from './LiveDraftMessage'
 
-interface Props { chatItems: ChatItem[]; selectedSession: Session | null; loading: boolean; liveDraft: string; selectedMode: string }
+interface Props { chatItems: ChatItem[]; selectedSession: Session | null; loading: boolean; error: string | null; liveDraft: string; selectedMode: string }
 
-export function ChatMessages({ chatItems, selectedSession, loading, liveDraft, selectedMode }: Props) {
+export function ChatMessages({ chatItems, selectedSession, loading, error, liveDraft, selectedMode }: Props) {
     const containerRef = useRef<HTMLDivElement>(null)
     const endRef = useRef<HTMLDivElement>(null)
     const autoScroll = useRef(true)
     const [newMessageCount, setNewMessageCount] = useState(0)
     const prevCountRef = useRef(chatItems.length)
+    const prevSessionIdRef = useRef(selectedSession?.id)
 
     useEffect(() => {
-        if (selectedSession && autoScroll.current) endRef.current?.scrollIntoView({ behavior: 'auto' })
-    }, [selectedSession, chatItems])
+        const currentSessionId = selectedSession?.id
+        const isSessionSwitch = prevSessionIdRef.current !== currentSessionId
+        prevSessionIdRef.current = currentSessionId
 
-    // Track new messages for screen reader announcement
+        if (containerRef.current) {
+            if (isSessionSwitch) {
+                containerRef.current.scrollTop = 0
+            } else if (autoScroll.current && (chatItems.length > 0 || liveDraft)) {
+                containerRef.current.scrollTop = containerRef.current.scrollHeight
+            }
+        }
+    }, [selectedSession?.id, chatItems, liveDraft])
+
     useEffect(() => {
         const diff = chatItems.length - prevCountRef.current
         if (diff > 0) {
             setNewMessageCount(diff)
-            // Reset after announcement
             const timeout = setTimeout(() => setNewMessageCount(0), 1000)
             return () => clearTimeout(timeout)
         }
@@ -34,7 +43,6 @@ export function ChatMessages({ chatItems, selectedSession, loading, liveDraft, s
     }
 
     if (!selectedSession) return <Empty msg="Select a session to view the chat." />
-    if (!chatItems.length) return <Empty msg="No messages yet." />
 
     return (
         <section
@@ -46,10 +54,19 @@ export function ChatMessages({ chatItems, selectedSession, loading, liveDraft, s
             aria-live="polite"
             aria-relevant="additions"
         >
-            {/* Screen reader announcement for new messages */}
             <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">
                 {newMessageCount > 0 && `${newMessageCount} new message${newMessageCount !== 1 ? 's' : ''} received`}
             </div>
+
+            {error && (
+                <div className="mb-4 p-3 rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm" role="alert">
+                    {error}
+                </div>
+            )}
+
+            {chatItems.length === 0 && !loading && !error && (
+                <Empty msg="No messages yet." />
+            )}
 
             <ol className="space-y-4" aria-label="Message list">
                 {chatItems.map((m, index) => (
@@ -70,7 +87,7 @@ export function ChatMessages({ chatItems, selectedSession, loading, liveDraft, s
 }
 
 const Empty = ({ msg }: { msg: string }) => (
-    <div className="flex-1 min-h-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900" role="status">
+    <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-gray-900" role="status">
         <p className="text-sm text-gray-500">{msg}</p>
     </div>
 )

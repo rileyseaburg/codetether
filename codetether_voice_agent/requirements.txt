@@ -1,0 +1,18 @@
+# LiveKit Agents framework
+livekit-agents>=1.3
+livekit-plugins-google>=1.0
+
+# NumPy - use a version compatible with older CPUs
+numpy<2.0.0
+
+# FunctionGemma dependencies
+# Note: torch is installed separately in Dockerfile with CPU-only version
+transformers>=4.40.0
+accelerate>=0.27.0
+
+# HTTP client
+aiohttp>=3.9.0
+
+# Utilities
+pydantic>=2.0.0
+python-dotenv>=1.0.0

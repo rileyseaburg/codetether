@@ -5,7 +5,7 @@ A2A Agent Worker - Runs on machines with codebases, connects to A2A server
 This worker:
 1. Registers itself with the A2A server
 2. Registers local codebases it can work on
-3. Polls for tasks assigned to its codebases
+3. Connects via SSE to receive task assignments pushed from server
 4. Executes tasks using OpenCode
 5. Reports results back to the server
 6. Reports OpenCode session history to the server
@@ -16,7 +16,6 @@ Usage:
 
 import argparse
 import asyncio
-import glob
 import json
 import logging
 import os
@@ -30,10 +29,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable, Set
-import os
 
 import aiohttp
-import redis.asyncio as redis_async
 
 # Configure logging
 logging.basicConfig(
@@ -54,7 +51,7 @@ class WorkerConfig:
     worker_name: str
     worker_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
     codebases: List[Dict[str, str]] = field(default_factory=list)
-    poll_interval: int = 5
+    poll_interval: int = 5  # Fallback poll interval when SSE is unavailable
     opencode_bin: Optional[str] = None
     # Optional override for OpenCode storage location (directory that contains
     # subdirs like project/, session/, message/, part/).
@@ -65,8 +62,16 @@ class WorkerConfig:
     capabilities: List[str] = field(
         default_factory=lambda: ['opencode', 'build', 'deploy']
     )
-    # Redis URL for MessageBroker control plane events
-    redis_url: str = 'redis://localhost:6379'
+    # Max concurrent tasks (bounded worker pool)
+    max_concurrent_tasks: int = 2
+    # SSE reconnection settings
+    sse_reconnect_delay: float = 1.0
+    sse_max_reconnect_delay: float = 60.0
+    sse_heartbeat_timeout: float = (
+        45.0  # Server should send heartbeats every 30s
+    )
+    # Auth token for SSE endpoint (from A2A_AUTH_TOKEN env var)
+    auth_token: Optional[str] = None
 
 
 @dataclass
@@ -82,6 +87,8 @@ class LocalCodebase:
 class AgentWorker:
     """
     Agent worker that connects to A2A server and executes tasks locally.
+
+    Uses SSE (Server-Sent Events) for real-time task streaming instead of polling.
     """
 
     def __init__(self, config: WorkerConfig):
@@ -95,11 +102,13 @@ class AgentWorker:
         self._global_codebase_id: Optional[str] = (
             None  # Cached ID for global sessions codebase
         )
-        # Redis/MessageBroker for control plane events
-        self._redis: Optional[redis_async.Redis] = None
-        self._pubsub: Optional[Any] = None
-        self._subscribers: Dict[str, Set[Callable[[str, Any], None]]] = {}
-        self._subscription_task: Optional[asyncio.Task] = None
+        # SSE connection state
+        self._sse_connected = False
+        self._sse_reconnect_delay = config.sse_reconnect_delay
+        self._last_heartbeat: float = 0.0
+        # Task processing state
+        self._task_semaphore: Optional[asyncio.Semaphore] = None
+        self._active_task_ids: Set[str] = set()
         self._known_task_ids: Set[str] = (
             set()
         )  # Track tasks we've seen to avoid duplicates
@@ -189,135 +198,6 @@ class AgentWorker:
         except Exception as e:
             logger.warning(f'Failed to read OpenCode auth.json: {e}')
         return authenticated
-
-    async def _connect_redis(self) -> bool:
-        """Connect to Redis for MessageBroker events."""
-        try:
-            self._redis = redis_async.from_url(self.config.redis_url)
-            self._pubsub = self._redis.pubsub()
-            logger.info(f'Connected to Redis at {self.config.redis_url}')
-            return True
-        except Exception as e:
-            logger.warning(f'Failed to connect to Redis: {e}')
-            return False
-
-    async def _disconnect_redis(self):
-        """Disconnect from Redis."""
-        if self._subscription_task:
-            self._subscription_task.cancel()
-            try:
-                await self._subscription_task
-            except asyncio.CancelledError:
-                pass
-        if self._pubsub:
-            await self._pubsub.close()
-        if self._redis:
-            await self._redis.close()
-        logger.info('Redis connection closed')
-
-    async def _subscribe_to_events(
-        self, event_type: str, handler: Callable
-    ) -> None:
-        """Subscribe to events of a specific type."""
-        channel = f'events:{event_type}'
-        if channel not in self._subscribers:
-            self._subscribers[channel] = set()
-            if self._pubsub:
-                await self._pubsub.subscribe(channel)
-        self._subscribers[channel].add(handler)
-        logger.debug(f'Subscribed to events: {event_type}')
-
-    async def _unsubscribe_from_events(
-        self, event_type: str, handler: Callable
-    ) -> None:
-        """Unsubscribe from events of a specific type."""
-        channel = f'events:{event_type}'
-        if channel in self._subscribers:
-            self._subscribers[channel].discard(handler)
-            if not self._subscribers[channel] and self._pubsub:
-                await self._pubsub.unsubscribe(channel)
-                del self._subscribers[channel]
-
-    async def _redis_subscription_loop(self):
-        """Main loop for receiving Redis pub/sub messages."""
-        if not self._pubsub:
-            return
-
-        try:
-            async for message in self._pubsub.listen():
-                if not self.running:
-                    break
-
-                if message['type'] == 'message':
-                    try:
-                        event_data = json.loads(message['data'])
-                        event_type = event_data.get('type', '')
-                        data = event_data.get('data', {})
-
-                        # Notify all handlers for this event type
-                        handlers = self._subscribers.get(
-                            message['channel'], set()
-                        ).copy()
-                        for handler in handlers:
-                            try:
-                                if asyncio.iscoroutinefunction(handler):
-                                    await handler(event_type, data)
-                                else:
-                                    handler(event_type, data)
-                            except Exception as e:
-                                logger.error(f'Error in event handler: {e}')
-
-                    except json.JSONDecodeError as e:
-                        logger.warning(f'Failed to decode event data: {e}')
-
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error(f'Error in Redis subscription loop: {e}')
-
-    async def _handle_task_created_event(self, event_type: str, data: Any):
-        """Handle task.created events from MessageBroker."""
-        task_id = data.get('task_id')
-        codebase_id = data.get('codebase_id')
-
-        # Skip if we've already seen this task
-        if task_id in self._known_task_ids:
-            return
-        self._known_task_ids.add(task_id)
-
-        # Check if this task is for one of our codebases
-        if codebase_id in self.codebases:
-            logger.info(
-                f'Received task.created event for task {task_id} (codebase: {codebase_id})'
-            )
-            # Fetch full task details from server
-            try:
-                tasks = await self.get_pending_tasks()
-                task = next((t for t in tasks if t.get('id') == task_id), None)
-                if task:
-                    await self.execute_task(task)
-            except Exception as e:
-                logger.error(f'Failed to execute task {task_id}: {e}')
-
-    async def _start_redis_subscriptions(self):
-        """Start Redis subscriptions for control plane events."""
-        try:
-            if await self._connect_redis():
-                # Subscribe to task events
-                await self._subscribe_to_events(
-                    'task.created', self._handle_task_created_event
-                )
-                await self._subscribe_to_events(
-                    'task.updated', self._handle_task_created_event
-                )
-
-                # Start subscription loop
-                self._subscription_task = asyncio.create_task(
-                    self._redis_subscription_loop()
-                )
-                logger.info('Redis control plane subscriptions started')
-        except Exception as e:
-            logger.warning(f'Failed to start Redis subscriptions: {e}')
 
     async def sync_api_keys_from_server(
         self, user_id: Optional[str] = None
@@ -452,6 +332,11 @@ class AgentWorker:
 
         self.running = True
 
+        # Initialize task semaphore for bounded concurrency
+        self._task_semaphore = asyncio.Semaphore(
+            self.config.max_concurrent_tasks
+        )
+
         # Register global pseudo-codebase first so we can include its ID in worker registration
         logger.info('Registering global pseudo-codebase...')
         self._global_codebase_id = await self.register_codebase(
@@ -479,12 +364,8 @@ class AgentWorker:
         logger.info('Syncing sessions with server...')
         await self.report_sessions_to_server()
 
-        # Start Redis control plane subscriptions
-        logger.info('Starting Redis control plane subscriptions...')
-        await self._start_redis_subscriptions()
-
-        # Start polling loop
-        await self.poll_loop()
+        # Start SSE task stream with fallback to polling
+        await self._run_with_sse_and_fallback()
 
     async def stop(self):
         """Stop the worker gracefully."""
@@ -505,9 +386,6 @@ class AgentWorker:
             await self.unregister_worker()
         except Exception as e:
             logger.debug(f'Failed to unregister worker during shutdown: {e}')
-
-        # Disconnect from Redis control plane
-        await self._disconnect_redis()
 
         # Close session properly
         if self.session is not None and not self.session.closed:
@@ -537,7 +415,9 @@ class AgentWorker:
         try:
             url = f'http://localhost:{port}/provider'
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=2) as resp:
+                async with session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=2)
+                ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         all_providers = data.get('all', [])
@@ -789,74 +669,51 @@ class AgentWorker:
             logger.error(f'Failed to register codebase: {e}')
             return None
 
-    async def poll_loop(self):
-        """Main loop - poll for tasks and execute them."""
-        logger.info(
-            f'Starting poll loop (interval: {self.config.poll_interval}s)'
-        )
-
+    async def _run_with_sse_and_fallback(self):
+        """Run the main loop with SSE streaming, falling back to polling if needed."""
         session_sync_counter = 0
-        session_sync_interval = (
-            12  # Sync sessions every 12 poll cycles (60s at 5s interval)
-        )
-        heartbeat_counter = 0
-        heartbeat_interval = (
-            3  # Send heartbeat every 3 poll cycles (15s at 5s interval)
-        )
-
-        # Track if we've successfully registered at least once
-        registered_once = False
-
-        # Exponential backoff state for error recovery
-        consecutive_errors = 0
-        max_backoff = 60  # Maximum backoff in seconds
-        base_backoff = 2  # Base for exponential backoff
+        session_sync_interval = 12  # Sync sessions every 12 cycles (60s at 5s)
 
         while self.running:
             try:
-                # Ensure we are registered
-                if not registered_once:
-                    await self.register_worker()
-                    registered_once = True
+                # Try SSE streaming first
+                logger.info('Attempting SSE connection for task streaming...')
+                await self._sse_task_stream()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f'SSE connection failed: {e}')
+                self._sse_connected = False
 
-                # Send heartbeat to keep worker alive on server
-                heartbeat_counter += 1
-                if heartbeat_counter >= heartbeat_interval:
-                    heartbeat_counter = 0
-                    heartbeat_success = await self.send_heartbeat()
-                    if not heartbeat_success:
-                        # Heartbeat failed - try to re-register
-                        logger.warning(
-                            'Heartbeat failed, attempting re-registration'
-                        )
-                        await self.register_worker()
+            if not self.running:
+                break
 
-                # Get pending tasks for our codebases
+            # SSE failed or disconnected - fall back to polling temporarily
+            logger.info(
+                f'Falling back to polling (reconnect in {self._sse_reconnect_delay}s)...'
+            )
+
+            # Do one poll cycle while waiting to reconnect
+            try:
                 tasks = await self.get_pending_tasks()
-
                 for task in tasks:
                     if not self.running:
                         break
-
-                    # Check if this task is for one of our codebases
                     codebase_id = task.get('codebase_id')
-                    # Also allow special "__pending__" registration tasks that any worker can claim.
                     if (
                         codebase_id in self.codebases
                         or codebase_id == '__pending__'
                     ):
-                        await self.execute_task(task)
+                        # Process task with bounded concurrency
+                        asyncio.create_task(
+                            self._process_task_with_semaphore(task)
+                        )
 
-                # Periodically sync sessions
+                # Periodic maintenance
                 session_sync_counter += 1
                 if session_sync_counter >= session_sync_interval:
                     session_sync_counter = 0
-
-                    # Re-register periodically so the worker recovers cleanly
-                    # after server restarts and keeps its last_seen fresh.
                     await self.register_worker()
-
-                    # Also re-register codebases in case the server lost state.
                     for cb_config in self.config.codebases:
                         await self.register_codebase(
                             name=cb_config.get(
@@ -865,47 +722,252 @@ class AgentWorker:
                             path=cb_config['path'],
                             description=cb_config.get('description', ''),
                         )
-
                     await self.report_sessions_to_server()
 
-                # Reset error counter on successful iteration
-                consecutive_errors = 0
-                await asyncio.sleep(self.config.poll_interval)
-
-            except asyncio.CancelledError:
-                break
             except Exception as e:
-                consecutive_errors += 1
-                # Calculate backoff with exponential increase, capped at max_backoff
-                backoff = min(base_backoff**consecutive_errors, max_backoff)
-                logger.error(
-                    f'Error in poll loop (attempt {consecutive_errors}): {e}. '
-                    f'Retrying in {backoff}s'
+                logger.error(f'Error in fallback poll: {e}')
+
+            # Wait before trying SSE again (with exponential backoff)
+            await asyncio.sleep(self._sse_reconnect_delay)
+            self._sse_reconnect_delay = min(
+                self._sse_reconnect_delay * 2,
+                self.config.sse_max_reconnect_delay,
+            )
+
+    async def _sse_task_stream(self):
+        """Connect to SSE endpoint and receive task assignments in real-time."""
+        session = await self._get_session()
+
+        # Build SSE URL with worker_id and agent_name
+        sse_url = f'{self.config.server_url}/v1/worker/tasks/stream'
+        params = {
+            'worker_id': self.config.worker_id,
+            'agent_name': self.config.worker_name,  # Required by SSE endpoint
+        }
+
+        # Add codebase_ids to filter tasks
+        codebase_ids = list(self.codebases.keys())
+        if codebase_ids:
+            params['codebase_ids'] = ','.join(codebase_ids)
+
+        logger.info(f'Connecting to SSE stream: {sse_url}')
+
+        # Use a longer timeout for SSE connections
+        sse_timeout = aiohttp.ClientTimeout(
+            total=None,  # No total timeout
+            connect=30,
+            sock_read=self.config.sse_heartbeat_timeout
+            + 15,  # Allow some slack
+        )
+
+        # Build headers including auth token if available
+        sse_headers = {'Accept': 'text/event-stream'}
+        if self.config.auth_token:
+            sse_headers['Authorization'] = f'Bearer {self.config.auth_token}'
+
+        async with session.get(
+            sse_url,
+            params=params,
+            timeout=sse_timeout,
+            headers=sse_headers,
+        ) as response:
+            if response.status != 200:
+                text = await response.text()
+                raise Exception(
+                    f'SSE connection failed: {response.status} - {text}'
                 )
 
-                # If we've had multiple consecutive errors, try to re-register
-                if consecutive_errors >= 3:
-                    logger.warning(
-                        'Multiple consecutive errors, attempting re-registration'
-                    )
-                    try:
-                        await self.register_worker()
-                        # Re-register codebases too
-                        for cb_config in self.config.codebases:
-                            await self.register_codebase(
-                                name=cb_config.get(
-                                    'name', Path(cb_config['path']).name
-                                ),
-                                path=cb_config['path'],
-                                description=cb_config.get('description', ''),
-                            )
-                    except Exception as re_err:
-                        logger.error(f'Re-registration failed: {re_err}')
+            self._sse_connected = True
+            self._sse_reconnect_delay = (
+                self.config.sse_reconnect_delay
+            )  # Reset backoff
+            self._last_heartbeat = time.time()
+            logger.info('SSE connection established')
 
-                await asyncio.sleep(backoff)
+            # Start background tasks
+            heartbeat_checker = asyncio.create_task(
+                self._check_heartbeat_timeout()
+            )
+            periodic_maintenance = asyncio.create_task(
+                self._periodic_maintenance()
+            )
+
+            try:
+                event_type = None
+                event_data_lines = []
+
+                async for line in response.content:
+                    if not self.running:
+                        break
+
+                    line = line.decode('utf-8').rstrip('\r\n')
+
+                    if line.startswith('event:'):
+                        event_type = line[6:].strip()
+                    elif line.startswith('data:'):
+                        event_data_lines.append(line[5:].strip())
+                    elif line == '':
+                        # Empty line signals end of event
+                        if event_data_lines:
+                            event_data = '\n'.join(event_data_lines)
+                            await self._handle_sse_event(event_type, event_data)
+                            event_data_lines = []
+                            event_type = None
+                    # Handle comment lines (heartbeats often sent as : comment)
+                    elif line.startswith(':'):
+                        self._last_heartbeat = time.time()
+                        logger.debug('Received SSE heartbeat (comment)')
+
+            finally:
+                heartbeat_checker.cancel()
+                periodic_maintenance.cancel()
+                try:
+                    await heartbeat_checker
+                except asyncio.CancelledError:
+                    pass
+                try:
+                    await periodic_maintenance
+                except asyncio.CancelledError:
+                    pass
+
+    async def _handle_sse_event(self, event_type: Optional[str], data: str):
+        """Handle an SSE event from the server."""
+        self._last_heartbeat = time.time()
+
+        # Handle heartbeat events
+        if event_type == 'heartbeat' or event_type == 'ping':
+            logger.debug('Received SSE heartbeat event')
+            return
+
+        # Handle task events
+        if event_type in (
+            'task',
+            'task_assigned',
+            'task.created',
+            'task.assigned',
+        ):
+            try:
+                task = json.loads(data)
+                task_id = task.get('id') or task.get('task_id')
+
+                # Skip if we've already seen this task
+                if task_id in self._known_task_ids:
+                    logger.debug(f'Skipping duplicate task: {task_id}')
+                    return
+                self._known_task_ids.add(task_id)
+
+                # Skip if already processing
+                if task_id in self._active_task_ids:
+                    logger.debug(f'Task already being processed: {task_id}')
+                    return
+
+                codebase_id = task.get('codebase_id')
+                if (
+                    codebase_id in self.codebases
+                    or codebase_id == '__pending__'
+                ):
+                    logger.info(
+                        f'Received task via SSE: {task_id} - {task.get("title", "Untitled")}'
+                    )
+                    # Process task with bounded concurrency (don't await)
+                    asyncio.create_task(self._process_task_with_semaphore(task))
+                else:
+                    logger.debug(
+                        f'Task {task_id} not for our codebases, ignoring'
+                    )
+
+            except json.JSONDecodeError as e:
+                logger.warning(f'Failed to parse task data: {e}')
+            except Exception as e:
+                logger.error(f'Error handling task event: {e}')
+
+        elif event_type == 'connected':
+            logger.info(f'SSE connection confirmed: {data}')
+
+        elif event_type == 'error':
+            logger.warning(f'SSE server error: {data}')
+
+        else:
+            logger.debug(
+                f'Unknown SSE event type: {event_type}, data: {data[:100]}...'
+            )
+
+    async def _check_heartbeat_timeout(self):
+        """Check if we've received a heartbeat recently."""
+        while self.running and self._sse_connected:
+            await asyncio.sleep(10)
+
+            if not self._sse_connected:
+                break
+
+            elapsed = time.time() - self._last_heartbeat
+            if elapsed > self.config.sse_heartbeat_timeout:
+                logger.warning(
+                    f'No SSE heartbeat for {elapsed:.1f}s (timeout: {self.config.sse_heartbeat_timeout}s)'
+                )
+                # Force reconnection by breaking the SSE loop
+                self._sse_connected = False
+                break
+
+    async def _periodic_maintenance(self):
+        """Perform periodic maintenance tasks while SSE is connected."""
+        sync_interval = 60  # seconds
+        heartbeat_interval = 15  # seconds
+        last_sync = time.time()
+        last_heartbeat = time.time()
+
+        while self.running and self._sse_connected:
+            await asyncio.sleep(5)
+
+            now = time.time()
+
+            # Send heartbeat to server periodically
+            if now - last_heartbeat >= heartbeat_interval:
+                last_heartbeat = now
+                await self.send_heartbeat()
+
+            # Sync sessions and re-register periodically
+            if now - last_sync >= sync_interval:
+                last_sync = now
+                try:
+                    await self.register_worker()
+                    for cb_config in self.config.codebases:
+                        await self.register_codebase(
+                            name=cb_config.get(
+                                'name', Path(cb_config['path']).name
+                            ),
+                            path=cb_config['path'],
+                            description=cb_config.get('description', ''),
+                        )
+                    await self.report_sessions_to_server()
+                except Exception as e:
+                    logger.warning(f'Periodic maintenance error: {e}')
+
+    async def _process_task_with_semaphore(self, task: Dict[str, Any]):
+        """Process a task with bounded concurrency using semaphore."""
+        task_id = task.get('id') or task.get('task_id') or ''
+
+        if self._task_semaphore is None:
+            self._task_semaphore = asyncio.Semaphore(
+                self.config.max_concurrent_tasks
+            )
+
+        if not task_id:
+            logger.warning('Task has no ID, skipping')
+            return
+
+        # Mark task as active
+        self._active_task_ids.add(task_id)
+
+        try:
+            async with self._task_semaphore:
+                logger.debug(f'Acquired semaphore for task {task_id}')
+                await self.execute_task(task)
+        finally:
+            self._active_task_ids.discard(task_id)
 
     async def get_pending_tasks(self) -> List[Dict[str, Any]]:
-        """Get pending tasks from the server."""
+        """Get pending tasks from the server (fallback polling method)."""
         try:
             session = await self._get_session()
 
@@ -913,9 +975,10 @@ class AgentWorker:
             codebase_ids = list(self.codebases.keys())
 
             url = f'{self.config.server_url}/v1/opencode/tasks'
+            # Note: Don't filter by worker_id for pending tasks - they haven't been
+            # assigned yet. We filter client-side by codebase_id instead.
             params = {
                 'status': 'pending',
-                'worker_id': self.config.worker_id,
             }
 
             async with session.get(url, params=params) as resp:
@@ -924,12 +987,17 @@ class AgentWorker:
                     # Filter to:
                     # 1. Tasks for our registered codebases
                     # 2. Registration tasks (codebase_id = '__pending__') that any worker can claim
-                    return [
+                    matching = [
                         t
                         for t in tasks
                         if t.get('codebase_id') in self.codebases
                         or t.get('codebase_id') == '__pending__'
                     ]
+                    if matching:
+                        logger.info(
+                            f'Found {len(matching)} pending tasks for our codebases'
+                        )
+                    return matching
                 else:
                     return []
 
@@ -939,9 +1007,13 @@ class AgentWorker:
 
     async def execute_task(self, task: Dict[str, Any]):
         """Execute a task using OpenCode or handle special task types."""
-        task_id = task.get('id')
-        codebase_id = task.get('codebase_id')
-        agent_type = task.get('agent_type', 'build')
+        task_id: str = task.get('id') or task.get('task_id') or ''
+        codebase_id: str = task.get('codebase_id') or ''
+        agent_type: str = task.get('agent_type', 'build') or 'build'
+
+        if not task_id:
+            logger.error('Task has no ID, cannot execute')
+            return
 
         # Handle special task types
         if agent_type == 'register_codebase':
@@ -1037,8 +1109,8 @@ class AgentWorker:
         This validates the path exists locally and registers the codebase
         with this worker's ID.
         """
-        task_id = task.get('id')
-        metadata = task.get('metadata', {})
+        task_id: str = task.get('id') or task.get('task_id') or ''
+        metadata: Dict[str, Any] = task.get('metadata', {}) or {}
 
         name = metadata.get('name', 'Unknown')
         path = metadata.get('path')
@@ -1289,6 +1361,7 @@ class AgentWorker:
             }
 
         # Build command using 'opencode run' with proper flags
+        # Use --headless and --auto-approve=all for non-interactive execution
         cmd = [
             self.opencode_bin,
             'run',
@@ -1296,6 +1369,9 @@ class AgentWorker:
             agent_type,
             '--format',
             'json',
+            '--headless',
+            '--auto-approve',
+            'all',
         ]
 
         # Add model if specified (format: provider/model)
@@ -1614,7 +1690,7 @@ class AgentWorker:
         def _storage_match_score(storage: Path) -> int:
             """Return how many registered codebases appear in this OpenCode storage's project list."""
             codebase_paths: List[str] = [
-                cb.get('path')
+                str(cb.get('path'))
                 for cb in (self.config.codebases or [])
                 if cb.get('path')
             ]
@@ -2336,7 +2412,7 @@ async def main():
         '-i',
         type=int,
         default=None,
-        help='Poll interval in seconds',
+        help='Fallback poll interval in seconds (when SSE unavailable)',
     )
     parser.add_argument('--opencode', help='Path to opencode binary')
 
@@ -2358,9 +2434,16 @@ async def main():
         help='How many most-recent messages per session to sync (0 disables)',
     )
     parser.add_argument(
-        '--redis-url',
+        '--max-concurrent-tasks',
+        type=int,
         default=None,
-        help='Redis URL for MessageBroker control plane events (default: redis://localhost:6379)',
+        help='Maximum number of tasks to process concurrently (default: 2)',
+    )
+    parser.add_argument(
+        '--sse-heartbeat-timeout',
+        type=float,
+        default=None,
+        help='SSE heartbeat timeout in seconds (default: 45)',
     )
 
     args = parser.parse_args()
@@ -2417,7 +2500,9 @@ async def main():
         poll_interval_raw = 5
 
     try:
-        poll_interval = int(poll_interval_raw)
+        poll_interval = (
+            int(poll_interval_raw) if poll_interval_raw is not None else 5
+        )
     except (TypeError, ValueError):
         poll_interval = 5
         logger.warning('Invalid poll_interval value; falling back to 5 seconds')
@@ -2448,12 +2533,6 @@ async def main():
             args.opencode_storage_path
             or os.environ.get('A2A_OPENCODE_STORAGE_PATH')
             or file_config.get('opencode_storage_path')
-        ),
-        'redis_url': (
-            args.redis_url
-            or os.environ.get('A2A_REDIS_URL')
-            or file_config.get('redis_url')
-            or 'redis://localhost:6379'
         ),
     }
 
@@ -2492,8 +2571,44 @@ async def main():
         config_kwargs['session_message_sync_max_messages'] = file_config.get(
             'session_message_sync_max_messages'
         )
+
+    # Max concurrent tasks
+    if args.max_concurrent_tasks is not None:
+        config_kwargs['max_concurrent_tasks'] = args.max_concurrent_tasks
+    elif os.environ.get('A2A_MAX_CONCURRENT_TASKS'):
+        try:
+            config_kwargs['max_concurrent_tasks'] = int(
+                os.environ['A2A_MAX_CONCURRENT_TASKS']
+            )
+        except ValueError:
+            pass
+    elif file_config.get('max_concurrent_tasks') is not None:
+        config_kwargs['max_concurrent_tasks'] = file_config.get(
+            'max_concurrent_tasks'
+        )
+
+    # SSE heartbeat timeout
+    if args.sse_heartbeat_timeout is not None:
+        config_kwargs['sse_heartbeat_timeout'] = args.sse_heartbeat_timeout
+    elif os.environ.get('A2A_SSE_HEARTBEAT_TIMEOUT'):
+        try:
+            config_kwargs['sse_heartbeat_timeout'] = float(
+                os.environ['A2A_SSE_HEARTBEAT_TIMEOUT']
+            )
+        except ValueError:
+            pass
+    elif file_config.get('sse_heartbeat_timeout') is not None:
+        config_kwargs['sse_heartbeat_timeout'] = file_config.get(
+            'sse_heartbeat_timeout'
+        )
+
     if capabilities is not None:
         config_kwargs['capabilities'] = capabilities
+
+    # Auth token for SSE endpoint
+    auth_token = os.environ.get('A2A_AUTH_TOKEN')
+    if auth_token:
+        config_kwargs['auth_token'] = auth_token
 
     config = WorkerConfig(**config_kwargs)
 

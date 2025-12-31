@@ -22,6 +22,7 @@ SUDO ?= sudo
 # Additional image names for full platform
 MARKETING_IMAGE_NAME = a2a-marketing
 DOCS_IMAGE_NAME = codetether-docs
+VOICE_AGENT_IMAGE_NAME = codetether-voice-agent
 
 
 
@@ -78,8 +79,12 @@ docker-build-marketing: ## Build marketing site Docker image
 docker-build-docs: ## Build docs site Docker image
 	docker build -t $(DOCS_IMAGE_NAME):$(DOCKER_TAG) -f Dockerfile.docs . --network=host
 
+.PHONY: docker-build-voice-agent
+docker-build-voice-agent: ## Build voice agent Docker image
+	docker build -t $(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG) ./codetether_voice_agent --network=host
+
 .PHONY: docker-build-all
-docker-build-all: docker-build docker-build-marketing docker-build-docs ## Build all Docker images (server, marketing, docs)
+docker-build-all: docker-build docker-build-marketing docker-build-docs docker-build-voice-agent ## Build all Docker images (server, marketing, docs, voice-agent)
 
 .PHONY: docker-build-no-cache
 docker-build-no-cache: ## Build Docker image without cache
@@ -127,8 +132,13 @@ docker-push-docs: ## Push docs site Docker image to OCI registry
 	docker tag $(DOCS_IMAGE_NAME):$(DOCKER_TAG) $(OCI_REGISTRY)/$(DOCS_IMAGE_NAME):$(DOCKER_TAG)
 	docker push $(OCI_REGISTRY)/$(DOCS_IMAGE_NAME):$(DOCKER_TAG)
 
+.PHONY: docker-push-voice-agent
+docker-push-voice-agent: ## Push voice agent Docker image to OCI registry
+	docker tag $(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG) $(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG)
+	docker push $(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG)
+
 .PHONY: docker-push-all
-docker-push-all: docker-push docker-push-marketing docker-push-docs ## Push all Docker images to OCI registry
+docker-push-all: docker-push docker-push-marketing docker-push-docs docker-push-voice-agent ## Push all Docker images to OCI registry
 
 .PHONY: docker-push-custom
 docker-push-custom: ## Push Docker image to custom registry
@@ -478,16 +488,17 @@ k8s-staging: docker-build-all docker-push-all ## Build and deploy all containers
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: k8s-prod
-k8s-prod: docker-build-all docker-push-all helm-package helm-push ## Build and deploy ALL containers to production (server, marketing, docs)
+k8s-prod: docker-build-all docker-push-all helm-package helm-push helm-package-voice-agent helm-push-voice-agent ## Build and deploy ALL containers to production (server, marketing, docs, voice-agent)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
-	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site"
+	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site, Voice Agent"
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
 		./scripts/bluegreen-deploy.sh deploy
+	@$(MAKE) voice-agent-deploy
 	@$(MAKE) local-worker-restart
 
 .PHONY: k8s-prod-docs
@@ -710,3 +721,62 @@ codetether-full-deploy: codetether-build-all helm-package helm-push codetether-d
 .PHONY: test-models
 test-models:
 	source .venv/bin/activate && pip install aiohttp && python3 tests/verify_models.py
+
+# =============================================================================
+# Voice Agent Deployment Targets
+# =============================================================================
+
+VOICE_AGENT_CHART_PATH = chart/codetether-voice-agent
+VOICE_AGENT_CHART_VERSION ?= 0.1.0
+VOICE_AGENT_RELEASE_NAME ?= codetether-voice-agent
+
+.PHONY: helm-package-voice-agent
+helm-package-voice-agent: ## Package voice agent Helm chart
+	helm package $(VOICE_AGENT_CHART_PATH)
+
+.PHONY: helm-push-voice-agent
+helm-push-voice-agent: helm-package-voice-agent ## Package and push voice agent Helm chart to OCI registry
+	@CHART_PACKAGE="codetether-voice-agent-$(VOICE_AGENT_CHART_VERSION).tgz"; \
+	if [ ! -f "$$CHART_PACKAGE" ]; then \
+		CHART_PACKAGE=$$(ls -t codetether-voice-agent-*.tgz 2>/dev/null | head -n1); \
+	fi; \
+	if [ -z "$$CHART_PACKAGE" ]; then \
+		echo "Error: No voice agent chart package found. Run 'make helm-package-voice-agent' first."; \
+		exit 1; \
+	fi; \
+	helm push $$CHART_PACKAGE oci://$(OCI_REGISTRY)
+
+.PHONY: voice-agent-deploy
+voice-agent-deploy: ## Deploy voice agent to production
+	@echo "🎤 Deploying CodeTether Voice Agent..."
+	helm upgrade --install $(VOICE_AGENT_RELEASE_NAME) \
+		oci://$(OCI_REGISTRY)/codetether-voice-agent \
+		--version $(VOICE_AGENT_CHART_VERSION) \
+		-n $(NAMESPACE) \
+		--set image.repository=$(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME) \
+		--set image.tag=$(DOCKER_TAG) \
+		--wait --timeout 300s || \
+	helm upgrade --install $(VOICE_AGENT_RELEASE_NAME) \
+		$(VOICE_AGENT_CHART_PATH) \
+		-n $(NAMESPACE) \
+		--set image.repository=$(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME) \
+		--set image.tag=$(DOCKER_TAG) \
+		--wait --timeout 300s
+	@echo "✅ Voice Agent deployed successfully"
+
+.PHONY: voice-agent-status
+voice-agent-status: ## Show voice agent deployment status
+	@echo "=== Voice Agent Deployment ==="
+	kubectl get deployment -n $(NAMESPACE) -l app.kubernetes.io/name=codetether-voice-agent
+	@echo ""
+	@echo "=== Voice Agent Pods ==="
+	kubectl get pods -n $(NAMESPACE) -l app.kubernetes.io/name=codetether-voice-agent
+
+.PHONY: voice-agent-logs
+voice-agent-logs: ## Show voice agent logs
+	kubectl logs -f deployment/$(VOICE_AGENT_RELEASE_NAME) -n $(NAMESPACE)
+
+.PHONY: voice-agent-restart
+voice-agent-restart: ## Restart voice agent deployment
+	kubectl rollout restart deployment/$(VOICE_AGENT_RELEASE_NAME) -n $(NAMESPACE)
+	kubectl rollout status deployment/$(VOICE_AGENT_RELEASE_NAME) -n $(NAMESPACE) --timeout=120s

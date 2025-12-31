@@ -1,0 +1,6 @@
+apiVersion: v2
+name: codetether-voice-agent
+description: CodeTether Voice Agent - Gemini 3 + FunctionGemma powered voice assistant
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -10,7 +10,7 @@ export function SessionList({ codebases, sessions, selectedCodebase, selectedSes
     return (
         <nav
             aria-label="Chat sessions"
-            className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10 flex flex-col overflow-hidden flex-1"
+            className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10 flex flex-col h-full min-h-0 max-h-full overflow-hidden"
         >
             <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 shrink-0">
                 <h2 id="sessions-heading" className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Sessions</h2>
@@ -33,7 +33,7 @@ export function SessionList({ codebases, sessions, selectedCodebase, selectedSes
                 role="listbox"
                 aria-labelledby="sessions-heading"
                 aria-activedescendant={selectedSession?.id ? `session-${selectedSession.id}` : undefined}
-                className="divide-y divide-gray-200 dark:divide-gray-700 overflow-y-auto flex-1 min-h-0"
+                className="divide-y divide-gray-200 dark:divide-gray-700 overflow-y-auto overflow-x-hidden min-h-0 flex-1 basis-0"
                 tabIndex={0}
             >
                 {sessions.length === 0 ? (

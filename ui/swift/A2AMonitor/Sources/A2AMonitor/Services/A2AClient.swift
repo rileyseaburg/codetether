@@ -446,7 +446,7 @@ class A2AClient: ObservableObject {
         return try jsonDecoder.decode(AgentTask.self, from: data)
     }
 
-    func createTask(codebaseId: String, title: String, description: String, priority: TaskPriority, context: String?) async throws -> AgentTask {
+    func createTask(codebaseId: String, title: String, description: String, priority: TaskPriority, context: String?, agentType: String = "build") async throws -> AgentTask {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/tasks")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -456,7 +456,8 @@ class A2AClient: ObservableObject {
         var body: [String: Any] = [
             "title": title,
             "description": description,
-            "priority": priority.rawValue
+            "priority": priority.rawValue,
+            "agent_type": agentType
         ]
         if let context = context {
             body["context"] = context

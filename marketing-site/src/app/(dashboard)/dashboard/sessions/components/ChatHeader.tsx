@@ -24,7 +24,7 @@ export function ChatHeader(p: Props) {
 
     return (
         <header
-            className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
+            className="shrink-0 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
             aria-label="Chat session header"
         >
             <div className="min-w-0 w-full sm:w-auto">

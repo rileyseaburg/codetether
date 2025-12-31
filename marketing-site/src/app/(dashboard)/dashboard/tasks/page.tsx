@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useCodebases } from '../sessions/hooks/useCodebases'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
@@ -12,6 +13,11 @@ interface Task {
     status: string
     created_at: string
     result?: string
+    codebase_id?: string
+    priority?: number
+    started_at?: string
+    completed_at?: string
+    error?: string
 }
 
 function ClipboardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -26,6 +32,8 @@ export default function TasksPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [filter, setFilter] = useState('all')
     const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+    const { codebases } = useCodebases()
+    const [selectedCodebase, setSelectedCodebase] = useState<string>('all')
 
     const loadTasks = useCallback(async () => {
         try {
@@ -45,7 +53,11 @@ export default function TasksPage() {
         return () => clearInterval(interval)
     }, [loadTasks])
 
-    const filteredTasks = filter === 'all' ? tasks : tasks.filter(t => t.status === filter)
+    const filteredTasks = tasks.filter((task: Task) => {
+        const statusMatch = filter === 'all' || task.status === filter
+        const codebaseMatch = selectedCodebase === 'all' || task.codebase_id === selectedCodebase
+        return statusMatch && codebaseMatch
+    })
 
     const getStatusClasses = (status: string) => {
         const classes: Record<string, string> = {
@@ -55,6 +67,15 @@ export default function TasksPage() {
             failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
         }
         return classes[status] || classes.pending
+    }
+
+    const getPriorityBadge = (priority?: number) => {
+        switch (priority) {
+            case 4: return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Urgent</span>
+            case 3: return <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">High</span>
+            case 1: return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Low</span>
+            default: return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Normal</span>
+        }
     }
 
     const parseTaskResult = (result: string) => {
@@ -88,13 +109,23 @@ export default function TasksPage() {
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Task Queue</h2>
                             <div className="flex gap-2">
+                                <select
+                                    value={selectedCodebase}
+                                    onChange={(e) => setSelectedCodebase(e.target.value)}
+                                    className="px-3 py-2 border rounded-lg text-sm"
+                                >
+                                    <option value="all">All Codebases</option>
+                                    {codebases.map((cb: any) => (
+                                        <option key={cb.id} value={cb.id}>{cb.name}</option>
+                                    ))}
+                                </select>
                                 {['all', 'pending', 'running', 'completed'].map((f) => (
                                     <button
                                         key={f}
                                         onClick={() => setFilter(f)}
                                         className={`rounded-md px-3 py-1 text-xs font-medium ${filter === f
-                                                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300'
-                                                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300'
+                                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
                                             }`}
                                     >
                                         {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -127,6 +158,9 @@ export default function TasksPage() {
                                         </div>
                                         <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(task.status)}`}>
                                             {task.status}
+                                        </span>
+                                        <span className="ml-2">
+                                            {getPriorityBadge(task.priority)}
                                         </span>
                                     </div>
                                 </div>
@@ -161,6 +195,38 @@ export default function TasksPage() {
                                         {selectedTask.status}
                                     </span>
                                 </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Priority</p>
+                                    <span className="mt-1">{getPriorityBadge(selectedTask.priority)}</span>
+                                </div>
+                                {selectedTask.codebase_id && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Codebase ID</p>
+                                        <p className="text-sm text-gray-900 dark:text-white">{selectedTask.codebase_id}</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Created</p>
+                                    <p className="text-sm text-gray-900 dark:text-white">{new Date(selectedTask.created_at).toLocaleString()}</p>
+                                </div>
+                                {selectedTask.started_at && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Started</p>
+                                        <p className="text-sm text-gray-900 dark:text-white">{new Date(selectedTask.started_at).toLocaleString()}</p>
+                                    </div>
+                                )}
+                                {selectedTask.completed_at && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Completed</p>
+                                        <p className="text-sm text-gray-900 dark:text-white">{new Date(selectedTask.completed_at).toLocaleString()}</p>
+                                    </div>
+                                )}
+                                {selectedTask.error && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Error</p>
+                                        <p className="text-sm text-red-600 dark:text-red-400 whitespace-pre-wrap">{selectedTask.error}</p>
+                                    </div>
+                                )}
                                 {selectedTask.prompt && (
                                     <div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">Prompt</p>

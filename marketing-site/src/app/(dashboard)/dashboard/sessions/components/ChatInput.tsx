@@ -10,7 +10,7 @@ interface ChatInputProps {
 export function ChatInput({ draftMessage, loading, actionStatus, hasSession, onDraftChange, onSend }: ChatInputProps) {
     if (!hasSession) {
         return (
-            <div className="border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4" role="status">
+            <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4" role="status">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Select a session to start chatting.</p>
             </div>
         )
@@ -27,7 +27,7 @@ export function ChatInput({ draftMessage, loading, actionStatus, hasSession, onD
     const characterCount = draftMessage.length
 
     return (
-        <footer className="border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4" aria-label="Message input">
+        <footer className="shrink-0 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4" aria-label="Message input">
             <form
                 onSubmit={(e) => { e.preventDefault(); onSend() }}
                 className="space-y-2"
@@ -69,7 +69,7 @@ export function ChatInput({ draftMessage, loading, actionStatus, hasSession, onD
                     </span>
                     {actionStatus && (
                         <span
-                            className="text-xs text-gray-500 dark:text-gray-400"
+                            className={`text-xs ${actionStatus.toLowerCase().includes('failed') ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}
                             role="status"
                             aria-live="polite"
                         >

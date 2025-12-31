@@ -44,6 +44,7 @@ from .agent_card import AgentCard
 from .monitor_api import (
     monitor_router,
     opencode_router,
+    voice_router,
     auth_router,
     nextauth_router,
     monitoring_service,
@@ -203,6 +204,9 @@ class A2AServer:
 
         # Include NextAuth compatibility routes for Cypress
         self.app.include_router(nextauth_router)
+
+        # Include voice session routes
+        self.app.include_router(voice_router)
 
     async def _handle_jsonrpc_request(
         self,

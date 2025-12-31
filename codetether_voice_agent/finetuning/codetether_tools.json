@@ -1,0 +1,154 @@
+{
+  "tools": [
+    {
+      "name": "create_task",
+      "description": "Create a new task for an agent to execute in the CodeTether system. Use this when the user wants to create and assign a new task to be worked on.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title or name of the task to be created",
+          "examples": ["fix login bug", "implement user authentication", "write documentation"]
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of what the task involves and what needs to be accomplished",
+          "examples": ["The login button doesn't redirect users after successful authentication", "Add OAuth2 support for Google and GitHub login"]
+        },
+        "codebase_id": {
+          "type": "string",
+          "description": "The ID of the codebase to associate with this task. If not specified, defaults to 'global'",
+          "examples": ["my-project", "backend-api", "frontend-app"]
+        },
+        "agent_type": {
+          "type": "string",
+          "enum": ["build", "plan", "general", "explore"],
+          "description": "The type of agent to handle this task. build agents execute code tasks, plan agents create plans, explore agents investigate codebases",
+          "examples": ["build", "plan"]
+        },
+        "priority": {
+          "type": "integer",
+          "description": "The priority level of the task (0-10, where 10 is highest priority). Higher priority tasks are processed first",
+          "examples": [1, 5, 10]
+        }
+      },
+      "required": ["title"]
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "List tasks in the CodeTether system with optional filtering by status or codebase. Use this to show the user what tasks exist.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Filter tasks by their status. Common statuses include: pending (not started), running (currently being worked on), completed (finished successfully), failed (encountered errors), cancelled (stopped by user)",
+          "examples": ["pending", "running", "completed", "failed"]
+        },
+        "codebase_id": {
+          "type": "string",
+          "description": "Filter tasks to only show those associated with a specific codebase ID",
+          "examples": ["my-project", "backend-api"]
+        }
+      },
+      "required": []
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "Get detailed information about a specific task by its ID. Use this when the user asks about a particular task and provides a task ID.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "The unique identifier of the task to retrieve details for",
+          "examples": ["task-123", "abc123", "uuid-string-here"]
+        }
+      },
+      "required": ["task_id"]
+      }
+    },
+    {
+      "name": "cancel_task",
+      "description": "Cancel a running or pending task. Use this when the user wants to stop a task that is currently in progress or waiting to be processed.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "The unique identifier of the task to cancel",
+          "examples": ["task-123", "abc123", "uuid-string-here"]
+        }
+      },
+      "required": ["task_id"]
+      }
+    },
+    {
+      "name": "get_session_history",
+      "description": "Retrieve the message history for a specific session. Use this when the user wants to review what happened in a previous conversation session.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "The unique identifier of the session to retrieve history for",
+          "examples": ["session-abc123", "uuid-session-id"]
+        }
+      },
+      "required": ["session_id"]
+      }
+    },
+    {
+      "name": "playback_session",
+      "description": "Play back a session verbatim or as a summary. Use this when the user wants to replay or review a previous conversation session.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "The unique identifier of the session to playback",
+          "examples": ["session-abc123", "uuid-session-id"]
+        },
+        "style": {
+          "type": "string",
+          "enum": ["verbatim", "summary"],
+          "description": "The playback style: verbatim plays back every message exactly as-is, summary provides a condensed version with key points"
+        }
+      },
+      "required": ["session_id"]
+      }
+    },
+    {
+      "name": "discover_agents",
+      "description": "Discover available CodeTether agents that can be messaged or assigned tasks. Use this to show the user what agents are available in the system.",
+      "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a message to a specific CodeTether agent. Use this for agent-to-agent communication or when the user explicitly wants to message an agent.",
+      "parameters": {
+      "type": "object",
+      "properties": {
+        "agent_name": {
+          "type": "string",
+          "description": "The name of the agent to send the message to",
+          "examples": ["builder-agent", "planner-agent", "test-agent"]
+        },
+        "message": {
+          "type": "string",
+          "description": "The message content to send to the agent",
+          "examples": ["Please check the API documentation", "Start working on the refactoring task"]
+        }
+      },
+      "required": ["agent_name", "message"]
+      }
+    }
+  ]
+}
