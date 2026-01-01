@@ -3464,7 +3464,7 @@ async def get_task(task_id: str):
             status_code=503, detail='OpenCode bridge not available'
         )
 
-    task = bridge.get_task(task_id)
+    task = await bridge.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail='Task not found')
 
@@ -4846,7 +4846,7 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
             status_code=400, detail=f'Invalid status: {update.status}'
         )
 
-    task = bridge.update_task_status(
+    task = await bridge.update_task_status(
         task_id=task_id,
         status=status,
         result=update.result,
