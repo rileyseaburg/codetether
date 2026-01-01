@@ -33,10 +33,14 @@ nav:
       - OpenCode Integration: features/opencode.md
       - Agent Worker: features/agent-worker.md
       - Distributed Workers: features/distributed-workers.md
+      - Worker SSE Push Notifications: features/worker-sse.md
       - Session Management: features/sessions.md
       - Real-time Streaming: features/streaming.md
       - Agent Messaging: features/agent-messaging.md
       - MCP Tools: features/mcp-tools.md
+      - Marketing Coordinator: features/marketing-coordinator.md
+      - Marketing Tools: features/marketing-tools.md
+      - Voice Agent: features/voice-agent.md
       - Monitor UI: features/monitor-ui.md
   - API Reference:
       - Overview: api/overview.md
