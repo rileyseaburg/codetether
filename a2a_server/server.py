@@ -50,6 +50,7 @@ from .monitor_api import (
     monitoring_service,
     log_agent_message,
 )
+from .worker_sse import worker_sse_router
 
 try:
     from .livekit_bridge import create_livekit_bridge, LiveKitBridge
@@ -207,6 +208,9 @@ class A2AServer:
 
         # Include voice session routes
         self.app.include_router(voice_router)
+
+        # Include worker SSE routes for push-based task distribution
+        self.app.include_router(worker_sse_router)
 
     async def _handle_jsonrpc_request(
         self,
