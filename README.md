@@ -62,8 +62,11 @@ Deploy AI coding agents across your infrastructure using our maintained OpenCode
 ### 🔍 **Model Filtering**
 Workers automatically filter and register only authenticated models from `auth.json`, ensuring reliable execution.
 
-</td>
+ </td>
 <td width="50%">
+
+### 🎤 **Voice Agent**
+Real-time voice interactions with AI agents through LiveKit integration. Multi-model support and session playback.
 
 ### 📡 **Real-Time Streaming**
 Watch agents think in real-time. SSE streaming for instant feedback and human intervention.
@@ -249,6 +252,10 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 - ✅ Swift iOS/macOS app
 - ✅ CLI tools
 - ✅ Comprehensive API docs
+- ✅ Voice agent with LiveKit
+- ✅ Marketing coordinator for task orchestration
+- ✅ Worker SSE push notifications
+- ✅ 27 marketing MCP tools (creative, campaigns, analytics)
 
 ## 🛠️ Deployment Options
 
@@ -398,6 +405,10 @@ For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs
 | 🚀 **Quick Start Guide** | [Getting Started](https://docs.codetether.run/getting-started/quickstart/) |
 | 🔧 **API Reference** | [API Docs](https://docs.codetether.run/api/overview/) |
 | 👷 **Agent Worker Guide** | [Agent Worker](https://docs.codetether.run/features/agent-worker/) |
+| 🎤 **Voice Agent** | [Voice Agent](https://docs.codetether.run/features/voice-agent/) |
+| 📊 **Marketing Tools** | [Marketing Tools](https://docs.codetether.run/features/marketing-tools/) |
+| 🤖 **Marketing Coordinator** | [Marketing Coordinator](https://docs.codetether.run/features/marketing-coordinator/) |
+| 🔔 **Worker SSE** | [Worker SSE](https://docs.codetether.run/features/worker-sse/) |
 | ☸️ **Kubernetes Deployment** | [Helm Charts](https://docs.codetether.run/deployment/helm/) |
 | 🔐 **Authentication** | [Keycloak Setup](https://docs.codetether.run/auth/keycloak/) |
 
