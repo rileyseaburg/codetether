@@ -1229,7 +1229,13 @@ class OpenCodeBridge:
         """Update task status."""
         task = self._tasks.get(task_id)
         if not task:
-            return None
+            # Task not in memory - try to load from database
+            # (handles tasks created via direct DB writes, e.g., trigger endpoint)
+            task = await self._load_task_from_db(task_id)
+            if not task:
+                return None
+            # Cache it for future updates
+            self._tasks[task_id] = task
 
         task.status = status
 

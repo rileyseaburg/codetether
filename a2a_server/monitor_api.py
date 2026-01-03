@@ -2653,6 +2653,22 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
         f'Created task {task_id} for codebase {codebase_name} (worker: {worker_id})'
     )
 
+    # Notify SSE-connected workers of the new task
+    try:
+        from .worker_sse import notify_workers_of_new_task
+
+        notified = await notify_workers_of_new_task(task_data)
+        if notified:
+            logger.info(
+                f'Task {task_id} pushed to {len(notified)} SSE workers: {notified}'
+            )
+        else:
+            logger.debug(
+                f'Task {task_id} created but no SSE workers available for codebase {codebase_id}'
+            )
+    except Exception as e:
+        logger.warning(f'Failed to notify SSE workers of task {task_id}: {e}')
+
     # Log the trigger
     await monitoring_service.log_message(
         agent_name='OpenCode Bridge',
@@ -5744,6 +5760,63 @@ async def delete_voice_session(room_name: str):
 
     logger.info(f'Deleted voice session {room_name}')
     return {'success': True, 'room_name': room_name}
+
+
+@voice_router.get('/sessions/{room_name}/state')
+async def get_voice_session_state(room_name: str):
+    """Get the current agent state for a voice session.
+
+    Returns the agent's current state: idle, listening, thinking, speaking, or error.
+    This endpoint is used by voice clients to update their UI with the agent's status.
+
+    The state is determined by checking:
+    1. If the room exists and has metadata with a session_id
+    2. If there's an active LiveKit connection
+    3. Falls back to 'idle' if state cannot be determined
+    """
+    bridge = get_livekit_bridge()
+    if not bridge:
+        raise HTTPException(status_code=503, detail='LiveKit not available')
+
+    try:
+        room_info = await bridge.get_room_info(room_name)
+        if not room_info:
+            raise HTTPException(
+                status_code=404, detail=f'Room {room_name} not found'
+            )
+
+        metadata_str = room_info.get('metadata', '')
+        metadata = {}
+        if metadata_str:
+            try:
+                metadata = (
+                    json.loads(metadata_str)
+                    if isinstance(metadata_str, str)
+                    else metadata_str
+                )
+            except:
+                pass
+
+        session_id = metadata.get('session_id')
+
+        if not session_id:
+            return 'idle'
+
+        num_participants = room_info.get('num_participants', 0)
+
+        if num_participants == 0:
+            return 'idle'
+
+        if num_participants > 1:
+            return 'speaking'
+
+        return 'listening'
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f'Failed to get session state for {room_name}: {e}')
+        return 'idle'
 
 
 # Export the monitoring service, routers and helpers

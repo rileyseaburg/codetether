@@ -703,6 +703,10 @@ class AgentWorker:
                     if (
                         codebase_id in self.codebases
                         or codebase_id == '__pending__'
+                        or (
+                            codebase_id == 'global'
+                            and self._global_codebase_id is not None
+                        )
                     ):
                         # Process task with bounded concurrency
                         asyncio.create_task(
@@ -745,11 +749,6 @@ class AgentWorker:
             'agent_name': self.config.worker_name,  # Required by SSE endpoint
         }
 
-        # Add codebase_ids to filter tasks
-        codebase_ids = list(self.codebases.keys())
-        if codebase_ids:
-            params['codebase_ids'] = ','.join(codebase_ids)
-
         logger.info(f'Connecting to SSE stream: {sse_url}')
 
         # Use a longer timeout for SSE connections
@@ -764,6 +763,14 @@ class AgentWorker:
         sse_headers = {'Accept': 'text/event-stream'}
         if self.config.auth_token:
             sse_headers['Authorization'] = f'Bearer {self.config.auth_token}'
+
+        # Add codebase IDs as header for SSE routing
+        codebase_ids = list(self.codebases.keys())
+        if codebase_ids:
+            sse_headers['X-Codebases'] = ','.join(codebase_ids)
+
+        # Add capabilities header
+        sse_headers['X-Capabilities'] = 'opencode,build,deploy,test'
 
         async with session.get(
             sse_url,
@@ -842,6 +849,7 @@ class AgentWorker:
         # Handle task events
         if event_type in (
             'task',
+            'task_available',
             'task_assigned',
             'task.created',
             'task.assigned',
@@ -865,6 +873,7 @@ class AgentWorker:
                 if (
                     codebase_id in self.codebases
                     or codebase_id == '__pending__'
+                    or codebase_id == 'global'
                 ):
                     logger.info(
                         f'Received task via SSE: {task_id} - {task.get("title", "Untitled")}'
@@ -987,11 +996,16 @@ class AgentWorker:
                     # Filter to:
                     # 1. Tasks for our registered codebases
                     # 2. Registration tasks (codebase_id = '__pending__') that any worker can claim
+                    # 3. Global tasks (codebase_id = 'global') for workers with global codebase
                     matching = [
                         t
                         for t in tasks
                         if t.get('codebase_id') in self.codebases
                         or t.get('codebase_id') == '__pending__'
+                        or (
+                            t.get('codebase_id') == 'global'
+                            and self._global_codebase_id is not None
+                        )
                     ]
                     if matching:
                         logger.info(
@@ -1050,7 +1064,17 @@ class AgentWorker:
             return
 
         # Regular task - requires existing codebase
-        codebase = self.codebases.get(codebase_id)
+        # Handle special 'global' codebase_id from MCP/UI clients
+        effective_codebase_id = codebase_id
+        if codebase_id == 'global':
+            if not self._global_codebase_id:
+                logger.error(
+                    f'Cannot process global task {task_id}: worker has no global codebase registered'
+                )
+                return
+            effective_codebase_id = self._global_codebase_id
+
+        codebase = self.codebases.get(effective_codebase_id)
 
         if not codebase:
             logger.error(f'Codebase {codebase_id} not found for task {task_id}')

@@ -59,7 +59,10 @@ export default function VoiceChatButton({
       const response = await fetch(`${apiBaseUrl}/v1/voice/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codebase_id: codebaseId }),
+        body: JSON.stringify({
+          codebase_id: codebaseId,
+          session_id: sessionId,
+        }),
       });
       if (response.ok) {
         const session = await response.json();
@@ -115,6 +118,7 @@ export default function VoiceChatButton({
           serverUrl={connectionInfo.server_url}
           roomName={connectionInfo.room_name}
           voice={selectedVoice}
+          sessionId={sessionId}
           onClose={() => {
             setIsOpen(false);
             setConnectionInfo(null);
@@ -128,6 +132,7 @@ export default function VoiceChatButton({
           serverUrl=""
           roomName=""
           voice={{ id: 'playback', name: 'Playback', description: '' }}
+          sessionId={sessionId}
           onClose={() => setIsOpen(false)}
         >
           <PlaybackControls

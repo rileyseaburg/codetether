@@ -23,6 +23,7 @@ interface VoiceChatModalProps {
   serverUrl: string;
   roomName: string;
   voice: { id: string; name: string; description: string };
+  sessionId?: string;
   onClose: () => void;
   children?: React.ReactNode;
 }
@@ -32,6 +33,7 @@ export default function VoiceChatModal({
   serverUrl,
   roomName,
   voice,
+  sessionId,
   onClose,
   children,
 }: VoiceChatModalProps) {
@@ -91,8 +93,11 @@ export default function VoiceChatModal({
               <div className="w-2 h-2 bg-green-500 rounded-full" />
               <span>LiveKit Connected</span>
             </div>
-            <div className="text-gray-400">
-              Room: {roomName || 'N/A'}
+            <div className="flex items-center gap-4 text-gray-400">
+              {sessionId && (
+                <span className="font-mono text-xs">Session: {sessionId.slice(0, 8)}...</span>
+              )}
+              <span>Room: {roomName || 'N/A'}</span>
             </div>
           </div>
         </div>
