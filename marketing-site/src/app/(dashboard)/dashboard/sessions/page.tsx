@@ -77,6 +77,7 @@ export default function SessionsPage() {
                         <ErrorBoundary>
                             <ChatHeader
                                 selectedSession={selectedSession}
+                                selectedCodebase={selectedCodebase}
                                 selectedMode={selectedMode}
                                 selectedModel={selectedModel}
                                 suggestedModels={suggestedModels}
