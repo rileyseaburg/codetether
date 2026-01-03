@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import VoiceChatButton from './components/voice/VoiceChatButton'
 
 // API base URL - use environment variable or default
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
@@ -399,6 +400,12 @@ export default function DashboardPage() {
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
                     </div>
                     <div className="p-4 space-y-2">
+                        <div className="mb-3">
+                            <VoiceChatButton 
+                                codebaseId={selectedCodebase || undefined}
+                                mode="chat"
+                            />
+                        </div>
                         <button
                             onClick={() => setShowRegisterModal(true)}
                             className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
