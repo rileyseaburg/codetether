@@ -2489,7 +2489,7 @@ async def register_codebase(registration: CodebaseRegistration):
         )
 
     # Create a "register_codebase" task that workers will pick up
-    task = bridge.create_task(
+    task = await bridge.create_task(
         codebase_id='__pending__',  # Special marker for registration tasks
         title=f'Register codebase: {registration.name}',
         prompt=f'Validate and register codebase at path: {registration.path}',
@@ -2893,7 +2893,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
             last_task_status: Dict[str, str] = {}
 
             # Emit recent completed task results on initial connect.
-            all_tasks = bridge.list_tasks(codebase_id=codebase_id)
+            all_tasks = await bridge.list_tasks(codebase_id=codebase_id)
             recent_tasks = all_tasks[-10:] if len(all_tasks) > 10 else all_tasks
             for t in recent_tasks:
                 task_metadata = (
@@ -2927,7 +2927,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
                     if await request.is_disconnected():
                         break
 
-                    all_tasks = bridge.list_tasks(codebase_id=codebase_id)
+                    all_tasks = await bridge.list_tasks(codebase_id=codebase_id)
                     recent_tasks = (
                         all_tasks[-25:] if len(all_tasks) > 25 else all_tasks
                     )
@@ -3059,7 +3059,9 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
                     # Stream any available task output/results.
                     try:
-                        all_tasks = bridge.list_tasks(codebase_id=codebase_id)
+                        all_tasks = await bridge.list_tasks(
+                            codebase_id=codebase_id
+                        )
                     except Exception:
                         all_tasks = []
 
@@ -3418,7 +3420,7 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
-    task = bridge.create_task(
+    task = await bridge.create_task(
         codebase_id=codebase_id,
         title=task_data.title,
         prompt=task_data.prompt,
@@ -4163,11 +4165,25 @@ async def get_session_messages_by_id(
     """Get messages from a specific session."""
     import aiohttp
 
-    bridge = get_opencode_bridge()
-    codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
+    try:
+        bridge = get_opencode_bridge()
+        codebase = (
+            bridge.get_codebase(codebase_id) if bridge is not None else None
+        )
+    except Exception as e:
+        logger.warning(
+            f'Failed to get bridge/codebase for session messages: {e}'
+        )
+        codebase = None
+        bridge = None
 
     # Check Redis-backed worker-synced messages first.
-    redis_client = await _get_redis_client()
+    try:
+        redis_client = await _get_redis_client()
+    except Exception as e:
+        logger.warning(f'Failed to get Redis client for session messages: {e}')
+        redis_client = None
+
     if redis_client is not None:
         try:
             raw = await redis_client.get(_redis_key_worker_messages(session_id))
@@ -4202,7 +4218,13 @@ async def get_session_messages_by_id(
     # If we don't have a codebase locally, try to rehydrate it so we can query
     # the OpenCode API / local state for local codebases.
     if codebase is None and bridge is not None:
-        codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+        try:
+            codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+        except Exception as e:
+            logger.warning(
+                f'Failed to rehydrate codebase for session messages: {e}'
+            )
+            codebase = None
 
     # If there's a running OpenCode instance, query its API
     if codebase and codebase.opencode_port:
@@ -4221,13 +4243,18 @@ async def get_session_messages_by_id(
 
     # Fallback: Read from local state (only works when the server has filesystem access).
     if codebase:
-        messages = await _read_local_session_messages(codebase.path, session_id)
-        if messages:
-            return {
-                'messages': messages[:limit],
-                'session_id': session_id,
-                'source': 'local_state',
-            }
+        try:
+            messages = await _read_local_session_messages(
+                codebase.path, session_id
+            )
+            if messages:
+                return {
+                    'messages': messages[:limit],
+                    'session_id': session_id,
+                    'source': 'local_state',
+                }
+        except Exception as e:
+            logger.warning(f'Failed to read local session messages: {e}')
 
     # Final fallback: PostgreSQL persistence (common for remote workers).
     try:
@@ -4310,7 +4337,7 @@ async def resume_session(
 
     # For remote workers, create a task with the session_id in metadata
     if codebase.worker_id:
-        task = bridge.create_task(
+        task = await bridge.create_task(
             codebase_id=codebase_id,
             title=f'Resume session: {request.prompt[:50] if request.prompt else "Continue"}',
             prompt=request.prompt or 'Continue where we left off',
@@ -4580,7 +4607,7 @@ async def get_watch_status(codebase_id: str):
     if not codebase:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
-    pending_tasks = bridge.list_tasks(
+    pending_tasks = await bridge.list_tasks(
         codebase_id=codebase_id,
         status=bridge._tasks.__class__.PENDING
         if hasattr(bridge._tasks, '__class__')
@@ -4589,12 +4616,12 @@ async def get_watch_status(codebase_id: str):
     from .opencode_bridge import AgentTaskStatus
 
     pending_count = len(
-        bridge.list_tasks(
+        await bridge.list_tasks(
             codebase_id=codebase_id, status=AgentTaskStatus.PENDING
         )
     )
     running_count = len(
-        bridge.list_tasks(
+        await bridge.list_tasks(
             codebase_id=codebase_id, status=AgentTaskStatus.RUNNING
         )
     )
@@ -4981,7 +5008,7 @@ async def stream_task_output_sse(task_id: str, request: Request):
             # Check task status
             bridge = get_opencode_bridge()
             if bridge:
-                task = bridge.get_task(task_id)
+                task = await bridge.get_task(task_id)
                 if task and task.status.value in (
                     'completed',
                     'failed',
