@@ -17,7 +17,7 @@ import sqlite3
 import threading
 import uuid
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import deque
 from dataclasses import dataclass, asdict
 from fastapi import APIRouter, HTTPException, Request, Depends
@@ -5748,7 +5748,7 @@ async def create_voice_session(request: VoiceSessionRequest):
     return VoiceSessionResponse(
         room_name=room_name,
         access_token=access_token,
-        livekit_url=bridge.livekit_url,
+        livekit_url=bridge.public_url,
         voice=request.voice,
         mode=request.mode,
         playback_style=request.playback_style,

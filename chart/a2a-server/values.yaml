@@ -296,8 +296,10 @@ externalRedis:
 # LiveKit enables real-time voice interactions with the AI agent
 livekit:
   enabled: true
-  # LiveKit server URL (WebSocket URL for client connections)
-  url: "wss://live.quantum-forge.net"
+  # LiveKit server URL (internal k8s service for API calls)
+  url: "http://livekit-server.quantum-forge.svc.cluster.local:7880"
+  # Public LiveKit URL (WebSocket URL for client connections)
+  publicUrl: "wss://live.quantum-forge.net"
   # Credentials - use existing secrets for production
   # These can be set directly or via existingSecret
   apiKey: ""
