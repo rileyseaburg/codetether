@@ -140,6 +140,8 @@ spec:
             {{- if .Values.livekit.enabled }}
             - name: LIVEKIT_URL
               value: {{ .Values.livekit.url | quote }}
+            - name: LIVEKIT_PUBLIC_URL
+              value: {{ .Values.livekit.publicUrl | quote }}
             {{- if .Values.livekit.apiKey }}
             - name: LIVEKIT_API_KEY
               value: {{ .Values.livekit.apiKey | quote }}
@@ -500,6 +502,8 @@ spec:
             {{- if $.Values.livekit.enabled }}
             - name: LIVEKIT_URL
               value: {{ $.Values.livekit.url | quote }}
+            - name: LIVEKIT_PUBLIC_URL
+              value: {{ $.Values.livekit.publicUrl | quote }}
             {{- if $.Values.livekit.apiKey }}
             - name: LIVEKIT_API_KEY
               value: {{ $.Values.livekit.apiKey | quote }}
