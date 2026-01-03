@@ -40,7 +40,8 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
         const response = await fetch(`${apiBaseUrl}/v1/voice/voices`);
         if (response.ok) {
           const data = await response.json();
-          setVoices(data);
+          // API returns { voices: [...] }
+          setVoices(data.voices || data);
         }
       } catch {
         console.error('Failed to load voices');

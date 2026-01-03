@@ -1,19 +1,16 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies (using install for compatibility)
-RUN npm install --legacy-peer-deps
-
-# Copy source code
+# Copy all source code first
 COPY . .
 
 # Create public directory if it doesn't exist
 RUN mkdir -p public
+
+# Clean install all dependencies
+RUN rm -rf node_modules package-lock.json && npm install
 
 # Set build-time environment variables for NextAuth
 ARG AUTH_SECRET
@@ -28,11 +25,11 @@ ENV KEYCLOAK_CLIENT_SECRET=$KEYCLOAK_CLIENT_SECRET
 ENV KEYCLOAK_ISSUER=$KEYCLOAK_ISSUER
 ENV NEXTAUTH_URL=$NEXTAUTH_URL
 
-# Build the Next.js application
-RUN npm run build
+# Build the Next.js application using node_modules/.bin directly
+RUN ./node_modules/.bin/next build
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 

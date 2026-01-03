@@ -16,10 +16,12 @@ interface VoiceChatButtonProps {
 }
 
 interface VoiceSession {
-  id: string;
-  token: string;
   room_name: string;
-  server_url: string;
+  access_token: string;
+  livekit_url: string;
+  voice: string;
+  mode: string;
+  expires_at: string;
 }
 
 interface Voice {
@@ -53,13 +55,14 @@ export default function VoiceChatButton({
     }
   };
 
-  const startSession = async () => {
+  const startSession = async (voice: Voice) => {
     setIsLoading(true);
     try {
       const response = await fetch(`${apiBaseUrl}/v1/voice/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          voice: voice.id,
           codebase_id: codebaseId,
           session_id: sessionId,
         }),
@@ -68,17 +71,22 @@ export default function VoiceChatButton({
         const session = await response.json();
         setConnectionInfo(session);
         setIsOpen(true);
+      } else {
+        const error = await response.json();
+        console.error('Failed to start voice session:', error);
       }
-    } catch {
-      console.error('Failed to start voice session');
+    } catch (e) {
+      console.error('Failed to start voice session:', e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVoiceSelect = (voice: Voice) => {
+  const handleVoiceSelect = async (voice: Voice) => {
     setSelectedVoice(voice);
     setShowVoiceSelector(false);
+    // Start session immediately after voice selection
+    await startSession(voice);
   };
 
   const handleClick = async () => {
@@ -86,7 +94,7 @@ export default function VoiceChatButton({
       if (!selectedVoice) {
         setShowVoiceSelector(true);
       } else {
-        await startSession();
+        await startSession(selectedVoice);
       }
     } else if (mode === 'playback' && sessionId) {
       setIsOpen(true);
@@ -114,8 +122,8 @@ export default function VoiceChatButton({
 
       {isOpen && connectionInfo && mode === 'chat' && selectedVoice && (
         <VoiceChatModal
-          token={connectionInfo.token}
-          serverUrl={connectionInfo.server_url}
+          token={connectionInfo.access_token}
+          serverUrl={connectionInfo.livekit_url}
           roomName={connectionInfo.room_name}
           voice={selectedVoice}
           sessionId={sessionId}
