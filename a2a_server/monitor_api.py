@@ -1504,7 +1504,7 @@ async def _rehydrate_codebase_into_bridge(codebase_id: str):
 
     desired_id = meta.get('id') or codebase_id
     try:
-        codebase = bridge.register_codebase(
+        codebase = await bridge.register_codebase(
             name=name,
             path=path,
             description=meta.get('description') or '',
@@ -4163,6 +4163,28 @@ async def get_session_messages_by_id(
     codebase_id: str, session_id: str, limit: int = 100
 ):
     """Get messages from a specific session."""
+    import aiohttp
+    import traceback
+
+    try:
+        return await _get_session_messages_impl(codebase_id, session_id, limit)
+    except Exception as e:
+        logger.error(
+            f'Unhandled error in get_session_messages_by_id: {e}\n{traceback.format_exc()}'
+        )
+        # Return empty response instead of 500
+        return {
+            'messages': [],
+            'session_id': session_id,
+            'source': 'error',
+            'error': str(e),
+        }
+
+
+async def _get_session_messages_impl(
+    codebase_id: str, session_id: str, limit: int = 100
+):
+    """Internal implementation for get_session_messages_by_id."""
     import aiohttp
 
     try:
