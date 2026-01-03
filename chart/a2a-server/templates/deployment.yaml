@@ -137,6 +137,30 @@ spec:
                   name: {{ .Values.externalPostgresql.existingSecret }}
                   key: {{ .Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
             {{- end }}
+            {{- if .Values.livekit.enabled }}
+            - name: LIVEKIT_URL
+              value: {{ .Values.livekit.url | quote }}
+            {{- if .Values.livekit.apiKey }}
+            - name: LIVEKIT_API_KEY
+              value: {{ .Values.livekit.apiKey | quote }}
+            {{- else if .Values.livekit.existingSecret.apiKey.name }}
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.livekit.existingSecret.apiKey.name }}
+                  key: {{ .Values.livekit.existingSecret.apiKey.key }}
+            {{- end }}
+            {{- if .Values.livekit.apiSecret }}
+            - name: LIVEKIT_API_SECRET
+              value: {{ .Values.livekit.apiSecret | quote }}
+            {{- else if .Values.livekit.existingSecret.apiSecret.name }}
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.livekit.existingSecret.apiSecret.name }}
+                  key: {{ .Values.livekit.existingSecret.apiSecret.key }}
+            {{- end }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -472,6 +496,30 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.externalPostgresql.existingSecret }}
                   key: {{ $.Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
+            {{- end }}
+            {{- if $.Values.livekit.enabled }}
+            - name: LIVEKIT_URL
+              value: {{ $.Values.livekit.url | quote }}
+            {{- if $.Values.livekit.apiKey }}
+            - name: LIVEKIT_API_KEY
+              value: {{ $.Values.livekit.apiKey | quote }}
+            {{- else if $.Values.livekit.existingSecret.apiKey.name }}
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.livekit.existingSecret.apiKey.name }}
+                  key: {{ $.Values.livekit.existingSecret.apiKey.key }}
+            {{- end }}
+            {{- if $.Values.livekit.apiSecret }}
+            - name: LIVEKIT_API_SECRET
+              value: {{ $.Values.livekit.apiSecret | quote }}
+            {{- else if $.Values.livekit.existingSecret.apiSecret.name }}
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.livekit.existingSecret.apiSecret.name }}
+                  key: {{ $.Values.livekit.existingSecret.apiSecret.key }}
+            {{- end }}
             {{- end }}
           resources:
             {{- toYaml $.Values.resources | nindent 12 }}

@@ -292,6 +292,28 @@ externalRedis:
   password: ""
   database: 0
 
+# LiveKit configuration for voice features
+# LiveKit enables real-time voice interactions with the AI agent
+livekit:
+  enabled: true
+  # LiveKit server URL (WebSocket URL for client connections)
+  url: "wss://live.quantum-forge.net"
+  # Credentials - use existing secrets for production
+  # These can be set directly or via existingSecret
+  apiKey: ""
+  apiSecret: ""
+  # Use existing Kubernetes secrets for credentials
+  # These match the secrets used by codetether-voice-agent
+  existingSecret:
+    # Secret containing LIVEKIT_API_KEY
+    apiKey:
+      name: "livekit-api-key"
+      key: "LIVEKIT_API_KEY"
+    # Secret containing LIVEKIT_API_SECRET
+    apiSecret:
+      name: "livekit-api-secret"
+      key: "LIVEKIT_API_SECRET"
+
 # Persistence configuration for SQLite monitor database
 persistence:
   enabled: true
