@@ -31,7 +31,7 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
   const [isLoading, setIsLoading] = useState(true);
   const [previewVoice, setPreviewVoice] = useState<string | null>(null);
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run';
 
   useEffect(() => {
     const loadVoices = async () => {

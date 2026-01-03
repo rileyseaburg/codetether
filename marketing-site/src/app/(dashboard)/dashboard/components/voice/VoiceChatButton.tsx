@@ -41,7 +41,7 @@ export default function VoiceChatButton({
   const [showVoiceSelector, setShowVoiceSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run';
 
   const fetchVoices = async () => {
     try {

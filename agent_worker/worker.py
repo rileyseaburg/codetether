@@ -1385,7 +1385,6 @@ class AgentWorker:
             }
 
         # Build command using 'opencode run' with proper flags
-        # Use --headless and --auto-approve=all for non-interactive execution
         cmd = [
             self.opencode_bin,
             'run',
@@ -1393,9 +1392,6 @@ class AgentWorker:
             agent_type,
             '--format',
             'json',
-            '--headless',
-            '--auto-approve',
-            'all',
         ]
 
         # Add model if specified (format: provider/model)
@@ -1407,8 +1403,11 @@ class AgentWorker:
             cmd.extend(['--session', session_id])
             logger.info(f'Resuming session: {session_id}')
 
-        # Add the prompt as the last argument
-        cmd.append(prompt)
+        # Add '--' separator and then the prompt as positional message argument
+        # This ensures the prompt isn't interpreted as a flag
+        if prompt:
+            cmd.append('--')
+            cmd.append(prompt)
 
         log_model = f' --model {model}' if model else ''
         log_session = f' --session {session_id}' if session_id else ''
