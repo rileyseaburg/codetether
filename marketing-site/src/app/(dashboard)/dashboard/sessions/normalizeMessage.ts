@@ -2,6 +2,47 @@ import type { SessionMessage, ChatItem, NormalizedRole } from './types'
 import { safeJsonStringify } from './utils'
 import { extractUsage, extractTools, createTextEvent, createReasoningEvent, createStepFinishEvent } from './normalizers'
 
+/**
+ * Parse concatenated JSON (NDJSON) content that looks like SSE events.
+ * Returns extracted text if successful, null otherwise.
+ */
+function parseNdjsonEvents(content: string): string | null {
+    // Check if content looks like concatenated JSON objects (starts with {" and contains }{ pattern)
+    if (!content.startsWith('{"') || !content.includes('}{')) {
+        return null
+    }
+
+    try {
+        // Split by }{ and reconstruct individual JSON objects
+        const parts = content.split(/\}\s*\{/).map((part, i, arr) => {
+            if (i === 0) return part + '}'
+            if (i === arr.length - 1) return '{' + part
+            return '{' + part + '}'
+        })
+
+        const textParts: string[] = []
+        for (const jsonStr of parts) {
+            try {
+                const event = JSON.parse(jsonStr)
+                // Handle SSE event format: {"type": "text", "part": {"text": "..."}}
+                if (event.type === 'text' && event.part?.text) {
+                    textParts.push(event.part.text)
+                }
+                // Handle direct text in part
+                else if (event.part?.type === 'text' && event.part?.text) {
+                    textParts.push(event.part.text)
+                }
+            } catch {
+                // Skip unparseable parts
+            }
+        }
+
+        return textParts.length > 0 ? textParts.join('') : null
+    } catch {
+        return null
+    }
+}
+
 export function normalizeMessage(msg: SessionMessage, idx: number): ChatItem | null {
     const info = msg?.info && typeof msg.info === 'object' ? msg.info : undefined
     const infoId = (info && 'id' in info) ? (info as any).id : undefined;
@@ -29,7 +70,14 @@ export function normalizeMessage(msg: SessionMessage, idx: number): ChatItem | n
     if (type === 'part.reasoning' || type === 'reasoning') return createReasoningEvent(msg, part, obj, type, model, createdAt, idx)
     if (type === 'step_finish' || type === 'part.step-finish') return createStepFinishEvent(msg, part, obj, type, idx)
     if (type === 'step_start' || type === 'part.step-start') return { key: String((msg as any)?.id || `${type}-${idx}`), role: 'system', label: 'System', text: 'Step started' }
-    if (typeof content === 'string' && content) return { key: String(msg.id || `${role}-${idx}`), role, label: role === 'user' ? 'You' : role === 'assistant' ? 'Agent' : 'System', model, createdAt, text: content }
+    if (typeof content === 'string' && content) {
+        // Try to parse NDJSON event stream (concatenated JSON objects from SSE)
+        const parsedText = parseNdjsonEvents(content)
+        if (parsedText) {
+            return { key: String(msg.id || `${role}-${idx}`), role: role === 'system' ? 'assistant' : role, label: role === 'user' ? 'You' : 'Agent', model, createdAt, text: parsedText }
+        }
+        return { key: String(msg.id || `${role}-${idx}`), role, label: role === 'user' ? 'You' : role === 'assistant' ? 'Agent' : 'System', model, createdAt, text: content }
+    }
     if (type) return { key: String((msg as any)?.id || `${type}-${idx}`), role: 'system', label: 'System', text: `Event: ${type}`, rawDetails: safeJsonStringify(obj) }
     return null
 }
