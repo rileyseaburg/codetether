@@ -1,13 +1,22 @@
+import VoiceChatButton from '../../components/voice/VoiceChatButton'
+
 interface SessionActionsProps {
     loading: boolean
     onResume: () => void
     onRefresh: () => void
     sessionTitle?: string
+    sessionId?: string
+    codebaseId?: string
 }
 
-export function SessionActions({ loading, onResume, onRefresh, sessionTitle = 'session' }: SessionActionsProps) {
+export function SessionActions({ loading, onResume, onRefresh, sessionTitle = 'session', sessionId, codebaseId }: SessionActionsProps) {
     return (
         <div role="group" aria-label="Session actions" className="flex items-center gap-1">
+            <VoiceChatButton
+                codebaseId={codebaseId}
+                sessionId={sessionId}
+                mode="chat"
+            />
             <button
                 type="button"
                 onClick={onResume}

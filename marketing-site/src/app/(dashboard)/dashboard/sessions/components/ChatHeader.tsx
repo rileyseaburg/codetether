@@ -6,6 +6,7 @@ import { SessionActions } from './SessionActions'
 
 interface Props {
     selectedSession: Session | null
+    selectedCodebase?: string
     selectedMode: string
     selectedModel: string
     suggestedModels: string[]
@@ -55,6 +56,8 @@ export function ChatHeader(p: Props) {
                         onResume={p.onResume}
                         onRefresh={p.onRefresh}
                         sessionTitle={sessionTitle}
+                        sessionId={p.selectedSession.id}
+                        codebaseId={p.selectedCodebase}
                     />
                 )}
             </div>
