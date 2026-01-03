@@ -29,18 +29,24 @@ struct VoiceOption: Identifiable, Codable, Hashable {
 }
 
 struct VoiceSession: Codable {
-    let sessionId: String
-    let voiceId: String
+    let roomName: String
+    let accessToken: String
     let livekitUrl: String
-    let livekitToken: String
-    let expiresAt: Date?
+    let voice: String
+    let mode: String
+    let playbackStyle: String
+    let expiresAt: String
+    let sessionId: String?
 
     enum CodingKeys: String, CodingKey {
-        case sessionId = "session_id"
-        case voiceId = "voice_id"
+        case roomName = "room_name"
+        case accessToken = "access_token"
         case livekitUrl = "livekit_url"
-        case livekitToken = "livekit_token"
+        case voice
+        case mode
+        case playbackStyle = "playback_style"
         case expiresAt = "expires_at"
+        case sessionId = "session_id"
     }
 }
 
@@ -54,7 +60,7 @@ struct CreateSessionRequest: Codable {
     enum CodingKeys: String, CodingKey {
         case codebaseId = "codebase_id"
         case sessionId = "session_id"
-        case voiceId = "voice_id"
+        case voiceId = "voice"
         case mode
         case playbackStyle = "playback_style"
     }
@@ -92,7 +98,7 @@ class VoiceSessionManager: ObservableObject {
         codebaseId: String,
         sessionId: String?,
         voice: VoiceOption,
-        mode: String = "voice",
+        mode: String = "chat",
         playbackStyle: String = "verbatim"
     ) async throws {
         error = nil
@@ -125,9 +131,9 @@ class VoiceSessionManager: ObservableObject {
 
         let session = try JSONDecoder().decode(VoiceSession.self, from: data)
 
-        try await connectToLiveKit(url: session.livekitUrl, token: session.livekitToken)
+        try await connectToLiveKit(url: session.livekitUrl, token: session.accessToken)
 
-        startStateUpdates(sessionId: session.sessionId)
+        startStateUpdates(roomName: session.roomName)
     }
 
     func endSession() async {
@@ -136,9 +142,35 @@ class VoiceSessionManager: ObservableObject {
 
         await disconnectFromLiveKit()
 
-        agentState = .idle
-        currentVoice = nil
-        isConnected = false
+        await MainActor.run {
+            self.agentState = .idle
+            self.currentVoice = nil
+            self.isConnected = false
+        }
+    }
+
+    func continueSession(roomName: String, voice: VoiceOption) async throws {
+        error = nil
+        currentVoice = voice
+
+        let url = baseURL.appendingPathComponent("/v1/voice/sessions/\(roomName)")
+        var urlRequest = URLRequest(url: url)
+
+        if let header = authHeader {
+            urlRequest.setValue(header, forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
+            throw VoiceError.sessionCreationFailed
+        }
+
+        let sessionInfo = try JSONDecoder().decode(VoiceSession.self, from: data)
+
+        try await connectToLiveKit(url: sessionInfo.livekitUrl, token: sessionInfo.accessToken)
+
+        startStateUpdates(roomName: roomName)
     }
 
     func fetchVoices() async -> [VoiceOption] {
@@ -176,20 +208,24 @@ class VoiceSessionManager: ObservableObject {
         )
 
         try await room.connect(url: lkURL, token: token, connectOptions: connectOptions)
-        self.room = room
-        isConnected = true
+        await MainActor.run {
+            self.room = room
+            self.isConnected = true
+        }
     }
 
     private func disconnectFromLiveKit() async {
         await room?.disconnect()
-        room = nil
+        await MainActor.run {
+            self.room = nil
+        }
     }
 
-    private func startStateUpdates(sessionId: String) {
+    private func startStateUpdates(roomName: String) {
         stateUpdateTask = Task {
             while !Task.isCancelled {
                 do {
-                    let url = baseURL.appendingPathComponent("/v1/voice/sessions/\(sessionId)/state")
+                    let url = baseURL.appendingPathComponent("/v1/voice/sessions/\(roomName)/state")
                     var urlRequest = URLRequest(url: url)
 
                     if let header = authHeader {
@@ -200,7 +236,9 @@ class VoiceSessionManager: ObservableObject {
 
                     if let stateString = try? JSONDecoder().decode(String.self, from: data),
                        let state = AgentState(rawValue: stateString) {
-                        agentState = state
+                        await MainActor.run {
+                            self.agentState = state
+                        }
                     }
                 } catch {
                     break

@@ -23,10 +23,10 @@ Worker 3 (connected)
 
 ## How It Works
 
-1. **Worker connects** to SSE endpoint: `GET /v1/workers/sse`
+1. **Worker connects** to SSE endpoint: `GET /v1/worker/tasks/stream`
 2. **Server keeps connection** open indefinitely
 3. **When task created** → Server pushes event to all connected workers
-4. **Workers receive** `{ "type": "new_task", "task_id": "..." }`
+4. **Workers receive** `{ "type": "task_available", "task_id": "..." }`
 5. **First worker** to claim task gets it (race condition handled)
 
 ## Worker SSE Client
@@ -38,9 +38,13 @@ import requests
 
 def connect_sse_worker(worker_id: str, server_url: str = "http://localhost:8000"):
     """Connect to SSE endpoint and listen for task notifications."""
-    url = f"{server_url}/v1/workers/sse?worker_id={worker_id}"
+    url = f"{server_url}/v1/worker/tasks/stream"
+    headers = {
+        "X-Codebases": "my-project,api",
+        "X-Capabilities": "opencode,build,deploy,test"
+    }
 
-    with requests.get(url, stream=True) as response:
+    with requests.get(url, headers=headers, params={"worker_id": worker_id}, stream=True) as response:
         for line in response.iter_lines():
             if line:
                 event = parse_sse_event(line)
@@ -48,14 +52,20 @@ def connect_sse_worker(worker_id: str, server_url: str = "http://localhost:8000"
 
 def parse_sse_event(line: bytes) -> dict:
     """Parse SSE event line."""
+    if line.startswith(b"event: "):
+        event_type = line[7:].decode().strip()
+        return {"event": event_type}
     if line.startswith(b"data: "):
         return json.loads(line[6:])
     return {}
 
 def handle_event(event: dict):
     """Handle incoming SSE event."""
-    if event.get("type") == "new_task":
-        task_id = event.get("task_id")
+    event_type = event.get("event")
+    data = event.get("data", {})
+
+    if event_type == "task_available":
+        task_id = data.get("task_id")
         print(f"New task available: {task_id}")
         claim_and_execute_task(task_id)
 ```
@@ -66,8 +76,9 @@ See [examples/worker_sse_client.py](https://github.com/rileyseaburg/codetether/b
 
 | Event Type | Description | Payload |
 |------------|-------------|---------|
-| `new_task` | New task created | `{ "task_id": "uuid", "title": "...", "priority": 0 }` |
-| `task_update` | Task status changed | `{ "task_id": "uuid", "status": "working" }` |
+| `task_available` | New task available for assignment | `{ "task_id": "uuid", "title": "...", "priority": 0, "codebase_id": "..." }` |
+| `task` | Task details pushed to worker | Full task object |
+| `connected` | Connection established | `{ "message": "..." }` |
 | `keepalive` | Connection keepalive | `{}` (sent every 30s) |
 | `error` | Error occurred | `{ "message": "..." }` |
 
@@ -101,21 +112,21 @@ setup_task_creation_hook(task_manager, notify_workers_of_new_task)
 Workers register to receive SSE notifications:
 
 ```bash
-# Register worker and get SSE URL
-curl -X POST http://localhost:8000/v1/workers \
+# Register worker and get worker ID
+curl -X POST http://localhost:8000/v1/opencode/workers/register \
   -H "Content-Type: application/json" \
   -d '{
-    "worker_id": "worker-123",
-    "capabilities": ["build", "test"],
-    "sse_enabled": true
+    "name": "worker-123",
+    "capabilities": ["opencode", "build", "test"],
+    "hostname": "dev-vm.internal"
   }'
 ```
 
 Response:
 ```json
 {
-  "worker_id": "worker-123",
-  "sse_url": "http://localhost:8000/v1/workers/sse?worker_id=worker-123",
+  "worker_id": "abc123",
+  "name": "worker-123",
   "registered": true
 }
 ```
@@ -123,19 +134,26 @@ Response:
 ### Event Stream
 
 ```bash
-curl -N "http://localhost:8000/v1/workers/sse?worker_id=worker-123"
+# Connect to SSE stream with headers for routing
+curl -N "http://localhost:8000/v1/worker/tasks/stream" \
+  -H "X-Codebases: my-project,api" \
+  -H "X-Capabilities: opencode,build,deploy,test" \
+  -H "worker_id: worker-123"
 ```
 
 Output:
 ```
+event: connected
+data: {"message":"SSE connection established"}
+
+event: task_available
+data: {"task_id":"task-abc","title":"Build component","codebase_id":"my-project","priority":0}
+
+event: task
+data: {"id":"task-abc","title":"Build component",...}
+
 event: keepalive
 data: {}
-
-event: new_task
-data: {"task_id":"task-abc","title":"Build component","priority":0}
-
-event: task_update
-data: {"task_id":"task-abc","status":"completed"}
 ```
 
 ## Automatic Reconnection
@@ -161,34 +179,24 @@ def connect_with_retry(worker_id: str, max_retries: int = 10):
     raise Exception("Max retries exceeded")
 ```
 
-## Claiming Tasks
+## Task Routing
 
-When a worker receives a `new_task` event, it should claim the task:
+Workers receive tasks based on:
 
-```bash
-# Claim the task (atomic operation)
-curl -X POST http://localhost:8000/v1/tasks/{task_id}/claim \
-  -H "Content-Type: application/json" \
-  -d '{"worker_id": "worker-123"}'
+1. **Codebase Matching**: Tasks are routed to workers with matching `codebase_id`
+2. **Global Tasks**: Tasks with `codebase_id: "global"` are sent to all workers
+3. **Pending Registration**: Tasks with `codebase_id: "__pending__"` can be claimed by any worker
+
+### Header-Based Routing
+
+Workers send their registered codebases and capabilities via headers:
+
+```
+X-Codebases: my-project,api,backend
+X-Capabilities: opencode,build,deploy,test
 ```
 
-Response:
-```json
-{
-  "task_id": "task-abc",
-  "status": "working",
-  "claimed_by": "worker-123",
-  "claimed_at": "2025-01-01T12:00:00Z"
-}
-```
-
-If another worker already claimed it:
-```json
-{
-  "error": "Task already claimed",
-  "claimed_by": "worker-456"
-}
-```
+The server uses these headers to route tasks to the appropriate workers.
 
 ## Monitoring
 
@@ -216,10 +224,22 @@ curl http://localhost:8000/v1/workers/{worker_id}/status
 
 ### Workers not receiving tasks?
 
-Check SSE endpoint health:
-```bash
-curl -N "http://localhost:8000/v1/workers/sse?worker_id=test"
-```
+1. Verify SSE endpoint health:
+   ```bash
+   curl -N "http://localhost:8000/v1/worker/tasks/stream" \
+     -H "X-Codebases: test" \
+     -H "X-Capabilities: opencode,build" \
+     -H "worker_id: test"
+   ```
+
+2. Check that workers are sending correct headers:
+   - `X-Codebases`: Comma-separated list of registered codebase IDs
+   - `X-Capabilities`: Comma-separated list of worker capabilities
+
+3. Verify worker registration:
+   ```bash
+   curl http://localhost:8000/v1/opencode/workers
+   ```
 
 ### Connection drops frequently?
 

@@ -175,6 +175,8 @@ sudo journalctl -u a2a-agent-worker -f
 
 ## Codebase Registration
 
+### Regular Codebases
+
 Register codebases with worker affinity:
 
 ```bash
@@ -192,6 +194,31 @@ Tasks for this codebase will only be assigned to `worker-1`.
 
 !!! info "Worker Affinity"
     When a codebase is registered with a `worker_id`, only that worker will receive tasks for it. This ensures tasks execute where the code actually lives.
+
+### Global Codebase
+
+Workers can also register a special "global" codebase that can receive tasks with `codebase_id: "global"`:
+
+```bash
+# Register as global codebase
+curl -X POST https://api.codetether.run/v1/opencode/codebases \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "global-tasks",
+    "path": "/home/user/shared",
+    "description": "Global tasks directory",
+    "worker_id": "worker-1",
+    "codebase_id": "global"
+  }'
+```
+
+Workers with a global codebase will receive tasks created with `codebase_id: "global"` in addition to their regular codebases.
+
+!!! tip "Global Tasks"
+    Global tasks are useful for:
+    - Cross-codebase operations
+    - Administrative tasks
+    - Tasks that don't belong to a specific project
 
 ## Scaling
 

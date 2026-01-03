@@ -31,5 +31,5 @@ ENV PYTHONPATH=/app
 
 EXPOSE 8080
 
-# Run the agent directly
-CMD ["python", "agent.py"]
+# Run the agent with LiveKit CLI 'start' command
+CMD ["python", "agent.py", "start"]
