@@ -41,26 +41,25 @@ spec:
               protocol: TCP
           env:
             {{- toYaml .Values.env | nindent 12 }}
-            {{- if .Values.secrets.useK8sSecrets }}
+            # Always inject secrets from K8s secrets (required for Gemini API)
             - name: GOOGLE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.secrets.googleApiKey.secretName }}
                   key: {{ .Values.secrets.googleApiKey.key }}
-                  optional: true
+                  optional: false
             - name: LIVEKIT_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.secrets.livekitApiKey.secretName }}
                   key: {{ .Values.secrets.livekitApiKey.key }}
-                  optional: true
+                  optional: false
             - name: LIVEKIT_API_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.secrets.livekitApiSecret.secretName }}
                   key: {{ .Values.secrets.livekitApiSecret.key }}
-                  optional: true
-            {{- end }}
+                  optional: false
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:

@@ -50,3 +50,22 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 |----------|---------|-------------|
 | `OPENCODE_HOST` | `localhost` | Host where OpenCode API runs (use `host.docker.internal` in Docker) |
 | `OPENCODE_PORT` | `9777` | OpenCode API port |
+
+## Worker SSE Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORKER_SSE_ENABLED` | `true` | Enable SSE task stream endpoint |
+| `WORKER_SSE_KEEPALIVE` | `30` | Keepalive interval in seconds |
+| `WORKER_SSE_TIMEOUT` | `300` | Worker idle timeout in seconds |
+
+## Agent Worker (Remote Workers)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `A2A_SERVER_URL` | — | CodeTether server URL (required) |
+| `A2A_WORKER_NAME` | hostname | Worker identifier |
+| `A2A_POLL_INTERVAL` | `5` | Task polling interval in seconds (fallback for SSE) |
+| `A2A_OPENCODE_STORAGE_PATH` | auto-detect | Override OpenCode storage directory |
+| `A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS` | `3` | Recent sessions to sync messages for |
+| `A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES` | `100` | Recent messages per session to sync |

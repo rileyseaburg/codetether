@@ -143,7 +143,7 @@ class CodeTetherMCP:
 
                 result = await response.json()
 
-                if 'error' in result:
+                if 'error' in result and result['error'] is not None:
                     error = result['error']
                     logger.error(f'MCP tool call error: {error}')
                     raise MCPError(

@@ -25,7 +25,7 @@ struct VoiceSelectorSheet: View {
                             .lineLimit(2)
 
                         HStack(spacing: 8) {
-                            Text(voice.provider)
+                            Text(voice.displayProvider)
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 6)

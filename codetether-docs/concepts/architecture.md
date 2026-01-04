@@ -74,9 +74,9 @@ graph TB
     API -. optional .-> Auth
     OpenCode --> SQLite
 
-    W1 -->|poll /v1/opencode/tasks| API
-    W2 -->|poll /v1/opencode/tasks| API
-    WN -->|poll /v1/opencode/tasks| API
+    W1 -->|SSE /v1/worker/tasks/stream| API
+    W2 -->|SSE /v1/worker/tasks/stream| API
+    WN -->|SSE /v1/worker/tasks/stream| API
     W1 -->|PUT status / POST output| API
     W2 -->|PUT status / POST output| API
     WN -->|PUT status / POST output| API
@@ -112,9 +112,7 @@ Handles distributed communication and coordination:
 - **Pub/Sub** - Agent discovery and inter-agent messaging
 - **Shared state** - Optional durability and cross-replica rehydration
 
-Note: workers do **not** consume tasks directly from Redis. Workers currently
-poll the server over HTTP for pending tasks and report status/output back to
-the server.
+Note: Workers receive task notifications via **SSE (Server-Sent Events)** for real-time task distribution, with HTTP polling as a fallback.
 
 ### OpenCode Bridge
 
@@ -148,10 +146,11 @@ sequenceDiagram
 
     C->>S: POST /v1/opencode/codebases/{codebase_id}/tasks
     S->>R: Persist task (pending)
+    S->>R: Publish task_available event
 
-    W->>S: GET /v1/opencode/tasks?status=pending
-    S->>R: Read pending tasks
-    S-->>W: Return next task
+    Note over W,S: Worker connects via SSE with X-Codebases, X-Capabilities headers
+    W->>S: GET /v1/worker/tasks/stream (SSE)
+    S-->>W: event: task_available
 
     W->>S: PUT /v1/opencode/tasks/{task_id}/status (running)
     W->>O: Execute (OpenCode / echo / noop)

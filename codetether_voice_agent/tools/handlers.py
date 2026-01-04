@@ -1,7 +1,10 @@
 import logging
 from typing import Any, Dict, Optional
 
-from codetether_voice_agent.codetether_mcp import CodeTetherMCP
+try:
+    from codetether_voice_agent.codetether_mcp import CodeTetherMCP
+except ImportError:
+    from codetether_mcp import CodeTetherMCP
 
 logger = logging.getLogger(__name__)
 

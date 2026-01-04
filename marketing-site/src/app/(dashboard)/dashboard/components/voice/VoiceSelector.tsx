@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 const CloseIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -27,6 +28,7 @@ interface Voice {
 }
 
 export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSelectorProps) {
+  const { data: session } = useSession();
   const [voices, setVoices] = useState<Voice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewVoice, setPreviewVoice] = useState<string | null>(null);
@@ -37,7 +39,11 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
     const loadVoices = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`${apiBaseUrl}/v1/voice/voices`);
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          ...(session?.accessToken && { 'Authorization': `Bearer ${session.accessToken}` }),
+        };
+        const response = await fetch(`${apiBaseUrl}/v1/voice/voices`, { headers });
         if (response.ok) {
           const data = await response.json();
           // API returns { voices: [...] }
@@ -50,7 +56,7 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
       }
     };
     loadVoices();
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, session?.accessToken]);
 
   const handlePreview = (voiceId: string) => {
     setPreviewVoice(voiceId);
