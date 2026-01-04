@@ -110,6 +110,10 @@ jobs:
             deploymentTarget:
               iOS: "17.0"
               macOS: "14.0"
+          packages:
+            LiveKit:
+              url: https://github.com/livekit/client-sdk-swift.git
+              from: "2.0.0"
           settings:
             DEVELOPMENT_TEAM: "J9YRM3U37D"
             CODE_SIGN_STYLE: Automatic
@@ -119,6 +123,8 @@ jobs:
               platform: iOS
               sources:
                 - path: Sources/A2AMonitor
+              dependencies:
+                - package: LiveKit
               settings:
                 PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
                 INFOPLIST_FILE: Info.plist
