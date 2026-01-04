@@ -58,9 +58,11 @@ struct VoiceSelectorSheet: View {
                 }
             }
             .navigationTitle("Select Voice")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         onDismiss()
                     }

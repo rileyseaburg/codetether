@@ -89,9 +89,11 @@ struct VoiceChatView: View {
                 .padding(.bottom, 40)
             }
             .padding()
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         Task {
                             await sessionManager.endSession()
