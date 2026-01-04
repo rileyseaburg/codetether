@@ -168,7 +168,7 @@ class VoiceSessionManager: ObservableObject {
         guard let room = room else { return }
         do {
             let newState = !isMuted
-            try await room.localParticipant.setMicrophoneEnabled(!newState)
+            try await room.localParticipant.setMicrophone(enabled: !newState)
             await MainActor.run {
                 self.isMuted = newState
             }
@@ -238,21 +238,10 @@ class VoiceSessionManager: ObservableObject {
     }
 
     private func connectToLiveKit(url: String, token: String) async throws {
-        let lkURL = URL(string: url)!
-        let connectOptions = ConnectOptions(
-            name: "A2A Voice Chat",
-            autoSubscribe: .subscribed
-        )
+        let room = Room()
+        room.delegate = self
 
-        let rtcConfig = RTCConfiguration()
-        rtcConfig.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
-
-        let room = Room(
-            RTCConfiguration: rtcConfig,
-            delegate: self
-        )
-
-        try await room.connect(url: lkURL, token: token, connectOptions: connectOptions)
+        try await room.connect(url: url, token: token)
         await MainActor.run {
             self.room = room
             self.isConnected = true
