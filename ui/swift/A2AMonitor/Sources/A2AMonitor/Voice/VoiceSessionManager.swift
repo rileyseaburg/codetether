@@ -239,7 +239,7 @@ class VoiceSessionManager: ObservableObject {
 
     private func connectToLiveKit(url: String, token: String) async throws {
         let room = Room()
-        room.delegate = self
+        room.add(delegate: self)
 
         try await room.connect(url: url, token: token)
         await MainActor.run {
@@ -285,13 +285,13 @@ class VoiceSessionManager: ObservableObject {
 }
 
 extension VoiceSessionManager: RoomDelegate {
-    func room(_ room: Room, didUpdateConnectionState state: ConnectionState, reason: DisconnectReason?) {
+    nonisolated func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState) {
         Task { @MainActor in
-            self.isConnected = room.connectionState == .connected
+            self.isConnected = connectionState == .connected
 
-            if room.connectionState == .disconnected {
+            if connectionState == .disconnected {
                 self.agentState = .idle
-                self.error = reason?.description ?? "Connection lost"
+                self.error = "Connection lost"
             }
         }
     }
