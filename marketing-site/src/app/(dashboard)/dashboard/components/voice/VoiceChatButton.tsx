@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 // SVG Icon
 const MicIcon = ({ className }: { className?: string }) => (
@@ -13,6 +14,7 @@ interface VoiceChatButtonProps {
   codebaseId?: string;
   sessionId?: string;
   mode: 'chat' | 'playback';
+  playbackStyle?: 'verbatim' | 'summary';
 }
 
 interface VoiceSession {
@@ -34,18 +36,39 @@ export default function VoiceChatButton({
   codebaseId,
   sessionId,
   mode,
+  playbackStyle = 'verbatim',
 }: VoiceChatButtonProps) {
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
   const [connectionInfo, setConnectionInfo] = useState<VoiceSession | null>(null);
   const [showVoiceSelector, setShowVoiceSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Generate a persistent user ID for session reconnection
+  const [userId] = useState(() =>
+    typeof window !== 'undefined'
+      ? localStorage.getItem('voice_user_id') || (() => {
+          const id = crypto.randomUUID();
+          localStorage.setItem('voice_user_id', id);
+          return id;
+        })()
+      : crypto.randomUUID()
+  );
+
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run';
+
+  // Helper to get auth headers
+  const getAuthHeaders = (): HeadersInit => ({
+    'Content-Type': 'application/json',
+    ...(session?.accessToken && { 'Authorization': `Bearer ${session.accessToken}` }),
+  });
 
   const fetchVoices = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/v1/voice/voices`);
+      const response = await fetch(`${apiBaseUrl}/v1/voice/voices`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         return await response.json();
       }
@@ -60,16 +83,19 @@ export default function VoiceChatButton({
     try {
       const response = await fetch(`${apiBaseUrl}/v1/voice/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           voice: voice.id,
           codebase_id: codebaseId,
           session_id: sessionId,
+          mode: mode,
+          playback_style: playbackStyle,
+          user_id: userId,
         }),
       });
       if (response.ok) {
-        const session = await response.json();
-        setConnectionInfo(session);
+        const voiceSession = await response.json();
+        setConnectionInfo(voiceSession);
         setIsOpen(true);
       } else {
         const error = await response.json();
@@ -127,6 +153,9 @@ export default function VoiceChatButton({
           roomName={connectionInfo.room_name}
           voice={selectedVoice}
           sessionId={sessionId}
+          userId={userId}
+          accessToken={session?.accessToken}
+          apiBaseUrl={apiBaseUrl}
           onClose={() => {
             setIsOpen(false);
             setConnectionInfo(null);

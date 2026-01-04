@@ -5757,8 +5757,11 @@ async def create_voice_session(request: VoiceSessionRequest):
 
 
 @voice_router.get('/sessions/{room_name}')
-async def get_voice_session(room_name: str):
-    """Get session info for a voice session."""
+async def get_voice_session(room_name: str, user_id: Optional[str] = None):
+    """Get session info for a voice session.
+
+    If user_id is provided, a new access token will be generated for reconnection.
+    """
     bridge = get_livekit_bridge()
     if not bridge:
         raise HTTPException(status_code=503, detail='LiveKit not available')
@@ -5781,7 +5784,7 @@ async def get_voice_session(room_name: str):
         except:
             pass
 
-    return {
+    response = {
         'room_name': room_name,
         'status': 'active',
         'num_participants': room_info.get('num_participants', 0),
@@ -5791,7 +5794,26 @@ async def get_voice_session(room_name: str):
         'playback_style': metadata.get('playback_style'),
         'codebase_id': metadata.get('codebase_id'),
         'session_id': metadata.get('session_id'),
+        'livekit_url': bridge.public_url,
     }
+
+    if user_id:
+        try:
+            access_token = bridge.mint_access_token(
+                identity=user_id,
+                room_name=room_name,
+                a2a_role='participant',
+                metadata=json.dumps(metadata),
+                ttl_minutes=60,
+            )
+            response['access_token'] = access_token
+            response['expires_at'] = (
+                datetime.now() + timedelta(minutes=60)
+            ).isoformat()
+        except Exception as e:
+            logger.warning(f'Failed to mint access token for reconnection: {e}')
+
+    return response
 
 
 @voice_router.delete('/sessions/{room_name}')

@@ -44,10 +44,10 @@ resources:
     cpu: 2
     memory: 4Gi
 
-# Secrets configuration - set these to your secret names or use Vault injection
+# Secrets configuration - K8s secrets are always used
 secrets:
-  # Set to true to use K8s secrets, false to use Vault injection
-  useK8sSecrets: false
+  # K8s secrets are always injected (useK8sSecrets flag is deprecated)
+  useK8sSecrets: true
   googleApiKey:
     secretName: "google-api-key"
     key: "GOOGLE_API_KEY"
@@ -66,23 +66,24 @@ env:
   - name: FUNCTIONGEMMA_MODEL_PATH
     value: "google/functiongemma-270m-it"
 
+# LiveKit agents HTTP server runs on port 8081
 livenessProbe:
   httpGet:
-    path: /health
-    port: 8080
-  initialDelaySeconds: 30
+    path: /
+    port: 8081
+  initialDelaySeconds: 60
   periodSeconds: 10
   timeoutSeconds: 5
-  failureThreshold: 3
+  failureThreshold: 6
 
 readinessProbe:
   httpGet:
-    path: /health
-    port: 8080
-  initialDelaySeconds: 10
+    path: /
+    port: 8081
+  initialDelaySeconds: 30
   periodSeconds: 5
   timeoutSeconds: 3
-  failureThreshold: 3
+  failureThreshold: 6
 
 nodeSelector: {}
 

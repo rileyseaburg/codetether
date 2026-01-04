@@ -61,7 +61,10 @@ struct VoiceChatView: View {
 
                 HStack(spacing: 40) {
                     Button {
-                        isMuted.toggle()
+                        Task {
+                            await sessionManager.toggleMute()
+                            isMuted = sessionManager.isMuted
+                        }
                     } label: {
                         Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
                             .font(.title)

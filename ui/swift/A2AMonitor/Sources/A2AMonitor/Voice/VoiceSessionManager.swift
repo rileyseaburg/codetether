@@ -14,8 +14,8 @@ struct VoiceOption: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     let description: String
-    let provider: String
-    let model: String
+    let provider: String?  // Made optional - backend doesn't always provide
+    let model: String?     // Made optional - backend doesn't always provide
     let language: String?
 
     enum CodingKeys: String, CodingKey {
@@ -26,16 +26,20 @@ struct VoiceOption: Identifiable, Codable, Hashable {
         case model
         case language
     }
+    
+    // Provide defaults for display
+    var displayProvider: String { provider ?? "Default" }
+    var displayModel: String { model ?? "Standard" }
 }
 
 struct VoiceSession: Codable {
     let roomName: String
-    let accessToken: String
+    let accessToken: String?
     let livekitUrl: String
-    let voice: String
-    let mode: String
-    let playbackStyle: String
-    let expiresAt: String
+    let voice: String?
+    let mode: String?
+    let playbackStyle: String?
+    let expiresAt: String?
     let sessionId: String?
 
     enum CodingKeys: String, CodingKey {
@@ -71,14 +75,17 @@ class VoiceSessionManager: ObservableObject {
     @Published var room: Room?
     @Published var agentState: AgentState = .idle
     @Published var isConnected = false
+    @Published var isMuted: Bool = false
     @Published var currentVoice: VoiceOption?
     @Published var voices: [VoiceOption] = []
     @Published var error: String?
+    @Published var currentRoomName: String?
 
     private let baseURL: URL
     private var cancellables = Set<AnyCancellable>()
     private var stateUpdateTask: Task<Void, Never>?
     private var authHeader: String?
+    private var userId: String?
 
     init(baseURL: URL? = nil, authHeader: String? = nil) {
         if let url = baseURL {
@@ -88,6 +95,7 @@ class VoiceSessionManager: ObservableObject {
             self.baseURL = URL(string: urlString)!
         }
         self.authHeader = authHeader
+        self.userId = "user-\(UUID().uuidString.prefix(8))"
     }
 
     func setAuthHeader(_ header: String?) {
@@ -131,8 +139,13 @@ class VoiceSessionManager: ObservableObject {
 
         let session = try JSONDecoder().decode(VoiceSession.self, from: data)
 
-        try await connectToLiveKit(url: session.livekitUrl, token: session.accessToken)
+        guard let accessToken = session.accessToken else {
+            throw VoiceError.sessionCreationFailed
+        }
 
+        try await connectToLiveKit(url: session.livekitUrl, token: accessToken)
+
+        currentRoomName = session.roomName
         startStateUpdates(roomName: session.roomName)
     }
 
@@ -146,15 +159,34 @@ class VoiceSessionManager: ObservableObject {
             self.agentState = .idle
             self.currentVoice = nil
             self.isConnected = false
+            self.isMuted = false
+            self.currentRoomName = nil
+        }
+    }
+    
+    func toggleMute() async {
+        guard let room = room else { return }
+        do {
+            let newState = !isMuted
+            try await room.localParticipant.setMicrophoneEnabled(!newState)
+            await MainActor.run {
+                self.isMuted = newState
+            }
+        } catch {
+            print("Failed to toggle mute: \(error)")
         }
     }
 
-    func continueSession(roomName: String, voice: VoiceOption) async throws {
+    func continueSession(roomName: String, voice: VoiceOption, userId: String? = nil) async throws {
         error = nil
         currentVoice = voice
 
+        let userIdParam = userId ?? self.userId ?? "user-\(UUID().uuidString.prefix(8))"
         let url = baseURL.appendingPathComponent("/v1/voice/sessions/\(roomName)")
-        var urlRequest = URLRequest(url: url)
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
+        components.queryItems = [URLQueryItem(name: "user_id", value: userIdParam)]
+
+        var urlRequest = URLRequest(url: components.url!)
 
         if let header = authHeader {
             urlRequest.setValue(header, forHTTPHeaderField: "Authorization")
@@ -168,9 +200,22 @@ class VoiceSessionManager: ObservableObject {
 
         let sessionInfo = try JSONDecoder().decode(VoiceSession.self, from: data)
 
-        try await connectToLiveKit(url: sessionInfo.livekitUrl, token: sessionInfo.accessToken)
+        guard let accessToken = sessionInfo.accessToken else {
+            throw VoiceError.connectionFailed
+        }
 
+        try await connectToLiveKit(url: sessionInfo.livekitUrl, token: accessToken)
+
+        currentRoomName = roomName
         startStateUpdates(roomName: roomName)
+    }
+
+    func reconnect() async throws {
+        guard let roomName = currentRoomName, let voice = currentVoice else {
+            throw VoiceError.reconnectionFailed
+        }
+
+        try await continueSession(roomName: roomName, voice: voice, userId: userId)
     }
 
     func fetchVoices() async -> [VoiceOption] {
@@ -254,6 +299,11 @@ extension VoiceSessionManager: RoomDelegate {
     func room(_ room: Room, didUpdateConnectionState state: ConnectionState, reason: DisconnectReason?) {
         Task { @MainActor in
             self.isConnected = room.connectionState == .connected
+
+            if room.connectionState == .disconnected {
+                self.agentState = .idle
+                self.error = reason?.description ?? "Connection lost"
+            }
         }
     }
 }
@@ -261,11 +311,13 @@ extension VoiceSessionManager: RoomDelegate {
 enum VoiceError: LocalizedError {
     case sessionCreationFailed
     case connectionFailed
+    case reconnectionFailed
 
     var errorDescription: String? {
         switch self {
         case .sessionCreationFailed: return "Failed to create voice session"
         case .connectionFailed: return "Failed to connect to voice service"
+        case .reconnectionFailed: return "Failed to reconnect to voice session"
         }
     }
 }

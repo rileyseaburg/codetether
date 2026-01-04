@@ -68,6 +68,34 @@ Tasks can be prioritized (higher number = higher priority):
 }
 ```
 
+## Task Routing
+
+Tasks are routed to workers based on `codebase_id`:
+
+| Codebase ID | Routing Behavior |
+|-------------|------------------|
+| `{specific_id}` | Routed only to workers with that codebase registered |
+| `global` | Routed to all workers with a global codebase |
+| `__pending__` | Registration tasks that any worker can claim |
+
+### Global Tasks
+
+Tasks with `codebase_id: "global"` are sent to all workers that have registered a global codebase. This is useful for:
+
+- Cross-codebase operations
+- Administrative tasks
+- Tasks that don't belong to a specific project
+
+```bash
+# Create a global task via MCP
+curl -X POST /v1/opencode/tasks \
+  -d '{
+    "title": "System maintenance",
+    "prompt": "Run system health checks",
+    "codebase_id": "global"
+  }'
+```
+
 ## Next Steps
 
 - [API Reference](../api/overview.md)

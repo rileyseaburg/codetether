@@ -270,6 +270,88 @@ Ensure your server is configured to serve the full certificate chain.
 
 ---
 
+## Worker SSE Task Distribution Issues
+
+### Workers not receiving tasks via SSE
+
+**Causes:**
+
+- Missing or incorrect `X-Codebases` header
+- Missing or incorrect `X-Capabilities` header
+- Worker not listening for `task_available` event type
+- Codebase ID mismatch
+
+**Solutions:**
+
+1. Verify headers are sent correctly when connecting to SSE:
+   ```bash
+   curl -N "http://localhost:8000/v1/worker/tasks/stream" \
+     -H "X-Codebases: my-project,api" \
+     -H "X-Capabilities: opencode,build,deploy,test" \
+     -H "Accept: text/event-stream"
+   ```
+
+2. Ensure worker listens for the correct event type (`task_available`):
+   ```python
+   # Correct event types to handle
+   if event_type in ('task', 'task_available', 'task_assigned'):
+       process_task(data)
+   ```
+
+3. Check worker registration and codebase IDs match:
+   ```bash
+   curl http://localhost:8000/v1/opencode/workers
+   curl http://localhost:8000/v1/opencode/codebases
+   ```
+
+### Global tasks not being received
+
+**Causes:**
+
+- Worker doesn't have a global codebase registered
+- Task filtering logic not handling `codebase_id: "global"`
+
+**Solutions:**
+
+1. Ensure worker has a global codebase registered
+2. Update filtering to accept global tasks:
+   ```python
+   # Accept tasks with codebase_id == 'global'
+   if codebase_id in registered_codebases or codebase_id == 'global':
+       process_task(task)
+   ```
+
+### SSE connection drops frequently
+
+**Causes:**
+
+- Server heartbeat timeout
+- Network instability
+- Load balancer idle timeout
+
+**Solutions:**
+
+1. Check heartbeat is being received (every 30s by default)
+2. Implement exponential backoff reconnection:
+   ```python
+   reconnect_delay = min(2 ** retry_count, 60)  # Max 60s
+   ```
+3. Increase load balancer idle timeout
+
+### Worker logs show "Unknown SSE event type"
+
+This is usually informational. The worker should handle these event types:
+
+| Event Type | Description |
+|------------|-------------|
+| `task_available` | New task available |
+| `task` | Full task object |
+| `task_assigned` | Task assigned to worker |
+| `connected` | Connection confirmed |
+| `keepalive` | Heartbeat signal |
+
+---
+
 ## Getting Help
 
 If you're still experiencing issues:

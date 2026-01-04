@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.6.0] - 2026-01-04
+
+### Features
+
+* **Voice Agent with Gemini Live API**: Production-ready voice assistant using Google Gemini Live 2.5 Flash
+  - Real-time voice conversations with LiveKit integration
+  - 5 MCP tools accessible via voice: `list_tasks`, `create_task`, `get_task`, `cancel_task`, `discover_agents`
+  - Vertex AI authentication with service account credentials
+  - LiveKit Agents SDK 1.3.10 compatibility with `@llm.function_tool` decorator
+
+* **Voice Agent Test Suite**: Comprehensive integration tests with audio recording
+  - `test_voice_tools.py` - Full test suite for all voice tools
+  - `test_create_task_recording.py` - Task creation with audio capture
+  - Sample recordings: `agent_create_task_response.wav`, `agent_architecture_review.wav`
+
+* **Agent Worker God Object Refactor**: Major architectural improvement to `agent_worker/worker.py`
+  - **`WorkerClient`** - HTTP/SSE communication with A2A server
+  - **`ConfigManager`** - OpenCode binary, storage paths, API keys, models
+  - **`SessionSyncService`** - Session reading and syncing from OpenCode storage
+  - **`TaskExecutor`** - Task execution, OpenCode subprocess, concurrency control
+  - **`AgentWorker`** - Thin orchestrator composing all services
+
+### Marketing Site Voice Improvements
+
+* **Authentication Headers**: All voice API calls now include Bearer token when available
+* **Session Reconnection**: Auto-reconnects to existing sessions after disconnection using persistent user ID
+* **Agent State Polling**: Real-time agent state updates (idle/listening/thinking/speaking/error) with color-coded UI
+* **Mode/Playback Parameters**: Session creation now sends `mode` and `playback_style` parameters
+
+### Swift iOS Voice Improvements
+
+* **Working Mute Toggle**: Mute button now actually controls microphone via LiveKit SDK
+* **Optional Voice Fields**: `provider`, `model`, `language` fields now optional with safe defaults
+
+### Bug Fixes
+
+* **MCP Client Null Error Handling**: Fixed `if 'error' in result` to check for non-null values
+* **Voice Agent Import Paths**: Fixed container import paths with try/except fallback
+* **Worker Task Claiming**: Added `_claim_task()` and `_release_task()` for distributed task safety
+* **Worker Memory Leak**: Changed `_known_task_ids` from unbounded Set to LRU OrderedDict (10k max)
+* **Worker Silent Exceptions**: Fixed 17 silent `except: pass` handlers with proper logging
+* **Worker Status Retry**: Added exponential backoff (5 attempts) for task status updates
+
+### Architecture
+
+* **Single Responsibility Principle**: Worker code split from 2872-line god object to 5 focused classes
+* **Dependency Injection**: Services receive dependencies via constructors
+* **Backward Compatibility**: Original AgentWorker methods preserved as delegates
+
 ## [0.5.0] - 2024-12-29
 
 ### Features
