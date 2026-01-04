@@ -112,7 +112,7 @@ jobs:
               macOS: "14.0"
           settings:
             DEVELOPMENT_TEAM: "J9YRM3U37D"
-            CODE_SIGN_STYLE: Manual
+            CODE_SIGN_STYLE: Automatic
           targets:
             A2AMonitor:
               type: application
@@ -123,8 +123,6 @@ jobs:
                 PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
                 INFOPLIST_FILE: Info.plist
                 GENERATE_INFOPLIST_FILE: NO
-                CODE_SIGN_IDENTITY: "Apple Development"
-                PROVISIONING_PROFILE_SPECIFIER: "debug1"
           EOF
 
       - name: Generate Xcode Project with XcodeGen
@@ -142,9 +140,8 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             DEVELOPMENT_TEAM="J9YRM3U37D" \
-            CODE_SIGN_IDENTITY="Apple Development" \
-            CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER="debug1" \
+            CODE_SIGN_STYLE=Automatic \
+            -allowProvisioningUpdates \
             build
 
       - name: Archive iOS app
@@ -156,9 +153,8 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath build/A2AMonitor.xcarchive \
             DEVELOPMENT_TEAM="J9YRM3U37D" \
-            CODE_SIGN_IDENTITY="Apple Development" \
-            CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER="debug1" \
+            CODE_SIGN_STYLE=Automatic \
+            -allowProvisioningUpdates \
             archive
 
       - name: Export IPA
@@ -174,12 +170,7 @@ jobs:
               <key>teamID</key>
               <string>J9YRM3U37D</string>
               <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.a2a.monitor</key>
-                  <string>debug1</string>
-              </dict>
+              <string>automatic</string>
               <key>stripSwiftSymbols</key>
               <true/>
               <key>compileBitcode</key>
@@ -191,7 +182,8 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath build/A2AMonitor.xcarchive \
             -exportPath build/export \
-            -exportOptionsPlist ExportOptions.plist || true
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates || true
 
       - name: Upload iOS app
         uses: actions/upload-artifact@v4
