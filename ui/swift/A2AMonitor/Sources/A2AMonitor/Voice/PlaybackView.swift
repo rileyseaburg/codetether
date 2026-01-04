@@ -77,7 +77,11 @@ struct PlaybackView: View {
             }
         }
         .padding()
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.systemBackground)))
+        #if os(iOS)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(UIColor.systemBackground)))
+        #else
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(NSColor.windowBackgroundColor)))
+        #endif
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
