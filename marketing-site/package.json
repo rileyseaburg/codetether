@@ -12,10 +12,13 @@
   "browserslist": "defaults, not ie <= 11",
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@livekit/components-react": "^2.9.17",
+    "@livekit/components-styles": "^1.2.0",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/postcss": "^4.1.18",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.26",
+    "livekit-client": "^2.16.1",
     "next": "^16.1.0",
     "next-auth": "5.0.0-beta.30",
     "react": "^19.2.3",
