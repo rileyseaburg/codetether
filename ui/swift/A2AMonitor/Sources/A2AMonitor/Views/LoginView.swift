@@ -291,7 +291,8 @@ struct LoginView: View {
             lastUsername = username
         }
 
-        Task {
+        Task { @MainActor in
+            defer { isLoading = false }
             do {
                 try await authService.login(username: username, password: password)
             } catch let error as AuthError {
@@ -301,7 +302,6 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
                 showError = true
             }
-            isLoading = false
         }
     }
 
@@ -519,7 +519,7 @@ struct ServerSettingsSheet: View {
     }
 
     private func checkBasicHealth() async {
-        guard let url = URL(string: tempURL)?.appendingPathComponent("/health") else {
+        guard let url = URL(string: tempURL)?.appendingPathComponent("health") else {
             connectionStatus = .failure("Invalid URL")
             return
         }
