@@ -51,6 +51,7 @@ from .monitor_api import (
     log_agent_message,
 )
 from .worker_sse import worker_sse_router
+from .email_inbound import email_router
 
 try:
     from .livekit_bridge import create_livekit_bridge, LiveKitBridge
@@ -211,6 +212,9 @@ class A2AServer:
 
         # Include worker SSE routes for push-based task distribution
         self.app.include_router(worker_sse_router)
+
+        # Include email inbound webhook routes for reply-based task continuation
+        self.app.include_router(email_router)
 
     async def _handle_jsonrpc_request(
         self,
