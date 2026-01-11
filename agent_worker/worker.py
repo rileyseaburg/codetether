@@ -34,6 +34,85 @@ from typing import Any, Dict, List, Optional, Callable, Set
 import aiohttp
 
 
+# =============================================================================
+# VaultClient - HashiCorp Vault integration for secrets
+# =============================================================================
+
+
+class VaultClient:
+    """
+    Simple Vault client for fetching secrets.
+
+    Supports KV v2 secrets engine.
+    """
+
+    def __init__(
+        self,
+        addr: Optional[str] = None,
+        token: Optional[str] = None,
+    ):
+        self.addr = addr or os.environ.get('VAULT_ADDR')
+        self.token = token or os.environ.get('VAULT_TOKEN')
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    def is_configured(self) -> bool:
+        """Check if Vault is configured."""
+        return bool(self.addr and self.token)
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=10),
+                headers={'X-Vault-Token': self.token or ''},
+            )
+        return self._session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+
+    async def get_secret(self, path: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a secret from Vault KV v2.
+
+        Args:
+            path: Secret path (e.g., 'secret/spotlessbinco/sendgrid')
+
+        Returns:
+            Dictionary of secret data, or None if not found.
+        """
+        if not self.is_configured():
+            return None
+
+        try:
+            session = await self._get_session()
+
+            # KV v2 requires /data/ in the path
+            # Convert 'secret/foo' to 'secret/data/foo'
+            parts = path.split('/', 1)
+            if len(parts) == 2:
+                mount = parts[0]
+                secret_path = parts[1]
+                url = f'{self.addr}/v1/{mount}/data/{secret_path}'
+            else:
+                url = f'{self.addr}/v1/{path}'
+
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get('data', {}).get('data', {})
+                else:
+                    return None
+
+        except Exception as e:
+            logging.getLogger('a2a-worker').warning(
+                f'Failed to fetch secret from Vault: {e}'
+            )
+            return None
+
+
 class TaskStatus(StrEnum):
     """Status values for tasks in the task queue."""
 
@@ -101,6 +180,13 @@ class WorkerConfig:
     )
     # Auth token for SSE endpoint (from A2A_AUTH_TOKEN env var)
     auth_token: Optional[str] = None
+    # Email notifications via SendGrid
+    sendgrid_api_key: Optional[str] = None
+    sendgrid_from_email: Optional[str] = None
+    notification_email: Optional[str] = None  # Recipient for task reports
+    # Email reply-to configuration for task continuation
+    email_inbound_domain: Optional[str] = None  # e.g., 'inbound.codetether.run'
+    email_reply_prefix: str = 'task'  # Prefix for reply-to addresses
 
 
 @dataclass
@@ -697,6 +783,320 @@ class WorkerClient:
     @last_heartbeat.setter
     def last_heartbeat(self, value: float):
         self._last_heartbeat = value
+
+
+# =============================================================================
+# EmailNotificationService - SendGrid email notifications
+# =============================================================================
+
+
+class EmailNotificationService:
+    """
+    Handles email notifications via SendGrid.
+
+    Sends task completion/failure reports to configured recipients.
+    """
+
+    def __init__(self, config: WorkerConfig):
+        self.config = config
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    def is_configured(self) -> bool:
+        """Check if email notifications are properly configured."""
+        return bool(
+            self.config.sendgrid_api_key
+            and self.config.sendgrid_from_email
+            and self.config.notification_email
+        )
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session for SendGrid API."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+        return self._session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+
+    def _build_reply_to_address(
+        self,
+        session_id: Optional[str],
+        codebase_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Build the reply-to address for email replies to continue tasks.
+
+        Format: {prefix}+{session_id}@{domain}
+        Or: {prefix}+{session_id}+{codebase_id}@{domain}
+        """
+        if not session_id:
+            return None
+        if not self.config.email_inbound_domain:
+            return None
+
+        prefix = self.config.email_reply_prefix or 'task'
+        domain = self.config.email_inbound_domain
+
+        if codebase_id:
+            return f'{prefix}+{session_id}+{codebase_id}@{domain}'
+        return f'{prefix}+{session_id}@{domain}'
+
+    async def send_task_report(
+        self,
+        task_id: str,
+        title: str,
+        status: str,
+        result: Optional[str] = None,
+        error: Optional[str] = None,
+        duration_ms: Optional[int] = None,
+        session_id: Optional[str] = None,
+        codebase_id: Optional[str] = None,
+    ) -> bool:
+        """Send a task completion/failure email report.
+
+        Returns True if email was sent successfully.
+        """
+        if not self.is_configured():
+            logger.debug('Email notifications not configured, skipping')
+            return False
+
+        try:
+            session = await self._get_session()
+
+            # Format duration
+            duration_str = 'N/A'
+            if duration_ms:
+                seconds = duration_ms // 1000
+                minutes = seconds // 60
+                if minutes > 0:
+                    duration_str = f'{minutes}m {seconds % 60}s'
+                else:
+                    duration_str = f'{seconds}s'
+
+            # Build email content
+            status_color = '#22c55e' if status == 'completed' else '#ef4444'
+            status_icon = '✓' if status == 'completed' else '✗'
+
+            result_section = ''
+            if result and status == 'completed':
+                # Try to parse and extract meaningful content
+                display_result = result
+                import json as json_module
+                import html as html_module
+
+                # Handle NDJSON (newline-delimited JSON) from OpenCode streaming
+                # Extract text content from streaming events
+                text_parts = []
+                try:
+                    lines = result.strip().split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            parsed = json_module.loads(line)
+                            # OpenCode streaming format: look for text events
+                            if isinstance(parsed, dict):
+                                event_type = parsed.get('type', '')
+                                part = parsed.get('part', {})
+
+                                # Extract text from "text" type events
+                                if event_type == 'text' and isinstance(
+                                    part, dict
+                                ):
+                                    text = part.get('text', '')
+                                    if text:
+                                        text_parts.append(text)
+                                # Also check for direct text field
+                                elif 'text' in parsed and isinstance(
+                                    parsed['text'], str
+                                ):
+                                    text_parts.append(parsed['text'])
+                                # Check for result/output/message fields
+                                elif 'result' in parsed:
+                                    text_parts.append(str(parsed['result']))
+                                elif 'output' in parsed:
+                                    text_parts.append(str(parsed['output']))
+                                elif 'message' in parsed and isinstance(
+                                    parsed['message'], str
+                                ):
+                                    text_parts.append(parsed['message'])
+                        except json_module.JSONDecodeError:
+                            # Not JSON, might be plain text
+                            if line and not line.startswith('{'):
+                                text_parts.append(line)
+
+                    if text_parts:
+                        # Join all extracted text
+                        display_result = ' '.join(text_parts)
+                    else:
+                        # Fallback: try parsing as single JSON
+                        try:
+                            parsed = json_module.loads(result)
+                            if isinstance(parsed, dict):
+                                for key in [
+                                    'result',
+                                    'output',
+                                    'message',
+                                    'content',
+                                    'response',
+                                    'text',
+                                ]:
+                                    if key in parsed:
+                                        display_result = str(parsed[key])
+                                        break
+                        except json_module.JSONDecodeError:
+                            pass
+
+                except Exception:
+                    # If all parsing fails, use as-is
+                    pass
+
+                # Escape HTML for safety
+                display_result = html_module.escape(display_result)
+
+                # Convert newlines to <br> for display
+                display_result = display_result.replace('\n', '<br>')
+
+                truncated = (
+                    display_result[:3000] + '...'
+                    if len(display_result) > 3000
+                    else display_result
+                )
+                result_section = f"""
+                <tr>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 140px; vertical-align: top;">Output</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                    <div style="font-size: 14px; line-height: 1.6; color: #1f2937;">{truncated}</div>
+                  </td>
+                </tr>"""
+
+            error_section = ''
+            if error:
+                truncated = error[:1000] + '...' if len(error) > 1000 else error
+                error_section = f"""
+                <tr>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 140px;">Error</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                    <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 13px; background: #fef2f2; padding: 12px; border-radius: 6px; color: #dc2626;">{truncated}</pre>
+                  </td>
+                </tr>"""
+
+            # Build footer with reply instructions if email reply is configured
+            reply_enabled = bool(
+                self.config.email_inbound_domain and session_id
+            )
+            if reply_enabled:
+                footer_html = f"""
+    <div style="background: #f9fafb; padding: 16px; text-align: center;">
+      <p style="margin: 0 0 8px 0; font-size: 13px; color: #374151; font-weight: 500;">
+        Reply to this email to continue the conversation
+      </p>
+      <p style="margin: 0; font-size: 12px; color: #6b7280;">
+        Your reply will be sent to the worker to continue working on this task.
+      </p>
+      <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af;">
+        Sent by A2A Worker - {self.config.worker_name}
+      </p>
+    </div>"""
+            else:
+                footer_html = f"""
+    <div style="background: #f9fafb; padding: 16px; text-align: center; font-size: 12px; color: #6b7280;">
+      Sent by A2A Worker - {self.config.worker_name}
+    </div>"""
+
+            html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 24px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 20px; font-weight: 600;">A2A Task Report</h1>
+    </div>
+    <div style="padding: 24px;">
+      <div style="display: inline-block; padding: 6px 12px; border-radius: 20px; background: {status_color}20; color: {status_color}; font-weight: 600; font-size: 14px; margin-bottom: 16px;">
+        {status_icon} {status.upper()}
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 140px;">Task ID</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-family: monospace; font-size: 13px;">{task_id}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151;">Title</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">{title}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151;">Session ID</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-family: monospace; font-size: 13px;">{session_id or 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151;">Worker</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">{self.config.worker_name}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151;">Duration</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">{duration_str}</td>
+        </tr>
+        {result_section}
+        {error_section}
+      </table>
+    </div>
+    {footer_html}
+  </div>
+</body>
+</html>"""
+
+            subject = f'[A2A] Task {status}: {title}'
+
+            payload = {
+                'personalizations': [
+                    {'to': [{'email': self.config.notification_email}]}
+                ],
+                'from': {'email': self.config.sendgrid_from_email},
+                'subject': subject,
+                'content': [{'type': 'text/html', 'value': html}],
+            }
+
+            # Add reply-to address if configured for email reply continuation
+            reply_to = self._build_reply_to_address(session_id, codebase_id)
+            if reply_to:
+                payload['reply_to'] = {'email': reply_to}
+                logger.debug(f'Email reply-to set to: {reply_to}')
+
+            headers = {
+                'Authorization': f'Bearer {self.config.sendgrid_api_key}',
+                'Content-Type': 'application/json',
+            }
+
+            async with session.post(
+                'https://api.sendgrid.com/v3/mail/send',
+                json=payload,
+                headers=headers,
+            ) as resp:
+                if resp.status in (200, 202):
+                    logger.info(
+                        f'Email report sent for task {task_id} to {self.config.notification_email}'
+                    )
+                    return True
+                else:
+                    text = await resp.text()
+                    logger.error(
+                        f'Failed to send email: {resp.status} - {text}'
+                    )
+                    return False
+
+        except Exception as e:
+            logger.error(f'Failed to send email notification: {e}')
+            return False
 
 
 # =============================================================================
@@ -1627,6 +2027,7 @@ class TaskExecutor:
     - Task claiming/releasing (via client)
     - Special task handlers (register_codebase, echo, noop)
     - Semaphore-based concurrency control
+    - Email notifications on task completion/failure
     """
 
     def __init__(
@@ -1636,12 +2037,14 @@ class TaskExecutor:
         config_manager: ConfigManager,
         session_sync: SessionSyncService,
         opencode_bin: str,
+        email_service: Optional[EmailNotificationService] = None,
     ):
         self.config = config
         self.client = client
         self.config_manager = config_manager
         self.session_sync = session_sync
         self.opencode_bin = opencode_bin
+        self.email_service = email_service
         self.active_processes: Dict[str, asyncio.subprocess.Process] = {}
         # Task processing state
         self._task_semaphore: Optional[asyncio.Semaphore] = None
@@ -1789,6 +2192,7 @@ class TaskExecutor:
         # Claim the task
         await self.client.update_task_status(task_id, TaskStatus.RUNNING)
 
+        start_time = time.time()
         try:
             # Build the prompt
             prompt = task.get('prompt', task.get('description', ''))
@@ -1811,6 +2215,9 @@ class TaskExecutor:
                 session_id=resume_session_id,
             )
 
+            # Calculate duration
+            duration_ms = int((time.time() - start_time) * 1000)
+
             if result['success']:
                 await self.client.update_task_status(
                     task_id,
@@ -1818,19 +2225,54 @@ class TaskExecutor:
                     result=result.get('output', 'Task completed successfully'),
                 )
                 logger.info(f'Task {task_id} completed successfully')
+
+                # Send email notification
+                if self.email_service:
+                    await self.email_service.send_task_report(
+                        task_id=task_id,
+                        title=task.get('title', 'Untitled'),
+                        status='completed',
+                        result=result.get('output'),
+                        duration_ms=duration_ms,
+                        session_id=resume_session_id,
+                        codebase_id=codebase_id,
+                    )
             else:
+                error_msg = result.get('error', 'Unknown error')
                 await self.client.update_task_status(
                     task_id,
                     TaskStatus.FAILED,
-                    error=result.get('error', 'Unknown error'),
+                    error=error_msg,
                 )
-                logger.error(f'Task {task_id} failed: {result.get("error")}')
+                logger.error(f'Task {task_id} failed: {error_msg}')
+
+                # Send email notification
+                if self.email_service:
+                    await self.email_service.send_task_report(
+                        task_id=task_id,
+                        title=task.get('title', 'Untitled'),
+                        status='failed',
+                        error=error_msg,
+                        duration_ms=duration_ms,
+                        session_id=resume_session_id,
+                        codebase_id=codebase_id,
+                    )
 
         except Exception as e:
             logger.error(f'Task {task_id} execution error: {e}')
             await self.client.update_task_status(
                 task_id, TaskStatus.FAILED, error=str(e)
             )
+
+            # Send email notification for exception
+            if self.email_service:
+                await self.email_service.send_task_report(
+                    task_id=task_id,
+                    title=task.get('title', 'Untitled'),
+                    status='failed',
+                    error=str(e),
+                    codebase_id=codebase_id,
+                )
 
     async def handle_register_codebase_task(
         self,
@@ -2358,12 +2800,22 @@ class AgentWorker:
         self.session_sync = SessionSyncService(
             config, self.config_manager, self.client
         )
+        # Initialize email service if configured
+        self.email_service = EmailNotificationService(config)
+        if self.email_service.is_configured():
+            logger.info(
+                f'Email notifications enabled: {config.notification_email}'
+            )
+        else:
+            logger.info('Email notifications not configured')
+
         self.task_executor = TaskExecutor(
             config,
             self.client,
             self.config_manager,
             self.session_sync,
             self.opencode_bin,
+            self.email_service if self.email_service.is_configured() else None,
         )
 
     # -------------------------------------------------------------------------
@@ -2600,8 +3052,9 @@ class AgentWorker:
         except Exception as e:
             logger.debug(f'Failed to unregister worker during shutdown: {e}')
 
-        # Close session properly
+        # Close sessions properly
         await self.client.close()
+        await self.email_service.close()
 
         logger.info('Worker stopped')
 
@@ -2782,9 +3235,10 @@ class AgentWorker:
             sse_headers['Authorization'] = f'Bearer {self.config.auth_token}'
 
         # Add codebase IDs as header for SSE routing
+        # Always include 'global' so worker accepts tasks for any codebase
         codebase_ids = list(self.codebases.keys())
-        if codebase_ids:
-            sse_headers['X-Codebases'] = ','.join(codebase_ids)
+        codebase_ids.append('global')
+        sse_headers['X-Codebases'] = ','.join(codebase_ids)
 
         # Add capabilities header
         sse_headers['X-Capabilities'] = 'opencode,build,deploy,test'
@@ -3058,6 +3512,23 @@ async def main():
         default=None,
         help='SSE heartbeat timeout in seconds (default: 45)',
     )
+    # Email notification options
+    parser.add_argument(
+        '--email',
+        '-e',
+        default=None,
+        help='Email address for task completion reports',
+    )
+    parser.add_argument(
+        '--sendgrid-key',
+        default=None,
+        help='SendGrid API key (or set SENDGRID_API_KEY env var)',
+    )
+    parser.add_argument(
+        '--sendgrid-from',
+        default=None,
+        help='SendGrid verified sender email (or set SENDGRID_FROM_EMAIL env var)',
+    )
 
     args = parser.parse_args()
 
@@ -3226,6 +3697,69 @@ async def main():
     auth_token = os.environ.get('A2A_AUTH_TOKEN')
     if auth_token:
         config_kwargs['auth_token'] = auth_token
+
+    # SendGrid email notification config
+    # Precedence: CLI flag > env var > Vault > config file
+    sendgrid_key = (
+        args.sendgrid_key
+        or os.environ.get('SENDGRID_API_KEY')
+        or file_config.get('sendgrid_api_key')
+    )
+    sendgrid_from = (
+        args.sendgrid_from
+        or os.environ.get('SENDGRID_FROM_EMAIL')
+        or file_config.get('sendgrid_from_email')
+    )
+    notification_email = (
+        args.email
+        or os.environ.get('A2A_NOTIFICATION_EMAIL')
+        or file_config.get('notification_email')
+    )
+
+    # Try to fetch from Vault if not configured via CLI/env/config
+    vault_path = file_config.get(
+        'vault_sendgrid_path', 'secret/spotlessbinco/sendgrid'
+    )
+    if not sendgrid_key or not sendgrid_from or not notification_email:
+        vault = VaultClient()
+        if vault.is_configured():
+            logger.info(f'Fetching SendGrid config from Vault: {vault_path}')
+            try:
+                # Run sync in event loop
+                import asyncio as _asyncio
+
+                async def _fetch_vault():
+                    try:
+                        secrets = await vault.get_secret(vault_path)
+                        return secrets
+                    finally:
+                        await vault.close()
+
+                loop = _asyncio.new_event_loop()
+                vault_secrets = loop.run_until_complete(_fetch_vault())
+                loop.close()
+
+                if vault_secrets:
+                    if not sendgrid_key:
+                        sendgrid_key = vault_secrets.get('SENDGRID_API_KEY')
+                    if not sendgrid_from:
+                        sendgrid_from = vault_secrets.get('SENDGRID_FROM_EMAIL')
+                    if not notification_email:
+                        notification_email = vault_secrets.get(
+                            'NOTIFICATION_EMAIL'
+                        )
+                    logger.info('Loaded SendGrid config from Vault')
+            except Exception as e:
+                logger.warning(
+                    f'Failed to fetch SendGrid config from Vault: {e}'
+                )
+
+    if sendgrid_key:
+        config_kwargs['sendgrid_api_key'] = sendgrid_key
+    if sendgrid_from:
+        config_kwargs['sendgrid_from_email'] = sendgrid_from
+    if notification_email:
+        config_kwargs['notification_email'] = notification_email
 
     config = WorkerConfig(**config_kwargs)
 

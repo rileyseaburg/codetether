@@ -414,6 +414,117 @@ sudo journalctl -u a2a-agent-worker | grep "poll"
 
 ---
 
+## Email Notifications
+
+The Agent Worker can send email notifications when tasks complete or fail. More importantly, users can **reply directly to these emails** to continue the conversation with the worker.
+
+### Configuration
+
+Add SendGrid credentials to your worker config:
+
+```json
+{
+    "sendgrid_api_key": "SG.xxxxx",
+    "sendgrid_from_email": "worker@yourdomain.com",
+    "notification_email": "team@yourdomain.com",
+    "email_inbound_domain": "inbound.yourdomain.com",
+    "email_reply_prefix": "task"
+}
+```
+
+Or via environment variables:
+
+```bash
+SENDGRID_API_KEY=SG.xxxxx
+SENDGRID_FROM_EMAIL=worker@yourdomain.com
+NOTIFICATION_EMAIL=team@yourdomain.com
+EMAIL_INBOUND_DOMAIN=inbound.yourdomain.com
+EMAIL_REPLY_PREFIX=task
+```
+
+### Email Reply Flow
+
+When `email_inbound_domain` is configured, notification emails include a special reply-to address:
+
+```
+task+{session_id}@inbound.yourdomain.com
+```
+
+**Flow:**
+
+```mermaid
+sequenceDiagram
+    participant Worker as Agent Worker
+    participant SendGrid as SendGrid
+    participant User as User
+    participant Server as CodeTether Server
+
+    Worker->>SendGrid: Send task report email
+    Note right of Worker: reply-to: task+session123@inbound.yourdomain.com
+    SendGrid->>User: Email delivered
+    User->>SendGrid: Reply to email
+    SendGrid->>Server: POST /v1/email/inbound (Inbound Parse)
+    Server->>Server: Extract session_id from address
+    Server->>Server: Create continuation task
+    Worker->>Server: Pick up new task
+    Worker->>Worker: Resume OpenCode session
+```
+
+### Setting Up SendGrid Inbound Parse
+
+1. **Configure your domain's MX records:**
+
+    Point your inbound subdomain to SendGrid:
+    ```
+    inbound.yourdomain.com. MX 10 mx.sendgrid.net.
+    ```
+
+2. **Set up Inbound Parse in SendGrid:**
+
+    - Go to **Settings > Inbound Parse**
+    - Click **Add Host & URL**
+    - Enter your subdomain: `inbound.yourdomain.com`
+    - Set destination URL: `https://api.codetether.run/v1/email/inbound`
+    - Check "POST the raw, full MIME message" (optional)
+    - Save
+
+3. **Test the setup:**
+
+    Send a test email to `test@inbound.yourdomain.com` and check your server logs.
+
+### Email Content
+
+Notification emails include:
+
+- Task status (completed/failed)
+- Task ID and title
+- Session ID (for reply threading)
+- Worker name
+- Duration
+- Output (truncated) or error message
+- **Reply instructions** (when inbound is configured)
+
+### Troubleshooting
+
+**Emails not sending:**
+```bash
+# Check worker logs
+sudo journalctl -u a2a-agent-worker | grep -i email
+```
+
+**Replies not creating tasks:**
+```bash
+# Check server logs for inbound webhook
+curl https://api.codetether.run/v1/email/test-inbound
+```
+
+**Test reply-to address parsing:**
+```bash
+curl "https://api.codetether.run/v1/email/test-reply-address?session_id=test123"
+```
+
+---
+
 ## Advanced Configuration
 
 ### Multiple Workers

@@ -7,6 +7,10 @@ export namespace A2AEmail {
     apiKey: string
     from: string
     to: string
+    /** Domain for email reply-to addresses (e.g., 'inbound.codetether.run') */
+    inboundDomain?: string
+    /** Prefix for reply-to addresses (default: 'task') */
+    replyPrefix?: string
   }
 
   export interface TaskReport {
@@ -14,11 +18,28 @@ export namespace A2AEmail {
     title: string
     status: "completed" | "failed"
     sessionId: string
+    codebaseId?: string
     output?: string
     error?: string
     duration?: number
     toolCount?: number
     workerName: string
+  }
+
+  /**
+   * Build the reply-to address for email replies to continue tasks.
+   * Format: {prefix}+{sessionId}@{domain}
+   * Or: {prefix}+{sessionId}+{codebaseId}@{domain}
+   */
+  export function buildReplyToAddress(config: Config, sessionId: string, codebaseId?: string): string | undefined {
+    if (!config.inboundDomain || !sessionId) {
+      return undefined
+    }
+    const prefix = config.replyPrefix ?? "task"
+    if (codebaseId) {
+      return `${prefix}+${sessionId}+${codebaseId}@${config.inboundDomain}`
+    }
+    return `${prefix}+${sessionId}@${config.inboundDomain}`
   }
 
   function formatDuration(ms?: number): string {
@@ -34,7 +55,7 @@ export namespace A2AEmail {
     return text.slice(0, max) + "..."
   }
 
-  function buildTaskReportHtml(report: TaskReport): string {
+  function buildTaskReportHtml(report: TaskReport, replyEnabled: boolean): string {
     const statusColor = report.status === "completed" ? "#22c55e" : "#ef4444"
     const statusIcon = report.status === "completed" ? "✓" : "✗"
     const outputSection = report.output
@@ -101,9 +122,21 @@ export namespace A2AEmail {
         ${errorSection}
       </table>
     </div>
+    ${replyEnabled ? `
+    <div style="background: #f9fafb; padding: 16px; text-align: center;">
+      <p style="margin: 0 0 8px 0; font-size: 13px; color: #374151; font-weight: 500;">
+        Reply to this email to continue the conversation
+      </p>
+      <p style="margin: 0; font-size: 12px; color: #6b7280;">
+        Your reply will be sent to the worker to continue working on this task.
+      </p>
+      <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af;">
+        Sent by OpenCode A2A Worker
+      </p>
+    </div>` : `
     <div style="background: #f9fafb; padding: 16px; text-align: center; font-size: 12px; color: #6b7280;">
       Sent by OpenCode A2A Worker
-    </div>
+    </div>`}
   </div>
 </body>
 </html>`
@@ -198,7 +231,23 @@ export namespace A2AEmail {
     log.info("sending task report", { taskId: report.taskId, status: report.status, to: config.to })
 
     const subject = `[A2A] Task ${report.status}: ${report.title}`
-    const html = buildTaskReportHtml(report)
+    const replyTo = buildReplyToAddress(config, report.sessionId, report.codebaseId)
+    const replyEnabled = !!replyTo
+    const html = buildTaskReportHtml(report, replyEnabled)
+
+    // Build the email payload
+    const payload: Record<string, unknown> = {
+      personalizations: [{ to: [{ email: config.to }] }],
+      from: { email: config.from },
+      subject,
+      content: [{ type: "text/html", value: html }],
+    }
+
+    // Add reply-to if configured for email reply continuation
+    if (replyTo) {
+      payload.reply_to = { email: replyTo }
+      log.debug("email reply-to set", { replyTo })
+    }
 
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -206,21 +255,16 @@ export namespace A2AEmail {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: config.to }] }],
-        from: { email: config.from },
-        subject,
-        content: [{ type: "text/html", value: html }],
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (!response.ok) {
       const text = await response.text()
-      log.error("failed to send task report", { status: response.status, body: text })
-      return
+      log.error("failed to send task report", { status: response.status, body: text, from: config.from, to: config.to })
+      throw new Error(`SendGrid API error: ${response.status} - ${text}`)
     }
 
-    log.info("task report sent", { taskId: report.taskId })
+    log.info("task report sent", { taskId: report.taskId, to: config.to, replyEnabled })
   }
 
   export async function sendDailySummary(config: Config, reports: TaskReport[]): Promise<void> {
@@ -252,10 +296,10 @@ export namespace A2AEmail {
 
     if (!response.ok) {
       const text = await response.text()
-      log.error("failed to send daily summary", { status: response.status, body: text })
-      return
+      log.error("failed to send daily summary", { status: response.status, body: text, from: config.from, to: config.to })
+      throw new Error(`SendGrid API error: ${response.status} - ${text}`)
     }
 
-    log.info("daily summary sent", { count: reports.length })
+    log.info("daily summary sent", { count: reports.length, to: config.to })
   }
 }
