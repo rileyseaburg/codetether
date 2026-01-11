@@ -42,5 +42,7 @@
     </dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>A2A Monitor needs microphone access for voice chat with AI agents.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>A2A Monitor uses speech recognition to transcribe your voice commands for AI agents.</string>
 </dict>
 </plist>
