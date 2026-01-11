@@ -33,7 +33,7 @@ struct ActivityView: View {
         }
         .navigationTitle("Activity")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayModeLarge()
         #endif
     }
     

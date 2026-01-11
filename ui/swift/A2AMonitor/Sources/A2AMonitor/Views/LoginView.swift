@@ -345,7 +345,7 @@ struct ServerSettingsSheet: View {
             }
             .navigationTitle("Server")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .toolbar {
@@ -800,7 +800,7 @@ struct UserProfileSheet: View {
             }
             .navigationTitle("Profile")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .toolbar {

@@ -46,7 +46,7 @@ struct VoiceButton: View {
             .presentationDetents([.medium, .large])
         }
         #if os(iOS)
-        .fullScreenCover(isPresented: $showVoiceChat) {
+        .fullScreenCoverCompat(isPresented: $showVoiceChat) {
             if let voice = selectedVoice, let codebase = codebaseId {
                 VoiceChatView(
                     codebaseId: codebase,

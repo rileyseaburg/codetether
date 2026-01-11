@@ -26,7 +26,7 @@ struct EnvironmentsView: View {
         }
         .navigationTitle("Environments")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayModeLarge()
         #endif
         .sheet(isPresented: $showAddSheet) {
             AddEnvironmentSheet(isPresented: $showAddSheet)
@@ -378,7 +378,7 @@ struct AddEnvironmentSheet: View {
                 .padding(.top, 20)
             }
             .navigationTitle("Add Environment")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

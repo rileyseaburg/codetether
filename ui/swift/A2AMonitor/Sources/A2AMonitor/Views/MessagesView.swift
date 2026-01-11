@@ -313,7 +313,7 @@ struct InterventionSheet: View {
                 }
             }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             #endif
             .onAppear {
                 if let related = relatedMessage {

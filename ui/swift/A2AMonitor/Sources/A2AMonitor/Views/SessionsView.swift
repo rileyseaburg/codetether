@@ -285,7 +285,7 @@ struct SessionDetailView: View {
         }
         .navigationTitle(session.title ?? "Session")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayModeInline()
         #endif
         .onDisappear {
             taskPolling?.cancel()
