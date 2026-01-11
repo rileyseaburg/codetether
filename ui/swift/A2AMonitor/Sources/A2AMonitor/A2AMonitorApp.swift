@@ -67,20 +67,18 @@ struct RootView: View {
 struct ContentView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @EnvironmentObject var authService: AuthService
-    @State private var selectedTab: Tab = .home
+    @State private var selectedTab: Tab = .command
 
     enum Tab: String, CaseIterable {
-        case home = "Home"
-        case agents = "Agents"
+        case command = "Command"
         case activity = "Activity"
-        case settings = "Settings"
+        case environments = "Environments"
 
         var icon: String {
             switch self {
-            case .home: return "house.fill"
-            case .agents: return "cpu.fill"
+            case .command: return "mic.fill"
             case .activity: return "list.bullet.rectangle.fill"
-            case .settings: return "gearshape.fill"
+            case .environments: return "lock.shield.fill"
             }
         }
     }
@@ -166,14 +164,12 @@ struct ContentView: View {
     @ViewBuilder
     func tabContent(for tab: Tab) -> some View {
         switch tab {
-        case .home:
-            DashboardView()
-        case .agents:
-            AgentsView()
+        case .command:
+            CommandView()
         case .activity:
             ActivityView()
-        case .settings:
-            SettingsView()
+        case .environments:
+            EnvironmentsView()
         }
     }
 }

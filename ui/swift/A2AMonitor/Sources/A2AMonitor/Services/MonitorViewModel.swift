@@ -42,6 +42,9 @@ class MonitorViewModel: ObservableObject {
     // Statistics
     @Published var stats = MonitorStats()
 
+    // Command History
+    @Published var lastCommand: String?
+
     // UI State
     @Published var isLoading = false
     @Published var showingTriggerSheet = false
