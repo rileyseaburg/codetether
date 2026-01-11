@@ -151,12 +151,13 @@ struct VoiceRecordingView: View {
             }
         }
         
-        // Request speech recognition authorization
+        #if os(iOS)
+        // Request speech recognition authorization (iOS only)
         SFSpeechRecognizer.requestAuthorization { status in
             DispatchQueue.main.async {
                 switch status {
                 case .authorized:
-                    startSpeechRecognition()
+                    self.startSpeechRecognition()
                 case .denied, .restricted, .notDetermined:
                     // Fall back to placeholder
                     break
@@ -165,6 +166,7 @@ struct VoiceRecordingView: View {
                 }
             }
         }
+        #endif
     }
     
     func startSpeechRecognition() {
