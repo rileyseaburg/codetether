@@ -300,8 +300,8 @@ async def create_continuation_task(
             logger.debug(f'Could not look up codebase for session: {e}')
 
     if not codebase_id:
-        # Use a special marker that the worker can handle
-        codebase_id = '__email_reply__'
+        # Use 'global' codebase - workers with a global codebase can pick this up
+        codebase_id = 'global'
 
     # Build the prompt from the email reply
     prompt = f"""[Email Reply from {context.from_email}]
