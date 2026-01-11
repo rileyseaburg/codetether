@@ -148,6 +148,31 @@ Set `SENDGRID_API_KEY` environment variable. The TypeScript integration supports
 opencode a2a --email riley@spotlessbinco.com --sendgrid-key SG.xxx
 ```
 
+### Email Replies (Task Continuation)
+
+Users can **reply directly to notification emails** to continue a conversation with the worker.
+
+**How it works:**
+1. Worker sends email with `reply-to: task+{session_id}@inbound.codetether.run`
+2. User replies to the email
+3. SendGrid Inbound Parse forwards to `/v1/email/inbound`
+4. Server creates continuation task with `resume_session_id`
+5. Worker picks up task and resumes the OpenCode session
+
+**Configuration:**
+```json
+{
+    "email_inbound_domain": "inbound.codetether.run",
+    "email_reply_prefix": "task"
+}
+```
+
+Or environment variables:
+```bash
+EMAIL_INBOUND_DOMAIN=inbound.codetether.run
+EMAIL_REPLY_PREFIX=task
+```
+
 ## Configuration Files
 
 ### Worker Config (`/etc/a2a-worker/config.json`)
@@ -159,7 +184,11 @@ opencode a2a --email riley@spotlessbinco.com --sendgrid-key SG.xxx
     "opencode_bin": "/opt/a2a-worker/bin/opencode",
     "codebases": [
         { "name": "spotlessbinco", "path": "/home/riley/spotlessbinco" }
-    ]
+    ],
+    "sendgrid_api_key": "SG.xxx",
+    "sendgrid_from_email": "noreply@codetether.run",
+    "notification_email": "you@example.com",
+    "email_inbound_domain": "inbound.codetether.run"
 }
 ```
 
