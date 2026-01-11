@@ -64,10 +64,12 @@ struct AgentsView: View {
                 if filteredCodebases.isEmpty {
                     EmptyStateView(
                         icon: "folder.badge.plus",
-                        title: "No Codebases Registered",
-                        message: "Register a codebase to start managing AI agents",
-                        action: { viewModel.showingRegisterSheet = true },
-                        actionTitle: "Register Codebase"
+                        title: searchText.isEmpty && selectedFilter == nil ? "No Projects Connected" : "No Matching Projects",
+                        message: searchText.isEmpty && selectedFilter == nil
+                            ? "Connect a folder containing your code project to start using AI agents. The folder path should point to the root of your project (where package.json, Cargo.toml, etc. lives)."
+                            : "Try adjusting your search or filters to find what you're looking for.",
+                        action: searchText.isEmpty && selectedFilter == nil ? { viewModel.showingRegisterSheet = true } : nil,
+                        actionTitle: searchText.isEmpty && selectedFilter == nil ? "Connect Project Folder" : nil
                     )
                     .padding(.top, 40)
                 } else {
@@ -258,6 +260,38 @@ struct RegisterCodebaseSheet: View {
     @State private var description = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showingHelp = false
+    
+    // Validation states
+    var nameValidation: (isValid: Bool, message: String?) {
+        if name.isEmpty {
+            return (false, nil)
+        }
+        if name.count < 2 {
+            return (false, "Name should be at least 2 characters")
+        }
+        if name.count > 50 {
+            return (false, "Name is too long (max 50 characters)")
+        }
+        return (true, nil)
+    }
+    
+    var pathValidation: (isValid: Bool, message: String?) {
+        if path.isEmpty {
+            return (false, nil)
+        }
+        if !path.hasPrefix("/") && !path.hasPrefix("~") {
+            return (false, "Path should start with / or ~")
+        }
+        if path.contains(" ") && !path.contains("\\ ") {
+            return (false, "Spaces in path may cause issues")
+        }
+        return (true, nil)
+    }
+    
+    var canSubmit: Bool {
+        nameValidation.isValid && pathValidation.isValid && !isLoading
+    }
     
     var body: some View {
         NavigationStack {
@@ -272,39 +306,117 @@ struct RegisterCodebaseSheet: View {
                             .foregroundColor(Color.liquidGlass.primary)
                             .padding(.top, 20)
                         
-                        Text("Register Codebase")
+                        Text("Add a Project")
                             .font(.title)
                             .fontWeight(.bold)
                             .foregroundColor(Color.liquidGlass.textPrimary)
                         
+                        // Explanation header
+                        GlassCard(cornerRadius: 12, padding: 16) {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundColor(Color.liquidGlass.primary)
+                                    .font(.title3)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("What's a project?")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.liquidGlass.textPrimary)
+                                    
+                                    Text("A project is a folder containing your code. Once registered, you can monitor and trigger AI agents to work on this code.")
+                                        .font(.caption)
+                                        .foregroundColor(Color.liquidGlass.textSecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        
                         // Form
-                        VStack(spacing: 16) {
-                            GlassTextField(
-                                title: "Name",
-                                placeholder: "My Project",
-                                text: $name
-                            )
+                        VStack(spacing: 20) {
+                            // Name field with validation
+                            VStack(alignment: .leading, spacing: 8) {
+                                GlassTextField(
+                                    title: "Project Name",
+                                    placeholder: "e.g., My iOS App, Backend API",
+                                    text: $name
+                                )
+                                
+                                if let message = nameValidation.message {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "exclamationmark.circle.fill")
+                                            .font(.caption2)
+                                        Text(message)
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(Color.liquidGlass.warning)
+                                    .padding(.horizontal, 4)
+                                }
+                            }
                             
-                            GlassTextField(
-                                title: "Absolute Path",
-                                placeholder: "/home/user/projects/myproject",
-                                text: $path
-                            )
+                            // Path field with validation
+                            VStack(alignment: .leading, spacing: 8) {
+                                GlassTextField(
+                                    title: "Project Folder",
+                                    placeholder: "e.g., ~/Projects/my-app or /Users/you/code/project",
+                                    text: $path
+                                )
+                                
+                                if let message = pathValidation.message {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "exclamationmark.circle.fill")
+                                            .font(.caption2)
+                                        Text(message)
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(Color.liquidGlass.warning)
+                                    .padding(.horizontal, 4)
+                                } else if !path.isEmpty && pathValidation.isValid {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.caption2)
+                                        Text("Path looks valid")
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(Color.liquidGlass.success)
+                                    .padding(.horizontal, 4)
+                                }
+                            }
                             
                             GlassTextField(
                                 title: "Description (Optional)",
-                                placeholder: "Brief description of the project...",
+                                placeholder: "What does this project do?",
                                 text: $description,
                                 isMultiline: true
                             )
                         }
                         .padding(.horizontal)
                         
+                        // Help button
+                        Button {
+                            showingHelp = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "questionmark.circle")
+                                Text("Need help finding your project folder?")
+                            }
+                            .font(.caption)
+                            .foregroundColor(Color.liquidGlass.primary)
+                        }
+                        
                         if let error = errorMessage {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(Color.liquidGlass.error)
-                                .padding(.horizontal)
+                            HStack(spacing: 8) {
+                                Image(systemName: "xmark.circle.fill")
+                                Text(error)
+                            }
+                            .font(.caption)
+                            .foregroundColor(Color.liquidGlass.error)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.liquidGlass.error.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .padding(.horizontal)
                         }
                         
                         // Actions
@@ -312,19 +424,48 @@ struct RegisterCodebaseSheet: View {
                             GlassButton("Cancel", style: .secondary) {
                                 dismiss()
                             }
+                            .disabled(isLoading)
                             
-                            GlassButton("Register", icon: "plus", style: .primary) {
+                            GlassButton(
+                                isLoading ? "Registering..." : "Add Project",
+                                icon: isLoading ? nil : "plus",
+                                style: .primary
+                            ) {
                                 register()
                             }
-                            .disabled(name.isEmpty || path.isEmpty || isLoading)
+                            .disabled(!canSubmit)
                         }
                         .padding()
                     }
+                }
+                
+                // Loading overlay
+                if isLoading {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .overlay {
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .tint(.white)
+                                Text("Adding project...")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(24)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                        }
                 }
             }
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .alert("Finding Your Project Folder", isPresented: $showingHelp) {
+                Button("Got it", role: .cancel) { }
+            } message: {
+                Text("On Mac: Open Terminal, navigate to your project with 'cd', then type 'pwd' to see the full path.\n\nOn iOS: Use the path where your code is stored on the server running OpenCode.")
+            }
         }
     }
     
@@ -332,11 +473,14 @@ struct RegisterCodebaseSheet: View {
         isLoading = true
         errorMessage = nil
         
+        // Expand ~ to home directory path representation
+        let expandedPath = path.hasPrefix("~") ? path : path
+        
         Task {
             do {
                 try await viewModel.registerCodebase(
                     name: name,
-                    path: path,
+                    path: expandedPath,
                     description: description.isEmpty ? nil : description
                 )
                 dismiss()
@@ -358,15 +502,25 @@ struct TriggerAgentSheet: View {
     
     @State private var prompt = ""
     @State private var selectedAgent = "build"
-    @State private var selectedModel: String = ""
+    @State private var selectedModel: String = "claude-sonnet-4"
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showAdvancedOptions = false
     
+    // Agent types with clear descriptions
     let agentTypes = [
-        ("build", "Build", "Full access agent"),
-        ("plan", "Plan", "Read-only analysis"),
-        ("general", "General", "Multi-step tasks"),
-        ("explore", "Explore", "Codebase search")
+        ("build", "Build", "Make changes to your code"),
+        ("plan", "Plan", "Create a plan without making changes"),
+        ("general", "General", "Answer questions about your code"),
+        ("explore", "Explore", "Search and understand your codebase")
+    ]
+    
+    // Prompt templates for quick start
+    let promptTemplates = [
+        ("Fix the bug in...", "wrench.and.screwdriver"),
+        ("Add a new feature that...", "plus.circle"),
+        ("Explain how the... works", "questionmark.circle"),
+        ("Refactor the...", "arrow.triangle.2.circlepath")
     ]
     
     // Group models by provider
@@ -386,6 +540,13 @@ struct TriggerAgentSheet: View {
         }
     }
     
+    var selectedModelDisplay: String {
+        if let model = viewModel.availableModels.first(where: { $0.id == selectedModel }) {
+            return model.displayName
+        }
+        return selectedModel.isEmpty ? "Default" : selectedModel
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -399,72 +560,24 @@ struct TriggerAgentSheet: View {
                                 .font(.system(size: 50))
                                 .foregroundColor(Color.liquidGlass.primary)
                             
-                            Text("Trigger Agent")
+                            Text("Start AI Agent")
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundColor(Color.liquidGlass.textPrimary)
                             
-                            Text(codebase.name)
-                                .font(.subheadline)
-                                .foregroundColor(Color.liquidGlass.textSecondary)
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder.fill")
+                                    .font(.caption)
+                                Text(codebase.name)
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(Color.liquidGlass.textSecondary)
                         }
                         .padding(.top, 20)
                         
-                        // Model Selection
+                        // Agent Type Selection - First and prominent
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("AI Model")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(Color.liquidGlass.textSecondary)
-                            
-                            Menu {
-                                Button("Default") {
-                                    selectedModel = ""
-                                }
-                                
-                                ForEach(sortedProviders, id: \.self) { provider in
-                                    Section(provider) {
-                                        ForEach(modelsByProvider[provider] ?? [], id: \.id) { model in
-                                            Button {
-                                                selectedModel = model.id
-                                            } label: {
-                                                HStack {
-                                                    Image(systemName: model.providerIcon)
-                                                    Text(model.name)
-                                                    if model.custom == true {
-                                                        Text("Custom")
-                                                            .font(.caption2)
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    if let model = viewModel.availableModels.first(where: { $0.id == selectedModel }) {
-                                        Image(systemName: model.providerIcon)
-                                        Text(model.displayName)
-                                    } else {
-                                        Image(systemName: "cpu")
-                                        Text(selectedModel.isEmpty ? "Default Model" : selectedModel)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.caption)
-                                }
-                                .padding()
-                                .background(.ultraThinMaterial)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal)
-                        
-                        // Agent Type Selection
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Agent Type")
+                            Text("What do you want to do?")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(Color.liquidGlass.textSecondary)
@@ -484,19 +597,216 @@ struct TriggerAgentSheet: View {
                         }
                         .padding(.horizontal)
                         
-                        // Prompt
-                        GlassTextField(
-                            title: "Prompt",
-                            placeholder: "Enter your prompt for the AI agent...",
-                            text: $prompt,
-                            isMultiline: true
-                        )
+                        // Prompt Templates
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Quick Start")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color.liquidGlass.textSecondary)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(promptTemplates, id: \.0) { template in
+                                        Button {
+                                            prompt = template.0
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: template.1)
+                                                    .font(.caption)
+                                                Text(template.0)
+                                                    .font(.caption)
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                prompt == template.0
+                                                    ? Color.liquidGlass.primary.opacity(0.3)
+                                                    : Color.white.opacity(0.1)
+                                            )
+                                            .foregroundColor(
+                                                prompt == template.0
+                                                    ? Color.liquidGlass.primary
+                                                    : Color.liquidGlass.textSecondary
+                                            )
+                                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(
+                                                        prompt == template.0
+                                                            ? Color.liquidGlass.primary.opacity(0.5)
+                                                            : Color.white.opacity(0.2),
+                                                        lineWidth: 1
+                                                    )
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 1)
+                            }
+                        }
                         .padding(.horizontal)
                         
+                        // Prompt - Larger and more prominent
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Your Instructions")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Color.liquidGlass.textSecondary)
+                                
+                                Spacer()
+                                
+                                if !prompt.isEmpty {
+                                    Text("\(prompt.count) chars")
+                                        .font(.caption2)
+                                        .foregroundColor(Color.liquidGlass.textMuted)
+                                }
+                            }
+                            
+                            TextEditor(text: $prompt)
+                                .frame(minHeight: 140)
+                                .padding(12)
+                                .scrollContentBackground(.hidden)
+                                .background(Color.white.opacity(0.1))
+                                .foregroundColor(Color.liquidGlass.textPrimary)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                )
+                                .overlay(
+                                    Group {
+                                        if prompt.isEmpty {
+                                            Text("Describe what you want the AI to do...\n\nBe specific about which files, features, or bugs you're referring to.")
+                                                .foregroundColor(Color.liquidGlass.textMuted)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 20)
+                                        }
+                                    },
+                                    alignment: .topLeading
+                                )
+                        }
+                        .padding(.horizontal)
+                        
+                        // Advanced Options (collapsed by default)
+                        VStack(spacing: 12) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showAdvancedOptions.toggle()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "gearshape")
+                                        .font(.caption)
+                                    Text("Advanced Options")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Image(systemName: showAdvancedOptions ? "chevron.up" : "chevron.down")
+                                        .font(.caption)
+                                }
+                                .foregroundColor(Color.liquidGlass.textSecondary)
+                                .padding(.horizontal)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            if showAdvancedOptions {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Text("AI Model")
+                                            .font(.caption)
+                                            .foregroundColor(Color.liquidGlass.textMuted)
+                                        
+                                        Spacer()
+                                        
+                                        Text("Using: \(selectedModelDisplay)")
+                                            .font(.caption)
+                                            .foregroundColor(Color.liquidGlass.primary)
+                                    }
+                                    
+                                    Menu {
+                                        Button {
+                                            selectedModel = "claude-sonnet-4"
+                                        } label: {
+                                            HStack {
+                                                Text("Claude Sonnet 4")
+                                                if selectedModel == "claude-sonnet-4" {
+                                                    Image(systemName: "checkmark")
+                                                }
+                                            }
+                                        }
+                                        
+                                        Button {
+                                            selectedModel = ""
+                                        } label: {
+                                            HStack {
+                                                Text("Server Default")
+                                                if selectedModel.isEmpty {
+                                                    Image(systemName: "checkmark")
+                                                }
+                                            }
+                                        }
+                                        
+                                        Divider()
+                                        
+                                        ForEach(sortedProviders, id: \.self) { provider in
+                                            Section(provider) {
+                                                ForEach(modelsByProvider[provider] ?? [], id: \.id) { model in
+                                                    Button {
+                                                        selectedModel = model.id
+                                                    } label: {
+                                                        HStack {
+                                                            Image(systemName: model.providerIcon)
+                                                            Text(model.name)
+                                                            if model.custom == true {
+                                                                Text("Custom")
+                                                                    .font(.caption2)
+                                                                    .foregroundColor(.secondary)
+                                                            }
+                                                            if selectedModel == model.id {
+                                                                Image(systemName: "checkmark")
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        HStack {
+                                            if let model = viewModel.availableModels.first(where: { $0.id == selectedModel }) {
+                                                Image(systemName: model.providerIcon)
+                                                Text(model.displayName)
+                                            } else {
+                                                Image(systemName: "cpu")
+                                                Text(selectedModel.isEmpty ? "Server Default" : selectedModel)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.up.chevron.down")
+                                                .font(.caption)
+                                        }
+                                        .padding()
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                        
                         if let error = errorMessage {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(Color.liquidGlass.error)
+                            HStack(spacing: 8) {
+                                Image(systemName: "xmark.circle.fill")
+                                Text(error)
+                            }
+                            .font(.caption)
+                            .foregroundColor(Color.liquidGlass.error)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.liquidGlass.error.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .padding(.horizontal)
                         }
                         
                         // Actions
@@ -504,8 +814,13 @@ struct TriggerAgentSheet: View {
                             GlassButton("Cancel", style: .secondary) {
                                 dismiss()
                             }
+                            .disabled(isLoading)
                             
-                            GlassButton("Start Agent", icon: "bolt.fill", style: .primary) {
+                            GlassButton(
+                                isLoading ? "Starting..." : "Start Agent",
+                                icon: isLoading ? nil : "bolt.fill",
+                                style: .primary
+                            ) {
                                 trigger()
                             }
                             .disabled(prompt.isEmpty || isLoading)
@@ -513,14 +828,33 @@ struct TriggerAgentSheet: View {
                         .padding()
                     }
                 }
+                
+                // Loading overlay
+                if isLoading {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .overlay {
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .tint(.white)
+                                Text("Starting agent...")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(24)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                        }
+                }
             }
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .onAppear {
-                // Set default model
-                if selectedModel.isEmpty, let defaultModel = viewModel.defaultModel {
-                    selectedModel = defaultModel
+                // Set default model to claude-sonnet-4 if not already set
+                if selectedModel.isEmpty {
+                    selectedModel = "claude-sonnet-4"
                 }
             }
         }
@@ -560,7 +894,7 @@ struct AgentTypeButton: View {
         switch id {
         case "build": return "hammer.fill"
         case "plan": return "doc.text.magnifyingglass"
-        case "general": return "arrow.triangle.2.circlepath"
+        case "general": return "questionmark.bubble"
         case "explore": return "magnifyingglass"
         default: return "cpu"
         }
@@ -568,7 +902,7 @@ struct AgentTypeButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.title2)
                     .foregroundColor(isSelected ? .white : Color.liquidGlass.primary)
@@ -581,9 +915,14 @@ struct AgentTypeButton: View {
                 Text(subtitle)
                     .font(.caption2)
                     .foregroundColor(isSelected ? .white.opacity(0.8) : Color.liquidGlass.textMuted)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
             }
             .frame(maxWidth: .infinity)
-            .padding(16)
+            .frame(minHeight: 90)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(isSelected ? Color.liquidGlass.primary : Color.white.opacity(0.1))

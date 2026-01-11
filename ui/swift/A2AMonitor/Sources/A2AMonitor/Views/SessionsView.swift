@@ -127,8 +127,12 @@ struct SessionsView: View {
                 if viewModel.sessions.isEmpty {
                     EmptyStateView(
                         icon: "person.2",
-                        title: "No Active Sessions",
-                        message: selectedCodebaseId.isEmpty ? "Select a codebase to view sessions" : "No sessions found for this codebase"
+                        title: "No Sessions Found",
+                        message: selectedCodebaseId.isEmpty
+                            ? "Select a project from the dropdown above to view its agent sessions."
+                            : "This project has no recorded sessions yet. Sessions are created when you trigger an agent to work on your code. Go to the Agents tab to start one.",
+                        action: selectedCodebaseId.isEmpty ? nil : { viewModel.showingRegisterSheet = true },
+                        actionTitle: selectedCodebaseId.isEmpty ? nil : "Go to Agents"
                     )
                 } else {
                     ForEach(viewModel.sessions) { session in
@@ -243,8 +247,8 @@ struct SessionDetailView: View {
                         if viewModel.sessionMessages.isEmpty {
                             EmptyStateView(
                                 icon: "text.bubble",
-                                title: "No messages",
-                                message: "This session's messages may not be synced yet."
+                                title: "No Messages in Session",
+                                message: "This session doesn't have any messages yet. Type a message below to start a conversation with the agent, or wait for the agent to respond if it's currently working."
                             )
                             .padding(.top, 30)
                         } else {

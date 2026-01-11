@@ -56,8 +56,10 @@ struct MessagesView: View {
                     if viewModel.filteredMessages.isEmpty {
                         EmptyStateView(
                             icon: "bubble.left.and.bubble.right",
-                            title: "No Messages",
-                            message: "Agent conversations will appear here in real-time"
+                            title: viewModel.messageFilter == nil ? "No Messages Yet" : "No \(viewModel.messageFilter?.rawValue.capitalized ?? "") Messages",
+                            message: viewModel.messageFilter == nil
+                                ? "Messages from AI agent conversations will appear here in real-time. Connect a project folder and trigger an agent to see the conversation flow."
+                                : "No messages match this filter. Try selecting 'All' to see all message types, or trigger an agent to generate new activity."
                         )
                         .padding(.top, 60)
                     } else {

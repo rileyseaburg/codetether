@@ -99,8 +99,8 @@ struct AgentOutputView: View {
                     Spacer()
                     EmptyStateView(
                         icon: "terminal",
-                        title: "No Agent Selected",
-                        message: "Select an agent from the dropdown to view real-time output"
+                        title: "Select a Project",
+                        message: "Choose a project from the dropdown above to monitor its AI agent output. You'll see real-time logs, tool calls, and reasoning as the agent works."
                     )
                     Spacer()
                 }
@@ -110,8 +110,8 @@ struct AgentOutputView: View {
                     Spacer()
                     EmptyStateView(
                         icon: "text.cursor",
-                        title: "No Output Yet",
-                        message: "Trigger the agent to see logs, tool calls, and traces"
+                        title: "Waiting for Agent Activity",
+                        message: "This project's agent isn't running right now. Go to the Agents tab and tap the bolt icon to trigger an agent with a prompt. Output will stream here in real-time."
                     )
                     Spacer()
                 }

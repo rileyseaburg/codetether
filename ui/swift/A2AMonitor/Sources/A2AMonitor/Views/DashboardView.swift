@@ -3,6 +3,11 @@ import SwiftUI
 /// Main Dashboard View - Overview of all A2A Monitor activity
 struct DashboardView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
+    
+    // Quick Actions state
+    @State private var showingVoiceSelector = false
+    @State private var selectedVoice: VoiceOption?
+    @State private var showingVoiceChat = false
 
     var body: some View {
         ScrollView {
@@ -12,6 +17,11 @@ struct DashboardView: View {
 
                 // Stats Grid
                 statsGrid
+                
+                // Quick Actions - prominent for new users
+                if shouldShowQuickActions {
+                    quickActionsSection
+                }
 
                 // Main Content Grid
                 #if os(iOS)
@@ -110,6 +120,99 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Quick Actions
+    
+    /// Show quick actions when user has few codebases or little activity
+    var shouldShowQuickActions: Bool {
+        viewModel.codebases.count < 2 || viewModel.messages.isEmpty
+    }
+    
+    var quickActionsSection: some View {
+        GlassCard(cornerRadius: 20, padding: 20) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(Color.liquidGlass.accent)
+                    Text("Quick Actions")
+                        .font(.headline)
+                        .foregroundColor(Color.liquidGlass.textPrimary)
+                    
+                    Spacer()
+                    
+                    Text("Get Started")
+                        .font(.caption)
+                        .foregroundColor(Color.liquidGlass.textMuted)
+                }
+                
+                if viewModel.codebases.isEmpty {
+                    // No codebases - guide user to connect first project
+                    QuickActionRow(
+                        icon: "plus.circle.fill",
+                        title: "Connect Your First Project",
+                        description: "Add a code folder to start monitoring AI agents",
+                        action: { viewModel.showingRegisterSheet = true }
+                    )
+                } else {
+                    // Has codebases - show action options
+                    QuickActionRow(
+                        icon: "play.circle.fill",
+                        title: "Start an AI Agent",
+                        description: "Trigger an agent to work on your code",
+                        action: {
+                            if let first = viewModel.codebases.first {
+                                viewModel.selectedCodebase = first
+                                viewModel.showingTriggerSheet = true
+                            }
+                        }
+                    )
+                    
+                    QuickActionRow(
+                        icon: "mic.circle.fill",
+                        title: "Voice Command",
+                        description: "Talk to your AI agent directly",
+                        action: { showingVoiceSelector = true }
+                    )
+                    
+                    if viewModel.codebases.count == 1 {
+                        QuickActionRow(
+                            icon: "folder.badge.plus",
+                            title: "Add Another Project",
+                            description: "Monitor multiple codebases simultaneously",
+                            action: { viewModel.showingRegisterSheet = true }
+                        )
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingVoiceSelector) {
+            VoiceSelectorSheet(
+                voices: defaultVoices,
+                selectedVoice: $selectedVoice,
+                onDismiss: {
+                    showingVoiceSelector = false
+                    if selectedVoice != nil {
+                        showingVoiceChat = true
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showingVoiceChat) {
+            if let voice = selectedVoice, let codebase = viewModel.codebases.first {
+                VoiceChatView(codebaseId: codebase.id, sessionId: nil, voice: voice)
+            }
+        }
+    }
+    
+    /// Default voice options for quick start
+    private var defaultVoices: [VoiceOption] {
+        [
+            VoiceOption(id: "alloy", name: "Alloy", description: "Neutral and balanced", provider: "OpenAI", model: "tts-1", language: "en"),
+            VoiceOption(id: "echo", name: "Echo", description: "Clear and articulate", provider: "OpenAI", model: "tts-1", language: "en"),
+            VoiceOption(id: "nova", name: "Nova", description: "Warm and friendly", provider: "OpenAI", model: "tts-1", language: "en"),
+            VoiceOption(id: "shimmer", name: "Shimmer", description: "Expressive and dynamic", provider: "OpenAI", model: "tts-1", language: "en")
+        ]
+    }
+
     // MARK: - Stats Grid
 
     var statsGrid: some View {
@@ -172,11 +275,11 @@ struct DashboardView: View {
 
                 if viewModel.codebases.isEmpty {
                     EmptyStateView(
-                        icon: "folder",
-                        title: "No Codebases",
-                        message: "Register a codebase to start monitoring",
+                        icon: "folder.badge.plus",
+                        title: "No Projects Connected",
+                        message: "Connect a folder containing your code project to start monitoring AI agent activity. Once connected, you'll see agents working in real-time.",
                         action: { viewModel.showingRegisterSheet = true },
-                        actionTitle: "Register Codebase"
+                        actionTitle: "Connect Project Folder"
                     )
                 } else {
                     ForEach(viewModel.codebases) { codebase in
@@ -214,8 +317,10 @@ struct DashboardView: View {
                 if viewModel.messages.isEmpty {
                     EmptyStateView(
                         icon: "bubble.left.and.bubble.right",
-                        title: "No Messages",
-                        message: "Agent conversations will appear here"
+                        title: "No Conversations Yet",
+                        message: "When you trigger an AI agent to work on your code, the conversation will appear here. Start by connecting a project folder and triggering an agent.",
+                        action: { viewModel.showingRegisterSheet = true },
+                        actionTitle: "Get Started"
                     )
                 } else {
                     ForEach(viewModel.messages.prefix(5)) { message in
@@ -255,8 +360,8 @@ struct DashboardView: View {
                 if viewModel.tasks.isEmpty {
                     EmptyStateView(
                         icon: "checklist",
-                        title: "No Tasks",
-                        message: "Create a task to assign work to an agent"
+                        title: "Task Queue Empty",
+                        message: "Tasks let you queue up work for AI agents to complete. Create a task describing what you want built, and an agent will pick it up."
                     )
                 } else {
                     ForEach(viewModel.tasks.filter { $0.status == .pending || $0.status == .working }.prefix(5)) { task in
@@ -416,6 +521,45 @@ struct TaskRow: View {
         .padding(10)
         .background(Color.white.opacity(0.03))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// MARK: - Quick Action Row
+
+struct QuickActionRow: View {
+    let icon: String
+    let title: String
+    let description: String
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.title)
+                    .foregroundColor(Color.liquidGlass.primary)
+                    .frame(width: 44)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.liquidGlass.textPrimary)
+                    Text(description)
+                        .font(.caption)
+                        .foregroundColor(Color.liquidGlass.textSecondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .foregroundColor(Color.liquidGlass.textSecondary)
+            }
+            .padding()
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
     }
 }
 

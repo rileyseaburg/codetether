@@ -63,10 +63,12 @@ struct TasksView: View {
                     if viewModel.filteredTasks.isEmpty {
                         EmptyStateView(
                             icon: "checklist",
-                            title: "No Tasks",
-                            message: "Create a task to assign work to an agent",
+                            title: viewModel.taskFilter == nil ? "No Tasks in Queue" : "No \(viewModel.taskFilter?.rawValue.capitalized ?? "") Tasks",
+                            message: viewModel.taskFilter == nil
+                                ? "Tasks let you describe work for AI agents to complete. Create a task with a title and description, then an agent will pick it up and start working."
+                                : "There are no tasks with this status. Try selecting a different filter or create a new task.",
                             action: { showingCreateSheet = true },
-                            actionTitle: "Create Task"
+                            actionTitle: "Create New Task"
                         )
                         .padding(.top, 60)
                     } else {
