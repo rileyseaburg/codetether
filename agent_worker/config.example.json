@@ -19,5 +19,11 @@
         "build",
         "deploy",
         "test"
-    ]
+    ],
+    "_comment_email": "Email notification settings (optional)",
+    "sendgrid_api_key": null,
+    "sendgrid_from_email": "noreply@yourdomain.com",
+    "notification_email": "you@example.com",
+    "email_inbound_domain": "inbound.codetether.run",
+    "email_reply_prefix": "task"
 }

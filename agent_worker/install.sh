@@ -171,6 +171,16 @@ XDG_STATE_HOME=/opt/a2a-worker/.local/state
 # LLM credentials (required for OpenCode agents). Provide via environment variables.
 # The default example OpenCode config often uses Anthropic (including Azure AI Foundry Anthropic endpoints).
 # ANTHROPIC_API_KEY=your_key_here
+
+# Email notifications (optional) - get SendGrid API key from https://app.sendgrid.com
+# SENDGRID_API_KEY=SG.xxx
+# SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+# NOTIFICATION_EMAIL=you@example.com
+
+# Email reply configuration - allows users to reply to task emails to continue conversations
+# Requires SendGrid Inbound Parse configured to forward to your server's /v1/email/inbound
+EMAIL_INBOUND_DOMAIN=inbound.codetether.run
+EMAIL_REPLY_PREFIX=task
 EOF
     chmod 600 "$CONFIG_DIR/env"
 fi
