@@ -35,7 +35,7 @@ struct SettingsView: View {
         .background(Color.clear)
         .navigationTitle("Settings")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayModeLarge()
         #endif
         .alert("Sign Out", isPresented: $showingLogoutConfirmation) {
             Button("Cancel", role: .cancel) { }

@@ -59,7 +59,7 @@ struct VoiceSelectorSheet: View {
             }
             .navigationTitle("Select Voice")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

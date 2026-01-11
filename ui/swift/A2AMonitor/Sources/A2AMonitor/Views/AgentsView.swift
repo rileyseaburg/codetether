@@ -459,7 +459,7 @@ struct RegisterCodebaseSheet: View {
                 }
             }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             #endif
             .alert("Finding Your Project Folder", isPresented: $showingHelp) {
                 Button("Got it", role: .cancel) { }
@@ -849,7 +849,7 @@ struct TriggerAgentSheet: View {
                 }
             }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             #endif
             .onAppear {
                 // Set default model to claude-sonnet-4 if not already set

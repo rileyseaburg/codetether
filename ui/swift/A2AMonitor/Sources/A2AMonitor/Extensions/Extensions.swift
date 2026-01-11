@@ -204,6 +204,62 @@ extension View {
 
 // MARK: - Haptic Feedback
 
+// MARK: - Platform-Safe View Modifiers
+
+extension View {
+    /// Platform-safe navigation bar title display mode
+    @ViewBuilder
+    func navigationBarTitleDisplayModeInline() -> some View {
+        #if os(iOS)
+        self.navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
+    
+    /// Platform-safe navigation bar title display mode (large)
+    @ViewBuilder
+    func navigationBarTitleDisplayModeLarge() -> some View {
+        #if os(iOS)
+        self.navigationBarTitleDisplayMode(.large)
+        #else
+        self
+        #endif
+    }
+    
+    /// Platform-safe full screen cover
+    @ViewBuilder
+    func fullScreenCoverCompat<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
+        #if os(iOS)
+        self.fullScreenCover(isPresented: isPresented, content: content)
+        #else
+        self.sheet(isPresented: isPresented, content: content)
+        #endif
+    }
+}
+
+// MARK: - Platform-Safe Toolbar Placement
+
+extension ToolbarItemPlacement {
+    static var navigationBarTrailingCompat: ToolbarItemPlacement {
+        #if os(iOS)
+        return .navigationBarTrailing
+        #else
+        return .automatic
+        #endif
+    }
+    
+    static var navigationBarLeadingCompat: ToolbarItemPlacement {
+        #if os(iOS)
+        return .navigationBarLeading
+        #else
+        return .automatic
+        #endif
+    }
+}
+
+// MARK: - Haptic Feedback
+
 #if os(iOS)
 import UIKit
 

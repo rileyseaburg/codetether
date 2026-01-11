@@ -52,9 +52,9 @@ struct AgentProgressView: View {
             }
         }
         .navigationTitle("Agent Working")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayModeInline()
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailingCompat) {
                 HStack(spacing: 12) {
                     // Pause/Resume button
                     Button {
@@ -789,7 +789,7 @@ struct VoiceInterruptSheet: View {
                 }
                 .padding(24)
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -879,7 +879,7 @@ struct AgentChangesView: View {
             .padding()
         }
         .navigationTitle("Changes")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayModeInline()
     }
 }
 
@@ -913,7 +913,7 @@ struct AgentOutputDetailView: View {
             }
         }
         .navigationTitle("Agent Output")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayModeInline()
     }
 }
 

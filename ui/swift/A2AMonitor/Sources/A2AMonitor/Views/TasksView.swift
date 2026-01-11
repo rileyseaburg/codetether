@@ -363,7 +363,7 @@ struct CreateTaskSheet: View {
                 }
             }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             #endif
         }
     }

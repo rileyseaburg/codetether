@@ -90,7 +90,7 @@ struct VoiceChatView: View {
             }
             .padding()
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

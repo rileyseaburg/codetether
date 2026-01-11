@@ -101,7 +101,7 @@ struct ContentView: View {
                 }
                 .tint(.cyan) // Tab bar tint color
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItem(placement: .navigationBarTrailingCompat) {
                         UserProfileButton()
                     }
                 }

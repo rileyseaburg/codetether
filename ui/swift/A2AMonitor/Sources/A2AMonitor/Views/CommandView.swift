@@ -40,7 +40,7 @@ struct CommandView: View {
             .padding()
         }
         // Full screen voice overlay when recording
-        .fullScreenCover(isPresented: $isRecording) {
+        .fullScreenCoverCompat(isPresented: $isRecording) {
             VoiceRecordingView(
                 isRecording: $isRecording,
                 transcription: $transcription,
@@ -315,7 +315,7 @@ struct EnvironmentPickerSheet: View {
                 }
             }
             .navigationTitle("Select Project")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
