@@ -1541,7 +1541,37 @@
                 case 'text':
                 case 'part.text':
                     const text = getTextContent(part) || getTextContent(event);
-                    if (text) addOutput('text', text);
+                    if (text) {
+                        // Check if text is pure JSON that should be processed as an event
+                        if (text.startsWith('{') && text.includes('"type"')) {
+                            try {
+                                const embedded = JSON.parse(text);
+                                if (embedded.type && embedded.type !== 'text') {
+                                    processEvent(embedded);
+                                    break;
+                                }
+                            } catch {
+                                // Not valid JSON, continue to display as text
+                            }
+                        }
+                        // Check for concatenated content with embedded JSON
+                        const jsonStartIdx = text.indexOf('{"type":');
+                        if (jsonStartIdx > 0) {
+                            // Has text before JSON - output the text part
+                            const textPart = text.substring(0, jsonStartIdx).trim();
+                            if (textPart) addOutput('text', textPart);
+                            // Try to process the JSON part
+                            const jsonPart = text.substring(jsonStartIdx);
+                            try {
+                                const embedded = JSON.parse(jsonPart);
+                                if (embedded.type) processEvent(embedded);
+                            } catch {
+                                // Invalid JSON, skip the raw JSON display
+                            }
+                        } else {
+                            addOutput('text', text);
+                        }
+                    }
                     break;
                 case 'tool_use':
                 case 'part.tool':
