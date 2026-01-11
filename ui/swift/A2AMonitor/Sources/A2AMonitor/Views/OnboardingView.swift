@@ -75,7 +75,9 @@ struct OnboardingView: View {
                             .tag(index)
                     }
                 }
+                #if os(iOS)
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                #endif
                 .animation(.easeInOut(duration: 0.3), value: currentPage)
                 
                 // Bottom section
