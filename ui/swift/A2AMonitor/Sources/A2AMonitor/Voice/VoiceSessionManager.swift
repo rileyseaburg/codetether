@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import LiveKit
+import AVFoundation
 
 enum AgentState: String, Codable {
     case idle = "idle"
@@ -111,6 +112,33 @@ class VoiceSessionManager: ObservableObject {
     ) async throws {
         error = nil
         currentVoice = voice
+
+        // Check microphone permission
+        let status = AVAudioSession.sharedInstance().recordPermission
+        switch status {
+        case .undetermined:
+            let granted = await withCheckedContinuation { continuation in
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+            if !granted { throw VoiceError.microphonePermissionDenied }
+        case .denied:
+            throw VoiceError.microphonePermissionDenied
+        case .granted:
+            break
+        @unknown default:
+            break
+        }
+
+        // Configure audio session
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
+            try audioSession.setActive(true)
+        } catch {
+            throw VoiceError.audioSessionFailed
+        }
 
         let request = CreateSessionRequest(
             codebaseId: codebaseId,
@@ -257,6 +285,9 @@ class VoiceSessionManager: ObservableObject {
 
     private func startStateUpdates(roomName: String) {
         stateUpdateTask = Task {
+            var retryCount = 0
+            let maxRetries = 3
+            
             while !Task.isCancelled {
                 do {
                     let url = baseURL.appendingPathComponent("/v1/voice/sessions/\(roomName)/state")
@@ -274,8 +305,19 @@ class VoiceSessionManager: ObservableObject {
                             self.agentState = state
                         }
                     }
+                    retryCount = 0 // Reset on success
                 } catch {
-                    break
+                    retryCount += 1
+                    if retryCount >= maxRetries {
+                        await MainActor.run {
+                            self.error = "Lost connection to voice session"
+                            self.agentState = .error
+                        }
+                        break
+                    }
+                    // Wait longer before retry
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    continue
                 }
 
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -298,12 +340,16 @@ extension VoiceSessionManager: RoomDelegate {
 }
 
 enum VoiceError: LocalizedError {
+    case microphonePermissionDenied
+    case audioSessionFailed
     case sessionCreationFailed
     case connectionFailed
     case reconnectionFailed
 
     var errorDescription: String? {
         switch self {
+        case .microphonePermissionDenied: return "Microphone access denied. Please enable in Settings."
+        case .audioSessionFailed: return "Failed to configure audio session."
         case .sessionCreationFailed: return "Failed to create voice session"
         case .connectionFailed: return "Failed to connect to voice service"
         case .reconnectionFailed: return "Failed to reconnect to voice session"

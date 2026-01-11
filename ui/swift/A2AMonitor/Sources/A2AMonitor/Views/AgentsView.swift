@@ -4,15 +4,40 @@ import SwiftUI
 struct AgentsView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @State private var searchText = ""
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var isPerformingAction = false
+    @State private var showingDeleteConfirmation = false
+    @State private var codebaseToDelete: Codebase?
+    
+    @State private var selectedFilter: AgentStatus?
     
     var filteredCodebases: [Codebase] {
-        if searchText.isEmpty {
-            return viewModel.codebases
+        var result = viewModel.codebases
+        
+        // Apply status filter
+        if let filter = selectedFilter {
+            result = result.filter { codebase in
+                switch filter {
+                case .running: return codebase.status == .running
+                case .idle: return codebase.status == .idle
+                case .error: return codebase.status == .error
+                case .busy: return codebase.status == .busy
+                case .watching: return codebase.status == .watching
+                case .stopped: return codebase.status == .stopped
+                }
+            }
         }
-        return viewModel.codebases.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText) ||
-            $0.path.localizedCaseInsensitiveContains(searchText)
+        
+        // Apply search filter
+        if !searchText.isEmpty {
+            result = result.filter { 
+                $0.name.localizedCaseInsensitiveContains(searchText) ||
+                $0.path.localizedCaseInsensitiveContains(searchText)
+            }
         }
+        
+        return result
     }
     
     var body: some View {
@@ -54,17 +79,23 @@ struct AgentsView: View {
                                 },
                                 onWatch: {
                                     Task {
-                                        if codebase.status == .watching {
-                                            try? await viewModel.stopWatchMode(codebase)
-                                        } else {
-                                            try? await viewModel.startWatchMode(codebase)
+                                        isPerformingAction = true
+                                        do {
+                                            if codebase.status == .watching {
+                                                try await viewModel.stopWatchMode(codebase)
+                                            } else {
+                                                try await viewModel.startWatchMode(codebase)
+                                            }
+                                        } catch {
+                                            errorMessage = error.localizedDescription
+                                            showingError = true
                                         }
+                                        isPerformingAction = false
                                     }
                                 },
                                 onDelete: {
-                                    Task {
-                                        try? await viewModel.unregisterCodebase(codebase)
-                                    }
+                                    codebaseToDelete = codebase
+                                    showingDeleteConfirmation = true
                                 }
                             )
                         }
@@ -72,6 +103,9 @@ struct AgentsView: View {
                 }
             }
             .padding(20)
+        }
+        .refreshable {
+            await viewModel.refreshData()
         }
         .background(Color.clear)
         .navigationTitle("Agents")
@@ -92,6 +126,38 @@ struct AgentsView: View {
         .sheet(isPresented: $viewModel.showingTriggerSheet) {
             if let codebase = viewModel.selectedCodebase {
                 TriggerAgentSheet(codebase: codebase)
+            }
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "An unknown error occurred")
+        }
+        .confirmationDialog("Delete Codebase", isPresented: $showingDeleteConfirmation, presenting: codebaseToDelete) { codebase in
+            Button("Delete", role: .destructive) {
+                Task {
+                    isPerformingAction = true
+                    do {
+                        try await viewModel.unregisterCodebase(codebase)
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        showingError = true
+                    }
+                    isPerformingAction = false
+                }
+            }
+        } message: { codebase in
+            Text("Are you sure you want to delete \"\(codebase.name)\"? This cannot be undone.")
+        }
+        .overlay {
+            if isPerformingAction {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                    }
             }
         }
     }
@@ -161,8 +227,6 @@ struct AgentsView: View {
     }
     
     // MARK: - Filter Chips
-    
-    @State private var selectedFilter: AgentStatus?
     
     var filterChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {

@@ -10,6 +10,7 @@ struct VoiceButton: View {
     @State private var selectedVoice: VoiceOption?
     @State private var voices: [VoiceOption] = []
     @State private var isLoading = false
+    @StateObject private var voiceManager = VoiceSessionManager()
 
     enum VoiceMode {
         case voice
@@ -75,8 +76,7 @@ struct VoiceButton: View {
         isLoading = true
 
         Task {
-            let manager = VoiceSessionManager()
-            let fetchedVoices = await manager.fetchVoices()
+            let fetchedVoices = await voiceManager.fetchVoices()
             voices = fetchedVoices
             isLoading = false
         }

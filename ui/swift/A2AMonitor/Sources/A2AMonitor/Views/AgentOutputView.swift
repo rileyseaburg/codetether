@@ -4,6 +4,10 @@ import SwiftUI
 struct AgentOutputView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @State private var isScrolledToBottom = true
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var showingExportConfirmation = false
+    @State private var isInterrupting = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -70,6 +74,7 @@ struct AgentOutputView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(viewModel.selectedCodebaseForOutput == nil)
+                        .accessibilityLabel("Clear output")
                         
                         // Export
                         Button {
@@ -80,6 +85,7 @@ struct AgentOutputView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(viewModel.currentOutput.isEmpty)
+                        .accessibilityLabel("Export output")
                     }
                 }
             }
@@ -140,6 +146,16 @@ struct AgentOutputView: View {
         }
         .background(Color.clear)
         .navigationTitle("Agent Output")
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "An unknown error occurred")
+        }
+        .alert("Exported", isPresented: $showingExportConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Output copied to clipboard as JSON")
+        }
     }
     
     // MARK: - Bottom Stats Bar
@@ -197,17 +213,30 @@ struct AgentOutputView: View {
             if codebase.status == .busy || codebase.status == .running {
                 Button {
                     Task {
-                        try? await viewModel.interruptAgent(codebase)
+                        isInterrupting = true
+                        do {
+                            try await viewModel.interruptAgent(codebase)
+                        } catch {
+                            errorMessage = error.localizedDescription
+                            showingError = true
+                        }
+                        isInterrupting = false
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "stop.fill")
-                        Text("Interrupt")
+                        if isInterrupting {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "stop.fill")
+                        }
+                        Text(isInterrupting ? "Interrupting..." : "Interrupt")
                     }
                     .font(.caption)
                     .foregroundColor(Color.liquidGlass.error)
                 }
                 .buttonStyle(.plain)
+                .disabled(isInterrupting)
             }
         }
         .padding(.horizontal, 16)
@@ -236,8 +265,13 @@ struct AgentOutputView: View {
             ]
         }
         
-        if let jsonData = try? JSONSerialization.data(withJSONObject: exportData, options: .prettyPrinted),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: exportData, options: .prettyPrinted)
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+                errorMessage = "Failed to convert export data to string"
+                showingError = true
+                return
+            }
             #if os(macOS)
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
@@ -245,6 +279,10 @@ struct AgentOutputView: View {
             #else
             UIPasteboard.general.string = jsonString
             #endif
+            showingExportConfirmation = true
+        } catch {
+            errorMessage = "Failed to export: \(error.localizedDescription)"
+            showingError = true
         }
     }
 }

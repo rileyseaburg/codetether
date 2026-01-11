@@ -10,11 +10,41 @@ struct Agent: Identifiable, Codable, Hashable {
     var url: String?
     var messagesCount: Int
     var lastSeen: Date?
+    var capabilities: AgentCapabilities?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, status, description, url
+        case id, name, status, description, url, capabilities
         case messagesCount = "messages_count"
         case lastSeen = "last_seen"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        status = try container.decodeIfPresent(AgentStatus.self, forKey: .status) ?? .unknown
+        capabilities = try container.decodeIfPresent(AgentCapabilities.self, forKey: .capabilities)
+        messagesCount = try container.decodeIfPresent(Int.self, forKey: .messagesCount) ?? 0
+
+        // Handle date with multiple format fallbacks
+        if let dateString = try container.decodeIfPresent(String.self, forKey: .lastSeen) {
+            lastSeen = ISO8601DateFormatter().date(from: dateString)
+                ?? DateFormatter.iso8601Full.date(from: dateString)
+        } else {
+            lastSeen = nil
+        }
+    }
+}
+
+struct AgentCapabilities: Codable, Hashable {
+    let streaming: Bool?
+    let pushNotifications: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case streaming
+        case pushNotifications = "push_notifications"
     }
 }
 
@@ -296,6 +326,10 @@ enum TaskPriority: Int, Codable, CaseIterable {
 
 // MARK: - Agent Output Models
 
+/// OutputEntry represents a single output item from an agent.
+/// Note: This struct is intentionally not Codable because it's used for local UI state
+/// and contains computed/transient properties like `isStreaming`. If persistence is needed,
+/// create a separate CodableOutputEntry struct for serialization.
 struct OutputEntry: Identifiable, Hashable {
     let id: String
     let timestamp: Date
@@ -412,6 +446,10 @@ struct MonitorStats {
 
     mutating func addResponseTime(_ time: Double) {
         responseTimes.append(time)
+        // Keep only last 100 measurements to prevent memory leak
+        if responseTimes.count > 100 {
+            responseTimes.removeFirst(responseTimes.count - 100)
+        }
         averageResponseTime = responseTimes.reduce(0, +) / Double(responseTimes.count)
     }
 }
@@ -540,7 +578,17 @@ struct AnyCodable: Codable, Hashable {
     }
 
     static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
-        String(describing: lhs.value) == String(describing: rhs.value)
+        // Use type-specific comparison for common types
+        switch (lhs.value, rhs.value) {
+        case let (l as String, r as String): return l == r
+        case let (l as Int, r as Int): return l == r
+        case let (l as Double, r as Double): return l == r
+        case let (l as Bool, r as Bool): return l == r
+        case (is NSNull, is NSNull): return true
+        default:
+            // Fallback to string comparison for complex types
+            return String(describing: lhs.value) == String(describing: rhs.value)
+        }
     }
 
     func hash(into hasher: inout Hasher) {
@@ -638,7 +686,7 @@ struct SessionMessageInfo: Codable, Hashable {
     let content: AnyCodable?
 }
 
-struct SessionMessage: Codable, Identifiable {
+struct SessionMessage: Codable, Identifiable, Hashable {
     let id: String?
     let sessionID: String?
     let role: String?
@@ -698,14 +746,22 @@ struct SessionMessage: Codable, Identifiable {
         }
         return ""
     }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(stableId)
+    }
+
+    static func == (lhs: SessionMessage, rhs: SessionMessage) -> Bool {
+        lhs.stableId == rhs.stableId
+    }
 }
 
-struct MessageTime: Codable {
+struct MessageTime: Codable, Hashable {
     let created: String?
     let completed: String?
 }
 
-struct MessagePart: Codable, Identifiable {
+struct MessagePart: Codable, Identifiable, Hashable {
     let id: String?
     let type: String
     let text: String?
@@ -719,14 +775,30 @@ struct MessagePart: Codable, Identifiable {
     var stableId: String {
         id ?? identifier
     }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(stableId)
+    }
+
+    static func == (lhs: MessagePart, rhs: MessagePart) -> Bool {
+        lhs.stableId == rhs.stableId
+    }
 }
 
-struct ToolState: Codable {
+struct ToolState: Codable, Identifiable, Hashable {
+    let toolName: String?
     let status: String?
     let input: String?
     let output: String?
     let title: String?
     let error: String?
+
+    var id: String { toolName ?? UUID().uuidString }
+
+    enum CodingKeys: String, CodingKey {
+        case toolName = "tool_name"
+        case status, input, output, title, error
+    }
 }
 
 // MARK: - Agent Status Response

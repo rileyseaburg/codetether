@@ -30,6 +30,7 @@ class AuthService: ObservableObject {
     private var session: URLSession
     private var refreshTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    private var isRefreshing = false
 
     // Keychain keys
     private let accessTokenKey = "a2a_access_token"
@@ -185,6 +186,11 @@ class AuthService: ObservableObject {
 
     /// Refresh the access token
     func refreshAccessToken() async throws {
+        // Prevent concurrent refresh attempts
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         guard let refresh = refreshToken else {
             throw AuthError.noRefreshToken
         }
@@ -415,7 +421,10 @@ class AuthService: ObservableObject {
 
     /// Check if token needs refresh (within 60 seconds of expiry)
     var needsRefresh: Bool {
-        guard let expires = tokenExpiresAt else { return true }
+        guard let expires = tokenExpiresAt else {
+            // If we have a token but no expiry, assume it needs refresh
+            return accessToken != nil
+        }
         return Date().addingTimeInterval(60) >= expires
     }
 
@@ -433,12 +442,28 @@ class AuthService: ObservableObject {
 
             guard !Task.isCancelled else { return }
 
-            do {
-                try await refreshAccessToken()
-            } catch {
-                print("Token refresh failed: \(error)")
-                await logout()
+            var retryCount = 0
+            let maxRetries = 3
+
+            while retryCount < maxRetries {
+                do {
+                    try await refreshAccessToken()
+                    return // Success, exit
+                } catch {
+                    retryCount += 1
+                    print("Token refresh attempt \(retryCount) failed: \(error)")
+
+                    if retryCount < maxRetries {
+                        // Exponential backoff: 2s, 4s, 8s
+                        let backoffDelay = pow(2.0, Double(retryCount))
+                        try? await Task.sleep(nanoseconds: UInt64(backoffDelay * 1_000_000_000))
+                    }
+                }
             }
+
+            // Only logout after all retries exhausted
+            print("Token refresh failed after \(maxRetries) attempts, logging out")
+            await logout()
         }
     }
 
@@ -475,17 +500,33 @@ class AuthService: ObservableObject {
         accessToken = access
         refreshToken = refresh
 
-        // Try to refresh the token to verify it's still valid
-        do {
-            try await refreshAccessToken()
-            isAuthenticated = true
-            await loadSyncState()
-        } catch {
-            // Session expired, clear everything
-            clearKeychain()
-            accessToken = nil
-            refreshToken = nil
+        // Try to refresh the token to verify it's still valid with retries
+        var retryCount = 0
+        let maxRetries = 3
+
+        while retryCount < maxRetries {
+            do {
+                try await refreshAccessToken()
+                isAuthenticated = true
+                await loadSyncState()
+                return // Success, exit
+            } catch {
+                retryCount += 1
+                print("Session restore attempt \(retryCount) failed: \(error)")
+
+                if retryCount < maxRetries {
+                    // Exponential backoff: 2s, 4s, 8s
+                    let backoffDelay = pow(2.0, Double(retryCount))
+                    try? await Task.sleep(nanoseconds: UInt64(backoffDelay * 1_000_000_000))
+                }
+            }
         }
+
+        // Only clear after all retries exhausted
+        print("Session restore failed after \(maxRetries) attempts, clearing keychain")
+        clearKeychain()
+        accessToken = nil
+        refreshToken = nil
     }
 }
 
@@ -520,8 +561,12 @@ enum AuthError: LocalizedError {
 // MARK: - Keychain Helper
 
 struct KeychainHelper {
-    static func save(key: String, value: String) {
-        guard let data = value.data(using: .utf8) else { return }
+    @discardableResult
+    static func save(key: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else {
+            print("Keychain save failed for \(key): unable to encode value")
+            return false
+        }
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -529,8 +574,17 @@ struct KeychainHelper {
             kSecValueData as String: data
         ]
 
-        SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            print("Keychain delete failed for \(key): \(deleteStatus)")
+        }
+
+        let addStatus = SecItemAdd(query as CFDictionary, nil)
+        if addStatus != errSecSuccess {
+            print("Keychain save failed for \(key): \(addStatus)")
+            return false
+        }
+        return true
     }
 
     static func load(key: String) -> String? {
@@ -553,12 +607,18 @@ struct KeychainHelper {
         return value
     }
 
-    static func delete(key: String) {
+    @discardableResult
+    static func delete(key: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key
         ]
 
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            print("Keychain delete failed for \(key): \(status)")
+            return false
+        }
+        return true
     }
 }

@@ -101,13 +101,42 @@ class MonitorViewModel: ObservableObject {
                 self?.updateAgentStatus(agent)
             }
         }
+
+        client.onError = { [weak self] error in
+            Task { @MainActor in
+                self?.connectionError = error.localizedDescription
+                self?.isConnected = false
+            }
+        }
+
+        client.onDisconnect = { [weak self] in
+            Task { @MainActor in
+                self?.isConnected = false
+            }
+        }
+
+        // Observe client's isConnected state
+        client.$isConnected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] connected in
+                self?.isConnected = connected
+            }
+            .store(in: &cancellables)
+
+        // Observe client's connectionError state
+        client.$connectionError
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.connectionError = error
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Connection
 
     func connect() {
         client.connectToMonitorStream()
-        isConnected = true
+        // Don't set isConnected here - let it be driven by client state via Combine
 
         // Initial data load
         Task {
@@ -120,7 +149,7 @@ class MonitorViewModel: ObservableObject {
 
     func disconnect() {
         client.disconnectStream()
-        isConnected = false
+        // isConnected will be updated via Combine subscription
         stopRefreshTimer()
     }
 
