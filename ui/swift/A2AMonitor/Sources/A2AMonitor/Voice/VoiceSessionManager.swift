@@ -113,7 +113,8 @@ class VoiceSessionManager: ObservableObject {
         error = nil
         currentVoice = voice
 
-        // Check microphone permission
+        #if os(iOS)
+        // Check microphone permission (iOS only)
         let status = AVAudioSession.sharedInstance().recordPermission
         switch status {
         case .undetermined:
@@ -131,7 +132,7 @@ class VoiceSessionManager: ObservableObject {
             break
         }
 
-        // Configure audio session
+        // Configure audio session (iOS only)
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
@@ -139,6 +140,7 @@ class VoiceSessionManager: ObservableObject {
         } catch {
             throw VoiceError.audioSessionFailed
         }
+        #endif
 
         let request = CreateSessionRequest(
             codebaseId: codebaseId,

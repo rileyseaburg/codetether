@@ -25,6 +25,8 @@ struct AgentsView: View {
                 case .busy: return codebase.status == .busy
                 case .watching: return codebase.status == .watching
                 case .stopped: return codebase.status == .stopped
+                case .disconnected: return codebase.status == .disconnected
+                case .unknown: return codebase.status == .unknown
                 }
             }
         }
