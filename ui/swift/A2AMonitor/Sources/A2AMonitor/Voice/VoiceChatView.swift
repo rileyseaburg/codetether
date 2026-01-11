@@ -4,7 +4,8 @@ import LiveKit
 struct VoiceChatView: View {
     @StateObject private var sessionManager: VoiceSessionManager
     @Environment(\.dismiss) private var dismiss
-    @State private var isMuted = false
+    @State private var showError = false
+    @State private var errorMessage = ""
 
     init(codebaseId: String, sessionId: String?, voice: VoiceOption) {
         _sessionManager = StateObject(wrappedValue: VoiceSessionManager())
@@ -59,16 +60,15 @@ struct VoiceChatView: View {
 
                 Spacer()
 
-                HStack(spacing: 40) {
+                    HStack(spacing: 40) {
                     Button {
                         Task {
                             await sessionManager.toggleMute()
-                            isMuted = sessionManager.isMuted
                         }
                     } label: {
-                        Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
+                        Image(systemName: sessionManager.isMuted ? "mic.slash.fill" : "mic.fill")
                             .font(.title)
-                            .foregroundStyle(isMuted ? .red : .primary)
+                            .foregroundStyle(sessionManager.isMuted ? .red : .primary)
                             .frame(width: 60, height: 60)
                             .background(Circle().fill(.ultraThinMaterial))
                     }
@@ -111,8 +111,16 @@ struct VoiceChatView: View {
                     voice: voice
                 )
             } catch {
-                print("Failed to start session: \(error)")
+                errorMessage = error.localizedDescription
+                showError = true
             }
+        }
+        .alert("Voice Session Error", isPresented: $showError) {
+            Button("OK") {
+                dismiss()
+            }
+        } message: {
+            Text(errorMessage)
         }
         .onDisappear {
             Task {
@@ -167,7 +175,7 @@ struct VoiceChatView: View {
         case .listening: return "Please speak"
         case .thinking: return "Processing your request"
         case .speaking: return "Agent is responding"
-        case .error: return "Something went wrong"
+        case .error: return sessionManager.error ?? "Something went wrong"
         }
     }
 

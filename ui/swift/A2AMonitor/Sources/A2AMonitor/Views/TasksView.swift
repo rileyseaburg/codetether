@@ -4,6 +4,12 @@ import SwiftUI
 struct TasksView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @State private var showingCreateSheet = false
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var showingCopyConfirmation = false
+    @State private var isPerformingAction = false
+    @State private var showingCancelConfirmation = false
+    @State private var taskToCancel: AgentTask?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -77,20 +83,33 @@ struct TasksView: View {
                                 task: task,
                                 onStart: task.status == .pending ? {
                                     Task {
-                                        try? await viewModel.startTask(task)
+                                        isPerformingAction = true
+                                        do {
+                                            try await viewModel.startTask(task)
+                                        } catch {
+                                            errorMessage = error.localizedDescription
+                                            showingError = true
+                                        }
+                                        isPerformingAction = false
                                     }
                                 } : nil,
                                 onCancel: task.status == .pending || task.status == .working ? {
-                                    Task {
-                                        try? await viewModel.cancelTask(task)
-                                    }
+                                    taskToCancel = task
+                                    showingCancelConfirmation = true
                                 } : nil
                             )
                             .contextMenu {
                                 if task.status == .pending {
                                     Button {
                                         Task {
-                                            try? await viewModel.startTask(task)
+                                            isPerformingAction = true
+                                            do {
+                                                try await viewModel.startTask(task)
+                                            } catch {
+                                                errorMessage = error.localizedDescription
+                                                showingError = true
+                                            }
+                                            isPerformingAction = false
                                         }
                                     } label: {
                                         Label("Start Task", systemImage: "play.fill")
@@ -99,9 +118,8 @@ struct TasksView: View {
                                 
                                 if task.status != .completed && task.status != .cancelled {
                                     Button(role: .destructive) {
-                                        Task {
-                                            try? await viewModel.cancelTask(task)
-                                        }
+                                        taskToCancel = task
+                                        showingCancelConfirmation = true
                                     } label: {
                                         Label("Cancel Task", systemImage: "xmark.circle")
                                     }
@@ -117,6 +135,9 @@ struct TasksView: View {
                     }
                 }
                 .padding()
+            }
+            .refreshable {
+                await viewModel.refreshData()
             }
         }
         .background(Color.clear)
@@ -135,6 +156,43 @@ struct TasksView: View {
         .sheet(isPresented: $showingCreateSheet) {
             CreateTaskSheet()
         }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "An unknown error occurred")
+        }
+        .alert("Copied", isPresented: $showingCopyConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Task ID copied to clipboard")
+        }
+        .confirmationDialog("Cancel Task", isPresented: $showingCancelConfirmation, presenting: taskToCancel) { task in
+            Button("Cancel Task", role: .destructive) {
+                Task {
+                    isPerformingAction = true
+                    do {
+                        try await viewModel.cancelTask(task)
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        showingError = true
+                    }
+                    isPerformingAction = false
+                }
+            }
+        } message: { task in
+            Text("Are you sure you want to cancel \"\(task.title)\"? This cannot be undone.")
+        }
+        .overlay {
+            if isPerformingAction {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                    }
+            }
+        }
     }
     
     func copyTaskId(_ id: String) {
@@ -145,6 +203,7 @@ struct TasksView: View {
         #else
         UIPasteboard.general.string = id
         #endif
+        showingCopyConfirmation = true
     }
 }
 

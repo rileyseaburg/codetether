@@ -18,6 +18,9 @@ struct SessionsView: View {
             }
             .padding(20)
         }
+        .refreshable {
+            await viewModel.refreshData()
+        }
         .background(Color.clear)
         .navigationTitle("Sessions")
         .toolbar {

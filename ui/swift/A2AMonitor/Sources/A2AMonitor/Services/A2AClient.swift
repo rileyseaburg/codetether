@@ -65,6 +65,14 @@ class A2AClient: ObservableObject {
     var onMessage: ((Message) -> Void)?
     var onAgentStatus: ((Agent) -> Void)?
     var onStats: ((MonitorStats) -> Void)?
+    var onError: ((Error) -> Void)?
+    var onDisconnect: (() -> Void)?
+
+    // Reconnection state
+    private var reconnectAttempts = 0
+    private let maxReconnectAttempts = 5
+    private var reconnectTask: Task<Void, Never>?
+    private var sseSession: URLSession?
 
     init(baseURL: String = "https://api.codetether.run") {
         self.baseURL = URL(string: baseURL)!
@@ -106,25 +114,83 @@ class A2AClient: ObservableObject {
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         addAuthHeader(to: &request)
 
-        // Using URLSession for SSE
-        let delegate = SSEDelegate { [weak self] event in
-            Task { @MainActor in
-                self?.handleSSEEvent(event)
-            }
-        }
+        // Track if we've received at least one event (for setting isConnected)
+        var hasReceivedFirstEvent = false
 
-        let sseSession = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
-        eventSourceTask = sseSession.dataTask(with: request)
+        // Using URLSession for SSE
+        let delegate = SSEDelegate(
+            onEvent: { [weak self] event in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    
+                    // Set connected on first successful event
+                    if !hasReceivedFirstEvent {
+                        hasReceivedFirstEvent = true
+                        self.isConnected = true
+                        self.connectionError = nil
+                        self.reconnectAttempts = 0  // Reset on successful connection
+                    }
+                    
+                    self.handleSSEEvent(event)
+                }
+            },
+            onError: { [weak self] error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    self.isConnected = false
+                    self.connectionError = error.localizedDescription
+                    self.onError?(error)
+                    self.scheduleReconnect()
+                }
+            },
+            onComplete: { [weak self] in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    self.isConnected = false
+                    self.onDisconnect?()
+                    self.scheduleReconnect()
+                }
+            }
+        )
+
+        // Invalidate previous session before creating new one
+        sseSession?.invalidateAndCancel()
+        sseSession = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        eventSourceTask = sseSession?.dataTask(with: request)
         eventSourceTask?.resume()
 
-        isConnected = true
+        // Don't set isConnected = true here - wait for first event
         connectionError = nil
     }
 
     func disconnectStream() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
         eventSourceTask?.cancel()
         eventSourceTask = nil
+        sseSession?.invalidateAndCancel()
+        sseSession = nil
         isConnected = false
+        reconnectAttempts = 0
+    }
+
+    private func scheduleReconnect() {
+        guard reconnectAttempts < maxReconnectAttempts else {
+            connectionError = "Failed to reconnect after \(maxReconnectAttempts) attempts"
+            return
+        }
+
+        reconnectTask?.cancel()
+        reconnectTask = Task { [weak self] in
+            guard let self = self else { return }
+            let delay = pow(2.0, Double(self.reconnectAttempts)) // Exponential backoff: 1, 2, 4, 8, 16 seconds
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self.reconnectAttempts += 1
+                self.connectToMonitorStream()
+            }
+        }
     }
 
     private func handleSSEEvent(_ event: SSEEvent) {
@@ -262,6 +328,7 @@ class A2AClient: ObservableObject {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
+        addAuthHeader(to: &request)
 
         let (_, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
@@ -293,6 +360,7 @@ class A2AClient: ObservableObject {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/interrupt")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        addAuthHeader(to: &request)
 
         let (_, _) = try await session.data(for: request)
     }
@@ -301,6 +369,7 @@ class A2AClient: ObservableObject {
         let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/stop")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        addAuthHeader(to: &request)
 
         let (_, _) = try await session.data(for: request)
     }
@@ -631,16 +700,43 @@ struct SSEEvent {
 
 class SSEDelegate: NSObject, URLSessionDataDelegate {
     private var onEvent: (SSEEvent) -> Void
+    private var onError: ((Error) -> Void)?
+    private var onComplete: (() -> Void)?
     private var buffer = ""
 
-    init(onEvent: @escaping (SSEEvent) -> Void) {
+    init(
+        onEvent: @escaping (SSEEvent) -> Void,
+        onError: ((Error) -> Void)? = nil,
+        onComplete: (() -> Void)? = nil
+    ) {
         self.onEvent = onEvent
+        self.onError = onError
+        self.onComplete = onComplete
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let string = String(data: data, encoding: .utf8) else { return }
         buffer += string
         processBuffer()
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            // Ignore cancellation errors (user-initiated disconnect)
+            if (error as NSError).code == NSURLErrorCancelled {
+                return
+            }
+            onError?(error)
+        } else {
+            // Connection completed without error (server closed connection)
+            onComplete?()
+        }
+    }
+
+    func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        if let error = error {
+            onError?(error)
+        }
     }
 
     private func processBuffer() {

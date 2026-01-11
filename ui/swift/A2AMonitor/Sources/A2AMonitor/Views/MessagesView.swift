@@ -6,6 +6,9 @@ struct MessagesView: View {
     @State private var searchText = ""
     @State private var showingInterveneSheet = false
     @State private var selectedMessage: Message?
+    @State private var showingExportConfirmation = false
+    @State private var exportConfirmationMessage = ""
+    @State private var showingCopyConfirmation = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -85,6 +88,9 @@ struct MessagesView: View {
                 }
                 .padding()
             }
+            .refreshable {
+                await viewModel.refreshData()
+            }
         }
         .background(Color.clear)
         .navigationTitle("Messages")
@@ -130,13 +136,27 @@ struct MessagesView: View {
         .sheet(isPresented: $showingInterveneSheet) {
             InterventionSheet(relatedMessage: selectedMessage)
         }
+        .alert("Exported", isPresented: $showingExportConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportConfirmationMessage)
+        }
+        .alert("Copied", isPresented: $showingCopyConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Message copied to clipboard")
+        }
     }
     
     // MARK: - Export Functions
     
     func exportJSON() {
         guard let data = viewModel.exportMessages(),
-              let jsonString = String(data: data, encoding: .utf8) else { return }
+              let jsonString = String(data: data, encoding: .utf8) else {
+            exportConfirmationMessage = "Failed to export messages"
+            showingExportConfirmation = true
+            return
+        }
         
         #if os(macOS)
         let pasteboard = NSPasteboard.general
@@ -145,6 +165,8 @@ struct MessagesView: View {
         #else
         UIPasteboard.general.string = jsonString
         #endif
+        exportConfirmationMessage = "JSON copied to clipboard (\(viewModel.messages.count) messages)"
+        showingExportConfirmation = true
     }
     
     func exportCSV() {
@@ -163,6 +185,8 @@ struct MessagesView: View {
         #else
         UIPasteboard.general.string = csv
         #endif
+        exportConfirmationMessage = "CSV copied to clipboard (\(viewModel.messages.count) messages)"
+        showingExportConfirmation = true
     }
     
     func copyToClipboard(_ text: String) {
@@ -173,6 +197,7 @@ struct MessagesView: View {
         #else
         UIPasteboard.general.string = text
         #endif
+        showingCopyConfirmation = true
     }
 }
 

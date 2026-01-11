@@ -35,6 +35,9 @@ struct DashboardView: View {
             }
             .padding(20)
         }
+        .refreshable {
+            await viewModel.refreshData()
+        }
         .background(Color.clear)
         .navigationTitle("Dashboard")
         .toolbar {
@@ -46,6 +49,7 @@ struct DashboardView: View {
                 Link(destination: URL(string: "https://docs.codetether.run")!) {
                     Image(systemName: "book")
                 }
+                .accessibilityLabel("Documentation")
             }
 
             ToolbarItem(placement: .automatic) {
@@ -56,6 +60,7 @@ struct DashboardView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
+                .accessibilityLabel("Refresh")
             }
         }
     }
@@ -108,13 +113,7 @@ struct DashboardView: View {
     // MARK: - Stats Grid
 
     var statsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 16) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 16) {
             StatCard(
                 title: "Active Agents",
                 value: "\(viewModel.codebases.filter { $0.status == .running || $0.status == .busy }.count)",
