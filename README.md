@@ -4,12 +4,15 @@
 
 ### **Turn AI Agents into Production Systems**
 
+[![Production Ready](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](https://api.codetether.run)
 [![Apache License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](https://www.docker.com/)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-ready-326CE5.svg)](https://kubernetes.io/)
 
 **The open-source platform for building, deploying, and orchestrating AI agent systems at scale.**
+
+**🎉 v1.0 Production Release** - Battle-tested and running in production at [api.codetether.run](https://api.codetether.run)
 
 [🚀 Quick Start](#-quick-start) • [📖 Documentation](https://docs.codetether.run) • [💬 Discord](https://discord.gg/codetether) • [🐦 Twitter](https://twitter.com/codetether)
 
@@ -59,8 +62,8 @@ Connect to 100+ tools via Model Context Protocol. File systems, databases, APIs,
 ### 💻 **AI Coding at Scale**
 Deploy AI coding agents across your infrastructure using our maintained OpenCode fork. Automated code generation, refactoring, and testing.
 
-### 🔍 **Model Filtering**
-Workers automatically filter and register only authenticated models from `auth.json`, ensuring reliable execution.
+### 📧 **Email Reply to Continue Tasks**
+Workers send email notifications when tasks complete. **Reply directly to the email** to continue the conversation—the agent picks up right where it left off. No dashboard needed.
 
  </td>
 <td width="50%">
@@ -194,6 +197,35 @@ curl -X POST http://localhost:8000/v1/opencode/codebases/{id}/trigger \
 curl http://localhost:8000/v1/opencode/codebases/{id}/events
 ```
 
+### 📧 Email Reply to Continue Tasks
+
+When a task completes, workers send you an email. **Just reply to continue the conversation**—no dashboard, no CLI, just email.
+
+```
+From: noreply@codetether.run
+To: you@example.com
+Subject: [A2A] Task completed: Add unit tests
+Reply-To: task+sess_abc123@inbound.codetether.run
+
+✓ COMPLETED
+
+Your task "Add unit tests" finished successfully.
+Reply to this email to continue the conversation.
+
+---
+You: "Great, now add integration tests too"
+→ Agent picks up and continues working
+```
+
+**How it works:**
+1. Worker completes task → sends email with special `reply-to` address
+2. You reply to the email with follow-up instructions
+3. SendGrid forwards your reply to CodeTether
+4. Server creates a continuation task with your message
+5. Worker resumes the same session and keeps working
+
+**Zero friction.** Check your email, reply, done.
+
 ## 🏗️ Architecture
 
 CodeTether is built on **five core pillars**:
@@ -256,6 +288,7 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 - ✅ Marketing coordinator for task orchestration
 - ✅ Worker SSE push notifications
 - ✅ 27 marketing MCP tools (creative, campaigns, analytics)
+- ✅ **Email reply continuation** - reply to task emails to keep working
 
 ## 🛠️ Deployment Options
 
