@@ -6,21 +6,29 @@ import SwiftUI
 struct A2AMonitorApp: App {
     @StateObject private var viewModel = MonitorViewModel()
     @StateObject private var authService = AuthService()
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(viewModel)
-                .environmentObject(authService)
-                .preferredColorScheme(.dark) // Force dark mode for liquid glass UI
-                .task {
-                    // Configure notification handling (iOS local alerts).
-                    NotificationService.shared.configure()
-                    await NotificationService.shared.requestAuthorizationIfNeeded()
+            Group {
+                if hasSeenOnboarding {
+                    RootView()
+                } else {
+                    OnboardingView(hasSeenOnboarding: $hasSeenOnboarding)
                 }
-                #if os(macOS)
-                .frame(minWidth: 1200, minHeight: 800)
-                #endif
+            }
+            .environmentObject(viewModel)
+            .environmentObject(authService)
+            .preferredColorScheme(.dark) // Force dark mode for liquid glass UI
+            .animation(.easeInOut(duration: 0.4), value: hasSeenOnboarding)
+            .task {
+                // Configure notification handling (iOS local alerts).
+                NotificationService.shared.configure()
+                await NotificationService.shared.requestAuthorizationIfNeeded()
+            }
+            #if os(macOS)
+            .frame(minWidth: 1200, minHeight: 800)
+            #endif
         }
         #if os(macOS)
         .windowStyle(.hiddenTitleBar)
@@ -29,7 +37,7 @@ struct A2AMonitorApp: App {
 
         #if os(macOS)
         Settings {
-            SettingsView()
+            MacSettingsView()
                 .environmentObject(viewModel)
                 .environmentObject(authService)
                 .preferredColorScheme(.dark)
@@ -59,24 +67,20 @@ struct RootView: View {
 struct ContentView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @EnvironmentObject var authService: AuthService
-    @State private var selectedTab: Tab = .dashboard
+    @State private var selectedTab: Tab = .home
 
     enum Tab: String, CaseIterable {
-        case dashboard = "Dashboard"
+        case home = "Home"
         case agents = "Agents"
-        case messages = "Messages"
-        case tasks = "Tasks"
-        case sessions = "Sessions"
-        case output = "Output"
+        case activity = "Activity"
+        case settings = "Settings"
 
         var icon: String {
             switch self {
-            case .dashboard: return "square.grid.2x2"
-            case .agents: return "cpu"
-            case .messages: return "bubble.left.and.bubble.right"
-            case .tasks: return "checklist"
-            case .sessions: return "person.2"
-            case .output: return "terminal"
+            case .home: return "house.fill"
+            case .agents: return "cpu.fill"
+            case .activity: return "list.bullet.rectangle.fill"
+            case .settings: return "gearshape.fill"
             }
         }
     }
@@ -162,18 +166,14 @@ struct ContentView: View {
     @ViewBuilder
     func tabContent(for tab: Tab) -> some View {
         switch tab {
-        case .dashboard:
+        case .home:
             DashboardView()
         case .agents:
             AgentsView()
-        case .messages:
-            MessagesView()
-        case .tasks:
-            TasksView()
-        case .sessions:
-            SessionsView()
-        case .output:
-            AgentOutputView()
+        case .activity:
+            ActivityView()
+        case .settings:
+            SettingsView()
         }
     }
 }
@@ -201,8 +201,9 @@ struct SidebarView: View {
 
 #endif
 
-// MARK: - Settings View
-struct SettingsView: View {
+// MARK: - macOS Settings View (for Settings menu)
+#if os(macOS)
+struct MacSettingsView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @EnvironmentObject var authService: AuthService
     @AppStorage("serverURL") private var serverURL = "https://api.codetether.run"
@@ -281,6 +282,7 @@ struct SettingsView: View {
         .frame(width: 450, height: 550)
     }
 }
+#endif
 
 // MARK: - Settings Components
 
