@@ -167,10 +167,16 @@ class AuthService: ObservableObject {
         refreshToken = loginResponse.refreshToken
         currentUser = loginResponse.session
 
-        // Parse expiration
+        // Parse expiration - try with fractional seconds first, then without
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        tokenExpiresAt = formatter.date(from: loginResponse.expiresAt)
+        if let date = formatter.date(from: loginResponse.expiresAt) {
+            tokenExpiresAt = date
+        } else {
+            // Try without fractional seconds
+            formatter.formatOptions = [.withInternetDateTime]
+            tokenExpiresAt = formatter.date(from: loginResponse.expiresAt)
+        }
 
         // Save to keychain
         saveToKeychain()
@@ -241,6 +247,11 @@ class AuthService: ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            // Add authorization header
+            if let token = accessToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
 
             let body = ["session_id": sessionId]
             request.httpBody = try? JSONEncoder().encode(body)
@@ -297,7 +308,16 @@ class AuthService: ObservableObject {
         }
 
         do {
-            let (data, _) = try await session.data(for: request)
+            let (data, response) = try await session.data(for: request)
+            
+            // Check HTTP status
+            if let httpResponse = response as? HTTPURLResponse {
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    print("Sync state request failed with status: \(httpResponse.statusCode)")
+                    return
+                }
+            }
+            
             syncState = try JSONDecoder().decode(SyncState.self, from: data)
         } catch {
             print("Failed to load sync state: \(error)")
