@@ -59,10 +59,31 @@ function LoginForm() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
+
     try {
-      // Direct API login to A2A backend
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'}/v1/auth/login`,
+      // Try new self-service user auth first
+      const userAuthResponse = await fetch(
+        `${apiUrl}/v1/users/login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        }
+      )
+
+      if (userAuthResponse.ok) {
+        const data = await userAuthResponse.json()
+        // Store token and user info
+        localStorage.setItem('a2a_token', data.access_token)
+        localStorage.setItem('a2a_user', JSON.stringify(data.user))
+        router.push(callbackUrl)
+        return
+      }
+
+      // Fall back to Keycloak-based auth
+      const keycloakResponse = await fetch(
+        `${apiUrl}/v1/auth/login`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -70,16 +91,16 @@ function LoginForm() {
         }
       )
 
-      if (response.ok) {
-        const data = await response.json()
+      if (keycloakResponse.ok) {
+        const data = await keycloakResponse.json()
         // Store token and redirect
-        localStorage.setItem('a2a_token', data.access_token)
-        localStorage.setItem('a2a_refresh_token', data.refresh_token || '')
+        localStorage.setItem('a2a_token', data.accessToken || data.access_token)
+        localStorage.setItem('a2a_refresh_token', data.refreshToken || data.refresh_token || '')
         localStorage.setItem('a2a_session', JSON.stringify(data.session || {}))
         router.push(callbackUrl)
       } else {
-        const errorData = await response.json()
-        setError(errorData.detail || 'Invalid credentials')
+        const errorData = await keycloakResponse.json().catch(() => ({}))
+        setError(errorData.detail || 'Invalid email or password')
       }
     } catch {
       setError('Failed to connect to authentication server')
