@@ -57,6 +57,16 @@ except ImportError:
     USER_AUTH_AVAILABLE = False
     user_auth_router = None
 
+# Import task queue for hosted workers
+try:
+    from .task_queue import enqueue_task, get_task_queue
+
+    TASK_QUEUE_AVAILABLE = True
+except ImportError:
+    TASK_QUEUE_AVAILABLE = False
+    enqueue_task = None
+    get_task_queue = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -811,6 +821,12 @@ class MCPHTTPServer:
             elif tool_name == 'get_tool_schema':
                 return await self._get_tool_schema(arguments)
 
+            elif tool_name == 'get_queue_stats':
+                return await self._get_queue_stats()
+
+            elif tool_name == 'list_task_runs':
+                return await self._list_task_runs(arguments)
+
             # Check if it's a marketing tool
             elif (
                 MARKETING_TOOLS_AVAILABLE
@@ -987,9 +1003,35 @@ class MCPHTTPServer:
                 f'Failed to notify SSE workers of task {task.id}: {e}'
             )
 
+        # Enqueue for hosted workers (if task queue is available)
+        # This enables the mid-market "submit and get email" flow
+        run_id = None
+        if TASK_QUEUE_AVAILABLE and enqueue_task:
+            try:
+                # Extract user_id from args if available (set by auth middleware)
+                user_id = args.get('_user_id')
+                notify_email = args.get('notify_email')
+                template_id = args.get('template_id')
+                automation_id = args.get('automation_id')
+
+                task_run = await enqueue_task(
+                    task_id=task.id,
+                    user_id=user_id,
+                    template_id=template_id,
+                    automation_id=automation_id,
+                    priority=priority,
+                    notify_email=notify_email,
+                )
+                if task_run:
+                    run_id = task_run.id
+                    logger.info(f'Task {task.id} enqueued as run {run_id}')
+            except Exception as e:
+                logger.warning(f'Failed to enqueue task {task.id}: {e}')
+
         return {
             'success': True,
             'task_id': task.id,
+            'run_id': run_id,  # Include run_id if enqueued
             'title': task.title,
             'description': task.prompt,
             'codebase_id': task.codebase_id,
@@ -1110,6 +1152,81 @@ class MCPHTTPServer:
             'task_id': task_id,
             'status': 'cancelled',
         }
+
+    async def _get_queue_stats(self) -> Dict[str, Any]:
+        """Get task queue statistics for hosted workers."""
+        if not TASK_QUEUE_AVAILABLE or not get_task_queue:
+            return {'error': 'Task queue not available'}
+
+        queue = get_task_queue()
+        if not queue:
+            return {'error': 'Task queue not initialized'}
+
+        try:
+            stats = await queue.get_queue_stats()
+            return {
+                'success': True,
+                'stats': stats,
+            }
+        except Exception as e:
+            return {'error': f'Failed to get queue stats: {str(e)}'}
+
+    async def _list_task_runs(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """List task runs from the queue."""
+        if not TASK_QUEUE_AVAILABLE or not get_task_queue:
+            return {'error': 'Task queue not available'}
+
+        queue = get_task_queue()
+        if not queue:
+            return {'error': 'Task queue not initialized'}
+
+        try:
+            user_id = args.get('user_id') or args.get('_user_id')
+            status = args.get('status')
+            limit = args.get('limit', 100)
+
+            # Convert status string to enum if provided
+            status_enum = None
+            if status:
+                from .task_queue import TaskRunStatus
+
+                try:
+                    status_enum = TaskRunStatus(status)
+                except ValueError:
+                    return {'error': f'Invalid status: {status}'}
+
+            runs = await queue.list_runs(
+                user_id=user_id,
+                status=status_enum,
+                limit=limit,
+            )
+
+            return {
+                'success': True,
+                'runs': [
+                    {
+                        'id': run.id,
+                        'task_id': run.task_id,
+                        'user_id': run.user_id,
+                        'status': run.status.value,
+                        'priority': run.priority,
+                        'attempts': run.attempts,
+                        'started_at': run.started_at.isoformat()
+                        if run.started_at
+                        else None,
+                        'completed_at': run.completed_at.isoformat()
+                        if run.completed_at
+                        else None,
+                        'runtime_seconds': run.runtime_seconds,
+                        'result_summary': run.result_summary,
+                        'created_at': run.created_at.isoformat(),
+                    }
+                    for run in runs
+                ],
+                'count': len(runs),
+            }
+        except Exception as e:
+            return {'error': f'Failed to list task runs: {str(e)}'}
 
     async def _discover_agents(self) -> Dict[str, Any]:
         """Discover available agents."""
