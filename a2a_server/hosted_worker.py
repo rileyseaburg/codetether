@@ -382,13 +382,17 @@ class HostedWorker:
         self, run_id: str, status: str
     ) -> None:
         """Send completion notification (email/webhook)."""
-        # Get notification settings for this run
+        # Get notification settings and task details for this run
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT notify_email, notify_webhook_url, notification_sent,
-                       result_summary, result_full, task_id
-                FROM task_runs WHERE id = $1
+                SELECT tr.notify_email, tr.notify_webhook_url, tr.notification_sent,
+                       tr.result_summary, tr.result_full, tr.task_id,
+                       tr.runtime_seconds, tr.last_error,
+                       t.title, t.prompt
+                FROM task_runs tr
+                LEFT JOIN tasks t ON tr.task_id = t.id
+                WHERE tr.id = $1
                 """,
                 run_id,
             )
@@ -396,25 +400,110 @@ class HostedWorker:
             if not row or row['notification_sent']:
                 return
 
-            # TODO: Implement actual notification sending
-            # For now, just log and mark as sent
-            if row['notify_email']:
-                logger.info(
-                    f'Would send email to {row["notify_email"]} for run {run_id}'
-                )
-                # await send_task_completion_email(row['notify_email'], ...)
-
-            if row['notify_webhook_url']:
-                logger.info(
-                    f'Would call webhook {row["notify_webhook_url"]} for run {run_id}'
-                )
-                # await call_webhook(row['notify_webhook_url'], ...)
-
-            # Mark notification as sent
+            # Mark notification as sent FIRST (idempotency - prevents double-send on retry)
             await conn.execute(
                 'UPDATE task_runs SET notification_sent = TRUE WHERE id = $1',
                 run_id,
             )
+
+        # Send email notification (outside transaction, async-safe)
+        if row['notify_email']:
+            try:
+                from .email_notifications import send_task_completion_email
+
+                # Extract result from JSON if stored
+                result_text = row['result_summary']
+                if row['result_full']:
+                    try:
+                        result_full = (
+                            json.loads(row['result_full'])
+                            if isinstance(row['result_full'], str)
+                            else row['result_full']
+                        )
+                        result_text = (
+                            result_full.get('summary')
+                            or result_full.get('result')
+                            or result_text
+                        )
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                email_sent = await send_task_completion_email(
+                    to_email=row['notify_email'],
+                    task_id=row['task_id'],
+                    title=row['title'] or 'Task',
+                    status=status,
+                    result=result_text,
+                    error=row['last_error'] if status == 'failed' else None,
+                    runtime_seconds=row['runtime_seconds'],
+                    worker_name=self.worker_id,
+                )
+
+                if email_sent:
+                    logger.info(
+                        f'Completion email sent to {row["notify_email"]} for run {run_id}'
+                    )
+                else:
+                    logger.warning(
+                        f'Failed to send completion email for run {run_id}'
+                    )
+
+            except ImportError:
+                logger.warning('email_notifications module not available')
+            except Exception as e:
+                logger.error(f'Error sending completion email: {e}')
+
+        # Send webhook notification
+        if row['notify_webhook_url']:
+            try:
+                await self._call_webhook(
+                    url=row['notify_webhook_url'],
+                    run_id=run_id,
+                    task_id=row['task_id'],
+                    status=status,
+                    result=row['result_summary'],
+                    error=row['last_error'],
+                )
+            except Exception as e:
+                logger.error(f'Error calling webhook: {e}')
+
+    async def _call_webhook(
+        self,
+        url: str,
+        run_id: str,
+        task_id: str,
+        status: str,
+        result: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        """Call webhook URL with task completion data."""
+        if not self._http_client:
+            return
+
+        payload = {
+            'event': 'task_completed',
+            'run_id': run_id,
+            'task_id': task_id,
+            'status': status,
+            'result': result,
+            'error': error,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+        }
+
+        try:
+            response = await self._http_client.post(
+                url,
+                json=payload,
+                timeout=10.0,
+            )
+            if response.status_code < 300:
+                logger.info(f'Webhook called successfully for run {run_id}')
+            else:
+                logger.warning(
+                    f'Webhook returned {response.status_code} for run {run_id}'
+                )
+        except Exception as e:
+            logger.error(f'Webhook call failed for run {run_id}: {e}')
 
     async def _cleanup(self) -> None:
         """Cleanup resources."""
