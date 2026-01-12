@@ -48,6 +48,15 @@ except ImportError:
     get_marketing_tools = lambda: []
     MARKETING_TOOL_HANDLERS = {}
 
+# Import user authentication router for self-service signups
+try:
+    from .user_auth import router as user_auth_router
+
+    USER_AUTH_AVAILABLE = True
+except ImportError:
+    USER_AUTH_AVAILABLE = False
+    user_auth_router = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -94,6 +103,10 @@ class MCPHTTPServer:
 
         # Include Worker SSE router for push-based task distribution
         self.app.include_router(worker_sse_router)
+
+        # Include User Auth router for self-service registration (mid-market)
+        if USER_AUTH_AVAILABLE and user_auth_router:
+            self.app.include_router(user_auth_router)
 
         self._setup_routes()
 
