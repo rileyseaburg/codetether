@@ -424,6 +424,16 @@ marketing:
     requests:
       cpu: 50m
       memory: 128Mi
+  # Environment variables for marketing site
+  env:
+    SENDGRID_API_KEY: ""
+    SENDGRID_FROM_EMAIL: "noreply@codetether.run"
+    CONTACT_NOTIFICATION_EMAIL: "riley@spotlessbinco.com"
+  # Or use existing secret for sensitive values
+  envFromSecret: {}
+  # Example:
+  # envFromSecret:
+  #   SENDGRID_API_KEY: marketing-secrets
 
 # Documentation site configuration
 docs:

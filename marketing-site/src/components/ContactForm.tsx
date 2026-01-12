@@ -6,11 +6,41 @@ import { Button } from '@/components/Button'
 
 export function ContactForm() {
     const [submitted, setSubmitted] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
-        // In production, this would submit to your backend
-        setSubmitted(true)
+        setLoading(true)
+        setError(null)
+
+        const formData = new FormData(e.currentTarget)
+        const data = {
+            name: formData.get('name') as string,
+            email: formData.get('email') as string,
+            company: formData.get('company') as string,
+            useCase: formData.get('use-case') as string,
+            message: formData.get('message') as string,
+        }
+
+        try {
+            const response = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to submit form')
+            }
+
+            setSubmitted(true)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Something went wrong')
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
@@ -131,9 +161,14 @@ export function ContactForm() {
                                     placeholder="Describe your AI agent use case..."
                                 />
                             </div>
+                            {error && (
+                                <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-center text-red-700 dark:text-red-300">
+                                    {error}
+                                </div>
+                            )}
                             <div className="text-center">
-                                <Button type="submit" color="cyan">
-                                    Request Demo
+                                <Button type="submit" color="cyan" disabled={loading}>
+                                    {loading ? 'Submitting...' : 'Request Demo'}
                                 </Button>
                             </div>
                             <p className="text-center text-xs text-gray-500 dark:text-gray-400">
