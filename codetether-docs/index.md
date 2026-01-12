@@ -7,6 +7,9 @@ description: Production-ready A2A Protocol implementation for AI agent coordinat
 
 **Turn AI Agents Into Production Systems.**
 
+!!! success "v1.0 Production Release"
+    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). Connect your workers and start automating today.
+
 CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), the open standard from the Linux Foundation that enables AI agents to communicate, collaborate, and solve complex problems together.
 
 <div class="grid cards" markdown>
@@ -58,6 +61,7 @@ CodeTether Server provides the infrastructure layer for running AI agents in pro
 - **Enterprise Security** — Keycloak OIDC, API tokens, audit logging
 - **OpenCode Bridge** — Native integration with OpenCode AI coding agents
 - **[Deploy Anywhere](deployment/docker.md)** — Run on Docker, Kubernetes, or bare metal with ease
+- **[Email Reply Continuation](features/agent-worker.md#email-notifications)** — Reply to task notification emails to continue conversations with agents
 
 ## A2A Protocol Implementation
 
@@ -78,6 +82,7 @@ Plus CodeTether extensions:
 - **OpenCode Integration** — AI coding agent bridge with codebase registration
 - **Monitor UI** — Web dashboard for real-time agent observation
 - **MCP Tools** — Model Context Protocol tool server
+- **Email Reply to Continue** — Reply directly to task notification emails to keep working with an agent
 
 ## Quick Example
 

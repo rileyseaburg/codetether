@@ -37,6 +37,13 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            {{- range $key, $secretName := .Values.envFromSecret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ $key }}
+            {{- end }}
             {{- if .Values.keycloak.secretName }}
             - name: KEYCLOAK_CLIENT_SECRET
               valueFrom:
