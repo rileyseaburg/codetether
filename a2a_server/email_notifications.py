@@ -316,7 +316,13 @@ async def send_task_completion_email(
         worker_name=worker_name,
     )
 
-    subject = f'[CodeTether] Task {status}: {title}'
+    # Conversion-optimized subject lines
+    if status == 'completed':
+        subject = f'✅ Done: {title}'
+    elif status == 'failed':
+        subject = f'❌ Failed: {title} (reply for a fix)'
+    else:
+        subject = f'[CodeTether] Task {status}: {title}'
 
     # Build SendGrid payload
     payload = {
@@ -442,7 +448,8 @@ async def send_task_question_email(
 </body>
 </html>"""
 
-    subject = f'[CodeTether] Input needed: {title}'
+    # Conversion-optimized subject line for questions
+    subject = f'❓ Question: {title} (reply to continue)'
 
     payload = {
         'personalizations': [{'to': [{'email': to_email}]}],
