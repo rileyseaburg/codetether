@@ -47,3 +47,6 @@ python-keycloak>=3.0.0
 # PostgreSQL support (async)
 asyncpg>=0.29.0
 sqlalchemy[asyncio]>=2.0.0
+
+# Stripe billing
+stripe>=7.0.0

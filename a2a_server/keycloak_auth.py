@@ -53,6 +53,15 @@ security = HTTPBearer(auto_error=False)
 
 
 @dataclass
+class TenantContext:
+    """Context for the current tenant (realm)."""
+
+    tenant_id: str
+    realm_name: str
+    plan: Optional[str] = None
+
+
+@dataclass
 class UserSession:
     """Represents an authenticated user session."""
 
@@ -68,6 +77,8 @@ class UserSession:
     last_activity: datetime = field(default_factory=datetime.utcnow)
     device_info: Dict[str, Any] = field(default_factory=dict)
     roles: List[str] = field(default_factory=list)
+    tenant_id: Optional[str] = None
+    realm_name: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -81,6 +92,8 @@ class UserSession:
             'last_activity': self.last_activity.isoformat(),
             'device_info': self.device_info,
             'roles': self.roles,
+            'tenant_id': self.tenant_id,
+            'realm_name': self.realm_name,
         }
 
     def is_valid(self) -> bool:
@@ -148,16 +161,16 @@ class KeycloakAuthService:
         self.client_id = KEYCLOAK_CLIENT_ID
         self.client_secret = KEYCLOAK_CLIENT_SECRET
 
-        # Token endpoints
+        # Token endpoints (default realm)
         self.token_url = f'{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/token'
         self.auth_url = f'{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/auth'
         self.userinfo_url = f'{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/userinfo'
         self.jwks_url = f'{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/certs'
         self.logout_url = f'{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/logout'
 
-        # Caches
-        self._jwks_cache: Optional[Dict[str, Any]] = None
-        self._jwks_cache_time: Optional[datetime] = None
+        # Caches - keyed by realm for multi-tenant support
+        self._jwks_cache: Dict[str, Dict[str, Any]] = {}
+        self._jwks_cache_time: Dict[str, datetime] = {}
 
         # Session storage (in-memory, can be backed by Redis/SQLite)
         self._sessions: Dict[str, UserSession] = {}
@@ -168,33 +181,78 @@ class KeycloakAuthService:
             f'KeycloakAuthService initialized for {self.keycloak_url}/realms/{self.realm}'
         )
 
-    async def get_jwks(self) -> Dict[str, Any]:
-        """Fetch and cache JWKS from Keycloak."""
+    def get_realm_from_token(self, token: str) -> str:
+        """Extract realm from token's 'iss' claim.
+
+        Returns the default realm if extraction fails or realm is not recognized.
+        """
+        try:
+            # Decode without verification to extract issuer
+            unverified = jwt.get_unverified_claims(token)
+            issuer = unverified.get('iss', '')
+
+            # Expected format: https://auth.example.com/realms/{realm_name}
+            if '/realms/' in issuer:
+                realm = issuer.split('/realms/')[-1].rstrip('/')
+                if realm:
+                    return realm
+        except Exception as e:
+            logger.warning(f'Failed to extract realm from token: {e}')
+
+        # Fall back to default realm
+        return self.realm
+
+    async def get_jwks(self, realm: Optional[str] = None) -> Dict[str, Any]:
+        """Fetch and cache JWKS from Keycloak for a specific realm.
+
+        Args:
+            realm: The Keycloak realm to fetch JWKS for. Defaults to self.realm.
+
+        Returns:
+            The JWKS dictionary containing public keys.
+        """
+        target_realm = realm or self.realm
+
         # Return cached JWKS if still valid (5 minutes)
-        if self._jwks_cache and self._jwks_cache_time:
-            if datetime.utcnow() - self._jwks_cache_time < timedelta(minutes=5):
-                return self._jwks_cache
+        if (
+            target_realm in self._jwks_cache
+            and target_realm in self._jwks_cache_time
+        ):
+            if datetime.utcnow() - self._jwks_cache_time[
+                target_realm
+            ] < timedelta(minutes=5):
+                return self._jwks_cache[target_realm]
+
+        # Build JWKS URL dynamically for the target realm
+        jwks_url = f'{self.keycloak_url}/realms/{target_realm}/protocol/openid-connect/certs'
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(self.jwks_url, timeout=10.0)
+                response = await client.get(jwks_url, timeout=10.0)
                 response.raise_for_status()
-                self._jwks_cache = response.json()
-                self._jwks_cache_time = datetime.utcnow()
-                return self._jwks_cache
+                self._jwks_cache[target_realm] = response.json()
+                self._jwks_cache_time[target_realm] = datetime.utcnow()
+                return self._jwks_cache[target_realm]
         except Exception as e:
-            logger.error(f'Failed to fetch JWKS: {e}')
-            if self._jwks_cache:
-                return self._jwks_cache
+            logger.error(f'Failed to fetch JWKS for realm {target_realm}: {e}')
+            if target_realm in self._jwks_cache:
+                return self._jwks_cache[target_realm]
             raise HTTPException(
                 status_code=503, detail='Authentication service unavailable'
             )
 
     async def validate_token(self, token: str) -> Dict[str, Any]:
-        """Validate a JWT token from Keycloak."""
+        """Validate a JWT token from Keycloak.
+
+        Extracts the realm from the token's issuer claim and validates
+        against the appropriate realm's JWKS.
+        """
         try:
-            # Get JWKS
-            jwks = await self.get_jwks()
+            # Extract realm from token BEFORE validating
+            token_realm = self.get_realm_from_token(token)
+
+            # Get JWKS for the extracted realm
+            jwks = await self.get_jwks(realm=token_realm)
 
             # Decode header to get key ID
             header = jwt.get_unverified_header(token)
@@ -212,17 +270,23 @@ class KeycloakAuthService:
                     status_code=401, detail='Invalid token: key not found'
                 )
 
+            # Build expected issuer for the token's realm
+            expected_issuer = f'{self.keycloak_url}/realms/{token_realm}'
+
             # Verify and decode token
             payload = jwt.decode(
                 token,
                 public_key.to_pem().decode('utf-8'),
                 algorithms=[JWT_ALGORITHM],
-                issuer=JWT_ISSUER,
+                issuer=expected_issuer,
                 audience=self.client_id,
                 options={
                     'verify_aud': False
                 },  # Keycloak sometimes uses different audience
             )
+
+            # Add realm_name to the payload for downstream use
+            payload['realm_name'] = token_realm
 
             return payload
 
@@ -569,7 +633,11 @@ keycloak_auth = KeycloakAuthService()
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> Optional[UserSession]:
-    """Dependency to get current authenticated user."""
+    """Dependency to get current authenticated user.
+
+    Extracts realm from token, looks up tenant, and populates
+    tenant_id and realm_name on the UserSession.
+    """
     if not credentials:
         return None
 
@@ -594,6 +662,25 @@ async def get_current_user(
                 else 'temp-' + str(uuid.uuid4())
             )
 
+        # Extract realm_name from validated token payload
+        realm_name = payload.get('realm_name')
+
+        # Look up tenant from database by realm
+        tenant_id = None
+        if realm_name:
+            try:
+                from .database import get_tenant_by_realm
+
+                tenant = await get_tenant_by_realm(realm_name)
+                if tenant:
+                    tenant_id = tenant.get('id') or tenant.get('tenant_id')
+            except ImportError:
+                logger.debug('database module not available for tenant lookup')
+            except Exception as e:
+                logger.warning(
+                    f'Failed to look up tenant for realm {realm_name}: {e}'
+                )
+
         return UserSession(
             user_id=user_id,
             email=payload.get('email', ''),
@@ -604,6 +691,8 @@ async def get_current_user(
             refresh_token=None,
             expires_at=datetime.fromtimestamp(payload.get('exp', 0)),
             roles=payload.get('realm_access', {}).get('roles', []),
+            tenant_id=tenant_id,
+            realm_name=realm_name,
         )
     except HTTPException:
         return None
@@ -625,3 +714,37 @@ async def require_admin(
     if 'admin' not in user.roles and 'a2a-admin' not in user.roles:
         raise HTTPException(status_code=403, detail='Admin access required')
     return user
+
+
+async def get_current_tenant(
+    user: UserSession = Depends(get_current_user),
+) -> Optional[TenantContext]:
+    """Dependency to get current tenant context from authenticated user.
+
+    Returns TenantContext with tenant_id, realm_name, and plan if available.
+    Returns None if user is not authenticated or has no tenant association.
+    """
+    if not user:
+        return None
+
+    if not user.tenant_id or not user.realm_name:
+        return None
+
+    # Look up tenant plan from database
+    plan = None
+    try:
+        from .database import get_tenant_by_realm
+
+        tenant = await get_tenant_by_realm(user.realm_name)
+        if tenant:
+            plan = tenant.get('plan')
+    except ImportError:
+        logger.debug('database module not available for tenant plan lookup')
+    except Exception as e:
+        logger.warning(f'Failed to look up tenant plan: {e}')
+
+    return TenantContext(
+        tenant_id=user.tenant_id,
+        realm_name=user.realm_name,
+        plan=plan,
+    )
