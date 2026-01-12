@@ -8,6 +8,16 @@ Configuration:
     DATABASE_URL: PostgreSQL connection string
         Format: postgresql://user:password@host:port/database
         Example: postgresql://a2a:secret@localhost:5432/a2a_server
+
+Row-Level Security (RLS):
+    RLS_ENABLED: Enable database-level tenant isolation (default: false)
+    RLS_STRICT_MODE: Require tenant context for all queries (default: false)
+
+    When RLS is enabled, the database enforces tenant isolation at the row level.
+    Use the tenant_scope() context manager or set_tenant_context() to set the
+    tenant context before executing queries.
+
+    See a2a_server/rls.py for RLS utilities and documentation.
 """
 
 import asyncio
@@ -15,6 +25,7 @@ import json
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
@@ -33,6 +44,10 @@ DATABASE_URL = os.environ.get(
 _pool = None
 _pool_lock = asyncio.Lock()
 _initialized = False
+
+# RLS Configuration (can be overridden by environment)
+RLS_ENABLED = os.environ.get('RLS_ENABLED', 'false').lower() == 'true'
+RLS_STRICT_MODE = os.environ.get('RLS_STRICT_MODE', 'false').lower() == 'true'
 
 
 def _parse_timestamp(value: Union[str, datetime, None]) -> Optional[datetime]:
@@ -86,6 +101,18 @@ async def get_pool():
             if not _initialized:
                 await _init_schema()
                 _initialized = True
+
+            # Initialize task queue for hosted workers
+            try:
+                from .task_queue import TaskQueue, set_task_queue
+
+                task_queue = TaskQueue(_pool)
+                set_task_queue(task_queue)
+                logger.info('✓ Task queue initialized for hosted workers')
+            except ImportError:
+                logger.debug('Task queue module not available')
+            except Exception as e:
+                logger.warning(f'Failed to initialize task queue: {e}')
 
             return _pool
         except ImportError:
@@ -1647,3 +1674,492 @@ def _row_to_tenant(row) -> dict:
         if row['updated_at']
         else None,
     }
+
+
+# ========================================
+# Row-Level Security (RLS) Support
+# ========================================
+
+
+async def set_tenant_context(conn, tenant_id: str) -> None:
+    """Set the tenant context for the current database connection.
+
+    This sets the PostgreSQL session variable 'app.current_tenant_id' which
+    is used by RLS policies to filter rows by tenant.
+
+    Args:
+        conn: asyncpg connection object
+        tenant_id: The tenant UUID to set as context
+
+    Example:
+        async with pool.acquire() as conn:
+            await set_tenant_context(conn, tenant_id)
+            results = await conn.fetch("SELECT * FROM workers")
+            await clear_tenant_context(conn)
+    """
+    if not tenant_id:
+        logger.warning('set_tenant_context called with empty tenant_id')
+        return
+
+    if not RLS_ENABLED:
+        logger.debug(f'RLS disabled, skipping tenant context: {tenant_id}')
+        return
+
+    try:
+        await conn.execute(
+            "SELECT set_config('app.current_tenant_id', $1, false)", tenant_id
+        )
+        logger.debug(f'Set tenant context: {tenant_id}')
+    except Exception as e:
+        logger.error(f'Failed to set tenant context: {e}')
+        raise
+
+
+async def clear_tenant_context(conn) -> None:
+    """Clear the tenant context for the current database connection.
+
+    This resets the PostgreSQL session variable 'app.current_tenant_id' to NULL,
+    which allows access to all rows when RLS policies check for NULL context.
+
+    Args:
+        conn: asyncpg connection object
+    """
+    if not RLS_ENABLED:
+        return
+
+    try:
+        await conn.execute('RESET app.current_tenant_id')
+        logger.debug('Cleared tenant context')
+    except Exception as e:
+        logger.warning(f'Failed to clear tenant context: {e}')
+
+
+async def get_tenant_context(conn) -> Optional[str]:
+    """Get the current tenant context from the database connection.
+
+    Args:
+        conn: asyncpg connection object
+
+    Returns:
+        The current tenant ID or None if not set
+    """
+    if not RLS_ENABLED:
+        return None
+
+    try:
+        result = await conn.fetchval(
+            "SELECT current_setting('app.current_tenant_id', true)"
+        )
+        return result
+    except Exception as e:
+        logger.debug(f'Failed to get tenant context: {e}')
+        return None
+
+
+@asynccontextmanager
+async def tenant_scope(tenant_id: str):
+    """Context manager for tenant-scoped database operations.
+
+    Acquires a connection from the pool, sets the tenant context,
+    yields the connection, and ensures the context is cleared afterward.
+
+    This is the recommended way to perform tenant-scoped operations
+    when RLS is enabled.
+
+    Args:
+        tenant_id: The tenant UUID to scope operations to
+
+    Yields:
+        asyncpg connection with tenant context set
+
+    Example:
+        async with tenant_scope("tenant-uuid") as conn:
+            results = await conn.fetch("SELECT * FROM workers")
+
+    Raises:
+        RuntimeError: If database pool is not available
+    """
+    pool = await get_pool()
+    if not pool:
+        raise RuntimeError('Database pool not available')
+
+    conn = await pool.acquire()
+    try:
+        await set_tenant_context(conn, tenant_id)
+        yield conn
+    finally:
+        try:
+            await clear_tenant_context(conn)
+        finally:
+            await pool.release(conn)
+
+
+@asynccontextmanager
+async def admin_scope():
+    """Context manager for admin operations that bypass RLS.
+
+    This acquires a connection without setting tenant context, which
+    allows access to all rows when RLS policies allow NULL context.
+
+    WARNING: Use sparingly and only for legitimate administrative operations
+    like migrations, auditing, or cross-tenant reporting.
+
+    Yields:
+        asyncpg connection with admin-level access
+
+    Example:
+        async with admin_scope() as conn:
+            # Can access all tenants' data
+            results = await conn.fetch("SELECT COUNT(*) FROM workers")
+    """
+    pool = await get_pool()
+    if not pool:
+        raise RuntimeError('Database pool not available')
+
+    conn = await pool.acquire()
+    try:
+        # Clear any existing tenant context to use admin bypass
+        if RLS_ENABLED:
+            await conn.execute('RESET app.current_tenant_id')
+        yield conn
+    finally:
+        await pool.release(conn)
+
+
+async def db_execute_as_tenant(tenant_id: str, query: str, *args) -> Any:
+    """Execute a query with tenant context.
+
+    Convenience function for executing a single query within tenant scope.
+
+    Args:
+        tenant_id: The tenant UUID
+        query: SQL query to execute
+        *args: Query parameters
+
+    Returns:
+        Query result
+    """
+    async with tenant_scope(tenant_id) as conn:
+        return await conn.execute(query, *args)
+
+
+async def db_fetch_as_tenant(tenant_id: str, query: str, *args) -> List[Any]:
+    """Fetch rows with tenant context.
+
+    Convenience function for fetching rows within tenant scope.
+
+    Args:
+        tenant_id: The tenant UUID
+        query: SQL query to execute
+        *args: Query parameters
+
+    Returns:
+        List of rows
+    """
+    async with tenant_scope(tenant_id) as conn:
+        return await conn.fetch(query, *args)
+
+
+async def db_fetchrow_as_tenant(
+    tenant_id: str, query: str, *args
+) -> Optional[Any]:
+    """Fetch a single row with tenant context.
+
+    Args:
+        tenant_id: The tenant UUID
+        query: SQL query to execute
+        *args: Query parameters
+
+    Returns:
+        Single row or None
+    """
+    async with tenant_scope(tenant_id) as conn:
+        return await conn.fetchrow(query, *args)
+
+
+async def db_fetchval_as_tenant(
+    tenant_id: str, query: str, *args
+) -> Optional[Any]:
+    """Fetch a single value with tenant context.
+
+    Args:
+        tenant_id: The tenant UUID
+        query: SQL query to execute
+        *args: Query parameters
+
+    Returns:
+        Single value or None
+    """
+    async with tenant_scope(tenant_id) as conn:
+        return await conn.fetchval(query, *args)
+
+
+# ========================================
+# RLS Migration Support
+# ========================================
+
+
+async def db_run_migrations(
+    migrations_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run SQL migration files from the migrations directory.
+
+    Executes all .sql files in the migrations directory that haven't been
+    applied yet, tracking them in the schema_migrations table.
+
+    Args:
+        migrations_dir: Path to migrations directory (default: a2a_server/migrations)
+
+    Returns:
+        Dict with migration results:
+            - applied: List of newly applied migrations
+            - skipped: List of already applied migrations
+            - failed: List of failed migrations with errors
+    """
+    from pathlib import Path
+
+    if migrations_dir is None:
+        migrations_path = Path(__file__).parent / 'migrations'
+    else:
+        migrations_path = Path(migrations_dir)
+
+    if not migrations_path.exists():
+        logger.warning(f'Migrations directory not found: {migrations_path}')
+        return {'applied': [], 'skipped': [], 'failed': []}
+
+    pool = await get_pool()
+    if not pool:
+        raise RuntimeError('Database pool not available')
+
+    results: Dict[str, List[Any]] = {'applied': [], 'skipped': [], 'failed': []}
+
+    async with pool.acquire() as conn:
+        # Ensure schema_migrations table exists
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id SERIAL PRIMARY KEY,
+                migration_name TEXT NOT NULL UNIQUE,
+                applied_at TIMESTAMPTZ DEFAULT NOW(),
+                checksum TEXT
+            )
+        """)
+
+        # Get already applied migrations
+        applied = await conn.fetch(
+            'SELECT migration_name FROM schema_migrations'
+        )
+        applied_set = {row['migration_name'] for row in applied}
+
+        # Get all .sql files sorted by name
+        migration_files = sorted(migrations_path.glob('*.sql'))
+
+        for migration_file in migration_files:
+            migration_name = migration_file.stem
+
+            if migration_name in applied_set:
+                results['skipped'].append(migration_name)
+                logger.info(
+                    f'Skipping already applied migration: {migration_name}'
+                )
+                continue
+
+            try:
+                logger.info(f'Applying migration: {migration_name}')
+
+                # Read and execute migration
+                sql_content = migration_file.read_text()
+
+                # Execute in a transaction
+                async with conn.transaction():
+                    await conn.execute(sql_content)
+
+                    # Record migration
+                    await conn.execute(
+                        """
+                        INSERT INTO schema_migrations (migration_name, checksum)
+                        VALUES ($1, $2)
+                        ON CONFLICT (migration_name) DO NOTHING
+                        """,
+                        migration_name,
+                        str(hash(sql_content)),
+                    )
+
+                results['applied'].append(migration_name)
+                logger.info(f'Successfully applied migration: {migration_name}')
+
+            except Exception as e:
+                logger.error(f'Failed to apply migration {migration_name}: {e}')
+                results['failed'].append(
+                    {'name': migration_name, 'error': str(e)}
+                )
+
+    return results
+
+
+async def db_enable_rls() -> Dict[str, Any]:
+    """Enable RLS by running the enable_rls.sql migration.
+
+    This enables Row-Level Security on all tenant-scoped tables:
+    - workers
+    - codebases
+    - tasks
+    - sessions
+
+    Returns:
+        Dict with migration result
+    """
+    from pathlib import Path
+
+    migrations_path = Path(__file__).parent / 'migrations'
+    enable_rls_file = migrations_path / 'enable_rls.sql'
+
+    if not enable_rls_file.exists():
+        return {
+            'status': 'error',
+            'message': f'RLS migration not found: {enable_rls_file}',
+        }
+
+    pool = await get_pool()
+    if not pool:
+        return {'status': 'error', 'message': 'Database pool not available'}
+
+    try:
+        async with pool.acquire() as conn:
+            sql_content = enable_rls_file.read_text()
+            await conn.execute(sql_content)
+
+        logger.info('RLS enabled successfully')
+        return {
+            'status': 'success',
+            'message': 'RLS enabled on all tenant-scoped tables',
+        }
+    except Exception as e:
+        logger.error(f'Failed to enable RLS: {e}')
+        return {'status': 'error', 'message': str(e)}
+
+
+async def db_disable_rls() -> Dict[str, Any]:
+    """Disable RLS by running the disable_rls.sql migration.
+
+    This disables Row-Level Security and removes all policies.
+
+    Returns:
+        Dict with migration result
+    """
+    from pathlib import Path
+
+    migrations_path = Path(__file__).parent / 'migrations'
+    disable_rls_file = migrations_path / 'disable_rls.sql'
+
+    if not disable_rls_file.exists():
+        return {
+            'status': 'error',
+            'message': f'RLS rollback not found: {disable_rls_file}',
+        }
+
+    pool = await get_pool()
+    if not pool:
+        return {'status': 'error', 'message': 'Database pool not available'}
+
+    try:
+        async with pool.acquire() as conn:
+            sql_content = disable_rls_file.read_text()
+            await conn.execute(sql_content)
+
+        logger.info('RLS disabled successfully')
+        return {
+            'status': 'success',
+            'message': 'RLS disabled on all tenant-scoped tables',
+        }
+    except Exception as e:
+        logger.error(f'Failed to disable RLS: {e}')
+        return {'status': 'error', 'message': str(e)}
+
+
+async def get_rls_status() -> Dict[str, Any]:
+    """Get the current RLS status for all tenant-scoped tables.
+
+    Returns:
+        Dict with RLS status for each table and overall configuration
+    """
+    pool = await get_pool()
+    if not pool:
+        return {'enabled': False, 'database_available': False, 'tables': {}}
+
+    try:
+        async with pool.acquire() as conn:
+            # Check RLS status on each table
+            rows = await conn.fetch("""
+                SELECT
+                    schemaname,
+                    tablename,
+                    rowsecurity as rls_enabled,
+                    forcerowsecurity as rls_forced
+                FROM pg_tables
+                WHERE schemaname = 'public'
+                AND tablename IN ('workers', 'codebases', 'tasks', 'sessions')
+            """)
+
+            tables = {}
+            all_enabled = True
+
+            for row in rows:
+                tables[row['tablename']] = {
+                    'rls_enabled': row['rls_enabled'],
+                    'rls_forced': row['rls_forced'],
+                }
+                if not row['rls_enabled']:
+                    all_enabled = False
+
+            # Check for policies
+            policies = await conn.fetch("""
+                SELECT tablename, policyname
+                FROM pg_policies
+                WHERE schemaname = 'public'
+                AND tablename IN ('workers', 'codebases', 'tasks', 'sessions')
+            """)
+
+            policy_count: Dict[str, int] = {}
+            for policy in policies:
+                table = policy['tablename']
+                if table not in policy_count:
+                    policy_count[table] = 0
+                policy_count[table] += 1
+
+            for table in tables:
+                tables[table]['policy_count'] = policy_count.get(table, 0)
+
+            return {
+                'enabled': all_enabled and len(tables) == 4,
+                'database_available': True,
+                'rls_env_enabled': RLS_ENABLED,
+                'strict_mode': RLS_STRICT_MODE,
+                'tables': tables,
+            }
+
+    except Exception as e:
+        logger.error(f'Failed to get RLS status: {e}')
+        return {
+            'enabled': False,
+            'database_available': True,
+            'error': str(e),
+            'tables': {},
+        }
+
+
+def init_rls_config() -> None:
+    """Initialize RLS configuration from environment.
+
+    Call this at application startup to configure RLS settings.
+    Updates the module-level RLS_ENABLED and RLS_STRICT_MODE variables.
+    """
+    global RLS_ENABLED, RLS_STRICT_MODE
+
+    RLS_ENABLED = os.environ.get('RLS_ENABLED', 'false').lower() == 'true'
+    RLS_STRICT_MODE = (
+        os.environ.get('RLS_STRICT_MODE', 'false').lower() == 'true'
+    )
+
+    logger.info(
+        f'RLS Configuration: enabled={RLS_ENABLED}, strict={RLS_STRICT_MODE}'
+    )
