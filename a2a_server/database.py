@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
@@ -104,6 +105,20 @@ async def _init_schema():
         return
 
     async with pool.acquire() as conn:
+        # Tenants table (multi-tenant support)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS tenants (
+                id TEXT PRIMARY KEY,
+                realm_name TEXT UNIQUE NOT NULL,
+                display_name TEXT,
+                plan TEXT DEFAULT 'free',
+                stripe_customer_id TEXT,
+                stripe_subscription_id TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
         # Workers table
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS workers (
@@ -115,7 +130,8 @@ async def _init_schema():
                 global_codebase_id TEXT,
                 registered_at TIMESTAMPTZ DEFAULT NOW(),
                 last_seen TIMESTAMPTZ DEFAULT NOW(),
-                status TEXT DEFAULT 'active'
+                status TEXT DEFAULT 'active',
+                tenant_id TEXT REFERENCES tenants(id)
             )
         """)
 
@@ -135,6 +151,14 @@ async def _init_schema():
         except Exception:
             pass
 
+        # Migration: Add tenant_id column to workers if it doesn't exist
+        try:
+            await conn.execute(
+                'ALTER TABLE workers ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+            )
+        except Exception:
+            pass
+
         # Codebases table
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS codebases (
@@ -148,9 +172,18 @@ async def _init_schema():
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
                 status TEXT DEFAULT 'active',
                 session_id TEXT,
-                opencode_port INTEGER
+                opencode_port INTEGER,
+                tenant_id TEXT REFERENCES tenants(id)
             )
         """)
+
+        # Migration: Add tenant_id column to codebases if it doesn't exist
+        try:
+            await conn.execute(
+                'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+            )
+        except Exception:
+            pass
 
         # Tasks table
         await conn.execute("""
@@ -169,9 +202,18 @@ async def _init_schema():
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
                 started_at TIMESTAMPTZ,
-                completed_at TIMESTAMPTZ
+                completed_at TIMESTAMPTZ,
+                tenant_id TEXT REFERENCES tenants(id)
             )
         """)
+
+        # Migration: Add tenant_id column to tasks if it doesn't exist
+        try:
+            await conn.execute(
+                'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+            )
+        except Exception:
+            pass
 
         # Sessions table (for worker-synced OpenCode sessions)
         await conn.execute("""
@@ -184,9 +226,18 @@ async def _init_schema():
                 version TEXT,
                 summary JSONB DEFAULT '{}'::jsonb,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                tenant_id TEXT REFERENCES tenants(id)
             )
         """)
+
+        # Migration: Add tenant_id column to sessions if it doesn't exist
+        try:
+            await conn.execute(
+                'ALTER TABLE sessions ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+            )
+        except Exception:
+            pass
 
         # Messages table (for session messages)
         await conn.execute("""
@@ -253,6 +304,23 @@ async def _init_schema():
             'CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)'
         )
 
+        # Tenant indexes
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tenants_realm ON tenants(realm_name)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_workers_tenant ON workers(tenant_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_codebases_tenant ON codebases(tenant_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tasks_tenant ON tasks(tenant_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_sessions_tenant ON sessions(tenant_id)'
+        )
+
         logger.info('✓ PostgreSQL schema initialized')
 
 
@@ -270,18 +338,28 @@ async def close_pool():
 # ========================================
 
 
-async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
-    """Insert or update a worker in the database."""
+async def db_upsert_worker(
+    worker_info: Dict[str, Any], tenant_id: Optional[str] = None
+) -> bool:
+    """Insert or update a worker in the database.
+
+    Args:
+        worker_info: The worker data dict
+        tenant_id: Optional tenant ID for multi-tenant isolation
+    """
     pool = await get_pool()
     if not pool:
         return False
 
     try:
+        # Use provided tenant_id or fall back to worker_info dict
+        effective_tenant_id = tenant_id or worker_info.get('tenant_id')
+
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO workers (worker_id, name, capabilities, hostname, models, global_codebase_id, registered_at, last_seen, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                INSERT INTO workers (worker_id, name, capabilities, hostname, models, global_codebase_id, registered_at, last_seen, status, tenant_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 ON CONFLICT (worker_id)
                 DO UPDATE SET
                     name = EXCLUDED.name,
@@ -290,7 +368,8 @@ async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
                     models = EXCLUDED.models,
                     global_codebase_id = EXCLUDED.global_codebase_id,
                     last_seen = EXCLUDED.last_seen,
-                    status = EXCLUDED.status
+                    status = EXCLUDED.status,
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, workers.tenant_id)
             """,
                 worker_info.get('worker_id'),
                 worker_info.get('name'),
@@ -303,6 +382,7 @@ async def db_upsert_worker(worker_info: Dict[str, Any]) -> bool:
                 _parse_timestamp(worker_info.get('last_seen'))
                 or datetime.utcnow(),
                 worker_info.get('status', 'active'),
+                effective_tenant_id,
             )
         return True
     except Exception as e:
@@ -346,23 +426,34 @@ async def db_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def db_list_workers(status: Optional[str] = None) -> List[Dict[str, Any]]:
-    """List all workers, optionally filtered by status."""
+async def db_list_workers(
+    status: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """List all workers, optionally filtered by status or tenant."""
     pool = await get_pool()
     if not pool:
         return []
 
     try:
         async with pool.acquire() as conn:
+            query = 'SELECT * FROM workers WHERE 1=1'
+            params = []
+            param_idx = 1
+
             if status:
-                rows = await conn.fetch(
-                    'SELECT * FROM workers WHERE status = $1 ORDER BY last_seen DESC',
-                    status,
-                )
-            else:
-                rows = await conn.fetch(
-                    'SELECT * FROM workers ORDER BY last_seen DESC'
-                )
+                query += f' AND status = ${param_idx}'
+                params.append(status)
+                param_idx += 1
+
+            if tenant_id:
+                query += f' AND tenant_id = ${param_idx}'
+                params.append(tenant_id)
+                param_idx += 1
+
+            query += ' ORDER BY last_seen DESC'
+
+            rows = await conn.fetch(query, *params)
             return [_row_to_worker(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list workers: {e}')
@@ -413,8 +504,15 @@ def _row_to_worker(row) -> Dict[str, Any]:
 # ========================================
 
 
-async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
-    """Insert or update a codebase in the database."""
+async def db_upsert_codebase(
+    codebase: Dict[str, Any], tenant_id: Optional[str] = None
+) -> bool:
+    """Insert or update a codebase in the database.
+
+    Args:
+        codebase: The codebase data dict
+        tenant_id: Optional tenant ID for multi-tenant isolation
+    """
     pool = await get_pool()
     if not pool:
         return False
@@ -422,12 +520,14 @@ async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
     try:
         # Handle both 'created_at' and 'registered_at' field names
         created_at = codebase.get('created_at') or codebase.get('registered_at')
+        # Use provided tenant_id or fall back to codebase dict
+        effective_tenant_id = tenant_id or codebase.get('tenant_id')
 
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO codebases (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, opencode_port)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                INSERT INTO codebases (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, opencode_port, tenant_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 ON CONFLICT (id)
                 DO UPDATE SET
                     name = EXCLUDED.name,
@@ -438,7 +538,8 @@ async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
                     updated_at = NOW(),
                     status = EXCLUDED.status,
                     session_id = EXCLUDED.session_id,
-                    opencode_port = EXCLUDED.opencode_port
+                    opencode_port = EXCLUDED.opencode_port,
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, codebases.tenant_id)
             """,
                 codebase.get('id'),
                 codebase.get('name'),
@@ -452,6 +553,7 @@ async def db_upsert_codebase(codebase: Dict[str, Any]) -> bool:
                 codebase.get('status', 'active'),
                 codebase.get('session_id'),
                 codebase.get('opencode_port'),
+                effective_tenant_id,
             )
         return True
     except Exception as e:
@@ -496,9 +598,11 @@ async def db_get_codebase(codebase_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def db_list_codebases(
-    worker_id: Optional[str] = None, status: Optional[str] = None
+    worker_id: Optional[str] = None,
+    status: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List all codebases, optionally filtered by worker or status."""
+    """List all codebases, optionally filtered by worker, status, or tenant."""
     pool = await get_pool()
     if not pool:
         return []
@@ -517,6 +621,11 @@ async def db_list_codebases(
             if status:
                 query += f' AND status = ${param_idx}'
                 params.append(status)
+                param_idx += 1
+
+            if tenant_id:
+                query += f' AND tenant_id = ${param_idx}'
+                params.append(tenant_id)
                 param_idx += 1
 
             query += ' ORDER BY updated_at DESC'
@@ -578,18 +687,28 @@ def _row_to_codebase(row) -> Dict[str, Any]:
 # ========================================
 
 
-async def db_upsert_task(task: Dict[str, Any]) -> bool:
-    """Insert or update a task in the database."""
+async def db_upsert_task(
+    task: Dict[str, Any], tenant_id: Optional[str] = None
+) -> bool:
+    """Insert or update a task in the database.
+
+    Args:
+        task: The task data dict
+        tenant_id: Optional tenant ID for multi-tenant isolation
+    """
     pool = await get_pool()
     if not pool:
         return False
 
     try:
+        # Use provided tenant_id or fall back to task dict
+        effective_tenant_id = tenant_id or task.get('tenant_id')
+
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO tasks (id, codebase_id, title, prompt, agent_type, status, priority, worker_id, result, error, metadata, created_at, updated_at, started_at, completed_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                INSERT INTO tasks (id, codebase_id, title, prompt, agent_type, status, priority, worker_id, result, error, metadata, created_at, updated_at, started_at, completed_at, tenant_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 ON CONFLICT (id)
                 DO UPDATE SET
                     status = EXCLUDED.status,
@@ -598,7 +717,8 @@ async def db_upsert_task(task: Dict[str, Any]) -> bool:
                     error = EXCLUDED.error,
                     updated_at = NOW(),
                     started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
-                    completed_at = EXCLUDED.completed_at
+                    completed_at = EXCLUDED.completed_at,
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, tasks.tenant_id)
             """,
                 task.get('id'),
                 task.get('codebase_id'),
@@ -615,6 +735,7 @@ async def db_upsert_task(task: Dict[str, Any]) -> bool:
                 _parse_timestamp(task.get('updated_at')) or datetime.utcnow(),
                 _parse_timestamp(task.get('started_at')),
                 _parse_timestamp(task.get('completed_at')),
+                effective_tenant_id,
             )
         return True
     except Exception as e:
@@ -646,8 +767,9 @@ async def db_list_tasks(
     status: Optional[str] = None,
     worker_id: Optional[str] = None,
     limit: int = 100,
+    tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List tasks with optional filters."""
+    """List tasks with optional filters including tenant isolation."""
     pool = await get_pool()
     if not pool:
         return []
@@ -671,6 +793,11 @@ async def db_list_tasks(
             if worker_id:
                 query += f' AND worker_id = ${param_idx}'
                 params.append(worker_id)
+                param_idx += 1
+
+            if tenant_id:
+                query += f' AND tenant_id = ${param_idx}'
+                params.append(tenant_id)
                 param_idx += 1
 
             query += (
@@ -739,8 +866,7 @@ async def db_update_task_status(
             param_idx = 3
 
             if worker_id:
-                # Include tasks assigned to this worker OR unassigned tasks
-                query += f' AND (worker_id = ${param_idx} OR worker_id IS NULL)'
+                updates.append(f'worker_id = ${param_idx}')
                 params.append(worker_id)
                 param_idx += 1
 
@@ -807,24 +933,35 @@ def _row_to_task(row) -> Dict[str, Any]:
 # ========================================
 
 
-async def db_upsert_session(session: Dict[str, Any]) -> bool:
-    """Insert or update a session in the database."""
+async def db_upsert_session(
+    session: Dict[str, Any], tenant_id: Optional[str] = None
+) -> bool:
+    """Insert or update a session in the database.
+
+    Args:
+        session: The session data dict
+        tenant_id: Optional tenant ID for multi-tenant isolation
+    """
     pool = await get_pool()
     if not pool:
         return False
 
     try:
+        # Use provided tenant_id or fall back to session dict
+        effective_tenant_id = tenant_id or session.get('tenant_id')
+
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO sessions (id, codebase_id, project_id, directory, title, version, summary, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                INSERT INTO sessions (id, codebase_id, project_id, directory, title, version, summary, created_at, updated_at, tenant_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 ON CONFLICT (id)
                 DO UPDATE SET
                     title = EXCLUDED.title,
                     version = EXCLUDED.version,
                     summary = EXCLUDED.summary,
-                    updated_at = NOW()
+                    updated_at = NOW(),
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, sessions.tenant_id)
             """,
                 session.get('id'),
                 session.get('codebase_id'),
@@ -837,6 +974,7 @@ async def db_upsert_session(session: Dict[str, Any]) -> bool:
                 or datetime.utcnow(),
                 _parse_timestamp(session.get('updated_at'))
                 or datetime.utcnow(),
+                effective_tenant_id,
             )
         return True
     except Exception as e:
@@ -845,25 +983,40 @@ async def db_upsert_session(session: Dict[str, Any]) -> bool:
 
 
 async def db_list_sessions(
-    codebase_id: str, limit: int = 50
+    codebase_id: str,
+    limit: int = 50,
+    tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List sessions for a codebase."""
+    """List sessions for a codebase, optionally filtered by tenant."""
     pool = await get_pool()
     if not pool:
         return []
 
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT * FROM sessions
-                WHERE codebase_id = $1
-                ORDER BY updated_at DESC
-                LIMIT $2
-            """,
-                codebase_id,
-                limit,
-            )
+            if tenant_id:
+                rows = await conn.fetch(
+                    """
+                    SELECT * FROM sessions
+                    WHERE codebase_id = $1 AND tenant_id = $3
+                    ORDER BY updated_at DESC
+                    LIMIT $2
+                """,
+                    codebase_id,
+                    limit,
+                    tenant_id,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT * FROM sessions
+                    WHERE codebase_id = $1
+                    ORDER BY updated_at DESC
+                    LIMIT $2
+                """,
+                    codebase_id,
+                    limit,
+                )
             return [_row_to_session(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list sessions: {e}')
@@ -871,26 +1024,43 @@ async def db_list_sessions(
 
 
 async def db_list_all_sessions(
-    limit: int = 100, offset: int = 0
+    limit: int = 100,
+    offset: int = 0,
+    tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List all sessions across all codebases."""
+    """List all sessions across all codebases, optionally filtered by tenant."""
     pool = await get_pool()
     if not pool:
         return []
 
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT s.*, c.name as codebase_name, c.path as codebase_path
-                FROM sessions s
-                LEFT JOIN codebases c ON s.codebase_id = c.id
-                ORDER BY s.updated_at DESC
-                LIMIT $1 OFFSET $2
-            """,
-                limit,
-                offset,
-            )
+            if tenant_id:
+                rows = await conn.fetch(
+                    """
+                    SELECT s.*, c.name as codebase_name, c.path as codebase_path
+                    FROM sessions s
+                    LEFT JOIN codebases c ON s.codebase_id = c.id
+                    WHERE s.tenant_id = $3
+                    ORDER BY s.updated_at DESC
+                    LIMIT $1 OFFSET $2
+                """,
+                    limit,
+                    offset,
+                    tenant_id,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT s.*, c.name as codebase_name, c.path as codebase_path
+                    FROM sessions s
+                    LEFT JOIN codebases c ON s.codebase_id = c.id
+                    ORDER BY s.updated_at DESC
+                    LIMIT $1 OFFSET $2
+                """,
+                    limit,
+                    offset,
+                )
             sessions = []
             for row in rows:
                 session = _row_to_session(row)
@@ -1215,4 +1385,265 @@ def _row_to_monitor_message(row) -> Dict[str, Any]:
         'response_time': row['response_time'],
         'tokens': row['tokens'],
         'error': row['error'],
+    }
+
+
+# ========================================
+# Tenant Operations (Multi-tenant support)
+# ========================================
+
+
+async def create_tenant(
+    realm_name: str, display_name: str, plan: str = 'free'
+) -> dict:
+    """Create a new tenant.
+
+    Args:
+        realm_name: Unique realm identifier (e.g., "acme.codetether.run")
+        display_name: Human-readable tenant name
+        plan: Subscription plan ('free', 'pro', 'enterprise')
+
+    Returns:
+        The created tenant dict
+    """
+    pool = await get_pool()
+    if not pool:
+        raise RuntimeError('Database not available')
+
+    tenant_id = str(uuid.uuid4())
+    now = datetime.utcnow()
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO tenants (id, realm_name, display_name, plan, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+                tenant_id,
+                realm_name,
+                display_name,
+                plan,
+                now,
+                now,
+            )
+
+        return {
+            'id': tenant_id,
+            'realm_name': realm_name,
+            'display_name': display_name,
+            'plan': plan,
+            'stripe_customer_id': None,
+            'stripe_subscription_id': None,
+            'created_at': now.isoformat(),
+            'updated_at': now.isoformat(),
+        }
+    except Exception as e:
+        logger.error(f'Failed to create tenant: {e}')
+        raise
+
+
+async def get_tenant_by_realm(realm_name: str) -> Optional[dict]:
+    """Get a tenant by realm name.
+
+    Args:
+        realm_name: The realm identifier (e.g., "acme.codetether.run")
+
+    Returns:
+        Tenant dict or None if not found
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM tenants WHERE realm_name = $1', realm_name
+            )
+            if row:
+                return _row_to_tenant(row)
+        return None
+    except Exception as e:
+        logger.error(f'Failed to get tenant by realm: {e}')
+        return None
+
+
+async def get_tenant_by_id(tenant_id: str) -> Optional[dict]:
+    """Get a tenant by ID.
+
+    Args:
+        tenant_id: The tenant UUID
+
+    Returns:
+        Tenant dict or None if not found
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM tenants WHERE id = $1', tenant_id
+            )
+            if row:
+                return _row_to_tenant(row)
+        return None
+    except Exception as e:
+        logger.error(f'Failed to get tenant by id: {e}')
+        return None
+
+
+async def list_tenants(limit: int = 100, offset: int = 0) -> List[dict]:
+    """List all tenants with pagination.
+
+    Args:
+        limit: Maximum number of tenants to return
+        offset: Number of tenants to skip
+
+    Returns:
+        List of tenant dicts
+    """
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM tenants
+                ORDER BY created_at DESC
+                LIMIT $1 OFFSET $2
+            """,
+                limit,
+                offset,
+            )
+            return [_row_to_tenant(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list tenants: {e}')
+        return []
+
+
+async def update_tenant(tenant_id: str, **kwargs) -> dict:
+    """Update tenant fields.
+
+    Args:
+        tenant_id: The tenant UUID
+        **kwargs: Fields to update (realm_name, display_name, plan)
+
+    Returns:
+        The updated tenant dict
+
+    Raises:
+        ValueError: If tenant not found
+    """
+    pool = await get_pool()
+    if not pool:
+        raise RuntimeError('Database not available')
+
+    allowed_fields = {'realm_name', 'display_name', 'plan'}
+    updates = []
+    params = [tenant_id]
+    param_idx = 2
+
+    for field, value in kwargs.items():
+        if field in allowed_fields:
+            updates.append(f'{field} = ${param_idx}')
+            params.append(value)
+            param_idx += 1
+
+    if not updates:
+        # No valid fields to update, just return current tenant
+        tenant = await get_tenant_by_id(tenant_id)
+        if not tenant:
+            raise ValueError(f'Tenant {tenant_id} not found')
+        return tenant
+
+    updates.append('updated_at = NOW()')
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                f'UPDATE tenants SET {", ".join(updates)} WHERE id = $1',
+                *params,
+            )
+            if 'UPDATE 0' in result:
+                raise ValueError(f'Tenant {tenant_id} not found')
+
+        tenant = await get_tenant_by_id(tenant_id)
+        if not tenant:
+            raise ValueError(f'Tenant {tenant_id} not found')
+        return tenant
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f'Failed to update tenant: {e}')
+        raise
+
+
+async def update_tenant_stripe(
+    tenant_id: str, customer_id: str, subscription_id: str
+) -> dict:
+    """Update tenant Stripe billing information.
+
+    Args:
+        tenant_id: The tenant UUID
+        customer_id: Stripe customer ID
+        subscription_id: Stripe subscription ID
+
+    Returns:
+        The updated tenant dict
+
+    Raises:
+        ValueError: If tenant not found
+    """
+    pool = await get_pool()
+    if not pool:
+        raise RuntimeError('Database not available')
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE tenants
+                SET stripe_customer_id = $2,
+                    stripe_subscription_id = $3,
+                    updated_at = NOW()
+                WHERE id = $1
+            """,
+                tenant_id,
+                customer_id,
+                subscription_id,
+            )
+            if 'UPDATE 0' in result:
+                raise ValueError(f'Tenant {tenant_id} not found')
+
+        tenant = await get_tenant_by_id(tenant_id)
+        if not tenant:
+            raise ValueError(f'Tenant {tenant_id} not found')
+        return tenant
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f'Failed to update tenant Stripe info: {e}')
+        raise
+
+
+def _row_to_tenant(row) -> dict:
+    """Convert a database row to a tenant dict."""
+    return {
+        'id': row['id'],
+        'realm_name': row['realm_name'],
+        'display_name': row['display_name'],
+        'plan': row['plan'],
+        'stripe_customer_id': row['stripe_customer_id'],
+        'stripe_subscription_id': row['stripe_subscription_id'],
+        'created_at': row['created_at'].isoformat()
+        if row['created_at']
+        else None,
+        'updated_at': row['updated_at'].isoformat()
+        if row['updated_at']
+        else None,
     }

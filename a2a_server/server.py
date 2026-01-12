@@ -52,6 +52,10 @@ from .monitor_api import (
 )
 from .worker_sse import worker_sse_router
 from .email_inbound import email_router
+from .tenant_middleware import TenantContextMiddleware
+from .tenant_api import router as tenant_router
+from .billing_api import router as billing_router
+from .billing_webhooks import billing_webhook_router
 
 try:
     from .livekit_bridge import create_livekit_bridge, LiveKitBridge
@@ -113,6 +117,9 @@ class A2AServer:
             allow_methods=['*'],
             allow_headers=['*'],
         )
+
+        # Add tenant context middleware (extracts tenant from JWT)
+        self.app.add_middleware(TenantContextMiddleware)
 
         # Method handlers
         self._method_handlers: Dict[str, Callable] = {
@@ -215,6 +222,15 @@ class A2AServer:
 
         # Include email inbound webhook routes for reply-based task continuation
         self.app.include_router(email_router)
+
+        # Include tenant management routes
+        self.app.include_router(tenant_router)
+
+        # Include billing API routes for subscription management
+        self.app.include_router(billing_router)
+
+        # Include billing webhook routes for Stripe
+        self.app.include_router(billing_webhook_router)
 
     async def _handle_jsonrpc_request(
         self,
