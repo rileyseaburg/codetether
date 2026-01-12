@@ -381,12 +381,23 @@ class HostedWorker:
     async def _send_completion_notification(
         self, run_id: str, status: str
     ) -> None:
-        """Send completion notification (email/webhook)."""
+        """
+        Send completion notification (email/webhook) with retry-safe 3-state flow.
+
+        Flow:
+        1. Atomically claim notification for send (increments attempts)
+        2. Try to send
+        3. On success: mark_notification_sent()
+        4. On failure: mark_notification_failed() with backoff for retry
+
+        This prevents both duplicate sends AND permanent silence.
+        """
         # Get notification settings and task details for this run
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT tr.notify_email, tr.notify_webhook_url, tr.notification_sent,
+                SELECT tr.notify_email, tr.notify_webhook_url, 
+                       tr.notification_status, tr.webhook_status,
                        tr.result_summary, tr.result_full, tr.task_id,
                        tr.runtime_seconds, tr.last_error,
                        t.title, t.prompt
@@ -397,75 +408,153 @@ class HostedWorker:
                 run_id,
             )
 
-            if not row or row['notification_sent']:
+            if not row:
                 return
 
-            # Mark notification as sent FIRST (idempotency - prevents double-send on retry)
-            await conn.execute(
-                'UPDATE task_runs SET notification_sent = TRUE WHERE id = $1',
+        # Send email notification with 3-state tracking
+        if row['notify_email'] and row['notification_status'] != 'sent':
+            await self._send_email_notification(run_id, row, status)
+
+        # Send webhook notification with 3-state tracking
+        if row['notify_webhook_url'] and row['webhook_status'] != 'sent':
+            await self._send_webhook_notification(run_id, row, status)
+
+    async def _send_email_notification(
+        self, run_id: str, row: dict, status: str
+    ) -> None:
+        """Send email notification with atomic claim and retry support."""
+        # Atomically claim the notification (prevents double-send)
+        async with self._pool.acquire() as conn:
+            claimed = await conn.fetchval(
+                'SELECT claim_notification_for_send($1, $2)',
                 run_id,
+                3,  # max_attempts
             )
 
-        # Send email notification (outside transaction, async-safe)
-        if row['notify_email']:
-            try:
-                from .email_notifications import send_task_completion_email
+            if not claimed:
+                logger.debug(
+                    f'Notification already claimed or sent for run {run_id}'
+                )
+                return
 
-                # Extract result from JSON if stored
-                result_text = row['result_summary']
-                if row['result_full']:
-                    try:
-                        result_full = (
-                            json.loads(row['result_full'])
-                            if isinstance(row['result_full'], str)
-                            else row['result_full']
-                        )
-                        result_text = (
-                            result_full.get('summary')
-                            or result_full.get('result')
-                            or result_text
-                        )
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+        # Now try to send the email
+        try:
+            from .email_notifications import send_task_completion_email
 
-                email_sent = await send_task_completion_email(
-                    to_email=row['notify_email'],
-                    task_id=row['task_id'],
-                    title=row['title'] or 'Task',
-                    status=status,
-                    result=result_text,
-                    error=row['last_error'] if status == 'failed' else None,
-                    runtime_seconds=row['runtime_seconds'],
-                    worker_name=self.worker_id,
+            # Extract result from JSON if stored
+            result_text = row['result_summary']
+            if row['result_full']:
+                try:
+                    result_full = (
+                        json.loads(row['result_full'])
+                        if isinstance(row['result_full'], str)
+                        else row['result_full']
+                    )
+                    result_text = (
+                        result_full.get('summary')
+                        or result_full.get('result')
+                        or result_text
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            email_sent = await send_task_completion_email(
+                to_email=row['notify_email'],
+                task_id=row['task_id'],
+                title=row['title'] or 'Task',
+                status=status,
+                result=result_text,
+                error=row['last_error'] if status == 'failed' else None,
+                runtime_seconds=row['runtime_seconds'],
+                worker_name=self.worker_id,
+            )
+
+            if email_sent:
+                # Mark as sent - success!
+                async with self._pool.acquire() as conn:
+                    await conn.execute(
+                        'SELECT mark_notification_sent($1)', run_id
+                    )
+                logger.info(
+                    f'Completion email sent to {row["notify_email"]} for run {run_id}'
+                )
+            else:
+                # Mark as failed with retry backoff
+                async with self._pool.acquire() as conn:
+                    await conn.execute(
+                        'SELECT mark_notification_failed($1, $2, $3)',
+                        run_id,
+                        'SendGrid returned failure (check API key/config)',
+                        3,
+                    )
+                logger.warning(
+                    f'Failed to send completion email for run {run_id}, will retry'
                 )
 
-                if email_sent:
-                    logger.info(
-                        f'Completion email sent to {row["notify_email"]} for run {run_id}'
-                    )
-                else:
-                    logger.warning(
-                        f'Failed to send completion email for run {run_id}'
-                    )
-
-            except ImportError:
-                logger.warning('email_notifications module not available')
-            except Exception as e:
-                logger.error(f'Error sending completion email: {e}')
-
-        # Send webhook notification
-        if row['notify_webhook_url']:
-            try:
-                await self._call_webhook(
-                    url=row['notify_webhook_url'],
-                    run_id=run_id,
-                    task_id=row['task_id'],
-                    status=status,
-                    result=row['result_summary'],
-                    error=row['last_error'],
+        except ImportError as e:
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    'SELECT mark_notification_failed($1, $2, $3)',
+                    run_id,
+                    f'email_notifications module not available: {e}',
+                    3,
                 )
-            except Exception as e:
-                logger.error(f'Error calling webhook: {e}')
+            logger.warning('email_notifications module not available')
+        except Exception as e:
+            # Mark as failed with retry backoff
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    'SELECT mark_notification_failed($1, $2, $3)',
+                    run_id,
+                    str(e)[:500],  # Truncate error message
+                    3,
+                )
+            logger.error(f'Error sending completion email: {e}')
+
+    async def _send_webhook_notification(
+        self, run_id: str, row: dict, status: str
+    ) -> None:
+        """Send webhook notification with atomic claim and retry support."""
+        # Atomically claim the webhook notification
+        async with self._pool.acquire() as conn:
+            claimed = await conn.fetchval(
+                'SELECT claim_webhook_for_send($1, $2)',
+                run_id,
+                3,  # max_attempts
+            )
+
+            if not claimed:
+                logger.debug(
+                    f'Webhook already claimed or sent for run {run_id}'
+                )
+                return
+
+        # Now try to call the webhook
+        try:
+            await self._call_webhook(
+                url=row['notify_webhook_url'],
+                run_id=run_id,
+                task_id=row['task_id'],
+                status=status,
+                result=row['result_summary'],
+                error=row['last_error'],
+            )
+
+            # Mark as sent - success!
+            async with self._pool.acquire() as conn:
+                await conn.execute('SELECT mark_webhook_sent($1)', run_id)
+            logger.info(f'Webhook called successfully for run {run_id}')
+
+        except Exception as e:
+            # Mark as failed with retry backoff
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    'SELECT mark_webhook_failed($1, $2, $3)',
+                    run_id,
+                    str(e)[:500],
+                    3,
+                )
+            logger.error(f'Error calling webhook: {e}')
 
     async def _call_webhook(
         self,
@@ -672,12 +761,12 @@ class HostedWorkerPool:
             logger.error(f'Failed to unregister pool: {e}')
 
     async def _reclaim_loop(self) -> None:
-        """Periodically reclaim expired leases."""
+        """Periodically reclaim expired leases and retry failed notifications."""
         if not self._pool:
             return
         try:
             while self._running:
-                await asyncio.sleep(30)  # Check every 30 seconds
+                await asyncio.sleep(60)  # Check every 60 seconds
 
                 async with self._pool.acquire() as conn:
                     reclaimed = await conn.fetchval(
@@ -701,10 +790,94 @@ class HostedWorkerPool:
                         current_tasks,
                     )
 
+                # Retry failed notifications
+                await self._retry_failed_notifications()
+
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error(f'Reclaim loop error: {e}', exc_info=True)
+
+    async def _retry_failed_notifications(self) -> None:
+        """
+        Process failed notifications that are ready for retry.
+
+        This runs periodically in the pool's reclaim loop to ensure
+        no notifications are permanently lost due to transient failures.
+        """
+        if not self._pool:
+            return
+
+        try:
+            async with self._pool.acquire() as conn:
+                # Get notifications ready for retry
+                rows = await conn.fetch(
+                    'SELECT * FROM get_pending_notification_retries($1)',
+                    10,  # Process up to 10 at a time
+                )
+
+            if not rows:
+                return
+
+            logger.info(f'Processing {len(rows)} notification retries')
+
+            # Use one of our workers to send the notifications
+            # (reuse their HTTP client and notification logic)
+            if self._workers:
+                worker = self._workers[0]
+
+                for row in rows:
+                    run_id = row['run_id']
+
+                    # Get full task details for notification
+                    async with self._pool.acquire() as conn:
+                        full_row = await conn.fetchrow(
+                            """
+                            SELECT tr.notify_email, tr.notify_webhook_url, 
+                                   tr.notification_status, tr.webhook_status,
+                                   tr.result_summary, tr.result_full, tr.task_id,
+                                   tr.runtime_seconds, tr.last_error, tr.status,
+                                   t.title, t.prompt
+                            FROM task_runs tr
+                            LEFT JOIN tasks t ON tr.task_id = t.id
+                            WHERE tr.id = $1
+                            """,
+                            run_id,
+                        )
+
+                    if not full_row:
+                        continue
+
+                    task_status = full_row['status'] or 'completed'
+
+                    # Retry email if needed
+                    if (
+                        row['notification_status'] == 'failed'
+                        and full_row['notify_email']
+                    ):
+                        logger.info(
+                            f'Retrying email notification for run {run_id} '
+                            f'(attempt {row["notification_attempts"] + 1})'
+                        )
+                        await worker._send_email_notification(
+                            run_id, dict(full_row), task_status
+                        )
+
+                    # Retry webhook if needed
+                    if (
+                        row['webhook_status'] == 'failed'
+                        and full_row['notify_webhook_url']
+                    ):
+                        logger.info(
+                            f'Retrying webhook notification for run {run_id} '
+                            f'(attempt {row["webhook_attempts"] + 1})'
+                        )
+                        await worker._send_webhook_notification(
+                            run_id, dict(full_row), task_status
+                        )
+
+        except Exception as e:
+            logger.error(f'Error retrying notifications: {e}', exc_info=True)
 
     def get_stats(self) -> Dict[str, Any]:
         """Get pool statistics."""
