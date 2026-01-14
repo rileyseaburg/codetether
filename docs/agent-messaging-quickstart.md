@@ -303,12 +303,60 @@ print(f"Agent subscriptions: {agent._message_handlers.keys()}")
 - ✅ Check Redis URL is correct
 - ✅ Ensure network connectivity
 
-## 8. Next Steps
+## 8. Agent-Targeted Routing (v0.7.0+)
 
-- 📚 Read the [full documentation](../README.md#agent-to-agent-messaging)
-- 🔧 Explore [examples directory](../examples/)
-- 🧪 Check [test files](../tests/) for more patterns
-- 🚀 Deploy with [Kubernetes](../chart/a2a-server/)
+### Send to Specific Agent
+
+Use `send_to_agent` when you need a specific named agent to handle a task:
+
+```python
+# Via MCP tool call
+result = await mcp_client.call_tool("send_to_agent", {
+    "agent_name": "code-reviewer",
+    "message": "Review this PR for security issues",
+    "deadline_seconds": 300  # Optional: fail if not claimed in 5 minutes
+})
+
+print(f"Task ID: {result['task_id']}")
+print(f"Run ID: {result['run_id']}")
+```
+
+### Fire-and-Forget Async Messaging
+
+Use `send_message_async` for generic tasks any worker can handle:
+
+```python
+result = await mcp_client.call_tool("send_message_async", {
+    "message": "Process this batch job",
+    "priority": 5
+})
+```
+
+### Start Workers with Agent Names
+
+```bash
+# Worker 1: Code reviewer with Python capabilities
+codetether-worker --agent-name=code-reviewer --capabilities=python,pytest,security
+
+# Worker 2: Build worker with Terraform capabilities  
+codetether-worker --agent-name=build-worker --capabilities=terraform,docker,kubernetes
+```
+
+### Routing Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| `send_message_async` | Any worker claims |
+| `send_to_agent(agent_name="X")` | Only worker X claims |
+| `send_to_agent` + agent offline | Queue indefinitely |
+| `send_to_agent` + `deadline_seconds` + offline | Fail after timeout |
+
+## 9. Next Steps
+
+- Read the [full documentation](../README.md#agent-to-agent-messaging)
+- Explore [examples directory](../examples/)
+- Check [test files](../tests/) for more patterns
+- Deploy with [Kubernetes](../chart/a2a-server/)
 
 ## API Quick Reference
 
@@ -330,6 +378,13 @@ print(f"Agent subscriptions: {agent._message_handlers.keys()}")
 | `publish_event(event_type, data)` | Publish global event |
 | `subscribe_to_events(event_type, handler)` | Subscribe to global events |
 
+### MCP Routing Tools (v0.7.0+)
+
+| Tool | Description |
+|------|-------------|
+| `send_message_async` | Fire-and-forget async task for any worker |
+| `send_to_agent` | Route task to specific named agent with optional deadline |
+
 ## Example Project Structure
 
 ```
@@ -344,4 +399,4 @@ my_agent_system/
 └── requirements.txt
 ```
 
-Happy agent messaging! 🤖💬
+Happy agent messaging!

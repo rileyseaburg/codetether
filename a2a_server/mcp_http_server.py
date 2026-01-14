@@ -57,6 +57,15 @@ except ImportError:
     USER_AUTH_AVAILABLE = False
     user_auth_router = None
 
+# Import queue status API router
+try:
+    from .queue_api import router as queue_api_router
+
+    QUEUE_API_AVAILABLE = True
+except ImportError:
+    QUEUE_API_AVAILABLE = False
+    queue_api_router = None
+
 # Import task queue for hosted workers
 try:
     from .task_queue import enqueue_task, get_task_queue
@@ -66,6 +75,15 @@ except ImportError:
     TASK_QUEUE_AVAILABLE = False
     enqueue_task = None
     get_task_queue = None
+
+# Import billing webhook router for Stripe
+try:
+    from .billing_webhooks import billing_webhook_router
+
+    BILLING_WEBHOOKS_AVAILABLE = True
+except ImportError:
+    BILLING_WEBHOOKS_AVAILABLE = False
+    billing_webhook_router = None
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +136,14 @@ class MCPHTTPServer:
         if USER_AUTH_AVAILABLE and user_auth_router:
             self.app.include_router(user_auth_router)
 
+        # Include Queue API router for operational visibility
+        if QUEUE_API_AVAILABLE and queue_api_router:
+            self.app.include_router(queue_api_router)
+
+        # Include Billing Webhooks router for Stripe
+        if BILLING_WEBHOOKS_AVAILABLE and billing_webhook_router:
+            self.app.include_router(billing_webhook_router)
+
         self._setup_routes()
 
     def _get_tools_from_a2a_server(self) -> List[Dict[str, Any]]:
@@ -143,6 +169,74 @@ class MCPHTTPServer:
                         },
                     },
                     'required': ['message'],
+                },
+            },
+            {
+                'name': 'send_message_async',
+                'description': 'Send a message asynchronously by creating a task that workers will pick up. Unlike send_message (synchronous), this immediately returns a task_id and run_id, allowing you to poll for results later. Use for long-running operations or when you want fire-and-forget semantics. Returns: task_id, run_id, status, conversation_id.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'message': {
+                            'type': 'string',
+                            'description': 'The message/prompt for the agent to process',
+                        },
+                        'conversation_id': {
+                            'type': 'string',
+                            'description': 'Optional conversation ID for message threading',
+                        },
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'Target codebase ID (default: global)',
+                        },
+                        'priority': {
+                            'type': 'integer',
+                            'description': 'Priority level (higher = more urgent, default: 0)',
+                        },
+                        'notify_email': {
+                            'type': 'string',
+                            'description': 'Email to notify when task completes',
+                        },
+                    },
+                    'required': ['message'],
+                },
+            },
+            {
+                'name': 'send_to_agent',
+                'description': 'Send a message to a specific named agent. The task will be queued until that agent is available to claim it. If the agent is offline, the task queues indefinitely (unless deadline_seconds is set). Use discover_agents to find available agent names. Returns: task_id, run_id, target_agent_name, status.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'agent_name': {
+                            'type': 'string',
+                            'description': 'Name of the target agent (must match agent_name used during worker registration)',
+                        },
+                        'message': {
+                            'type': 'string',
+                            'description': 'The message/prompt for the agent to process',
+                        },
+                        'conversation_id': {
+                            'type': 'string',
+                            'description': 'Optional conversation ID for message threading',
+                        },
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'Target codebase ID (default: global)',
+                        },
+                        'priority': {
+                            'type': 'integer',
+                            'description': 'Priority level (higher = more urgent, default: 0)',
+                        },
+                        'deadline_seconds': {
+                            'type': 'integer',
+                            'description': 'Optional: fail if not claimed within this many seconds. If not set, task queues indefinitely.',
+                        },
+                        'notify_email': {
+                            'type': 'string',
+                            'description': 'Email to notify when task completes',
+                        },
+                    },
+                    'required': ['agent_name', 'message'],
                 },
             },
             {
@@ -785,6 +879,12 @@ class MCPHTTPServer:
             if tool_name == 'send_message':
                 return await self._send_message(arguments)
 
+            elif tool_name == 'send_message_async':
+                return await self._send_message_async(arguments)
+
+            elif tool_name == 'send_to_agent':
+                return await self._send_to_agent(arguments)
+
             elif tool_name == 'create_task':
                 return await self._create_task(arguments)
 
@@ -950,6 +1050,226 @@ class MCPHTTPServer:
             'conversation_id': conversation_id,
             'timestamp': datetime.now().isoformat(),
         }
+
+    async def _send_message_async(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Send a message asynchronously by creating a task and enqueuing it.
+
+        Unlike _send_message (synchronous), this immediately returns a task_id
+        and run_id, allowing callers to poll for results later.
+
+        This is the primary entry point for the "fire and forget" flow.
+        """
+        from .monitor_api import get_opencode_bridge
+
+        message = args.get('message', '')
+        conversation_id = args.get('conversation_id') or str(uuid.uuid4())
+        codebase_id = args.get('codebase_id', 'global')
+        priority = args.get('priority', 0)
+        notify_email = args.get('notify_email')
+
+        bridge = get_opencode_bridge()
+        if bridge is None:
+            return {'error': 'OpenCode bridge not available'}
+
+        # Create a task with the message as the prompt
+        task = await bridge.create_task(
+            codebase_id=codebase_id,
+            title=f'Async message: {message[:50]}...'
+            if len(message) > 50
+            else f'Async message: {message}',
+            prompt=message,
+            agent_type='general',
+            priority=priority,
+            metadata={
+                'conversation_id': conversation_id,
+                'source': 'send_message_async',
+            },
+        )
+
+        if task is None:
+            return {'error': 'Failed to create task'}
+
+        # Build task data for SSE notification
+        task_data = {
+            'id': task.id,
+            'title': task.title,
+            'description': task.prompt,
+            'codebase_id': task.codebase_id,
+            'agent_type': task.agent_type,
+            'priority': task.priority,
+            'status': task.status.value,
+            'created_at': task.created_at.isoformat(),
+        }
+
+        # Notify SSE-connected workers
+        try:
+            notified = await notify_workers_of_new_task(task_data)
+            logger.info(
+                f'Async message task {task.id} created, notified {len(notified)} SSE workers'
+            )
+        except Exception as e:
+            logger.warning(
+                f'Failed to notify SSE workers of task {task.id}: {e}'
+            )
+
+        # Enqueue for hosted workers
+        run_id = None
+        if TASK_QUEUE_AVAILABLE and enqueue_task:
+            try:
+                user_id = args.get('_user_id')
+                task_run = await enqueue_task(
+                    task_id=task.id,
+                    user_id=user_id,
+                    priority=priority,
+                    notify_email=notify_email,
+                )
+                if task_run:
+                    run_id = task_run.id
+                    logger.info(
+                        f'Async message task {task.id} enqueued as run {run_id}'
+                    )
+            except Exception as e:
+                logger.warning(f'Failed to enqueue task {task.id}: {e}')
+
+        return {
+            'success': True,
+            'task_id': task.id,
+            'run_id': run_id,
+            'status': 'queued',
+            'conversation_id': conversation_id,
+            'timestamp': datetime.now().isoformat(),
+        }
+
+    async def _send_to_agent(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Send a message to a specific named agent.
+
+        The task will be queued until that agent is available to claim it.
+        If the agent is offline, the task queues indefinitely unless
+        deadline_seconds is set.
+
+        This enables explicit agent-to-agent communication where the caller
+        needs work done by a specific agent (not just any available worker).
+        """
+        from .monitor_api import get_opencode_bridge
+        from datetime import timedelta
+
+        agent_name = args.get('agent_name')
+        if not agent_name:
+            return {'error': 'agent_name is required'}
+
+        message = args.get('message', '')
+        conversation_id = args.get('conversation_id') or str(uuid.uuid4())
+        codebase_id = args.get('codebase_id', 'global')
+        priority = args.get('priority', 0)
+        deadline_seconds = args.get('deadline_seconds')
+        notify_email = args.get('notify_email')
+
+        bridge = get_opencode_bridge()
+        if bridge is None:
+            return {'error': 'OpenCode bridge not available'}
+
+        # Create a task with the message as the prompt
+        task = await bridge.create_task(
+            codebase_id=codebase_id,
+            title=f'To {agent_name}: {message[:40]}...'
+            if len(message) > 40
+            else f'To {agent_name}: {message}',
+            prompt=message,
+            agent_type='general',
+            priority=priority,
+            metadata={
+                'conversation_id': conversation_id,
+                'source': 'send_to_agent',
+                'target_agent_name': agent_name,
+            },
+        )
+
+        if task is None:
+            return {'error': 'Failed to create task'}
+
+        # Calculate deadline if specified
+        deadline_at = None
+        if deadline_seconds:
+            from datetime import timezone
+
+            deadline_at = datetime.now(timezone.utc) + timedelta(
+                seconds=deadline_seconds
+            )
+
+        # Build task data for SSE notification (include routing fields)
+        task_data = {
+            'id': task.id,
+            'title': task.title,
+            'description': task.prompt,
+            'codebase_id': task.codebase_id,
+            'agent_type': task.agent_type,
+            'priority': task.priority,
+            'status': task.status.value,
+            'created_at': task.created_at.isoformat(),
+            # Routing fields for notify-time filtering
+            'target_agent_name': agent_name,
+        }
+
+        # Notify SSE-connected workers (only the targeted agent will be notified)
+        try:
+            notified = await notify_workers_of_new_task(task_data)
+            if notified:
+                logger.info(
+                    f'Targeted task {task.id} for agent {agent_name}, '
+                    f'notified {len(notified)} workers'
+                )
+            else:
+                logger.info(
+                    f'Targeted task {task.id} for agent {agent_name}, '
+                    f'no matching workers online (will queue)'
+                )
+        except Exception as e:
+            logger.warning(f'Failed to notify workers of task {task.id}: {e}')
+
+        # Enqueue for hosted workers with routing fields
+        run_id = None
+        if TASK_QUEUE_AVAILABLE and enqueue_task:
+            try:
+                user_id = args.get('_user_id')
+                task_run = await enqueue_task(
+                    task_id=task.id,
+                    user_id=user_id,
+                    priority=priority,
+                    notify_email=notify_email,
+                    # Agent routing fields
+                    target_agent_name=agent_name,
+                    deadline_at=deadline_at,
+                )
+                if task_run:
+                    run_id = task_run.id
+                    logger.info(
+                        f'Targeted task {task.id} enqueued as run {run_id} '
+                        f'(target={agent_name}, deadline={deadline_at})'
+                    )
+            except Exception as e:
+                logger.warning(f'Failed to enqueue task {task.id}: {e}')
+
+        # Build routing info for debugging/UX
+        routing_info = {
+            'target_agent_name': agent_name,
+            'required_capabilities': None,  # Not used in send_to_agent currently
+            'deadline_at': deadline_at.isoformat() if deadline_at else None,
+        }
+
+        result = {
+            'success': True,
+            'task_id': task.id,
+            'run_id': run_id,
+            'status': 'queued',
+            'conversation_id': conversation_id,
+            'timestamp': datetime.now().isoformat(),
+            # Routing info for debugging "why is my job stuck?"
+            'routing': routing_info,
+        }
+
+        return result
 
     async def _create_task(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new task."""
@@ -1807,4 +2127,14 @@ async def run_mcp_http_server(
 
 
 if __name__ == '__main__':
-    asyncio.run(run_mcp_http_server())
+    import argparse
+
+    parser = argparse.ArgumentParser(description='MCP HTTP Server')
+    parser.add_argument(
+        '--port', '-p', type=int, default=9000, help='Port to run on'
+    )
+    parser.add_argument(
+        '--host', '-H', type=str, default='0.0.0.0', help='Host to bind to'
+    )
+    args = parser.parse_args()
+    asyncio.run(run_mcp_http_server(host=args.host, port=args.port))

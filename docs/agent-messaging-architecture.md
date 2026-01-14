@@ -331,6 +331,116 @@ Agent sends message
               (No crash)
 ```
 
+## Agent-Targeted Routing (v0.7.0+)
+
+### Overview
+
+Agent-targeted routing enables tasks to be sent to specific named agents rather than any available worker. This is essential for specialized workflows where certain agents have unique capabilities.
+
+### Routing Flow
+
+```
+┌──────────┐                                      ┌──────────────┐
+│  Client  │                                      │ Target Agent │
+└─────┬────┘                                      └──────┬───────┘
+      │                                                   │
+      │ 1. send_to_agent(agent_name="code-reviewer")     │
+      │─────────────────────────────────────────►        │
+      │                                                   │
+      │         ┌────────────────────────┐               │
+      │         │    A2A Server          │               │
+      │         │                        │               │
+      │         │ • Stores target_agent  │               │
+      │         │ • SSE notifies only    │               │
+      │         │   matching workers     │               │
+      │         │ • SQL claim verifies   │               │
+      │         │   agent name match     │               │
+      │         └────────────────────────┘               │
+      │                                                   │
+      │              2. Task queued for agent             │
+      │                                                   │
+      │                   3. Worker with agent_name       │
+      │                      "code-reviewer" claims       │
+      │                                                   │
+      │              4. Task executed                     │
+      │◄─────────────────────────────────────────────────│
+      │                                                   │
+```
+
+### New MCP Tools
+
+#### `send_message_async` - Fire-and-Forget Async Messaging
+
+```json
+{
+  "tool": "send_message_async",
+  "params": {
+    "message": "Process this data",
+    "conversation_id": "conv-123",
+    "codebase_id": "my-project",
+    "priority": 5,
+    "notify_email": "user@example.com"
+  }
+}
+```
+
+Returns immediately with `task_id` and `run_id`. Any available worker can claim the task.
+
+#### `send_to_agent` - Agent-Targeted Routing
+
+```json
+{
+  "tool": "send_to_agent",
+  "params": {
+    "agent_name": "code-reviewer",
+    "message": "Review this PR",
+    "deadline_seconds": 300,
+    "priority": 10
+  }
+}
+```
+
+Routes to a specific named agent. Task queues indefinitely by default unless `deadline_seconds` is set.
+
+### Capability-Based Routing
+
+Workers can declare capabilities, and tasks can require specific capabilities:
+
+```bash
+# Start worker with agent name and capabilities
+codetether-worker --agent-name=code-reviewer --capabilities=python,pytest,security
+```
+
+```json
+{
+  "tool": "send_to_agent",
+  "params": {
+    "agent_name": "code-reviewer",
+    "message": "Review security-sensitive code",
+    "required_capabilities": ["python", "security"]
+  }
+}
+```
+
+The worker must have ALL required capabilities (AND logic).
+
+### Routing Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| No target agent | Any worker can claim |
+| Target agent online | Only that agent claims |
+| Target agent offline | Queue indefinitely (default) |
+| Target agent offline + deadline | Fail after deadline |
+| Required capabilities not met | Task skipped by worker |
+
+### Dual-Layer Enforcement
+
+1. **SSE Layer (Notify-time)**: Workers only receive notifications for tasks they can claim
+2. **SQL Layer (Claim-time)**: Atomic claim query verifies agent name and capabilities
+
+This ensures no race conditions and prevents tasks from being claimed by the wrong worker.
+
 ## Summary
 
 The agent-to-agent messaging architecture provides:
@@ -340,5 +450,6 @@ The agent-to-agent messaging architecture provides:
 3. **Reliability**: Error handling and graceful degradation
 4. **Simplicity**: Clean API for agent developers
 5. **Production Ready**: Battle-tested message broker patterns
+6. **Targeted Routing**: Route tasks to specific named agents with capability matching
 
 This architecture enables sophisticated multi-agent systems while keeping the implementation clean and maintainable.
