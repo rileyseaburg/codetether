@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.7.0] - 2026-01-14
+
+### Features
+
+* **Agent-Targeted Routing**: Route tasks to specific named agents instead of any available worker
+  - `send_to_agent` MCP tool: Route tasks to specific agents by name with optional deadline
+  - `send_message_async` MCP tool: Fire-and-forget async messaging for generic task distribution
+  - Exact agent name matching (no wildcards) with queue-indefinitely-by-default behavior
+  - Optional `deadline_seconds` parameter to fail tasks if no matching worker claims them
+
+* **Capability-Based Routing**: Workers can declare capabilities, tasks can require them
+  - Workers register with `--agent-name` and `--capabilities` CLI flags
+  - Tasks can specify `required_capabilities` as a JSONB array
+  - SQL containment check (`@>`) ensures workers have ALL required capabilities
+  - Combined with agent targeting for precise task routing
+
+* **Database Migration 007**: New schema for routing support
+  - `target_agent_name`, `required_capabilities`, `deadline_at` columns on `task_runs`
+  - Updated `claim_next_task_run()` function with agent/capability filtering
+  - `fail_deadline_exceeded_tasks()` function for deadline enforcement
+  - `targeted_task_queue` view for monitoring agent-specific queues
+
+### Architecture
+
+* **Dual-Layer Routing Enforcement**: Both SSE notify-time AND SQL claim-time filtering
+  - SSE layer: Workers only notified of tasks they can claim (reduces noise)
+  - SQL layer: Atomic claim ensures no race conditions (authoritative filter)
+  - No silent fallback: Tasks for agent X never run on agent Y
+
+* **TaskRun Dataclass Extensions**: New routing fields for task inspection
+  - `target_agent_name`, `required_capabilities`, `deadline_at`
+  - `routing_failed_at`, `routing_failure_reason` for debugging failures
+
+### API
+
+* **New MCP Tools**:
+  - `send_message_async(message, conversation_id?, codebase_id?, priority?, notify_email?)` - Generic async task
+  - `send_to_agent(agent_name, message, conversation_id?, codebase_id?, priority?, deadline_seconds?, notify_email?)` - Targeted routing
+
+* **Worker CLI Extensions**:
+  - `--agent-name NAME` - Register worker with a specific agent name
+  - `--capabilities cap1,cap2` - Declare worker capabilities
+
+### Tests
+
+* **Agent Routing Test Suite**: 10 passing tests in `tests/test_agent_routing.py`
+  - Worker registry targeting and capability filtering
+  - Broadcast task with targeting
+  - TaskRun dataclass with routing fields
+  - Combined targeting + capabilities (AND logic)
+
 ## [0.6.0] - 2026-01-04
 
 ### Features

@@ -54,6 +54,8 @@ class HostedWorker:
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         lease_duration: int = DEFAULT_LEASE_DURATION,
         heartbeat_interval: int = DEFAULT_HEARTBEAT_INTERVAL,
+        agent_name: Optional[str] = None,
+        capabilities: Optional[List[str]] = None,
     ):
         self.worker_id = worker_id
         self._pool = db_pool
@@ -61,6 +63,9 @@ class HostedWorker:
         self._poll_interval = poll_interval
         self._lease_duration = lease_duration
         self._heartbeat_interval = heartbeat_interval
+        # Agent identity for targeted routing
+        self.agent_name = agent_name
+        self.capabilities = capabilities or []
 
         self._running = False
         self._current_run_id: Optional[str] = None
@@ -124,23 +129,41 @@ class HostedWorker:
         Attempt to claim the next available job from the queue.
 
         Uses the claim_next_task_run() SQL function for atomic claiming
-        with concurrency limit enforcement.
+        with concurrency limit enforcement and agent-targeted routing.
+
+        The agent_name and capabilities are passed to filter tasks:
+        - Tasks with target_agent_name set will only be claimed by matching workers
+        - Tasks with required_capabilities will only be claimed by workers with ALL required caps
 
         Returns True if a job was claimed.
         """
+        import json
+
+        # Convert capabilities list to JSONB format for SQL
+        capabilities_json = (
+            json.dumps(self.capabilities) if self.capabilities else '[]'
+        )
+
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                'SELECT * FROM claim_next_task_run($1, $2)',
+                'SELECT * FROM claim_next_task_run($1, $2, $3, $4::jsonb)',
                 self.worker_id,
                 self._lease_duration,
+                self.agent_name,  # Pass agent_name for targeted routing
+                capabilities_json,  # Pass capabilities for capability-based routing
             )
 
             if row and row['run_id']:
                 self._current_run_id = row['run_id']
                 self._current_task_id = row['task_id']
+                target_info = (
+                    f', targeted_at={row.get("target_agent_name")}'
+                    if row.get('target_agent_name')
+                    else ''
+                )
                 logger.info(
-                    f'Worker {self.worker_id} claimed run {self._current_run_id} '
-                    f'(task={self._current_task_id}, priority={row["priority"]})'
+                    f'Worker {self.worker_id} (agent={self.agent_name}) claimed run {self._current_run_id} '
+                    f'(task={self._current_task_id}, priority={row["priority"]}{target_info})'
                 )
                 return True
 
@@ -619,12 +642,17 @@ class HostedWorkerPool:
         num_workers: int = DEFAULT_WORKERS,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         lease_duration: int = DEFAULT_LEASE_DURATION,
+        agent_name: Optional[str] = None,
+        capabilities: Optional[List[str]] = None,
     ):
         self._db_url = db_url
         self._api_base_url = api_base_url
         self._num_workers = num_workers
         self._poll_interval = poll_interval
         self._lease_duration = lease_duration
+        # Agent identity for targeted routing (shared by all workers in pool)
+        self._agent_name = agent_name
+        self._capabilities = capabilities or []
 
         self._pool: Optional[asyncpg.Pool] = None
         self._workers: List[HostedWorker] = []
@@ -664,6 +692,8 @@ class HostedWorkerPool:
                 api_base_url=self._api_base_url,
                 poll_interval=self._poll_interval,
                 lease_duration=self._lease_duration,
+                agent_name=self._agent_name,
+                capabilities=self._capabilities,
             )
             self._workers.append(worker)
             task = asyncio.create_task(worker.start())
@@ -774,6 +804,15 @@ class HostedWorkerPool:
                     )
                     if reclaimed and reclaimed > 0:
                         logger.info(f'Reclaimed {reclaimed} expired task runs')
+
+                    # Fail tasks that exceeded their routing deadline
+                    deadline_failed = await conn.fetchval(
+                        'SELECT fail_deadline_exceeded_tasks()'
+                    )
+                    if deadline_failed and deadline_failed > 0:
+                        logger.info(
+                            f'Failed {deadline_failed} tasks that exceeded deadline'
+                        )
 
                     # Update pool heartbeat
                     current_tasks = sum(
@@ -946,8 +985,25 @@ async def main():
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
         help='Log level (default: INFO)',
     )
+    parser.add_argument(
+        '--agent-name',
+        default=os.environ.get('AGENT_NAME'),
+        help='Agent name for targeted task routing (env: AGENT_NAME)',
+    )
+    parser.add_argument(
+        '--capabilities',
+        default=os.environ.get('AGENT_CAPABILITIES', ''),
+        help='Comma-separated list of capabilities (env: AGENT_CAPABILITIES)',
+    )
 
     args = parser.parse_args()
+
+    # Parse capabilities
+    capabilities = []
+    if args.capabilities:
+        capabilities = [
+            c.strip() for c in args.capabilities.split(',') if c.strip()
+        ]
 
     # Configure logging
     logging.basicConfig(
@@ -962,6 +1018,8 @@ async def main():
         num_workers=args.workers,
         poll_interval=args.poll_interval,
         lease_duration=args.lease_duration,
+        agent_name=args.agent_name,
+        capabilities=capabilities,
     )
 
     # Handle shutdown signals

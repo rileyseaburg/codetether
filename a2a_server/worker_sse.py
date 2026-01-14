@@ -182,14 +182,25 @@ class WorkerRegistry:
         self,
         codebase_id: Optional[str] = None,
         required_capabilities: Optional[List[str]] = None,
+        target_agent_name: Optional[str] = None,
     ) -> List[ConnectedWorker]:
         """
         Get workers available to accept a new task.
 
         Filters by:
         - Not currently busy
-        - Optionally: handles the specified codebase
+        - Handles the specified codebase (workers must explicitly register codebases)
         - Optionally: has required capabilities
+        - Optionally: matches target_agent_name (for agent-targeted routing)
+
+        IMPORTANT: Workers with no registered codebases will ONLY receive
+        'global' or '__pending__' tasks. This prevents cross-server task leakage
+        where a worker picks up tasks for codebases it doesn't have access to.
+
+        Agent Targeting:
+        - If target_agent_name is set, ONLY notify workers with that agent_name
+        - This reduces noise/wakeups for targeted tasks
+        - Claim-time filtering is the real enforcement; this is for efficiency
         """
         async with self._lock:
             available = []
@@ -197,10 +208,23 @@ class WorkerRegistry:
                 if worker.is_busy:
                     continue
 
+                # Agent targeting filter (notify-time filtering for efficiency)
+                # If task is targeted at a specific agent, only notify that agent
+                if target_agent_name:
+                    if worker.agent_name != target_agent_name:
+                        continue
+
                 # Check codebase filter
-                if codebase_id and codebase_id not in worker.codebases:
-                    # Allow 'global' codebase or __pending__ to match any worker
-                    if codebase_id not in ('global', '__pending__'):
+                if codebase_id:
+                    # Special codebase IDs that any worker can handle
+                    if codebase_id in ('global', '__pending__'):
+                        pass  # Any worker can handle these
+                    elif codebase_id in worker.codebases:
+                        pass  # Worker explicitly registered this codebase
+                    else:
+                        # Task is for a specific codebase the worker doesn't have
+                        # Skip this worker even if it has no codebases registered
+                        # (empty codebases does NOT mean "can handle anything")
                         continue
 
                 # Check capabilities filter
@@ -268,21 +292,34 @@ class WorkerRegistry:
         self,
         task: Dict[str, Any],
         codebase_id: Optional[str] = None,
+        target_agent_name: Optional[str] = None,
+        required_capabilities: Optional[List[str]] = None,
     ) -> List[str]:
         """
         Broadcast a task to all available workers that can handle it.
 
+        For targeted tasks (target_agent_name set), only notifies the specific agent.
+        This is notify-time filtering for efficiency; claim-time is the real enforcement.
+
         Returns list of worker_ids that received the notification.
         """
-        available = await self.get_available_workers(codebase_id=codebase_id)
+        available = await self.get_available_workers(
+            codebase_id=codebase_id,
+            target_agent_name=target_agent_name,
+            required_capabilities=required_capabilities,
+        )
         notified = []
 
         for worker in available:
             if await self.push_task_to_worker(worker.worker_id, task):
                 notified.append(worker.worker_id)
 
+        routing_info = ''
+        if target_agent_name:
+            routing_info = f' (targeted at {target_agent_name})'
+
         logger.info(
-            f'Task {task.get("id", "unknown")} broadcast to {len(notified)} workers'
+            f'Task {task.get("id", "unknown")} broadcast to {len(notified)} workers{routing_info}'
         )
         return notified
 
@@ -482,6 +519,58 @@ async def worker_task_stream(
                 'timestamp': datetime.now(timezone.utc).isoformat(),
             }
             yield f'event: connected\ndata: {json.dumps(connect_event)}\n\n'
+
+            # Send any pending tasks to the newly connected worker
+            try:
+                from .monitor_api import get_opencode_bridge
+                from .opencode_bridge import AgentTaskStatus
+
+                bridge = get_opencode_bridge()
+                if bridge:
+                    # Get all pending tasks
+                    pending_tasks = await bridge.list_tasks(
+                        status=AgentTaskStatus.PENDING
+                    )
+
+                    # Filter tasks that this worker can handle (based on codebases)
+                    worker_codebases = codebases or set()
+                    sent_count = 0
+
+                    for task in pending_tasks:
+                        task_codebase = task.codebase_id
+                        # Worker can handle task if:
+                        # 1. Task has no specific codebase (global/__pending__)
+                        # 2. Worker has the task's codebase in their list
+                        # NOTE: Workers with no codebases can ONLY handle global/__pending__ tasks
+                        # This prevents cross-server task leakage
+                        can_handle = (
+                            task_codebase in ('__pending__', 'global')
+                            or task_codebase in worker_codebases
+                        )
+
+                        if can_handle:
+                            task_data = {
+                                'id': task.id,
+                                'codebase_id': task.codebase_id,
+                                'title': task.title,
+                                'prompt': task.prompt,
+                                'agent_type': task.agent_type,
+                                'priority': task.priority,
+                                'metadata': task.metadata,
+                                'model': task.model,
+                                'created_at': task.created_at.isoformat()
+                                if task.created_at
+                                else None,
+                            }
+                            yield f'event: task_available\ndata: {json.dumps(task_data)}\n\n'
+                            sent_count += 1
+
+                    if sent_count > 0:
+                        logger.info(
+                            f'Sent {sent_count} pending tasks to worker {resolved_worker_id} on connect'
+                        )
+            except Exception as e:
+                logger.warning(f'Failed to send pending tasks on connect: {e}')
 
             # Main event loop
             heartbeat_interval = 30  # seconds
@@ -740,12 +829,32 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
     This function should be called when a new task is created to push
     it to available workers via SSE.
 
+    Supports agent-targeted routing:
+    - If task has target_agent_name, only notifies that specific agent
+    - If task has required_capabilities, only notifies capable workers
+
     Returns list of worker_ids that received the notification.
     """
     registry = get_worker_registry()
     codebase_id = task.get('codebase_id')
+    target_agent_name = task.get('target_agent_name')
+    required_capabilities = task.get('required_capabilities')
 
-    return await registry.broadcast_task(task, codebase_id=codebase_id)
+    # Parse required_capabilities if it's a JSON string
+    if isinstance(required_capabilities, str):
+        import json
+
+        try:
+            required_capabilities = json.loads(required_capabilities)
+        except (json.JSONDecodeError, TypeError):
+            required_capabilities = None
+
+    return await registry.broadcast_task(
+        task,
+        codebase_id=codebase_id,
+        target_agent_name=target_agent_name,
+        required_capabilities=required_capabilities,
+    )
 
 
 def setup_task_creation_hook(opencode_bridge) -> None:
