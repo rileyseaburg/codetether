@@ -710,13 +710,17 @@ class MCPHTTPServer:
                     )
 
                 # Build JSON-RPC response helper
+                # Per JSON-RPC 2.0 spec: response MUST have either result OR error, not both
                 def make_response(id_val, result=None, error=None):
-                    return {
+                    response = {
                         'jsonrpc': '2.0',
                         'id': id_val,
-                        'result': result,
-                        'error': error,
                     }
+                    if error is not None:
+                        response['error'] = error
+                    else:
+                        response['result'] = result
+                    return response
 
                 # Per MCP spec: server can choose to respond with JSON or SSE
                 # We prefer JSON for simple request/response (more compatible)
