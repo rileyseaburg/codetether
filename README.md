@@ -6,6 +6,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/codetether.svg)](https://pypi.org/project/codetether/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/codetether.svg)](https://pypi.org/project/codetether/)
+[![A2A Protocol](https://img.shields.io/badge/A2A_Protocol-v0.3-green.svg)](https://a2a-protocol.org)
 [![Production Ready](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](https://api.codetether.run)
 [![Apache License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -14,7 +15,7 @@
 
 **The open-source platform for building, deploying, and orchestrating AI agent systems at scale.**
 
-**🎉 v1.1.0 Production Release** - Battle-tested and running in production at [api.codetether.run](https://api.codetether.run)
+**🎉 v1.2.0 Production Release** - Battle-tested and running in production at [api.codetether.run](https://api.codetether.run)
 
 [🚀 Quick Start](#-quick-start) • [📖 Documentation](https://docs.codetether.run) • [💬 Discord](https://discord.gg/codetether) • [🐦 Twitter](https://twitter.com/codetether)
 
@@ -24,7 +25,7 @@
 
 ## 🎯 What is CodeTether?
 
-CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that lets you build AI agent systems that actually work in the real world. Connect any LLM to any tool, orchestrate complex multi-agent workflows, and deploy with confidence.
+CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that is **officially A2A Protocol v0.3 compliant**. Build AI agent systems that actually work in the real world—connect any LLM to any tool, orchestrate complex multi-agent workflows, and deploy with confidence. Our implementation uses the official `a2a-sdk` from Google, ensuring full interoperability with any A2A-compliant client or agent.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -35,9 +36,17 @@ CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that lets you
 │         │                │                │                      │
 │         └────────────────┼────────────────┘                      │
 │                          ▼                                       │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                 A2A Protocol v0.3 Layer                   │  │
+│  │  ┌─────────────────┐  ┌─────────────┐  ┌───────────────┐  │  │
+│  │  │ /.well-known/   │  │ /a2a/jsonrpc│  │  /a2a/rest/*  │  │  │
+│  │  │ agent-card.json │  │   (RPC)     │  │  (REST API)   │  │  │
+│  │  └─────────────────┘  └─────────────┘  └───────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                          │                                       │
 │              ┌───────────────────────┐                           │
-│              │    A2A Protocol       │   Standard Communication  │
-│              │    Message Broker     │                           │
+│              │    Message Broker     │   Standard Communication  │
+│              │    (Redis/Memory)     │                           │
 │              └───────────┬───────────┘                           │
 │                          │                                       │
 │         ┌────────────────┼────────────────┐                      │
@@ -88,6 +97,35 @@ Helm charts, horizontal scaling, blue-green deployments. Production from day one
 </td>
 </tr>
 </table>
+
+## 🔗 A2A Protocol Compliance
+
+CodeTether implements the **A2A Protocol v0.3** specification using the official `a2a-sdk` from Google, ensuring full interoperability with any A2A-compliant client or agent.
+
+### Standard Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/.well-known/agent-card.json` | Agent capability discovery and metadata |
+| `/a2a/jsonrpc` | JSON-RPC 2.0 endpoint for A2A protocol messages |
+| `/a2a/rest/*` | RESTful API endpoints for task and agent management |
+
+### Interoperability
+
+- **Any A2A Client**: Connect using standard A2A protocol clients from any language or platform
+- **Agent Discovery**: Automatic capability discovery via well-known endpoint
+- **Cross-Platform**: Seamlessly communicate with other A2A-compliant agents
+- **SDK Support**: Built on Google's official `a2a-sdk` for guaranteed compatibility
+
+```bash
+# Discover agent capabilities
+curl https://api.codetether.run/.well-known/agent-card.json
+
+# Send A2A message via JSON-RPC
+curl -X POST https://api.codetether.run/a2a/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "message/send", "params": {...}, "id": 1}'
+```
 
 ## 🚀 Quick Start
 

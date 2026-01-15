@@ -106,3 +106,123 @@ curl -X POST https://codetether.example.com/v1/a2a \
     [:octicons-arrow-right-24: SSE Reference](sse.md)
 
 </div>
+
+## A2A Protocol API
+
+CodeTether v1.2.0 is fully compliant with the A2A Protocol v0.3 specification.
+
+### Discovery
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/.well-known/agent-card.json` | GET | Agent card for discovery |
+
+**Example:**
+
+```bash
+curl https://codetether.example.com/.well-known/agent-card.json
+```
+
+### JSON-RPC 2.0 Binding
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/a2a/jsonrpc` | POST | JSON-RPC 2.0 endpoint for all A2A operations |
+
+**Supported Methods:**
+
+- `message/send` - Send a message to the agent
+- `message/stream` - Stream a message with SSE responses
+- `tasks/get` - Get task status
+- `tasks/cancel` - Cancel a running task
+- `tasks/subscribe` - Subscribe to task updates
+
+**Examples:**
+
+```bash
+# message/send
+curl -X POST https://codetether.example.com/a2a/jsonrpc \
+  -H "Authorization: Bearer your-api-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "parts": [{"text": "Hello, agent!"}]
+      }
+    }
+  }'
+
+# tasks/get
+curl -X POST https://codetether.example.com/a2a/jsonrpc \
+  -H "Authorization: Bearer your-api-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "2",
+    "method": "tasks/get",
+    "params": {
+      "id": "task-123"
+    }
+  }'
+
+# tasks/cancel
+curl -X POST https://codetether.example.com/a2a/jsonrpc \
+  -H "Authorization: Bearer your-api-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "3",
+    "method": "tasks/cancel",
+    "params": {
+      "id": "task-123"
+    }
+  }'
+```
+
+### REST Binding (HTTP+JSON)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/a2a/rest/message:send` | POST | Send message |
+| `/a2a/rest/message:stream` | POST | Stream message (SSE) |
+| `/a2a/rest/tasks/{id}` | GET | Get task |
+| `/a2a/rest/tasks/{id}:cancel` | POST | Cancel task |
+
+**Examples:**
+
+```bash
+# Send message
+curl -X POST https://codetether.example.com/a2a/rest/message:send \
+  -H "Authorization: Bearer your-api-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"text": "Hello, agent!"}]
+    }
+  }'
+
+# Stream message (SSE)
+curl -X POST https://codetether.example.com/a2a/rest/message:stream \
+  -H "Authorization: Bearer your-api-token" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"text": "Tell me a story"}]
+    }
+  }'
+
+# Get task
+curl https://codetether.example.com/a2a/rest/tasks/task-123 \
+  -H "Authorization: Bearer your-api-token"
+
+# Cancel task
+curl -X POST https://codetether.example.com/a2a/rest/tasks/task-123:cancel \
+  -H "Authorization: Bearer your-api-token"
+```
