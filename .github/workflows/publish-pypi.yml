@@ -47,6 +47,14 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # Uses trusted publishing - no API token needed
+          # Option 1: Trusted Publishing (recommended, but requires PyPI configuration)
           # Configure at: https://pypi.org/manage/project/codetether/settings/publishing/
+          # Repository: rileyseaburg/codetether
+          # Workflow: publish-pypi.yml
+          # Environment: pypi
+          #
+          # Option 2: API Token (fallback if trusted publishing not configured)
+          # Create token at: https://pypi.org/manage/account/token/
+          # Add as secret: gh secret set PYPI_API_TOKEN
+          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
