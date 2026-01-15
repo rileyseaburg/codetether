@@ -4,6 +4,8 @@
 
 ### **Turn AI Agents into Production Systems**
 
+[![PyPI version](https://img.shields.io/pypi/v/codetether.svg)](https://pypi.org/project/codetether/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/codetether.svg)](https://pypi.org/project/codetether/)
 [![Production Ready](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](https://api.codetether.run)
 [![Apache License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -12,7 +14,7 @@
 
 **The open-source platform for building, deploying, and orchestrating AI agent systems at scale.**
 
-**🎉 v1.0 Production Release** - Battle-tested and running in production at [api.codetether.run](https://api.codetether.run)
+**🎉 v1.1.0 Production Release** - Battle-tested and running in production at [api.codetether.run](https://api.codetether.run)
 
 [🚀 Quick Start](#-quick-start) • [📖 Documentation](https://docs.codetether.run) • [💬 Discord](https://discord.gg/codetether) • [🐦 Twitter](https://twitter.com/codetether)
 
@@ -89,13 +91,17 @@ Helm charts, horizontal scaling, blue-green deployments. Production from day one
 
 ## 🚀 Quick Start
 
-### One-Line Install
+### Install from PyPI
+
+```bash
+pip install codetether
+```
+
+### Or Install from Source
 
 ```bash
 git clone https://github.com/rileyseaburg/codetether.git
-cd A2A-Server-MCP && pip install -r requirements.txt
-# Optional (recommended): install the package + CLI
-pip install -e .
+cd A2A-Server-MCP && pip install -e .
 
 # For production (PostgreSQL persistence):
 export DATABASE_URL=postgresql://user:password@host:5432/a2a_server
