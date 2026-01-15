@@ -132,7 +132,12 @@ class TaskStore(ABC):
     """Abstract base class for task storage."""
 
     @abstractmethod
-    async def create_task(self, task_id: Optional[str] = None) -> A2ATask:
+    async def create_task(
+        self,
+        task_id: Optional[str] = None,
+        title: Optional[str] = None,
+        prompt: Optional[str] = None,
+    ) -> A2ATask:
         """Create a new task."""
         pass
 
@@ -164,7 +169,12 @@ class InMemoryTaskStore(TaskStore):
         self._tasks: Dict[str, A2ATask] = {}
         self._lock = asyncio.Lock()
 
-    async def create_task(self, task_id: Optional[str] = None) -> A2ATask:
+    async def create_task(
+        self,
+        task_id: Optional[str] = None,
+        title: Optional[str] = None,
+        prompt: Optional[str] = None,
+    ) -> A2ATask:
         """Create a new task."""
         if task_id is None:
             task_id = str(uuid.uuid4())
@@ -174,6 +184,7 @@ class InMemoryTaskStore(TaskStore):
             status={'state': TaskState.PENDING.value},
             artifacts=[],
             history=[],
+            metadata={'title': title, 'prompt': prompt},
         )
 
         async with self._lock:
@@ -229,7 +240,12 @@ class DatabaseTaskStore(TaskStore):
         await db.get_pool()
         self._initialized = True
 
-    async def create_task(self, task_id: Optional[str] = None) -> A2ATask:
+    async def create_task(
+        self,
+        task_id: Optional[str] = None,
+        title: Optional[str] = None,
+        prompt: Optional[str] = None,
+    ) -> A2ATask:
         """Create a new task in the database."""
         await self._ensure_initialized()
         from . import database as db
@@ -237,17 +253,25 @@ class DatabaseTaskStore(TaskStore):
         if task_id is None:
             task_id = str(uuid.uuid4())
 
+        if title is None:
+            title = f'A2A Task {task_id[:8]}'
+
+        if prompt is None:
+            prompt = 'A2A Protocol message'
+
         now = datetime.utcnow()
         pool = await db.get_pool()
         if pool:
             async with pool.acquire() as conn:
                 await conn.execute(
                     """
-                    INSERT INTO tasks (id, status, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4)
+                    INSERT INTO tasks (id, title, prompt, status, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, $6)
                     ON CONFLICT (id) DO NOTHING
                     """,
                     task_id,
+                    title,
+                    prompt,
                     TaskState.PENDING.value,
                     now,
                     now,
@@ -258,6 +282,7 @@ class DatabaseTaskStore(TaskStore):
             status={'state': TaskState.PENDING.value},
             artifacts=[],
             history=[],
+            metadata={'title': title},
         )
 
     async def get_task(self, task_id: str) -> Optional[A2ATask]:
@@ -490,8 +515,16 @@ class DefaultRequestHandler:
             metadata=message_data.get('metadata'),
         )
 
-        # Create task
-        task = await self.task_store.create_task()
+        # Extract text from message parts for prompt
+        prompt_text = ''
+        for part in message.parts:
+            if isinstance(part, dict) and part.get('text'):
+                prompt_text += part.get('text', '')
+
+        # Create task with message as prompt
+        task = await self.task_store.create_task(
+            prompt=prompt_text or 'A2A message'
+        )
 
         # Create context and event queue
         context = RequestContext(
