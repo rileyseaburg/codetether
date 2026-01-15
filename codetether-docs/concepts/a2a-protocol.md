@@ -219,6 +219,71 @@ The A2A protocol defines standard JSON-RPC error codes:
 
 Standard JSON-RPC errors (`-32600` to `-32700`) also apply for malformed requests.
 
+## Agent Discovery with Role:Instance Pattern
+
+CodeTether v1.2.2 introduces production-grade agent discovery with unique identities and TTL-based liveness.
+
+### How It Works
+
+When a worker registers as an agent, it gets two identities:
+
+| Field | Purpose | Example |
+|-------|---------|---------|
+| `name` | Unique discovery identity | `code-reviewer:dev-vm:abc123` |
+| `role` | Routing identity for `send_to_agent` | `code-reviewer` |
+
+**Important**: Use `role` with `send_to_agent` for routing. The `name` field is unique per-instance and will NOT route tasks.
+
+### Discovery Response
+
+```json
+{
+  "agents": [
+    {
+      "name": "code-reviewer:dev-vm:abc123",
+      "role": "code-reviewer",
+      "instance_id": "dev-vm:abc123",
+      "description": "OpenCode worker agent...",
+      "url": "https://api.codetether.run",
+      "capabilities": {"streaming": true, "push_notifications": true},
+      "last_seen": "2026-01-15T12:00:00"
+    }
+  ],
+  "routing_note": "Use 'role' with send_to_agent for routing."
+}
+```
+
+### TTL-Based Liveness
+
+- Workers must call `refresh_agent_heartbeat` every 45s
+- Agents not seen within 120s are filtered from discovery
+- Configurable via `A2A_AGENT_DISCOVERY_MAX_AGE` environment variable
+- Stale agents are lazily cleaned up from all indexes
+
+### Worker Configuration
+
+```bash
+# Register worker as a discoverable agent
+python -m agent_worker.worker \
+  --agent-name code-reviewer \
+  --agent-description "Python code review specialist" \
+  --server https://api.codetether.run
+```
+
+### Routing Example
+
+```python
+# Discover available agents
+agents = await discover_agents()
+# Returns: [{"name": "code-reviewer:host-a:1", "role": "code-reviewer", ...}]
+
+# Route to agent by ROLE (not name!)
+await send_to_agent(
+    agent_name="code-reviewer",  # Uses role
+    message="Review auth.py for security issues"
+)
+```
+
 ## Learn More
 
 - [A2A Protocol Specification](https://a2a-protocol.org/specification.md)
