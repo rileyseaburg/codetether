@@ -52,3 +52,6 @@ sqlalchemy[asyncio]>=2.0.0
 # Stripe billing
 stripe>=7.0.0
 email-validator>=2.0.0
+
+# A2A Protocol SDK
+a2a-sdk[http-server,postgresql]>=0.3.22

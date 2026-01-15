@@ -537,8 +537,10 @@ class MCPHTTPServer:
             async def event_generator():
                 """Generate SSE events."""
                 try:
-                    # Send initial connection event
-                    yield f'event: endpoint\ndata: {json.dumps({"jsonrpc": "2.0"})}\n\n'
+                    # Send initial connection event with the message endpoint URL
+                    # The MCP SDK SSEClientTransport expects the endpoint event data
+                    # to be a URL path that it will POST messages to
+                    yield f'event: endpoint\ndata: /mcp/v1/message\n\n'
 
                     # Keep connection alive
                     while True:
@@ -716,11 +718,15 @@ class MCPHTTPServer:
                         'error': error,
                     }
 
-                # Accept header determines if client wants SSE
-                accept = request.headers.get('accept', '')
-                wants_sse = 'text/event-stream' in accept.lower()
+                # Per MCP spec: server can choose to respond with JSON or SSE
+                # We prefer JSON for simple request/response (more compatible)
+                # SSE is only used when client explicitly requests it via query param
+                # or when streaming long-running operations
+                use_sse = (
+                    request.query_params.get('stream', '').lower() == 'true'
+                )
 
-                if wants_sse:
+                if use_sse:
 
                     async def event_generator():
                         # Open stream for this request

@@ -171,6 +171,45 @@ curl -X POST http://localhost:8000/v1/opencode/codebases/{codebase_id}/trigger \
   }'
 ```
 
+## A2A Protocol Access
+
+CodeTether exposes standard A2A Protocol v0.3 endpoints:
+
+### Discover the Agent
+
+```bash
+curl https://api.codetether.run/.well-known/agent-card.json
+```
+
+### Send a Message (JSON-RPC)
+
+```bash
+curl -X POST https://api.codetether.run/a2a/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "parts": [{"text": "Hello, CodeTether!"}]
+      }
+    }
+  }'
+```
+
+### Use Official A2A Client
+
+```python
+from a2a.client import A2AClient
+
+client = A2AClient("https://api.codetether.run")
+response = await client.send_message("Hello from A2A client!")
+```
+
+This makes CodeTether compatible with any A2A-compliant client or agent.
+
 ## What's Next?
 
 <div class="grid cards" markdown>

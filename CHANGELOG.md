@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.2.0] - 2025-01-15
+
+### Added - A2A Protocol v0.3 Compliance
+
+CodeTether is now fully compliant with the official A2A Protocol v0.3 specification.
+
+#### New Dependencies
+- `a2a-sdk[http-server,postgresql]>=0.3.22` - Official Google A2A SDK
+
+#### New Endpoints
+- `GET /.well-known/agent-card.json` - Standard agent discovery
+- `POST /a2a/jsonrpc` - JSON-RPC 2.0 binding
+- `POST /a2a/rest/message:send` - REST binding for messages
+- `POST /a2a/rest/message:stream` - SSE streaming
+- `GET /a2a/rest/tasks/{id}` - Task status
+- `POST /a2a/rest/tasks/{id}:cancel` - Task cancellation
+
+#### New Modules
+- `a2a_executor.py` - Bridges A2A SDK to our task queue system
+- `a2a_agent_card.py` - Standard agent card generation
+- `a2a_router.py` - FastAPI router for A2A protocol
+- `a2a_types.py` - Task state mapping (internal ↔ A2A)
+- `a2a_errors.py` - A2A-compliant error codes (-32001 to -32009)
+
+#### Task State Alignment
+- Added states: `submitted`, `rejected`, `auth-required`
+- Mapped existing states to A2A spec equivalents
+
+### Preserved
+- MCP tools at `/mcp` - unchanged
+- Worker SSE push system - unchanged
+- Agent-targeted routing (`send_to_agent`) - unchanged
+- Capability-based routing - unchanged
+- Multi-tenant support - unchanged
+
+### Interoperability
+- Any A2A-compliant client can now connect to CodeTether
+- Compatible with official A2A JS SDK and Python SDK clients
+
 ## [0.7.0] - 2026-01-14
 
 ### Features

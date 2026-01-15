@@ -154,14 +154,80 @@ class AgentCard(BaseModel):
 
 
 class TaskStatus(str, Enum):
-    """Enumeration of possible task statuses."""
+    """
+    Enumeration of possible task statuses.
 
-    PENDING = 'pending'
+    Aligned with the A2A protocol specification:
+    - submitted: Task created and acknowledged
+    - working: Actively processing
+    - completed: Finished successfully (TERMINAL)
+    - failed: Done but failed (TERMINAL)
+    - cancelled: Cancelled before completion (TERMINAL)
+    - input-required: Awaiting additional input
+    - rejected: Agent declined the task (TERMINAL)
+    - auth-required: Needs out-of-band authentication
+
+    Note: PENDING is deprecated and maps to SUBMITTED for backwards compatibility.
+    """
+
+    # A2A Protocol States
+    SUBMITTED = 'submitted'
     WORKING = 'working'
     INPUT_REQUIRED = 'input-required'
     COMPLETED = 'completed'
     CANCELLED = 'cancelled'
     FAILED = 'failed'
+    REJECTED = 'rejected'
+    AUTH_REQUIRED = 'auth-required'
+
+    # Legacy alias - maps to SUBMITTED for backwards compatibility
+    PENDING = 'pending'
+
+    @classmethod
+    def from_string(cls, value: str) -> 'TaskStatus':
+        """
+        Convert a string to TaskStatus, handling legacy 'pending' value.
+
+        Args:
+            value: String representation of the status
+
+        Returns:
+            TaskStatus enum value
+
+        Raises:
+            ValueError: If the value is not a valid status
+        """
+        # Normalize to lowercase
+        normalized = value.lower().strip()
+
+        # Handle legacy 'pending' -> 'submitted' mapping
+        if normalized == 'pending':
+            return cls.SUBMITTED
+
+        try:
+            return cls(normalized)
+        except ValueError:
+            raise ValueError(
+                f"Invalid task status: '{value}'. "
+                f'Valid values: {[s.value for s in cls]}'
+            )
+
+    def is_terminal(self) -> bool:
+        """Check if this status is a terminal state."""
+        return self in _TERMINAL_STATUSES
+
+    def is_active(self) -> bool:
+        """Check if this status is an active (non-terminal) state."""
+        return self not in _TERMINAL_STATUSES
+
+
+# Terminal states - tasks in these states cannot transition further
+_TERMINAL_STATUSES = {
+    TaskStatus.COMPLETED,
+    TaskStatus.FAILED,
+    TaskStatus.CANCELLED,
+    TaskStatus.REJECTED,
+}
 
 
 class Task(BaseModel):

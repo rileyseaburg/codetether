@@ -52,10 +52,34 @@ from .monitor_api import (
 )
 from .worker_sse import worker_sse_router
 from .email_inbound import email_router
+from .email_api import email_api_router
 from .tenant_middleware import TenantContextMiddleware
 from .tenant_api import router as tenant_router
 from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
+from .a2a_agent_card import a2a_agent_card_router
+
+# Import A2A protocol router for standards-compliant agent communication
+try:
+    from .a2a_router import create_a2a_router
+    from .a2a_executor import CodetetherExecutor, create_codetether_executor
+
+    A2A_ROUTER_AVAILABLE = True
+except ImportError as e:
+    A2A_ROUTER_AVAILABLE = False
+    create_a2a_router = None
+    CodetetherExecutor = None
+    create_codetether_executor = None
+    logger.warning(f'A2A router not available: {e}')
+
+# Import queue API router for operational visibility (mid-market)
+try:
+    from .queue_api import router as queue_api_router
+
+    QUEUE_API_AVAILABLE = True
+except ImportError:
+    QUEUE_API_AVAILABLE = False
+    queue_api_router = None
 
 try:
     from .livekit_bridge import create_livekit_bridge, LiveKitBridge
@@ -223,6 +247,9 @@ class A2AServer:
         # Include email inbound webhook routes for reply-based task continuation
         self.app.include_router(email_router)
 
+        # Include email debugging and testing routes
+        self.app.include_router(email_api_router)
+
         # Include tenant management routes
         self.app.include_router(tenant_router)
 
@@ -231,6 +258,33 @@ class A2AServer:
 
         # Include billing webhook routes for Stripe
         self.app.include_router(billing_webhook_router)
+
+        # Include queue API routes for operational visibility (mid-market)
+        if QUEUE_API_AVAILABLE and queue_api_router:
+            self.app.include_router(queue_api_router)
+
+        # Include A2A protocol compliant agent card endpoint
+        # This serves the standard /.well-known/agent-card.json for discovery
+        self.app.include_router(a2a_agent_card_router)
+
+        # Include A2A protocol router for standards-compliant agent communication
+        # This provides JSON-RPC and REST bindings at /a2a/*
+        if A2A_ROUTER_AVAILABLE and create_a2a_router:
+            try:
+                a2a_router = create_a2a_router(
+                    executor=create_codetether_executor(
+                        task_queue=None,  # Will be initialized lazily
+                        database=None,
+                    )
+                    if create_codetether_executor
+                    else None,
+                    database_url=DATABASE_URL,
+                    require_authentication=False,  # Allow public access, auth per-endpoint
+                )
+                self.app.include_router(a2a_router)
+                logger.info('A2A protocol router mounted at /a2a')
+            except Exception as e:
+                logger.warning(f'Failed to mount A2A router: {e}')
 
     async def _handle_jsonrpc_request(
         self,

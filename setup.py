@@ -17,8 +17,8 @@ def _read_readme() -> str:
 
 setup(
     name='codetether',
-    version='1.1.0',
-    description='CodeTether: production-ready Agent-to-Agent (A2A) platform with MCP + OpenCode-compatible integration',
+    version='1.2.0',
+    description='CodeTether: A2A Protocol v0.3 compliant agent orchestration platform with MCP + OpenCode integration',
     long_description=_read_readme(),
     long_description_content_type='text/markdown',
     author='CodeTether Contributors',
@@ -46,6 +46,8 @@ setup(
         # LiveKit integration for real-time media
         'livekit>=0.15.0',
         'livekit-api>=1.0.0',
+        # Official A2A Protocol SDK
+        'a2a-sdk[http-server]>=0.3.22',
     ],
     entry_points={
         'console_scripts': [
