@@ -187,6 +187,32 @@ class WorkerConfig:
     # Email reply-to configuration for task continuation
     email_inbound_domain: Optional[str] = None  # e.g., 'inbound.codetether.run'
     email_reply_prefix: str = 'task'  # Prefix for reply-to addresses
+    # Email debugging options
+    email_dry_run: bool = False  # Log emails instead of sending
+    email_verbose: bool = False  # Verbose logging for email operations
+    # Auto-compaction settings for task handoffs
+    compaction_max_tokens: int = 100000  # Trigger compaction above this
+    compaction_target_tokens: int = 50000  # Target size after compaction
+    auto_summarize_handoffs: bool = (
+        True  # Enable auto-summarization for session resumes
+    )
+    # Agent registration: Register worker as a discoverable agent in the A2A network
+    # This allows other agents to find this worker via discover_agents MCP tool
+    register_as_agent: bool = True  # Auto-register as discoverable agent
+    agent_name: Optional[str] = (
+        None  # Name for agent discovery (defaults to worker_name)
+    )
+    agent_description: Optional[str] = None  # Description for agent discovery
+    agent_url: Optional[str] = (
+        None  # URL where this agent can be reached (optional)
+    )
+    # Instance ID for unique agent identity (role:instance pattern)
+    # If not set, generated as hostname:short_uuid
+    agent_instance_id: Optional[str] = None
+    agent_description: Optional[str] = None  # Description for agent discovery
+    agent_url: Optional[str] = (
+        None  # URL where this agent can be reached (optional)
+    )
 
 
 @dataclass
@@ -257,11 +283,13 @@ class WorkerClient:
             session = await self.get_session()
             url = f'{self.config.server_url}/v1/opencode/workers/register'
 
+            import platform
+
             payload = {
                 'worker_id': self.config.worker_id,
                 'name': self.config.worker_name,
                 'capabilities': self.config.capabilities,
-                'hostname': os.uname().nodename,
+                'hostname': platform.node(),  # Cross-platform (works on Windows)
                 'models': models,
                 'global_codebase_id': global_codebase_id,
             }
@@ -319,6 +347,216 @@ class WorkerClient:
         except Exception as e:
             logger.debug(f'Failed to send heartbeat: {e}')
             return False
+
+    async def register_as_agent(
+        self,
+        agent_name: Optional[str] = None,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        routing_capabilities: Optional[List[str]] = None,
+    ) -> bool:
+        """
+        Register this worker as a discoverable agent in the A2A network.
+
+        This makes the worker visible to other agents via the discover_agents
+        MCP tool, enabling agent-to-agent communication.
+
+        Uses the role:instance pattern for unique identity:
+        - role (agent_name): stable role like "code-reviewer" for routing
+        - instance_id: unique per-worker instance for disambiguation
+
+        The full discovery name is "{role}:{instance_id}" to handle multiple
+        workers with the same role. Routing (send_to_agent) uses the role.
+
+        Args:
+            agent_name: Name for agent discovery (defaults to config.agent_name or worker_name)
+            description: Human-readable description of what this agent does
+            url: Optional URL where this agent can be reached directly
+            routing_capabilities: List of task routing capabilities (e.g., ["pytest", "terraform"])
+
+        Returns:
+            True if registration succeeded, False otherwise.
+        """
+        import platform
+
+        try:
+            session = await self.get_session()
+            # Use the proper MCP JSON-RPC endpoint
+            url_endpoint = f'{self.config.server_url}/mcp/v1/rpc'
+
+            # Use platform.node() for cross-platform hostname (works on Windows too)
+            hostname = platform.node()
+
+            # Build instance_id for unique identity
+            # Format: hostname:short_uuid (e.g., "dev-vm:a1b2c3")
+            instance_id = (
+                self.config.agent_instance_id
+                or f'{hostname}:{self.config.worker_id[:6]}'
+            )
+
+            # Role is the routing identity (used by send_to_agent)
+            role = (
+                agent_name or self.config.agent_name or self.config.worker_name
+            )
+
+            # Full discovery name is role:instance for uniqueness
+            # This prevents registry collisions when multiple workers have the same role
+            discovery_name = f'{role}:{instance_id}'
+
+            # Store the resolved names for heartbeat refresh
+            self._agent_role = role
+            self._agent_discovery_name = discovery_name
+
+            # Build routing capabilities list for task matching
+            caps_list = routing_capabilities or self.config.capabilities or []
+            caps_str = ', '.join(caps_list) if caps_list else 'general'
+
+            agent_description = description or (
+                f'OpenCode worker agent (role={role}, instance={instance_id}). '
+                f'Routing capabilities: {caps_str}'
+            )
+            agent_url = url or self.config.agent_url or self.config.server_url
+
+            # JSON-RPC 2.0 request to call register_agent tool
+            # Note: 'capabilities' here is the A2A protocol AgentCapabilities (dict)
+            # for streaming/push_notifications - NOT the routing capabilities (list)
+            payload = {
+                'jsonrpc': '2.0',
+                'id': str(uuid.uuid4()),
+                'method': 'tools/call',
+                'params': {
+                    'name': 'register_agent',
+                    'arguments': {
+                        'name': discovery_name,
+                        'description': agent_description,
+                        'url': agent_url,
+                        # A2A protocol capabilities (dict) - for streaming/push features
+                        'capabilities': {
+                            'streaming': True,
+                            'push_notifications': True,
+                        },
+                    },
+                },
+            }
+
+            headers = {'Content-Type': 'application/json'}
+            if self.config.auth_token:
+                headers['Authorization'] = f'Bearer {self.config.auth_token}'
+
+            async with session.post(
+                url_endpoint,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(
+                    total=10
+                ),  # Best-effort, don't block startup
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    if result.get('error'):
+                        logger.warning(
+                            f'Agent registration failed: {result["error"]}'
+                        )
+                        return False
+                    logger.info(
+                        f"Registered as discoverable agent: '{discovery_name}' (role='{role}')"
+                    )
+                    return True
+                else:
+                    text = await resp.text()
+                    logger.warning(
+                        f'Agent registration returned {resp.status}: {text}'
+                    )
+                    return False
+
+        except asyncio.TimeoutError:
+            logger.warning(
+                'Agent registration timed out (continuing without discovery registration)'
+            )
+            return False
+        except Exception as e:
+            logger.warning(f'Failed to register as agent (non-fatal): {e}')
+            return False
+
+    async def refresh_agent_heartbeat(self) -> bool:
+        """
+        Refresh the agent's last_seen timestamp to keep it visible in discovery.
+
+        Should be called periodically (every 30-60s). Agents not seen within
+        120s are filtered from discover_agents results.
+
+        Returns:
+            True if heartbeat was refreshed, False otherwise.
+        """
+        if (
+            not hasattr(self, '_agent_discovery_name')
+            or not self._agent_discovery_name
+        ):
+            return False  # Not registered as agent
+
+        try:
+            session = await self.get_session()
+            url_endpoint = f'{self.config.server_url}/mcp/v1/rpc'
+
+            payload = {
+                'jsonrpc': '2.0',
+                'id': str(uuid.uuid4()),
+                'method': 'tools/call',
+                'params': {
+                    'name': 'refresh_agent_heartbeat',
+                    'arguments': {
+                        'agent_name': self._agent_discovery_name,
+                    },
+                },
+            }
+
+            headers = {'Content-Type': 'application/json'}
+            if self.config.auth_token:
+                headers['Authorization'] = f'Bearer {self.config.auth_token}'
+
+            async with session.post(
+                url_endpoint,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    if result.get('error'):
+                        logger.debug(
+                            f'Agent heartbeat failed: {result["error"]}'
+                        )
+                        return False
+                    logger.debug(
+                        f'Agent heartbeat refreshed: {self._agent_discovery_name}'
+                    )
+                    return True
+                return False
+
+        except Exception as e:
+            logger.debug(f'Agent heartbeat error: {e}')
+            return False
+
+    async def unregister_agent(self) -> bool:
+        """
+        Unregister this worker from the agent discovery registry.
+
+        Called during graceful shutdown.
+
+        Returns:
+            True if unregistration succeeded, False otherwise.
+        """
+        # Note: There's no explicit unregister_agent MCP tool currently,
+        # but the agent will be marked inactive when heartbeats stop (TTL).
+        agent_name = (
+            getattr(self, '_agent_discovery_name', None)
+            or self.config.agent_name
+            or self.config.worker_name
+        )
+        logger.debug(
+            f"Agent '{agent_name}' will be filtered from discovery after TTL expires"
+        )
+        return True
 
     async def register_codebase(
         self, name: str, path: str, description: str = ''
@@ -790,16 +1028,41 @@ class WorkerClient:
 # =============================================================================
 
 
+def _sanitize_email_for_log(email: str) -> str:
+    """
+    Sanitize email address for logging (mask local part).
+
+    Security: Prevents sensitive email addresses from appearing in logs.
+
+    Args:
+        email: Full email address
+
+    Returns:
+        Sanitized email (e.g., 'r***y@example.com')
+    """
+    if not email or '@' not in email:
+        return '***@***'
+    local, domain = email.rsplit('@', 1)
+    if len(local) <= 2:
+        return f'***@{domain}'
+    return f'{local[0]}***{local[-1]}@{domain}'
+
+
 class EmailNotificationService:
     """
     Handles email notifications via SendGrid.
 
     Sends task completion/failure reports to configured recipients.
+
+    Supports dry-run mode for testing (logs instead of sends) and
+    verbose logging for debugging email operations.
     """
 
     def __init__(self, config: WorkerConfig):
         self.config = config
         self._session: Optional[aiohttp.ClientSession] = None
+        self._dry_run = config.email_dry_run
+        self._verbose = config.email_verbose
 
     def is_configured(self) -> bool:
         """Check if email notifications are properly configured."""
@@ -808,6 +1071,47 @@ class EmailNotificationService:
             and self.config.sendgrid_from_email
             and self.config.notification_email
         )
+
+    def get_config_status(self) -> Dict[str, Any]:
+        """
+        Get email configuration status for debugging.
+
+        Returns dict with configuration details and any issues.
+        """
+        issues = []
+
+        if not self.config.sendgrid_api_key:
+            issues.append('SENDGRID_API_KEY not set')
+        elif not self.config.sendgrid_api_key.startswith('SG.'):
+            issues.append(
+                'SENDGRID_API_KEY does not appear valid (should start with SG.)'
+            )
+
+        if not self.config.sendgrid_from_email:
+            issues.append('SENDGRID_FROM_EMAIL not set')
+        elif '@' not in self.config.sendgrid_from_email:
+            issues.append(
+                'SENDGRID_FROM_EMAIL does not appear to be a valid email'
+            )
+
+        if not self.config.notification_email:
+            issues.append('notification_email not set')
+
+        return {
+            'configured': self.is_configured(),
+            'dry_run': self._dry_run,
+            'verbose': self._verbose,
+            'sendgrid_api_key_set': bool(self.config.sendgrid_api_key),
+            'sendgrid_from_email': _sanitize_email_for_log(
+                self.config.sendgrid_from_email or ''
+            ),
+            'notification_email': _sanitize_email_for_log(
+                self.config.notification_email or ''
+            ),
+            'inbound_domain': self.config.email_inbound_domain,
+            'reply_prefix': self.config.email_reply_prefix,
+            'issues': issues,
+        }
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session for SendGrid API."""
@@ -858,10 +1162,25 @@ class EmailNotificationService:
     ) -> bool:
         """Send a task completion/failure email report.
 
-        Returns True if email was sent successfully.
+        Returns True if email was sent successfully (or logged in dry-run mode).
+
+        In dry-run mode (--email-dry-run), emails are logged instead of sent.
+        In verbose mode (--email-verbose), additional debugging info is logged.
         """
+        if self._verbose:
+            logger.info(
+                f'[EMAIL-DEBUG] send_task_report called: task_id={task_id}, '
+                f'status={status}, session_id={session_id}'
+            )
+
         if not self.is_configured():
-            logger.debug('Email notifications not configured, skipping')
+            if self._verbose:
+                config_status = self.get_config_status()
+                logger.info(
+                    f'[EMAIL-DEBUG] Not configured: {config_status["issues"]}'
+                )
+            else:
+                logger.debug('Email notifications not configured, skipping')
             return False
 
         try:
@@ -1070,12 +1389,39 @@ class EmailNotificationService:
             reply_to = self._build_reply_to_address(session_id, codebase_id)
             if reply_to:
                 payload['reply_to'] = {'email': reply_to}
-                logger.debug(f'Email reply-to set to: {reply_to}')
+                if self._verbose:
+                    logger.info(f'[EMAIL-DEBUG] Reply-to set to: {reply_to}')
+                else:
+                    logger.debug(f'Email reply-to set to: {reply_to}')
+
+            # Verbose logging of email details (with sanitized addresses)
+            if self._verbose:
+                logger.info(
+                    f'[EMAIL-DEBUG] Email payload: subject="{subject}", '
+                    f'from={_sanitize_email_for_log(self.config.sendgrid_from_email or "")}, '
+                    f'to={_sanitize_email_for_log(self.config.notification_email or "")}, '
+                    f'reply_to={reply_to or "none"}'
+                )
+
+            # Dry-run mode: log instead of sending
+            if self._dry_run:
+                logger.info(
+                    f'[EMAIL-DRY-RUN] Would send email for task {task_id}:\n'
+                    f'  Subject: {subject}\n'
+                    f'  To: {_sanitize_email_for_log(self.config.notification_email or "")}\n'
+                    f'  From: {_sanitize_email_for_log(self.config.sendgrid_from_email or "")}\n'
+                    f'  Reply-To: {reply_to or "none"}\n'
+                    f'  Status: {status}'
+                )
+                return True  # Return success in dry-run mode
 
             headers = {
                 'Authorization': f'Bearer {self.config.sendgrid_api_key}',
                 'Content-Type': 'application/json',
             }
+
+            if self._verbose:
+                logger.info('[EMAIL-DEBUG] Sending to SendGrid API...')
 
             async with session.post(
                 'https://api.sendgrid.com/v3/mail/send',
@@ -1084,7 +1430,8 @@ class EmailNotificationService:
             ) as resp:
                 if resp.status in (200, 202):
                     logger.info(
-                        f'Email report sent for task {task_id} to {self.config.notification_email}'
+                        f'Email report sent for task {task_id} to '
+                        f'{_sanitize_email_for_log(self.config.notification_email or "")}'
                     )
                     return True
                 else:
@@ -1092,11 +1439,86 @@ class EmailNotificationService:
                     logger.error(
                         f'Failed to send email: {resp.status} - {text}'
                     )
+                    if self._verbose:
+                        logger.error(f'[EMAIL-DEBUG] SendGrid response: {text}')
                     return False
 
         except Exception as e:
             logger.error(f'Failed to send email notification: {e}')
+            if self._verbose:
+                import traceback
+
+                logger.error(
+                    f'[EMAIL-DEBUG] Traceback: {traceback.format_exc()}'
+                )
             return False
+
+    async def send_test_email(self) -> Dict[str, Any]:
+        """
+        Send a test email to validate email configuration.
+
+        This sends a simple test email to verify SendGrid is properly configured.
+        Returns a dict with success status and any errors.
+
+        Used by the --test-email CLI flag.
+        """
+        result: Dict[str, Any] = {
+            'success': False,
+            'configured': self.is_configured(),
+            'config_status': self.get_config_status(),
+            'dry_run': self._dry_run,
+            'message': '',
+        }
+
+        if not self.is_configured():
+            result['message'] = (
+                'Email not fully configured. Issues: '
+                + ', '.join(result['config_status']['issues'])
+            )
+            return result
+
+        # Generate a test task ID
+        test_task_id = f'test-{uuid.uuid4().hex[:8]}'
+        test_session_id = f'ses_test_{uuid.uuid4().hex[:8]}'
+
+        logger.info(f'Sending test email (dry_run={self._dry_run})...')
+        logger.info(
+            f'  To: {_sanitize_email_for_log(self.config.notification_email or "")}'
+        )
+        logger.info(
+            f'  From: {_sanitize_email_for_log(self.config.sendgrid_from_email or "")}'
+        )
+
+        try:
+            success = await self.send_task_report(
+                task_id=test_task_id,
+                title='Test Email from A2A Worker',
+                status='completed',
+                result='This is a test email to verify your email notification configuration is working correctly.',
+                duration_ms=1234,
+                session_id=test_session_id,
+            )
+
+            if success:
+                result['success'] = True
+                if self._dry_run:
+                    result['message'] = (
+                        'Test email logged successfully (dry-run mode - no email sent)'
+                    )
+                else:
+                    result['message'] = (
+                        f'Test email sent successfully to {_sanitize_email_for_log(self.config.notification_email or "")}'
+                    )
+            else:
+                result['message'] = (
+                    'Failed to send test email - check logs for details'
+                )
+
+        except Exception as e:
+            result['message'] = f'Exception while sending test email: {e}'
+            logger.error(f'Test email failed: {e}')
+
+        return result
 
 
 # =============================================================================
@@ -2014,6 +2436,354 @@ class SessionSyncService:
 
 
 # =============================================================================
+# ContextCompactionService - Auto-compaction and summarization for sessions
+# =============================================================================
+
+
+class ContextCompactionService:
+    """
+    Handles automatic context compaction and summarization for task handoffs.
+
+    When sessions grow large or tasks are handed off between workers/agents,
+    this service:
+    1. Estimates token count from session messages
+    2. Generates a summary of completed work
+    3. Creates a compacted context for the next agent
+
+    This prevents context overflow errors and ensures clean handoffs.
+    """
+
+    # Rough estimate: 1 token ≈ 4 characters for English text
+    CHARS_PER_TOKEN = 4
+
+    # Thresholds for compaction
+    DEFAULT_MAX_TOKENS = 100000  # Trigger compaction above this
+    DEFAULT_TARGET_TOKENS = 50000  # Target size after compaction
+    SUMMARY_MAX_TOKENS = 2000  # Max tokens for summary
+
+    def __init__(
+        self,
+        session_sync: 'SessionSyncService',
+        opencode_bin: str,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        target_tokens: int = DEFAULT_TARGET_TOKENS,
+    ):
+        self.session_sync = session_sync
+        self.opencode_bin = opencode_bin
+        self.max_tokens = max_tokens
+        self.target_tokens = target_tokens
+
+    def estimate_tokens(self, text: str) -> int:
+        """Estimate token count from text length."""
+        return len(text) // self.CHARS_PER_TOKEN
+
+    def estimate_session_tokens(self, messages: List[Dict[str, Any]]) -> int:
+        """Estimate total tokens in session messages."""
+        total_chars = 0
+        for msg in messages:
+            # Count message content
+            parts = msg.get('parts', [])
+            for part in parts:
+                if isinstance(part, dict):
+                    content = part.get('content', '') or part.get('text', '')
+                    if isinstance(content, str):
+                        total_chars += len(content)
+                elif isinstance(part, str):
+                    total_chars += len(part)
+        return total_chars // self.CHARS_PER_TOKEN
+
+    def needs_compaction(self, messages: List[Dict[str, Any]]) -> bool:
+        """Check if session needs compaction based on estimated tokens."""
+        return self.estimate_session_tokens(messages) > self.max_tokens
+
+    def extract_key_context(
+        self, messages: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Extract key context from messages for summarization.
+
+        Returns a structured summary of:
+        - Files modified
+        - Tools used
+        - Key decisions made
+        - Current state/progress
+        """
+        context = {
+            'files_modified': set(),
+            'files_read': set(),
+            'tools_used': set(),
+            'errors_encountered': [],
+            'key_outputs': [],
+            'message_count': len(messages),
+        }
+
+        for msg in messages:
+            parts = msg.get('parts', [])
+            for part in parts:
+                if not isinstance(part, dict):
+                    continue
+
+                part_type = part.get('type', '')
+
+                # Track tool usage
+                if part_type == 'tool-invocation':
+                    tool_name = part.get('toolInvocation', {}).get(
+                        'toolName', ''
+                    )
+                    if tool_name:
+                        context['tools_used'].add(tool_name)
+
+                    # Track file operations
+                    args = part.get('toolInvocation', {}).get('args', {})
+                    if isinstance(args, dict):
+                        file_path = (
+                            args.get('filePath')
+                            or args.get('path')
+                            or args.get('file')
+                        )
+                        if file_path:
+                            if tool_name in ('write', 'edit', 'Write', 'Edit'):
+                                context['files_modified'].add(file_path)
+                            elif tool_name in ('read', 'Read', 'glob', 'Glob'):
+                                context['files_read'].add(file_path)
+
+                # Track errors
+                if part_type == 'tool-result':
+                    result = part.get('toolResult', {})
+                    if isinstance(result, dict) and result.get('isError'):
+                        error_text = str(result.get('content', ''))[:200]
+                        context['errors_encountered'].append(error_text)
+
+                # Track key text outputs (assistant messages)
+                if part_type == 'text' and msg.get('role') == 'assistant':
+                    text = part.get('text', '')
+                    if text and len(text) > 50:
+                        # Keep first 500 chars of significant outputs
+                        context['key_outputs'].append(text[:500])
+
+        # Convert sets to lists for JSON serialization
+        context['files_modified'] = list(context['files_modified'])
+        context['files_read'] = list(context['files_read'])
+        context['tools_used'] = list(context['tools_used'])
+
+        # Limit key outputs to last 5
+        context['key_outputs'] = context['key_outputs'][-5:]
+
+        return context
+
+    def generate_summary_prompt(
+        self,
+        messages: List[Dict[str, Any]],
+        original_task: str,
+    ) -> str:
+        """
+        Generate a prompt for the LLM to create a session summary.
+
+        This summary will be prepended to the next task for context.
+        """
+        context = self.extract_key_context(messages)
+
+        # Get the last few assistant messages for recent context
+        recent_outputs = []
+        for msg in reversed(messages[-10:]):
+            if msg.get('role') == 'assistant':
+                for part in msg.get('parts', []):
+                    if isinstance(part, dict) and part.get('type') == 'text':
+                        text = part.get('text', '')
+                        if text:
+                            recent_outputs.append(text[:1000])
+                            if len(recent_outputs) >= 3:
+                                break
+
+        summary_prompt = f"""Summarize the work done in this coding session for handoff to another agent.
+
+ORIGINAL TASK: {original_task}
+
+SESSION STATISTICS:
+- Total messages: {context['message_count']}
+- Files modified: {', '.join(context['files_modified'][:20]) or 'None'}
+- Files read: {', '.join(context['files_read'][:20]) or 'None'}
+- Tools used: {', '.join(context['tools_used']) or 'None'}
+- Errors encountered: {len(context['errors_encountered'])}
+
+RECENT WORK:
+{chr(10).join(recent_outputs[:3])}
+
+Please provide a concise summary (max 500 words) covering:
+1. What was accomplished
+2. Current state of the work
+3. Any blockers or issues encountered
+4. What remains to be done
+5. Key files/code that was changed
+
+Format as a handoff note for the next agent."""
+
+        return summary_prompt
+
+    async def generate_summary(
+        self,
+        session_id: str,
+        codebase_path: str,
+        original_task: str,
+    ) -> Optional[str]:
+        """
+        Generate a summary of the session using OpenCode.
+
+        Returns the summary text or None if generation fails.
+        """
+        messages = self.session_sync.get_session_messages(
+            session_id, max_messages=100
+        )
+        if not messages:
+            return None
+
+        # Check if compaction is needed
+        if not self.needs_compaction(messages):
+            logger.debug(f'Session {session_id} does not need compaction')
+            return None
+
+        logger.info(
+            f'Generating summary for session {session_id} (estimated {self.estimate_session_tokens(messages)} tokens)'
+        )
+
+        summary_prompt = self.generate_summary_prompt(messages, original_task)
+
+        # Run a quick summarization using OpenCode with a fast model
+        try:
+            cmd = [
+                self.opencode_bin,
+                'run',
+                '--agent',
+                'general',  # Use general agent for summarization
+                '--model',
+                'anthropic/claude-3-5-haiku-latest',  # Fast, cheap model
+                '--format',
+                'json',
+                '--',
+                summary_prompt,
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=codebase_path,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={**os.environ, 'NO_COLOR': '1'},
+                limit=16 * 1024 * 1024,
+            )
+
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=60,  # 1 minute timeout for summarization
+            )
+
+            if process.returncode == 0:
+                output = stdout.decode('utf-8', errors='replace')
+                # Try to extract the summary from JSON output
+                for line in output.split('\n'):
+                    try:
+                        obj = json.loads(line)
+                        if isinstance(obj, dict):
+                            # Look for text content in the response
+                            content = (
+                                obj.get('content')
+                                or obj.get('text')
+                                or obj.get('output')
+                            )
+                            if content:
+                                return content[
+                                    : self.SUMMARY_MAX_TOKENS
+                                    * self.CHARS_PER_TOKEN
+                                ]
+                    except json.JSONDecodeError:
+                        continue
+                # Fallback: return raw output truncated
+                return output[: self.SUMMARY_MAX_TOKENS * self.CHARS_PER_TOKEN]
+            else:
+                logger.warning(
+                    f'Summary generation failed: {stderr.decode("utf-8", errors="replace")[:500]}'
+                )
+                return None
+
+        except asyncio.TimeoutError:
+            logger.warning(
+                f'Summary generation timed out for session {session_id}'
+            )
+            return None
+        except Exception as e:
+            logger.warning(f'Summary generation error: {e}')
+            return None
+
+    def create_handoff_context(
+        self,
+        original_prompt: str,
+        summary: Optional[str],
+        session_id: Optional[str],
+    ) -> str:
+        """
+        Create a compacted context for task handoff.
+
+        Prepends summary and context to the original prompt.
+        """
+        if not summary:
+            return original_prompt
+
+        handoff_context = f"""## Previous Session Summary
+
+{summary}
+
+## Continuation Task
+
+{original_prompt}
+
+---
+Note: This task continues from a previous session. The summary above describes what was already done. 
+Please review and continue the work, avoiding redundant actions on files already modified."""
+
+        return handoff_context
+
+    async def prepare_task_context(
+        self,
+        prompt: str,
+        resume_session_id: Optional[str],
+        codebase_path: str,
+        auto_summarize: bool = True,
+    ) -> str:
+        """
+        Prepare task context with auto-compaction if needed.
+
+        Args:
+            prompt: The original task prompt
+            resume_session_id: Session ID to resume (if any)
+            codebase_path: Path to the codebase
+            auto_summarize: Whether to auto-generate summary for large sessions
+
+        Returns:
+            The (possibly enhanced) prompt with summary context
+        """
+        if not resume_session_id or not auto_summarize:
+            return prompt
+
+        # Check if session needs compaction
+        messages = self.session_sync.get_session_messages(
+            resume_session_id, max_messages=100
+        )
+        if not messages or not self.needs_compaction(messages):
+            return prompt
+
+        # Generate summary
+        summary = await self.generate_summary(
+            session_id=resume_session_id,
+            codebase_path=codebase_path,
+            original_task=prompt,
+        )
+
+        # Create handoff context
+        return self.create_handoff_context(prompt, summary, resume_session_id)
+
+
+# =============================================================================
 # TaskExecutor - Task execution logic
 # =============================================================================
 
@@ -2028,6 +2798,7 @@ class TaskExecutor:
     - Special task handlers (register_codebase, echo, noop)
     - Semaphore-based concurrency control
     - Email notifications on task completion/failure
+    - Auto-compaction and summarization for task handoffs
     """
 
     def __init__(
@@ -2049,6 +2820,13 @@ class TaskExecutor:
         # Task processing state
         self._task_semaphore: Optional[asyncio.Semaphore] = None
         self._active_task_ids: Set[str] = set()
+        # Context compaction service for auto-summarization
+        self.compaction_service = ContextCompactionService(
+            session_sync=session_sync,
+            opencode_bin=opencode_bin,
+            max_tokens=getattr(config, 'compaction_max_tokens', 100000),
+            target_tokens=getattr(config, 'compaction_target_tokens', 50000),
+        )
 
     def init_semaphore(self):
         """Initialize the task semaphore for bounded concurrency."""
@@ -2084,6 +2862,28 @@ class TaskExecutor:
 
         if not task_id:
             logger.warning('Task has no ID, skipping')
+            return
+
+        # -------------------------------------------------------------------------
+        # Belt-and-suspenders validation: ensure this worker can handle the task
+        # Server-side routing should already filter, but we validate here for
+        # defense-in-depth to prevent workers from claiming tasks they can't execute.
+        # -------------------------------------------------------------------------
+        codebase_id = task.get('codebase_id', '')
+        can_handle = (
+            codebase_id in codebases
+            or codebase_id == SpecialCodebaseId.PENDING
+            or (
+                codebase_id == SpecialCodebaseId.GLOBAL
+                and global_codebase_id is not None
+            )
+        )
+        if not can_handle:
+            logger.warning(
+                f'Task {task_id} has codebase_id={codebase_id!r} which this worker '
+                f'cannot handle (registered: {list(codebases.keys())}). '
+                f'Skipping to prevent incorrect claim.'
+            )
             return
 
         # Mark task as active
@@ -2187,6 +2987,33 @@ class TaskExecutor:
             logger.error(f'Codebase {codebase_id} not found for task {task_id}')
             return
 
+        # -------------------------------------------------------------------------
+        # Defense-in-depth: verify codebase path exists on disk before executing
+        # This catches stale registrations, mount issues, or path misconfigurations
+        # -------------------------------------------------------------------------
+        codebase_path = Path(codebase.path)
+        if not codebase_path.exists():
+            error_msg = (
+                f'Codebase path does not exist on disk: {codebase.path} '
+                f'(codebase_id={effective_codebase_id}, task_id={task_id})'
+            )
+            logger.error(error_msg)
+            await self.client.update_task_status(
+                task_id, TaskStatus.FAILED, error=error_msg
+            )
+            return
+
+        if not codebase_path.is_dir():
+            error_msg = (
+                f'Codebase path is not a directory: {codebase.path} '
+                f'(codebase_id={effective_codebase_id}, task_id={task_id})'
+            )
+            logger.error(error_msg)
+            await self.client.update_task_status(
+                task_id, TaskStatus.FAILED, error=error_msg
+            )
+            return
+
         logger.info(f'Executing task {task_id}: {task.get("title")}')
 
         # Claim the task
@@ -2203,6 +3030,30 @@ class TaskExecutor:
             resume_session_id = metadata.get(
                 'resume_session_id'
             )  # Session to resume
+
+            # Auto-compaction: If resuming a session with large context,
+            # generate a summary and prepend it to the prompt
+            auto_summarize = metadata.get('auto_summarize', True)
+            if resume_session_id and auto_summarize:
+                try:
+                    enhanced_prompt = (
+                        await self.compaction_service.prepare_task_context(
+                            prompt=prompt,
+                            resume_session_id=resume_session_id,
+                            codebase_path=codebase.path,
+                            auto_summarize=True,
+                        )
+                    )
+                    if enhanced_prompt != prompt:
+                        logger.info(
+                            f'Task {task_id}: Added session summary for handoff'
+                        )
+                        prompt = enhanced_prompt
+                except Exception as e:
+                    logger.warning(
+                        f'Auto-summarization failed for task {task_id}: {e}'
+                    )
+                    # Continue with original prompt
 
             # Run OpenCode
             result = await self.run_opencode(
@@ -2575,6 +3426,10 @@ class TaskExecutor:
             active_session_id: Optional[str] = session_id
 
             # Run the process using async subprocess to avoid blocking the event loop
+            # Use a large buffer limit (16MB) to handle OpenCode's potentially very long
+            # JSON output lines (e.g., file contents, large tool results). The default
+            # 64KB limit causes "Separator is found, but chunk is longer than limit" errors.
+            subprocess_limit = 16 * 1024 * 1024  # 16MB
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=codebase_path,
@@ -2582,6 +3437,7 @@ class TaskExecutor:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env={**os.environ, 'NO_COLOR': '1'},
+                limit=subprocess_limit,
             )
 
             if task_id:
@@ -2677,43 +3533,106 @@ class TaskExecutor:
             stderr_lines: List[str] = []
 
             async def _read_stdout():
-                """Read stdout lines asynchronously."""
+                """Read stdout lines asynchronously.
+
+                Uses readline() with explicit error handling for very long lines.
+                OpenCode can produce JSON lines >64KB when including file contents.
+                """
                 nonlocal active_session_id
                 if process.stdout is None:
                     return
-                async for line_bytes in process.stdout:
-                    line = line_bytes.decode('utf-8', errors='replace')
-                    output_lines.append(line)
 
-                    # Try to detect session id from OpenCode JSON output.
-                    if not active_session_id:
-                        try:
-                            obj = json.loads(line)
-                            active_session_id = (
-                                _extract_session_id(obj) or active_session_id
-                            )
-                        except Exception as e:
-                            logger.debug(
-                                f'Failed to parse stdout line as JSON for session extraction: {e}'
+                while True:
+                    try:
+                        # Read line with the increased buffer limit
+                        line_bytes = await process.stdout.readline()
+                        if not line_bytes:
+                            break  # EOF
+
+                        line = line_bytes.decode('utf-8', errors='replace')
+                        output_lines.append(line)
+
+                        # Try to detect session id from OpenCode JSON output.
+                        if not active_session_id:
+                            try:
+                                obj = json.loads(line)
+                                active_session_id = (
+                                    _extract_session_id(obj)
+                                    or active_session_id
+                                )
+                            except json.JSONDecodeError:
+                                pass  # Not JSON, skip session extraction
+
+                        # Stream output to server (truncate very long lines to prevent issues)
+                        if task_id:
+                            # Truncate output for streaming to prevent overwhelming the server
+                            stream_line = line.strip()
+                            if len(stream_line) > 10000:
+                                stream_line = (
+                                    stream_line[:10000] + '... [truncated]'
+                                )
+                            await self.client.stream_task_output(
+                                task_id, stream_line
                             )
 
-                    # Stream output to server
-                    if task_id:
-                        await self.client.stream_task_output(
-                            task_id, line.strip()
+                    except ValueError as e:
+                        # Handle "Separator is found, but chunk is longer than limit"
+                        # by reading raw bytes and chunking
+                        logger.warning(
+                            f'Line too long for readline, reading raw: {e}'
                         )
+                        try:
+                            raw_chunk = await process.stdout.read(
+                                1024 * 1024
+                            )  # 1MB chunk
+                            if raw_chunk:
+                                line = raw_chunk.decode(
+                                    'utf-8', errors='replace'
+                                )
+                                output_lines.append(line)
+                            else:
+                                break  # EOF
+                        except Exception as chunk_err:
+                            logger.error(
+                                f'Failed to read raw chunk: {chunk_err}'
+                            )
+                            break
 
             async def _read_stderr():
-                """Read stderr lines asynchronously."""
+                """Read stderr lines asynchronously with error handling for long lines."""
                 if process.stderr is None:
                     return
-                async for line_bytes in process.stderr:
-                    line = line_bytes.decode('utf-8', errors='replace')
-                    stderr_lines.append(line)
-                    if task_id:
-                        await self.client.stream_task_output(
-                            task_id, f'[stderr] {line.strip()}'
-                        )
+
+                while True:
+                    try:
+                        line_bytes = await process.stderr.readline()
+                        if not line_bytes:
+                            break  # EOF
+
+                        line = line_bytes.decode('utf-8', errors='replace')
+                        stderr_lines.append(line)
+                        if task_id:
+                            # Truncate very long stderr lines
+                            stream_line = line.strip()
+                            if len(stream_line) > 10000:
+                                stream_line = (
+                                    stream_line[:10000] + '... [truncated]'
+                                )
+                            await self.client.stream_task_output(
+                                task_id, f'[stderr] {stream_line}'
+                            )
+                    except ValueError:
+                        # Handle very long lines by reading raw
+                        try:
+                            raw_chunk = await process.stderr.read(1024 * 1024)
+                            if raw_chunk:
+                                stderr_lines.append(
+                                    raw_chunk.decode('utf-8', errors='replace')
+                                )
+                            else:
+                                break
+                        except Exception:
+                            break
 
             try:
                 # Read stdout and stderr concurrently
@@ -3027,6 +3946,18 @@ class AgentWorker:
                 description=cb_config.get('description', ''),
             )
 
+        # Register as a discoverable agent (enables agent-to-agent communication)
+        # This is done AFTER codebase registration so the worker is "ready"
+        # Registration is best-effort and non-blocking
+        if self.config.register_as_agent:
+            logger.info('Registering as discoverable agent...')
+            await self.client.register_as_agent(
+                agent_name=self.config.agent_name,
+                description=self.config.agent_description,
+                url=self.config.agent_url,
+                routing_capabilities=self.config.capabilities,
+            )
+
         # Sync API keys from server (allows web UI key management)
         logger.info('Syncing API keys from server...')
         await self.sync_api_keys_from_server()
@@ -3213,10 +4144,13 @@ class AgentWorker:
         session = await self._get_session()
 
         # Build SSE URL with worker_id and agent_name
+        # Use agent_name if set, otherwise fall back to worker_name
+        # This ensures SSE routing identity matches discovery identity
         sse_url = f'{self.config.server_url}/v1/worker/tasks/stream'
+        resolved_agent_name = self.config.agent_name or self.config.worker_name
         params = {
             'worker_id': self.config.worker_id,
-            'agent_name': self.config.worker_name,  # Required by SSE endpoint
+            'agent_name': resolved_agent_name,  # Required by SSE endpoint
         }
 
         logger.info(f'Connecting to SSE stream: {sse_url}')
@@ -3399,18 +4333,28 @@ class AgentWorker:
         """Perform periodic maintenance tasks while SSE is connected."""
         sync_interval = 60  # seconds
         heartbeat_interval = 15  # seconds
+        agent_heartbeat_interval = 45  # seconds (must be < 120s TTL)
         last_sync = time.time()
         last_heartbeat = time.time()
+        last_agent_heartbeat = time.time()
 
         while self.running and self.client.sse_connected:
             await asyncio.sleep(5)
 
             now = time.time()
 
-            # Send heartbeat to server periodically
+            # Send heartbeat to server periodically (worker heartbeat)
             if now - last_heartbeat >= heartbeat_interval:
                 last_heartbeat = now
                 await self.send_heartbeat()
+
+            # Refresh agent discovery heartbeat (keeps agent visible in discover_agents)
+            if (
+                self.config.register_as_agent
+                and now - last_agent_heartbeat >= agent_heartbeat_interval
+            ):
+                last_agent_heartbeat = now
+                await self.client.refresh_agent_heartbeat()
 
             # Sync sessions and re-register periodically
             if now - last_sync >= sync_interval:
@@ -3529,6 +4473,44 @@ async def main():
         default=None,
         help='SendGrid verified sender email (or set SENDGRID_FROM_EMAIL env var)',
     )
+    # Email debugging and testing options
+    parser.add_argument(
+        '--test-email',
+        action='store_true',
+        help='Send a test notification email and exit (validates email config)',
+    )
+    parser.add_argument(
+        '--email-dry-run',
+        action='store_true',
+        help='Log emails instead of sending them (dry run mode)',
+    )
+    parser.add_argument(
+        '--email-verbose',
+        action='store_true',
+        help='Enable verbose logging for email operations',
+    )
+    # Agent registration options (for A2A network discovery)
+    parser.add_argument(
+        '--no-agent-registration',
+        action='store_true',
+        help='Disable automatic agent registration (worker will not be discoverable via discover_agents)',
+    )
+    parser.add_argument(
+        '--agent-name',
+        default=None,
+        help='Name for agent discovery and routing (defaults to worker name). '
+        'This is the identity used for discover_agents and send_to_agent.',
+    )
+    parser.add_argument(
+        '--agent-description',
+        default=None,
+        help='Description for agent discovery (what this agent does)',
+    )
+    parser.add_argument(
+        '--agent-url',
+        default=None,
+        help='URL where this agent can be reached directly (optional, defaults to server URL)',
+    )
 
     args = parser.parse_args()
 
@@ -3561,7 +4543,9 @@ async def main():
     elif file_config.get('worker_name'):
         worker_name = file_config['worker_name']
     else:
-        worker_name = os.uname().nodename
+        import platform
+
+        worker_name = platform.node()  # Cross-platform (works on Windows)
 
     # Resolve worker_id with precedence: CLI flag > env > config > default
     worker_id: Optional[str] = None
@@ -3761,7 +4745,109 @@ async def main():
     if notification_email:
         config_kwargs['notification_email'] = notification_email
 
+    # Email debugging flags
+    if args.email_dry_run:
+        config_kwargs['email_dry_run'] = True
+        logger.info(
+            'Email dry-run mode enabled (emails will be logged, not sent)'
+        )
+
+    if args.email_verbose:
+        config_kwargs['email_verbose'] = True
+        logger.info('Email verbose logging enabled')
+
+    # Add email inbound domain from config if available
+    email_inbound_domain = os.environ.get(
+        'EMAIL_INBOUND_DOMAIN'
+    ) or file_config.get('email_inbound_domain')
+    if email_inbound_domain:
+        config_kwargs['email_inbound_domain'] = email_inbound_domain
+
+    email_reply_prefix = os.environ.get(
+        'EMAIL_REPLY_PREFIX'
+    ) or file_config.get('email_reply_prefix')
+    if email_reply_prefix:
+        config_kwargs['email_reply_prefix'] = email_reply_prefix
+
+    # Agent registration options
+    # Disable agent registration if --no-agent-registration flag is set
+    if args.no_agent_registration:
+        config_kwargs['register_as_agent'] = False
+        logger.info(
+            'Agent registration disabled (worker will not be discoverable)'
+        )
+    else:
+        # Default to True (register as discoverable agent)
+        register_as_agent = file_config.get('register_as_agent', True)
+        config_kwargs['register_as_agent'] = register_as_agent
+
+    # Agent name (identity for discovery and routing - should match SSE agent_name)
+    # This is the key identity used by discover_agents and send_to_agent
+    agent_name = (
+        args.agent_name
+        or os.environ.get('A2A_AGENT_NAME')
+        or file_config.get('agent_name')
+    )
+    if agent_name:
+        config_kwargs['agent_name'] = agent_name
+        logger.info(f"Agent name set to: '{agent_name}'")
+
+    # Agent description (what this agent does)
+    agent_description = (
+        args.agent_description
+        or os.environ.get('A2A_AGENT_DESCRIPTION')
+        or file_config.get('agent_description')
+    )
+    if agent_description:
+        config_kwargs['agent_description'] = agent_description
+
+    # Agent URL (where this agent can be reached directly)
+    agent_url = (
+        args.agent_url
+        or os.environ.get('A2A_AGENT_URL')
+        or file_config.get('agent_url')
+    )
+    if agent_url:
+        config_kwargs['agent_url'] = agent_url
+
     config = WorkerConfig(**config_kwargs)
+
+    # Handle --test-email flag: send test email and exit
+    if args.test_email:
+        logger.info('=== Email Configuration Test ===')
+        email_service = EmailNotificationService(config)
+
+        # Print configuration status
+        config_status = email_service.get_config_status()
+        logger.info(f'Configuration status:')
+        logger.info(f'  Configured: {config_status["configured"]}')
+        logger.info(f'  Dry-run mode: {config_status["dry_run"]}')
+        logger.info(f'  Verbose mode: {config_status["verbose"]}')
+        logger.info(
+            f'  SendGrid API key set: {config_status["sendgrid_api_key_set"]}'
+        )
+        logger.info(f'  From email: {config_status["sendgrid_from_email"]}')
+        logger.info(f'  To email: {config_status["notification_email"]}')
+        logger.info(f'  Inbound domain: {config_status["inbound_domain"]}')
+        logger.info(f'  Reply prefix: {config_status["reply_prefix"]}')
+
+        if config_status['issues']:
+            logger.warning(f'Issues found:')
+            for issue in config_status['issues']:
+                logger.warning(f'  - {issue}')
+
+        # Send test email
+        result = await email_service.send_test_email()
+
+        if result['success']:
+            logger.info(f'SUCCESS: {result["message"]}')
+        else:
+            logger.error(f'FAILED: {result["message"]}')
+
+        await email_service.close()
+
+        # Exit after test
+        return
 
     # Create and start worker
     worker = AgentWorker(config)

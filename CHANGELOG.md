@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.2.2] - 2026-01-15
+
+### Added - Production-Grade Agent Discovery
+
+Workers can now register as discoverable agents in the A2A network, enabling agent-to-agent communication.
+
+#### Role:Instance Pattern
+- **Discovery identity** (`name`): Unique per-instance (e.g., `code-reviewer:dev-vm:abc123`)
+- **Routing identity** (`role`): Stable for `send_to_agent` (e.g., `code-reviewer`)
+- Multiple workers with same role show as distinct agents in discovery
+
+#### TTL-Based Liveness
+- Agents must send heartbeats every 45s to stay visible
+- `discover_agents` filters agents not seen within 120s (configurable via `A2A_AGENT_DISCOVERY_MAX_AGE`)
+- Lazy cleanup removes stale agents from all indexes
+- Clock skew tolerance: future timestamps treated as fresh
+
+#### New MCP Tool
+- `refresh_agent_heartbeat`: Keep agent visible in discovery
+
+#### Worker CLI Options
+```bash
+--agent-name NAME        # Routing role for send_to_agent
+--agent-description DESC # Description for discovery
+--agent-url URL          # Direct URL (optional)
+--no-agent-registration  # Disable auto-registration
+```
+
+#### Environment Variables
+- `A2A_AGENT_NAME` - Agent routing role
+- `A2A_AGENT_DESCRIPTION` - Agent description
+- `A2A_AGENT_URL` - Agent URL
+- `A2A_AGENT_DISCOVERY_MAX_AGE` - TTL filter in seconds (default: 120)
+
+#### discover_agents Response
+```json
+{
+  "agents": [{
+    "name": "code-reviewer:dev-vm:abc123",
+    "role": "code-reviewer",
+    "instance_id": "dev-vm:abc123",
+    "last_seen": "2026-01-15T12:00:00"
+  }],
+  "routing_note": "Use 'role' with send_to_agent for routing."
+}
+```
+
+### Fixed
+- JSON-RPC response format compliance (result OR error, not both)
+- Cross-platform hostname detection (Windows compatibility)
+
+### Tests
+- 13 new tests for agent discovery (`tests/test_agent_discovery.py`)
+
 ## [1.2.0] - 2025-01-15
 
 ### Added - A2A Protocol v0.3 Compliance

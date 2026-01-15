@@ -410,6 +410,20 @@ class MCPHTTPServer:
                 'inputSchema': {'type': 'object', 'properties': {}},
             },
             {
+                'name': 'refresh_agent_heartbeat',
+                'description': 'Refresh the last_seen timestamp for a registered agent. Call periodically (every 30-60s) to keep the agent visible in discovery. Agents not seen within 120s are filtered from discover_agents results.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'agent_name': {
+                            'type': 'string',
+                            'description': 'Name of the agent to refresh (must match name used in register_agent)',
+                        },
+                    },
+                    'required': ['agent_name'],
+                },
+            },
+            {
                 'name': 'get_messages',
                 'description': 'Retrieve conversation history from the monitoring system. Filter by conversation_id to get a specific thread. Returns messages with: id, timestamp, type (human/agent), agent_name, content, and metadata. Use to review past interactions.',
                 'inputSchema': {
@@ -918,6 +932,9 @@ class MCPHTTPServer:
 
             elif tool_name == 'get_agent_card':
                 return await self._get_agent_card()
+
+            elif tool_name == 'refresh_agent_heartbeat':
+                return await self._refresh_agent_heartbeat(arguments)
 
             elif tool_name == 'get_messages':
                 return await self._get_messages(arguments)
@@ -1559,7 +1576,19 @@ class MCPHTTPServer:
             return {'error': f'Failed to list task runs: {str(e)}'}
 
     async def _discover_agents(self) -> Dict[str, Any]:
-        """Discover available agents."""
+        """
+        Discover available agents.
+
+        Returns agents with:
+        - name: Unique discovery identity (e.g., "code-reviewer:dev-vm:abc123")
+        - role: Routing identity for send_to_agent (e.g., "code-reviewer")
+        - instance_id: Unique instance identifier
+        - description, url, capabilities, last_seen
+
+        Note: Use 'role' with send_to_agent for routing, not 'name'.
+        """
+        import os
+
         if not self.a2a_server or not hasattr(
             self.a2a_server, 'message_broker'
         ):
@@ -1575,21 +1604,57 @@ class MCPHTTPServer:
                 'error': 'Message broker not started. Ensure the server is fully initialized.'
             }
 
+        # Get max_age from environment (default 120s)
+        max_age_seconds = int(
+            os.environ.get('A2A_AGENT_DISCOVERY_MAX_AGE', '120')
+        )
+
         try:
-            agents = await broker.discover_agents()
+            agents = await broker.discover_agents(
+                max_age_seconds=max_age_seconds
+            )
         except RuntimeError as e:
             return {'error': f'Message broker error: {str(e)}'}
 
+        # Handle both old (AgentCard) and new (dict) return formats
+        agent_list = []
+        for agent in agents:
+            if isinstance(agent, dict):
+                # New enriched format with role/instance_id
+                agent_list.append(
+                    {
+                        'name': agent.get('name'),
+                        'role': agent.get(
+                            'role'
+                        ),  # Use this for send_to_agent routing
+                        'instance_id': agent.get('instance_id'),
+                        'description': agent.get('description'),
+                        'url': agent.get('url'),
+                        'capabilities': agent.get('capabilities'),
+                        'last_seen': agent.get('last_seen'),
+                    }
+                )
+            else:
+                # Legacy AgentCard format (backward compat)
+                agent_list.append(
+                    {
+                        'name': agent.name,
+                        'role': agent.name.split(':')[0]
+                        if ':' in agent.name
+                        else agent.name,
+                        'description': agent.description,
+                        'url': agent.url,
+                    }
+                )
+
         return {
-            'agents': [
-                {
-                    'name': agent.name,
-                    'description': agent.description,
-                    'url': agent.url,
-                }
-                for agent in agents
-            ],
-            'count': len(agents),
+            'agents': agent_list,
+            'count': len(agent_list),
+            'routing_note': (
+                "IMPORTANT: Use 'role' with send_to_agent for routing. "
+                "'name' is a unique instance identity and will NOT route tasks. "
+                "Example: send_to_agent(agent_name='code-reviewer') routes by role."
+            ),
         }
 
     async def _get_agent(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -1750,6 +1815,47 @@ class MCPHTTPServer:
             'url': url,
             'message': f"Agent '{name}' successfully registered and is now discoverable",
         }
+
+    async def _refresh_agent_heartbeat(
+        self, args: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Refresh the last_seen timestamp for an agent to keep it visible in discovery."""
+        agent_name = args.get('agent_name')
+
+        if not agent_name:
+            return {'error': 'agent_name is required'}
+
+        if not self.a2a_server or not hasattr(
+            self.a2a_server, 'message_broker'
+        ):
+            return {'error': 'Message broker not available'}
+
+        broker = self.a2a_server.message_broker
+        if broker is None:
+            return {'error': 'Message broker not configured'}
+
+        # Check if broker supports heartbeat refresh
+        if not hasattr(broker, 'refresh_agent_heartbeat'):
+            return {
+                'error': 'Message broker does not support heartbeat refresh'
+            }
+
+        try:
+            success = await broker.refresh_agent_heartbeat(agent_name)
+            if success:
+                return {
+                    'success': True,
+                    'agent_name': agent_name,
+                    'message': f"Heartbeat refreshed for agent '{agent_name}'",
+                }
+            else:
+                return {
+                    'success': False,
+                    'agent_name': agent_name,
+                    'message': f"Agent '{agent_name}' not found in registry (register first)",
+                }
+        except Exception as e:
+            return {'error': f'Heartbeat refresh failed: {str(e)}'}
 
     async def _get_messages(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Get messages from the monitoring system."""
