@@ -260,6 +260,30 @@ class Task(BaseModel):
         None, description='When the task was claimed by a worker'
     )
 
+    # Model reference fields
+    model_ref: Optional[str] = Field(
+        None,
+        description='Normalized model reference (provider:model) for the controller model',
+    )
+    subcall_model_ref: Optional[str] = Field(
+        None,
+        description='Optional override for subcall model in RLM tasks (provider:model)',
+    )
+
+    # Resolved subcall model fields (set by A2A during dispatch)
+    resolved_subcall_model_ref: Optional[str] = Field(
+        None,
+        description='Resolved subcall model reference for RLM execution',
+    )
+    resolved_subcall_source: Optional[str] = Field(
+        None,
+        description='Source of subcall model resolution: task, config, fallback, or controller',
+    )
+    resolved_subcall_warning: Optional[str] = Field(
+        None,
+        description='Warning message if using controller fallback for subcalls',
+    )
+
 
 class Part(BaseModel):
     """A component of a message that can contain text, files, or structured data."""

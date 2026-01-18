@@ -197,6 +197,10 @@ class MCPHTTPServer:
                             'type': 'string',
                             'description': 'Email to notify when task completes',
                         },
+                        'model_ref': {
+                            'type': 'string',
+                            'description': 'Normalized model identifier (provider:model format, e.g., "openai:gpt-4.1", "anthropic:claude-3.5-sonnet"). If set, only workers supporting this model can claim the task.',
+                        },
                     },
                     'required': ['message'],
                 },
@@ -234,6 +238,10 @@ class MCPHTTPServer:
                         'notify_email': {
                             'type': 'string',
                             'description': 'Email to notify when task completes',
+                        },
+                        'model_ref': {
+                            'type': 'string',
+                            'description': 'Normalized model identifier (provider:model format). If set, only workers supporting this model can claim the task.',
                         },
                     },
                     'required': ['agent_name', 'message'],
@@ -376,7 +384,7 @@ class MCPHTTPServer:
             },
             {
                 'name': 'register_agent',
-                'description': "Register this agent as a worker in the network so it can be discovered by other agents and receive tasks. Call once on startup. Requires: name (unique identifier), description, url (agent's endpoint). Optional: capabilities object. After registering, the agent will appear in discover_agents results.",
+                'description': "Register this agent as a worker in the network so it can be discovered by other agents and receive tasks. Call once on startup. Requires: name (unique identifier), description, url (agent's endpoint). Optional: capabilities object, models_supported list. After registering, the agent will appear in discover_agents results.",
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -399,6 +407,11 @@ class MCPHTTPServer:
                                 'streaming': {'type': 'boolean'},
                                 'push_notifications': {'type': 'boolean'},
                             },
+                        },
+                        'models_supported': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                            'description': 'List of model identifiers this agent supports (normalized format: provider:model, e.g., ["anthropic:claude-3.5-sonnet", "openai:gpt-4.1"]). Tasks with model_ref will only route to agents supporting that model.',
                         },
                     },
                     'required': ['name', 'description', 'url'],
@@ -1094,6 +1107,7 @@ class MCPHTTPServer:
         codebase_id = args.get('codebase_id', 'global')
         priority = args.get('priority', 0)
         notify_email = args.get('notify_email')
+        model_ref = args.get('model_ref')  # Normalized provider:model format
 
         bridge = get_opencode_bridge()
         if bridge is None:
@@ -1150,11 +1164,13 @@ class MCPHTTPServer:
                     user_id=user_id,
                     priority=priority,
                     notify_email=notify_email,
+                    model_ref=model_ref,
                 )
                 if task_run:
                     run_id = task_run.id
                     logger.info(
                         f'Async message task {task.id} enqueued as run {run_id}'
+                        + (f' (model_ref={model_ref})' if model_ref else '')
                     )
             except Exception as e:
                 logger.warning(f'Failed to enqueue task {task.id}: {e}')
@@ -1165,6 +1181,7 @@ class MCPHTTPServer:
             'run_id': run_id,
             'status': 'queued',
             'conversation_id': conversation_id,
+            'model_ref': model_ref,
             'timestamp': datetime.now().isoformat(),
         }
 
@@ -1192,6 +1209,7 @@ class MCPHTTPServer:
         priority = args.get('priority', 0)
         deadline_seconds = args.get('deadline_seconds')
         notify_email = args.get('notify_email')
+        model_ref = args.get('model_ref')  # Normalized provider:model format
 
         bridge = get_opencode_bridge()
         if bridge is None:
@@ -1268,12 +1286,16 @@ class MCPHTTPServer:
                     # Agent routing fields
                     target_agent_name=agent_name,
                     deadline_at=deadline_at,
+                    # Model routing
+                    model_ref=model_ref,
                 )
                 if task_run:
                     run_id = task_run.id
                     logger.info(
                         f'Targeted task {task.id} enqueued as run {run_id} '
-                        f'(target={agent_name}, deadline={deadline_at})'
+                        f'(target={agent_name}, deadline={deadline_at}'
+                        + (f', model_ref={model_ref}' if model_ref else '')
+                        + ')'
                     )
             except Exception as e:
                 logger.warning(f'Failed to enqueue task {task.id}: {e}')
@@ -1283,6 +1305,7 @@ class MCPHTTPServer:
             'target_agent_name': agent_name,
             'required_capabilities': None,  # Not used in send_to_agent currently
             'deadline_at': deadline_at.isoformat() if deadline_at else None,
+            'model_ref': model_ref,
         }
 
         result = {
@@ -1737,6 +1760,9 @@ class MCPHTTPServer:
         description = args.get('description')
         url = args.get('url')
         capabilities = args.get('capabilities', {})
+        models_supported = args.get(
+            'models_supported'
+        )  # List of model identifiers
 
         if not name:
             return {'error': 'Agent name is required'}
@@ -1777,7 +1803,9 @@ class MCPHTTPServer:
         )
 
         try:
-            await broker.register_agent(agent_card)
+            await broker.register_agent(
+                agent_card, models_supported=models_supported
+            )
         except RuntimeError as e:
             return {'error': f'Message broker error: {str(e)}'}
 

@@ -132,8 +132,8 @@ export default function AutomationsPage() {
     setSubmitResult(null)
 
     try {
-      const token = localStorage.getItem('a2a_token')
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
+       const token = localStorage.getItem('a2a_token')
+       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
       // Build the prompt from template
       let prompt = selectedTemplate.name + '\n\n'

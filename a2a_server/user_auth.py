@@ -719,3 +719,176 @@ async def check_usage_limit(
             },
         )
     return user
+
+
+# ========================================
+# Billing Endpoints (Stripe tier wiring)
+# ========================================
+
+
+class CheckoutRequest(BaseModel):
+    """Request for creating checkout session."""
+
+    tier: str = Field(..., description='Target tier: pro or agency')
+    success_url: str = Field(..., description='URL to redirect on success')
+    cancel_url: str = Field(..., description='URL to redirect on cancel')
+
+
+class CheckoutResponse(BaseModel):
+    """Checkout session response."""
+
+    checkout_url: str
+
+
+class PortalRequest(BaseModel):
+    """Request for billing portal session."""
+
+    return_url: str = Field(..., description='URL to return to after portal')
+
+
+class PortalResponse(BaseModel):
+    """Billing portal session response."""
+
+    portal_url: str
+
+
+class BillingStatusResponse(BaseModel):
+    """User's billing status."""
+
+    tier: str
+    tier_name: str
+    stripe_subscription_status: Optional[str]
+    current_period_end: Optional[str]
+    tasks_used: int
+    tasks_limit: int
+    concurrency_limit: int
+    max_runtime_seconds: int
+
+
+@router.get('/billing/status', response_model=BillingStatusResponse)
+async def get_billing_status(user: Dict[str, Any] = Depends(require_user)):
+    """
+    Get current user's billing status.
+
+    Returns tier, limits, and Stripe subscription status.
+    """
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database unavailable')
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT 
+                u.tier_id,
+                st.name as tier_name,
+                u.stripe_subscription_status,
+                u.stripe_current_period_end,
+                u.tasks_used_this_month,
+                u.tasks_limit,
+                u.concurrency_limit,
+                u.max_runtime_seconds
+            FROM users u
+            LEFT JOIN subscription_tiers st ON u.tier_id = st.id
+            WHERE u.id = $1
+            """,
+            user['id'],
+        )
+
+    if not row:
+        raise HTTPException(status_code=404, detail='User not found')
+
+    return BillingStatusResponse(
+        tier=row['tier_id'] or 'free',
+        tier_name=row['tier_name'] or 'Free',
+        stripe_subscription_status=row['stripe_subscription_status'],
+        current_period_end=row['stripe_current_period_end'].isoformat()
+        if row['stripe_current_period_end']
+        else None,
+        tasks_used=row['tasks_used_this_month'] or 0,
+        tasks_limit=row['tasks_limit'] or 10,
+        concurrency_limit=row['concurrency_limit'] or 1,
+        max_runtime_seconds=row['max_runtime_seconds'] or 600,
+    )
+
+
+@router.post('/billing/checkout', response_model=CheckoutResponse)
+async def create_checkout(
+    request: CheckoutRequest,
+    user: Dict[str, Any] = Depends(require_user),
+):
+    """
+    Create a Stripe Checkout session to upgrade tier.
+
+    Valid tiers: pro, agency
+    """
+    if request.tier not in ('pro', 'agency'):
+        raise HTTPException(
+            status_code=400,
+            detail='Invalid tier. Must be "pro" or "agency".',
+        )
+
+    try:
+        from .user_billing import create_user_checkout_session
+
+        checkout_url = await create_user_checkout_session(
+            user_id=user['id'],
+            tier_id=request.tier,
+            success_url=request.success_url,
+            cancel_url=request.cancel_url,
+        )
+
+        if not checkout_url:
+            raise HTTPException(
+                status_code=500, detail='Failed to create checkout session'
+            )
+
+        return CheckoutResponse(checkout_url=checkout_url)
+
+    except ImportError:
+        raise HTTPException(
+            status_code=503, detail='Billing module not available'
+        )
+    except Exception as e:
+        logger.error(f'Checkout error: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post('/billing/portal', response_model=PortalResponse)
+async def create_billing_portal(
+    request: PortalRequest,
+    user: Dict[str, Any] = Depends(require_user),
+):
+    """
+    Create a Stripe Billing Portal session.
+
+    Allows user to manage payment methods, view invoices, and cancel subscription.
+    """
+    if not user.get('stripe_customer_id'):
+        raise HTTPException(
+            status_code=400,
+            detail='No billing account. Subscribe first via /billing/checkout.',
+        )
+
+    try:
+        from .user_billing import create_user_billing_portal_session
+
+        portal_url = await create_user_billing_portal_session(
+            user_id=user['id'],
+            return_url=request.return_url,
+        )
+
+        if not portal_url:
+            raise HTTPException(
+                status_code=500, detail='Failed to create portal session'
+            )
+
+        return PortalResponse(portal_url=portal_url)
+
+    except ImportError:
+        raise HTTPException(
+            status_code=503, detail='Billing module not available'
+        )
+    except Exception as e:
+        logger.error(f'Portal error: {e}')
+        raise HTTPException(status_code=500, detail=str(e))

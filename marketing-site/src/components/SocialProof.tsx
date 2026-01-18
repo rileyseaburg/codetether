@@ -1,46 +1,39 @@
 import { Container } from '@/components/Container'
 
 export function SocialProof() {
+    const stats = [
+        {
+            label: 'Open Source',
+            value: 'Apache 2.0',
+            detail: 'Commercial-friendly license',
+        },
+        {
+            label: 'A2A Protocol',
+            value: 'v0.3 Compliant',
+            detail: 'Industry standard',
+        },
+        {
+            label: 'Self-Hostable',
+            value: '100%',
+            detail: 'You control your data',
+        },
+    ]
     return (
         <section className="border-y border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 py-12">
             <Container>
                 <div className="mx-auto max-w-4xl text-center">
-                    <p className="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-                        Trusted by developers at
-                    </p>
-                    <div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6 grayscale opacity-70">
-                        {/* Placeholder company logos - replace with real ones */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-3xl">🚀</span>
-                            <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">StartupCo</span>
+                <p className="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                    Production-Ready Foundation
+                </p>
+                <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+                    {stats.map((stat) => (
+                        <div key={stat.label} className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
+                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{stat.label}</div>
+                            <div className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{stat.value}</div>
+                            <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{stat.detail}</div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-3xl">🏢</span>
-                            <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">Enterprise Inc</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-3xl">⚡</span>
-                            <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">TechForward</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-3xl">🔮</span>
-                            <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">AI Labs</span>
-                        </div>
-                    </div>
-                    <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-3">
-                        <div>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">500+</div>
-                            <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">GitHub Stars</div>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">10k+</div>
-                            <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">Agent Messages/Day</div>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">99.9%</div>
-                            <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">Uptime SLA</div>
-                        </div>
-                    </div>
+                    ))}
+                </div>
                 </div>
             </Container>
         </section>
@@ -48,30 +41,21 @@ export function SocialProof() {
 }
 
 export function Testimonials() {
-    const testimonials = [
+    const features = [
         {
-            quote:
-                "A2A Server completely transformed how we build AI features. Our agents now collaborate seamlessly, and the session resumption is a game-changer.",
-            author: 'Alex Chen',
-            title: 'CTO',
-            company: 'AI Startup',
-            avatar: '👨‍💻',
+            title: 'Pull Architecture',
+            description: 'Workers poll for tasks instead of receiving inbound connections. Zero firewall rules to approve. Security teams love it.',
+            icon: '⬇️',
         },
         {
-            quote:
-                "We evaluated several multi-agent frameworks. A2A's Kubernetes-native approach and enterprise security made it the clear choice for production.",
-            author: 'Sarah Johnson',
-            title: 'VP Engineering',
-            company: 'Enterprise Co',
-            avatar: '👩‍💼',
+            title: 'Zero Third-Party Storage',
+            description: 'CodeTether does not proxy or store your prompts and source code. The Control Plane only needs orchestration metadata.',
+            icon: '🛡️',
         },
         {
-            quote:
-                "The distributed worker architecture let us run coding agents on our secure infrastructure while managing everything centrally. Brilliant design.",
-            author: 'Mike Rivera',
-            title: 'Platform Lead',
-            company: 'FinTech Corp',
-            avatar: '👨‍🔬',
+            title: 'A2A Protocol Native',
+            description: 'Built on Google and Microsoft\'s A2A protocol specification for agent-to-agent communication and orchestration.',
+            icon: '🔗',
         },
     ]
 
@@ -87,33 +71,26 @@ export function Testimonials() {
                         id="testimonials-title"
                         className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                     >
-                        Loved by AI teams
+                        v1.2.0 Highlights
                     </h2>
                     <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        See what developers are saying about A2A Server MCP.
+                        What makes CodeTether production-ready.
                     </p>
                 </div>
                 <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-3">
-                    {testimonials.map((testimonial) => (
+                    {features.map((feature) => (
                         <figure
-                            key={testimonial.author}
+                            key={feature.title}
                             className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-lg ring-1 ring-gray-900/5 dark:ring-gray-800"
                         >
-                            <blockquote className="text-gray-700 dark:text-gray-300">
-                                <p>"{testimonial.quote}"</p>
-                            </blockquote>
-                            <figcaption className="mt-6 flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-2xl">
-                                    {testimonial.avatar}
-                                </div>
-                                <div>
-                                    <div className="font-semibold text-gray-900 dark:text-white">
-                                        {testimonial.author}
-                                    </div>
-                                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                                        {testimonial.title}, {testimonial.company}
-                                    </div>
-                                </div>
+                            <div className="text-4xl mb-4">{feature.icon}</div>
+                            <figcaption>
+                                <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
+                                    {feature.title}
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                                    {feature.description}
+                                </p>
                             </figcaption>
                         </figure>
                     ))}

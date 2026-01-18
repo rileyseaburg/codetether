@@ -22,6 +22,19 @@ from fastapi import APIRouter, HTTPException, Request
 
 from .database import get_tenant_by_id, update_tenant, list_tenants
 
+# Import user billing for mid-market tier sync
+try:
+    from .user_billing import (
+        handle_user_subscription_event,
+        handle_checkout_completed_for_user,
+    )
+
+    USER_BILLING_AVAILABLE = True
+except ImportError:
+    USER_BILLING_AVAILABLE = False
+    handle_user_subscription_event = None
+    handle_checkout_completed_for_user = None
+
 logger = logging.getLogger(__name__)
 
 # Router for webhook endpoints
@@ -474,13 +487,27 @@ async def stripe_webhook(request: Request):
     # Use create_task for async processing to return 200 quickly
     try:
         if event_type == 'customer.subscription.created':
+            # Handle for tenants (B2B)
             asyncio.create_task(_handle_subscription_created(data))
+            # Handle for users (mid-market) - new!
+            if USER_BILLING_AVAILABLE and handle_user_subscription_event:
+                asyncio.create_task(
+                    handle_user_subscription_event(event_id, event_type, data)
+                )
 
         elif event_type == 'customer.subscription.updated':
             asyncio.create_task(_handle_subscription_updated(data))
+            if USER_BILLING_AVAILABLE and handle_user_subscription_event:
+                asyncio.create_task(
+                    handle_user_subscription_event(event_id, event_type, data)
+                )
 
         elif event_type == 'customer.subscription.deleted':
             asyncio.create_task(_handle_subscription_deleted(data))
+            if USER_BILLING_AVAILABLE and handle_user_subscription_event:
+                asyncio.create_task(
+                    handle_user_subscription_event(event_id, event_type, data)
+                )
 
         elif event_type == 'invoice.paid':
             asyncio.create_task(_handle_invoice_paid(data))
@@ -490,6 +517,11 @@ async def stripe_webhook(request: Request):
 
         elif event_type == 'checkout.session.completed':
             asyncio.create_task(_handle_checkout_completed(data))
+            # Handle for users (mid-market) - new!
+            if USER_BILLING_AVAILABLE and handle_checkout_completed_for_user:
+                asyncio.create_task(
+                    handle_checkout_completed_for_user(event_id, data)
+                )
 
         else:
             logger.debug(f'Unhandled event type: {event_type}')

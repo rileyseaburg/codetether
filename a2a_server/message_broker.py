@@ -72,6 +72,7 @@ class MessageBroker:
         agent_card: AgentCard,
         role: Optional[str] = None,
         instance_id: Optional[str] = None,
+        models_supported: Optional[List[str]] = None,
     ) -> None:
         """
         Register an agent in the discovery registry.
@@ -81,6 +82,8 @@ class MessageBroker:
             role: Optional routing role (e.g., "code-reviewer"). If the agent name
                   follows the pattern "role:instance", role is extracted automatically.
             instance_id: Optional unique instance identifier for this agent.
+            models_supported: List of model identifiers this agent supports
+                              (normalized format: "provider:model", e.g., "openai:gpt-4.1").
         """
         if not self.redis:
             raise RuntimeError('Message broker not started')
@@ -108,6 +111,9 @@ class MessageBroker:
             mapping['role'] = extracted_role
         if extracted_instance:
             mapping['instance_id'] = extracted_instance
+        # Store models_supported for model-aware routing
+        if models_supported:
+            mapping['models_supported'] = json.dumps(models_supported)
 
         await self.redis.hset(agent_key, mapping=mapping)
 
@@ -242,6 +248,20 @@ class MessageBroker:
                 else instance_id
             )
 
+            # Extract models_supported
+            models_raw = agent_hash.get(b'models_supported')
+            models_supported = None
+            if models_raw:
+                try:
+                    models_decoded = (
+                        models_raw.decode()
+                        if isinstance(models_raw, bytes)
+                        else models_raw
+                    )
+                    models_supported = json.loads(models_decoded)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             # Parse agent card
             agent_data = agent_hash.get(b'card')
             if agent_data:
@@ -259,6 +279,7 @@ class MessageBroker:
                         'capabilities': agent_card.capabilities.model_dump()
                         if agent_card.capabilities
                         else {},
+                        'models_supported': models_supported,
                         'last_seen': last_seen_iso,
                     }
                     agents.append(agent_info)
@@ -529,6 +550,9 @@ class InMemoryMessageBroker:
         self._agent_instance_ids: Dict[
             str, str
         ] = {}  # name -> instance_id mapping
+        self._agent_models: Dict[
+            str, List[str]
+        ] = {}  # name -> models_supported mapping
         self._subscribers: Dict[str, List[Callable[[str, Any], None]]] = {}
         self._running = False
 
@@ -548,6 +572,7 @@ class InMemoryMessageBroker:
         agent_card: AgentCard,
         role: Optional[str] = None,
         instance_id: Optional[str] = None,
+        models_supported: Optional[List[str]] = None,
     ) -> None:
         """Register an agent."""
         self._agents[agent_card.name] = agent_card
@@ -566,6 +591,10 @@ class InMemoryMessageBroker:
             if len(parts) > 1:
                 self._agent_instance_ids[agent_card.name] = parts[1]
 
+        # Store models_supported
+        if models_supported:
+            self._agent_models[agent_card.name] = models_supported
+
         await self.publish_event(
             'agent.registered',
             {
@@ -580,6 +609,7 @@ class InMemoryMessageBroker:
         self._agent_last_seen.pop(agent_name, None)
         self._agent_roles.pop(agent_name, None)
         self._agent_instance_ids.pop(agent_name, None)
+        self._agent_models.pop(agent_name, None)
         await self.publish_event(
             'agent.unregistered',
             {
@@ -628,6 +658,7 @@ class InMemoryMessageBroker:
                 'capabilities': card.capabilities.model_dump()
                 if card.capabilities
                 else {},
+                'models_supported': self._agent_models.get(name),
                 'last_seen': last_seen_iso,
             }
             active_agents.append(agent_info)
@@ -639,6 +670,7 @@ class InMemoryMessageBroker:
                 self._agent_last_seen.pop(name, None)
                 self._agent_roles.pop(name, None)
                 self._agent_instance_ids.pop(name, None)
+                self._agent_models.pop(name, None)
 
         return active_agents
 

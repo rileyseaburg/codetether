@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import Link from 'next/link'
 
 interface Provider {
     id: string
@@ -29,6 +30,13 @@ interface VaultStatus {
     error?: string
 }
 
+interface BillingStatus {
+    tier: string
+    tier_name: string
+    tasks_used: number
+    tasks_limit: number
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
 export default function SettingsPage() {
@@ -36,6 +44,7 @@ export default function SettingsPage() {
     const [providers, setProviders] = useState<Provider[]>([])
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
     const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null)
+    const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [testing, setTesting] = useState<string | null>(null)
@@ -93,6 +102,15 @@ export default function SettingsPage() {
                 setApiKeys(data.keys || [])
             } else if (keysRes.status === 401) {
                 setError('Please sign in to manage your API keys')
+            }
+
+            // Load billing status
+            const billingRes = await fetch(`${API_BASE_URL}/v1/users/billing/status`, {
+                headers: getAuthHeaders(),
+            })
+            if (billingRes.ok) {
+                const data = await billingRes.json()
+                setBillingStatus(data)
             }
         } catch (err) {
             console.error('Failed to load data:', err)
@@ -227,13 +245,76 @@ export default function SettingsPage() {
 
     const selectedProviderInfo = providers.find(p => p.id === selectedProvider)
 
+    const usagePercent = billingStatus
+        ? Math.min(100, Math.round((billingStatus.tasks_used / billingStatus.tasks_limit) * 100))
+        : 0
+
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Manage your API keys and preferences
+                    Manage your account, billing, and API keys
                 </p>
+            </div>
+
+            {/* Billing Summary Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                        Subscription & Usage
+                    </h2>
+                    <Link
+                        href="/dashboard/billing"
+                        className="text-sm font-medium text-cyan-600 hover:text-cyan-500"
+                    >
+                        Manage billing &rarr;
+                    </Link>
+                </div>
+                <div className="p-6">
+                    {billingStatus ? (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Current plan</span>
+                                    <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        {billingStatus.tier_name}
+                                    </div>
+                                </div>
+                                {billingStatus.tier === 'free' && (
+                                    <Link
+                                        href="/dashboard/billing"
+                                        className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-md hover:bg-cyan-700"
+                                    >
+                                        Upgrade to Pro
+                                    </Link>
+                                )}
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600 dark:text-gray-400">Tasks this month</span>
+                                    <span className="font-medium text-gray-900 dark:text-white">
+                                        {billingStatus.tasks_used} / {billingStatus.tasks_limit}
+                                    </span>
+                                </div>
+                                <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${
+                                            usagePercent >= 90
+                                                ? 'bg-red-500'
+                                                : usagePercent >= 75
+                                                ? 'bg-yellow-500'
+                                                : 'bg-cyan-500'
+                                        }`}
+                                        style={{ width: `${usagePercent}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-500">Loading billing info...</div>
+                    )}
+                </div>
             </div>
 
             {/* Vault Status */}

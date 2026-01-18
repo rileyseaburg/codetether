@@ -56,6 +56,8 @@ class HostedWorker:
         heartbeat_interval: int = DEFAULT_HEARTBEAT_INTERVAL,
         agent_name: Optional[str] = None,
         capabilities: Optional[List[str]] = None,
+        models_supported: Optional[List[str]] = None,
+        features: Optional[Dict[str, bool]] = None,
     ):
         self.worker_id = worker_id
         self._pool = db_pool
@@ -66,6 +68,14 @@ class HostedWorker:
         # Agent identity for targeted routing
         self.agent_name = agent_name
         self.capabilities = capabilities or []
+        # Model routing: list of models this worker can use
+        self.models_supported = models_supported or []
+        # Feature flags (e.g., rlm: True for RLM support)
+        self.features = features or {}
+
+        # Auto-detect RLM capability if python3 is available and OPENCODE_RLM_ENABLED=1
+        if 'rlm' not in self.features:
+            self.features['rlm'] = self._detect_rlm_capability()
 
         self._running = False
         self._current_run_id: Optional[str] = None
@@ -77,6 +87,23 @@ class HostedWorker:
         self.tasks_completed = 0
         self.tasks_failed = 0
         self.total_runtime_seconds = 0
+
+    def _detect_rlm_capability(self) -> bool:
+        """Auto-detect if this worker can support RLM tasks."""
+        import shutil
+
+        # Check if RLM is explicitly enabled via env var
+        rlm_enabled = os.environ.get('OPENCODE_RLM_ENABLED', '0') == '1'
+        if not rlm_enabled:
+            return False
+
+        # Check if python3 is available
+        python_available = shutil.which('python3') is not None
+
+        # Check if we have at least one subcall-eligible model
+        has_subcall_model = len(self.models_supported) > 0
+
+        return python_available and has_subcall_model
 
     async def start(self) -> None:
         """Start the worker loop."""
@@ -91,11 +118,13 @@ class HostedWorker:
             while self._running:
                 try:
                     # Try to claim next job
-                    claimed = await self._claim_next_job()
+                    claimed_job = await self._claim_next_job()
 
-                    if claimed:
-                        # Execute the task
-                        await self._execute_current_task()
+                    if claimed_job:
+                        # Execute the task, passing model_ref from claim
+                        await self._execute_current_task(
+                            model_ref=claimed_job.get('model_ref')
+                        )
                     else:
                         # No work available, wait before polling again
                         await asyncio.sleep(self._poll_interval)
@@ -124,18 +153,20 @@ class HostedWorker:
             except asyncio.CancelledError:
                 pass
 
-    async def _claim_next_job(self) -> bool:
+    async def _claim_next_job(self) -> Optional[Dict[str, Any]]:
         """
         Attempt to claim the next available job from the queue.
 
         Uses the claim_next_task_run() SQL function for atomic claiming
         with concurrency limit enforcement and agent-targeted routing.
 
-        The agent_name and capabilities are passed to filter tasks:
+        The agent_name, capabilities, and models_supported are passed to filter tasks:
         - Tasks with target_agent_name set will only be claimed by matching workers
         - Tasks with required_capabilities will only be claimed by workers with ALL required caps
+        - Tasks with model_ref will only be claimed by workers supporting that model
 
-        Returns True if a job was claimed.
+        Returns claimed job info dict if a job was claimed, None otherwise.
+        The dict includes: run_id, task_id, priority, target_agent_name, model_ref
         """
         import json
 
@@ -146,31 +177,50 @@ class HostedWorker:
 
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                'SELECT * FROM claim_next_task_run($1, $2, $3, $4::jsonb)',
+                'SELECT * FROM claim_next_task_run($1, $2, $3, $4::jsonb, $5)',
                 self.worker_id,
                 self._lease_duration,
                 self.agent_name,  # Pass agent_name for targeted routing
                 capabilities_json,  # Pass capabilities for capability-based routing
+                self.models_supported
+                if self.models_supported
+                else None,  # Pass models for model routing
             )
 
             if row and row['run_id']:
                 self._current_run_id = row['run_id']
                 self._current_task_id = row['task_id']
+                model_ref = row.get('model_ref')
                 target_info = (
                     f', targeted_at={row.get("target_agent_name")}'
                     if row.get('target_agent_name')
                     else ''
                 )
+                model_info = f', model={model_ref}' if model_ref else ''
                 logger.info(
                     f'Worker {self.worker_id} (agent={self.agent_name}) claimed run {self._current_run_id} '
-                    f'(task={self._current_task_id}, priority={row["priority"]}{target_info})'
+                    f'(task={self._current_task_id}, priority={row["priority"]}{target_info}{model_info})'
                 )
-                return True
+                # Return claim info including model_ref
+                return {
+                    'run_id': row['run_id'],
+                    'task_id': row['task_id'],
+                    'priority': row['priority'],
+                    'target_agent_name': row.get('target_agent_name'),
+                    'model_ref': model_ref,
+                }
 
-            return False
+            return None
 
-    async def _execute_current_task(self) -> None:
-        """Execute the currently claimed task."""
+    async def _execute_current_task(
+        self, model_ref: Optional[str] = None
+    ) -> None:
+        """Execute the currently claimed task.
+
+        Args:
+            model_ref: The model identifier from the claimed task (provider:model format).
+                      If set, this model should be used for execution.
+        """
         if not self._current_run_id or not self._current_task_id:
             return
 
@@ -190,7 +240,10 @@ class HostedWorker:
                 raise Exception(f'Task {task_id} not found')
 
             # Execute the task via API (this triggers the actual agent work)
-            result = await self._run_task(task_id, task_data)
+            # Pass model_ref from the claim - this takes precedence over task_data.model
+            result = await self._run_task(
+                task_id, task_data, model_ref=model_ref
+            )
 
             # Mark completed
             runtime = int(
@@ -275,22 +328,33 @@ class HostedWorker:
             return None
 
     async def _run_task(
-        self, task_id: str, task_data: Dict[str, Any]
+        self,
+        task_id: str,
+        task_data: Dict[str, Any],
+        model_ref: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute the task by invoking the appropriate agent.
 
         For now, this calls the existing worker SSE task execution path.
         In the future, this could run agents directly.
+
+        Args:
+            task_id: The task ID to execute
+            task_data: Task details from the API
+            model_ref: Model identifier from claim (provider:model format).
+                      Takes precedence over task_data.model if set.
         """
         # Get the task prompt
         prompt = task_data.get('description') or task_data.get('prompt', '')
         codebase_id = task_data.get('codebase_id', 'global')
         agent_type = task_data.get('agent_type', 'build')
-        model = task_data.get('model')
+        # Use model_ref from claim if set, otherwise fall back to task_data.model
+        model = model_ref or task_data.get('model')
 
+        model_info = f', model={model}' if model else ''
         logger.info(
-            f'Running task {task_id}: agent={agent_type}, codebase={codebase_id}'
+            f'Running task {task_id}: agent={agent_type}, codebase={codebase_id}{model_info}'
         )
 
         # For global/pending tasks, we can execute directly via API
@@ -644,6 +708,7 @@ class HostedWorkerPool:
         lease_duration: int = DEFAULT_LEASE_DURATION,
         agent_name: Optional[str] = None,
         capabilities: Optional[List[str]] = None,
+        models_supported: Optional[List[str]] = None,
     ):
         self._db_url = db_url
         self._api_base_url = api_base_url
@@ -653,6 +718,8 @@ class HostedWorkerPool:
         # Agent identity for targeted routing (shared by all workers in pool)
         self._agent_name = agent_name
         self._capabilities = capabilities or []
+        # Model routing: list of models this worker pool supports
+        self._models_supported = models_supported or []
 
         self._pool: Optional[asyncpg.Pool] = None
         self._workers: List[HostedWorker] = []
@@ -694,6 +761,7 @@ class HostedWorkerPool:
                 lease_duration=self._lease_duration,
                 agent_name=self._agent_name,
                 capabilities=self._capabilities,
+                models_supported=self._models_supported,
             )
             self._workers.append(worker)
             task = asyncio.create_task(worker.start())
@@ -995,6 +1063,14 @@ async def main():
         default=os.environ.get('AGENT_CAPABILITIES', ''),
         help='Comma-separated list of capabilities (env: AGENT_CAPABILITIES)',
     )
+    parser.add_argument(
+        '--models-supported',
+        default=os.environ.get('A2A_MODELS_SUPPORTED', ''),
+        help='Comma-separated list of model identifiers this worker supports '
+        '(e.g., "anthropic:claude-sonnet-4.5,openai:gpt-5"). '
+        'Tasks with model_ref will only route to workers supporting that model. '
+        '(env: A2A_MODELS_SUPPORTED)',
+    )
 
     args = parser.parse_args()
 
@@ -1003,6 +1079,13 @@ async def main():
     if args.capabilities:
         capabilities = [
             c.strip() for c in args.capabilities.split(',') if c.strip()
+        ]
+
+    # Parse models_supported
+    models_supported = []
+    if args.models_supported:
+        models_supported = [
+            m.strip() for m in args.models_supported.split(',') if m.strip()
         ]
 
     # Configure logging
@@ -1020,6 +1103,7 @@ async def main():
         lease_duration=args.lease_duration,
         agent_name=args.agent_name,
         capabilities=capabilities,
+        models_supported=models_supported,
     )
 
     # Handle shutdown signals

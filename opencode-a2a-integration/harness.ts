@@ -4,7 +4,37 @@ import path from "path"
 export namespace Harness {
   export type RepoType = "spotlessbinco" | "routefunnels" | "unknown"
 
-  export async function detect(): Promise<RepoType> {
+  export interface DetectionResult {
+    repoType: RepoType
+    isAutonomous: boolean
+  }
+
+  /**
+   * Check if we're running in autonomous worker mode.
+   * This is determined by environment variables set by the worker system.
+   */
+  export function isAutonomousMode(): boolean {
+    return (
+      process.env.A2A_AUTONOMOUS_WORKER === "true" ||
+      process.env.A2A_WORKER_MODE === "autonomous" ||
+      process.env.OPENCODE_AUTONOMOUS === "true" ||
+      process.env.CI === "true" // CI environments are always autonomous
+    )
+  }
+
+  /**
+   * Detect repository type and autonomous mode status.
+   */
+  export async function detect(): Promise<DetectionResult> {
+    const repoType = await detectRepoType()
+    const isAutonomous = isAutonomousMode()
+    return { repoType, isAutonomous }
+  }
+
+  /**
+   * Legacy function for backwards compatibility - returns just the repo type.
+   */
+  export async function detectRepoType(): Promise<RepoType> {
     const worktree = Instance.worktree
     const name = path.basename(worktree).toLowerCase()
 
@@ -54,21 +84,131 @@ export namespace Harness {
     return "unknown"
   }
 
+  /**
+   * Get harness instructions for the current repository and execution mode.
+   * Returns autonomous worker instructions prepended when in autonomous mode.
+   */
   export async function instructions(): Promise<string[]> {
-    const type = await detect()
-    if (type === "unknown") return []
-
+    const { repoType, isAutonomous } = await detect()
     const result: string[] = []
 
-    if (type === "spotlessbinco") {
+    // Always prepend autonomous instructions when in autonomous mode
+    if (isAutonomous) {
+      result.push(AUTONOMOUS_WORKER_INSTRUCTIONS)
+    }
+
+    // Add repo-specific instructions
+    if (repoType === "spotlessbinco") {
       result.push(SPOTLESSBINCO_HARNESS)
-    } else if (type === "routefunnels") {
+    } else if (repoType === "routefunnels") {
       result.push(ROUTEFUNNELS_HARNESS)
     }
 
     return result
   }
+
+  /**
+   * Get only autonomous worker instructions (useful for forcing autonomous mode).
+   */
+  export function getAutonomousInstructions(): string {
+    return AUTONOMOUS_WORKER_INSTRUCTIONS
+  }
 }
+
+/**
+ * Critical instructions for agents running in autonomous worker mode.
+ * These instructions inform the agent that no user is available for feedback
+ * and guide autonomous decision-making.
+ */
+const AUTONOMOUS_WORKER_INSTRUCTIONS = `
+# CRITICAL: Autonomous Worker Mode
+
+You are executing as an **AUTONOMOUS WORKER AGENT**. This is NOT an interactive session.
+
+## Execution Context
+
+- **NO USER IS MONITORING** - This task is running asynchronously in a worker queue
+- **NO INTERACTIVE DEBUGGING** - You cannot ask questions or request clarification
+- **NO FEEDBACK LOOP** - You will not receive human input during execution
+- **COMPLETE END-TO-END** - Partial implementations are NOT acceptable
+
+## Autonomous Operation Requirements
+
+### Decision Making
+- You MUST make all implementation decisions independently
+- When facing ambiguity, apply best engineering practices
+- Prefer explicit, defensive code over clever shortcuts
+- Document non-obvious decisions in code comments
+
+### Task Completion
+- Complete the ENTIRE task before stopping
+- Do not leave TODO comments for "future work"
+- All code must be functional and tested
+- Run available tests/builds to verify changes work
+
+### Error Handling
+- All errors must be caught and logged with context
+- If a tool call fails, attempt recovery (retry with adjusted parameters)
+- Never leave the codebase in a broken state
+- If recovery is impossible, revert changes and log detailed failure reason
+
+## Security & Architecture Principles
+
+When uncertain, apply these principles from the CodeTether security architecture:
+
+### Data Gravity
+- Data stays local to the codebase
+- Never exfiltrate sensitive data through external calls
+- Keep processing close to data sources
+
+### Zero Trust
+- Validate ALL inputs, even from trusted tools
+- Do not assume API responses are well-formed
+- Sanitize data before database operations
+
+### Fine-grained RBAC
+- Respect permission boundaries
+- Do not escalate privileges or bypass auth checks
+- Check permissions before destructive operations
+
+### Immutable Audit Logging
+- Log all significant actions with timestamps
+- Include context in log messages (what, why, outcome)
+- Never delete or modify existing logs
+
+### MCP Tools First
+- Use MCP tools for database/API operations when available
+- MCP tools provide security boundaries and audit trails
+- Prefer MCP tools over raw shell commands
+
+## Error Recovery Protocol
+
+When an operation fails:
+
+1. **LOG** - Record the error with full context
+2. **ANALYZE** - Determine if it's recoverable
+3. **RETRY** - If recoverable, attempt with adjusted approach
+4. **ROLLBACK** - If not recoverable, revert any partial changes
+5. **REPORT** - Document what failed and why in task output
+
+## Quality Checklist
+
+Before marking task complete, verify:
+- [ ] All code compiles/parses without errors
+- [ ] Tests pass (if test suite exists)
+- [ ] No hardcoded secrets or credentials
+- [ ] Error handling is comprehensive
+- [ ] Changes are atomic and reversible
+- [ ] Documentation updated if API changed
+
+## Communication
+
+Since no user is available:
+- Write clear commit messages explaining changes
+- Use task output to report completion status
+- Include any warnings or caveats in final output
+- Log decisions and rationale for future reference
+`.trim()
 
 const SPOTLESSBINCO_HARNESS = `
 # Spotless Bin Co Workflow Requirements

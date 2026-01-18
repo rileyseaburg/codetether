@@ -14,18 +14,18 @@ export function CallToAction() {
             <Container className="relative">
                 <div className="mx-auto max-w-md sm:text-center">
                     <h2 className="text-3xl font-medium tracking-tight text-white sm:text-4xl">
-                        Keep Your Data. Get AI Capability.
+                        Deploy Autonomous AI Teams
                     </h2>
                     <p className="mt-4 text-lg text-gray-300">
-                        Deploy in your secure environment today. Open source with enterprise support available.
-                        Your compliance team will thank you.
+                        Production-ready A2A orchestration platform. Self-host on Kubernetes or deploy in your VPC.
+                        Zero inbound firewall rules required.
                     </p>
                     <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
                         <Button href="https://github.com/rileyseaburg/codetether" color="cyan">
-                            View on GitHub
+                            Get Started on GitHub
                         </Button>
-                        <Button href="/dashboard" variant="outline" className="text-white border-white hover:bg-white/10">
-                            Open Dashboard
+                        <Button href="https://github.com/rileyseaburg/codetether/blob/main/README.md" variant="outline" className="text-white border-white hover:bg-white/10">
+                            Read Documentation
                         </Button>
                     </div>
                 </div>

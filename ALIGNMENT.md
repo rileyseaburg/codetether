@@ -200,6 +200,22 @@ A2A_PORT=8000
 A2A_AUTH_TOKENS=agent1:secret123
 ```
 
+## Codebase Routing - CRITICAL
+
+Workers **must** register their codebases to receive tasks for them. The server routes tasks based on the `codebase_id` field:
+
+- **Specific codebase tasks** (e.g., `codebase_id: "abc123"`): Only sent to workers that have registered that specific codebase ID
+- **Global tasks** (`codebase_id: "global"`): Sent to any worker
+- **Pending registration tasks** (`codebase_id: "__pending__"`): Sent to any worker (for codebase discovery)
+
+**IMPORTANT**: Workers with **no registered codebases** will only receive `global` and `__pending__` tasks. This prevents cross-server task leakage where a worker picks up work for codebases it doesn't have access to.
+
+### How Workers Register Codebases
+
+1. Worker connects via SSE with `X-Codebases` header containing comma-separated codebase IDs
+2. Worker calls `PUT /v1/worker/codebases` to update its codebase list
+3. Worker registers codebases via `POST /v1/opencode/codebases` which associates them with its worker_id
+
 ## Common Mistakes - AVOID THESE
 
 1. **Modifying opencode/ directly** - It's a submodule. Changes go in `opencode-a2a-integration/`
@@ -207,6 +223,7 @@ A2A_AUTH_TOKENS=agent1:secret123
 3. **Not using MCP tools** - Always use spotless-ads/rustyroad tools, not manual file edits
 4. **Posting to wrong endpoint** - Use `/v1/monitor/intervene` for notifications, not `/v1/monitor/messages`
 5. **Missing timestamp** - The intervene endpoint requires `agent_id`, `message`, AND `timestamp`
+6. **Assuming empty codebases means "accept all"** - Workers must explicitly register codebases to receive codebase-specific tasks
 
 ## Running Locally
 

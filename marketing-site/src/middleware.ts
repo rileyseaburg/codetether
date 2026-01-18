@@ -29,10 +29,6 @@ export default auth((req) => {
 })
 
 export const config = {
-    matcher: [
-        // Match all dashboard routes
-        '/dashboard/:path*',
-        // Skip static files and API routes
-        '/((?!api|_next/static|_next/image|favicon.ico).*)',
-    ],
+    // Only run middleware on dashboard routes - skip public pages for better performance
+    matcher: ['/dashboard/:path*'],
 }

@@ -75,6 +75,10 @@ export const A2ACommand = cmd({
         type: "string",
         describe: "SendGrid API key (or set SENDGRID_API_KEY env var)",
       })
+      .option("sendgrid-from", {
+        type: "string",
+        describe: "SendGrid verified sender email (or set SENDGRID_FROM_EMAIL env var)",
+      })
       .option("push-url", {
         type: "string",
         describe: "push notification endpoint URL",
@@ -102,14 +106,26 @@ export const A2ACommand = cmd({
       sendgridKey = (await Vault.getSendGridKey()) ?? undefined
     }
 
-    const emailConfig: A2AEmail.Config | undefined =
-      email && sendgridKey
-        ? {
-            apiKey: sendgridKey,
-            from: "noreply@spotlessbinco.com",
-            to: email,
-          }
-        : undefined
+    // Resolve SendGrid from address: CLI flag > env var
+    const sendgridFrom = args["sendgrid-from"] ?? process.env.SENDGRID_FROM_EMAIL
+
+    // Validate email config
+    let emailConfig: A2AEmail.Config | undefined
+    if (email) {
+      if (!sendgridKey) {
+        UI.error("Email requested but no SendGrid API key provided. Use --sendgrid-key or set SENDGRID_API_KEY")
+        process.exit(1)
+      }
+      if (!sendgridFrom) {
+        UI.error("Email requested but no sender address provided. Use --sendgrid-from or set SENDGRID_FROM_EMAIL")
+        process.exit(1)
+      }
+      emailConfig = {
+        apiKey: sendgridKey,
+        from: sendgridFrom,
+        to: email,
+      }
+    }
 
     // Build push notification config
     const pushUrl = args["push-url"]
@@ -122,8 +138,8 @@ export const A2ACommand = cmd({
     if (pushUrl) {
       notifyConfig.push = { endpoint: pushUrl, token: pushToken }
     }
-    if (email && sendgridKey) {
-      notifyConfig.email = { to: email, sendgridKey }
+    if (emailConfig) {
+      notifyConfig.email = { to: emailConfig.to, sendgridKey: emailConfig.apiKey, from: emailConfig.from }
     }
 
     UI.println(UI.Style.TEXT_INFO_BOLD + "~", UI.Style.TEXT_NORMAL, `Starting A2A worker: ${name}`)

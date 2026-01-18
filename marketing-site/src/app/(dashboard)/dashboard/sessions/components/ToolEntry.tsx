@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import type { ToolEntry as ToolEntryType } from '../types'
 import { safeJsonStringify } from '../utils'
 
@@ -74,7 +74,7 @@ interface ExpandableDetailProps {
 
 function ExpandableDetail({ label, content, variant }: ExpandableDetailProps) {
     const [isOpen, setIsOpen] = useState(false)
-    const id = `tool-${label.toLowerCase()}-${Math.random().toString(36).substr(2, 9)}`
+    const id = useId()
     const textColor = variant === 'error'
         ? 'text-red-600 dark:text-red-400'
         : 'text-gray-600 dark:text-gray-300'

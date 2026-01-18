@@ -80,18 +80,33 @@ CANCEL_TASK_SCHEMA = {
     },
 }
 
-GET_SESSION_HISTORY_SCHEMA = {
-    'name': 'get_session_history',
-    'description': 'Retrieve the message history for a specific session. Use this when the user wants to review previous conversation context.',
+GET_CONVERSATION_HISTORY_SCHEMA = {
+    'name': 'get_conversation_history',
+    'description': 'Get the message history for a specific conversation thread from the A2A monitoring system. Note: This retrieves logged messages from the A2A server, NOT the current voice conversation.',
     'parameters': {
         'type': 'object',
         'properties': {
-            'session_id': {
+            'conversation_id': {
                 'type': 'string',
-                'description': 'The unique identifier of the session',
+                'description': 'The unique identifier of the conversation thread in the A2A system',
             },
         },
-        'required': ['session_id'],
+        'required': ['conversation_id'],
+    },
+}
+
+GET_MONITOR_MESSAGES_SCHEMA = {
+    'name': 'get_monitor_messages',
+    'description': 'Get recent messages from the A2A monitoring system. Shows recent agent activity, task updates, and communications.',
+    'parameters': {
+        'type': 'object',
+        'properties': {
+            'limit': {
+                'type': 'integer',
+                'description': 'Maximum number of messages to retrieve (default: 20)',
+            },
+        },
+        'required': [],
     },
 }
 
@@ -129,7 +144,8 @@ ALL_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     LIST_TASKS_SCHEMA,
     GET_TASK_SCHEMA,
     CANCEL_TASK_SCHEMA,
-    GET_SESSION_HISTORY_SCHEMA,
+    GET_CONVERSATION_HISTORY_SCHEMA,
+    GET_MONITOR_MESSAGES_SCHEMA,
     DISCOVER_AGENTS_SCHEMA,
     SEND_MESSAGE_SCHEMA,
 ]

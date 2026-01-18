@@ -10,6 +10,7 @@ interface Props {
 
 const BACKOFF_MIN = 1000
 const BACKOFF_MAX = 30000
+const MAX_RECONNECT_ATTEMPTS = 10
 
 export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selectedSession, onIdle }: Props) {
     const [streamConnected, setStreamConnected] = useState(false)
@@ -18,6 +19,9 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
     const esRef = useRef<EventSource | null>(null)
     const attempts = useRef(0)
     const timeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+    // Use ref for onIdle to prevent infinite reconnection loops when callback changes
+    const onIdleRef = useRef(onIdle)
+    onIdleRef.current = onIdle
 
     useEffect(() => {
         esRef.current?.close()
@@ -42,6 +46,11 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                 setStreamConnected(false)
                 setStreamStatus('Disconnected')
                 es.close()
+                // Stop reconnecting after max attempts
+                if (attempts.current >= MAX_RECONNECT_ATTEMPTS) {
+                    setStreamStatus('Connection failed - max retries exceeded')
+                    return
+                }
                 const delay = Math.min(BACKOFF_MIN * Math.pow(2, attempts.current), BACKOFF_MAX)
                 attempts.current++
                 timeout.current = setTimeout(connect, delay)
@@ -52,7 +61,7 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                     const d = JSON.parse(e.data)
                     if (d?.session_id && selectedSession?.id && d.session_id !== selectedSession.id) return
                     if (d?.message || d?.status) setStreamStatus((d.message || d.status).toString())
-                    if (d?.status === 'idle' || d?.event_type === 'idle') { onIdle(); setLiveDraft('') }
+                    if (d?.status === 'idle' || d?.event_type === 'idle') { onIdleRef.current(); setLiveDraft('') }
                     const t = d?.event_type || d?.type || ''
                     if (t === 'part.text' || t === 'text') setLiveDraft((p) => p + (d?.delta || d?.content || d?.text || ''))
                 } catch (err) {
@@ -68,7 +77,8 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
             esRef.current?.close()
             if (timeout.current) clearTimeout(timeout.current)
         }
-    }, [selectedCodebase, selectedCodebaseMeta, selectedSession, onIdle])
+    // onIdle is accessed via ref, so not needed in deps
+    }, [selectedCodebase, selectedCodebaseMeta, selectedSession])
 
     return { streamConnected, streamStatus, liveDraft, resetStream: () => { setStreamConnected(false); setStreamStatus(''); setLiveDraft('') } }
 }

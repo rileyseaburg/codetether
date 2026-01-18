@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import type { ToolEntry as ToolEntryType } from '../types'
 import { ToolEntry } from './ToolEntry'
 
@@ -17,7 +17,7 @@ export function ToolDetails({ tools, isUser }: ToolDetailsProps) {
 
     const toolNames = tools.slice(0, 3).map(t => t.tool).join(', ')
     const moreCount = tools.length > 3 ? tools.length - 3 : 0
-    const id = `tools-${Math.random().toString(36).substr(2, 9)}`
+    const id = useId()
 
     // Count successful vs failed tools
     const successCount = tools.filter(t => t.status === 'completed' || !t.status).length

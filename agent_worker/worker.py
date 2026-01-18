@@ -213,6 +213,10 @@ class WorkerConfig:
     agent_url: Optional[str] = (
         None  # URL where this agent can be reached (optional)
     )
+    # Model routing: list of model identifiers this worker supports
+    # Normalized format: "provider:model" (e.g., "anthropic:claude-3.5-sonnet")
+    # Tasks with model_ref will only route to workers supporting that model
+    models_supported: Optional[List[str]] = None
 
 
 @dataclass
@@ -354,6 +358,7 @@ class WorkerClient:
         description: Optional[str] = None,
         url: Optional[str] = None,
         routing_capabilities: Optional[List[str]] = None,
+        models_supported: Optional[List[str]] = None,
     ) -> bool:
         """
         Register this worker as a discoverable agent in the A2A network.
@@ -373,6 +378,8 @@ class WorkerClient:
             description: Human-readable description of what this agent does
             url: Optional URL where this agent can be reached directly
             routing_capabilities: List of task routing capabilities (e.g., ["pytest", "terraform"])
+            models_supported: List of model identifiers this worker supports
+                              (normalized format: "provider:model", e.g., "anthropic:claude-3.5-sonnet")
 
         Returns:
             True if registration succeeded, False otherwise.
@@ -411,31 +418,42 @@ class WorkerClient:
             caps_list = routing_capabilities or self.config.capabilities or []
             caps_str = ', '.join(caps_list) if caps_list else 'general'
 
+            # Build models list for model-aware routing
+            models_list = models_supported or self.config.models_supported or []
+            models_str = ', '.join(models_list) if models_list else 'any'
+
             agent_description = description or (
                 f'OpenCode worker agent (role={role}, instance={instance_id}). '
-                f'Routing capabilities: {caps_str}'
+                f'Routing capabilities: {caps_str}. '
+                f'Models supported: {models_str}'
             )
             agent_url = url or self.config.agent_url or self.config.server_url
 
             # JSON-RPC 2.0 request to call register_agent tool
             # Note: 'capabilities' here is the A2A protocol AgentCapabilities (dict)
             # for streaming/push_notifications - NOT the routing capabilities (list)
+            arguments = {
+                'name': discovery_name,
+                'description': agent_description,
+                'url': agent_url,
+                # A2A protocol capabilities (dict) - for streaming/push features
+                'capabilities': {
+                    'streaming': True,
+                    'push_notifications': True,
+                },
+            }
+
+            # Add models_supported for model-aware routing
+            if models_list:
+                arguments['models_supported'] = models_list
+
             payload = {
                 'jsonrpc': '2.0',
                 'id': str(uuid.uuid4()),
                 'method': 'tools/call',
                 'params': {
                     'name': 'register_agent',
-                    'arguments': {
-                        'name': discovery_name,
-                        'description': agent_description,
-                        'url': agent_url,
-                        # A2A protocol capabilities (dict) - for streaming/push features
-                        'capabilities': {
-                            'streaming': True,
-                            'push_notifications': True,
-                        },
-                    },
+                    'arguments': arguments,
                 },
             }
 
@@ -2835,6 +2853,27 @@ class TaskExecutor:
                 self.config.max_concurrent_tasks
             )
 
+    def _resolve_model_for_opencode(self, model_ref: str) -> str:
+        """
+        Convert model_ref (provider:model) to OpenCode format (provider/model).
+
+        CodeTether uses provider:model (colon) as the canonical format for storage
+        and routing. OpenCode CLI expects provider/model (slash).
+
+        Args:
+            model_ref: Model identifier in provider:model format (e.g., "anthropic:claude-sonnet-4.5")
+
+        Returns:
+            Model identifier in provider/model format (e.g., "anthropic/claude-sonnet-4.5")
+        """
+        if not model_ref:
+            return model_ref
+        # Simple format conversion: provider:model -> provider/model
+        if ':' in model_ref:
+            return model_ref.replace(':', '/', 1)  # Only replace first colon
+        # Already in slash format or unknown format - pass through
+        return model_ref
+
     async def terminate_all_processes(self):
         """Terminate all active processes."""
         for task_id, process in list(self.active_processes.items()):
@@ -3024,9 +3063,16 @@ class TaskExecutor:
             # Build the prompt
             prompt = task.get('prompt', task.get('description', ''))
             metadata = task.get('metadata', {})
-            model = metadata.get(
-                'model'
-            )  # e.g., "anthropic/claude-sonnet-4-20250514"
+
+            # Get model: prefer model_ref from task (set via routing), fall back to metadata.model
+            # model_ref uses provider:model format, OpenCode expects provider/model
+            model_ref = task.get('model_ref')
+            model = (
+                self._resolve_model_for_opencode(model_ref)
+                if model_ref
+                else metadata.get('model')
+            )
+
             resume_session_id = metadata.get(
                 'resume_session_id'
             )  # Session to resume
@@ -3956,6 +4002,7 @@ class AgentWorker:
                 description=self.config.agent_description,
                 url=self.config.agent_url,
                 routing_capabilities=self.config.capabilities,
+                models_supported=self.config.models_supported,
             )
 
         # Sync API keys from server (allows web UI key management)
@@ -4511,6 +4558,13 @@ async def main():
         default=None,
         help='URL where this agent can be reached directly (optional, defaults to server URL)',
     )
+    parser.add_argument(
+        '--models-supported',
+        default=None,
+        help='Comma-separated list of model identifiers this worker supports '
+        '(normalized format: provider:model, e.g., "anthropic:claude-3.5-sonnet,openai:gpt-4.1"). '
+        'Tasks with model_ref will only route to workers supporting that model.',
+    )
 
     args = parser.parse_args()
 
@@ -4809,6 +4863,25 @@ async def main():
     )
     if agent_url:
         config_kwargs['agent_url'] = agent_url
+
+    # Models supported (for model-aware task routing)
+    # Comma-separated list of model identifiers (provider:model format)
+    models_supported_str = (
+        args.models_supported
+        or os.environ.get('A2A_MODELS_SUPPORTED')
+        or file_config.get('models_supported')
+    )
+    if models_supported_str:
+        # Parse comma-separated list (handle both string and list from config)
+        if isinstance(models_supported_str, list):
+            models_supported = models_supported_str
+        else:
+            models_supported = [
+                m.strip() for m in models_supported_str.split(',') if m.strip()
+            ]
+        if models_supported:
+            config_kwargs['models_supported'] = models_supported
+            logger.info(f'Models supported: {models_supported}')
 
     config = WorkerConfig(**config_kwargs)
 
