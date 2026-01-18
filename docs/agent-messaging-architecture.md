@@ -252,20 +252,20 @@ Coordinator ──┬──►  Worker 1
 
 ```json
 {
-  "event_type": "message.to.{agent_name}",
-  "data": {
-    "from_agent": "Sender Agent",
-    "to_agent": "Receiver Agent",
-    "message": {
-      "parts": [
-        {
-          "type": "text",
-          "content": "Message content"
-        }
-      ]
-    },
-    "timestamp": "2025-10-02T12:00:00Z"
-  }
+    "event_type": "message.to.{agent_name}",
+    "data": {
+        "from_agent": "Sender Agent",
+        "to_agent": "Receiver Agent",
+        "message": {
+            "parts": [
+                {
+                    "type": "text",
+                    "content": "Message content"
+                }
+            ]
+        },
+        "timestamp": "2025-10-02T12:00:00Z"
+    }
 }
 ```
 
@@ -273,16 +273,16 @@ Coordinator ──┬──►  Worker 1
 
 ```json
 {
-  "event_type": "agent.{agent_name}.{event_type}",
-  "data": {
-    "agent": "Publisher Agent",
-    "event_type": "custom.event",
+    "event_type": "agent.{agent_name}.{event_type}",
     "data": {
-      "key": "value",
-      "timestamp": "2025-10-02T12:00:00Z"
-    },
-    "timestamp": "2025-10-02T12:00:00Z"
-  }
+        "agent": "Publisher Agent",
+        "event_type": "custom.event",
+        "data": {
+            "key": "value",
+            "timestamp": "2025-10-02T12:00:00Z"
+        },
+        "timestamp": "2025-10-02T12:00:00Z"
+    }
 }
 ```
 
@@ -307,6 +307,7 @@ Coordinator ──┬──►  Worker 1
 ```
 
 **Benefits:**
+
 - Agents across different servers can communicate
 - Load distribution
 - Fault tolerance
@@ -373,14 +374,14 @@ Agent-targeted routing enables tasks to be sent to specific named agents rather 
 
 ```json
 {
-  "tool": "send_message_async",
-  "params": {
-    "message": "Process this data",
-    "conversation_id": "conv-123",
-    "codebase_id": "my-project",
-    "priority": 5,
-    "notify_email": "user@example.com"
-  }
+    "tool": "send_message_async",
+    "params": {
+        "message": "Process this data",
+        "conversation_id": "conv-123",
+        "codebase_id": "my-project",
+        "priority": 5,
+        "notify_email": "user@example.com"
+    }
 }
 ```
 
@@ -390,13 +391,13 @@ Returns immediately with `task_id` and `run_id`. Any available worker can claim 
 
 ```json
 {
-  "tool": "send_to_agent",
-  "params": {
-    "agent_name": "code-reviewer",
-    "message": "Review this PR",
-    "deadline_seconds": 300,
-    "priority": 10
-  }
+    "tool": "send_to_agent",
+    "params": {
+        "agent_name": "code-reviewer",
+        "message": "Review this PR",
+        "deadline_seconds": 300,
+        "priority": 10
+    }
 }
 ```
 
@@ -413,12 +414,12 @@ codetether-worker --agent-name=code-reviewer --capabilities=python,pytest,securi
 
 ```json
 {
-  "tool": "send_to_agent",
-  "params": {
-    "agent_name": "code-reviewer",
-    "message": "Review security-sensitive code",
-    "required_capabilities": ["python", "security"]
-  }
+    "tool": "send_to_agent",
+    "params": {
+        "agent_name": "code-reviewer",
+        "message": "Review security-sensitive code",
+        "required_capabilities": ["python", "security"]
+    }
 }
 ```
 
@@ -426,13 +427,13 @@ The worker must have ALL required capabilities (AND logic).
 
 ### Routing Behavior
 
-| Scenario | Behavior |
-|----------|----------|
-| No target agent | Any worker can claim |
-| Target agent online | Only that agent claims |
-| Target agent offline | Queue indefinitely (default) |
-| Target agent offline + deadline | Fail after deadline |
-| Required capabilities not met | Task skipped by worker |
+| Scenario                        | Behavior                     |
+| ------------------------------- | ---------------------------- |
+| No target agent                 | Any worker can claim         |
+| Target agent online             | Only that agent claims       |
+| Target agent offline            | Queue indefinitely (default) |
+| Target agent offline + deadline | Fail after deadline          |
+| Required capabilities not met   | Task skipped by worker       |
 
 ### Dual-Layer Enforcement
 
@@ -440,6 +441,125 @@ The worker must have ALL required capabilities (AND logic).
 2. **SQL Layer (Claim-time)**: Atomic claim query verifies agent name and capabilities
 
 This ensures no race conditions and prevents tasks from being claimed by the wrong worker.
+
+## RLM (Recursive Language Models)
+
+### Overview
+
+RLM enables agents to process arbitrarily long contexts by treating prompts as external environment variables in a Python REPL. This bridges the gap between large codebases and limited context windows.
+
+### Architecture
+
+```
+┌─────────────────────┐                ┌─────────────────────────────┐
+│ A2A Server (Python) │                │ OpenCode Worker (TypeScript)│
+├─────────────────────┤   dispatch     ├─────────────────────────────┤
+│ Task with:          │ ────────────>  │ RLM Tool                    │
+│ - model_ref         │                │ ┌─────────────────────────┐ │
+│ - subcall_model_ref │                │ │ Python REPL             │ │
+│                     │                │ │ - context variable      │ │
+│ ModelResolver:      │                │ │ - llm_query() bridge    │ │
+│ - Fallback chain    │                │ └───────────┬─────────────┘ │
+│ - Controller allow  │                │             │ subcalls      │
+└─────────────────────┘                │             ▼               │
+                                       │ ┌─────────────────────────┐ │
+                                       │ │ Sub-LLM (configurable)  │ │
+                                       │ └─────────────────────────┘ │
+                                       └─────────────────────────────┘
+```
+
+### Model Resolution Flow
+
+```
+                    ┌─────────────────┐
+                    │   Task Input    │
+                    │ subcall_model_ref│
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ Explicit ref?   │──Yes──► Use task.subcall_model_ref
+                    └────────┬────────┘
+                             │ No
+                    ┌────────▼────────┐
+                    │ Default config? │──Yes──► Use A2A_RLM_DEFAULT_SUBCALL_MODEL_REF
+                    └────────┬────────┘
+                             │ No
+                    ┌────────▼────────┐
+                    │ Check fallback  │──Match──► Use first matching model
+                    │ chain           │           from fallback chain
+                    └────────┬────────┘
+                             │ No match
+                    ┌────────▼────────┐
+                    │ Controller      │──Yes──► Use controller's model
+                    │ fallback ok?    │
+                    └────────┬────────┘
+                             │ No
+                    ┌────────▼────────┐
+                    │ NoEligibleModel │
+                    │ Error           │
+                    └─────────────────┘
+```
+
+### RLM Execution Flow
+
+```
+┌──────────────┐
+│ RLM Tool     │
+│ receives task│
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│ Create Python│
+│ REPL process │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐      ┌─────────────────┐
+│ Load context │ ───► │ context variable│
+│ into REPL    │      │ available       │
+└──────┬───────┘      └─────────────────┘
+       │
+       ▼
+┌──────────────┐
+│ Execute LLM  │◄────────────────────────┐
+│ generated    │                         │
+│ Python code  │                         │
+└──────┬───────┘                         │
+       │                                 │
+       ├── llm_query() ──► Sub-LLM call ─┘
+       │
+       ├── FINAL() ──► Return result
+       │
+       └── No FINAL ──► Next iteration
+```
+
+### Guardrails
+
+| Guardrail                  | Default | Purpose                                    |
+| -------------------------- | ------- | ------------------------------------------ |
+| MAX_SUBCALLS_PER_ITERATION | 5       | Prevent infinite loops in single iteration |
+| MAX_TOTAL_SUBCALLS         | 100     | Limit total LLM calls per session          |
+| MAX_SUBCALL_TOKENS         | 8000    | Prevent context explosion in subcalls      |
+| MAX_ITERATIONS             | 20      | Limit total Python code iterations         |
+
+### Environment Variables
+
+```bash
+# A2A Server (Model Resolution)
+A2A_RLM_DEFAULT_SUBCALL_MODEL_REF="zai:glm-4.7"
+A2A_RLM_FALLBACK_CHAIN="zai:glm-4.7,openai:gpt-4o-mini,controller"
+A2A_RLM_ALLOW_CONTROLLER_FALLBACK=1
+
+# OpenCode Worker (Guardrails)
+A2A_RLM_MAX_SUBCALLS_PER_ITERATION=5
+A2A_RLM_MAX_TOTAL_SUBCALLS=100
+A2A_RLM_MAX_SUBCALL_TOKENS=8000
+A2A_RLM_MAX_ITERATIONS=20
+
+# Worker Capability
+OPENCODE_RLM_ENABLED=1
+```
 
 ## Summary
 
@@ -451,5 +571,6 @@ The agent-to-agent messaging architecture provides:
 4. **Simplicity**: Clean API for agent developers
 5. **Production Ready**: Battle-tested message broker patterns
 6. **Targeted Routing**: Route tasks to specific named agents with capability matching
+7. **RLM Support**: Process arbitrarily long contexts through recursive LLM calls
 
 This architecture enables sophisticated multi-agent systems while keeping the implementation clean and maintainable.

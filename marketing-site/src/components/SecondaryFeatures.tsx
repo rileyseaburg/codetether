@@ -4,6 +4,12 @@ import { Container } from '@/components/Container'
 
 const features = [
     {
+        name: 'RLM: Infinite Context',
+        description:
+            'Revolutionary Recursive Language Models process arbitrarily long contexts through recursive sub-LLM calls. Analyze entire monorepos without context limits.',
+        icon: RLMIcon,
+    },
+    {
         name: 'Zero Inbound Firewall Rules',
         description:
             'Workers PULL tasks from your server—never the other way around. Security teams approve because there\'s nothing to approve. No ports, no VPNs, no attack surface.',
@@ -26,12 +32,6 @@ const features = [
         description:
             'Built on Google/Microsoft\'s A2A protocol and Anthropic\'s MCP. No vendor lock-in—your agents speak the same language as Claude, Gemini, and the rest of the ecosystem.',
         icon: OpenSourceIcon,
-    },
-    {
-        name: 'Extend with Any Tool',
-        description:
-            'MCP lets agents call file systems, databases, REST APIs, and custom tools. The AI brain orchestrates; your local workers execute with full permissions.',
-        icon: MCPIcon,
     },
     {
         name: 'Human-in-the-Loop Built In',
@@ -118,6 +118,20 @@ function MonitorIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
                 clipRule="evenodd"
                 d="M6 8a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2h-6v2h4v2H10v-2h4v-2H8a2 2 0 01-2-2V8zm2 0v12h16V8H8zm4 3h8v2h-8v-2zm0 4h5v2h-5v-2z"
                 fill="#06b6d4"
+            />
+        </svg>
+    )
+}
+
+function RLMIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+            <circle cx={16} cy={16} r={16} fill="#8B5CF6" fillOpacity={0.2} />
+            <path
+                d="M8 16c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm8 0c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4z"
+                stroke="#8B5CF6"
+                strokeWidth={2}
+                fill="none"
             />
         </svg>
     )

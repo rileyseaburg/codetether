@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-01-15 - CodeTether v1.2.0 Release
+
+- **A2A Protocol v0.3 Compliance** - Full support for Google and Microsoft's Agent-to-Agent Protocol specification
+- **Enhanced Security** - Additional security hardening and RBAC improvements
+- **Bug Fixes** - Critical fixes for production deployments
+- **Documentation** - Updated README and deployment guides
+
 ## 2025-07-29
 
 - Update to React 19 and Next.js 15.4

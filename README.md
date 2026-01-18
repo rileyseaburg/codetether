@@ -65,33 +65,46 @@ CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that is **off
 <td width="50%">
 
 ### 🤖 **Multi-Agent Orchestration**
+
 Build systems where agents collaborate, delegate tasks, and share context—all through the standardized A2A protocol.
 
 ### 🛠️ **MCP Tool Integration**
+
 Connect to 100+ tools via Model Context Protocol. File systems, databases, APIs, and more.
 
 ### 💻 **AI Coding at Scale**
+
 Deploy AI coding agents across your infrastructure using our maintained OpenCode fork. Automated code generation, refactoring, and testing.
 
+### 🔄 **RLM (Recursive Language Models)**
+
+Process arbitrarily long contexts through recursive LLM calls in a Python REPL. Analyze entire monorepos without context limits using programmatic sub-LLM queries.
+
 ### 📧 **Email Reply to Continue Tasks**
+
 Workers send email notifications when tasks complete. **Reply directly to the email** to continue the conversation—the agent picks up right where it left off. No dashboard needed.
 
  </td>
 <td width="50%">
 
 ### 🎤 **Voice Agent**
+
 Real-time voice interactions with AI agents through LiveKit integration. Multi-model support and session playback.
 
 ### 📡 **Real-Time Streaming**
+
 Watch agents think in real-time. SSE streaming for instant feedback and human intervention.
 
 ### 🚀 **Production Ready**
+
 Connect workers to `https://api.codetether.run` for live task execution. Helm charts and horizontal scaling included.
 
 ### 🔐 **Enterprise Ready**
+
 Keycloak SSO, RBAC, audit logs, and network policies. Security that enterprises demand.
 
 ### ☸️ **Deploy Anywhere**
+
 Helm charts, horizontal scaling, blue-green deployments. Production from day one on any cloud or on-premise infrastructure.
 
 </td>
@@ -104,11 +117,11 @@ CodeTether implements the **A2A Protocol v0.3** specification using the official
 
 ### Standard Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `/.well-known/agent-card.json` | Agent capability discovery and metadata |
-| `/a2a/jsonrpc` | JSON-RPC 2.0 endpoint for A2A protocol messages |
-| `/a2a/rest/*` | RESTful API endpoints for task and agent management |
+| Endpoint                       | Description                                         |
+| ------------------------------ | --------------------------------------------------- |
+| `/.well-known/agent-card.json` | Agent capability discovery and metadata             |
+| `/a2a/jsonrpc`                 | JSON-RPC 2.0 endpoint for A2A protocol messages     |
+| `/a2a/rest/*`                  | RESTful API endpoints for task and agent management |
 
 ### Interoperability
 
@@ -177,29 +190,32 @@ Learn more in the [Distributed Workers Guide](https://docs.codetether.run/featur
 To connect a local worker to the production CodeTether service:
 
 1. **Install the worker**:
-   ```bash
-   sudo ./agent_worker/install.sh
-   ```
+
+    ```bash
+    sudo ./agent_worker/install.sh
+    ```
 
 2. **Configure for production**:
    Edit `/etc/a2a-worker/env`:
-   ```bash
-   A2A_SERVER_URL=https://api.codetether.run
-   ```
+
+    ```bash
+    A2A_SERVER_URL=https://api.codetether.run
+    ```
 
 3. **Authenticate models**:
    Ensure your models are authenticated in `~/.local/share/opencode/auth.json`. The worker will only register models it has credentials for.
 
 4. **Restart the service**:
-   ```bash
-   sudo systemctl restart a2a-agent-worker
-   ```
-   ```
-   # Or use the makefile shortcut:
-   make local-worker-restart
-   ```
+    ```bash
+    sudo systemctl restart a2a-agent-worker
+    ```
+    ```
+    # Or use the makefile shortcut:
+    make local-worker-restart
+    ```
 
 **How it works:**
+
 - Worker discovers local OpenCode sessions from `~/.local/share/opencode/storage/`
 - Worker syncs sessions to PostgreSQL via `/v1/opencode/codebases/{id}/sessions/sync`
 - Worker syncs session messages via `/v1/opencode/codebases/{id}/sessions/{id}/messages/sync`
@@ -262,6 +278,7 @@ You: "Great, now add integration tests too"
 ```
 
 **How it works:**
+
 1. Worker completes task → sends email with special `reply-to` address
 2. You reply to the email with follow-up instructions
 3. SendGrid forwards your reply to CodeTether
@@ -274,13 +291,14 @@ You: "Great, now add integration tests too"
 
 CodeTether is built on **five core pillars**:
 
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| **A2A Protocol Server** | Agent communication & orchestration | Python, FastAPI, Redis |
-| **Distributed Workers** | Scale agent execution across machines | Python, Redis, Systemd/K8s |
-| **MCP Integration** | Tool access & resource management | Model Context Protocol |
-| **PostgreSQL Database** | Durable storage for sessions, codebases, tasks | PostgreSQL, asyncpg |
-| **OpenCode Bridge** | AI-powered code generation | Local OpenCode fork, Claude/GPT-4 |
+| Component               | Purpose                                        | Technology                        |
+| ----------------------- | ---------------------------------------------- | --------------------------------- |
+| **A2A Protocol Server** | Agent communication & orchestration            | Python, FastAPI, Redis            |
+| **Distributed Workers** | Scale agent execution across machines          | Python, Redis, Systemd/K8s        |
+| **MCP Integration**     | Tool access & resource management              | Model Context Protocol            |
+| **PostgreSQL Database** | Durable storage for sessions, codebases, tasks | PostgreSQL, asyncpg               |
+| **OpenCode Bridge**     | AI-powered code generation                     | Local OpenCode fork, Claude/GPT-4 |
+| **RLM Engine**          | Recursive context processing                   | Python REPL, sub-LLM calls        |
 
 ### Platform Components
 
@@ -295,6 +313,7 @@ codetether/
 ```
 
 **Data Flow:**
+
 ```
 OpenCode Storage (local) → Worker → PostgreSQL → Bridge/API → Monitor UI
 ```
@@ -304,6 +323,7 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 ## 📦 What's Included
 
 ### Core Platform
+
 - ✅ Full A2A Protocol implementation
 - ✅ MCP tool integration
 - ✅ Redis message broker
@@ -312,18 +332,21 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 - ✅ Worker sync to PostgreSQL from OpenCode storage
 
 ### Enterprise Features
+
 - ✅ Keycloak SSO integration
 - ✅ Role-based access control
 - ✅ Audit logging
 - ✅ Network policies
 
 ### DevOps Ready
+
 - ✅ Unified Helm chart (server + marketing + docs)
 - ✅ Blue-green deployments
 - ✅ Horizontal pod autoscaling
 - ✅ Health checks & metrics
 
 ### Developer Experience
+
 - ✅ Real-time Monitor UI
 - ✅ Swift iOS/macOS app
 - ✅ CLI tools
@@ -336,12 +359,12 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 
 ## 🛠️ Deployment Options
 
-| Environment | Command | Description |
-|-------------|---------|-------------|
-| **Local** | `python run_server.py` or `make run` | Development mode |
-| **Production** | `DATABASE_URL=... make k8s-prod` | Full PostgreSQL persistence |
-| **Docker** | `docker-compose up` | Single container |
-| **Kubernetes** | `make k8s-prod` | Full production stack |
+| Environment    | Command                              | Description                 |
+| -------------- | ------------------------------------ | --------------------------- |
+| **Local**      | `python run_server.py` or `make run` | Development mode            |
+| **Production** | `DATABASE_URL=... make k8s-prod`     | Full PostgreSQL persistence |
+| **Docker**     | `docker-compose up`                  | Single container            |
+| **Kubernetes** | `make k8s-prod`                      | Full production stack       |
 
 ### Production Deployment
 
@@ -358,16 +381,17 @@ make k8s-prod
 
 ## 🔧 Environment Variables
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|------------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` | Yes (production) |
-| `A2A_REDIS_URL` | Redis URL for message broker | `redis://localhost:6379` | No |
-| `A2A_AUTH_TOKENS` | Comma-separated auth tokens (format: `name:token,name2:token2`) | `""` | No |
-| `OPENCODE_HOST` | Host where OpenCode API is running (container→host) | `localhost` | No |
-| `OPENCODE_PORT` | Default OpenCode server port | `9777` | No |
-| `A2A_SERVER_URL` | Production server URL (for workers) | `http://localhost:8000` | No |
+| Variable          | Description                                                     | Default                               | Required         |
+| ----------------- | --------------------------------------------------------------- | ------------------------------------- | ---------------- |
+| `DATABASE_URL`    | PostgreSQL connection string                                    | `postgresql://user:pass@host:5432/db` | Yes (production) |
+| `A2A_REDIS_URL`   | Redis URL for message broker                                    | `redis://localhost:6379`              | No               |
+| `A2A_AUTH_TOKENS` | Comma-separated auth tokens (format: `name:token,name2:token2`) | `""`                                  | No               |
+| `OPENCODE_HOST`   | Host where OpenCode API is running (container→host)             | `localhost`                           | No               |
+| `OPENCODE_PORT`   | Default OpenCode server port                                    | `9777`                                | No               |
+| `A2A_SERVER_URL`  | Production server URL (for workers)                             | `http://localhost:8000`               | No               |
 
 **Setting DATABASE_URL:**
+
 ```bash
 # Local development (with PostgreSQL):
 export DATABASE_URL=postgresql://a2a:a2a_password@localhost:5432/a2a_server
@@ -383,30 +407,34 @@ export DATABASE_URL=postgresql://user:password@prod-db:5432/a2a_server
 If you don't see sessions in the production API for a codebase (like "spotlessbinco"):
 
 1. **Check worker is running:**
-   ```bash
-   sudo systemctl status a2a-agent-worker
-   ```
+
+    ```bash
+    sudo systemctl status a2a-agent-worker
+    ```
 
 2. **Check worker logs for sync errors:**
-   ```bash
-   sudo journalctl -fu a2a-agent-worker | grep -i "session\|sync"
-   ```
+
+    ```bash
+    sudo journalctl -fu a2a-agent-worker | grep -i "session\|sync"
+    ```
 
 3. **Verify sessions are in PostgreSQL:**
-   ```bash
-   # Via API:
-   curl http://localhost:8000/v1/opencode/database/sessions
 
-   # Or via psql:
-   psql -d a2a_server -c "SELECT id, codebase_id, title FROM sessions ORDER BY updated_at DESC LIMIT 10;"
-   ```
+    ```bash
+    # Via API:
+    curl http://localhost:8000/v1/opencode/database/sessions
+
+    # Or via psql:
+    psql -d a2a_server -c "SELECT id, codebase_id, title FROM sessions ORDER BY updated_at DESC LIMIT 10;"
+    ```
 
 4. **Restart worker to force re-sync:**
-   ```bash
-   make local-worker-restart
-   ```
+    ```bash
+    make local-worker-restart
+    ```
 
 **How it works:**
+
 - Workers read local OpenCode storage from `~/.local/share/opencode/`
 - Workers POST sessions to `/v1/opencode/codebases/{id}/sessions/sync`
 - Server persists to PostgreSQL via `db_upsert_session()`
@@ -416,20 +444,22 @@ If you don't see sessions in the production API for a codebase (like "spotlessbi
 ### Worker Not Connecting?
 
 1. **Check `DATABASE_URL` in worker env:**
-   ```bash
-   cat /etc/a2a-worker/env
-   # Should contain: DATABASE_URL=postgresql://...
-   ```
+
+    ```bash
+    cat /etc/a2a-worker/env
+    # Should contain: DATABASE_URL=postgresql://...
+    ```
 
 2. **Check network connectivity:**
-   ```bash
-   curl -v https://api.codetether.run/v1/health
-   ```
+
+    ```bash
+    curl -v https://api.codetether.run/v1/health
+    ```
 
 3. **Verify worker is registered:**
-   ```bash
-   curl http://localhost:8000/v1/opencode/database/workers
-   ```
+    ```bash
+    curl http://localhost:8000/v1/opencode/database/workers
+    ```
 
 For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs.codetether.run/troubleshooting/)
 
@@ -476,18 +506,19 @@ For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs
 
 ## 📚 Documentation
 
-| Resource | Link |
-|----------|------|
-| 📖 **Full Documentation** | [docs.codetether.run](https://docs.codetether.run) |
-| 🚀 **Quick Start Guide** | [Getting Started](https://docs.codetether.run/getting-started/quickstart/) |
-| 🔧 **API Reference** | [API Docs](https://docs.codetether.run/api/overview/) |
-| 👷 **Agent Worker Guide** | [Agent Worker](https://docs.codetether.run/features/agent-worker/) |
-| 🎤 **Voice Agent** | [Voice Agent](https://docs.codetether.run/features/voice-agent/) |
-| 📊 **Marketing Tools** | [Marketing Tools](https://docs.codetether.run/features/marketing-tools/) |
-| 🤖 **Marketing Coordinator** | [Marketing Coordinator](https://docs.codetether.run/features/marketing-coordinator/) |
-| 🔔 **Worker SSE** | [Worker SSE](https://docs.codetether.run/features/worker-sse/) |
-| ☸️ **Kubernetes Deployment** | [Helm Charts](https://docs.codetether.run/deployment/helm/) |
-| 🔐 **Authentication** | [Keycloak Setup](https://docs.codetether.run/auth/keycloak/) |
+| Resource                     | Link                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| 📖 **Full Documentation**    | [docs.codetether.run](https://docs.codetether.run)                                            |
+| 🚀 **Quick Start Guide**     | [Getting Started](https://docs.codetether.run/getting-started/quickstart/)                    |
+| 🔧 **API Reference**         | [API Docs](https://docs.codetether.run/api/overview/)                                         |
+| 👷 **Agent Worker Guide**    | [Agent Worker](https://docs.codetether.run/features/agent-worker/)                            |
+| 🔄 **RLM Guide**             | [RLM (Recursive Language Models)](docs/opencode-integration.md#rlm-recursive-language-models) |
+| 🎤 **Voice Agent**           | [Voice Agent](https://docs.codetether.run/features/voice-agent/)                              |
+| 📊 **Marketing Tools**       | [Marketing Tools](https://docs.codetether.run/features/marketing-tools/)                      |
+| 🤖 **Marketing Coordinator** | [Marketing Coordinator](https://docs.codetether.run/features/marketing-coordinator/)          |
+| 🔔 **Worker SSE**            | [Worker SSE](https://docs.codetether.run/features/worker-sse/)                                |
+| ☸️ **Kubernetes Deployment** | [Helm Charts](https://docs.codetether.run/deployment/helm/)                                   |
+| 🔐 **Authentication**        | [Keycloak Setup](https://docs.codetether.run/auth/keycloak/)                                  |
 
 For detailed technical documentation, see [DEVELOPMENT.md](DEVELOPMENT.md).
 

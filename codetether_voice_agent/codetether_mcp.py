@@ -285,27 +285,54 @@ class CodeTetherMCP:
         return result.get('success', False)
 
     async def get_session_messages(self, session_id: str) -> List[Message]:
-        """Get messages from a session.
+        """Get messages from a session/conversation.
+
+        This retrieves message history from the A2A server's monitoring system.
+        The session_id is used as a conversation_id filter.
 
         Args:
-            session_id: The ID of the session.
+            session_id: The ID of the session/conversation to retrieve.
 
         Returns:
             A list of Message objects.
         """
-        result = await self.call_tool('get_session', {'session_id': session_id})
+        # Use get_messages tool from A2A server with conversation_id filter
+        result = await self.call_tool(
+            'get_messages', {'conversation_id': session_id, 'limit': 100}
+        )
 
         messages = []
         for msg_data in result.get('messages', []):
+            # Map A2A server message format to our Message dataclass
+            # A2A server has: id, timestamp, type (human/agent), agent_name, content, metadata
+            msg_type = msg_data.get('type', 'unknown')
+            role = 'user' if msg_type == 'human' else 'assistant'
             messages.append(
                 Message(
-                    role=msg_data.get('role', ''),
+                    role=role,
                     content=msg_data.get('content', ''),
                     timestamp=msg_data.get('timestamp'),
                 )
             )
 
         return messages
+
+    async def get_monitor_messages(
+        self, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get recent messages from the A2A monitoring system.
+
+        This retrieves all recent monitoring messages regardless of conversation.
+        Useful for seeing overall system activity.
+
+        Args:
+            limit: Maximum number of messages to retrieve.
+
+        Returns:
+            A list of message dictionaries with full metadata.
+        """
+        result = await self.call_tool('get_messages', {'limit': limit})
+        return result.get('messages', [])
 
     async def discover_agents(self) -> List[Agent]:
         """Discover available agents.

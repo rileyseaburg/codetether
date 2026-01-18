@@ -101,6 +101,12 @@ class TaskRun:
     routing_failed_at: Optional[datetime] = None
     routing_failure_reason: Optional[str] = None
 
+    # Model routing (Phase 3 - model-aware routing)
+    # Normalized format: "provider:model" (e.g., "openai:gpt-4.1", "anthropic:claude-3.5-sonnet")
+    model_ref: Optional[str] = (
+        None  # If set, only workers supporting this model can claim
+    )
+
     created_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -140,6 +146,8 @@ class TaskQueue:
         target_agent_name: Optional[str] = None,
         required_capabilities: Optional[List[str]] = None,
         deadline_at: Optional[datetime] = None,
+        # Model routing parameters
+        model_ref: Optional[str] = None,
     ) -> TaskRun:
         """
         Enqueue a task for execution by hosted workers.
@@ -156,6 +164,8 @@ class TaskQueue:
             target_agent_name: If set, only this agent can claim the task
             required_capabilities: List of capabilities the worker must have
             deadline_at: If set, task fails if not claimed by this time
+            model_ref: Normalized model identifier (provider:model format).
+                       If set, only workers supporting this model can claim.
 
         Returns:
             TaskRun object representing the queued job
@@ -197,8 +207,8 @@ class TaskQueue:
                     id, task_id, user_id, template_id, automation_id,
                     status, priority, notify_email, notify_webhook_url,
                     target_agent_name, required_capabilities, deadline_at,
-                    created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
+                    model_ref, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
                 """,
                 run_id,
                 task_id,
@@ -212,6 +222,7 @@ class TaskQueue:
                 target_agent_name,
                 capabilities_json,
                 deadline_at,
+                model_ref,
                 datetime.now(timezone.utc),
             )
 
@@ -231,6 +242,8 @@ class TaskQueue:
         routing_info = ''
         if target_agent_name:
             routing_info += f', target_agent={target_agent_name}'
+        if model_ref:
+            routing_info += f', model_ref={model_ref}'
         if deadline_at:
             routing_info += f', deadline={deadline_at.isoformat()}'
 
@@ -251,6 +264,7 @@ class TaskQueue:
             target_agent_name=target_agent_name,
             required_capabilities=required_capabilities,
             deadline_at=deadline_at,
+            model_ref=model_ref,
         )
 
     async def get_run(self, run_id: str) -> Optional[TaskRun]:
@@ -671,6 +685,8 @@ class TaskQueue:
             deadline_at=row.get('deadline_at'),
             routing_failed_at=row.get('routing_failed_at'),
             routing_failure_reason=row.get('routing_failure_reason'),
+            # Model routing
+            model_ref=row.get('model_ref'),
             created_at=row['created_at'],
             updated_at=row['updated_at'],
         )
@@ -703,6 +719,8 @@ async def enqueue_task(
     target_agent_name: Optional[str] = None,
     required_capabilities: Optional[List[str]] = None,
     deadline_at: Optional[datetime] = None,
+    # Model routing parameters
+    model_ref: Optional[str] = None,
 ) -> Optional[TaskRun]:
     """
     Convenience function to enqueue a task.
@@ -720,6 +738,7 @@ async def enqueue_task(
         target_agent_name: If set, only this agent can claim the task
         required_capabilities: List of capabilities the worker must have
         deadline_at: If set, task fails if not claimed by this time
+        model_ref: Normalized model identifier (provider:model format)
     """
     queue = get_task_queue()
     if queue is None:
@@ -739,4 +758,5 @@ async def enqueue_task(
         target_agent_name=target_agent_name,
         required_capabilities=required_capabilities,
         deadline_at=deadline_at,
+        model_ref=model_ref,
     )

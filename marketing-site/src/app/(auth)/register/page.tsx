@@ -41,7 +41,7 @@ export default function Register() {
     }
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
+       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
       const response = await fetch(`${apiUrl}/v1/users/register`, {
         method: 'POST',
         headers: {

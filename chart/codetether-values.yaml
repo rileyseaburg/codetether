@@ -1,4 +1,7 @@
 # CodeTether deployment values
+imagePullSecrets:
+  - name: gcr-pull-secret
+
 app:
   name: "CodeTether Server"
   description: "Production A2A coordination server"
@@ -16,7 +19,7 @@ env:
 marketing:
   enabled: true
   image:
-    repository: registry.quantum-forge.net/library/a2a-marketing
+    repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-marketing
     pullPolicy: Always
     tag: "latest"
   replicaCount: 1
@@ -54,7 +57,7 @@ marketing:
 docs:
   enabled: true
   image:
-    repository: registry.quantum-forge.net/library/codetether-docs
+    repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-docs
     pullPolicy: Always
     tag: "latest"
   replicaCount: 1

@@ -9,6 +9,27 @@ import { CircleBackground } from '@/components/CircleBackground'
 
 const features = [
     {
+        name: 'RLM: Infinite Context Processing',
+        description:
+            'Revolutionary Recursive Language Models break free from context limits. Process entire monorepos, audit massive codebases, generate docs at scale—the AI writes Python that calls llm_query() recursively.',
+        icon: RLMIcon,
+        code: `# RLM: Process arbitrarily long contexts
+context = load_entire_codebase()  # 500+ files, no limit
+
+# AI writes Python that analyzes programmatically
+for file in context.split("--- FILE: ")[:50]:
+    # Each subcall gets fresh context window
+    issues = llm_query(f"""
+        Find security vulnerabilities in:
+        {file[:8000]}
+    """)
+    if "vulnerability" in issues.lower():
+        results.append(issues)
+
+# Synthesize final insights
+FINAL(llm_query(f"Summarize {len(results)} issues"))`,
+    },
+    {
         name: 'Pull Architecture (Zero Inbound Ports)',
         description:
             'Workers sit inside your secure network and reach OUT to poll for tasks. No inbound firewall rules, no VPN tunnels, no attack surface. Security teams say "yes" on day one.',
@@ -105,6 +126,20 @@ function StreamIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function RLMIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+            <circle cx={16} cy={16} r={16} fill="#8B5CF6" fillOpacity={0.2} />
+            <path
+                d="M8 16c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm8 0c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4z"
+                stroke="#8B5CF6"
+                strokeWidth={2}
+                fill="none"
+            />
+        </svg>
+    )
+}
+
 function FeatureCode({ code }: { code: string }) {
     return (
         <div className="overflow-hidden rounded-xl bg-gray-900 shadow-xl">
@@ -123,7 +158,7 @@ function FeatureCode({ code }: { code: string }) {
 function FeaturesDesktop() {
     return (
         <TabGroup className="hidden lg:block">
-            <TabList className="grid grid-cols-3 gap-x-8">
+            <TabList className="grid grid-cols-4 gap-x-6">
                 {features.map((feature, featureIndex) => (
                     <Tab
                         key={feature.name}

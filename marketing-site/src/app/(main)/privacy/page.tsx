@@ -6,6 +6,9 @@ export const metadata: Metadata = {
     description: 'Privacy Policy for A2A Server MCP and Quantum Forge',
 }
 
+// Force static generation at build time
+export const dynamic = 'force-static'
+
 export default function PrivacyPolicy() {
     return (
         <div className="py-24 sm:py-32">
@@ -15,7 +18,7 @@ export default function PrivacyPolicy() {
                         Privacy Policy
                     </h1>
                     <p className="mt-6 text-lg text-gray-500">
-                        Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        Last updated: January 15, 2026
                     </p>
 
                     <div className="mt-12 prose prose-gray max-w-none">

@@ -12,6 +12,7 @@ export namespace Notify {
     email?: {
       to: string
       sendgridKey: string
+      from: string
     }
     push?: {
       endpoint: string
@@ -47,9 +48,9 @@ export namespace Notify {
       )
     }
 
-    if (config.email?.sendgridKey && config.email?.to) {
+    if (config.email?.sendgridKey && config.email?.to && config.email?.from) {
       promises.push(
-        sendEmail(config.email.to, config.email.sendgridKey, event).catch((e) => {
+        sendEmail(config.email.to, config.email.from, config.email.sendgridKey, event).catch((e) => {
           log.warn("email notification failed", { error: String(e) })
         }),
       )
@@ -118,8 +119,8 @@ export namespace Notify {
     log.info("push notification sent", { type: event.type })
   }
 
-  async function sendEmail(to: string, apiKey: string, event: Event): Promise<void> {
-    log.info("sending email notification", { type: event.type, to })
+  async function sendEmail(to: string, from: string, apiKey: string, event: Event): Promise<void> {
+    log.info("sending email notification", { type: event.type, to, from })
 
     const subject = `[OpenCode] ${event.title}`
     const html = buildEmailHtml(event)
@@ -132,7 +133,7 @@ export namespace Notify {
       },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: to }] }],
-        from: { email: "noreply@spotlessbinco.com" },
+        from: { email: from },
         subject,
         content: [{ type: "text/html", value: html }],
       }),
@@ -140,8 +141,8 @@ export namespace Notify {
 
     if (!response.ok) {
       const text = await response.text()
-      log.warn("email notification failed", { status: response.status, body: text })
-      return
+      log.error("email notification failed", { status: response.status, body: text, from, to })
+      throw new Error(`SendGrid API error: ${response.status} - ${text}`)
     }
 
     log.info("email notification sent", { type: event.type })

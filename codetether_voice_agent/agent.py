@@ -80,12 +80,102 @@ from livekit.agents import (
     llm,
 )
 from livekit.plugins import google
+from livekit.rtc import Room
 
 from codetether_mcp import CodeTetherMCP
 from functiongemma_caller import FunctionGemmaCaller
 from session_playback import SessionPlayback
 
 logger = logging.getLogger(__name__)
+
+# Global reference to room for state publishing
+_current_room: Optional[Room] = None
+
+
+async def emit_thinking_state(context: Optional[str] = None) -> None:
+    """Emit a 'thinking' state to indicate the agent is processing.
+
+    Args:
+        context: Optional context about what the agent is thinking about.
+    """
+    await publish_state(
+        _current_room, 'thinking', {'context': context} if context else None
+    )
+
+
+async def publish_state(
+    room: Optional[Room], state: str, data: Optional[Dict[str, Any]] = None
+) -> None:
+    """Publish agent state to the room via data messages.
+
+    Args:
+        room: The LiveKit room to publish to.
+        state: The current state (e.g., 'tool_calling', 'tool_complete', 'thinking').
+        data: Optional additional data to include in the message.
+    """
+    if room is None:
+        logger.warning('Cannot publish state: room is None')
+        return
+
+    message = json.dumps(
+        {'type': 'agent_state', 'state': state, **(data or {})}
+    )
+    try:
+        await room.local_participant.publish_data(
+            message.encode(), reliable=True
+        )
+        logger.debug(f'Published state: {state}, data: {data}')
+    except Exception as e:
+        logger.warning(f'Failed to publish state: {e}')
+
+
+def create_tool_wrapper(tool_name: str, tool_func, room_getter):
+    """Create a wrapper function that emits state before/after tool execution.
+
+    Args:
+        tool_name: Name of the tool being wrapped.
+        tool_func: The actual tool function to wrap.
+        room_getter: A callable that returns the current room.
+
+    Returns:
+        A wrapped async function that emits state updates.
+    """
+
+    async def wrapper(*args, **kwargs):
+        room = room_getter()
+
+        # Emit tool_calling state
+        await publish_state(
+            room, 'tool_calling', {'tool_name': tool_name, 'args': str(kwargs)}
+        )
+
+        try:
+            # Execute the actual tool
+            result = await tool_func(*args, **kwargs)
+
+            # Emit tool_complete state
+            await publish_state(
+                room,
+                'tool_complete',
+                {
+                    'tool_name': tool_name,
+                    'result': str(result)[:500],  # Truncate long results
+                    'success': True,
+                },
+            )
+
+            return result
+        except Exception as e:
+            # Emit tool_error state
+            await publish_state(
+                room,
+                'tool_complete',
+                {'tool_name': tool_name, 'error': str(e), 'success': False},
+            )
+            raise
+
+    return wrapper
+
 
 VOICES: Dict[str, str] = {
     'puck': 'Puck',
@@ -97,34 +187,47 @@ VOICES: Dict[str, str] = {
 
 DEFAULT_VOICE = 'puck'
 
-SYSTEM_INSTRUCTIONS = """You are a helpful voice assistant powered by Gemini 3 Live API.
+SYSTEM_INSTRUCTIONS = """You are a voice assistant for CodeTether, an Agent-to-Agent (A2A) task management and coordination system.
 
-Your core capabilities:
-1. Voice Conversation - You can speak naturally with users in real-time
-2. Task Management - Create, list, get, and cancel tasks
-3. Session Playback - Play back historical conversation sessions
-4. Agent Communication - Send messages to other agents in the system
-5. Session Management - Retrieve and continue previous conversations
+## About CodeTether / A2A Server
+CodeTether is a system that allows AI agents to collaborate on coding tasks. Key concepts:
+- **Tasks**: Work items that get queued and executed by worker agents (build, test, review, etc.)
+- **Workers**: Python processes that pick up tasks via SSE and spawn OpenCode to execute them
+- **Agents**: Registered services that can communicate with each other
+- **Monitoring**: All agent activity is logged and can be reviewed
 
-Available Tools:
-- create_task: Create a new task with title, description, optional codebase_id and priority
-- list_tasks: List tasks with optional status and codebase_id filters
-- get_task: Get details of a specific task by ID
-- cancel_task: Cancel an active task by ID
-- get_session_history: Retrieve message history for a session
-- playback_session: Play back a session verbatim or as summary
-- discover_agents: List available agents in the system
-- send_message: Send a message to a specific agent
+## Your Role
+You are the voice interface to the CodeTether system. Users talk to you to:
+1. Create and manage tasks for the worker agents to execute
+2. Check on task status and results
+3. Review what agents have been doing (monitoring messages)
+4. Send messages to other registered agents
 
-Guidelines:
-- Speak clearly and concisely in your responses
-- Use tools proactively when users ask for task management or information
-- Confirm tool results before proceeding with related actions
-- Handle errors gracefully and explain issues clearly
-- For session playback, offer both verbatim and summary options
-- When agents are mentioned, provide helpful information about their capabilities
+## Available Tools
 
-Remember to adapt your communication style to be natural for voice interaction."""
+### Task Management
+- **create_task**: Queue a new coding task. Specify title, description, priority (0-10). Tasks go to workers that execute them with OpenCode.
+- **list_tasks**: See all tasks. Filter by status (pending, working, completed, failed, cancelled).
+- **get_task**: Get detailed info about a specific task by its ID.
+- **cancel_task**: Stop a pending or in-progress task.
+
+### Agent Communication
+- **discover_agents**: Find what agents are registered in the system.
+- **send_message**: Send a message to a registered agent for agent-to-agent communication.
+
+### Monitoring & History
+- **get_monitor_messages**: See recent activity from all agents in the monitoring system.
+- **get_conversation_history**: Get the message history for a specific conversation thread (by conversation ID).
+
+## Important Clarification
+"Session history" and "conversation history" refer to logged messages in the A2A server's monitoring system - NOT our current voice conversation. These are records of past tasks, agent communications, and system events. If you want to know what you just discussed with the user, that's in your context - no tool needed.
+
+## Guidelines
+- Speak naturally and concisely for voice interaction
+- Use tools proactively when users ask about tasks or agent activity
+- When users say "session history" they likely mean monitoring messages or past task results
+- Clarify if the user wants to create a task vs. just discuss something
+- Confirm task creation before proceeding"""
 
 
 def format_history_for_context(history: List[Dict[str, Any]]) -> str:
@@ -160,12 +263,16 @@ def format_history_for_context(history: List[Dict[str, Any]]) -> str:
 def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
     """Create FunctionTool objects for the voice agent.
 
+    Each tool emits state updates via LiveKit data messages before and after execution
+    to keep the frontend informed of agent activity.
+
     Args:
         mcp_client: The CodeTether MCP client for tool execution.
 
     Returns:
         List of FunctionTool objects.
     """
+    global _current_room
     tools = []
 
     # List tasks tool
@@ -175,18 +282,36 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
     )
     async def list_tasks(status: Optional[str] = None) -> str:
         """List tasks with optional status filter."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {'tool_name': 'list_tasks', 'args': {'status': status}},
+        )
         try:
             logger.info(f'Executing list_tasks with status: {status}')
             tasks = await mcp_client.list_tasks(status=status)
             if not tasks:
-                return 'There are no tasks in the system.'
-            task_list = ', '.join(
-                [f"'{t.title}' ({t.status})" for t in tasks[:5]]
+                result = 'There are no tasks in the system.'
+            else:
+                task_list = ', '.join(
+                    [f"'{t.title}' ({t.status})" for t in tasks[:5]]
+                )
+                result = f'Found {len(tasks)} tasks: {task_list}'
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'list_tasks', 'result': result, 'success': True},
             )
-            return f'Found {len(tasks)} tasks: {task_list}'
+            return result
         except Exception as e:
             logger.error(f'list_tasks failed: {e}')
-            return f'Sorry, there was an error listing tasks: {str(e)}'
+            error_result = f'Sorry, there was an error listing tasks: {str(e)}'
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'list_tasks', 'error': str(e), 'success': False},
+            )
+            return error_result
 
     tools.append(list_tasks)
 
@@ -201,6 +326,18 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
         priority: int = 0,
     ) -> str:
         """Create a new task."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {
+                'tool_name': 'create_task',
+                'args': {
+                    'title': title,
+                    'description': description,
+                    'priority': priority,
+                },
+            },
+        )
         try:
             logger.info(f'Executing create_task: {title}')
             task = await mcp_client.create_task(
@@ -210,10 +347,24 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
                 agent_type='build',
                 priority=priority,
             )
-            return f"Created task '{task.title}' with ID {task.id}. Status: {task.status}"
+            result = f"Created task '{task.title}' with ID {task.id}. Status: {task.status}"
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'create_task', 'result': result, 'success': True},
+            )
+            return result
         except Exception as e:
             logger.error(f'create_task failed: {e}')
-            return f'Sorry, there was an error creating the task: {str(e)}'
+            error_result = (
+                f'Sorry, there was an error creating the task: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'create_task', 'error': str(e), 'success': False},
+            )
+            return error_result
 
     tools.append(create_task)
 
@@ -224,15 +375,35 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
     )
     async def get_task(task_id: str) -> str:
         """Get task details."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {'tool_name': 'get_task', 'args': {'task_id': task_id}},
+        )
         try:
             logger.info(f'Executing get_task: {task_id}')
             task = await mcp_client.get_task(task_id)
             if task:
-                return f"Task '{task.title}' is {task.status}. Priority: {task.priority}"
-            return 'Task not found.'
+                result = f"Task '{task.title}' is {task.status}. Priority: {task.priority}"
+            else:
+                result = 'Task not found.'
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'get_task', 'result': result, 'success': True},
+            )
+            return result
         except Exception as e:
             logger.error(f'get_task failed: {e}')
-            return f'Sorry, there was an error getting the task: {str(e)}'
+            error_result = (
+                f'Sorry, there was an error getting the task: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'get_task', 'error': str(e), 'success': False},
+            )
+            return error_result
 
     tools.append(get_task)
 
@@ -243,17 +414,40 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
     )
     async def cancel_task(task_id: str) -> str:
         """Cancel a task."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {'tool_name': 'cancel_task', 'args': {'task_id': task_id}},
+        )
         try:
             logger.info(f'Executing cancel_task: {task_id}')
             success = await mcp_client.cancel_task(task_id)
-            return (
+            result = (
                 'Task cancelled successfully.'
                 if success
                 else 'Could not cancel the task.'
             )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'cancel_task',
+                    'result': result,
+                    'success': success,
+                },
+            )
+            return result
         except Exception as e:
             logger.error(f'cancel_task failed: {e}')
-            return f'Sorry, there was an error cancelling the task: {str(e)}'
+            error_result = (
+                f'Sorry, there was an error cancelling the task: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {'tool_name': 'cancel_task', 'error': str(e), 'success': False},
+            )
+            return error_result
 
     tools.append(cancel_task)
 
@@ -264,18 +458,216 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
     )
     async def discover_agents() -> str:
         """Discover available agents."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {'tool_name': 'discover_agents', 'args': {}},
+        )
         try:
             logger.info('Executing discover_agents')
             agents = await mcp_client.discover_agents()
             if not agents:
-                return 'No agents are currently available.'
-            agent_names = ', '.join([a.name for a in agents[:5]])
-            return f'Found {len(agents)} agents: {agent_names}'
+                result = 'No agents are currently available.'
+            else:
+                agent_names = ', '.join([a.name for a in agents[:5]])
+                result = f'Found {len(agents)} agents: {agent_names}'
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'discover_agents',
+                    'result': result,
+                    'success': True,
+                },
+            )
+            return result
         except Exception as e:
             logger.error(f'discover_agents failed: {e}')
-            return f'Sorry, there was an error discovering agents: {str(e)}'
+            error_result = (
+                f'Sorry, there was an error discovering agents: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'discover_agents',
+                    'error': str(e),
+                    'success': False,
+                },
+            )
+            return error_result
 
     tools.append(discover_agents)
+
+    # Send message to agent tool
+    @llm.function_tool(
+        name='send_message',
+        description='Send a message to a specific CodeTether agent for agent-to-agent communication.',
+    )
+    async def send_message(agent_name: str, message: str) -> str:
+        """Send a message to an agent."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {
+                'tool_name': 'send_message',
+                'args': {'agent_name': agent_name, 'message': message[:100]},
+            },
+        )
+        try:
+            logger.info(f'Executing send_message to {agent_name}')
+            result = await mcp_client.send_message(
+                agent_name=agent_name, message=message
+            )
+            if isinstance(result, dict) and result.get('success'):
+                response = f'Message sent to {agent_name}.'
+                if 'response' in result:
+                    response += f' They responded: {result["response"][:200]}'
+            else:
+                response = f'Message sent to {agent_name}.'
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'send_message',
+                    'result': response,
+                    'success': True,
+                },
+            )
+            return response
+        except Exception as e:
+            logger.error(f'send_message failed: {e}')
+            error_result = (
+                f'Sorry, there was an error sending the message: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'send_message',
+                    'error': str(e),
+                    'success': False,
+                },
+            )
+            return error_result
+
+    tools.append(send_message)
+
+    # Get recent monitor messages tool
+    @llm.function_tool(
+        name='get_monitor_messages',
+        description='Get recent messages from the A2A monitoring system. Shows what tasks and agent communications have happened recently.',
+    )
+    async def get_monitor_messages(limit: int = 20) -> str:
+        """Get recent monitoring messages."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {'tool_name': 'get_monitor_messages', 'args': {'limit': limit}},
+        )
+        try:
+            logger.info(f'Executing get_monitor_messages with limit: {limit}')
+            messages = await mcp_client.get_monitor_messages(limit=limit)
+            if not messages:
+                result = 'No recent messages in the monitoring system.'
+            else:
+                msg_summaries = []
+                for msg in messages[:5]:
+                    agent = msg.get('agent_name', 'unknown')
+                    content = msg.get('content', '')[:80]
+                    msg_summaries.append(f'{agent}: {content}')
+                result = (
+                    f'Found {len(messages)} recent messages. Most recent: '
+                    + '; '.join(msg_summaries)
+                )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'get_monitor_messages',
+                    'result': result,
+                    'success': True,
+                },
+            )
+            return result
+        except Exception as e:
+            logger.error(f'get_monitor_messages failed: {e}')
+            error_result = (
+                f'Sorry, there was an error getting messages: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'get_monitor_messages',
+                    'error': str(e),
+                    'success': False,
+                },
+            )
+            return error_result
+
+    tools.append(get_monitor_messages)
+
+    # Get conversation history tool
+    @llm.function_tool(
+        name='get_conversation_history',
+        description='Get the message history for a specific conversation thread by its ID. Use this to review what was discussed in a particular task or session.',
+    )
+    async def get_conversation_history(conversation_id: str) -> str:
+        """Get conversation history by ID."""
+        await publish_state(
+            _current_room,
+            'tool_calling',
+            {
+                'tool_name': 'get_conversation_history',
+                'args': {'conversation_id': conversation_id},
+            },
+        )
+        try:
+            logger.info(
+                f'Executing get_conversation_history: {conversation_id}'
+            )
+            messages = await mcp_client.get_session_messages(conversation_id)
+            if not messages:
+                result = (
+                    f"No messages found for conversation '{conversation_id}'."
+                )
+            else:
+                msg_count = len(messages)
+                user_count = sum(1 for m in messages if m.role == 'user')
+                result = f'Found {msg_count} messages in this conversation ({user_count} from users). '
+                if msg_count <= 3:
+                    for m in messages:
+                        result += f'{m.role}: {m.content[:60]}... '
+                else:
+                    result += f'Latest: {messages[-1].role}: {messages[-1].content[:100]}...'
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'get_conversation_history',
+                    'result': result,
+                    'success': True,
+                },
+            )
+            return result
+        except Exception as e:
+            logger.error(f'get_conversation_history failed: {e}')
+            error_result = (
+                f'Sorry, there was an error getting the conversation: {str(e)}'
+            )
+            await publish_state(
+                _current_room,
+                'tool_complete',
+                {
+                    'tool_name': 'get_conversation_history',
+                    'error': str(e),
+                    'success': False,
+                },
+            )
+            return error_result
+
+    tools.append(get_conversation_history)
 
     logger.info(f'Created {len(tools)} tools for voice agent')
     return tools
@@ -310,6 +702,8 @@ async def entrypoint(ctx: JobContext) -> None:
         f'session_id: {session_id}, mode: {mode}, playback_style: {playback_style}'
     )
 
+    global _current_room
+
     logger.info('About to call ctx.connect()...')
     try:
         await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
@@ -318,15 +712,32 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.error(f'Failed to connect to room: {type(e).__name__}: {e}')
         raise
 
+    # Set the global room reference for state publishing
+    _current_room = ctx.room
+    logger.info('Set global room reference for state publishing')
+
+    # Emit initial connecting state
+    await publish_state(_current_room, 'connecting', {'room': ctx.room.name})
+
     logger.info('Waiting for participant...')
     try:
         participant = await ctx.wait_for_participant()
         logger.info(f'Participant joined: {participant.identity}')
+        await publish_state(
+            _current_room,
+            'participant_joined',
+            {'participant': participant.identity},
+        )
     except Exception as e:
         logger.error(f'Error waiting for participant: {type(e).__name__}: {e}')
         raise
 
     try:
+        # Emit initializing state
+        await publish_state(
+            _current_room, 'initializing', {'step': 'mcp_client'}
+        )
+
         api_url = os.getenv('CODETETHER_API_URL', 'http://localhost:8000')
         logger.info(f'Creating CodeTetherMCP with API URL: {api_url}')
         mcp_client = CodeTetherMCP(api_url=api_url)
@@ -396,14 +807,27 @@ async def entrypoint(ctx: JobContext) -> None:
             )
             raise ValueError('No Google credentials configured')
         logger.info('Gemini RealtimeModel created successfully')
+        await publish_state(
+            _current_room, 'initializing', {'step': 'model_ready'}
+        )
 
         # Create tools for the agent
         try:
             agent_tools = create_tools(mcp_client)
             logger.info(f'Created {len(agent_tools)} tools for agent')
+            await publish_state(
+                _current_room,
+                'initializing',
+                {'step': 'tools_ready', 'tool_count': len(agent_tools)},
+            )
         except Exception as e:
             logger.error(f'Failed to create tools: {e}')
             agent_tools = []
+            await publish_state(
+                _current_room,
+                'initializing',
+                {'step': 'tools_failed', 'error': str(e)},
+            )
 
         session = AgentSession(
             llm=gemini_model,
@@ -414,6 +838,11 @@ async def entrypoint(ctx: JobContext) -> None:
         if mode == 'playback' and session_id:
             logger.info(
                 f'Starting session playback for session_id: {session_id}'
+            )
+            await publish_state(
+                _current_room,
+                'playback_starting',
+                {'session_id': session_id, 'style': playback_style},
             )
             await session_playback.start(
                 session=session,
@@ -429,11 +858,20 @@ async def entrypoint(ctx: JobContext) -> None:
             llm=gemini_model,
         )
 
+        # Emit ready state before starting
+        await publish_state(
+            _current_room, 'ready', {'room': ctx.room.name, 'mode': mode}
+        )
+
         # Start the session with the agent and room
         await session.start(agent=agent, room=ctx.room)
 
+        # Emit listening state after session starts
+        await publish_state(_current_room, 'listening', {'voice': voice_name})
+
     except Exception as e:
         logger.error(f'Error in voice agent entrypoint: {e}')
+        await publish_state(_current_room, 'error', {'error': str(e)})
         raise
 
 

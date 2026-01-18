@@ -28,21 +28,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         },
         async session({ session, token }) {
             // Send properties to the client
-            session.accessToken = token.accessToken as string
-            session.refreshToken = token.refreshToken as string
-            session.idToken = token.idToken as string
-            if (token.preferred_username && session.user) {
-                session.user.name = token.preferred_username as string
+            if (token && session.user) {
+                session.accessToken = token.accessToken as string
+                session.refreshToken = token.refreshToken as string
+                session.idToken = token.idToken as string
+                if (token.preferred_username) {
+                    session.user.name = token.preferred_username as string
+                }
             }
             return session
         },
     },
-    pages: {
-        signIn: '/login',
-        error: '/login',
-    },
     session: {
         strategy: 'jwt',
+        maxAge: 30 * 24 * 60 * 60,
     },
 })
 

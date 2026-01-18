@@ -19,11 +19,15 @@ The Agent Worker provides:
 
 - **Remote Task Execution**: Run AI agents on machines where codebases live
 - **Reactive Task Execution**: Near-instant task start via Redis pub/sub events
+- **Agent Discovery**: Workers auto-register as discoverable agents (v1.2.2+)
 - **Codebase Registration**: Automatically register local codebases with the server
 - **Session Sync**: Report OpenCode session history to the central server
 - **Output Streaming**: Real-time task output streaming to the server
 - **Graceful Lifecycle**: Proper shutdown handling and resource cleanup
 - **Systemd Integration**: Run as a production-grade Linux service
+
+!!! new "v1.2.2: Agent Discovery"
+    Workers now automatically register as discoverable agents with role:instance identity pattern. Other agents can find and route tasks to specific workers using `discover_agents` and `send_to_agent`.
 
 ```mermaid
 sequenceDiagram
@@ -537,6 +541,50 @@ python3 worker.py --name prod-worker --config /etc/a2a-worker/prod.json
 
 # Worker 2 - Development codebases
 python3 worker.py --name dev-worker --config /etc/a2a-worker/dev.json
+```
+
+### Agent Discovery Registration
+
+Workers automatically register as discoverable agents on startup. Configure the agent identity:
+
+```bash
+python3 worker.py \
+  --agent-name code-reviewer \
+  --agent-description "Python code review specialist" \
+  --server https://api.codetether.run
+```
+
+Or via config:
+
+```json
+{
+    "agent_name": "code-reviewer",
+    "agent_description": "Python code review specialist",
+    "register_as_agent": true
+}
+```
+
+**Role:Instance Pattern:**
+
+| Field | Purpose | Example |
+|-------|---------|---------|
+| `name` | Unique discovery identity | `code-reviewer:dev-vm:abc123` |
+| `role` | Routing identity for `send_to_agent` | `code-reviewer` |
+
+**Important**: Use `role` with `send_to_agent` for routing. The `name` field is unique per-instance.
+
+**Environment Variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `A2A_AGENT_NAME` | Agent routing role |
+| `A2A_AGENT_DESCRIPTION` | Agent description |
+| `A2A_AGENT_URL` | Direct URL (optional) |
+
+**Disable registration** if you don't want the worker to be discoverable:
+
+```bash
+python3 worker.py --no-agent-registration
 ```
 
 ### Custom Capabilities

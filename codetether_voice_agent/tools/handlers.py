@@ -173,27 +173,30 @@ async def cancel_task_handler(
         return f"I'm sorry, I couldn't cancel the task. An error occurred: {str(e)}"
 
 
-async def get_session_history_handler(
+async def get_conversation_history_handler(
     mcp_client: CodeTetherMCP,
-    session_id: str,
+    conversation_id: str,
 ) -> str:
-    """Get session message history and return a human-readable response.
+    """Get conversation history from the A2A monitoring system.
+
+    Note: This retrieves logged messages from the A2A server's monitoring system,
+    NOT the current voice conversation with the user.
 
     Args:
         mcp_client: The CodeTether MCP client instance.
-        session_id: The unique identifier of the session.
+        conversation_id: The unique identifier of the conversation thread.
 
     Returns:
-        A string suitable for voice output describing the session history.
+        A string suitable for voice output describing the conversation history.
     """
     try:
-        messages = await mcp_client.get_session_messages(session_id)
+        messages = await mcp_client.get_session_messages(conversation_id)
 
         if not messages:
-            return f"I couldn't find any messages for session '{session_id}'. The session may not exist or may be empty."
+            return f"I couldn't find any messages for conversation '{conversation_id}'. The conversation may not exist or may be empty."
 
         message_count = len(messages)
-        response = f'This session contains {message_count} message{"" if message_count == 1 else "s"}. '
+        response = f'This conversation contains {message_count} message{"" if message_count == 1 else "s"}. '
 
         user_messages = [m for m in messages if m.role == 'user']
         assistant_messages = [
@@ -201,7 +204,7 @@ async def get_session_history_handler(
         ]
 
         if user_messages:
-            response += f'It includes {len(user_messages)} from the user and {len(assistant_messages)} from assistants. '
+            response += f'It includes {len(user_messages)} from users and {len(assistant_messages)} from agents. '
 
         if message_count <= 5:
             response += "Here's what was discussed: "
@@ -214,12 +217,59 @@ async def get_session_history_handler(
                 )
                 response += f'{role}: {content}. '
         else:
-            response += f"The most recent message is from the {messages[-1].role}: '{messages[-1].content[:100]}...'"
+            response += f"The most recent message is from {messages[-1].role}: '{messages[-1].content[:100]}...'"
 
         return response
     except Exception as e:
-        logger.error(f'Failed to get session history: {e}')
-        return f"I'm sorry, I couldn't retrieve the session history. An error occurred: {str(e)}"
+        logger.error(f'Failed to get conversation history: {e}')
+        return f"I'm sorry, I couldn't retrieve the conversation history. An error occurred: {str(e)}"
+
+
+async def get_monitor_messages_handler(
+    mcp_client: CodeTetherMCP,
+    limit: int = 20,
+) -> str:
+    """Get recent messages from the A2A monitoring system.
+
+    Args:
+        mcp_client: The CodeTether MCP client instance.
+        limit: Maximum number of messages to retrieve.
+
+    Returns:
+        A string suitable for voice output describing recent activity.
+    """
+    try:
+        messages = await mcp_client.get_monitor_messages(limit=limit)
+
+        if not messages:
+            return 'No recent messages in the monitoring system.'
+
+        message_count = len(messages)
+        response = f'Found {message_count} recent message{"" if message_count == 1 else "s"} in the monitoring system. '
+
+        # Summarize by agent
+        agents = {}
+        for msg in messages:
+            agent = msg.get('agent_name', 'unknown')
+            agents[agent] = agents.get(agent, 0) + 1
+
+        if agents:
+            agent_summary = ', '.join(
+                [f'{name}: {count}' for name, count in list(agents.items())[:3]]
+            )
+            response += f'Activity by agent: {agent_summary}. '
+
+        # Show most recent
+        if messages:
+            recent = messages[-1]
+            content = recent.get('content', '')[:100]
+            agent = recent.get('agent_name', 'unknown')
+            response += f'Most recent from {agent}: {content}'
+
+        return response
+    except Exception as e:
+        logger.error(f'Failed to get monitor messages: {e}')
+        return f"I'm sorry, I couldn't retrieve the monitoring messages. An error occurred: {str(e)}"
 
 
 async def discover_agents_handler(
@@ -316,7 +366,8 @@ async def register_all_tools(
         LIST_TASKS_SCHEMA,
         GET_TASK_SCHEMA,
         CANCEL_TASK_SCHEMA,
-        GET_SESSION_HISTORY_SCHEMA,
+        GET_CONVERSATION_HISTORY_SCHEMA,
+        GET_MONITOR_MESSAGES_SCHEMA,
         DISCOVER_AGENTS_SCHEMA,
         SEND_MESSAGE_SCHEMA,
     )
@@ -355,11 +406,18 @@ async def register_all_tools(
                 task_id=args.get('task_id', ''),
             ),
         },
-        'get_session_history': {
-            'schema': GET_SESSION_HISTORY_SCHEMA,
-            'handler': lambda args: get_session_history_handler(
+        'get_conversation_history': {
+            'schema': GET_CONVERSATION_HISTORY_SCHEMA,
+            'handler': lambda args: get_conversation_history_handler(
                 mcp_client,
-                session_id=args.get('session_id', ''),
+                conversation_id=args.get('conversation_id', ''),
+            ),
+        },
+        'get_monitor_messages': {
+            'schema': GET_MONITOR_MESSAGES_SCHEMA,
+            'handler': lambda args: get_monitor_messages_handler(
+                mcp_client,
+                limit=args.get('limit', 20),
             ),
         },
         'discover_agents': {

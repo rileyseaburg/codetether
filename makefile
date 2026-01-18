@@ -2,8 +2,8 @@
 # Variables
 DOCKER_IMAGE_NAME = a2a-server-mcp
 DOCKER_TAG ?= latest
-DOCKER_REGISTRY ?= registry.quantum-forge.net/library
-OCI_REGISTRY = registry.quantum-forge.net/library
+DOCKER_REGISTRY ?= us-central1-docker.pkg.dev/spotlessbinco/codetether
+OCI_REGISTRY = us-central1-docker.pkg.dev/spotlessbinco/codetether
 PORT ?= 8000
 CHART_PATH = chart/a2a-server
 CHART_VERSION ?= 0.4.2
@@ -691,6 +691,11 @@ codetether-restart-api: ## Restart API deployment
 
 .PHONY: codetether-restart-all
 codetether-restart-all: codetether-restart-marketing codetether-restart-docs codetether-restart-api ## Restart all deployments
+
+.PHONY: codetether-deploy-voice
+codetether-deploy-voice: codetether-build-marketing docker-build-voice-agent docker-push-voice-agent ## Build and deploy marketing site + voice agent
+	kubectl rollout restart deployment/a2a-marketing-a2a-server-marketing -n $(NAMESPACE)
+	@$(MAKE) voice-agent-deploy
 
 .PHONY: codetether-logs-marketing
 codetether-logs-marketing: ## Show marketing site logs

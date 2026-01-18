@@ -6,15 +6,6 @@ import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import clsx from 'clsx'
 
-const navigation = [
-    { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
-    { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
-    { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
-    { name: 'Output', href: '/dashboard/output', icon: TerminalIcon },
-    { name: 'Activity', href: '/dashboard/activity', icon: BoltIcon },
-    { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
-]
-
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
@@ -55,6 +46,34 @@ function BoltIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function CogIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    )
+}
+
+function CreditCardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+    )
+}
+
+const navigation = [
+    { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
+    { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
+    { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
+    { name: 'Output', href: '/dashboard/output', icon: TerminalIcon },
+    { name: 'Activity', href: '/dashboard/activity', icon: BoltIcon },
+    { name: 'Automations', href: '/dashboard/automations', icon: CogIcon },
+    { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+    { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
+]
+
 function MenuIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
@@ -83,15 +102,6 @@ function MoonIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="currentColor" viewBox="0 0 20 20" {...props}>
             <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-        </svg>
-    )
-}
-
-function CogIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
-    return (
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
     )
 }
@@ -285,6 +295,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                         {session.user.email}
                                                     </div>
                                                 </div>
+                                                <Link
+                                                    href="/dashboard/billing"
+                                                    onClick={() => setUserMenuOpen(false)}
+                                                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    Billing
+                                                </Link>
                                                 <Link
                                                     href="/dashboard/settings"
                                                     onClick={() => setUserMenuOpen(false)}

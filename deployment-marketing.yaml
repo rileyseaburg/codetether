@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codetether-marketing
+  namespace: a2a-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marketing
+  template:
+    metadata:
+      labels:
+        app: marketing
+    spec:
+      containers:
+      - name: marketing
+        image: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-marketing:latest
+        imagePullPolicy: Never
+        env:
+          - name: AUTH_TRUST_HOST
+            value: "true"
+          - name: AUTH_URL
+            value: "https://codetether.run"
+          - name: KEYCLOAK_CLIENT_ID
+            value: "a2a-monitor"
+          - name: KEYCLOAK_ISSUER
+            value: "https://auth.quantum-forge.io/realms/quantum-forge"
+          - name: NEXTAUTH_URL
+            value: "https://codetether.run"
+          - name: KEYCLOAK_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-client-secret
+                key: KEYCLOAK_CLIENT_SECRET
+          - name: NEXTAUTH_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-client-secret
+                key: NEXTAUTH_SECRET
+          - name: SENDGRID_FROM_EMAIL
+            value: "noreply@codetether.run"
+          - name: CONTACT_NOTIFICATION_EMAIL
+            value: "riley@spotlessbinco.com"
+          - name: SENDGRID_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: marketing-secrets
+                key: SENDGRID_API_KEY
+        ports:
+          - containerPort: 3000
+            name: http
+          livenessProbe:
+            httpGet:
+              host: cloudflared
+              path: /
+              port: 3000
+              scheme: HTTP
+              initialDelaySeconds: 10
+              timeoutSeconds: 1
+              periodSeconds: 10
+              successThreshold: 1
+          readinessProbe:
+            httpGet:
+              host: cloudflared
+              path: /
+              port: 3000
+              scheme: HTTP
+              initialDelaySeconds: 5
+              timeoutSeconds: 1
+              periodSeconds: 5
+              successThreshold: 1

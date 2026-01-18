@@ -5,7 +5,6 @@ import { normalizeMessage } from './normalizeMessage'
 export function useChatItems(sessionMessages: SessionMessage[]): ChatItem[] {
     return useMemo(() => {
         const raw = sessionMessages || []
-        console.log('[useChatItems] Processing', raw.length, 'session messages')
         const items: ChatItem[] = []
 
         for (let i = 0; i < raw.length; i++) {
@@ -13,9 +12,7 @@ export function useChatItems(sessionMessages: SessionMessage[]): ChatItem[] {
             if (normalized) items.push(normalized)
         }
 
-        const merged = mergeAdjacentAssistantChunks(items)
-        console.log('[useChatItems] Result:', merged.length, 'chat items')
-        return merged
+        return mergeAdjacentAssistantChunks(items)
     }, [sessionMessages])
 }
 

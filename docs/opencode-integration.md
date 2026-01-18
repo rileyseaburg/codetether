@@ -91,9 +91,9 @@ The server will automatically detect and initialize the OpenCode bridge.
 2. Look for the **"🚀 OpenCode Agents"** panel on the left
 3. Click **"➕ Register Codebase"** to add a project
 4. Enter:
-   - **Name**: Display name for the project
-   - **Path**: Absolute path to the project directory
-   - **Description**: Optional description
+    - **Name**: Display name for the project
+    - **Path**: Absolute path to the project directory
+    - **Description**: Optional description
 5. Click **"Register"**
 
 ### Triggering an Agent
@@ -102,19 +102,19 @@ The server will automatically detect and initialize the OpenCode bridge.
 2. Click **"🎯 Trigger Agent"**
 3. Enter a prompt describing what you want the agent to do
 4. Select the agent type:
-   - **Build**: Full access agent for development work
-   - **Plan**: Read-only agent for analysis and planning
-   - **General**: Multi-step task agent
-   - **Explore**: Fast codebase search agent
+    - **Build**: Full access agent for development work
+    - **Plan**: Read-only agent for analysis and planning
+    - **General**: Multi-step task agent
+    - **Explore**: Fast codebase search agent
 5. Click **"🚀 Start Agent"**
 
 ### Agent Types
 
-| Agent | Description | Use Case |
-|-------|-------------|----------|
-| **build** | Full access agent | Writing code, making changes |
-| **plan** | Read-only agent | Code review, planning changes |
-| **general** | Task orchestrator | Complex multi-step tasks |
+| Agent       | Description       | Use Case                              |
+| ----------- | ----------------- | ------------------------------------- |
+| **build**   | Full access agent | Writing code, making changes          |
+| **plan**    | Read-only agent   | Code review, planning changes         |
+| **general** | Task orchestrator | Complex multi-step tasks              |
 | **explore** | Search specialist | Finding files, understanding codebase |
 
 ## API Reference
@@ -202,11 +202,11 @@ DELETE /v1/opencode/codebases/{codebase_id}
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OPENCODE_BIN` | Path to opencode binary | Auto-detected |
-| `OPENCODE_DEFAULT_PORT` | Starting port for OpenCode servers | 9777 |
-| `OPENCODE_AUTO_START` | Auto-start OpenCode when triggering | true |
+| Variable                | Description                         | Default       |
+| ----------------------- | ----------------------------------- | ------------- |
+| `OPENCODE_BIN`          | Path to opencode binary             | Auto-detected |
+| `OPENCODE_DEFAULT_PORT` | Starting port for OpenCode servers  | 9777          |
+| `OPENCODE_AUTO_START`   | Auto-start OpenCode when triggering | true          |
 
 ### OpenCode Configuration
 
@@ -214,17 +214,17 @@ You can customize OpenCode behavior by creating an `opencode.json` in your codeb
 
 ```json
 {
-  "model": "anthropic/claude-3-sonnet",
-  "agent": {
-    "build": {
-      "permission": {
-        "edit": "allow",
-        "bash": {
-          "*": "ask"
+    "model": "anthropic/claude-3-sonnet",
+    "agent": {
+        "build": {
+            "permission": {
+                "edit": "allow",
+                "bash": {
+                    "*": "ask"
+                }
+            }
         }
-      }
     }
-  }
 }
 ```
 
@@ -275,12 +275,83 @@ Check the A2A server logs for errors. Common issues:
 2. Trigger the **explore** agent with: "Find all API endpoints and explain the routing structure"
 3. Get a quick overview of the codebase
 
+## RLM (Recursive Language Models)
+
+CodeTether supports RLM, allowing agents to process arbitrarily long contexts through recursive LLM calls in a Python REPL.
+
+### How RLM Works
+
+When an agent encounters a context that exceeds normal limits, it can use the RLM tool to:
+
+1. Load context into a Python variable
+2. Write Python code to analyze it programmatically
+3. Make recursive sub-LLM calls via `llm_query()`
+4. Return final output with `FINAL()` or `FINAL_VAR()`
+
+### RLM Configuration
+
+```bash
+# Model resolution for subcalls
+export A2A_RLM_DEFAULT_SUBCALL_MODEL_REF="zai:glm-4.7"
+export A2A_RLM_FALLBACK_CHAIN="zai:glm-4.7,openai:gpt-4o-mini,controller"
+export A2A_RLM_ALLOW_CONTROLLER_FALLBACK=1
+
+# Guardrails
+export A2A_RLM_MAX_SUBCALLS_PER_ITERATION=5
+export A2A_RLM_MAX_TOTAL_SUBCALLS=100
+export A2A_RLM_MAX_SUBCALL_TOKENS=8000
+export A2A_RLM_MAX_ITERATIONS=20
+
+# Enable on worker
+export OPENCODE_RLM_ENABLED=1
+```
+
+### RLM Python API
+
+In the RLM REPL, agents have access to:
+
+```python
+# Context is pre-loaded
+print(f"Context length: {len(context)}")
+
+# Query the LLM recursively
+answer = llm_query("Summarize the main issues")
+print(answer)
+
+# Use Python for complex analysis
+import re
+matches = re.findall(r"TODO.*", context)
+print(f"Found {len(matches)} TODOs")
+
+# Return final output
+FINAL("Here is my final answer")
+# Or return a variable
+FINAL_VAR(result)
+```
+
+### Model Resolution
+
+RLM uses a priority-based model resolution for subcalls:
+
+1. **Task override** - `subcall_model_ref` in task definition
+2. **Server config** - `A2A_RLM_DEFAULT_SUBCALL_MODEL_REF` env var
+3. **Fallback chain** - `A2A_RLM_FALLBACK_CHAIN` (comma-separated)
+4. **Controller fallback** - Use same model as main controller (if allowed)
+
+### Use Cases
+
+- **Large codebase review** - Analyze monorepos without context limits
+- **Multi-file refactoring** - Coordinate changes across many files
+- **Security audits** - Systematically check for vulnerabilities at scale
+- **Documentation generation** - Extract and synthesize information from many files
+
 ## Security Considerations
 
 - **Path validation**: Only absolute paths within your filesystem are allowed
 - **Process isolation**: Each codebase runs its own OpenCode server
 - **Permission model**: OpenCode's permission system controls what agents can do
 - **No remote access by default**: The A2A server only listens locally
+- **RLM sandboxing**: Python REPL has network disabled by default
 
 ## Contributing
 

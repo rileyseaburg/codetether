@@ -12,8 +12,8 @@ NAMESPACE=${NAMESPACE:-"a2a-server"}
 RELEASE_NAME=${RELEASE_NAME:-"a2a-server"}
 
 # Registry
-REGISTRY=${REGISTRY:-"registry.quantum-forge.net"}
-IMAGE_REPO=${IMAGE_REPO:-"library"}  # e.g. "library"
+REGISTRY=${REGISTRY:-"us-central1-docker.pkg.dev"}
+IMAGE_REPO=${IMAGE_REPO:-"spotlessbinco/codetether"}  # e.g. "library"
 
 # Determine chart source - OCI or local
 CHART_SOURCE=${CHART_SOURCE:-"local"}

@@ -59,7 +59,7 @@ function LoginForm() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
+     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
     try {
       // Try new self-service user auth first

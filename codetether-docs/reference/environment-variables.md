@@ -69,3 +69,15 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 | `A2A_OPENCODE_STORAGE_PATH` | auto-detect | Override OpenCode storage directory |
 | `A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS` | `3` | Recent sessions to sync messages for |
 | `A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES` | `100` | Recent messages per session to sync |
+
+## Agent Discovery (v1.2.2+)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `A2A_AGENT_NAME` | worker name | Agent routing role for `send_to_agent` |
+| `A2A_AGENT_DESCRIPTION` | auto-generated | Human-readable agent description |
+| `A2A_AGENT_URL` | server URL | URL where agent can be reached |
+| `A2A_AGENT_DISCOVERY_MAX_AGE` | `120` | TTL in seconds for stale agent filtering (server-side) |
+
+!!! note "Role vs Name"
+    The `A2A_AGENT_NAME` sets the **routing role** (e.g., `code-reviewer`). The full discovery name is auto-generated as `role:hostname:worker_id` to ensure uniqueness across multiple workers with the same role.

@@ -109,36 +109,34 @@ export function Hero() {
                 <span className="ml-2.5">Star on GitHub</span>
               </Button>
               <Button
-                href="/dashboard"
+                href="https://github.com/rileyseaburg/codetether/blob/main/README.md"
                 variant="outline"
               >
                 <DocsIcon className="h-5 w-5 flex-none" />
-                <span className="ml-2.5">Open Dashboard</span>
+                <span className="ml-2.5">Read Docs</span>
               </Button>
             </div>
           </div>
           <div className="relative mt-10 sm:mt-20 lg:col-span-5 lg:row-span-2 lg:mt-0 xl:col-span-6">
             <BackgroundIllustration className="absolute top-4 left-1/2 h-[1026px] w-[1026px] -translate-x-1/3 mask-[linear-gradient(to_bottom,white_20%,transparent_75%)] stroke-gray-300/70 dark:stroke-gray-700/50 sm:top-16 sm:-translate-x-1/2 lg:-top-16 lg:ml-12 xl:-top-14 xl:ml-0" />
             <div className="-mx-4 h-[448px] px-9 sm:mx-0 lg:absolute lg:-inset-x-10 lg:-top-10 lg:-bottom-20 lg:h-auto lg:px-0 lg:pt-10 xl:-bottom-32">
-              {/* Terminal-style demo */}
               <div className="mx-auto max-w-[500px] rounded-2xl bg-gray-900 p-4 shadow-2xl ring-1 ring-white/10">
                 <div className="flex items-center gap-2 border-b border-gray-700 pb-3">
                   <div className="h-3 w-3 rounded-full bg-red-500" />
                   <div className="h-3 w-3 rounded-full bg-yellow-500" />
                   <div className="h-3 w-3 rounded-full bg-green-500" />
-                  <span className="ml-2 text-sm text-gray-400">codetether-server</span>
+                  <span className="ml-2 text-sm text-gray-400">codetether-cli</span>
                 </div>
                 <div className="mt-4 font-mono text-sm leading-relaxed break-words">
-                  <p className="text-green-400">$ codetether dev</p>
-                  <p className="mt-2 text-gray-400">Starting CodeTether Server...</p>
-                  <p className="text-cyan-400">✓ Message broker started (Redis)</p>
-                  <p className="text-cyan-400">✓ Calculator Agent initialized</p>
-                  <p className="text-cyan-400">✓ Analysis Agent initialized</p>
-                  <p className="text-cyan-400">✓ Memory Agent initialized</p>
-                  <p className="mt-2 text-green-400">INFO: Uvicorn running on http://0.0.0.0:8000</p>
-                  <p className="mt-3 text-gray-400"># Send a message to agents</p>
-                  <p className="text-green-400">$ curl -X POST localhost:8000/</p>
-                  <p className="mt-2 text-yellow-400">{`{"result": "25 * 4 = 100"}`}</p>
+                  <p className="text-green-400">$ codetether worker start --env hospital-vpc</p>
+                  <p className="mt-2 text-gray-400">Initializing Worker in secure VPC...</p>
+                  <p className="text-cyan-400">✓ Pull-based worker started</p>
+                  <p className="text-cyan-400">✓ Connected to CodeTether server (outbound)</p>
+                  <p className="text-cyan-400">✓ Zero inbound ports required</p>
+                  <p className="mt-2 text-gray-400"># Polling for tasks...</p>
+                  <p className="text-yellow-400">&gt; New task: analyze_patient_records()</p>
+                  <p className="mt-2 text-gray-400"># Processing locally (data never leaves VPC)</p>
+                  <p className="text-green-400">✓ Task complete. Streaming result...</p>
                 </div>
               </div>
             </div>
@@ -152,13 +150,13 @@ export function Hero() {
               className="mx-auto mt-8 flex max-w-xl flex-wrap justify-center gap-x-10 gap-y-8 lg:mx-0 lg:justify-start"
             >
               {[
+                ['RLM', '∞'],
                 ['Zero Trust', '🔐'],
                 ['A2A Protocol', '🔗'],
                 ['Pull Architecture', '⬇️'],
                 ['Kubernetes', '☸️'],
                 ['Keycloak SSO', '🛡️'],
                 ['HIPAA Ready', '🏥'],
-                ['SOC2', '✅'],
                 ['On-Prem', '🏢'],
               ].map(([name, emoji]) => (
                 <li key={name} className="flex items-center gap-2">

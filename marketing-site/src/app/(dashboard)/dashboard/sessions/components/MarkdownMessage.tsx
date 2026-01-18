@@ -1,3 +1,6 @@
+'use client'
+
+import { memo, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
@@ -6,7 +9,11 @@ interface MarkdownMessageProps {
     text: string
 }
 
-const components = {
+// Memoize plugins array to prevent recreation on every render
+const remarkPlugins = [remarkGfm, remarkBreaks]
+
+// Memoize components object - this was causing re-renders
+const markdownComponents = {
     a: ({ children, ...props }: any) => (
         <a {...props} className="text-indigo-600 hover:underline dark:text-indigo-400" target="_blank" rel="noreferrer">{children}</a>
     ),
@@ -21,11 +28,29 @@ const components = {
     ol: ({ children, ...props }: any) => <ol {...props} className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>,
 }
 
-export function MarkdownMessage({ text }: MarkdownMessageProps) {
-    if (!text) return null
+function MarkdownMessageInner({ text }: MarkdownMessageProps) {
+    // Memoize the markdown rendering - only re-render when text changes
+    const content = useMemo(() => {
+        if (!text) return null
+        return (
+            <ReactMarkdown 
+                remarkPlugins={remarkPlugins} 
+                components={markdownComponents}
+            >
+                {text}
+            </ReactMarkdown>
+        )
+    }, [text])
+
+    if (!content) return null
+    
     return (
         <div className="text-sm leading-relaxed break-words">
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>{text}</ReactMarkdown>
+            {content}
         </div>
     )
 }
+
+// Memoize the entire component - skip re-render if text hasn't changed
+export const MarkdownMessage = memo(MarkdownMessageInner)
+MarkdownMessage.displayName = 'MarkdownMessage'

@@ -89,27 +89,6 @@ def parse_reply_to_address(to_address: str) -> Dict[str, Optional[str]]:
 
     return result
 
-    local_part = match.group(1)
-
-    # Check if it starts with our prefix
-    prefix = EMAIL_REPLY_PREFIX.lower()
-    if not local_part.startswith(f'{prefix}+'):
-        logger.debug(
-            f'Email to address does not match expected prefix: {to_address}'
-        )
-        return result
-
-    # Extract the parts after the prefix
-    parts_str = local_part[len(prefix) + 1 :]  # +1 for the '+'
-    parts = parts_str.split('+')
-
-    if len(parts) >= 1 and parts[0]:
-        result['session_id'] = parts[0]
-    if len(parts) >= 2 and parts[1]:
-        result['codebase_id'] = parts[1]
-
-    return result
-
 
 def extract_reply_body(text: str, html: Optional[str] = None) -> str:
     """

@@ -184,6 +184,32 @@ async def run_server(args):
     """Run a single server instance with optional MCP HTTP server."""
     setup_logging(args.log_level)
 
+    # Handle RLS and migrations if requested
+    if hasattr(args, 'run_migrations') and args.run_migrations:
+        print("Running database migrations...")
+        from a2a_server.database import db_run_migrations
+        results = await db_run_migrations()
+        if results['applied']:
+            print(f"✓ Applied migrations: {', '.join(results['applied'])}")
+        if results['skipped']:
+            print(f"  Skipped (already applied): {', '.join(results['skipped'])}")
+        if results['failed']:
+            for fail in results['failed']:
+                print(f"✗ Failed: {fail['name']} - {fail['error']}")
+
+    if hasattr(args, 'enable_rls') and args.enable_rls:
+        print("Enabling PostgreSQL Row-Level Security...")
+        from a2a_server.database import db_enable_rls, init_rls_config
+        result = await db_enable_rls()
+        if result['status'] == 'success':
+            print(f"✓ {result['message']}")
+            # Enable RLS in the application
+            os.environ['RLS_ENABLED'] = 'true'
+            init_rls_config()
+        else:
+            print(f"✗ Failed to enable RLS: {result['message']}")
+            print("  Continuing without RLS...")
+
     # Get MCP configuration from environment or args
     mcp_enabled = os.environ.get("MCP_HTTP_ENABLED", "true").lower() == "true"
     mcp_host = os.environ.get("MCP_HTTP_HOST", args.host)
@@ -274,6 +300,8 @@ def main():
     single_parser.add_argument("--agents-sdk", dest="agents_sdk", action="store_true", default=True, help="Use OpenAI Agents SDK (default, recommended)")
     single_parser.add_argument("--basic", dest="enhanced", action="store_false", help="Use basic echo agent only")
     single_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    single_parser.add_argument("--enable-rls", dest="enable_rls", action="store_true", default=False, help="Enable PostgreSQL Row-Level Security for multi-tenant isolation")
+    single_parser.add_argument("--run-migrations", dest="run_migrations", action="store_true", default=False, help="Run database migrations on startup")
 
     # Multiple servers command
     multi_parser = subparsers.add_parser("multi", help="Run multiple example servers")
@@ -299,13 +327,21 @@ def main():
         print("3. Run multiple agents for testing:")
         print("   python run_server.py multi")
         print()
-        print("4. Environment variables:")
+        print("4. Run with Row-Level Security enabled:")
+        print("   python run_server.py run --enable-rls")
+        print()
+        print("5. Run database migrations:")
+        print("   python run_server.py run --run-migrations")
+        print()
+        print("6. Environment variables:")
         print("   A2A_HOST=0.0.0.0")
         print("   A2A_PORT=8000")
         print("   A2A_REDIS_URL=redis://localhost:6379")
         print("   A2A_AUTH_ENABLED=true")
         print("   A2A_AUTH_TOKENS=agent1:token123,agent2:token456")
         print("   A2A_LOG_LEVEL=INFO")
+        print("   RLS_ENABLED=true           # Enable Row-Level Security")
+        print("   RLS_STRICT_MODE=false      # Require tenant context for all queries")
     else:
         parser.print_help()
 

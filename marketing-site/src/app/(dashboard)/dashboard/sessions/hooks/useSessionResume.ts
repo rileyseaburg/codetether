@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { API_URL, Session } from '../types'
 
 interface UseSessionResumeProps {
@@ -38,6 +38,18 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
     const [actionStatus, setActionStatus] = useState<string | null>(null)
     const abortControllerRef = useRef<AbortController | null>(null)
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Cleanup on unmount to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
+            }
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+            }
+        }
+    }, [])
 
     const resumeSession = async (session: Session, prompt: string | null) => {
         if (!selectedCodebase || !session?.id) return

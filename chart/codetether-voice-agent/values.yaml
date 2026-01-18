@@ -1,12 +1,12 @@
 replicaCount: 1
 
 image:
-  repository: registry.quantum-forge.net/library/codetether-voice-agent
-  tag: "0.1.0"
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-voice-agent
+  tag: "latest"
   pullPolicy: Always
 
 imagePullSecrets:
-  - name: registry-credentials
+  - name: gcr-pull-secret
 
 serviceAccount:
   create: true

@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import type { ChatItem } from '../types'
 import { formatDate } from '../utils'
 import { MessageBubble } from './MessageBubble'
@@ -8,10 +9,13 @@ interface ChatMessageProps {
     totalMessages?: number
 }
 
-export function ChatMessage({ message: m, messageIndex, totalMessages }: ChatMessageProps) {
-    const positionLabel = messageIndex && totalMessages
-        ? `Message ${messageIndex} of ${totalMessages}`
-        : undefined
+function ChatMessageInner({ message: m, messageIndex, totalMessages }: ChatMessageProps) {
+    const positionLabel = useMemo(() => 
+        messageIndex && totalMessages
+            ? `Message ${messageIndex} of ${totalMessages}`
+            : undefined,
+        [messageIndex, totalMessages]
+    )
 
     if (m.role === 'system') {
         return (
@@ -39,7 +43,24 @@ export function ChatMessage({ message: m, messageIndex, totalMessages }: ChatMes
     )
 }
 
-function MessageHeader({ message: m, isUser }: { message: ChatItem; isUser: boolean }) {
+// Memoize to prevent re-renders when parent re-renders
+// Only re-render when message content actually changes
+export const ChatMessage = memo(ChatMessageInner, (prevProps, nextProps) => {
+    // Custom comparison - only re-render if message key or text changes
+    const prev = prevProps.message
+    const next = nextProps.message
+    return (
+        prev.key === next.key &&
+        prev.text === next.text &&
+        prev.role === next.role &&
+        prevProps.messageIndex === nextProps.messageIndex &&
+        prevProps.totalMessages === nextProps.totalMessages
+    )
+})
+ChatMessage.displayName = 'ChatMessage'
+
+// Memoized header component to prevent unnecessary re-renders
+const MessageHeader = memo(function MessageHeader({ message: m, isUser }: { message: ChatItem; isUser: boolean }) {
     const dateText = m.createdAt ? formatDate(m.createdAt) : null
 
     return (
@@ -71,4 +92,5 @@ function MessageHeader({ message: m, isUser }: { message: ChatItem; isUser: bool
             )}
         </div>
     )
-}
+})
+MessageHeader.displayName = 'MessageHeader'
