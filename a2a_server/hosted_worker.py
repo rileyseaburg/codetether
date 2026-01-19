@@ -18,11 +18,13 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import signal
 import socket
 import sys
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import asyncpg
@@ -290,39 +292,44 @@ class HostedWorker:
             self._current_task_id = None
 
     async def _get_task_details(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """Get task details from the API."""
+        """Get task details from the API or directly from DB."""
+        # First try to get from database directly (faster, more reliable)
+        try:
+            async with self._pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    SELECT id, title, prompt, agent_type, codebase_id, status, 
+                           metadata, created_at
+                    FROM tasks WHERE id = $1
+                    """,
+                    task_id,
+                )
+                if row:
+                    return {
+                        'id': row['id'],
+                        'title': row['title'],
+                        'description': row['prompt'],
+                        'prompt': row['prompt'],
+                        'agent_type': row['agent_type'],
+                        'codebase_id': row['codebase_id'],
+                        'status': row['status'],
+                        'metadata': row['metadata'] or {},
+                        'created_at': row['created_at'].isoformat()
+                        if row['created_at']
+                        else None,
+                    }
+        except Exception as e:
+            logger.warning(f'Failed to get task {task_id} from DB: {e}')
+
+        # Fallback to REST API
         if not self._http_client:
             return None
         try:
-            response = await self._http_client.post(
-                f'{self._api_base_url}/mcp/v1/rpc',
-                json={
-                    'jsonrpc': '2.0',
-                    'method': 'tools/call',
-                    'params': {
-                        'name': 'get_task',
-                        'arguments': {'task_id': task_id},
-                    },
-                    'id': str(uuid.uuid4()),
-                },
+            response = await self._http_client.get(
+                f'{self._api_base_url}/v1/opencode/tasks/{task_id}',
             )
             response.raise_for_status()
-            data = response.json()
-
-            if 'error' in data:
-                logger.error(
-                    f'API error getting task {task_id}: {data["error"]}'
-                )
-                return None
-
-            result = data.get('result', {})
-            # Handle MCP response format
-            if isinstance(result, dict) and 'content' in result:
-                for content in result['content']:
-                    if content.get('type') == 'text':
-                        return json.loads(content['text'])
-            return result
-
+            return response.json()
         except Exception as e:
             logger.error(f'Failed to get task {task_id}: {e}')
             return None
@@ -357,63 +364,269 @@ class HostedWorker:
             f'Running task {task_id}: agent={agent_type}, codebase={codebase_id}{model_info}'
         )
 
-        # For global/pending tasks, we can execute directly via API
-        # This triggers the existing execution path which may use SSE workers
-        # or we can implement direct execution here
+        # For global/custom automation tasks, call LLM directly via Anthropic API
+        # For codebase tasks, use the OpenCode bridge
+        if not codebase_id or codebase_id == 'global' or codebase_id == 'None':
+            return await self._run_llm_task(task_id, prompt, model)
 
-        # Option 1: Use the continue_task endpoint to trigger execution
-        # This works with the existing worker infrastructure
+        # Execute codebase task via the OpenCode bridge sync endpoint
         if not self._http_client:
             raise Exception('HTTP client not initialized')
+
         try:
-            response = await self._http_client.post(
-                f'{self._api_base_url}/mcp/v1/rpc',
+            # Create a session for this task execution
+            session_response = await self._http_client.post(
+                f'{self._api_base_url}/v1/opencode/sessions',
                 json={
-                    'jsonrpc': '2.0',
-                    'method': 'tools/call',
-                    'params': {
-                        'name': 'continue_task',
-                        'arguments': {
-                            'task_id': task_id,
-                            'input': prompt,  # Pass the prompt as continuation
-                        },
-                    },
-                    'id': str(uuid.uuid4()),
+                    'codebase_id': codebase_id,
+                    'agent_type': agent_type,
+                    'model': model,
                 },
-                timeout=self._lease_duration,  # Don't timeout before lease
+                timeout=30,
             )
-            response.raise_for_status()
-            data = response.json()
 
-            if 'error' in data:
-                raise Exception(f'Task execution error: {data["error"]}')
+            if session_response.status_code != 200:
+                logger.warning(f'Session creation failed, falling back to LLM')
+                return await self._run_llm_task(task_id, prompt, model)
 
-            result = data.get('result', {})
+            session_data = session_response.json()
+            session_id = session_data.get('session_id', f'task-{task_id}')
 
-            # Extract result from MCP format
-            if isinstance(result, dict) and 'content' in result:
-                for content in result['content']:
-                    if content.get('type') == 'text':
-                        try:
-                            return json.loads(content['text'])
-                        except json.JSONDecodeError:
-                            return {
-                                'summary': content['text'],
-                                'raw': content['text'],
-                            }
+            # Send the message synchronously
+            message_response = await self._http_client.post(
+                f'{self._api_base_url}/v1/opencode/sessions/{session_id}/messages/sync',
+                json={
+                    'content': prompt,
+                    'model': model,
+                },
+                timeout=self._lease_duration,
+            )
+            message_response.raise_for_status()
+            result = message_response.json()
 
-            return {'summary': 'Task completed', 'result': result}
+            return {
+                'summary': result.get('content', 'Task completed')[:500],
+                'result': result,
+                'session_id': session_id,
+            }
 
         except httpx.TimeoutException:
-            # Task took too long - it may still be running
-            # Check task status
-            task_details = await self._get_task_details(task_id)
-            if task_details and task_details.get('status') == 'completed':
-                return {
-                    'summary': 'Task completed (timeout during response)',
-                    'result': task_details,
-                }
             raise Exception('Task execution timed out')
+        except Exception as e:
+            logger.warning(
+                f'Task execution via API failed: {e}, falling back to LLM'
+            )
+            return await self._run_llm_task(task_id, prompt, model)
+
+    async def _run_llm_task(
+        self, task_id: str, prompt: str, model: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a global task via OpenCode CLI.
+
+        This runs OpenCode as a subprocess, which handles LLM provider
+        authentication and execution.
+        """
+        # Find OpenCode binary
+        opencode_bin = self._find_opencode_binary()
+        if not opencode_bin:
+            raise Exception(
+                'OpenCode binary not found. Install OpenCode or set OPENCODE_BIN env var.'
+            )
+
+        # Map model to OpenCode format if needed
+        opencode_model = self._normalize_model_for_opencode(model)
+
+        logger.info(
+            f'Running task {task_id} via OpenCode CLI'
+            f'{f" with model {opencode_model}" if opencode_model else ""}'
+        )
+
+        # Build command
+        cmd = [
+            opencode_bin,
+            'run',
+            '--agent',
+            'general',  # Use general agent for custom automation
+            '--format',
+            'json',  # Get structured output
+        ]
+
+        if opencode_model:
+            cmd.extend(['--model', opencode_model])
+
+        # Add the prompt
+        cmd.append('--')
+        cmd.append(prompt)
+
+        # Execute OpenCode as subprocess
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(Path.home()),  # Run in home directory for global tasks
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={
+                    **os.environ,
+                    'NO_COLOR': '1',  # Disable color codes in output
+                },
+            )
+
+            # Wait for completion with timeout
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=self._lease_duration - 60,  # Leave margin for cleanup
+            )
+
+            if process.returncode != 0:
+                error_msg = stderr.decode('utf-8', errors='replace').strip()
+                logger.error(f'OpenCode failed for task {task_id}: {error_msg}')
+                raise Exception(f'OpenCode execution failed: {error_msg}')
+
+            # Parse OpenCode streaming JSON output
+            # OpenCode outputs one JSON object per line (NDJSON format)
+            output = stdout.decode('utf-8', errors='replace').strip()
+            content = self._parse_opencode_output(output)
+
+            # Truncate for summary
+            summary = content[:500] + '...' if len(content) > 500 else content
+
+            return {
+                'summary': summary,
+                'result': content,
+                'model': opencode_model,
+                'exit_code': process.returncode,
+            }
+
+        except asyncio.TimeoutError:
+            logger.error(f'OpenCode timed out for task {task_id}')
+            raise Exception('Task execution timed out')
+        except Exception as e:
+            logger.error(f'OpenCode execution error for task {task_id}: {e}')
+            raise
+
+    def _find_opencode_binary(self) -> Optional[str]:
+        """Find the OpenCode binary path."""
+        # Check environment variable first
+        env_bin = os.environ.get('OPENCODE_BIN')
+        if env_bin and os.path.isfile(env_bin) and os.access(env_bin, os.X_OK):
+            return env_bin
+
+        # Check common locations
+        candidates = [
+            '/opt/a2a-worker/bin/opencode',
+            str(Path.home() / '.local' / 'bin' / 'opencode'),
+            '/usr/local/bin/opencode',
+            '/usr/bin/opencode',
+        ]
+
+        for candidate in candidates:
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+
+        # Try PATH
+        path_bin = shutil.which('opencode')
+        if path_bin:
+            return path_bin
+
+        return None
+
+    def _normalize_model_for_opencode(
+        self, model: Optional[str]
+    ) -> Optional[str]:
+        """
+        Convert model identifier to OpenCode format (provider/model).
+
+        Input formats:
+        - "claude-sonnet" -> "anthropic/claude-sonnet-4-20250514"
+        - "anthropic:claude-sonnet-4" -> "anthropic/claude-sonnet-4"
+        - None -> None (use OpenCode default)
+        """
+        if not model:
+            return None
+
+        # If already in provider/model format, use as-is
+        if '/' in model:
+            return model
+
+        # Convert provider:model to provider/model
+        if ':' in model:
+            provider, model_name = model.split(':', 1)
+            return f'{provider}/{model_name}'
+
+        # Map friendly names to full model specs
+        model_map = {
+            'claude-sonnet': 'anthropic/claude-sonnet-4-20250514',
+            'claude-opus': 'anthropic/claude-opus-4-20250514',
+            'claude-haiku': 'anthropic/claude-3-5-haiku-20241022',
+            'sonnet': 'anthropic/claude-sonnet-4-20250514',
+            'opus': 'anthropic/claude-opus-4-20250514',
+            'haiku': 'anthropic/claude-3-5-haiku-20241022',
+            'gpt-4': 'openai/gpt-4',
+            'gpt-4o': 'openai/gpt-4o',
+            'gpt-4.1': 'openai/gpt-4.1',
+            'o1': 'openai/o1',
+            'o3': 'openai/o3',
+            'gemini': 'google/gemini-2.5-pro',
+            'gemini-pro': 'google/gemini-2.5-pro',
+            'gemini-flash': 'google/gemini-2.5-flash',
+            'minimax': 'minimax/minimax-m2.1',
+            'grok': 'xai/grok-3',
+            'default': None,  # Let OpenCode use its default
+        }
+
+        return model_map.get(model.lower(), model)
+
+    def _parse_opencode_output(self, output: str) -> str:
+        """
+        Parse OpenCode's streaming JSON output to extract the text content.
+
+        OpenCode outputs NDJSON (newline-delimited JSON) with various event types:
+        - step_start: Agent starting
+        - text: Actual text content from the LLM
+        - tool_call: Tool being called
+        - tool_result: Tool result
+        - step_finish: Agent finished
+        - summary: Session summary
+
+        We extract all 'text' events and concatenate them.
+        """
+        text_parts = []
+
+        for line in output.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                event = json.loads(line)
+                event_type = event.get('type')
+
+                if event_type == 'text':
+                    # Extract text from the part
+                    part = event.get('part', {})
+                    text = part.get('text', '')
+                    if text:
+                        text_parts.append(text)
+                elif event_type == 'summary':
+                    # Summary event contains overall session summary
+                    part = event.get('part', {})
+                    summary = part.get('summary', '')
+                    if summary and not text_parts:
+                        # Use summary if we didn't get any text
+                        text_parts.append(summary)
+
+            except json.JSONDecodeError:
+                # Not JSON, might be plain text output
+                if line and not line.startswith('{'):
+                    text_parts.append(line)
+
+        if text_parts:
+            return '\n'.join(text_parts)
+
+        # Fallback: return raw output if we couldn't parse anything
+        return output
 
     async def _heartbeat_loop(self, run_id: str) -> None:
         """Periodically renew the lease on the current job."""
@@ -656,8 +869,17 @@ class HostedWorker:
         if not self._http_client:
             return
 
+        # Determine event type
+        event_map = {
+            'running': 'task_started',
+            'needs_input': 'task_needs_input',
+            'completed': 'task_completed',
+            'failed': 'task_failed',
+        }
+        event = event_map.get(status, 'task_update')
+
         payload = {
-            'event': 'task_completed',
+            'event': event,
             'run_id': run_id,
             'task_id': task_id,
             'status': status,
@@ -666,14 +888,34 @@ class HostedWorker:
             'timestamp': datetime.now(timezone.utc).isoformat(),
         }
 
+        # Add webhook signature
+        webhook_secret = os.environ.get('CODETETHER_WEBHOOK_SECRET')
+        if webhook_secret:
+            from .webhook_security import generate_webhook_signature
+            import json
+
+            payload_json = json.dumps(payload)
+            signature = generate_webhook_signature(payload_json, webhook_secret)
+            headers = {
+                'X-CodeTether-Signature': signature,
+                'X-CodeTether-Timestamp': str(
+                    int(datetime.now(timezone.utc).timestamp())
+                ),
+            }
+        else:
+            headers = {}
+
         try:
             response = await self._http_client.post(
                 url,
                 json=payload,
+                headers=headers,
                 timeout=10.0,
             )
             if response.status_code < 300:
-                logger.info(f'Webhook called successfully for run {run_id}')
+                logger.info(
+                    f'Webhook called successfully for run {run_id} (event={event})'
+                )
             else:
                 logger.warning(
                     f'Webhook returned {response.status_code} for run {run_id}'
