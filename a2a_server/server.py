@@ -59,6 +59,33 @@ from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
 from .a2a_agent_card import a2a_agent_card_router
 
+# Import admin API for system overview
+try:
+    from .admin_api import router as admin_router
+
+    ADMIN_API_AVAILABLE = True
+except ImportError:
+    ADMIN_API_AVAILABLE = False
+    admin_router = None
+
+# Import automation API for third-party platforms
+try:
+    from .automation_api import router as automation_api_router
+
+    AUTOMATION_API_AVAILABLE = True
+except ImportError:
+    AUTOMATION_API_AVAILABLE = False
+    automation_api_router = None
+
+# Import OAuth 2.0 server for platform integration
+try:
+    from .oauth2_server import router as oauth_router
+
+    OAUTH_SERVER_AVAILABLE = True
+except ImportError:
+    OAUTH_SERVER_AVAILABLE = False
+    oauth_router = None
+
 # Import A2A protocol router for standards-compliant agent communication
 try:
     from .a2a_router import create_a2a_router
@@ -170,6 +197,25 @@ class A2AServer:
                 self.agent_id, self._agent_name
             )
 
+        # Start background task reaper for stuck task recovery
+        @self.app.on_event('startup')
+        async def start_reaper():
+            try:
+                from .task_reaper import start_task_reaper
+
+                await start_task_reaper()
+            except Exception as e:
+                logger.warning(f'Failed to start task reaper: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_reaper():
+            try:
+                from .task_reaper import stop_task_reaper
+
+                await stop_task_reaper()
+            except Exception:
+                pass
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
@@ -266,6 +312,21 @@ class A2AServer:
         # Include A2A protocol compliant agent card endpoint
         # This serves the standard /.well-known/agent-card.json for discovery
         self.app.include_router(a2a_agent_card_router)
+
+        # Include admin API for system overview dashboard
+        if ADMIN_API_AVAILABLE and admin_router:
+            self.app.include_router(admin_router)
+            logger.info('Admin API router mounted at /v1/admin')
+
+        # Include automation API for third-party platforms
+        if AUTOMATION_API_AVAILABLE and automation_api_router:
+            self.app.include_router(automation_api_router)
+            logger.info('Automation API router mounted at /v1/automation')
+
+        # Include OAuth 2.0 server for platform integration
+        if OAUTH_SERVER_AVAILABLE and oauth_router:
+            self.app.include_router(oauth_router)
+            logger.info('OAuth 2.0 server mounted at /oauth')
 
         # Include A2A protocol router for standards-compliant agent communication
         # This provides JSON-RPC and REST bindings at /a2a/*

@@ -20,7 +20,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from collections import deque
 from dataclasses import dataclass, asdict
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Security
 from fastapi.responses import (
     StreamingResponse,
     HTMLResponse,
@@ -28,6 +28,7 @@ from fastapi.responses import (
     JSONResponse,
 )
 from pydantic import BaseModel
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 import io
 import tempfile
@@ -3298,6 +3299,22 @@ def transform_opencode_event(
             'session_id': properties.get('sessionID'),
         }
 
+    # RLM routing decision
+    if event_type == 'rlm.routing.decision':
+        return {
+            'event_type': 'rlm.routing',
+            'codebase_id': codebase_id,
+            'session_id': properties.get('sessionID'),
+            'tool': properties.get('tool'),
+            'call_id': properties.get('callID'),
+            'decision': properties.get('decision'),
+            'reason': properties.get('reason'),
+            'estimated_tokens': properties.get('estimatedTokens'),
+            'context_limit': properties.get('contextLimit'),
+            'threshold': properties.get('threshold'),
+            'mode': properties.get('mode'),
+        }
+
     # File edits
     if event_type == 'file.edited':
         return {
@@ -3397,6 +3414,34 @@ async def list_all_tasks(
         worker_id=worker_id,
     )
     return tasks
+
+
+@opencode_router.post('/tasks')
+async def create_global_task(task_data: AgentTaskCreate):
+    """Create a new global task (not tied to a specific codebase).
+
+    Useful for custom automations that don't need a codebase context.
+    """
+    bridge = get_opencode_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='OpenCode bridge not available'
+        )
+
+    # Create task with a global/default codebase context
+    task = await bridge.create_task(
+        codebase_id='global',  # Use 'global' as a special codebase for global tasks
+        title=task_data.title,
+        prompt=task_data.prompt,
+        agent_type=task_data.agent_type,
+        priority=task_data.priority,
+        metadata=task_data.metadata,
+    )
+
+    if not task:
+        raise HTTPException(status_code=500, detail='Failed to create task')
+
+    return task
 
 
 @opencode_router.post('/codebases/{codebase_id}/tasks')
@@ -3594,12 +3639,46 @@ async def _merge_sessions_with_database(
 
 
 @opencode_router.get('/codebases/{codebase_id}/sessions')
-async def list_sessions(codebase_id: str):
-    """List all sessions for a codebase from OpenCode's local storage or worker sync."""
+async def list_sessions(
+    codebase_id: str,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """List sessions for a codebase with pagination.
+
+    Args:
+        codebase_id: The codebase ID
+        limit: Max sessions to return (default 50, max 200)
+        offset: Number of sessions to skip for pagination
+    """
     import aiohttp
+
+    # Clamp limit to reasonable bounds
+    limit = min(max(1, limit), 200)
+    offset = max(0, offset)
 
     bridge = get_opencode_bridge()
     codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
+
+    def _paginate_sessions(sessions: list, source: str, synced_at=None) -> dict:
+        """Apply pagination to sessions list and return response dict."""
+        # Sort by updated/created time descending
+        sorted_sessions = sorted(
+            sessions,
+            key=lambda s: s.get('updated') or s.get('created') or '',
+            reverse=True,
+        )
+        total = len(sorted_sessions)
+        paginated = sorted_sessions[offset : offset + limit]
+        return {
+            'sessions': paginated,
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+            'hasMore': offset + len(paginated) < total,
+            'source': source,
+            'synced_at': synced_at,
+        }
 
     # Check Redis-backed worker-synced sessions first (for remote codebases / multi-replica).
     redis_client = await _get_redis_client()
@@ -3619,13 +3698,13 @@ async def list_sessions(codebase_id: str):
                     merged = await _merge_sessions_with_database(
                         codebase_id, sessions
                     )
-                    return {
-                        'sessions': merged,
-                        'source': 'worker_sync',
-                        'synced_at': payload.get('updated_at')
+                    return _paginate_sessions(
+                        merged,
+                        'worker_sync',
+                        payload.get('updated_at')
                         if isinstance(payload, dict)
                         else None,
-                    }
+                    )
         except Exception as e:
             logger.debug(f'Failed to read worker sessions from Redis: {e}')
 
@@ -3634,7 +3713,7 @@ async def list_sessions(codebase_id: str):
         merged = await _merge_sessions_with_database(
             codebase_id, _worker_sessions[codebase_id]
         )
-        return {'sessions': merged, 'source': 'worker_sync'}
+        return _paginate_sessions(merged, 'worker_sync')
 
     # If we don't have a codebase locally, try to rehydrate it so we can query
     # the OpenCode API / local state for local codebases.
@@ -3655,7 +3734,7 @@ async def list_sessions(codebase_id: str):
                         merged = await _merge_sessions_with_database(
                             codebase_id, sessions
                         )
-                        return {'sessions': merged, 'source': 'opencode_api'}
+                        return _paginate_sessions(merged, 'opencode_api')
         except Exception as e:
             logger.warning(f'Failed to query OpenCode API: {e}')
 
@@ -3664,7 +3743,7 @@ async def list_sessions(codebase_id: str):
         sessions = await _read_local_sessions(codebase.path)
         if sessions:
             merged = await _merge_sessions_with_database(codebase_id, sessions)
-            return {'sessions': merged, 'source': 'local_state'}
+            return _paginate_sessions(merged, 'local_state')
 
     # Durable fallback: PostgreSQL persistence (common for remote workers).
     try:
@@ -3672,7 +3751,7 @@ async def list_sessions(codebase_id: str):
             codebase_id=codebase_id, limit=500
         )
         if persisted:
-            return {'sessions': persisted, 'source': 'database'}
+            return _paginate_sessions(persisted, 'database')
     except Exception as e:
         logger.debug(f'Failed to read sessions from PostgreSQL: {e}')
 
@@ -3690,7 +3769,7 @@ async def list_sessions(codebase_id: str):
     if not exists:
         raise HTTPException(status_code=404, detail='Codebase not found')
 
-    return {'sessions': [], 'source': 'database'}
+    return _paginate_sessions([], 'database')
 
 
 class SessionSyncRequest(BaseModel):
@@ -5067,6 +5146,188 @@ async def cancel_task(task_id: str):
 
 
 # ========================================
+# Task Reaper / Stuck Task Recovery
+# ========================================
+
+
+@opencode_router.get('/tasks/stuck')
+async def get_stuck_tasks(
+    timeout_seconds: int = 300,
+):
+    """
+    Get list of tasks that appear to be stuck.
+
+    A task is considered stuck if:
+    - Status is 'running'
+    - started_at is older than timeout_seconds
+
+    Args:
+        timeout_seconds: How long before a task is considered stuck (default: 300)
+    """
+    from datetime import timedelta
+
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    cutoff = datetime.utcnow() - timedelta(seconds=timeout_seconds)
+
+    async with pool.acquire() as conn:
+        stuck_tasks = await conn.fetch(
+            """
+            SELECT id, codebase_id, title, status, priority, worker_id, 
+                   started_at, created_at,
+                   EXTRACT(EPOCH FROM (NOW() - started_at))::int as stuck_seconds,
+                   COALESCE((metadata->>'attempts')::int, 1) as attempts,
+                   error
+            FROM tasks
+            WHERE status = 'running'
+              AND started_at < $1
+            ORDER BY started_at ASC
+            """,
+            cutoff,
+        )
+
+    return {
+        'timeout_seconds': timeout_seconds,
+        'count': len(stuck_tasks),
+        'tasks': [dict(t) for t in stuck_tasks],
+    }
+
+
+@opencode_router.post('/tasks/stuck/recover')
+async def recover_stuck_tasks():
+    """
+    Manually trigger recovery of stuck tasks.
+
+    This will:
+    1. Find all tasks stuck in 'running' status
+    2. Requeue them for retry (if under max attempts)
+    3. Mark them as failed (if max attempts exceeded)
+
+    Returns statistics about the recovery operation.
+    """
+    try:
+        from .task_reaper import get_task_reaper, TaskReaper
+
+        reaper = get_task_reaper()
+        if reaper is None:
+            # Create a temporary reaper for manual recovery
+            reaper = TaskReaper()
+
+        stats = await reaper.recover_stuck_tasks()
+
+        return {
+            'success': True,
+            'stats': stats.to_dict(),
+        }
+    except Exception as e:
+        logger.error(f'Manual task recovery failed: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@opencode_router.post('/tasks/{task_id}/requeue')
+async def requeue_task(task_id: str):
+    """
+    Manually requeue a specific task.
+
+    This will reset the task to 'pending' status so it can be picked up
+    by a worker again. Useful for recovering a single stuck task.
+    """
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    async with pool.acquire() as conn:
+        # Check if task exists and is in a recoverable state
+        task = await conn.fetchrow(
+            'SELECT id, status, metadata FROM tasks WHERE id = $1',
+            task_id,
+        )
+
+        if not task:
+            raise HTTPException(status_code=404, detail='Task not found')
+
+        if task['status'] not in ('running', 'failed'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot requeue task with status '{task['status']}'. "
+                f"Only 'running' or 'failed' tasks can be requeued.",
+            )
+
+        # Update attempt count in metadata
+        import json
+
+        metadata = task['metadata']
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata) if metadata else {}
+        elif metadata is None:
+            metadata = {}
+
+        attempts = metadata.get('attempts', 1)
+        metadata['attempts'] = attempts + 1
+        metadata['manual_requeue_at'] = datetime.utcnow().isoformat()
+
+        # Requeue the task
+        await conn.execute(
+            """
+            UPDATE tasks SET
+                status = 'pending',
+                started_at = NULL,
+                completed_at = NULL,
+                worker_id = NULL,
+                error = $2,
+                metadata = $3,
+                updated_at = NOW()
+            WHERE id = $1
+            """,
+            task_id,
+            f'Manually requeued (attempt {attempts + 1})',
+            json.dumps(metadata),
+        )
+
+    # Notify workers
+    try:
+        from .worker_sse import get_worker_registry
+
+        registry = get_worker_registry()
+        if registry:
+            await registry.broadcast_task_available(task_id)
+    except Exception:
+        pass
+
+    return {
+        'success': True,
+        'task_id': task_id,
+        'message': f'Task requeued for retry (attempt {attempts + 1})',
+    }
+
+
+@opencode_router.get('/reaper/health')
+async def get_reaper_health():
+    """Get the health status of the task reaper."""
+    try:
+        from .task_reaper import get_task_reaper
+
+        reaper = get_task_reaper()
+        if reaper is None:
+            return {
+                'status': 'not_running',
+                'message': 'Task reaper is not initialized',
+            }
+
+        return {
+            'status': 'healthy',
+            **reaper.get_health(),
+        }
+    except Exception as e:
+        return {
+            'status': 'error',
+            'error': str(e),
+        }
+
+
+# ========================================
 # Authentication & User Session Management
 # ========================================
 
@@ -5440,7 +5701,7 @@ async def nextauth_callback(code: str, state: str):
 # API Key Management Endpoints (Per-User, Vault-backed)
 # =============================================================================
 # These endpoints allow users to manage their LLM provider API keys through the UI.
-# Keys are stored in HashiCorp Vault, scoped to the authenticated Keycloak user.
+# Keys are stored in HashiCorp Vault, scoped to the authenticated user.
 
 from .vault_client import (
     KNOWN_PROVIDERS,
@@ -5453,7 +5714,57 @@ from .vault_client import (
     check_vault_connection,
     test_api_key as vault_test_api_key,
 )
-from .keycloak_auth import get_current_user, require_auth, UserSession
+from .keycloak_auth import (
+    get_current_user as get_keycloak_user,
+    require_auth,
+    UserSession,
+)
+from .user_auth import get_current_user as get_self_service_user
+
+
+@dataclass
+class ApiKeyUser:
+    user_id: str
+    email: str = ''
+    auth_source: str = 'keycloak'
+
+
+_api_key_auth_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_current_api_key_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(
+        _api_key_auth_scheme
+    ),
+) -> Optional[ApiKeyUser]:
+    if not credentials:
+        return None
+
+    keycloak_user = await get_keycloak_user(credentials)
+    if keycloak_user:
+        return ApiKeyUser(
+            user_id=keycloak_user.user_id,
+            email=keycloak_user.email,
+            auth_source='keycloak',
+        )
+
+    try:
+        self_service_user = await get_self_service_user(credentials)
+    except HTTPException:
+        self_service_user = None
+
+    if self_service_user:
+        user_id = self_service_user.get('id') or self_service_user.get(
+            'user_id'
+        )
+        if user_id:
+            return ApiKeyUser(
+                user_id=user_id,
+                email=self_service_user.get('email', ''),
+                auth_source='self-service',
+            )
+
+    return None
 
 
 class APIKeyCreate(BaseModel):
@@ -5493,7 +5804,7 @@ async def vault_status():
 
 @opencode_router.get('/api-keys')
 async def list_api_keys(
-    user: Optional[UserSession] = Depends(get_current_user),
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
     """List all configured API keys for the current user (without exposing full keys)."""
     if not user:
@@ -5522,7 +5833,7 @@ async def list_api_keys(
 @opencode_router.post('/api-keys')
 async def create_or_update_api_key(
     key_data: APIKeyCreate,
-    user: Optional[UserSession] = Depends(get_current_user),
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
     """Create or update an API key for a provider for the current user."""
     if not user:
@@ -5562,7 +5873,7 @@ async def create_or_update_api_key(
 @opencode_router.delete('/api-keys/{provider_id}')
 async def delete_api_key(
     provider_id: str,
-    user: Optional[UserSession] = Depends(get_current_user),
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
     """Delete an API key for a provider for the current user."""
     if not user:
@@ -5581,7 +5892,7 @@ async def delete_api_key(
 async def get_api_keys_for_sync(
     user_id: Optional[str] = None,
     worker_id: Optional[str] = None,
-    user: Optional[UserSession] = Depends(get_current_user),
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
     """
     Get all API keys for worker sync.
@@ -5612,7 +5923,7 @@ async def get_api_keys_for_sync(
 @opencode_router.post('/api-keys/test')
 async def test_api_key_endpoint(
     key_data: APIKeyCreate,
-    user: Optional[UserSession] = Depends(get_current_user),
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
     """Test an API key by making a simple request to the provider."""
     # Allow testing without auth (just testing the key itself)
