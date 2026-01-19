@@ -18,7 +18,8 @@ export default function CustomAutomationPage() {
       const token = localStorage.getItem('a2a_token')
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
 
-      const response = await fetch(`${apiUrl}/v1/opencode/tasks`, {
+      // Use the automation API which queues tasks and sends email notifications
+      const response = await fetch(`${apiUrl}/v1/automation/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -26,13 +27,10 @@ export default function CustomAutomationPage() {
         },
         body: JSON.stringify({
           title: 'Custom Automation Request',
-          prompt: prompt,
+          description: prompt,
           agent_type: 'general',
           priority: 1,
-          metadata: {
-            type: 'custom',
-            notify_email: email || undefined,
-          },
+          notify_email: email || undefined,  // Email goes to worker queue for notification
         }),
       })
 
@@ -40,7 +38,7 @@ export default function CustomAutomationPage() {
         const data = await response.json()
         setResult({
           success: true,
-          message: `Automation started! Task ID: ${data.id}. Results will be emailed to you when complete.`,
+          message: `Automation started! Task ID: ${data.task_id}. Results will be emailed to you when complete.`,
         })
         setPrompt('')
       } else {
