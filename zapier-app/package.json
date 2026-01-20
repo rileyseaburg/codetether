@@ -1,0 +1,19 @@
+{
+  "name": "codetether-zapier",
+  "version": "1.1.0",
+  "description": "CodeTether integration for Zapier - AI-powered task automation",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --testTimeout 10000"
+  },
+  "dependencies": {
+    "zapier-platform-core": "15.5.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "private": true,
+  "zapier": {
+    "id": 235522
+  }
+}
