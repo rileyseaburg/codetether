@@ -189,6 +189,8 @@ async def handle_inbound_email(
     3. Set destination URL to: https://api.codetether.run/v1/email/inbound
     4. Enable "POST the raw, full MIME message"
     """
+    from . import database as db
+
     logger.info(
         f'Received inbound email from {from_} to {to} subject: {subject}'
     )
@@ -198,19 +200,52 @@ async def handle_inbound_email(
     session_id = context.get('session_id')
     codebase_id = context.get('codebase_id')
 
+    # Extract the actual reply content (without quoted text)
+    reply_body = extract_reply_body(text, html)
+
+    # Log the inbound email to the database
+    email_id = await db.db_log_inbound_email(
+        from_email=from_,
+        to_email=to,
+        subject=subject,
+        body_text=reply_body or text,
+        body_html=html if html else None,
+        session_id=session_id,
+        codebase_id=codebase_id,
+        sender_ip=sender_ip,
+        spf_result=SPF,
+        status='received',
+        metadata={
+            'envelope': envelope,
+            'charsets': charsets,
+            'original_text_length': len(text) if text else 0,
+            'extracted_text_length': len(reply_body) if reply_body else 0,
+        },
+    )
+
     if not session_id:
         logger.warning(f'Could not extract session_id from to address: {to}')
+        # Update the email record with error
+        if email_id:
+            await db.db_update_inbound_email(
+                email_id,
+                status='failed',
+                error='Could not parse session context from address',
+            )
         # Still accept the webhook to prevent SendGrid retries
         return {
             'success': False,
             'error': 'Could not parse session context from address',
         }
 
-    # Extract the actual reply content (without quoted text)
-    reply_body = extract_reply_body(text, html)
-
     if not reply_body or len(reply_body.strip()) < 3:
         logger.warning(f'Empty or too short reply body from {from_}')
+        if email_id:
+            await db.db_update_inbound_email(
+                email_id,
+                status='failed',
+                error='Reply body is empty or too short',
+            )
         return {'success': False, 'error': 'Reply body is empty or too short'}
 
     logger.info(
@@ -231,17 +266,32 @@ async def handle_inbound_email(
     # Create a continuation task
     try:
         task = await create_continuation_task(email_context)
-        logger.info(
-            f'Created continuation task {task.get("id")} from email reply'
-        )
+        task_id = task.get('id')
+        logger.info(f'Created continuation task {task_id} from email reply')
+
+        # Update the email record with success
+        if email_id:
+            await db.db_update_inbound_email(
+                email_id,
+                task_id=task_id,
+                status='processed',
+            )
+
         return {
             'success': True,
-            'task_id': task.get('id'),
+            'task_id': task_id,
             'session_id': session_id,
+            'email_id': email_id,
             'message': 'Reply received and task created',
         }
     except Exception as e:
         logger.error(f'Failed to create continuation task: {e}')
+        if email_id:
+            await db.db_update_inbound_email(
+                email_id,
+                status='failed',
+                error=str(e),
+            )
         return {'success': False, 'error': str(e)}
 
 

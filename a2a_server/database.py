@@ -242,6 +242,14 @@ async def _init_schema():
         except Exception:
             pass
 
+        # Migration: Add model column to tasks if it doesn't exist
+        try:
+            await conn.execute(
+                'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS model TEXT'
+            )
+        except Exception:
+            pass
+
         # Sessions table (for worker-synced OpenCode sessions)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
@@ -296,6 +304,53 @@ async def _init_schema():
             )
         """)
 
+        # Inbound emails table (for email reply tracking)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS inbound_emails (
+                id TEXT PRIMARY KEY,
+                from_email TEXT NOT NULL,
+                to_email TEXT NOT NULL,
+                subject TEXT,
+                body_text TEXT,
+                body_html TEXT,
+                session_id TEXT,
+                codebase_id TEXT,
+                task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+                sender_ip TEXT,
+                spf_result TEXT,
+                status TEXT DEFAULT 'received',
+                error TEXT,
+                metadata JSONB DEFAULT '{}'::jsonb,
+                received_at TIMESTAMPTZ DEFAULT NOW(),
+                processed_at TIMESTAMPTZ,
+                tenant_id TEXT REFERENCES tenants(id)
+            )
+        """)
+
+        # Outbound emails table (for sent email tracking)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS outbound_emails (
+                id TEXT PRIMARY KEY,
+                to_email TEXT NOT NULL,
+                from_email TEXT NOT NULL,
+                reply_to TEXT,
+                subject TEXT NOT NULL,
+                body_html TEXT,
+                body_text TEXT,
+                task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+                session_id TEXT,
+                codebase_id TEXT,
+                worker_id TEXT REFERENCES workers(worker_id) ON DELETE SET NULL,
+                status TEXT DEFAULT 'queued',
+                sendgrid_message_id TEXT,
+                error TEXT,
+                metadata JSONB DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                sent_at TIMESTAMPTZ,
+                tenant_id TEXT REFERENCES tenants(id)
+            )
+        """)
+
         # Create indexes
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status)'
@@ -346,6 +401,35 @@ async def _init_schema():
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_sessions_tenant ON sessions(tenant_id)'
+        )
+
+        # Email indexes
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_inbound_emails_session ON inbound_emails(session_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_inbound_emails_from ON inbound_emails(from_email)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_inbound_emails_received ON inbound_emails(received_at DESC)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_inbound_emails_status ON inbound_emails(status)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_outbound_emails_task ON outbound_emails(task_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_outbound_emails_session ON outbound_emails(session_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_outbound_emails_to ON outbound_emails(to_email)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_outbound_emails_created ON outbound_emails(created_at DESC)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_outbound_emails_status ON outbound_emails(status)'
         )
 
         logger.info('✓ PostgreSQL schema initialized')
@@ -2163,3 +2247,418 @@ def init_rls_config() -> None:
     logger.info(
         f'RLS Configuration: enabled={RLS_ENABLED}, strict={RLS_STRICT_MODE}'
     )
+
+
+# ========================================
+# Email Logging Operations
+# ========================================
+
+
+async def db_log_inbound_email(
+    from_email: str,
+    to_email: str,
+    subject: str,
+    body_text: str,
+    body_html: Optional[str] = None,
+    session_id: Optional[str] = None,
+    codebase_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+    sender_ip: Optional[str] = None,
+    spf_result: Optional[str] = None,
+    status: str = 'received',
+    error: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    tenant_id: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Log an inbound email to the database.
+
+    Args:
+        from_email: Sender email address
+        to_email: Recipient email address (the reply-to address)
+        subject: Email subject
+        body_text: Plain text body
+        body_html: HTML body (optional)
+        session_id: Parsed session ID from reply-to address
+        codebase_id: Parsed codebase ID from reply-to address
+        task_id: ID of continuation task created (if any)
+        sender_ip: IP address of sender (from SendGrid)
+        spf_result: SPF validation result
+        status: Processing status (received, processed, failed)
+        error: Error message if processing failed
+        metadata: Additional metadata
+        tenant_id: Tenant ID for multi-tenant isolation
+
+    Returns:
+        The email ID if logged successfully, None otherwise
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    email_id = str(uuid.uuid4())
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO inbound_emails (
+                    id, from_email, to_email, subject, body_text, body_html,
+                    session_id, codebase_id, task_id, sender_ip, spf_result,
+                    status, error, metadata, received_at, processed_at, tenant_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), $15, $16)
+                """,
+                email_id,
+                from_email,
+                to_email,
+                subject,
+                body_text,
+                body_html,
+                session_id,
+                codebase_id,
+                task_id,
+                sender_ip,
+                spf_result,
+                status,
+                error,
+                json.dumps(metadata or {}),
+                datetime.utcnow()
+                if status in ('processed', 'failed')
+                else None,
+                tenant_id,
+            )
+            logger.debug(f'Logged inbound email {email_id} from {from_email}')
+            return email_id
+    except Exception as e:
+        logger.error(f'Failed to log inbound email: {e}')
+        return None
+
+
+async def db_update_inbound_email(
+    email_id: str,
+    task_id: Optional[str] = None,
+    status: Optional[str] = None,
+    error: Optional[str] = None,
+) -> bool:
+    """
+    Update an inbound email record after processing.
+
+    Args:
+        email_id: The email record ID
+        task_id: The continuation task ID created
+        status: New status (processed, failed)
+        error: Error message if failed
+
+    Returns:
+        True if updated successfully
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            updates = []
+            params = []
+            param_idx = 1
+
+            if task_id is not None:
+                updates.append(f'task_id = ${param_idx}')
+                params.append(task_id)
+                param_idx += 1
+
+            if status is not None:
+                updates.append(f'status = ${param_idx}')
+                params.append(status)
+                param_idx += 1
+                if status in ('processed', 'failed'):
+                    updates.append('processed_at = NOW()')
+
+            if error is not None:
+                updates.append(f'error = ${param_idx}')
+                params.append(error)
+                param_idx += 1
+
+            if not updates:
+                return True
+
+            params.append(email_id)
+            query = f'UPDATE inbound_emails SET {", ".join(updates)} WHERE id = ${param_idx}'
+            await conn.execute(query, *params)
+            return True
+    except Exception as e:
+        logger.error(f'Failed to update inbound email {email_id}: {e}')
+        return False
+
+
+async def db_log_outbound_email(
+    to_email: str,
+    from_email: str,
+    subject: str,
+    body_html: Optional[str] = None,
+    body_text: Optional[str] = None,
+    reply_to: Optional[str] = None,
+    task_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    codebase_id: Optional[str] = None,
+    worker_id: Optional[str] = None,
+    status: str = 'queued',
+    sendgrid_message_id: Optional[str] = None,
+    error: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    tenant_id: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Log an outbound email to the database.
+
+    Args:
+        to_email: Recipient email address
+        from_email: Sender email address
+        subject: Email subject
+        body_html: HTML body
+        body_text: Plain text body
+        reply_to: Reply-to address for threading
+        task_id: Related task ID
+        session_id: Related session ID
+        codebase_id: Related codebase ID
+        worker_id: Worker that sent the email
+        status: Email status (queued, sent, failed)
+        sendgrid_message_id: SendGrid message ID if sent
+        error: Error message if failed
+        metadata: Additional metadata
+        tenant_id: Tenant ID for multi-tenant isolation
+
+    Returns:
+        The email ID if logged successfully, None otherwise
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    email_id = str(uuid.uuid4())
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO outbound_emails (
+                    id, to_email, from_email, reply_to, subject, body_html, body_text,
+                    task_id, session_id, codebase_id, worker_id, status,
+                    sendgrid_message_id, error, metadata, created_at, sent_at, tenant_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), $16, $17)
+                """,
+                email_id,
+                to_email,
+                from_email,
+                reply_to,
+                subject,
+                body_html,
+                body_text,
+                task_id,
+                session_id,
+                codebase_id,
+                worker_id,
+                status,
+                sendgrid_message_id,
+                error,
+                json.dumps(metadata or {}),
+                datetime.utcnow() if status == 'sent' else None,
+                tenant_id,
+            )
+            logger.debug(f'Logged outbound email {email_id} to {to_email}')
+            return email_id
+    except Exception as e:
+        logger.error(f'Failed to log outbound email: {e}')
+        return None
+
+
+async def db_update_outbound_email(
+    email_id: str,
+    status: Optional[str] = None,
+    sendgrid_message_id: Optional[str] = None,
+    error: Optional[str] = None,
+) -> bool:
+    """
+    Update an outbound email record after sending.
+
+    Args:
+        email_id: The email record ID
+        status: New status (sent, failed)
+        sendgrid_message_id: SendGrid message ID if sent
+        error: Error message if failed
+
+    Returns:
+        True if updated successfully
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            updates = []
+            params = []
+            param_idx = 1
+
+            if status is not None:
+                updates.append(f'status = ${param_idx}')
+                params.append(status)
+                param_idx += 1
+                if status == 'sent':
+                    updates.append('sent_at = NOW()')
+
+            if sendgrid_message_id is not None:
+                updates.append(f'sendgrid_message_id = ${param_idx}')
+                params.append(sendgrid_message_id)
+                param_idx += 1
+
+            if error is not None:
+                updates.append(f'error = ${param_idx}')
+                params.append(error)
+                param_idx += 1
+
+            if not updates:
+                return True
+
+            params.append(email_id)
+            query = f'UPDATE outbound_emails SET {", ".join(updates)} WHERE id = ${param_idx}'
+            await conn.execute(query, *params)
+            return True
+    except Exception as e:
+        logger.error(f'Failed to update outbound email {email_id}: {e}')
+        return False
+
+
+async def db_list_inbound_emails(
+    session_id: Optional[str] = None,
+    from_email: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Dict[str, Any]]:
+    """
+    List inbound emails with optional filtering.
+
+    Args:
+        session_id: Filter by session ID
+        from_email: Filter by sender email
+        status: Filter by status
+        limit: Maximum number of results
+        offset: Offset for pagination
+
+    Returns:
+        List of inbound email records
+    """
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_idx = 1
+
+            if session_id:
+                conditions.append(f'session_id = ${param_idx}')
+                params.append(session_id)
+                param_idx += 1
+
+            if from_email:
+                conditions.append(f'from_email = ${param_idx}')
+                params.append(from_email)
+                param_idx += 1
+
+            if status:
+                conditions.append(f'status = ${param_idx}')
+                params.append(status)
+                param_idx += 1
+
+            where_clause = (
+                f'WHERE {" AND ".join(conditions)}' if conditions else ''
+            )
+            params.extend([limit, offset])
+
+            query = f"""
+                SELECT * FROM inbound_emails
+                {where_clause}
+                ORDER BY received_at DESC
+                LIMIT ${param_idx} OFFSET ${param_idx + 1}
+            """
+
+            rows = await conn.fetch(query, *params)
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list inbound emails: {e}')
+        return []
+
+
+async def db_list_outbound_emails(
+    task_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    to_email: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Dict[str, Any]]:
+    """
+    List outbound emails with optional filtering.
+
+    Args:
+        task_id: Filter by task ID
+        session_id: Filter by session ID
+        to_email: Filter by recipient email
+        status: Filter by status
+        limit: Maximum number of results
+        offset: Offset for pagination
+
+    Returns:
+        List of outbound email records
+    """
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_idx = 1
+
+            if task_id:
+                conditions.append(f'task_id = ${param_idx}')
+                params.append(task_id)
+                param_idx += 1
+
+            if session_id:
+                conditions.append(f'session_id = ${param_idx}')
+                params.append(session_id)
+                param_idx += 1
+
+            if to_email:
+                conditions.append(f'to_email = ${param_idx}')
+                params.append(to_email)
+                param_idx += 1
+
+            if status:
+                conditions.append(f'status = ${param_idx}')
+                params.append(status)
+                param_idx += 1
+
+            where_clause = (
+                f'WHERE {" AND ".join(conditions)}' if conditions else ''
+            )
+            params.extend([limit, offset])
+
+            query = f"""
+                SELECT * FROM outbound_emails
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT ${param_idx} OFFSET ${param_idx + 1}
+            """
+
+            rows = await conn.fetch(query, *params)
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list outbound emails: {e}')
+        return []
