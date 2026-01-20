@@ -305,6 +305,7 @@ async def _init_schema():
         """)
 
         # Inbound emails table (for email reply tracking)
+        # Note: task_id is not a FK because tasks may be in-memory only
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS inbound_emails (
                 id TEXT PRIMARY KEY,
@@ -315,7 +316,7 @@ async def _init_schema():
                 body_html TEXT,
                 session_id TEXT,
                 codebase_id TEXT,
-                task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+                task_id TEXT,
                 sender_ip TEXT,
                 spf_result TEXT,
                 status TEXT DEFAULT 'received',
@@ -328,6 +329,7 @@ async def _init_schema():
         """)
 
         # Outbound emails table (for sent email tracking)
+        # Note: task_id is not a FK because tasks may be in-memory only
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS outbound_emails (
                 id TEXT PRIMARY KEY,
@@ -337,10 +339,10 @@ async def _init_schema():
                 subject TEXT NOT NULL,
                 body_html TEXT,
                 body_text TEXT,
-                task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+                task_id TEXT,
                 session_id TEXT,
                 codebase_id TEXT,
-                worker_id TEXT REFERENCES workers(worker_id) ON DELETE SET NULL,
+                worker_id TEXT,
                 status TEXT DEFAULT 'queued',
                 sendgrid_message_id TEXT,
                 error TEXT,
