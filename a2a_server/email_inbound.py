@@ -33,6 +33,19 @@ EMAIL_INBOUND_DOMAIN = os.environ.get(
 )
 EMAIL_REPLY_PREFIX = os.environ.get('EMAIL_REPLY_PREFIX', 'task')
 
+# Contact email forwarding
+CONTACT_FORWARD_EMAIL = os.environ.get(
+    'CONTACT_FORWARD_EMAIL', 'riley@evolvingsoftware.io'
+)
+CONTACT_EMAIL_PREFIXES = [
+    'info',
+    'support',
+    'hello',
+    'contact',
+    'help',
+    'sales',
+]
+
 
 class EmailReplyContext(BaseModel):
     """Parsed context from an inbound email reply."""
@@ -162,6 +175,97 @@ def build_reply_to_address(
     return f'{prefix}+{session_id}@{domain}'
 
 
+def is_contact_email(to_address: str) -> bool:
+    """Check if email is to a general contact address like info@, support@, etc."""
+    match = re.match(r'^([^@+]+)[@+]', to_address.lower().strip())
+    if not match:
+        return False
+    local_part = match.group(1)
+    return local_part in CONTACT_EMAIL_PREFIXES
+
+
+async def forward_contact_email(
+    from_email: str,
+    to_email: str,
+    subject: str,
+    body_text: str,
+    body_html: Optional[str] = None,
+) -> bool:
+    """Forward a contact email to the admin address."""
+    import httpx
+
+    api_key = os.environ.get('SENDGRID_API_KEY', '')
+    if not api_key or not CONTACT_FORWARD_EMAIL:
+        logger.warning(
+            'Cannot forward contact email: missing SENDGRID_API_KEY or CONTACT_FORWARD_EMAIL'
+        )
+        return False
+
+    # Build forwarded email
+    forward_subject = f'[CodeTether Contact] {subject}'
+    forward_body = f"""New contact form submission / email received:
+
+From: {from_email}
+To: {to_email}
+Subject: {subject}
+
+---
+{body_text}
+---
+
+Reply directly to this email to respond to the sender.
+"""
+
+    payload = {
+        'personalizations': [
+            {
+                'to': [{'email': CONTACT_FORWARD_EMAIL}],
+            }
+        ],
+        'from': {
+            'email': os.environ.get(
+                'SENDGRID_FROM_EMAIL', 'noreply@codetether.run'
+            ),
+            'name': 'CodeTether',
+        },
+        'reply_to': {'email': from_email},
+        'subject': forward_subject,
+        'content': [
+            {'type': 'text/plain', 'value': forward_body},
+        ],
+    }
+
+    if body_html:
+        payload['content'].append(
+            {'type': 'text/html', 'value': f'<pre>{body_html}</pre>'}
+        )
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                'https://api.sendgrid.com/v3/mail/send',
+                json=payload,
+                headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
+                },
+                timeout=30.0,
+            )
+            if response.status_code in (200, 202):
+                logger.info(
+                    f'Forwarded contact email from {from_email} to {CONTACT_FORWARD_EMAIL}'
+                )
+                return True
+            else:
+                logger.error(
+                    f'Failed to forward contact email: {response.status_code} {response.text}'
+                )
+                return False
+    except Exception as e:
+        logger.error(f'Error forwarding contact email: {e}')
+        return False
+
+
 @email_router.post('/inbound')
 async def handle_inbound_email(
     request: Request,
@@ -183,6 +287,9 @@ async def handle_inbound_email(
     This endpoint receives emails sent to {prefix}+{session_id}@{domain}
     and creates a continuation task to resume the worker conversation.
 
+    Also handles contact emails (info@, support@, etc.) by forwarding
+    them to the configured admin email address.
+
     SendGrid configuration:
     1. Go to Settings > Inbound Parse
     2. Add your domain (e.g., inbound.codetether.run)
@@ -194,6 +301,27 @@ async def handle_inbound_email(
     logger.info(
         f'Received inbound email from {from_} to {to} subject: {subject}'
     )
+
+    # Check if this is a contact email (info@, support@, etc.)
+    if is_contact_email(to):
+        logger.info(
+            f'Contact email detected, forwarding to {CONTACT_FORWARD_EMAIL}'
+        )
+        forwarded = await forward_contact_email(
+            from_email=from_,
+            to_email=to,
+            subject=subject,
+            body_text=text,
+            body_html=html if html else None,
+        )
+        return {
+            'success': forwarded,
+            'type': 'contact_forward',
+            'forwarded_to': CONTACT_FORWARD_EMAIL if forwarded else None,
+            'message': 'Contact email forwarded'
+            if forwarded
+            else 'Failed to forward contact email',
+        }
 
     # Parse the reply-to address to get context
     context = parse_reply_to_address(to)
