@@ -63,7 +63,24 @@ function CreditCardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function ShieldIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+    )
+}
+
+function RocketIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+        </svg>
+    )
+}
+
 const navigation = [
+    { name: 'Get Started', href: '/dashboard/getting-started', icon: RocketIcon, highlight: true },
     { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
@@ -73,6 +90,9 @@ const navigation = [
     { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
 ]
+
+// Admin navigation item (shown only for admins)
+const adminNavItem = { name: 'Admin', href: '/dashboard/admin', icon: ShieldIcon }
 
 function MenuIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
@@ -112,6 +132,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const pathname = usePathname()
     const { data: session } = useSession()
+
+    // Check if user has admin role
+    const isAdmin = (session?.user as any)?.roles?.includes('admin') || 
+                    (session?.user as any)?.roles?.includes('a2a-admin') ||
+                    (session?.user as any)?.role === 'admin'
+
+    // Build navigation with admin item if user is admin
+    const navItems = isAdmin ? [...navigation, adminNavItem] : navigation
 
     useEffect(() => {
         setDarkMode(true)
@@ -155,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 <nav className="flex flex-col p-4">
                     <ul className="space-y-1">
-                        {navigation.map((item) => (
+                        {navItems.map((item) => (
                             <li key={item.name}>
                                 <Link
                                     href={item.href}
@@ -164,11 +192,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
                                         pathname === item.href
                                             ? 'bg-white/10 text-white'
-                                            : 'text-indigo-100 hover:bg-white/10'
+                                            : 'text-indigo-100 hover:bg-white/10',
+                                        item.name === 'Admin' && 'border-t border-indigo-600 dark:border-gray-700 mt-2 pt-2',
+                                        (item as any).highlight && 'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30'
                                     )}
                                 >
-                                    <item.icon className="h-5 w-5" />
+                                    <item.icon className={clsx('h-5 w-5', (item as any).highlight && 'text-orange-400')} />
                                     {item.name}
+                                    {(item as any).highlight && (
+                                        <span className="ml-auto text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full">New</span>
+                                    )}
                                 </Link>
                             </li>
                         ))}
@@ -189,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                     <nav className="flex flex-1 flex-col p-3">
                         <ul className="space-y-1">
-                            {navigation.map((item) => (
+                            {navItems.map((item) => (
                                 <li key={item.name}>
                                     <Link
                                         href={item.href}
@@ -197,11 +230,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
                                             pathname === item.href
                                                 ? 'bg-white/10 text-white'
-                                                : 'text-indigo-100 hover:bg-white/10'
+                                                : 'text-indigo-100 hover:bg-white/10',
+                                            item.name === 'Admin' && 'border-t border-indigo-600 dark:border-gray-700 mt-2 pt-2',
+                                            (item as any).highlight && 'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30'
                                         )}
                                     >
-                                        <item.icon className="h-5 w-5" />
+                                        <item.icon className={clsx('h-5 w-5', (item as any).highlight && 'text-orange-400')} />
                                         {item.name}
+                                        {(item as any).highlight && (
+                                            <span className="ml-auto text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full">New</span>
+                                        )}
                                     </Link>
                                 </li>
                             ))}
@@ -226,7 +264,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Main content wrapper */}
             <div className="absolute inset-0 md:left-60 lg:left-52 flex flex-col overflow-hidden">
                 {/* Top navbar */}
-                <div className="shrink-0 z-40 flex h-16 items-center gap-x-2 border-b border-gray-200 bg-white px-2 sm:px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
+                <div className="shrink-0 z-40 flex h-16 items-center gap-x-2 border-b border-gray-200 bg-white px-2 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
                     {/* Mobile menu button */}
                     <button
                         onClick={() => setSidebarOpen(true)}
