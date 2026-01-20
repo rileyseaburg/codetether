@@ -157,6 +157,9 @@ class WorkerConfig:
 
     server_url: str
     worker_name: str
+    mcp_url: Optional[str] = (
+        None  # Separate MCP endpoint URL (defaults to server_url)
+    )
     worker_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
     codebases: List[Dict[str, str]] = field(default_factory=list)
     poll_interval: int = 5  # Fallback poll interval when SSE is unavailable
@@ -388,8 +391,9 @@ class WorkerClient:
 
         try:
             session = await self.get_session()
-            # Use the proper MCP JSON-RPC endpoint
-            url_endpoint = f'{self.config.server_url}/mcp/v1/rpc'
+            # Use the proper MCP JSON-RPC endpoint (mcp_url if set, otherwise server_url)
+            mcp_base = self.config.mcp_url or self.config.server_url
+            url_endpoint = f'{mcp_base}/mcp/v1/rpc'
 
             # Use platform.node() for cross-platform hostname (works on Windows too)
             hostname = platform.node()
@@ -514,7 +518,8 @@ class WorkerClient:
 
         try:
             session = await self.get_session()
-            url_endpoint = f'{self.config.server_url}/mcp/v1/rpc'
+            mcp_base = self.config.mcp_url or self.config.server_url
+            url_endpoint = f'{mcp_base}/mcp/v1/rpc'
 
             payload = {
                 'jsonrpc': '2.0',
@@ -3115,6 +3120,9 @@ class TaskExecutor:
             # Calculate duration
             duration_ms = int((time.time() - start_time) * 1000)
 
+            # Use session_id from result if available, otherwise fall back to resume_session_id
+            session_id_for_email = result.get('session_id') or resume_session_id
+
             if result['success']:
                 await self.client.update_task_status(
                     task_id,
@@ -3131,7 +3139,7 @@ class TaskExecutor:
                         status='completed',
                         result=result.get('output'),
                         duration_ms=duration_ms,
-                        session_id=resume_session_id,
+                        session_id=session_id_for_email,
                         codebase_id=codebase_id,
                     )
             else:
@@ -3151,7 +3159,7 @@ class TaskExecutor:
                         status='failed',
                         error=error_msg,
                         duration_ms=duration_ms,
-                        session_id=resume_session_id,
+                        session_id=session_id_for_email,
                         codebase_id=codebase_id,
                     )
 
@@ -3715,13 +3723,18 @@ class TaskExecutor:
 
             returncode = process.returncode or 0
             if returncode == 0:
-                return {'success': True, 'output': stdout}
+                return {
+                    'success': True,
+                    'output': stdout,
+                    'session_id': active_session_id,
+                }
             else:
                 hint = _recent_opencode_log_hint(returncode)
                 err = (stderr or '').strip()
                 return {
                     'success': False,
                     'error': err or hint or f'Exit code: {returncode}',
+                    'session_id': active_session_id,
                 }
 
         except Exception as e:
@@ -4452,6 +4465,11 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 async def main():
     parser = argparse.ArgumentParser(description='A2A Agent Worker')
     parser.add_argument('--server', '-s', default=None, help='A2A server URL')
+    parser.add_argument(
+        '--mcp-url',
+        default=None,
+        help='MCP server URL (defaults to server URL if not set)',
+    )
     parser.add_argument('--name', '-n', default=None, help='Worker name')
     parser.add_argument(
         '--worker-id',
@@ -4644,10 +4662,18 @@ async def main():
                 path = cb
             codebases.append({'name': name, 'path': os.path.abspath(path)})
 
+    # Resolve mcp_url with precedence: CLI flag > env > config > None (uses server_url)
+    mcp_url = (
+        args.mcp_url
+        or os.environ.get('A2A_MCP_URL')
+        or file_config.get('mcp_url')
+    )
+
     # Create config
     config_kwargs: Dict[str, Any] = {
         'server_url': server_url,
         'worker_name': worker_name,
+        'mcp_url': mcp_url,
         'codebases': codebases,
         'poll_interval': poll_interval,
         'opencode_bin': args.opencode or file_config.get('opencode_bin'),
