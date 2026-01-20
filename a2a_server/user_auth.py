@@ -31,6 +31,7 @@ from fastapi.security import (
 )
 
 from .database import get_pool
+from .provisioning_service import provision_instance_for_new_user
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,12 @@ class RegisterResponse(BaseModel):
     user_id: str
     email: str
     message: str
+    tenant_id: Optional[str] = None
+    realm_name: Optional[str] = None
+    # Kubernetes instance info
+    instance_url: Optional[str] = None
+    instance_namespace: Optional[str] = None
+    provisioning_status: str = 'pending'
 
 
 class LoginRequest(BaseModel):
@@ -409,12 +416,19 @@ async def increment_task_usage(user_id: str) -> bool:
 @router.post('/register', response_model=RegisterResponse)
 async def register(request: RegisterRequest, background_tasks: BackgroundTasks):
     """
-    Register a new user account.
+    Register a new user account and provision their instance.
 
-    Creates a new user with email/password authentication.
+    Creates a new user with email/password authentication and automatically
+    provisions an isolated tenant/instance for the user.
+
     For MVP, accounts are activated immediately without email verification.
+    Instance provisioning happens synchronously to ensure the user has
+    immediate access to their workspace.
     """
+    from .provisioning_service import provision_instance_for_new_user
+
     try:
+        # Step 1: Create user record
         user = await create_user(
             email=request.email,
             password=request.password,
@@ -423,16 +437,51 @@ async def register(request: RegisterRequest, background_tasks: BackgroundTasks):
             referral_source=request.referral_source,
         )
 
-        # TODO: Send welcome email in background
-        # background_tasks.add_task(send_welcome_email, user['email'], user['first_name'])
-
         logger.info(f'New user registered: {user["email"]}')
 
-        return RegisterResponse(
+        # Step 2: Provision instance for user
+        # This creates their isolated tenant/workspace
+        provisioning_result = await provision_instance_for_new_user(
             user_id=user['id'],
-            email=user['email'],
-            message='Account created successfully. You can now log in.',
+            email=request.email,
+            password=request.password,
+            first_name=request.first_name,
+            last_name=request.last_name,
         )
+
+        if provisioning_result.success:
+            logger.info(
+                f'Instance provisioned for user {user["id"]}: '
+                f'tenant={provisioning_result.tenant_id}, '
+                f'k8s={provisioning_result.k8s_external_url}'
+            )
+            return RegisterResponse(
+                user_id=user['id'],
+                email=user['email'],
+                message='Account created successfully. Your workspace is ready.',
+                tenant_id=provisioning_result.tenant_id,
+                realm_name=provisioning_result.realm_name,
+                instance_url=provisioning_result.k8s_external_url,
+                instance_namespace=provisioning_result.k8s_namespace,
+                provisioning_status='completed',
+            )
+        else:
+            # User created but provisioning failed
+            # Log error but don't fail registration - user can retry provisioning later
+            logger.error(
+                f'Instance provisioning failed for user {user["id"]}: '
+                f'{provisioning_result.error_message}'
+            )
+            return RegisterResponse(
+                user_id=user['id'],
+                email=user['email'],
+                message='Account created. Workspace setup pending - please contact support if this persists.',
+                tenant_id=None,
+                realm_name=None,
+                instance_url=None,
+                instance_namespace=None,
+                provisioning_status='failed',
+            )
 
     except HTTPException:
         raise
