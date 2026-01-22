@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="CodeTether">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#g)"/>
+  <path d="M164 256c0-51.915 42.085-94 94-94h90c13.255 0 24 10.745 24 24s-10.745 24-24 24h-90c-25.405 0-46 20.595-46 46s20.595 46 46 46h50c13.255 0 24 10.745 24 24s-10.745 24-24 24h-50c-51.915 0-94-42.085-94-94z" fill="#ffffff" fill-opacity="0.92"/>
+  <path d="M348 256c0 51.915-42.085 94-94 94h-90c-13.255 0-24-10.745-24-24s10.745-24 24-24h90c25.405 0 46-20.595 46-46s-20.595-46-46-46h-50c-13.255 0-24-10.745-24-24s10.745-24 24-24h50c51.915 0 94 42.085 94 94z" fill="#ffffff" fill-opacity="0.92"/>
+  <text x="256" y="420" text-anchor="middle" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="40" fill="#ffffff" fill-opacity="0.92">CodeTether</text>
+</svg>

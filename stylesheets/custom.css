@@ -1,0 +1,39 @@
+/* CodeTether Documentation Custom Styles */
+
+:root {
+    --md-primary-fg-color: #4f46e5;
+    --md-primary-fg-color--light: #6366f1;
+    --md-primary-fg-color--dark: #4338ca;
+    --md-accent-fg-color: #06b6d4;
+}
+
+/* Hero section on homepage */
+.md-typeset h1 {
+    font-weight: 700;
+}
+
+/* Code blocks */
+.md-typeset code {
+    font-size: 0.85em;
+}
+
+/* Cards grid */
+.grid.cards {
+    margin-top: 1rem;
+}
+
+/* Admonitions */
+.md-typeset .admonition.tip {
+    border-color: #06b6d4;
+}
+
+/* Tables */
+.md-typeset table:not([class]) th {
+    background-color: var(--md-primary-fg-color);
+    color: white;
+}
+
+/* API endpoint styling */
+.md-typeset .highlight code {
+    background: #1e1e1e;
+}

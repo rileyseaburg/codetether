@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="CodeTether">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#g)"/>
+  <path d="M22 32c0-8.284 6.716-15 15-15h9c2.209 0 4 1.791 4 4s-1.791 4-4 4h-9c-3.866 0-7 3.134-7 7s3.134 7 7 7h5c2.209 0 4 1.791 4 4s-1.791 4-4 4h-5c-8.284 0-15-6.716-15-15z" fill="#fff" fill-opacity="0.95"/>
+</svg>
