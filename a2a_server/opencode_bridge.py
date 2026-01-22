@@ -599,14 +599,21 @@ class OpenCodeBridge:
 
         if existing_id:
             # Update existing codebase instead of creating duplicate.
-            # If the caller supplied a conflicting codebase_id, keep the existing
-            # in-memory ID (it is already referenced by tasks/sessions).
+            # If the caller supplied a different codebase_id (e.g., from DB rehydration),
+            # migrate to use that ID to stay in sync with persistent storage.
             if codebase_id and codebase_id != existing_id:
                 logger.info(
-                    f'register_codebase: ignoring provided codebase_id={codebase_id} '
-                    f'because path is already registered as {existing_id}'
+                    f'register_codebase: migrating in-memory ID from {existing_id} '
+                    f'to {codebase_id} (from DB) for path {path}'
                 )
-            codebase = self._codebases[existing_id]
+                # Move the codebase entry to the new ID
+                codebase = self._codebases.pop(existing_id)
+                codebase.id = codebase_id
+                self._codebases[codebase_id] = codebase
+                existing_id = codebase_id
+            else:
+                codebase = self._codebases[existing_id]
+
             codebase.name = name
             codebase.description = description
             codebase.agent_config = agent_config or {}
@@ -1297,7 +1304,8 @@ class OpenCodeBridge:
         self._on_task_update.append(callback)
 
     async def _notify_task_update(self, task: AgentTask):
-        """Notify registered callbacks of task update."""
+        """Notify registered callbacks of task update and broadcast to SSE workers."""
+        # Notify registered callbacks
         for callback in self._on_task_update:
             try:
                 if asyncio.iscoroutinefunction(callback):
@@ -1306,6 +1314,18 @@ class OpenCodeBridge:
                     callback(task)
             except Exception as e:
                 logger.error(f'Error in task update callback: {e}')
+
+        # Broadcast to SSE workers if task is pending (new task available)
+        if task.status == AgentTaskStatus.PENDING:
+            try:
+                from .worker_sse import get_worker_registry
+
+                registry = get_worker_registry()
+                if registry:
+                    await registry.broadcast_task_available(task.id)
+                    logger.debug(f'Broadcast task {task.id} to SSE workers')
+            except Exception as e:
+                logger.debug(f'Could not broadcast task to SSE workers: {e}')
 
     # ========================================
     # Watch Mode (Persistent Agent Workers)

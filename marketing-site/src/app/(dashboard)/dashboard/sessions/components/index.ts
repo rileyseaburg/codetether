@@ -15,3 +15,5 @@ export { ModeSelector } from './ModeSelector'
 export { ModelSelector } from './ModelSelector'
 export { SessionActions } from './SessionActions'
 export { ErrorBoundary } from './ErrorBoundary'
+export { RLMExecutionPane } from './RLMExecutionPane'
+

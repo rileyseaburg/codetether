@@ -275,6 +275,117 @@ Check the A2A server logs for errors. Common issues:
 2. Trigger the **explore** agent with: "Find all API endpoints and explain the routing structure"
 3. Get a quick overview of the codebase
 
+## Ralph: Autonomous Development Loop
+
+Ralph is CodeTether's fully autonomous development agent that implements entire PRDs (Product Requirements Documents) with zero human intervention.
+
+### How Ralph Works
+
+1. **PRD Input**: Define your project requirements as user stories with acceptance criteria
+2. **Fresh Context Per Story**: Each user story spawns a new OpenCode instance for optimal context
+3. **Iterative Implementation**: Ralph implements each story, runs acceptance tests, and commits
+4. **Self-Healing**: If tests fail, Ralph re-analyzes using `progress.txt` context and retries
+5. **Git Integration**: Atomic commits per user story with meaningful commit messages
+
+### Ralph Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Ralph Loop                                │
+│                                                                  │
+│  PRD (YAML) ──▶ User Stories ──▶ For Each Story:                │
+│                                    │                             │
+│                                    ▼                             │
+│                              ┌───────────┐                       │
+│                              │ Spawn new │                       │
+│                              │ OpenCode  │                       │
+│                              └─────┬─────┘                       │
+│                                    │                             │
+│                                    ▼                             │
+│                              ┌───────────┐                       │
+│                              │ Implement │                       │
+│                              │   Story   │                       │
+│                              └─────┬─────┘                       │
+│                                    │                             │
+│                                    ▼                             │
+│                              ┌───────────┐     ┌───────────┐    │
+│                              │   Check   │────▶│  Update   │    │
+│                              │ Criteria  │ Fail│progress.txt│   │
+│                              └─────┬─────┘     └─────┬─────┘    │
+│                                    │ Pass           │           │
+│                                    ▼                │           │
+│                              ┌───────────┐          │           │
+│                              │  Commit   │◀─────────┘           │
+│                              │  Changes  │                       │
+│                              └─────┬─────┘                       │
+│                                    │                             │
+│                                    ▼                             │
+│                              Next Story                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### PRD Format (YAML)
+
+```yaml
+project: MyApp
+branchName: ralph/new-feature
+description: Add a new feature to the application
+userStories:
+  - id: US-001
+    title: Add database migration
+    description: As a developer, I need to add a new column to the database
+    acceptanceCriteria:
+      - Migration file exists in migrations/
+      - Migration is reversible (has down migration)
+      - Column is of correct type
+  - id: US-002
+    title: Update API endpoint
+    description: As a user, I need the API to return the new field
+    acceptanceCriteria:
+      - GET /api/items returns new field
+      - Field is properly validated
+      - API docs are updated
+```
+
+### Ralph Dashboard
+
+Access Ralph at `/dashboard/ralph`:
+
+- **PRD Builder**: Interactive editor with YAML import/export
+- **Live Execution**: Real-time logs showing implementation progress
+- **Story Status**: Track pending/running/passed/failed stories
+- **Agent Overview**: See which agents are working on which stories
+- **Branch Management**: Auto-generated feature branches
+
+### RLM Integration
+
+Ralph leverages RLM (Recursive Language Models) for large codebase analysis:
+
+- When context exceeds threshold (default: 80K tokens), RLM triggers automatically
+- Subcalls analyze complex files without hitting context limits
+- Progress context preserved across iterations
+
+### Configuration
+
+```bash
+# Enable Ralph in dashboard
+RALPH_ENABLED=1
+
+# RLM settings for Ralph
+export A2A_RLM_DEFAULT_SUBCALL_MODEL_REF="zai:glm-4.7"
+export OPENCODE_RLM_ENABLED=1
+```
+
+### Example Workflow
+
+1. **Navigate to `/dashboard/ralph`**
+2. **Create or import a PRD** with user stories
+3. **Click "Start Ralph"** - Ralph begins autonomous implementation
+4. **Monitor progress** in the live log view
+5. **Review commits** when all stories pass
+
+---
+
 ## RLM (Recursive Language Models)
 
 CodeTether supports RLM, allowing agents to process arbitrarily long contexts through recursive LLM calls in a Python REPL.

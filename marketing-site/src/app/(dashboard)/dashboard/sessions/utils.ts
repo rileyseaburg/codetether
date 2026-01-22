@@ -28,6 +28,52 @@ export function formatTokens(tokens?: TokenUsage): { summary: string; detail?: s
     return { summary: `${i + o + r} tokens`, detail: pieces.length ? pieces.join(' * ') : undefined }
 }
 
+type ModelCostRates = {
+    input: number
+    output: number
+    cacheRead?: number
+    cacheWrite?: number
+}
+
+// Rates are USD per 1M tokens to match opencode pricing math.
+const AZURE_ANTHROPIC_OPUS_45_COST: ModelCostRates = {
+    input: 5,
+    output: 25,
+    cacheRead: 0.5,
+    cacheWrite: 6.25,
+}
+
+const MODEL_COSTS: Array<{ match: (modelId: string) => boolean; rates: ModelCostRates }> = [
+    {
+        match: (modelId) =>
+            modelId.startsWith('azure-anthropic/claude-opus-4-5') ||
+            modelId.startsWith('azure-anthropic/claude-opus-4.5'),
+        rates: AZURE_ANTHROPIC_OPUS_45_COST,
+    },
+]
+
+export function estimateCostFromTokens(modelId: string | undefined, tokens?: TokenUsage): number | undefined {
+    if (!modelId || !tokens) return undefined
+    const normalized = modelId.toLowerCase()
+    const match = MODEL_COSTS.find((entry) => entry.match(normalized))
+    if (!match) return undefined
+
+    const input = Number.isFinite(tokens.input) ? tokens.input || 0 : 0
+    const output = Number.isFinite(tokens.output) ? tokens.output || 0 : 0
+    const reasoning = Number.isFinite(tokens.reasoning) ? tokens.reasoning || 0 : 0
+    const cacheRead = Number.isFinite(tokens.cache?.read) ? tokens.cache?.read || 0 : 0
+    const cacheWrite = Number.isFinite(tokens.cache?.write) ? tokens.cache?.write || 0 : 0
+    if (!input && !output && !reasoning && !cacheRead && !cacheWrite) return undefined
+
+    const cost =
+        (input * match.rates.input +
+            (output + reasoning) * match.rates.output +
+            cacheRead * (match.rates.cacheRead || 0) +
+            cacheWrite * (match.rates.cacheWrite || 0)) /
+        1_000_000
+    return Number.isFinite(cost) ? cost : undefined
+}
+
 export function safeJsonStringify(value: unknown, maxLen = 8000): string {
     try { const t = JSON.stringify(value, null, 2); return t.length > maxLen ? t.slice(0, maxLen) + '\n...' : t } catch { return String(value) }
 }

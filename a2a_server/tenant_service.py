@@ -549,6 +549,67 @@ class KeycloakTenantService:
                 f'Failed to assign role: {e.response.text}'
             )
 
+    async def assign_admin_role(
+        self,
+        realm_name: str,
+        email: str,
+    ) -> bool:
+        """
+        Assign admin role to a user by email.
+
+        Args:
+            realm_name: The Keycloak realm
+            email: User's email address
+
+        Returns:
+            True if role assigned successfully
+        """
+        await self._get_admin_token()
+
+        async with httpx.AsyncClient() as client:
+            # Find user by email
+            users_url = f'{self.keycloak_url}/admin/realms/{realm_name}/users'
+
+            try:
+                response = await client.get(
+                    users_url,
+                    params={'email': email},
+                    headers=self._get_auth_headers(),
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                users = response.json()
+
+                if not users:
+                    logger.error(
+                        f'User not found: {email} in realm {realm_name}'
+                    )
+                    return False
+
+                user_id = users[0]['id']
+
+                # Ensure admin role exists
+                await self._create_role(
+                    client, realm_name, 'admin', 'Administrator role'
+                )
+
+                # Assign admin role
+                await self._assign_role_to_user(
+                    client, realm_name, user_id, 'admin'
+                )
+
+                logger.info(
+                    f'Assigned admin role to {email} in realm {realm_name}'
+                )
+                return True
+
+            except httpx.HTTPStatusError as e:
+                logger.error(f'Failed to assign admin role: {e.response.text}')
+                return False
+            except Exception as e:
+                logger.error(f'Error assigning admin role: {e}')
+                return False
+
     async def delete_tenant(self, realm_name: str) -> bool:
         """
         Delete a tenant (realm) from Keycloak.

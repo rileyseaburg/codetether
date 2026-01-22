@@ -5,7 +5,7 @@ set -e
 # Usage: ./blue-green-deploy.sh [blue|green] [version]
 
 NAMESPACE="a2a-server"
-RELEASE_NAME="a2a-marketing"
+RELEASE_NAME="codetether"
 CHART="oci://registry.quantum-forge.net/library/a2a-server"
 VALUES_FILE="/home/riley/A2A-Server-MCP/chart/codetether-values.yaml"
 
@@ -53,9 +53,9 @@ echo ""
 deploy_slot() {
     local slot=$1
     local version=$2
-    
+
     echo -e "${YELLOW}Deploying to $slot slot...${NC}"
-    
+
     helm upgrade --install "${RELEASE_NAME}-${slot}" "$CHART" \
         --version "$version" \
         --namespace "$NAMESPACE" \
@@ -68,7 +68,7 @@ deploy_slot() {
         --set ingress.enabled=false \
         --wait \
         --timeout 5m
-    
+
     echo -e "${GREEN}Deployed to $slot slot successfully${NC}"
 }
 
@@ -78,23 +78,23 @@ health_check() {
     local service="${RELEASE_NAME}-${slot}-a2a-server"
     local max_attempts=30
     local attempt=1
-    
+
     echo -e "${YELLOW}Running health checks on $slot...${NC}"
-    
+
     while [ $attempt -le $max_attempts ]; do
         # Check pod readiness
         local ready=$(kubectl get pods -n $NAMESPACE -l "app.kubernetes.io/instance=${RELEASE_NAME}-${slot}" -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
-        
+
         if [[ "$ready" == *"True"* ]]; then
             echo -e "${GREEN}Health check passed for $slot (attempt $attempt)${NC}"
             return 0
         fi
-        
+
         echo "Waiting for $slot to be ready... (attempt $attempt/$max_attempts)"
         sleep 5
         ((attempt++))
     done
-    
+
     echo -e "${RED}Health check failed for $slot${NC}"
     return 1
 }
@@ -102,9 +102,9 @@ health_check() {
 # Function to switch traffic
 switch_traffic() {
     local target_slot=$1
-    
+
     echo -e "${YELLOW}Switching traffic to $target_slot...${NC}"
-    
+
     # Update the active service to point to the new slot
     kubectl patch svc codetether-active -n $NAMESPACE \
         -p "{\"spec\":{\"selector\":{\"slot\":\"$target_slot\"}}}" 2>/dev/null || \
@@ -235,22 +235,22 @@ main() {
         deploy)
             echo -e "${BLUE}Starting blue-green deployment...${NC}"
             echo ""
-            
+
             # Step 1: Deploy to target slot
             deploy_slot "$TARGET_ENV" "$VERSION"
             echo ""
-            
+
             # Step 2: Health check
             if ! health_check "$TARGET_ENV"; then
                 echo -e "${RED}Deployment failed health checks. Aborting.${NC}"
                 exit 1
             fi
             echo ""
-            
+
             # Step 3: Switch traffic
             switch_traffic "$TARGET_ENV"
             echo ""
-            
+
             echo -e "${GREEN}========================================${NC}"
             echo -e "${GREEN}  Deployment Complete!${NC}"
             echo -e "${GREEN}========================================${NC}"
@@ -261,15 +261,15 @@ main() {
             echo "To rollback: $0 $CURRENT_ENV $VERSION rollback"
             echo "To cleanup old: $0 $CURRENT_ENV $VERSION cleanup"
             ;;
-            
+
         rollback)
             rollback "$TARGET_ENV"
             ;;
-            
+
         cleanup)
             cleanup_old "$TARGET_ENV"
             ;;
-            
+
         status)
             echo -e "${BLUE}Current Status:${NC}"
             echo ""
@@ -281,7 +281,7 @@ main() {
             echo "Green deployment:"
             helm status "${RELEASE_NAME}-green" -n $NAMESPACE 2>/dev/null || echo "  Not deployed"
             ;;
-            
+
         *)
             echo "Usage: $0 [blue|green] [version] [deploy|rollback|cleanup|status]"
             echo ""

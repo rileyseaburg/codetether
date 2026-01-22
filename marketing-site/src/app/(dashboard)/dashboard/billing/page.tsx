@@ -46,14 +46,28 @@ function BillingContent() {
 
     const upgraded = searchParams.get('upgraded') === 'true'
 
+    const getAuthToken = () => {
+        // @ts-ignore - accessToken/idToken may be on session
+        const sessionToken = session?.accessToken || session?.idToken
+        if (sessionToken) {
+            return sessionToken as string
+        }
+        if (typeof window !== 'undefined') {
+            const storedToken = localStorage.getItem('a2a_token')
+            if (storedToken) {
+                return storedToken
+            }
+        }
+        return null
+    }
+
     const getAuthHeaders = () => {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         }
-        // @ts-ignore - accessToken may be on session
-        if (session?.accessToken) {
-            // @ts-ignore
-            headers['Authorization'] = `Bearer ${session.accessToken}`
+        const token = getAuthToken()
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`
         }
         return headers
     }
@@ -160,7 +174,7 @@ function BillingContent() {
 
     if (authStatus === 'loading' || loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center justify-center min-h-100">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
             </div>
         )
@@ -198,7 +212,7 @@ function BillingContent() {
             {upgraded && (
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                     <div className="flex">
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                             <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
@@ -233,20 +247,19 @@ function BillingContent() {
                                 <span className="text-2xl font-bold text-gray-900 dark:text-white">
                                     {billingStatus?.tier_name || 'Free'}
                                 </span>
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    billingStatus?.stripe_subscription_status === 'active'
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${billingStatus?.stripe_subscription_status === 'active'
                                         ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                                         : billingStatus?.stripe_subscription_status === 'past_due'
-                                        ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                                }`}>
-                                    {billingStatus?.stripe_subscription_status === 'active' 
-                                        ? 'Active' 
+                                            ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                                    }`}>
+                                    {billingStatus?.stripe_subscription_status === 'active'
+                                        ? 'Active'
                                         : billingStatus?.stripe_subscription_status === 'past_due'
-                                        ? 'Past Due'
-                                        : billingStatus?.tier === 'free'
-                                        ? 'Free Tier'
-                                        : billingStatus?.stripe_subscription_status || 'Active'}
+                                            ? 'Past Due'
+                                            : billingStatus?.tier === 'free'
+                                                ? 'Free Tier'
+                                                : billingStatus?.stripe_subscription_status || 'Active'}
                                 </span>
                             </div>
                             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -292,13 +305,12 @@ function BillingContent() {
                         </div>
                         <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                             <div
-                                className={`h-full rounded-full transition-all ${
-                                    usagePercent >= 90
+                                className={`h-full rounded-full transition-all ${usagePercent >= 90
                                         ? 'bg-red-500'
                                         : usagePercent >= 75
-                                        ? 'bg-yellow-500'
-                                        : 'bg-cyan-500'
-                                }`}
+                                            ? 'bg-yellow-500'
+                                            : 'bg-cyan-500'
+                                    }`}
                                 style={{ width: `${usagePercent}%` }}
                             />
                         </div>
@@ -399,11 +411,10 @@ function BillingContent() {
                                 <button
                                     onClick={() => handleUpgrade('agency')}
                                     disabled={upgrading === 'agency'}
-                                    className={`mt-4 w-full px-4 py-2 rounded-md transition-colors disabled:opacity-50 ${
-                                        billingStatus?.tier === 'pro'
+                                    className={`mt-4 w-full px-4 py-2 rounded-md transition-colors disabled:opacity-50 ${billingStatus?.tier === 'pro'
                                             ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                                             : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                    }`}
+                                        }`}
                                 >
                                     {upgrading === 'agency' ? 'Redirecting...' : 'Upgrade to Agency'}
                                 </button>
@@ -454,7 +465,7 @@ function BillingContent() {
 export default function BillingPage() {
     return (
         <Suspense fallback={
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center justify-center min-h-100">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
             </div>
         }>

@@ -166,7 +166,13 @@ class WorkerRegistry:
             return True
 
     async def release_task(self, task_id: str, worker_id: str) -> bool:
-        """Release a task claim (on completion or failure)."""
+        """Release a task claim (on completion or failure).
+
+        After releasing, broadcasts any pending tasks to the now-available worker.
+        """
+        released = False
+        worker_codebases = set()
+
         async with self._lock:
             if self._claimed_tasks.get(task_id) == worker_id:
                 del self._claimed_tasks[task_id]
@@ -174,9 +180,74 @@ class WorkerRegistry:
                 if worker:
                     worker.is_busy = False
                     worker.current_task_id = None
+                    worker_codebases = set(worker.codebases)
                 logger.info(f'Task {task_id} released by worker {worker_id}')
-                return True
-            return False
+                released = True
+
+        # After releasing, check for pending tasks and broadcast to newly available worker
+        if released and worker_codebases:
+            import asyncio
+
+            asyncio.create_task(
+                self._broadcast_pending_tasks_to_worker(
+                    worker_id, worker_codebases
+                )
+            )
+
+        return released
+
+    async def _broadcast_pending_tasks_to_worker(
+        self, worker_id: str, worker_codebases: set
+    ) -> None:
+        """Broadcast pending tasks to a worker that just became available."""
+        try:
+            from .monitor_api import get_opencode_bridge
+
+            bridge = get_opencode_bridge()
+            if not bridge:
+                return
+
+            # Get pending tasks for codebases this worker handles
+            from .opencode_bridge import AgentTaskStatus
+
+            pending_tasks = await bridge.list_tasks(
+                status=AgentTaskStatus.PENDING
+            )
+
+            for task in pending_tasks:
+                # Check if worker can handle this task's codebase
+                task_codebase = task.codebase_id
+                if task_codebase in worker_codebases or task_codebase in (
+                    'global',
+                    '__pending__',
+                ):
+                    task_data = {
+                        'id': task.id,
+                        'codebase_id': task.codebase_id,
+                        'title': task.title,
+                        'prompt': task.prompt,
+                        'agent_type': task.agent_type,
+                        'priority': task.priority,
+                        'metadata': task.metadata,
+                        'model': task.model,
+                        'target_agent_name': getattr(
+                            task, 'target_agent_name', None
+                        ),
+                        'created_at': task.created_at.isoformat()
+                        if task.created_at
+                        else None,
+                    }
+
+                    if await self.push_task_to_worker(worker_id, task_data):
+                        logger.info(
+                            f'Broadcast pending task {task.id} to newly available worker {worker_id}'
+                        )
+                        # Only send one task at a time - worker will release and get next
+                        break
+        except Exception as e:
+            logger.warning(
+                f'Error broadcasting pending tasks to worker {worker_id}: {e}'
+            )
 
     async def get_available_workers(
         self,
@@ -221,6 +292,10 @@ class WorkerRegistry:
                         pass  # Any worker can handle these
                     elif codebase_id in worker.codebases:
                         pass  # Worker explicitly registered this codebase
+                    elif await self._worker_owns_codebase(
+                        worker.worker_id, codebase_id
+                    ):
+                        pass  # Codebase registry says this worker handles it
                     else:
                         # Task is for a specific codebase the worker doesn't have
                         # Skip this worker even if it has no codebases registered
@@ -238,6 +313,29 @@ class WorkerRegistry:
                 available.append(worker)
 
             return available
+
+    async def _worker_owns_codebase(
+        self, worker_id: str, codebase_id: str
+    ) -> bool:
+        """Check if the codebase registry says this worker handles the codebase."""
+        try:
+            # First try in-memory bridge cache
+            from .opencode_bridge import get_bridge
+
+            bridge = get_bridge()
+            codebase = bridge.get_codebase(codebase_id)
+            if codebase and codebase.worker_id == worker_id:
+                return True
+
+            # Fall back to database query
+            from . import db
+
+            codebase_data = await db.db_get_codebase(codebase_id)
+            if codebase_data and codebase_data.get('worker_id') == worker_id:
+                return True
+        except Exception as e:
+            logger.debug(f'Error checking codebase ownership: {e}')
+        return False
 
     async def get_worker(self, worker_id: str) -> Optional[ConnectedWorker]:
         """Get a specific worker by ID."""
@@ -322,6 +420,68 @@ class WorkerRegistry:
             f'Task {task.get("id", "unknown")} broadcast to {len(notified)} workers{routing_info}'
         )
         return notified
+
+    async def broadcast_task_available(
+        self,
+        task_id: str,
+        codebase_id: Optional[str] = None,
+        target_agent_name: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Broadcast that a task is available to workers that can handle it.
+
+        This fetches the task details and broadcasts to appropriate workers.
+        Used when a task is created or becomes available for claiming.
+
+        Args:
+            task_id: The ID of the task that's available
+            codebase_id: Optional codebase ID for routing
+            target_agent_name: Optional specific agent to target
+
+        Returns:
+            List of worker_ids that received the notification
+        """
+        try:
+            # Fetch task details from the bridge
+            from .monitor_api import get_opencode_bridge
+
+            bridge = get_opencode_bridge()
+            if not bridge:
+                logger.warning(
+                    f'Cannot broadcast task {task_id}: bridge not available'
+                )
+                return []
+
+            task = await bridge.get_task(task_id)
+            if not task:
+                logger.warning(
+                    f'Cannot broadcast task {task_id}: task not found'
+                )
+                return []
+
+            task_data = {
+                'id': task.id,
+                'codebase_id': task.codebase_id,
+                'title': task.title,
+                'prompt': task.prompt,
+                'agent_type': task.agent_type,
+                'priority': task.priority,
+                'metadata': task.metadata,
+                'model': task.model,
+                'target_agent_name': task.target_agent_name,
+                'created_at': task.created_at.isoformat()
+                if task.created_at
+                else None,
+            }
+
+            return await self.broadcast_task(
+                task_data,
+                codebase_id=codebase_id or task.codebase_id,
+                target_agent_name=target_agent_name or task.target_agent_name,
+            )
+        except Exception as e:
+            logger.error(f'Error broadcasting task {task_id}: {e}')
+            return []
 
     def add_task_listener(self, callback: Callable) -> None:
         """Add a callback to be notified when tasks are created."""

@@ -1,0 +1,80 @@
+{
+  "project": "IntercomChat",
+  "branchName": "ralph/intercom-chat",
+  "description": "Intercom-style chat widget that connects to real A2A workers for live AI conversations on the marketing site",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add ChatWidget to marketing site index page",
+      "description": "As a visitor, I want to see a floating chat bubble on the homepage that I can click to chat with AI",
+      "acceptanceCriteria": [
+        "ChatWidget component exists at src/components/ChatWidget.tsx",
+        "ChatWidget imported and rendered in src/app/(main)/page.tsx",
+        "Floating button visible in bottom-right corner (60px, 24px margin)",
+        "Clicking button toggles chat panel open/closed",
+        "Typecheck passes with npm run typecheck"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "US-002", 
+      "title": "Connect chat to A2A send_message API",
+      "description": "As a visitor, I want my messages sent to a real AI worker so I get intelligent responses",
+      "acceptanceCriteria": [
+        "Chat sends messages to POST /v1/opencode/tasks endpoint",
+        "Task created with title, prompt from user message, agent_type build",
+        "API_URL from env NEXT_PUBLIC_API_URL or defaults to http://localhost:8001",
+        "Returns task_id and polls GET /v1/opencode/tasks/{id} for completion",
+        "Displays AI response from task.result when status=completed",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "US-003",
+      "title": "Show message history with user/AI styling",
+      "description": "As a visitor, I want to see my messages and AI responses displayed clearly",
+      "acceptanceCriteria": [
+        "User messages aligned right with purple/cyan background",
+        "AI messages aligned left with gray background", 
+        "Messages stored in component state as array",
+        "Auto-scroll to newest message",
+        "Show loading indicator while waiting for AI response",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "US-004",
+      "title": "Persist chat history in localStorage",
+      "description": "As a visitor, I want my chat history preserved across page refreshes",
+      "acceptanceCriteria": [
+        "Messages saved to localStorage key 'intercom-chat-messages'",
+        "Messages restored on component mount",
+        "Clear chat button resets localStorage and state",
+        "Conversation ID stored for threading",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false
+    },
+    {
+      "id": "US-005",
+      "title": "Handle errors and edge cases gracefully",
+      "description": "As a visitor, I want helpful error messages if something goes wrong",
+      "acceptanceCriteria": [
+        "Show error message if API request fails",
+        "Retry button appears on failed messages",
+        "Disable send button while request in progress",
+        "Handle empty messages (don't send)",
+        "Timeout after 60 seconds with error message",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false
+    }
+  ]
+}

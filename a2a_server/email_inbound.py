@@ -58,6 +58,98 @@ class EmailReplyContext(BaseModel):
     body_text: str
     body_html: Optional[str] = None
     received_at: datetime
+    model: Optional[str] = None  # Model selection from email
+
+
+# Supported model aliases for email replies
+# Maps friendly names to provider/model format
+MODEL_ALIASES: Dict[str, str] = {
+    # Claude models
+    'claude': 'anthropic/claude-sonnet-4-20250514',
+    'claude-sonnet': 'anthropic/claude-sonnet-4-20250514',
+    'claude-sonnet-4': 'anthropic/claude-sonnet-4-20250514',
+    'sonnet': 'anthropic/claude-sonnet-4-20250514',
+    'sonnet-4': 'anthropic/claude-sonnet-4-20250514',
+    'claude-opus': 'anthropic/claude-opus-4-20250514',
+    'opus': 'anthropic/claude-opus-4-20250514',
+    'opus-4': 'anthropic/claude-opus-4-20250514',
+    'claude-haiku': 'anthropic/claude-3-5-haiku-latest',
+    'haiku': 'anthropic/claude-3-5-haiku-latest',
+    # OpenAI models
+    'gpt-4': 'openai/gpt-4',
+    'gpt-4o': 'openai/gpt-4o',
+    'gpt-4-turbo': 'openai/gpt-4-turbo',
+    'gpt-4.1': 'openai/gpt-4.1',
+    'o1': 'openai/o1',
+    'o1-mini': 'openai/o1-mini',
+    'o3': 'openai/o3',
+    'o3-mini': 'openai/o3-mini',
+    # Google models
+    'gemini': 'google/gemini-2.5-pro',
+    'gemini-pro': 'google/gemini-2.5-pro',
+    'gemini-2.5-pro': 'google/gemini-2.5-pro',
+    'gemini-flash': 'google/gemini-2.5-flash',
+    'gemini-2.5-flash': 'google/gemini-2.5-flash',
+    # MiniMax models
+    'minimax': 'minimax/MiniMax-M1-80k',
+    'minimax-m1': 'minimax/MiniMax-M1-80k',
+    'm1': 'minimax/MiniMax-M1-80k',
+    # Grok
+    'grok': 'xai/grok-3',
+    'grok-3': 'xai/grok-3',
+}
+
+
+def parse_model_from_subject(subject: str) -> tuple[Optional[str], str]:
+    """
+    Parse model selection from email subject.
+
+    Supports formats:
+    - [model:claude-sonnet] or [model: claude-sonnet]
+    - [use:gpt-4o] or [use: gpt-4o]
+    - [with:gemini] or [with: gemini]
+
+    Also supports direct provider/model format:
+    - [model:anthropic/claude-sonnet-4-20250514]
+
+    Returns:
+        Tuple of (resolved_model, cleaned_subject)
+        - resolved_model: The full provider/model path, or None if not specified
+        - cleaned_subject: Subject with the model tag removed
+    """
+    # Pattern to match [model:xxx], [use:xxx], [with:xxx]
+    pattern = r'\[(model|use|with)\s*:\s*([^\]]+)\]'
+    match = re.search(pattern, subject, re.IGNORECASE)
+
+    if not match:
+        return None, subject
+
+    model_spec = match.group(2).strip().lower()
+
+    # Remove the tag from subject
+    cleaned_subject = re.sub(pattern, '', subject, flags=re.IGNORECASE).strip()
+    # Clean up any double spaces
+    cleaned_subject = re.sub(r'\s+', ' ', cleaned_subject).strip()
+
+    # Check if it's already a full provider/model path
+    if '/' in model_spec:
+        logger.info(f'Model specified directly in email subject: {model_spec}')
+        return model_spec, cleaned_subject
+
+    # Look up alias
+    resolved = MODEL_ALIASES.get(model_spec)
+    if resolved:
+        logger.info(
+            f'Resolved model alias "{model_spec}" to "{resolved}" from email subject'
+        )
+        return resolved, cleaned_subject
+
+    # Unknown alias - log warning but still try to use it
+    logger.warning(
+        f'Unknown model alias "{model_spec}" in email subject, '
+        f'will attempt to use as-is. Known aliases: {", ".join(sorted(MODEL_ALIASES.keys()))}'
+    )
+    return model_spec, cleaned_subject
 
 
 def parse_reply_to_address(to_address: str) -> Dict[str, Optional[str]]:
@@ -77,22 +169,25 @@ def parse_reply_to_address(to_address: str) -> Dict[str, Optional[str]]:
     }
 
     # Extract local part before @
-    match = re.match(r'^([^@]+)@', to_address.lower().strip())
+    # IMPORTANT: Don't lowercase the entire address - session IDs are case-sensitive!
+    # Only lowercase the prefix for comparison, but preserve the original case of session_id
+    match = re.match(r'^([^@]+)@', to_address.strip())
     if not match:
         return result
 
     local_part = match.group(1)
 
-    # Check if it starts with our prefix
+    # Check if it starts with our prefix (case-insensitive comparison)
     prefix = EMAIL_REPLY_PREFIX.lower()
-    if not local_part.startswith(f'{prefix}+'):
+    if not local_part.lower().startswith(f'{prefix}+'):
         logger.debug(
             f'Email to address does not match expected prefix: {to_address}'
         )
         return result
 
-    # Extract the parts after the prefix
-    parts_str = local_part[len(prefix) + 1 :]  # +1 for the '+'
+    # Extract the parts after the prefix, preserving original case
+    # Skip the prefix length + 1 for the '+'
+    parts_str = local_part[len(prefix) + 1 :]
     parts = parts_str.split('+')
 
     if len(parts) >= 1 and parts[0]:
@@ -328,6 +423,11 @@ async def handle_inbound_email(
     session_id = context.get('session_id')
     codebase_id = context.get('codebase_id')
 
+    # Parse model selection from subject (e.g., [model:claude-sonnet])
+    model, cleaned_subject = parse_model_from_subject(subject)
+    if model:
+        logger.info(f'Model "{model}" selected via email subject')
+
     # Extract the actual reply content (without quoted text)
     reply_body = extract_reply_body(text, html)
 
@@ -348,6 +448,7 @@ async def handle_inbound_email(
             'charsets': charsets,
             'original_text_length': len(text) if text else 0,
             'extracted_text_length': len(reply_body) if reply_body else 0,
+            'model': model,  # Track model selection in metadata
         },
     )
 
@@ -385,10 +486,11 @@ async def handle_inbound_email(
         session_id=session_id,
         codebase_id=codebase_id,
         from_email=from_,
-        subject=subject,
+        subject=cleaned_subject,  # Use cleaned subject (model tag removed)
         body_text=reply_body,
         body_html=html if html else None,
         received_at=datetime.utcnow(),
+        model=model,  # Pass model selection
     )
 
     # Create a continuation task
@@ -410,7 +512,9 @@ async def handle_inbound_email(
             'task_id': task_id,
             'session_id': session_id,
             'email_id': email_id,
-            'message': 'Reply received and task created',
+            'model': model,  # Include model selection in response
+            'message': 'Reply received and task created'
+            + (f' (model: {model})' if model else ''),
         }
     except Exception as e:
         logger.error(f'Failed to create continuation task: {e}')
@@ -467,19 +571,30 @@ Subject: {context.subject}
 
 {context.body_text}"""
 
+    # Build metadata for the task
+    metadata = {
+        'source': 'email_reply',
+        'from_email': context.from_email,
+        'original_subject': context.subject,
+        'received_at': context.received_at.isoformat(),
+        'resume_session_id': context.session_id,  # Key: resume the existing session
+    }
+
+    # Log model selection
+    if context.model:
+        logger.info(
+            f'Creating continuation task with model: {context.model}'
+        )
+        metadata['model_source'] = 'email_subject'
+
     # Create the task with resume_session_id in metadata to continue the conversation
     task = await bridge.create_task(
         codebase_id=codebase_id,
         title=f'Email reply: {context.subject[:50]}',
         prompt=prompt,
         agent_type='build',  # Default agent type
-        metadata={
-            'source': 'email_reply',
-            'from_email': context.from_email,
-            'original_subject': context.subject,
-            'received_at': context.received_at.isoformat(),
-            'resume_session_id': context.session_id,  # Key: resume the existing session
-        },
+        model=context.model,  # Pass model from email subject
+        metadata=metadata,
     )
 
     if task is None:
@@ -522,6 +637,33 @@ async def test_reply_address(
         'parsed_back': parsed,
         'domain': EMAIL_INBOUND_DOMAIN,
         'prefix': EMAIL_REPLY_PREFIX,
+    }
+
+
+@email_router.get('/test-model-parsing')
+async def test_model_parsing(subject: str):
+    """
+    Test endpoint to verify model parsing from email subjects.
+
+    Example subjects:
+    - "Re: Task completed [model:claude-sonnet]"
+    - "[use:gpt-4o] Please fix the bug"
+    - "[with:gemini] Review my code"
+    - "Re: Task [model:anthropic/claude-sonnet-4-20250514]"
+
+    Supported model aliases:
+    - claude, claude-sonnet, sonnet, opus, haiku
+    - gpt-4, gpt-4o, gpt-4-turbo, o1, o3
+    - gemini, gemini-pro, gemini-flash
+    - minimax, m1, grok
+    """
+    model, cleaned_subject = parse_model_from_subject(subject)
+
+    return {
+        'original_subject': subject,
+        'cleaned_subject': cleaned_subject,
+        'parsed_model': model,
+        'available_aliases': sorted(MODEL_ALIASES.keys()),
     }
 
 

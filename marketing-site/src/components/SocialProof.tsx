@@ -1,39 +1,21 @@
+'use client'
+
 import { Container } from '@/components/Container'
 
 export function SocialProof() {
-    const stats = [
-        {
-            label: 'Open Source',
-            value: 'Apache 2.0',
-            detail: 'Commercial-friendly license',
-        },
-        {
-            label: 'A2A Protocol',
-            value: 'v0.3 Compliant',
-            detail: 'Industry standard',
-        },
-        {
-            label: 'Self-Hostable',
-            value: '100%',
-            detail: 'You control your data',
-        },
-    ]
     return (
-        <section className="border-y border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 py-12">
+        <section className="border-y border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 py-8">
             <Container>
-                <div className="mx-auto max-w-4xl text-center">
-                <p className="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-                    Production-Ready Foundation
-                </p>
-                <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-                    {stats.map((stat) => (
-                        <div key={stat.label} className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
-                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{stat.label}</div>
-                            <div className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{stat.value}</div>
-                            <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{stat.detail}</div>
-                        </div>
-                    ))}
-                </div>
+                <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500 dark:text-gray-400">
+                    <span>Webhook trigger</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">RLM processing</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span>10M+ token context</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span>Email delivery</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span>Real file output</span>
                 </div>
             </Container>
         </section>
@@ -43,56 +25,65 @@ export function SocialProof() {
 export function Testimonials() {
     const features = [
         {
-            title: 'Pull Architecture',
-            description: 'Workers poll for tasks instead of receiving inbound connections. Zero firewall rules to approve. Security teams love it.',
-            icon: '⬇️',
+            title: 'Webhook Integration',
+            description: 'Trigger tasks from Zapier, n8n, Make, or any HTTP request.',
         },
         {
-            title: 'Zero Third-Party Storage',
-            description: 'CodeTether does not proxy or store your prompts and source code. The Control Plane only needs orchestration metadata.',
-            icon: '🛡️',
+            title: 'RLM Processing',
+            description: 'Recursive Language Models handle 10M+ tokens—100x beyond normal LLM context. AI works 5-60 minutes with recursive decomposition.',
+            highlight: true,
         },
         {
-            title: 'A2A Protocol Native',
-            description: 'Built on Google and Microsoft\'s A2A protocol specification for agent-to-agent communication and orchestration.',
-            icon: '🔗',
+            title: 'Email Delivery',
+            description: 'Results delivered to your inbox with file attachments.',
+        },
+        {
+            title: 'RLM Technology',
+            description: 'MIT research enabling unlimited context windows. Background processing with variable stitching produces real file outputs.',
+            highlight: true,
         },
     ]
 
     return (
         <section
-            id="testimonials"
-            aria-labelledby="testimonials-title"
+            id="features"
+            aria-labelledby="features-title"
             className="py-20 sm:py-32 bg-white dark:bg-gray-950"
         >
             <Container>
                 <div className="mx-auto max-w-2xl text-center">
                     <h2
-                        id="testimonials-title"
+                        id="features-title"
                         className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                     >
-                        v1.2.0 Highlights
+                        How It Works
                     </h2>
-                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        What makes CodeTether production-ready.
-                    </p>
                 </div>
-                <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-3">
+                <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-4">
                     {features.map((feature) => (
-                        <figure
+                        <div
                             key={feature.title}
-                            className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-lg ring-1 ring-gray-900/5 dark:ring-gray-800"
+                            className={`rounded-2xl p-8 ${
+                                feature.highlight
+                                    ? 'bg-gray-900 dark:bg-gray-800 border border-cyan-500/30'
+                                    : 'bg-gray-50 dark:bg-gray-900'
+                            }`}
                         >
-                            <div className="text-4xl mb-4">{feature.icon}</div>
-                            <figcaption>
-                                <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
-                                    {feature.title}
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-                                    {feature.description}
-                                </p>
-                            </figcaption>
-                        </figure>
+                            <h3 className={`font-semibold text-lg ${
+                                feature.highlight
+                                    ? 'text-cyan-400'
+                                    : 'text-gray-900 dark:text-white'
+                            }`}>
+                                {feature.title}
+                            </h3>
+                            <p className={`mt-2 text-sm ${
+                                feature.highlight
+                                    ? 'text-gray-300'
+                                    : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                                {feature.description}
+                            </p>
+                        </div>
                     ))}
                 </div>
             </Container>

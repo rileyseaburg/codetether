@@ -63,7 +63,7 @@ export namespace A2AEmail {
         <tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 140px;">Output</td>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 13px; background: #f9fafb; padding: 12px; border-radius: 6px; max-height: 300px; overflow-y: auto;">${truncate(report.output, 2000)}</pre>
+            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 13px; background: #f9fafb; padding: 12px; border-radius: 6px; max-height: 300px; overflow-y: auto;">${report.output}</pre>
           </td>
         </tr>`
       : ""
@@ -72,7 +72,7 @@ export namespace A2AEmail {
         <tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 140px;">Error</td>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 13px; background: #fef2f2; padding: 12px; border-radius: 6px; color: #dc2626;">${truncate(report.error, 1000)}</pre>
+            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 13px; background: #fef2f2; padding: 12px; border-radius: 6px; color: #dc2626;">${report.error}</pre>
           </td>
         </tr>`
       : ""

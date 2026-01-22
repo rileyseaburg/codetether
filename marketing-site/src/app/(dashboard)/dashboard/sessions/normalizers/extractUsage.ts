@@ -1,7 +1,7 @@
 import type { TokenUsage, SessionMessage } from '../types'
 import { coerceTokenUsage } from '../utils'
 
-export function extractUsage(msg: SessionMessage, info: any, stepFinishes: any[]) {
+export function extractUsage(msg: SessionMessage, stepFinishes: Array<{ cost?: number; tokens?: TokenUsage }>) {
     const stepCostAny = stepFinishes.some((p) => typeof p.cost === 'number')
     const stepCostSum = stepFinishes.reduce((acc, p) => acc + (p.cost || 0), 0)
 
@@ -23,12 +23,10 @@ export function extractUsage(msg: SessionMessage, info: any, stepFinishes: any[]
 
     const cost =
         (typeof msg.cost === 'number' ? msg.cost : undefined) ??
-        (typeof info?.cost === 'number' ? info.cost : undefined) ??
         (stepCostAny ? stepCostSum : undefined)
 
     const tokens =
         coerceTokenUsage(msg.tokens) ??
-        coerceTokenUsage(info?.tokens) ??
         stepTokensSum
 
     return { cost, tokens }

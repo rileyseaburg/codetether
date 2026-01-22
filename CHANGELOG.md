@@ -1,5 +1,125 @@
 # Changelog
 
+## [1.4.0] - 2026-01-22
+
+### Added - Ralph: Autonomous Development Loop
+
+Ralph is a fully autonomous development agent that implements entire PRDs (Product Requirements Documents) with zero human intervention.
+
+#### Ralph Architecture
+- **PRD-Driven Development**: Define user stories with acceptance criteria, Ralph implements them all
+- **Fresh Context Per Story**: Each user story spawns a new OpenCode instance for optimal context
+- **Iterative Learning**: Failed stories trigger re-analysis using `progress.txt` context
+- **Self-Healing**: Automatic retry with accumulated learnings when acceptance criteria fail
+- **Git Integration**: Atomic commits per user story with meaningful commit messages
+
+#### Ralph Dashboard (`/dashboard/ralph`)
+- Interactive PRD builder with YAML import/export
+- Real-time execution monitoring with live logs
+- Story status tracking (pending/running/passed/failed)
+- Agent and task overview with progress metrics
+- Branch management with auto-generated feature branches
+
+#### RLM Integration
+- Ralph leverages RLM for large codebase analysis when context exceeds threshold
+- Subcalls automatically triggered when analyzing complex files
+- Progress context preserved across iterations
+
+### Added - Chat Widget
+
+Interactive chat widget for the marketing site, enabling live conversations with the A2A platform.
+
+- **ChatWidget Component**: Floating chat bubble with expand/collapse states
+- **Marketing Site Integration**: Embedded on index page for visitor engagement
+- **Real-time Messaging**: Direct connection to A2A messaging system
+
+### Added - Zapier Integration
+
+Full Zapier CLI integration for no-code automation workflows.
+
+#### Authentication
+- OAuth2 authentication with Keycloak
+- Secure token refresh flow
+
+#### Zapier Components
+- **Trigger**: `new_task` - Fires when tasks are created
+- **Actions**: `create_task`, `send_message`, `cancel_task`
+- **Search**: `find_task` - Find tasks by ID or status
+
+### Added - Getting Started / Onboarding
+
+New onboarding experience with Zapier as first-class integration method.
+
+- `/dashboard/getting-started` page with quick start guide (3 steps)
+- Popular Zapier automation examples
+- All integration methods documented (Zapier, REST API, Webhooks)
+- Highlighted navigation item with "New" badge
+
+### Added - Task Reaper
+
+Automatic stuck task recovery system for improved reliability.
+
+#### Task Reaper Features
+- Background service running every 60 seconds
+- Detects tasks stuck in 'running' state for >5 minutes
+- Requeues stuck tasks for retry (up to 3 attempts)
+- Marks tasks as failed after max retries exceeded
+- Email notification on permanent failure
+
+#### New API Endpoints
+- `GET /v1/opencode/tasks/stuck` - List stuck tasks
+- `POST /v1/opencode/tasks/stuck/recover` - Manual recovery trigger
+- `POST /v1/opencode/tasks/{id}/requeue` - Requeue specific task
+- `GET /v1/opencode/reaper/health` - Reaper health status
+
+#### Configuration
+- `TASK_STUCK_TIMEOUT_SECONDS` (default: 300)
+- `TASK_REAPER_INTERVAL_SECONDS` (default: 60)
+- `TASK_MAX_ATTEMPTS` (default: 3)
+
+### Added - Email Improvements
+
+- **Contact Forwarding**: Emails to info@, support@, hello@, contact@, help@, sales@ forwarded to admin
+- **Session ID in Reply-To**: Task notification emails include session_id for proper threading
+- **Email Logging**: Inbound/outbound email tracking in database
+
+### Fixed
+- Missing `provisioning_service` import for user registration
+- FK constraints removed from email tables (tasks may be in-memory only)
+- Zapier OAuth refresh token flow
+
+---
+
+## [1.3.0] - 2026-01-18
+
+### Added - RLM (Recursive Language Models)
+
+Revolutionary infinite context processing that breaks the context window barrier.
+
+#### RLM Architecture
+- **model_resolver.py**: Priority-based model resolution for RLM subcalls
+- **Hosted Worker Integration**: RLM capability detection and execution
+- **Database Fields**: `subcall_model_ref`, `resolved_subcall_*` for tracking
+
+#### How RLM Works
+1. When context exceeds threshold (default: 80K tokens), RLM triggers automatically
+2. Context is chunked and processed by subcall agents
+3. Results are synthesized back into the parent context
+4. Enables processing of arbitrarily large codebases
+
+#### Marketing Site Updates
+- RLM feature section with interactive code demo
+- Hero badge with infinity symbol
+- Primary feature tab highlighting RLM
+- Feature cards with RLM benefits
+
+#### Documentation
+- RLM architecture diagrams
+- Configuration guide in opencode-integration.md
+- Flow diagrams in agent-messaging-architecture.md
+
+---
+
 ## [1.2.2] - 2026-01-15
 
 ### Added - Production-Grade Agent Discovery

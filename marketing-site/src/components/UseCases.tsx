@@ -2,46 +2,52 @@ import { Container } from '@/components/Container'
 
 const useCases = [
     {
-        title: 'FinTech & Banking',
+        title: 'Course Creators',
         description:
-            'Trading algorithms and ledger systems can\'t leave your network. AI agents run inside your secure infrastructure, process financial data locally, and only send task status to the cloud. The ledger never moves.',
-        icon: '🏦',
-        features: ['Ledger stays local', 'SEC/FINRA ready', 'Audit trail built-in'],
+            'Stop spending hours on landing pages. Tell the agent "build me a sales page for my new course" and get production-ready HTML in minutes. It reads your existing content, matches your brand, and writes converting copy.',
+        icon: '🎓',
+        features: ['Landing pages', 'Sales copy', 'Email sequences'],
+        workflow: 'New course idea → Agent builds funnel → You review & launch'
     },
     {
-        title: 'Healthcare & Life Sciences',
+        title: 'Agency Owners',
         description:
-            'Patient records, clinical trials, research data—processed where your compliance boundary requires. The Worker runs inside your HIPAA environment; if you use a hosted model, the Worker calls your Azure OpenAI/OpenAI Enterprise tenant directly using your keys. CodeTether remains out of the inference path and does not store PHI.',
-        icon: '🏥',
-        features: ['HIPAA aligned', 'PHI stays under your control', 'BAA-friendly architecture'],
+            'Your clients need reports, audits, and content. RLM agents analyze entire websites, generate SEO reports, and write blog posts—all triggered from your project management tool via webhook.',
+        icon: '🏢',
+        features: ['Client reports', 'SEO audits', 'Content at scale'],
+        workflow: 'Client request → n8n triggers agent → Deliverable ready'
     },
     {
-        title: 'Source Code & IP Protection',
+        title: 'E-commerce Sellers',
         description:
-            'Your proprietary algorithms and source code are your competitive advantage. CodeTether Workers run where your code lives, and CodeTether itself never proxies or stores your prompts/source. When you choose to use a hosted model, the Worker talks directly to your model tenant (or an on-prem model) under your security policy.',
-        icon: '🔐',
-        features: ['Zero third-party storage', 'Air-gap compatible (on-prem models)', 'Full repo access'],
+            'Product descriptions that convert. Feed the agent your inventory spreadsheet and get optimized listings for Amazon, Shopify, and Etsy. Bulk processing hundreds of SKUs overnight.',
+        icon: '🛒',
+        features: ['Product descriptions', 'Listing optimization', 'Bulk processing'],
+        workflow: 'CSV upload → Agent writes listings → Export to platforms'
     },
     {
-        title: 'Government & Defense',
+        title: 'SaaS Founders',
         description:
-            'Classified environments with strict network controls. Workers poll from inside secure enclaves—no inbound connections required. AI capability without the security exceptions.',
-        icon: '🏛️',
-        features: ['FedRAMP aligned', 'Air-gap ready', 'Zero inbound ports'],
+            'Your codebase is growing. RLM agents can analyze your entire repo, find bugs, write tests, and generate documentation. Finally, an AI that understands context beyond a single file.',
+        icon: '💻',
+        features: ['Code review', 'Test generation', 'Documentation'],
+        workflow: 'Push to GitHub → Agent reviews → Issues created'
     },
     {
-        title: 'Manufacturing & ICS',
+        title: 'Content Marketers',
         description:
-            'Industrial control systems and manufacturing data stay behind OT firewalls. AI analyzes production data locally while coordinating with enterprise systems safely.',
-        icon: '🏭',
-        features: ['OT/IT separation', 'Edge deployment', 'SCADA compatible'],
+            'Research, outline, write, optimize. Agents that read your competitors\' content, analyze what ranks, and produce SEO-optimized articles. Triggered from your editorial calendar.',
+        icon: '✍️',
+        features: ['Blog posts', 'Research reports', 'Social content'],
+        workflow: 'Calendar event → Agent researches & writes → Ready for review'
     },
     {
-        title: 'Legal & Professional Services',
+        title: 'Consultants & Coaches',
         description:
-            'Client privileged information stays under your control. Run Workers next to your DMS and apply redaction/policy checks before any optional model call. CodeTether doesn\'t store the payloads; you govern what leaves the building.',
-        icon: '⚖️',
-        features: ['Privilege preserved', 'DMS integration', 'Matter separation'],
+            'Client intake forms trigger personalized analysis. The agent reads their questionnaire, analyzes their situation, and drafts a custom proposal—before your first call.',
+        icon: '🎯',
+        features: ['Proposal generation', 'Client analysis', 'Custom reports'],
+        workflow: 'Form submission → Agent analyzes → Proposal in inbox'
     },
 ]
 
@@ -50,7 +56,7 @@ export function UseCases() {
         <section
             id="use-cases"
             aria-labelledby="use-cases-title"
-            className="bg-white dark:bg-gray-950 py-20 sm:py-32"
+            className="bg-gray-50 dark:bg-gray-900 py-20 sm:py-32"
         >
             <Container>
                 <div className="mx-auto max-w-2xl lg:mx-0">
@@ -58,17 +64,17 @@ export function UseCases() {
                         id="use-cases-title"
                         className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                     >
-                        Enterprise AI Without Enterprise Risk
+                        AI Agents for Every Workflow
                     </h2>
                     <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        Regulated industries can finally deploy AI at scale. Your sensitive data stays exactly where compliance requires it.
+                        You&apos;ve automated the simple stuff. Now automate the work that actually requires thinking.
                     </p>
                 </div>
                 <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-6 sm:mt-20 lg:max-w-none lg:grid-cols-3">
                     {useCases.map((useCase) => (
                         <div
                             key={useCase.title}
-                            className="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 p-8 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-all bg-white dark:bg-gray-900"
+                            className="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 p-8 hover:border-purple-500 dark:hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/10 transition-all bg-white dark:bg-gray-950"
                         >
                             <div className="text-4xl">{useCase.icon}</div>
                             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
@@ -77,6 +83,11 @@ export function UseCases() {
                             <p className="mt-2 flex-grow text-sm text-gray-600 dark:text-gray-300">
                                 {useCase.description}
                             </p>
+                            <div className="mt-4 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                                <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                    {useCase.workflow}
+                                </p>
+                            </div>
                             <ul className="mt-4 flex flex-wrap gap-2">
                                 {useCase.features.map((feature) => (
                                     <li

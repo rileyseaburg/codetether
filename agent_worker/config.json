@@ -1,0 +1,22 @@
+{
+    "server_url": "http://192.168.50.101:8001",
+    "worker_name": "local-worker-1",
+    "poll_interval": 3,
+    "opencode_bin": "/home/riley/.opencode/bin/opencode",
+    "opencode_storage_path": "/home/riley/.local/share/opencode",
+    "redis_url": "redis://localhost:6379",
+    "codebases": [
+        {
+            "id": "30271ae3",
+            "name": "A2A-Server-MCP",
+            "path": "/home/riley/A2A-Server-MCP",
+            "description": "A2A Server with MCP integration"
+        }
+    ],
+    "capabilities": [
+        "opencode",
+        "build",
+        "plan",
+        "explore"
+    ]
+}

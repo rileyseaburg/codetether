@@ -9,9 +9,12 @@ rolloutId: ""
 podAnnotations: {}
 
 image:
-  repository: registry.quantum-forge.net/library/a2a-marketing
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
   pullPolicy: Always
   tag: "latest"
+
+imagePullSecrets:
+  - name: gcp-artifact-registry
 
 service:
   type: ClusterIP

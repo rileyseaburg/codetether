@@ -1,6 +1,16 @@
 # CodeTether deployment values
 imagePullSecrets:
-  - name: gcr-pull-secret
+  - name: gcp-artifact-registry
+
+# Main A2A server image
+image:
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
+  tag: "latest"
+  pullPolicy: Always
+
+# Disable blue-green deployment (use simple deployment)
+blueGreen:
+  enabled: false
 
 app:
   name: "CodeTether Server"
@@ -15,11 +25,24 @@ env:
   A2A_AGENT_URL: "https://codetether.run"
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
 
+  # Model Configuration
+  # Default model for task subcalls (provider:model format)
+  # Options: anthropic:claude-sonnet-4-20250514, openai:gpt-4o, google:gemini-2.5-flash, etc.
+  A2A_RLM_DEFAULT_SUBCALL_MODEL_REF: "google:gemini-3-flash-preview"
+
+  # Fallback chain (comma-separated, use 'controller' for final fallback)
+  A2A_RLM_FALLBACK_CHAIN: "google:gemini-3-flash-preview,openai:gpt-4o-mini,controller"
+
+  # Allow controller to execute tasks if no model available
+  A2A_RLM_ALLOW_CONTROLLER_FALLBACK: "1"
+
 # Marketing site
 marketing:
   enabled: true
+  imagePullSecrets:
+    - name: gcp-artifact-registry
   image:
-    repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-marketing
+    repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
     pullPolicy: Always
     tag: "latest"
   replicaCount: 1
@@ -56,6 +79,8 @@ marketing:
 # Documentation site
 docs:
   enabled: true
+  imagePullSecrets:
+    - name: gcp-artifact-registry
   image:
     repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-docs
     pullPolicy: Always

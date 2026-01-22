@@ -21,5 +21,4 @@ export type ChatItem = {
     reasoning?: string
     tools?: ToolEntry[]
     usage?: { cost?: number; tokens?: TokenUsage }
-    rawDetails?: string
 }

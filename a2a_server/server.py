@@ -77,14 +77,7 @@ except ImportError:
     AUTOMATION_API_AVAILABLE = False
     automation_api_router = None
 
-# Import OAuth 2.0 server for platform integration
-try:
-    from .oauth2_server import router as oauth_router
-
-    OAUTH_SERVER_AVAILABLE = True
-except ImportError:
-    OAUTH_SERVER_AVAILABLE = False
-    oauth_router = None
+# OAuth is handled by Keycloak - no custom OAuth server needed
 
 # Import A2A protocol router for standards-compliant agent communication
 try:
@@ -322,11 +315,6 @@ class A2AServer:
         if AUTOMATION_API_AVAILABLE and automation_api_router:
             self.app.include_router(automation_api_router)
             logger.info('Automation API router mounted at /v1/automation')
-
-        # Include OAuth 2.0 server for platform integration
-        if OAUTH_SERVER_AVAILABLE and oauth_router:
-            self.app.include_router(oauth_router)
-            logger.info('OAuth 2.0 server mounted at /oauth')
 
         # Include A2A protocol router for standards-compliant agent communication
         # This provides JSON-RPC and REST bindings at /a2a/*

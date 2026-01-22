@@ -9,7 +9,7 @@ site_dir: codetether-site
 docs_dir: codetether-docs
 
 extra:
-  version: "1.0.0"
+  version: "1.4.0"
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/rileyseaburg/codetether
@@ -30,7 +30,9 @@ nav:
       - Message Broker: concepts/message-broker.md
       - Task Management: concepts/task-management.md
   - Features:
+      - Ralph (Autonomous Dev): features/ralph.md
       - OpenCode Integration: features/opencode.md
+      - Zapier Integration: features/zapier.md
       - Agent Worker: features/agent-worker.md
       - Distributed Workers: features/distributed-workers.md
       - Worker SSE Push Notifications: features/worker-sse.md
@@ -69,7 +71,7 @@ repo_name: rileyseaburg/codetether
 repo_url: https://github.com/rileyseaburg/codetether
 
 # Copyright
-copyright: Copyright 2025 CodeTether. Apache License 2.0.
+copyright: Copyright 2025-2026 CodeTether. Apache License 2.0.
 
 # Custom CSS
 extra_css:

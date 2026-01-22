@@ -85,6 +85,15 @@ except ImportError:
     BILLING_WEBHOOKS_AVAILABLE = False
     billing_webhook_router = None
 
+# Import automation API router for Zapier/n8n/Make integrations
+try:
+    from .automation_api import router as automation_router
+
+    AUTOMATION_API_AVAILABLE = True
+except ImportError:
+    AUTOMATION_API_AVAILABLE = False
+    automation_router = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -143,6 +152,10 @@ class MCPHTTPServer:
         # Include Billing Webhooks router for Stripe
         if BILLING_WEBHOOKS_AVAILABLE and billing_webhook_router:
             self.app.include_router(billing_webhook_router)
+
+        # Include Automation API router for Zapier/n8n/Make
+        if AUTOMATION_API_AVAILABLE and automation_router:
+            self.app.include_router(automation_router)
 
         self._setup_routes()
 

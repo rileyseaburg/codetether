@@ -9,9 +9,19 @@ export interface Codebase {
 
 export interface Session {
     id: string
-    title?: string
-    agent?: string
-    messageCount?: number
-    created?: string
-    updated?: string
+    slug?: string
+    version: string
+    projectID: string
+    directory: string
+    parentID?: string
+    title: string
+    time: {
+        created: number
+        updated: number
+    }
+    summary?: {
+        additions: number
+        deletions: number
+        files: number
+    }
 }

@@ -209,6 +209,20 @@ def _build_email_html(
       <p style="margin: 0; font-size: 12px; color: #6b7280;">
         Your reply will be sent to the agent to continue working on this task.
       </p>
+      <div style="margin: 16px 0 12px 0; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+        <p style="margin: 0 0 8px 0; font-size: 11px; color: #6b7280; font-weight: 500;">
+          Switch model by adding to subject (copy &amp; paste):
+        </p>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font-family: monospace; font-size: 11px;">
+          <span style="background: #e0e7ff; color: #3730a3; padding: 3px 8px; border-radius: 4px;">[model:sonnet]</span>
+          <span style="background: #e0e7ff; color: #3730a3; padding: 3px 8px; border-radius: 4px;">[model:opus]</span>
+          <span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px;">[model:gpt-4.1]</span>
+          <span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px;">[model:o3]</span>
+          <span style="background: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 4px;">[model:gemini]</span>
+          <span style="background: #ede9fe; color: #5b21b6; padding: 3px 8px; border-radius: 4px;">[model:grok]</span>
+          <span style="background: #fce7f3; color: #9d174d; padding: 3px 8px; border-radius: 4px;">[model:minimax]</span>
+        </div>
+      </div>
       <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af;">
         Sent by CodeTether - {worker_name}
       </p>

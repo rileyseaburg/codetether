@@ -15,9 +15,9 @@ const plans = [
         name: 'Free',
         featured: false,
         price: { monthly: '$0', annually: '$0' },
-        description: 'Try CodeTether with no commitment.',
+        description: 'Try before you buy. Perfect for testing workflows.',
         button: {
-            label: 'Get started',
+            label: 'Start Free',
             href: '/register',
             action: 'signup',
         },
@@ -26,8 +26,8 @@ const plans = [
             '1 concurrent task',
             '10 min max runtime',
             'Email delivery',
-            'Pre-built templates',
-            'Community support',
+            'Webhook trigger',
+            'Community Discord',
         ],
         limits: {
             tasks: 10,
@@ -41,7 +41,7 @@ const plans = [
         name: 'Pro',
         featured: true,
         price: { monthly: '$297', annually: '$297' },
-        description: 'For builders replacing Zapier + VAs.',
+        description: 'For automation builders replacing Zapier + VAs.',
         button: {
             label: 'Upgrade to Pro',
             href: '/register',
@@ -51,10 +51,11 @@ const plans = [
             '300 tasks / month',
             '3 concurrent tasks',
             '30 min max runtime',
-            'Email + webhook delivery',
-            'Background execution',
-            'Priority support',
-            'Usage analytics',
+            'Email + webhook callback',
+            'RLM unlimited context',
+            'Priority email support',
+            'Session history',
+            'Reply-to-continue',
         ],
         limits: {
             tasks: 300,
@@ -68,7 +69,7 @@ const plans = [
         name: 'Agency',
         featured: false,
         price: { monthly: '$497', annually: '$497' },
-        description: 'For teams and multi-client ops.',
+        description: 'For teams running client automations at scale.',
         button: {
             label: 'Upgrade to Agency',
             href: '/register',
@@ -78,11 +79,11 @@ const plans = [
             '2,000 tasks / month',
             '10 concurrent tasks',
             '60 min max runtime',
-            'Email + webhook delivery',
-            'Background execution',
+            'Everything in Pro',
+            'Team workspaces',
+            'Onboarding call',
             'Dedicated support',
-            'Advanced analytics',
-            'Team collaboration',
+            'Custom workflow setup',
         ],
         limits: {
             tasks: 2000,
@@ -166,7 +167,7 @@ function Plan({
                 <span>{name}</span>
                 {featured && (
                     <span className="ml-3 rounded-full bg-cyan-500 px-2.5 py-0.5 text-xs font-medium text-white">
-                        Popular
+                        Most Popular
                     </span>
                 )}
             </h3>
@@ -341,10 +342,10 @@ export function Pricing() {
                         id="pricing-title"
                         className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                     >
-                        Assign work. Leave. Get results via email.
+                        Simple Pricing. Real Results.
                     </h2>
                     <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        Like Upwork for AI - background execution with email delivery when done.
+                        Start free. Upgrade when you&apos;re hooked. Cancel anytime.
                     </p>
                 </div>
 
@@ -369,24 +370,37 @@ export function Pricing() {
                     ))}
                 </div>
 
-                {/* FAQ / Clarifications */}
+                {/* How it works */}
                 <div className="mx-auto mt-16 max-w-2xl text-center">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                        How it works
+                        How It Works
                     </h3>
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-gray-600 dark:text-gray-400">
                         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">1. Assign a task</div>
-                            <p>Pick a template or describe what you need done</p>
+                            <div className="text-2xl mb-2">1. Trigger</div>
+                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Webhook or Dashboard</div>
+                            <p>Send a POST request or start from the web interface</p>
                         </div>
                         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">2. Go do other things</div>
-                            <p>Task runs in the background while you work</p>
+                            <div className="text-2xl mb-2">2. Process</div>
+                            <div className="font-semibold text-gray-900 dark:text-white mb-1">AI Agent Works</div>
+                            <p>RLM processes your task with unlimited context</p>
                         </div>
                         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">3. Get email when done</div>
-                            <p>Results delivered to your inbox. Reply to continue.</p>
+                            <div className="text-2xl mb-2">3. Deliver</div>
+                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Email or Callback</div>
+                            <p>Get files in your inbox or webhook callback</p>
                         </div>
+                    </div>
+                </div>
+
+                {/* Money-back guarantee */}
+                <div className="mx-auto mt-12 max-w-xl text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-green-100 dark:bg-green-900/30 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-400">
+                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        14-day money-back guarantee. No questions asked.
                     </div>
                 </div>
             </Container>

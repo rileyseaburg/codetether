@@ -8,13 +8,20 @@ export function ModelSelector({ value, suggestions, onChange }: ModelSelectorPro
     const hasSuggestions = suggestions.length > 0
 
     return (
-        <div className="flex flex-col items-end">
-            <label
-                className="text-[10px] text-gray-400 dark:text-gray-500"
-                htmlFor="ct-model"
-            >
-                Model (optional)
-            </label>
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+                <label
+                    className="text-[10px] font-medium uppercase tracking-wide text-gray-400"
+                    htmlFor="ct-model"
+                >
+                    Model override
+                </label>
+                {hasSuggestions && (
+                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+                        {suggestions.length} suggestions
+                    </span>
+                )}
+            </div>
             <input
                 id="ct-model"
                 type="text"
@@ -22,7 +29,7 @@ export function ModelSelector({ value, suggestions, onChange }: ModelSelectorPro
                 onChange={(e) => onChange(e.target.value)}
                 list="ct-model-options"
                 placeholder="provider/model"
-                className="w-full sm:w-[200px] md:w-[220px] min-w-[140px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full min-w-[180px] rounded-md border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:w-[220px]"
                 aria-describedby="model-hint"
                 autoComplete="off"
             />

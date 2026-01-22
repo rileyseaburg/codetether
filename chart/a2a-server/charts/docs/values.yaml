@@ -9,9 +9,12 @@ rolloutId: ""
 podAnnotations: {}
 
 image:
-  repository: registry.quantum-forge.net/library/codetether-docs
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-docs
   pullPolicy: Always
   tag: "latest"
+
+imagePullSecrets:
+  - name: gcp-artifact-registry
 
 service:
   type: ClusterIP

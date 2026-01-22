@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import type { SessionMessage, ChatItem } from './types'
+import type { SessionMessageWithParts, ChatItem } from './types'
 import { normalizeMessage } from './normalizeMessage'
 
-export function useChatItems(sessionMessages: SessionMessage[]): ChatItem[] {
+export function useChatItems(sessionMessages: SessionMessageWithParts[]): ChatItem[] {
     return useMemo(() => {
         const raw = sessionMessages || []
         const items: ChatItem[] = []
@@ -29,8 +29,6 @@ function mergeAdjacentAssistantChunks(items: ChatItem[]): ChatItem[] {
             !prev.tools?.length &&
             !item.usage &&
             !prev.usage &&
-            !item.rawDetails &&
-            !prev.rawDetails &&
             item.model === prev.model &&
             (item.text || item.reasoning)
 

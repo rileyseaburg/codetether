@@ -39,7 +39,7 @@ MARKETING_TAG=${MARKETING_TAG:-"$BACKEND_TAG"}
 DOCS_TAG=${DOCS_TAG:-"$BACKEND_TAG"}
 
 # Optional image repository overrides
-MARKETING_REPOSITORY=${MARKETING_REPOSITORY:-"${REGISTRY}/${IMAGE_REPO}/a2a-marketing"}
+MARKETING_REPOSITORY=${MARKETING_REPOSITORY:-"${REGISTRY}/${IMAGE_REPO}/codetether-marketing"}
 DOCS_REPOSITORY=${DOCS_REPOSITORY:-"${REGISTRY}/${IMAGE_REPO}/codetether-docs"}
 
 # Default desired replica count for the active workload.
