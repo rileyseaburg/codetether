@@ -56,14 +56,28 @@ export default function SettingsPage() {
     const [apiKey, setApiKey] = useState('')
     const [baseUrl, setBaseUrl] = useState('')
 
+    const getAuthToken = () => {
+        // @ts-ignore - accessToken/idToken may be on session
+        const sessionToken = session?.accessToken || session?.idToken
+        if (sessionToken) {
+            return sessionToken as string
+        }
+        if (typeof window !== 'undefined') {
+            const storedToken = localStorage.getItem('a2a_token')
+            if (storedToken) {
+                return storedToken
+            }
+        }
+        return null
+    }
+
     const getAuthHeaders = () => {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         }
-        // @ts-ignore - accessToken may be on session
-        if (session?.accessToken) {
-            // @ts-ignore
-            headers['Authorization'] = `Bearer ${session.accessToken}`
+        const token = getAuthToken()
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`
         }
         return headers
     }
@@ -224,7 +238,7 @@ export default function SettingsPage() {
 
     if (status === 'loading' || loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center justify-center min-h-100">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
             </div>
         )
@@ -299,13 +313,12 @@ export default function SettingsPage() {
                                 </div>
                                 <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full rounded-full transition-all ${
-                                            usagePercent >= 90
+                                        className={`h-full rounded-full transition-all ${usagePercent >= 90
                                                 ? 'bg-red-500'
                                                 : usagePercent >= 75
-                                                ? 'bg-yellow-500'
-                                                : 'bg-cyan-500'
-                                        }`}
+                                                    ? 'bg-yellow-500'
+                                                    : 'bg-cyan-500'
+                                            }`}
                                         style={{ width: `${usagePercent}%` }}
                                     />
                                 </div>
@@ -326,11 +339,10 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span
-                                className={`h-3 w-3 rounded-full ${
-                                    vaultStatus.connected && vaultStatus.authenticated
+                                className={`h-3 w-3 rounded-full ${vaultStatus.connected && vaultStatus.authenticated
                                         ? 'bg-green-500'
                                         : 'bg-red-500'
-                                }`}
+                                    }`}
                             />
                             <span className="text-sm text-gray-600 dark:text-gray-400">
                                 {vaultStatus.connected && vaultStatus.authenticated

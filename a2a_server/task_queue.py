@@ -107,6 +107,9 @@ class TaskRun:
         None  # If set, only workers supporting this model can claim
     )
 
+    # Tenant isolation
+    tenant_id: Optional[str] = None
+
     created_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -136,6 +139,7 @@ class TaskQueue:
         self,
         task_id: str,
         user_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
         template_id: Optional[str] = None,
         automation_id: Optional[str] = None,
         priority: int = 0,
@@ -200,19 +204,26 @@ class TaskQueue:
                 else None
             )
 
+            # Set tenant context for RLS
+            if tenant_id:
+                await conn.execute(
+                    f"SET LOCAL app.current_tenant_id = '{tenant_id}'"
+                )
+
             # Enqueue the task with routing fields
             await conn.execute(
                 """
                 INSERT INTO task_runs (
-                    id, task_id, user_id, template_id, automation_id,
+                    id, task_id, user_id, tenant_id, template_id, automation_id,
                     status, priority, notify_email, notify_webhook_url,
                     target_agent_name, required_capabilities, deadline_at,
                     model_ref, created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15)
                 """,
                 run_id,
                 task_id,
                 user_id,
+                tenant_id,
                 template_id,
                 automation_id,
                 TaskRunStatus.QUEUED.value,
@@ -256,6 +267,7 @@ class TaskQueue:
             id=run_id,
             task_id=task_id,
             user_id=user_id,
+            tenant_id=tenant_id,
             template_id=template_id,
             automation_id=automation_id,
             priority=priority,
@@ -710,6 +722,7 @@ def set_task_queue(queue: TaskQueue) -> None:
 async def enqueue_task(
     task_id: str,
     user_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
     template_id: Optional[str] = None,
     automation_id: Optional[str] = None,
     priority: int = 0,
@@ -730,6 +743,7 @@ async def enqueue_task(
     Args:
         task_id: ID of the task to execute
         user_id: Owner user ID (for concurrency limiting)
+        tenant_id: Tenant ID for multi-tenant isolation
         template_id: Template that generated this task (optional)
         automation_id: Automation that generated this task (optional)
         priority: Higher = more urgent (default 0)
@@ -750,6 +764,7 @@ async def enqueue_task(
     return await queue.enqueue(
         task_id=task_id,
         user_id=user_id,
+        tenant_id=tenant_id,
         template_id=template_id,
         automation_id=automation_id,
         priority=priority,

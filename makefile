@@ -4,9 +4,9 @@ DOCKER_IMAGE_NAME = a2a-server-mcp
 DOCKER_TAG ?= latest
 DOCKER_REGISTRY ?= us-central1-docker.pkg.dev/spotlessbinco/codetether
 OCI_REGISTRY = us-central1-docker.pkg.dev/spotlessbinco/codetether
-PORT ?= 8000
+PORT ?= 8001
 CHART_PATH = chart/a2a-server
-CHART_VERSION ?= 0.4.2
+CHART_VERSION ?= 1.0.0
 NAMESPACE ?= a2a-server
 RELEASE_NAME ?= codetether
 VALUES_FILE ?= chart/codetether-values.yaml
@@ -20,7 +20,7 @@ LOCAL_WORKER_INSTALL_SCRIPT ?= agent_worker/install.sh
 SUDO ?= sudo
 
 # Additional image names for full platform
-MARKETING_IMAGE_NAME = a2a-marketing
+MARKETING_IMAGE_NAME = codetether-marketing
 DOCS_IMAGE_NAME = codetether-docs
 VOICE_AGENT_IMAGE_NAME = codetether-voice-agent
 
@@ -280,17 +280,20 @@ dev: ## Alias for run-all (starts Python and Next.js)
 run-all: ## Run Python server, React (Next.js) dev server, and a local worker
 	@echo "🚀 Starting Python server, React dev server, and local worker..."
 	@trap 'kill 0' EXIT; \
+	(\
+		cd marketing-site && npm run dev \
+	) & \
 	(if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 Worker auto-reload enabled"; \
-		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
 	else \
-		$(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+		$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
 	fi) & \
 	$(MAKE) run RELOAD=$(RELOAD)
 
 .PHONY: worker
 worker: ## Run a local worker
-	$(PYTHON) agent_worker/worker.py --server http://localhost:8000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
+	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
 
 # Keycloak utilities
 .PHONY: keycloak-client
@@ -653,17 +656,29 @@ rollout-status: ## Show deployment rollout status
 # =============================================================================
 
 .PHONY: codetether-deploy
-codetether-deploy: ## Deploy CodeTether with values file
-	helm upgrade --install a2a-marketing oci://$(OCI_REGISTRY)/a2a-server \
+codetether-deploy: ## Deploy CodeTether with values file (auto-recovers from stuck releases)
+	@# Check if release is stuck in pending state and rollback if needed
+	@STATUS=$$(helm status $(RELEASE_NAME) -n $(NAMESPACE) 2>/dev/null | grep "STATUS:" | awk '{print $$2}'); \
+	if [ "$$STATUS" = "pending-install" ] || [ "$$STATUS" = "pending-upgrade" ] || [ "$$STATUS" = "pending-rollback" ]; then \
+		echo "Release is stuck in $$STATUS state, rolling back to last successful revision..."; \
+		LAST_GOOD=$$(helm history $(RELEASE_NAME) -n $(NAMESPACE) 2>/dev/null | grep -E "deployed|superseded" | tail -1 | awk '{print $$1}'); \
+		if [ -n "$$LAST_GOOD" ]; then \
+			helm rollback $(RELEASE_NAME) $$LAST_GOOD -n $(NAMESPACE); \
+		else \
+			echo "No previous good revision found, uninstalling..."; \
+			helm uninstall $(RELEASE_NAME) -n $(NAMESPACE) --wait || true; \
+		fi; \
+	fi
+	helm upgrade --install $(RELEASE_NAME) oci://$(OCI_REGISTRY)/a2a-server \
 		--version $(CHART_VERSION) \
 		-n $(NAMESPACE) \
 		-f $(VALUES_FILE)
 
 .PHONY: codetether-build-marketing
 codetether-build-marketing: ## Build and push marketing site
-	cd marketing-site && docker build -t $(OCI_REGISTRY)/a2a-marketing:latest -t $(OCI_REGISTRY)/a2a-marketing:$(CHART_VERSION) .
-	docker push $(OCI_REGISTRY)/a2a-marketing:latest
-	docker push $(OCI_REGISTRY)/a2a-marketing:$(CHART_VERSION)
+	cd marketing-site && docker build -t $(OCI_REGISTRY)/codetether-marketing:latest -t $(OCI_REGISTRY)/codetether-marketing:$(CHART_VERSION) .
+	docker push $(OCI_REGISTRY)/codetether-marketing:latest
+	docker push $(OCI_REGISTRY)/codetether-marketing:$(CHART_VERSION)
 
 .PHONY: codetether-build-docs
 codetether-build-docs: ## Build and push docs site
@@ -674,10 +689,13 @@ codetether-build-docs: ## Build and push docs site
 .PHONY: codetether-build-all
 codetether-build-all: codetether-build-marketing codetether-build-docs docker-build docker-push ## Build and push all CodeTether images
 
+.PHONY: codetether-deploy-marketing
+codetether-deploy-marketing: codetether-build-marketing codetether-restart-marketing ## Build, push, and deploy marketing site
+
 .PHONY: codetether-restart-marketing
 codetether-restart-marketing: ## Restart marketing deployment
-	kubectl rollout restart deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE)
-	kubectl rollout status deployment/$(RELEASE_NAME)-marketing -n $(NAMESPACE) --timeout=120s
+	kubectl rollout restart deployment/codetether-marketing -n $(NAMESPACE)
+	kubectl rollout status deployment/codetether-marketing -n $(NAMESPACE) --timeout=120s
 
 .PHONY: codetether-restart-docs
 codetether-restart-docs: ## Restart docs deployment
@@ -686,24 +704,24 @@ codetether-restart-docs: ## Restart docs deployment
 
 .PHONY: codetether-restart-api
 codetether-restart-api: ## Restart API deployment
-	kubectl rollout restart deployment a2a-marketing-a2a-server -n $(NAMESPACE)
-	kubectl rollout status deployment a2a-marketing-a2a-server -n $(NAMESPACE) --timeout=120s
+	kubectl rollout restart deployment codetether-a2a-server-deployment-blue -n $(NAMESPACE)
+	kubectl rollout status deployment codetether-a2a-server-deployment-blue -n $(NAMESPACE) --timeout=120s
 
 .PHONY: codetether-restart-all
 codetether-restart-all: codetether-restart-marketing codetether-restart-docs codetether-restart-api ## Restart all deployments
 
 .PHONY: codetether-deploy-voice
 codetether-deploy-voice: codetether-build-marketing docker-build-voice-agent docker-push-voice-agent ## Build and deploy marketing site + voice agent
-	kubectl rollout restart deployment/a2a-marketing-a2a-server-marketing -n $(NAMESPACE)
+	kubectl rollout restart deployment/codetether-voice-agent-codetether-voice-agent -n $(NAMESPACE)
 	@$(MAKE) voice-agent-deploy
 
 .PHONY: codetether-logs-marketing
 codetether-logs-marketing: ## Show marketing site logs
-	kubectl logs -f deployment/a2a-marketing-a2a-server-marketing -n $(NAMESPACE)
+	kubectl logs -f deployment/codetether-marketing -n $(NAMESPACE)
 
 .PHONY: codetether-logs-api
 codetether-logs-api: ## Show API server logs
-	kubectl logs -f deployment/a2a-marketing-a2a-server -n $(NAMESPACE)
+	kubectl logs -f deployment/codetether-a2a-server-deployment-blue -n $(NAMESPACE)
 
 .PHONY: codetether-status
 codetether-status: ## Show CodeTether deployment status
@@ -785,3 +803,14 @@ voice-agent-logs: ## Show voice agent logs
 voice-agent-restart: ## Restart voice agent deployment
 	kubectl rollout restart deployment/$(VOICE_AGENT_RELEASE_NAME) -n $(NAMESPACE)
 	kubectl rollout status deployment/$(VOICE_AGENT_RELEASE_NAME) -n $(NAMESPACE) --timeout=120s
+
+.PHONY: marketing-build-push-deploy
+marketing-build-push-deploy: codetether-build-marketing codetether-deploy
+	@echo "✅ Marketing site built, pushed, and deployed."
+
+
+.PHONY: build-opencode
+build-opencode: ## Build OpenCode integration
+	@echo "🔧 Building OpenCode integration..."
+	cd /home/riley/A2A-Server-MCP/opencode/packages/opencode && bun run build && cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.local/bin/opencode && cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.opencode/bin/opencode && opencode --version
+	@echo "✅ OpenCode integration built successfully."

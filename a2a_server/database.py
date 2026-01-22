@@ -751,7 +751,11 @@ async def db_list_codebases(
 
 
 async def db_list_codebases_by_path(path: str) -> List[Dict[str, Any]]:
-    """List all codebases matching a specific normalized path."""
+    """List all codebases matching a specific normalized path.
+
+    Returns codebases ordered by created_at ASC so the oldest (canonical) ID is first.
+    This ensures we consistently use the original codebase ID when there are duplicates.
+    """
     pool = await get_pool()
     if not pool:
         return []
@@ -759,13 +763,117 @@ async def db_list_codebases_by_path(path: str) -> List[Dict[str, Any]]:
     try:
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                'SELECT * FROM codebases WHERE path = $1 ORDER BY updated_at DESC',
+                'SELECT * FROM codebases WHERE path = $1 ORDER BY created_at ASC',
                 path,
             )
             return [_row_to_codebase(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list codebases by path: {e}')
         return []
+
+
+async def db_get_canonical_codebase_id(path: str) -> Optional[str]:
+    """Get the canonical (oldest) codebase ID for a given path.
+
+    This is the authoritative ID that should be used for task routing.
+    Returns None if no codebase exists for this path.
+    """
+    codebases = await db_list_codebases_by_path(path)
+    if codebases:
+        return codebases[0].get('id')
+    return None
+
+
+async def db_deduplicate_codebases(
+    path: str, keep_id: Optional[str] = None
+) -> int:
+    """Remove duplicate codebase entries for a path, keeping only the canonical one.
+
+    Args:
+        path: The normalized path to deduplicate
+        keep_id: Optional specific ID to keep. If not provided, keeps the oldest.
+
+    Returns:
+        Number of duplicate entries removed.
+    """
+    pool = await get_pool()
+    if not pool:
+        return 0
+
+    try:
+        async with pool.acquire() as conn:
+            # Get all codebases for this path
+            rows = await conn.fetch(
+                'SELECT id, created_at FROM codebases WHERE path = $1 ORDER BY created_at ASC',
+                path,
+            )
+
+            if len(rows) <= 1:
+                return 0  # No duplicates
+
+            # Determine which ID to keep
+            if keep_id:
+                canonical_id = keep_id
+            else:
+                canonical_id = rows[0]['id']  # Oldest
+
+            # Delete all others
+            ids_to_delete = [
+                row['id'] for row in rows if row['id'] != canonical_id
+            ]
+
+            if not ids_to_delete:
+                return 0
+
+            deleted = await conn.execute(
+                'DELETE FROM codebases WHERE id = ANY($1)',
+                ids_to_delete,
+            )
+
+            count = int(deleted.split()[-1]) if deleted else 0
+            logger.info(
+                f'Deduplicated codebases for path {path}: kept {canonical_id}, '
+                f'removed {count} duplicates: {ids_to_delete}'
+            )
+            return count
+    except Exception as e:
+        logger.error(f'Failed to deduplicate codebases for {path}: {e}')
+        return 0
+
+
+async def db_deduplicate_all_codebases() -> Dict[str, int]:
+    """Deduplicate all codebase entries, keeping the oldest for each path.
+
+    Returns:
+        Dict mapping path to number of duplicates removed.
+    """
+    pool = await get_pool()
+    if not pool:
+        return {}
+
+    results = {}
+    try:
+        async with pool.acquire() as conn:
+            # Find all paths with duplicates
+            rows = await conn.fetch("""
+                SELECT path, COUNT(*) as count 
+                FROM codebases 
+                GROUP BY path 
+                HAVING COUNT(*) > 1
+            """)
+
+            for row in rows:
+                path = row['path']
+                removed = await db_deduplicate_codebases(path)
+                if removed > 0:
+                    results[path] = removed
+
+        if results:
+            logger.info(f'Deduplicated codebases: {results}')
+        return results
+    except Exception as e:
+        logger.error(f'Failed to deduplicate all codebases: {e}')
+        return results
 
 
 def _row_to_codebase(row) -> Dict[str, Any]:

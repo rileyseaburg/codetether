@@ -6,15 +6,15 @@ import { MessageBubble } from './MessageBubble'
 interface ChatMessageProps {
     message: ChatItem
     messageIndex?: number
-    totalMessages?: number
+    isNew?: boolean
 }
 
-function ChatMessageInner({ message: m, messageIndex, totalMessages }: ChatMessageProps) {
+function ChatMessageInner({ message: m, messageIndex, isNew = false }: ChatMessageProps) {
     const positionLabel = useMemo(() => 
-        messageIndex && totalMessages
-            ? `Message ${messageIndex} of ${totalMessages}`
+        messageIndex
+            ? `Message ${messageIndex}`
             : undefined,
-        [messageIndex, totalMessages]
+        [messageIndex]
     )
 
     if (m.role === 'system') {
@@ -32,12 +32,12 @@ function ChatMessageInner({ message: m, messageIndex, totalMessages }: ChatMessa
 
     return (
         <article
-            className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${isUser ? 'justify-end' : 'justify-start'} ${isNew ? 'animate-fadeIn' : ''}`}
             aria-label={`${roleLabel}${positionLabel ? `, ${positionLabel}` : ''}`}
         >
             <div className={`max-w-[85%] ${isUser ? 'text-right' : 'text-left'}`}>
                 <MessageHeader message={m} isUser={isUser} />
-                <MessageBubble message={m} isUser={isUser} />
+                <MessageBubble message={m} isUser={isUser} isNew={isNew} />
             </div>
         </article>
     )
@@ -54,7 +54,7 @@ export const ChatMessage = memo(ChatMessageInner, (prevProps, nextProps) => {
         prev.text === next.text &&
         prev.role === next.role &&
         prevProps.messageIndex === nextProps.messageIndex &&
-        prevProps.totalMessages === nextProps.totalMessages
+        prevProps.isNew === nextProps.isNew
     )
 })
 ChatMessage.displayName = 'ChatMessage'

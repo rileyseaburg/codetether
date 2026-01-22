@@ -35,6 +35,19 @@ except ImportError:
     handle_user_subscription_event = None
     handle_checkout_completed_for_user = None
 
+# Import K8s provisioning for instance scaling
+try:
+    from .k8s_provisioning import k8s_provisioning_service, K8S_AVAILABLE
+
+    K8S_SCALING_ENABLED = (
+        K8S_AVAILABLE
+        and os.environ.get('K8S_PROVISIONING_ENABLED', 'false').lower()
+        == 'true'
+    )
+except ImportError:
+    K8S_SCALING_ENABLED = False
+    k8s_provisioning_service = None
+
 logger = logging.getLogger(__name__)
 
 # Router for webhook endpoints
@@ -280,6 +293,27 @@ async def _handle_subscription_updated(subscription: Dict[str, Any]) -> None:
     try:
         await update_tenant(tenant['id'], plan=plan)
         logger.info(f'Tenant {tenant["id"]} updated to plan: {plan}')
+
+        # Scale K8s instance if enabled
+        if K8S_SCALING_ENABLED and k8s_provisioning_service:
+            k8s_namespace = tenant.get('k8s_namespace')
+            if k8s_namespace:
+                if status in ('unpaid', 'canceled'):
+                    # Suspend instance on payment failure/cancellation
+                    await k8s_provisioning_service.suspend_instance(
+                        k8s_namespace
+                    )
+                    logger.info(
+                        f'Suspended K8s instance for tenant {tenant["id"]}'
+                    )
+                elif status == 'active':
+                    # Scale instance to match new tier
+                    await k8s_provisioning_service.scale_instance_for_tier(
+                        k8s_namespace, plan
+                    )
+                    logger.info(
+                        f'Scaled K8s instance for tenant {tenant["id"]} to tier: {plan}'
+                    )
     except Exception as e:
         logger.error(f'Failed to update tenant {tenant["id"]}: {e}')
 

@@ -7,8 +7,8 @@ description: Production-ready A2A Protocol implementation for AI agent coordinat
 
 **Turn AI Agents Into Production Systems.**
 
-!!! success "v1.0 Production Release"
-    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). Connect your workers and start automating today.
+!!! success "v1.4.0 Production Release"
+    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). Now with **Ralph** autonomous development, **RLM** infinite context, and **Zapier** integration.
 
 CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), the open standard from the Linux Foundation that enables AI agents to communicate, collaborate, and solve complex problems together.
 
@@ -54,6 +54,9 @@ CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Age
 
 CodeTether Server provides the infrastructure layer for running AI agents in production:
 
+- **[Ralph Autonomous Development](features/ralph.md)** — Implement entire PRDs autonomously with zero human intervention
+- **[RLM (Recursive Language Models)](features/opencode.md#rlm-recursive-language-models)** — Process arbitrarily large codebases without context limits
+- **[Zapier Integration](features/zapier.md)** — Connect to 5,000+ apps with no-code automation
 - **A2A Protocol Native** — Full implementation of the [A2A specification](https://a2a-protocol.org/specification.md) for agent-to-agent communication
 - **[Distributed Workers](features/distributed-workers.md)** — Run agents across multiple machines with automatic task routing
 - **Real-time Streaming** — SSE-based live output streaming for long-running agent tasks
@@ -78,11 +81,15 @@ CodeTether implements the complete A2A Protocol specification:
 
 Plus CodeTether extensions:
 
+- **[Ralph](features/ralph.md)** — Autonomous development loop that implements PRDs with self-healing retry
+- **[RLM](features/opencode.md#rlm-recursive-language-models)** — Recursive Language Models for infinite context processing
+- **[Zapier](features/zapier.md)** — Native OAuth2 integration with triggers, actions, and searches
 - **Distributed task coordination** — Redis-backed task/state coordination (workers poll the server over HTTP)
 - **OpenCode Integration** — AI coding agent bridge with codebase registration
 - **Monitor UI** — Web dashboard for real-time agent observation
 - **MCP Tools** — Model Context Protocol tool server
 - **Email Reply to Continue** — Reply directly to task notification emails to keep working with an agent
+- **Task Reaper** — Automatic stuck task recovery with retry and notification
 
 ## Quick Example
 

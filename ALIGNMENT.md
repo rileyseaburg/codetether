@@ -13,7 +13,9 @@ A2A-Server-MCP/
 ├── opencode/             # OpenCode fork (git submodule - DO NOT MODIFY HERE)
 ├── opencode-a2a-integration/  # TypeScript integration for OpenCode CLI
 ├── marketing-site/       # Next.js web dashboard
+│   └── src/app/(dashboard)/dashboard/ralph/  # Ralph autonomous development UI
 ├── ui/swift/A2AMonitor/  # iOS monitoring app
+├── zapier-app/           # Zapier CLI integration
 └── agents/               # Agent definitions and configs
 ```
 
@@ -81,6 +83,53 @@ A2A-Server-MCP/
 
 - `POST /v1/monitor/intervene` - Send message that appears in iOS app
 - `GET /v1/monitor/stream` - SSE stream iOS app listens to
+
+## Key Features
+
+### Ralph - Autonomous Development (`/dashboard/ralph`)
+
+Ralph is a fully autonomous development agent that implements entire PRDs:
+
+- **PRD Input**: YAML-formatted user stories with acceptance criteria
+- **Fresh Context**: Each story spawns a new OpenCode instance
+- **Iterative Learning**: Failed stories re-analyze using `progress.txt`
+- **Self-Healing**: Automatic retry with accumulated learnings
+- **Git Integration**: Atomic commits per user story
+
+**Dashboard URL**: `/dashboard/ralph`
+
+### Zapier Integration (`/zapier-app`)
+
+Native Zapier integration for no-code automation:
+
+- **Trigger**: `new_task` - fires when tasks are created
+- **Actions**: `create_task`, `send_message`, `cancel_task`
+- **Search**: `find_task` - by ID or status
+- **Auth**: OAuth2 with Keycloak
+
+### RLM (Recursive Language Models)
+
+Enables processing of arbitrarily large codebases:
+
+- Triggers when context exceeds threshold (default: 80K tokens)
+- Uses subcalls for complex analysis
+- Configuration: `A2A_RLM_DEFAULT_SUBCALL_MODEL_REF`, `OPENCODE_RLM_ENABLED`
+
+### Task Reaper
+
+Automatic stuck task recovery:
+
+- Runs every 60 seconds
+- Detects tasks stuck in 'running' >5 minutes
+- Requeues for retry (max 3 attempts)
+- Emails on permanent failure
+
+**Endpoints**:
+- `GET /v1/opencode/tasks/stuck`
+- `POST /v1/opencode/tasks/stuck/recover`
+- `GET /v1/opencode/reaper/health`
+
+---
 
 ## Codebase Management
 
@@ -224,6 +273,8 @@ Workers **must** register their codebases to receive tasks for them. The server 
 4. **Posting to wrong endpoint** - Use `/v1/monitor/intervene` for notifications, not `/v1/monitor/messages`
 5. **Missing timestamp** - The intervene endpoint requires `agent_id`, `message`, AND `timestamp`
 6. **Assuming empty codebases means "accept all"** - Workers must explicitly register codebases to receive codebase-specific tasks
+7. **Not enabling RLM for large codebases** - Set `OPENCODE_RLM_ENABLED=1` to avoid context overflow
+8. **Ralph PRD without acceptance criteria** - Every user story MUST have testable acceptance criteria
 
 ## Running Locally
 

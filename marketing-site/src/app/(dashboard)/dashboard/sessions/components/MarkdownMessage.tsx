@@ -1,56 +1,60 @@
 'use client'
 
-import { memo, useMemo } from 'react'
-import ReactMarkdown from 'react-markdown'
+import React, { useMemo } from 'react'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
+import { MarkdownComponents, looksLikeDiff, diffLineClass, DiffBlock } from './MarkdownComponents'
+import { safeParseJson, parseJsonPayload, formatJsonValue, getJsonSummary } from './JsonHelpers'
+import { CopyButton } from './CopyButton'
+import { JsonNode } from './JsonNode'
+import { JsonMessage } from './JsonMessage'
+import { StructuredMessage } from './StructuredMessage'
+import type { ParsedJsonPayload, JsonValue } from './JsonHelpers'
 
-interface MarkdownMessageProps {
+type OpencodeTextPart = {
+    type: 'text'
     text: string
 }
 
-// Memoize plugins array to prevent recreation on every render
-const remarkPlugins = [remarkGfm, remarkBreaks]
-
-// Memoize components object - this was causing re-renders
-const markdownComponents = {
-    a: ({ children, ...props }: any) => (
-        <a {...props} className="text-indigo-600 hover:underline dark:text-indigo-400" target="_blank" rel="noreferrer">{children}</a>
-    ),
-    code: ({ children, className, ...props }: any) => (
-        <code {...props} className={`rounded bg-gray-100 dark:bg-gray-700/60 px-1 py-0.5 font-mono text-[0.9em] ${className || ''}`}>{children}</code>
-    ),
-    pre: ({ children, ...props }: any) => (
-        <pre {...props} className="my-2 overflow-x-auto rounded-lg bg-gray-900/90 p-3 text-xs text-gray-100">{children}</pre>
-    ),
-    p: ({ children, ...props }: any) => <p {...props} className="mb-2 last:mb-0">{children}</p>,
-    ul: ({ children, ...props }: any) => <ul {...props} className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>,
-    ol: ({ children, ...props }: any) => <ol {...props} className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>,
+type OpencodeReasoningPart = {
+    type: 'reasoning'
+    text: string
 }
 
+type OpencodeMessagePart = OpencodeTextPart | OpencodeReasoningPart
+
+type OpencodeMessageText = OpencodeMessagePart['text']
+
+interface MarkdownMessageProps {
+    text: OpencodeMessageText
+}
+
+const remarkPlugins = [remarkGfm, remarkBreaks]
+
 function MarkdownMessageInner({ text }: MarkdownMessageProps) {
-    // Memoize the markdown rendering - only re-render when text changes
-    const content = useMemo(() => {
+    const jsonPayload = useMemo(() => {
         if (!text) return null
+        return parseJsonPayload(text)
+    }, [text])
+
+    const content = useMemo(() => {
+        if (!text || jsonPayload) return null
         return (
-            <ReactMarkdown 
-                remarkPlugins={remarkPlugins} 
-                components={markdownComponents}
-            >
+            <ReactMarkdown remarkPlugins={remarkPlugins} components={MarkdownComponents}>
                 {text}
             </ReactMarkdown>
         )
-    }, [text])
+    }, [text, jsonPayload])
 
-    if (!content) return null
-    
+    if (!text) return null
+
     return (
-        <div className="text-sm leading-relaxed break-words">
-            {content}
+        <div className="text-sm leading-relaxed wrap-break-word">
+            {jsonPayload ? <StructuredMessage payload={jsonPayload as ParsedJsonPayload} /> : content}
         </div>
     )
 }
 
-// Memoize the entire component - skip re-render if text hasn't changed
-export const MarkdownMessage = memo(MarkdownMessageInner)
+export const MarkdownMessage = React.memo(MarkdownMessageInner)
 MarkdownMessage.displayName = 'MarkdownMessage'

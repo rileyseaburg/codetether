@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field, EmailStr, HttpUrl
 
 from .database import get_pool
 from .task_queue import enqueue_task, TaskRunStatus
+from .keycloak_auth import require_auth, UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -357,6 +358,7 @@ def verify_webhook_signature(payload: str, signature: str, secret: str) -> bool:
 async def create_task(
     request: CreateTaskRequest,
     http_request: Request,
+    user: UserSession = Depends(require_auth),
     idempotency_key: Optional[str] = Header(None, alias='Idempotency-Key'),
 ):
     """Create a new automation task.
@@ -430,11 +432,22 @@ async def create_task(
     codebase_id = (
         request.codebase_id if request.codebase_id != 'global' else None
     )
+
+    # Get tenant_id from authenticated user
+    tenant_id = user.tenant_id
+    user_id = user.user_id
+
     async with pool.acquire() as conn:
+        # Set tenant context for RLS
+        if tenant_id:
+            await conn.execute(
+                f"SET LOCAL app.current_tenant_id = '{tenant_id}'"
+            )
+
         await conn.execute(
             """
-            INSERT INTO tasks (id, title, prompt, agent_type, codebase_id, status, metadata, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, 'pending', $6::jsonb, NOW(), NOW())
+            INSERT INTO tasks (id, title, prompt, agent_type, codebase_id, status, metadata, tenant_id, model, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, 'pending', $6::jsonb, $7, $8, NOW(), NOW())
             """,
             task_id,
             request.title,
@@ -444,14 +457,17 @@ async def create_task(
             json.dumps(
                 {'model': request.model.value}
             ),  # Store model in metadata as JSON string
+            tenant_id,
+            request.model.value,
         )
 
     # Enqueue task for execution
     task_run = await enqueue_task(
         task_id=task_id,
-        user_id=None,  # Public API, no user context
+        user_id=user_id,
+        tenant_id=tenant_id,
         priority=request.priority,
-        notify_email=request.notify_email,
+        notify_email=request.notify_email or user.email,
         notify_webhook_url=str(request.webhook_url)
         if request.webhook_url
         else None,
@@ -494,6 +510,7 @@ async def create_task(
 async def get_task(
     task_id: str,
     http_request: Request,
+    user: UserSession = Depends(require_auth),
 ):
     """Get the current status of a task.
 
@@ -507,8 +524,15 @@ async def get_task(
     client_id = get_client_identifier(http_request)
     rate_info = await _rate_limiter.check(client_id)
 
-    # Get task and run info
+    # Get task and run info (filtered by tenant)
+    tenant_id = user.tenant_id
     async with pool.acquire() as conn:
+        # Set tenant context for RLS
+        if tenant_id:
+            await conn.execute(
+                f"SET LOCAL app.current_tenant_id = '{tenant_id}'"
+            )
+
         row = await conn.fetchrow(
             """
             SELECT 
@@ -528,10 +552,12 @@ async def get_task(
             FROM tasks t
             LEFT JOIN task_runs tr ON tr.task_id = t.id
             WHERE t.id = $1
+              AND (t.tenant_id = $2 OR t.tenant_id IS NULL)
             ORDER BY tr.created_at DESC
             LIMIT 1
             """,
             task_id,
+            tenant_id,
         )
 
     if not row:
@@ -585,6 +611,7 @@ async def get_task(
 @router.get('/tasks', response_model=TaskListResponse)
 async def list_tasks(
     http_request: Request,
+    user: UserSession = Depends(require_auth),
     status: Optional[TaskStatus] = None,
     limit: int = 50,
     offset: int = 0,
@@ -602,20 +629,29 @@ async def list_tasks(
     client_id = get_client_identifier(http_request)
     rate_info = await _rate_limiter.check(client_id)
 
-    # Build query
-    conditions = []
-    params = []
-    param_idx = 1
+    # Get tenant_id from user for filtering
+    tenant_id = user.tenant_id
+
+    # Build query with tenant isolation
+    conditions = ['(tr.tenant_id = $1 OR tr.tenant_id IS NULL)']
+    params = [tenant_id]
+    param_idx = 2
 
     if status:
         conditions.append(f'tr.status = ${param_idx}')
         params.append(status.value)
         param_idx += 1
 
-    where_clause = ' AND '.join(conditions) if conditions else 'TRUE'
+    where_clause = ' AND '.join(conditions)
 
     # Get count
     async with pool.acquire() as conn:
+        # Set tenant context for RLS
+        if tenant_id:
+            await conn.execute(
+                f"SET LOCAL app.current_tenant_id = '{tenant_id}'"
+            )
+
         count = await conn.fetchval(
             f"""
             SELECT COUNT(*)

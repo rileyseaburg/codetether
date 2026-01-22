@@ -15,7 +15,7 @@
 
 **The open-source platform for building, deploying, and orchestrating AI agent systems at scale.**
 
-**🎉 v1.2.0 Production Release** - Battle-tested and running in production at [api.codetether.run](https://api.codetether.run)
+**🎉 v1.4.0 Production Release** - Now with Ralph autonomous development and Zapier integration at [api.codetether.run](https://api.codetether.run)
 
 [🚀 Quick Start](#-quick-start) • [📖 Documentation](https://docs.codetether.run) • [💬 Discord](https://discord.gg/codetether) • [🐦 Twitter](https://twitter.com/codetether)
 
@@ -64,9 +64,9 @@ CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that is **off
 <tr>
 <td width="50%">
 
-### 🤖 **Multi-Agent Orchestration**
+### 🤖 **Ralph: Autonomous Development**
 
-Build systems where agents collaborate, delegate tasks, and share context—all through the standardized A2A protocol.
+Ralph implements entire PRDs with zero human intervention. Define user stories, Ralph writes the code, runs tests, and commits—autonomously iterating until all acceptance criteria pass.
 
 ### 🛠️ **MCP Tool Integration**
 
@@ -83,6 +83,10 @@ Process arbitrarily long contexts through recursive LLM calls in a Python REPL. 
 ### 📧 **Email Reply to Continue Tasks**
 
 Workers send email notifications when tasks complete. **Reply directly to the email** to continue the conversation—the agent picks up right where it left off. No dashboard needed.
+
+### ⚡ **Zapier Integration**
+
+Connect CodeTether to 5,000+ apps with our native Zapier integration. OAuth2 authentication, triggers, actions, and searches—no code required.
 
  </td>
 <td width="50%">
@@ -511,8 +515,10 @@ For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs
 | 📖 **Full Documentation**    | [docs.codetether.run](https://docs.codetether.run)                                            |
 | 🚀 **Quick Start Guide**     | [Getting Started](https://docs.codetether.run/getting-started/quickstart/)                    |
 | 🔧 **API Reference**         | [API Docs](https://docs.codetether.run/api/overview/)                                         |
+| 🤖 **Ralph Guide**           | [Ralph Autonomous Development](https://docs.codetether.run/features/ralph/)                   |
 | 👷 **Agent Worker Guide**    | [Agent Worker](https://docs.codetether.run/features/agent-worker/)                            |
 | 🔄 **RLM Guide**             | [RLM (Recursive Language Models)](docs/opencode-integration.md#rlm-recursive-language-models) |
+| ⚡ **Zapier Integration**    | [Zapier](https://docs.codetether.run/features/zapier/)                                        |
 | 🎤 **Voice Agent**           | [Voice Agent](https://docs.codetether.run/features/voice-agent/)                              |
 | 📊 **Marketing Tools**       | [Marketing Tools](https://docs.codetether.run/features/marketing-tools/)                      |
 | 🤖 **Marketing Coordinator** | [Marketing Coordinator](https://docs.codetether.run/features/marketing-coordinator/)          |

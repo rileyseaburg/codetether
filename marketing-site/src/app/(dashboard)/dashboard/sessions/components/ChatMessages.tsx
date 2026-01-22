@@ -1,11 +1,10 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react'
+import { useRef, useEffect, useState, useCallback, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useDebouncedCallback } from 'use-debounce'
 import type { ChatItem, Session } from '../types'
 import { ChatMessage } from './ChatMessage'
-import { LiveDraftMessage } from './LiveDraftMessage'
 
 interface Props {
   chatItems: ChatItem[]
@@ -16,7 +15,7 @@ interface Props {
   totalMessages: number
   error: string | null
   liveDraft: string
-  selectedMode: string
+  awaitingResponse: boolean
   onLoadMore: () => void
 }
 
@@ -29,19 +28,36 @@ export function ChatMessages({
   totalMessages,
   error,
   liveDraft,
-  selectedMode,
+  awaitingResponse,
   onLoadMore,
 }: Props) {
   const parentRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [latestMessageKey, setLatestMessageKey] = useState<string | null>(null)
+  const [showHistoryWhileStreaming, setShowHistoryWhileStreaming] = useState(false)
   const prevCountRef = useRef(chatItems.length)
   const prevSessionIdRef = useRef(selectedSession?.id)
   const loadingMoreRef = useRef(false)
+  const clearHighlightRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const isStreaming = Boolean(liveDraft)
+  // Always show history - hiding it causes jumpy UX when streaming completes
+  // The live draft is appended at the bottom, separate from history
+  const shouldHideHistory = false
+  const visibleChatItems = chatItems
+  const liveDraftMessage: ChatItem | null = liveDraft
+    ? {
+        key: `live-draft-${selectedSession?.id ?? 'session'}`,
+        role: 'assistant',
+        label: 'Agent',
+        text: liveDraft,
+      }
+    : null
 
   const virtualizer = useVirtualizer({
-    count: chatItems.length,
+    count: visibleChatItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 120,
     overscan: 3,
@@ -69,6 +85,7 @@ export function ChatMessages({
       parentRef.current.scrollTop = parentRef.current.scrollHeight
       setIsAtBottom(true)
       setUnreadCount(0)
+      setShowHistoryWhileStreaming(false)
     }
   }, [selectedSession?.id])
 
@@ -77,7 +94,7 @@ export function ChatMessages({
       requestAnimationFrame(() => {
         parentRef.current?.scrollTo({
           top: parentRef.current.scrollHeight,
-          behavior: 'smooth',
+          behavior: liveDraft ? 'auto' : 'smooth',
         })
       })
     }
@@ -87,6 +104,16 @@ export function ChatMessages({
     const diff = chatItems.length - prevCountRef.current
     if (diff > 0 && !isAtBottom) {
       setUnreadCount((prev) => prev + diff)
+    }
+    if (diff > 0) {
+      const newestKey = chatItems[chatItems.length - 1]?.key
+      if (newestKey) {
+        setLatestMessageKey(newestKey)
+        if (clearHighlightRef.current) clearTimeout(clearHighlightRef.current)
+        clearHighlightRef.current = setTimeout(() => {
+          setLatestMessageKey(null)
+        }, 1400)
+      }
     }
     prevCountRef.current = chatItems.length
   }, [chatItems.length, isAtBottom])
@@ -117,10 +144,22 @@ export function ChatMessages({
   }, [loadingMore])
 
   useEffect(() => {
+    return () => {
+      if (clearHighlightRef.current) clearTimeout(clearHighlightRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!prevSessionIdRef.current && chatItems.length > 0) {
       scrollToBottom('instant')
     }
   }, [chatItems.length, scrollToBottom])
+
+  useEffect(() => {
+    if (!liveDraft) {
+      setShowHistoryWhileStreaming(false)
+    }
+  }, [liveDraft])
 
   if (!selectedSession) {
     return (
@@ -136,8 +175,8 @@ export function ChatMessages({
 
   return (
     <section className="relative flex min-h-0 flex-1 flex-col bg-gray-50 dark:bg-gray-900">
-      {chatItems.length > 0 && (
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-3 py-1.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-400">
+      {visibleChatItems.length > 0 && (
+        <div className="sticky top-0 z-10 hidden flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-3 py-2 text-xs text-gray-500 backdrop-blur dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-400 sm:flex">
           <span>
             {loadingMore
               ? 'Loading older messages...'
@@ -205,13 +244,13 @@ export function ChatMessages({
           </div>
         )}
 
-        {chatItems.length === 0 && !loading && !error && (
+        {visibleChatItems.length === 0 && !loading && !error && !liveDraft && (
           <div className="flex h-full flex-1 items-center justify-center">
             <p className="text-sm text-gray-500">No messages yet.</p>
           </div>
         )}
 
-        {chatItems.length > 0 && (
+        {visibleChatItems.length > 0 && (
           <div
             style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
             className="w-full"
@@ -227,7 +266,7 @@ export function ChatMessages({
               className="px-3 sm:px-4"
             >
               {virtualItems.map((virtualRow) => {
-                const message = chatItems[virtualRow.index]
+                const message = visibleChatItems[virtualRow.index]
                 return (
                   <div
                     key={virtualRow.key}
@@ -238,7 +277,7 @@ export function ChatMessages({
                     <ChatMessage
                       message={message}
                       messageIndex={virtualRow.index + 1}
-                      totalMessages={chatItems.length}
+                      isNew={message.key === latestMessageKey}
                     />
                   </div>
                 )
@@ -249,13 +288,25 @@ export function ChatMessages({
 
         <div className="px-3 pb-3 sm:px-4">
           {loading && <LoadingIndicator />}
-          {liveDraft && (
-            <div className="py-2">
-              <LiveDraftMessage
-                liveDraft={liveDraft}
-                selectedMode={selectedMode}
-                sessionAgent={selectedSession.agent}
-              />
+          {shouldHideHistory && (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-full bg-gray-100 px-3 py-1 text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              <span>Live response in progress. History hidden.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHistoryWhileStreaming(true)
+                  requestAnimationFrame(() => scrollToBottom('auto'))
+                }}
+                className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
+              >
+                Show history
+              </button>
+            </div>
+          )}
+          {awaitingResponse && !liveDraftMessage && <LiveFeedbackIndicator />}
+          {liveDraftMessage && (
+            <div className="py-2" aria-live="polite" aria-atomic="false">
+              <ChatMessage message={liveDraftMessage} />
             </div>
           )}
         </div>
@@ -264,7 +315,7 @@ export function ChatMessages({
       {showScrollButton && (
         <button
           onClick={() => scrollToBottom()}
-          className="absolute right-4 bottom-4 flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg transition-colors hover:bg-indigo-700"
+          className={`absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg transition-all hover:bg-indigo-700 ${unreadCount > 0 ? 'animate-pulse' : ''}`}
           aria-label={
             unreadCount > 0 ? `${unreadCount} new messages` : 'Scroll to bottom'
           }
@@ -316,3 +367,42 @@ const LoadingIndicator = memo(() => (
   </div>
 ))
 LoadingIndicator.displayName = 'LoadingIndicator'
+
+const LiveFeedbackIndicator = memo(() => (
+  <div className="flex justify-start py-2" role="status" aria-live="polite">
+    <div className="max-w-[85%] text-left">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+          Agent
+        </span>
+        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+          waiting
+        </span>
+        <span className="flex items-center gap-1 text-[10px] text-emerald-500">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          live
+        </span>
+      </div>
+      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-white/10">
+        <div className="flex items-center gap-2">
+          <span className="flex gap-1" aria-hidden="true">
+            <span
+              className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+              style={{ animationDelay: '0ms' }}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+              style={{ animationDelay: '150ms' }}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+              style={{ animationDelay: '300ms' }}
+            />
+          </span>
+          <span>Waiting for response...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+))
+LiveFeedbackIndicator.displayName = 'LiveFeedbackIndicator'

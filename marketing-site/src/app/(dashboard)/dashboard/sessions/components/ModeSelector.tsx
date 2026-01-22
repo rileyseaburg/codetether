@@ -11,26 +11,37 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
 }
 
 export function ModeSelector({ value, onChange }: ModeSelectorProps) {
+    const modes = Object.keys(MODE_DESCRIPTIONS)
+
     return (
-        <div className="flex flex-col">
-            <label htmlFor="agent-mode" className="sr-only">
-                Agent mode
-            </label>
-            <select
-                id="agent-mode"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                aria-describedby="mode-description"
+        <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Mode</span>
+            <div
+                role="radiogroup"
+                aria-label="Agent mode"
+                className="flex flex-wrap items-center gap-1 rounded-full bg-gray-100 p-1 dark:bg-gray-700/70"
             >
-                <option value="build">build</option>
-                <option value="plan">plan</option>
-                <option value="explore">explore</option>
-                <option value="general">general</option>
-            </select>
-            <span id="mode-description" className="sr-only">
-                {MODE_DESCRIPTIONS[value] || 'Select an agent mode'}
-            </span>
+                {modes.map((mode) => {
+                    const isActive = value === mode
+                    return (
+                        <button
+                            key={mode}
+                            type="button"
+                            role="radio"
+                            aria-checked={isActive}
+                            onClick={() => onChange(mode)}
+                            title={MODE_DESCRIPTIONS[mode] || mode}
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                                isActive
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white'
+                            }`}
+                        >
+                            {mode}
+                        </button>
+                    )
+                })}
+            </div>
         </div>
     )
 }

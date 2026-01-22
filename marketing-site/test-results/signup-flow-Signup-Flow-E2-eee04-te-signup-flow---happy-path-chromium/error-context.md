@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - link "Home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - img [ref=e5]:
+          - generic [ref=e11]: CodeTether
+      - generic [ref=e12]:
+        - img [ref=e13]
+        - heading "Start automating in minutes" [level=1] [ref=e18]
+        - paragraph [ref=e19]:
+          - text: Already have an account?
+          - link "Sign in" [ref=e20] [cursor=pointer]:
+            - /url: /login
+      - generic [ref=e22]:
+        - generic [ref=e23]: Not Found
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: First name
+            - textbox "First name" [ref=e27]: Test
+          - generic [ref=e28]:
+            - generic [ref=e29]: Last name
+            - textbox "Last name" [ref=e30]: User
+          - generic [ref=e31]:
+            - generic [ref=e32]: Email address
+            - textbox "Email address" [ref=e33]: test+1768876167525@codetether.run
+          - generic [ref=e34]:
+            - generic [ref=e35]: Password
+            - textbox "Password" [ref=e36]: TestPassword123!
+          - generic [ref=e37]:
+            - generic [ref=e38]: How did you hear about us?
+            - combobox "How did you hear about us?" [ref=e39]:
+              - option "Select an option" [selected]
+              - option "Search engine"
+              - option "Social media"
+              - option "Friend or colleague"
+              - option "Podcast"
+              - option "Blog or article"
+              - option "Other"
+        - button "Get started free" [ref=e40]
+        - paragraph [ref=e41]: Free tier includes 10 automations/month. No credit card required.
+  - alert [ref=e42]
+```

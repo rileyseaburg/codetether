@@ -1,141 +1,151 @@
 'use client'
 
-import { useId } from 'react'
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
 import clsx from 'clsx'
 
 import { Container } from '@/components/Container'
-import { CircleBackground } from '@/components/CircleBackground'
 
 const features = [
     {
-        name: 'RLM: Infinite Context Processing',
+        name: 'Webhook Integration',
         description:
-            'Revolutionary Recursive Language Models break free from context limits. Process entire monorepos, audit massive codebases, generate docs at scale—the AI writes Python that calls llm_query() recursively.',
-        icon: RLMIcon,
-        code: `# RLM: Process arbitrarily long contexts
-context = load_entire_codebase()  # 500+ files, no limit
+            'Trigger agents from Zapier, n8n, Make, or any tool that sends webhooks. Pass your data as JSON, get results streamed back or via callback URL.',
+        icon: WebhookIcon,
+        code: `// Trigger from Zapier/n8n/Make
+POST /api/v1/agents/trigger
+{
+  "prompt": "Analyze this customer feedback",
+  "context": {
+    "reviews": [...],  // Your data
+    "callback_url": "https://hooks.zapier.com/..."
+  }
+}
 
-# AI writes Python that analyzes programmatically
-for file in context.split("--- FILE: ")[:50]:
-    # Each subcall gets fresh context window
-    issues = llm_query(f"""
-        Find security vulnerabilities in:
-        {file[:8000]}
-    """)
-    if "vulnerability" in issues.lower():
-        results.append(issues)
-
-# Synthesize final insights
-FINAL(llm_query(f"Summarize {len(results)} issues"))`,
+// Agent processes with RLM (no token limits)
+// Results POST back to your callback URL
+{
+  "status": "complete",
+  "output": "Analysis: 89% positive sentiment...",
+  "files_created": ["report.pdf"]
+}`,
     },
     {
-        name: 'Pull Architecture (Zero Inbound Ports)',
+        name: 'Real Code Output',
         description:
-            'Workers sit inside your secure network and reach OUT to poll for tasks. No inbound firewall rules, no VPN tunnels, no attack surface. Security teams say "yes" on day one.',
-        icon: WorkerIcon,
-        code: `# Worker PULLS tasks - no inbound ports needed
-async def poll_loop(self):
-    while self.running:
-        # Outbound HTTPS only - works behind any firewall
-        tasks = await self.fetch_tasks(self.server_url)
-        for task in tasks:
-            # Execute locally with full data access
-            result = await self.run_agent(task)
-            # Stream status + approved artifacts back (configurable)
-            await self.submit_result(task.id, result)`,
+            'Not just chat responses—agents write actual files. Landing pages, scripts, reports, spreadsheets. Download or auto-deploy.',
+        icon: CodeIcon,
+        code: `// Agent creates real deliverables
+You: "Build a landing page for my course on productivity"
+
+Agent Output:
+├── index.html      (2.3 KB)
+├── styles.css      (1.1 KB)
+├── script.js       (0.8 KB)
+└── images/
+    ├── hero.svg
+    └── features.svg
+
+Preview: https://preview.codetether.run/abc123
+Download: https://api.codetether.run/download/abc123.zip
+
+// Auto-deploy to Netlify, Vercel, or your server`,
     },
     {
-        name: 'Zero Third-Party Storage (by CodeTether)',
+        name: 'Bulk Processing',
         description:
-            'CodeTether doesn\'t proxy prompts or source code. Sensitive context is handled on the Worker; if you use a hosted model, the Worker connects directly to your approved model tenant (e.g., Azure OpenAI with private networking) using your keys. The Control Plane only needs orchestration metadata.',
-        icon: SessionIcon,
-        code: `# Example: Healthcare
-Worker runs INSIDE hospital VPC:
-├── Reads PHI from local DB / EHR
-├── Applies policy checks / redaction (optional)
-├── Calls your approved model endpoint directly (optional)
-└── Streams status/telemetry without proxying payloads
+            'Upload a CSV with 1000 rows. Agent processes each one. Product descriptions, personalized emails, data transformations—at scale.',
+        icon: BulkIcon,
+        code: `// Bulk process from spreadsheet
+Upload: products.csv (1,247 rows)
 
-# Example: FinTech
-Worker runs ON the trading floor:
-├── Reads proprietary algorithms
-├── Executes "optimize portfolio" task
-└── CodeTether never stores prompts/source code`,
+Agent Task: "Write SEO-optimized product descriptions"
+
+Progress:
+[=========>          ] 47% (586/1247)
+├── Row 586: Nike Air Max 90 → ✓ Description generated
+├── Row 587: Adidas Ultraboost → Processing...
+└── Est. completion: 12 minutes
+
+// Results export to new CSV or direct to Shopify`,
     },
     {
-        name: 'Real-time Output Streaming',
+        name: 'Session Memory',
         description:
-            'Watch agent progress as it happens via Server-Sent Events. Perfect for long-running tasks where stakeholders need visibility without exposing underlying data.',
-        icon: StreamIcon,
-        code: `// Subscribe to task progress (Swift/Web)
-const source = new EventSource(
-  \`\${serverURL}/tasks/\${taskId}/output/stream\`
-);
+            'Agents remember context across messages. Start a task, come back later, continue where you left off. Reply to the email notification to keep working.',
+        icon: MemoryIcon,
+        code: `// Session persists across interactions
+Session: proj_abc123 (Course Launch Funnel)
 
-source.onMessage(event => {
-  // See progress without seeing raw data
-  // "Analyzing file 3 of 150..."
-  // "Refactoring auth module..."
-  // "Tests passing: 47/50"
-  updateUI(event.data);
-});`,
+Day 1: "Start building my funnel"
+Agent: Created landing page structure...
+
+Day 2: (reply to email notification)
+You: "Add a testimonials section"
+Agent: Added testimonials. Here's the updated preview...
+
+Day 3: "Now create the email sequence"
+Agent: I remember the course details. Creating 5-email sequence:
+├── Email 1: Welcome + free resource
+├── Email 2: Pain point story
+├── Email 3: Case study
+├── Email 4: FAQ + objections
+└── Email 5: Limited time offer`,
     },
 ]
 
-function WorkerIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+function WebhookIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#A3A3A3" fillOpacity={0.2} />
+            <circle cx={16} cy={16} r={16} fill="#F97316" fillOpacity={0.2} />
             <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M16 6a2 2 0 00-2 2v2H8a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V12a2 2 0 00-2-2h-6V8a2 2 0 00-2-2zm-1 6h2v2h-2v-2zm-4 4h2v2h-2v-2zm10 0h2v2h-2v-2zm-8 4h2v2h-2v-2zm6 0h2v2h-2v-2z"
-                fill="#737373"
+                d="M10 16l6-4v8l-6-4zm6-4l6 4-6 4V12z"
+                fill="#F97316"
             />
         </svg>
     )
 }
 
-function SessionIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
-    return (
-        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#A3A3A3" fillOpacity={0.2} />
-            <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M8 8a2 2 0 012-2h12a2 2 0 012 2v16a2 2 0 01-2 2H10a2 2 0 01-2-2V8zm2 0v16h12V8H10zm2 3h8v2h-8v-2zm0 4h8v2h-8v-2zm0 4h5v2h-5v-2z"
-                fill="#737373"
-            />
-        </svg>
-    )
-}
-
-function StreamIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
-    return (
-        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#A3A3A3" fillOpacity={0.2} />
-            <path
-                d="M8 16h4m4 0h4m4 0h4M8 12h16M8 20h16"
-                stroke="#737373"
-                strokeWidth={2}
-                strokeLinecap="round"
-            />
-            <circle cx={16} cy={16} r={3} fill="#06b6d4" />
-        </svg>
-    )
-}
-
-function RLMIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+function CodeIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
             <circle cx={16} cy={16} r={16} fill="#8B5CF6" fillOpacity={0.2} />
             <path
-                d="M8 16c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4zm8 0c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4-4-1.8-4-4z"
+                d="M12 10l-4 6 4 6M20 10l4 6-4 6M14 22l4-12"
                 stroke="#8B5CF6"
                 strokeWidth={2}
-                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
             />
+        </svg>
+    )
+}
+
+function BulkIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+            <circle cx={16} cy={16} r={16} fill="#06B6D4" fillOpacity={0.2} />
+            <path
+                d="M8 10h16M8 16h16M8 22h12"
+                stroke="#06B6D4"
+                strokeWidth={2}
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
+function MemoryIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+            <circle cx={16} cy={16} r={16} fill="#10B981" fillOpacity={0.2} />
+            <path
+                d="M16 8v8l4 4"
+                stroke="#10B981"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <circle cx={16} cy={16} r={6} stroke="#10B981" strokeWidth={2} fill="none" />
         </svg>
     )
 }
@@ -159,20 +169,20 @@ function FeaturesDesktop() {
     return (
         <TabGroup className="hidden lg:block">
             <TabList className="grid grid-cols-4 gap-x-6">
-                {features.map((feature, featureIndex) => (
+                {features.map((feature) => (
                     <Tab
                         key={feature.name}
                         className={clsx(
                             'rounded-2xl p-6 text-left transition-colors',
-                            'hover:bg-gray-800/30 focus:outline-none',
-                            'data-[selected]:bg-gray-800'
+                            'hover:bg-gray-100 dark:hover:bg-gray-800/30 focus:outline-none',
+                            'data-[selected]:bg-purple-50 dark:data-[selected]:bg-purple-900/20 data-[selected]:ring-2 data-[selected]:ring-purple-500'
                         )}
                     >
                         <feature.icon className="h-8 w-8" />
-                        <h3 className="mt-6 text-lg font-semibold text-white">
+                        <h3 className="mt-6 text-lg font-semibold text-gray-900 dark:text-white">
                             {feature.name}
                         </h3>
-                        <p className="mt-2 text-sm text-gray-400">{feature.description}</p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{feature.description}</p>
                     </Tab>
                 ))}
             </TabList>
@@ -192,12 +202,12 @@ function FeaturesMobile() {
         <div className="space-y-10 lg:hidden">
             {features.map((feature) => (
                 <div key={feature.name}>
-                    <div className="rounded-2xl bg-gray-800 p-6">
+                    <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 p-6">
                         <feature.icon className="h-8 w-8" />
-                        <h3 className="mt-6 text-lg font-semibold text-white">
+                        <h3 className="mt-6 text-lg font-semibold text-gray-900 dark:text-white">
                             {feature.name}
                         </h3>
-                        <p className="mt-2 text-sm text-gray-400">{feature.description}</p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{feature.description}</p>
                     </div>
                     <div className="mt-4">
                         <FeatureCode code={feature.code} />
@@ -211,19 +221,18 @@ function FeaturesMobile() {
 export function PrimaryFeatures() {
     return (
         <section
-            id="features"
-            aria-label="Features for distributed AI agent orchestration"
-            className="bg-gray-900 py-20 sm:py-32"
+            id="how-it-works"
+            aria-label="How CodeTether works with your automation stack"
+            className="bg-white dark:bg-gray-950 py-20 sm:py-32"
         >
             <Container>
                 <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-3xl">
-                    <h2 className="text-3xl font-medium tracking-tight text-white">
-                        The &quot;Brain in Cloud, Hands on Prem&quot; architecture.
+                    <h2 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white">
+                        How it fits your workflow
                     </h2>
-                    <p className="mt-2 text-lg text-gray-400">
-                        AI demos require you to upload your data. Enterprise AI requires you to keep it.
-                        CodeTether&apos;s pull-based worker model solves the firewall problem that kills
-                        95% of enterprise AI projects before they start.
+                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
+                        You already know Zapier, n8n, and Make. CodeTether adds AI that actually executes—
+                        triggered by webhook, delivering real output.
                     </p>
                 </div>
                 <div className="mt-16">

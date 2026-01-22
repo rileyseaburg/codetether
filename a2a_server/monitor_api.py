@@ -1233,6 +1233,47 @@ def _redis_key_worker_messages(session_id: str) -> str:
     return f'a2a:opencode:sessions:{session_id}:messages'
 
 
+async def _append_worker_message(
+    session_id: str,
+    message: Dict[str, Any],
+    worker_id: Optional[str] = None,
+) -> None:
+    """Append a message to the worker-synced store (memory + Redis)."""
+    existing = _worker_messages.get(session_id, [])
+    _worker_messages[session_id] = [*existing, message]
+
+    client = await _get_redis_client()
+    if not client:
+        return
+
+    try:
+        payload: Dict[str, Any] = {}
+        raw = await client.get(_redis_key_worker_messages(session_id))
+        if raw:
+            payload = json.loads(raw) if isinstance(raw, str) else {}
+        messages = (
+            payload.get('messages') if isinstance(payload, dict) else None
+        )
+        if not isinstance(messages, list):
+            messages = []
+        messages.append(message)
+        resolved_worker_id = (
+            payload.get('worker_id') if isinstance(payload, dict) else None
+        ) or worker_id
+        await client.set(
+            _redis_key_worker_messages(session_id),
+            json.dumps(
+                {
+                    'worker_id': resolved_worker_id,
+                    'updated_at': datetime.utcnow().isoformat(),
+                    'messages': messages,
+                }
+            ),
+        )
+    except Exception as e:
+        logger.debug(f'Failed to update Redis worker messages: {e}')
+
+
 def _redis_key_workers_index() -> str:
     return 'a2a:opencode:workers:index'
 
@@ -1405,6 +1446,35 @@ def get_opencode_bridge():
             _opencode_bridge = OpenCodeBridge()
             logger.info('OpenCode bridge initialized')
 
+            # Deduplicate codebases on startup to clean up any stale entries
+            # This runs async in background to not block initialization
+            async def _deduplicate_on_startup():
+                try:
+                    results = await db.db_deduplicate_all_codebases()
+                    if results:
+                        total = sum(results.values())
+                        logger.info(
+                            f'Startup deduplication: removed {total} duplicate codebase entries'
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f'Failed to deduplicate codebases on startup: {e}'
+                    )
+
+            import asyncio
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(_deduplicate_on_startup())
+                else:
+                    loop.run_until_complete(_deduplicate_on_startup())
+            except RuntimeError:
+                # No event loop, skip deduplication
+                logger.debug(
+                    'No event loop available for startup deduplication'
+                )
+
             # Set up SSE worker notification hook for task updates
             try:
                 from .worker_sse import (
@@ -1556,6 +1626,8 @@ class AgentTaskCreate(BaseModel):
     agent_type: str = 'build'
     priority: int = 0
     metadata: Dict[str, Any] = {}
+    codebase_id: Optional[str] = None  # Optional: specify target codebase
+    model: Optional[str] = None  # Optional: specify model
 
 
 class WatchModeConfig(BaseModel):
@@ -1727,6 +1799,27 @@ async def database_codebases():
         'codebases': codebases,
         'total': len(codebases),
         'source': 'postgresql',
+    }
+
+
+@opencode_router.post('/database/codebases/deduplicate')
+async def deduplicate_codebases():
+    """
+    Remove duplicate codebase entries, keeping the oldest (canonical) ID for each path.
+
+    This is useful after server restarts or when workers have created duplicate entries.
+    The canonical ID is preserved to maintain consistency with existing tasks and sessions.
+    """
+    results = await db.db_deduplicate_all_codebases()
+
+    total_removed = sum(results.values())
+    return {
+        'success': True,
+        'deduplicated_paths': results,
+        'total_duplicates_removed': total_removed,
+        'message': f'Removed {total_removed} duplicate codebase entries'
+        if total_removed > 0
+        else 'No duplicates found',
     }
 
 
@@ -2791,6 +2884,89 @@ async def get_agent_status(codebase_id: str):
     return status
 
 
+def _parse_opencode_output_line(
+    line: str,
+    task_id: str,
+    worker_id: Optional[str],
+    session_id: Optional[str],
+) -> Optional[str]:
+    """Parse an OpenCode JSON output line and return an SSE frame.
+
+    OpenCode with --format json outputs lines like:
+    - {"type":"step_start","part":{...}}
+    - {"type":"text","part":{"text":"Hello world"}}
+    - {"type":"tool_use","part":{...}}
+    - {"type":"step_finish","part":{...}}
+
+    This function parses these and returns appropriate SSE events,
+    extracting just the text content for "text" type events.
+    """
+    line = line.strip()
+    if not line:
+        return None
+
+    try:
+        event = json.loads(line)
+        event_type = event.get('type', 'message')
+
+        # For text events, extract the actual text content
+        if event_type == 'text':
+            part = event.get('part', {})
+            text = part.get('text', '')
+            if text:
+                payload = {
+                    'type': 'text',
+                    'content': text,  # Just the text, not the JSON wrapper
+                    'task_id': task_id,
+                    'worker_id': worker_id,
+                    'session_id': session_id,
+                }
+                return f'event: message\ndata: {json.dumps(payload)}\n\n'
+            return None  # Skip empty text events
+
+        # For step_start/step_finish, emit status events
+        if event_type in ('step_start', 'step_finish'):
+            payload = {
+                'type': event_type,
+                'task_id': task_id,
+                'worker_id': worker_id,
+                'session_id': session_id,
+            }
+            return f'event: status\ndata: {json.dumps(payload)}\n\n'
+
+        # For tool_use events, emit tool info
+        if event_type == 'tool_use':
+            part = event.get('part', {})
+            payload = {
+                'type': 'tool_use',
+                'tool': part.get('tool'),
+                'state': part.get('state'),
+                'task_id': task_id,
+                'worker_id': worker_id,
+                'session_id': session_id,
+            }
+            return f'event: tool\ndata: {json.dumps(payload)}\n\n'
+
+        # For other events, pass through with parsed structure
+        event['task_id'] = task_id
+        event['worker_id'] = worker_id
+        event['session_id'] = session_id
+        return f'event: {event_type}\ndata: {json.dumps(event)}\n\n'
+
+    except json.JSONDecodeError:
+        # Not JSON - treat as plain text if it's not empty
+        if line and not line.startswith('{'):
+            payload = {
+                'type': 'text',
+                'content': line,
+                'task_id': task_id,
+                'worker_id': worker_id,
+                'session_id': session_id,
+            }
+            return f'event: message\ndata: {json.dumps(payload)}\n\n'
+        return None
+
+
 @opencode_router.get('/codebases/{codebase_id}/events')
 async def stream_agent_events(codebase_id: str, request: Request):
     """Stream real-time events from an OpenCode agent session via SSE.
@@ -2965,10 +3141,16 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             for chunk in outputs[cursor:]:
                                 content = (chunk or {}).get('output')
                                 if content:
-                                    yield (
-                                        'event: message\n'
-                                        f'data: {json.dumps({"type": "text", "content": content, "task_id": t.id, "worker_id": (chunk or {}).get("worker_id"), "resume_session_id": resume_session_id, "session_id": resume_session_id})}\n\n'
+                                    # Parse OpenCode JSON output to extract actual events
+                                    # OpenCode outputs lines like: {"type":"text","part":{"text":"Hello"}}
+                                    parsed_event = _parse_opencode_output_line(
+                                        content,
+                                        t.id,
+                                        (chunk or {}).get('worker_id'),
+                                        resume_session_id,
                                     )
+                                    if parsed_event:
+                                        yield parsed_event
                             output_cursors[t.id] = len(outputs)
 
                         # Stream newly completed results (only once).
@@ -3418,9 +3600,10 @@ async def list_all_tasks(
 
 @opencode_router.post('/tasks')
 async def create_global_task(task_data: AgentTaskCreate):
-    """Create a new global task (not tied to a specific codebase).
+    """Create a new task, optionally tied to a specific codebase.
 
-    Useful for custom automations that don't need a codebase context.
+    If codebase_id is provided, the task will run in that codebase's directory.
+    Otherwise, it runs as a 'global' task (worker's home directory).
     """
     bridge = get_opencode_bridge()
     if bridge is None:
@@ -3428,14 +3611,22 @@ async def create_global_task(task_data: AgentTaskCreate):
             status_code=503, detail='OpenCode bridge not available'
         )
 
-    # Create task with a global/default codebase context
+    # Use provided codebase_id or fall back to 'global'
+    effective_codebase_id = task_data.codebase_id or 'global'
+
+    # Build metadata, including model if provided
+    metadata = task_data.metadata.copy() if task_data.metadata else {}
+    if task_data.model:
+        metadata['model'] = task_data.model
+
+    # Create task with the specified codebase context
     task = await bridge.create_task(
-        codebase_id='global',  # Use 'global' as a special codebase for global tasks
+        codebase_id=effective_codebase_id,
         title=task_data.title,
         prompt=task_data.prompt,
         agent_type=task_data.agent_type,
         priority=task_data.priority,
-        metadata=task_data.metadata,
+        metadata=metadata,
     )
 
     if not task:
@@ -3643,6 +3834,7 @@ async def list_sessions(
     codebase_id: str,
     limit: int = 50,
     offset: int = 0,
+    q: Optional[str] = None,
 ):
     """List sessions for a codebase with pagination.
 
@@ -3660,11 +3852,44 @@ async def list_sessions(
     bridge = get_opencode_bridge()
     codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
 
+    def _session_matches_query(session: Dict[str, Any], query: str) -> bool:
+        needle = query.strip().lower()
+        if not needle:
+            return True
+
+        values: List[str] = []
+        for key in ('id', 'title', 'project_id', 'directory', 'agent', 'model'):
+            value = session.get(key)
+            if isinstance(value, str) and value:
+                values.append(value)
+
+        summary = session.get('summary')
+        if isinstance(summary, dict):
+            for value in summary.values():
+                if isinstance(value, str) and value:
+                    values.append(value)
+                elif isinstance(value, (list, tuple)):
+                    for item in value:
+                        if isinstance(item, str) and item:
+                            values.append(item)
+        elif isinstance(summary, str) and summary:
+            values.append(summary)
+
+        if not values:
+            return False
+
+        return any(needle in value.lower() for value in values)
+
     def _paginate_sessions(sessions: list, source: str, synced_at=None) -> dict:
         """Apply pagination to sessions list and return response dict."""
+        filtered = (
+            [s for s in sessions if _session_matches_query(s, q)]
+            if q
+            else sessions
+        )
         # Sort by updated/created time descending
         sorted_sessions = sorted(
-            sessions,
+            filtered,
             key=lambda s: s.get('updated') or s.get('created') or '',
             reverse=True,
         )
@@ -4094,6 +4319,29 @@ async def sync_session_messages(
     _worker_messages[session_id] = request.messages
 
     def _extract_message_content(msg: Dict[str, Any]) -> Optional[str]:
+        def _looks_like_worker_registry_payload(value: Any) -> bool:
+            if isinstance(value, dict):
+                keys = set(value.keys())
+                if {'worker_id', 'models', 'registered_at'}.issubset(keys):
+                    return True
+                if 'models' in keys and {
+                    'global_codebase_id',
+                    'last_seen',
+                }.issubset(keys):
+                    return True
+            if (
+                isinstance(value, list)
+                and value
+                and all(isinstance(item, dict) for item in value)
+            ):
+                sample = value[:3]
+                if all(
+                    'provider_id' in item and 'capabilities' in item
+                    for item in sample
+                ):
+                    return True
+            return False
+
         # Preferred: explicit content
         c = msg.get('content')
         if isinstance(c, str) and c.strip():
@@ -4119,7 +4367,10 @@ async def sync_session_messages(
             if isinstance(ic, str) and ic.strip():
                 return ic
             if ic is not None:
-                return str(ic)
+                if _looks_like_worker_registry_payload(ic):
+                    return None
+                if isinstance(ic, (dict, list)):
+                    return json.dumps(ic, ensure_ascii=True)
 
         return None
 
@@ -4435,6 +4686,56 @@ async def resume_session(
             )
         except Exception as e:
             logger.debug(f'Failed to log user resume prompt: {e}')
+
+        # Persist the user prompt so chat history feels like a normal chat app.
+        message_id = f'msg_{uuid.uuid4().hex}'
+        part_id = f'prt_{uuid.uuid4().hex}'
+        created_at = datetime.utcnow().isoformat()
+        user_message = {
+            'id': message_id,
+            'sessionID': session_id,
+            'role': 'user',
+            'time': {'created': created_at},
+            'info': {
+                'id': message_id,
+                'sessionID': session_id,
+                'role': 'user',
+                'content': request.prompt,
+                'time': {'created': created_at},
+            },
+            'parts': [
+                {
+                    'id': part_id,
+                    'sessionID': session_id,
+                    'messageID': message_id,
+                    'type': 'text',
+                    'text': request.prompt,
+                }
+            ],
+        }
+
+        try:
+            await db.db_upsert_message(
+                {
+                    'id': message_id,
+                    'session_id': session_id,
+                    'role': 'user',
+                    'content': request.prompt,
+                    'model': None,
+                    'created_at': created_at,
+                }
+            )
+        except Exception as e:
+            logger.debug(f'Failed to persist user message: {e}')
+
+        try:
+            await _append_worker_message(
+                session_id,
+                user_message,
+                worker_id=codebase.worker_id if codebase else None,
+            )
+        except Exception as e:
+            logger.debug(f'Failed to append user message to worker cache: {e}')
 
     # For remote workers, create a task with the session_id in metadata
     if codebase.worker_id:
@@ -4782,6 +5083,7 @@ class WorkerRegistration(BaseModel):
     hostname: Optional[str] = None
     models: List[Dict[str, Any]] = []
     global_codebase_id: Optional[str] = None
+    codebases: List[str] = []  # List of codebase IDs this worker handles
 
 
 class TaskStatusUpdate(BaseModel):
@@ -4804,6 +5106,7 @@ async def register_worker(registration: WorkerRegistration):
         'hostname': registration.hostname,
         'models': registration.models,
         'global_codebase_id': registration.global_codebase_id,
+        'codebases': registration.codebases,  # Codebase IDs for task routing
         'registered_at': datetime.utcnow().isoformat(),
         'last_seen': datetime.utcnow().isoformat(),
         'status': 'active',

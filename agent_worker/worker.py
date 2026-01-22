@@ -284,6 +284,7 @@ class WorkerClient:
         self,
         models: List[Dict[str, Any]],
         global_codebase_id: Optional[str],
+        codebase_ids: Optional[List[str]] = None,
     ) -> bool:
         """Register this worker with the A2A server."""
         try:
@@ -292,6 +293,11 @@ class WorkerClient:
 
             import platform
 
+            # Always include 'global' to handle global tasks
+            codebases_to_register = list(codebase_ids or [])
+            if 'global' not in codebases_to_register:
+                codebases_to_register.append('global')
+
             payload = {
                 'worker_id': self.config.worker_id,
                 'name': self.config.worker_name,
@@ -299,6 +305,7 @@ class WorkerClient:
                 'hostname': platform.node(),  # Cross-platform (works on Windows)
                 'models': models,
                 'global_codebase_id': global_codebase_id,
+                'codebases': codebases_to_register,
             }
 
             async with session.post(url, json=payload) as resp:
@@ -353,6 +360,50 @@ class WorkerClient:
 
         except Exception as e:
             logger.debug(f'Failed to send heartbeat: {e}')
+            return False
+
+    async def update_sse_codebases(self, codebase_ids: List[str]) -> bool:
+        """Update the SSE worker registry with current codebases for task routing.
+
+        This should be called after registering new codebases to ensure
+        the SSE routing knows about them.
+        """
+        try:
+            session = await self.get_session()
+            url = f'{self.config.server_url}/v1/worker/codebases'
+
+            # Build headers
+            headers = {'Content-Type': 'application/json'}
+            if self.config.auth_token:
+                headers['Authorization'] = f'Bearer {self.config.auth_token}'
+
+            payload = {'codebases': codebase_ids}
+
+            async with session.put(
+                url,
+                json=payload,
+                params={'worker_id': self.config.worker_id},
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 200:
+                    logger.debug(f'SSE codebases updated: {codebase_ids}')
+                    return True
+                elif resp.status == 404:
+                    # Worker not connected via SSE yet, that's OK
+                    logger.debug(
+                        'Worker not SSE-connected, codebases not updated'
+                    )
+                    return False
+                else:
+                    text = await resp.text()
+                    logger.warning(
+                        f'Update SSE codebases failed: {resp.status} - {text}'
+                    )
+                    return False
+
+        except Exception as e:
+            logger.debug(f'Failed to update SSE codebases: {e}')
             return False
 
     async def register_as_agent(
@@ -2772,7 +2823,7 @@ Please review and continue the work, avoiding redundant actions on files already
         resume_session_id: Optional[str],
         codebase_path: str,
         auto_summarize: bool = True,
-    ) -> str:
+    ) -> tuple[str, Optional[str]]:
         """
         Prepare task context with auto-compaction if needed.
 
@@ -2783,17 +2834,34 @@ Please review and continue the work, avoiding redundant actions on files already
             auto_summarize: Whether to auto-generate summary for large sessions
 
         Returns:
-            The (possibly enhanced) prompt with summary context
+            Tuple of (enhanced_prompt, effective_session_id)
+            - If session is small enough, returns (prompt, resume_session_id) to continue normally
+            - If session is too large, returns (summary+prompt, None) to start fresh with context
         """
         if not resume_session_id or not auto_summarize:
-            return prompt
+            return prompt, resume_session_id
 
         # Check if session needs compaction
         messages = self.session_sync.get_session_messages(
             resume_session_id, max_messages=100
         )
-        if not messages or not self.needs_compaction(messages):
-            return prompt
+        if not messages:
+            return prompt, resume_session_id
+
+        estimated_tokens = self.estimate_session_tokens(messages)
+
+        if not self.needs_compaction(messages):
+            logger.debug(
+                f'Session {resume_session_id} has ~{estimated_tokens} tokens, '
+                f'below threshold {self.max_tokens}, continuing normally'
+            )
+            return prompt, resume_session_id
+
+        # Session is too large - generate summary and start fresh
+        logger.info(
+            f'Session {resume_session_id} has ~{estimated_tokens} tokens, '
+            f'exceeds threshold {self.max_tokens}. Generating summary and starting fresh session.'
+        )
 
         # Generate summary
         summary = await self.generate_summary(
@@ -2802,8 +2870,14 @@ Please review and continue the work, avoiding redundant actions on files already
             original_task=prompt,
         )
 
-        # Create handoff context
-        return self.create_handoff_context(prompt, summary, resume_session_id)
+        # Create handoff context with summary
+        enhanced_prompt = self.create_handoff_context(
+            prompt, summary, resume_session_id
+        )
+
+        # Return None for session_id to start a NEW session with the summary context
+        # This avoids loading the full session history which would exceed context limits
+        return enhanced_prompt, None
 
 
 # =============================================================================
@@ -3083,19 +3157,30 @@ class TaskExecutor:
             )  # Session to resume
 
             # Auto-compaction: If resuming a session with large context,
-            # generate a summary and prepend it to the prompt
+            # generate a summary and start a fresh session instead of loading full history
             auto_summarize = metadata.get('auto_summarize', True)
+            effective_session_id = (
+                resume_session_id  # May be set to None if compaction needed
+            )
+
             if resume_session_id and auto_summarize:
                 try:
-                    enhanced_prompt = (
-                        await self.compaction_service.prepare_task_context(
-                            prompt=prompt,
-                            resume_session_id=resume_session_id,
-                            codebase_path=codebase.path,
-                            auto_summarize=True,
-                        )
+                    (
+                        enhanced_prompt,
+                        effective_session_id,
+                    ) = await self.compaction_service.prepare_task_context(
+                        prompt=prompt,
+                        resume_session_id=resume_session_id,
+                        codebase_path=codebase.path,
+                        auto_summarize=True,
                     )
-                    if enhanced_prompt != prompt:
+                    if effective_session_id is None:
+                        # Session was too large - starting fresh with summary
+                        logger.info(
+                            f'Task {task_id}: Session too large, starting fresh with summary context'
+                        )
+                        prompt = enhanced_prompt
+                    elif enhanced_prompt != prompt:
                         logger.info(
                             f'Task {task_id}: Added session summary for handoff'
                         )
@@ -3107,6 +3192,8 @@ class TaskExecutor:
                     # Continue with original prompt
 
             # Run OpenCode
+            # Use effective_session_id which may be None if session was too large
+            # and we're starting fresh with summary context
             result = await self.run_opencode(
                 codebase_id=codebase_id,
                 codebase_path=codebase.path,
@@ -3114,7 +3201,7 @@ class TaskExecutor:
                 agent_type=agent_type,
                 task_id=task_id,
                 model=model,
-                session_id=resume_session_id,
+                session_id=effective_session_id,
             )
 
             # Calculate duration
@@ -3723,9 +3810,11 @@ class TaskExecutor:
 
             returncode = process.returncode or 0
             if returncode == 0:
+                # Parse JSON output to extract actual text response
+                parsed_output = _parse_opencode_json_output(stdout)
                 return {
                     'success': True,
-                    'output': stdout,
+                    'output': parsed_output,
                     'session_id': active_session_id,
                 }
             else:
@@ -3739,6 +3828,53 @@ class TaskExecutor:
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+
+def _parse_opencode_json_output(stdout: str) -> str:
+    """Parse OpenCode JSON output and extract the text response.
+
+    OpenCode with --format json outputs a series of JSON events like:
+    - {"type":"step_start",...}
+    - {"type":"text","part":{"text":"Hello world"},...}
+    - {"type":"tool_use",...}
+    - {"type":"step_finish",...}
+
+    This function extracts all text content from "text" type events
+    and returns a clean, readable response.
+    """
+    import json
+
+    text_parts = []
+
+    for line in stdout.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+
+        try:
+            event = json.loads(line)
+            event_type = event.get('type')
+
+            if event_type == 'text':
+                # Extract text from the part
+                part = event.get('part', {})
+                text = part.get('text', '')
+                if text:
+                    text_parts.append(text)
+
+        except json.JSONDecodeError:
+            # Not valid JSON, might be raw output - include as-is
+            # Skip JSON-like lines that failed to parse
+            if not line.startswith('{'):
+                text_parts.append(line)
+
+    if text_parts:
+        return '\n'.join(text_parts)
+
+    # Fallback: if no text events found, return truncated raw output
+    if len(stdout) > 500:
+        return stdout[:500] + '... [truncated]'
+    return stdout
 
 
 # =============================================================================
@@ -4066,7 +4202,13 @@ class AgentWorker:
         models = await self._get_available_models()
         logger.info(f'Models to register: {len(models)}')
 
-        await self.client.register_worker(models, self._global_codebase_id)
+        # Include all registered codebase IDs for task routing
+        codebase_ids = list(self.codebases.keys())
+        logger.info(f'Registering worker with codebases: {codebase_ids}')
+
+        await self.client.register_worker(
+            models, self._global_codebase_id, codebase_ids
+        )
 
     async def unregister_worker(self):
         """Unregister this worker from the A2A server."""
@@ -4104,7 +4246,29 @@ class AgentWorker:
                 description=description,
             )
 
+            # Update SSE routing so server knows this worker handles this codebase
+            # This is important for task routing when worker registers codebases
+            # after the initial SSE connection is established
+            await self._update_sse_codebases()
+
         return codebase_id
+
+    async def _update_sse_codebases(self):
+        """Update the SSE worker registry with current codebases for task routing."""
+        if not self.client.sse_connected:
+            # Not connected via SSE yet, will be sent when connecting
+            return
+
+        try:
+            # Include 'global' for global task handling
+            codebase_ids = list(self.codebases.keys())
+            if 'global' not in codebase_ids:
+                codebase_ids.append('global')
+
+            await self.client.update_sse_codebases(codebase_ids)
+            logger.debug(f'Updated SSE codebases: {codebase_ids}')
+        except Exception as e:
+            logger.warning(f'Failed to update SSE codebases (non-fatal): {e}')
 
     async def get_pending_tasks(self) -> List[Dict[str, Any]]:
         """Get pending tasks from the server (fallback polling method)."""

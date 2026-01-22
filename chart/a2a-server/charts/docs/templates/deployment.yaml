@@ -24,6 +24,10 @@ spec:
         {{- end }}
       {{- end }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: docs
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

@@ -1,37 +1,65 @@
 import { useState, useCallback, useRef } from 'react'
-import { API_URL, Session, SessionMessage } from '../types'
+import { API_URL, Session, SessionMessageWithParts } from '../types'
+
+const SESSIONS_PAGE_SIZE = 30
 
 export function useSessions(selectedCodebase: string) {
   const [sessions, setSessions] = useState<Session[]>([])
-  const [sessionMessages, setSessionMessages] = useState<SessionMessage[]>([])
+  const [sessionMessages, setSessionMessages] = useState<SessionMessageWithParts[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [hasMoreSessions, setHasMoreSessions] = useState(true)
   const [totalMessages, setTotalMessages] = useState(0)
+  const [totalSessions, setTotalSessions] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const latestLoadedSessionId = useRef<string | null>(null)
   const currentLimit = useRef<number | null>(null)
   const currentOffset = useRef<number | null>(null)
+  const sessionsOffset = useRef<number>(0)
+  const currentQuery = useRef<string>('')
   const INITIAL_LOAD_LIMIT = 20
   const LOAD_MORE_LIMIT = 20
 
-  const loadSessions = useCallback(async (id: string) => {
+  const loadSessions = useCallback(async (id: string, query?: string) => {
     if (!id) {
       setSessions([])
+      setHasMoreSessions(true)
+      setTotalSessions(0)
+      sessionsOffset.current = 0
+      currentQuery.current = ''
       return
+    }
+    if (typeof query === 'string') {
+      currentQuery.current = query.trim()
     }
     setLoading(true)
     setError(null)
+    sessionsOffset.current = 0
     try {
-      const res = await fetch(`${API_URL}/v1/opencode/codebases/${id}/sessions`)
+      const params = new URLSearchParams({
+        limit: String(SESSIONS_PAGE_SIZE),
+        offset: '0',
+      })
+      if (currentQuery.current) {
+        params.set('q', currentQuery.current)
+      }
+      const res = await fetch(
+        `${API_URL}/v1/opencode/codebases/${id}/sessions?${params.toString()}`,
+      )
       if (res.ok) {
-        const data = (await res.json()).sessions || []
-        data.sort((a: Session, b: Session) => {
-          const dateA = new Date(a.updated || a.created || 0).getTime()
-          const dateB = new Date(b.updated || b.created || 0).getTime()
+        const data = await res.json()
+        const sessionsList = data.sessions || []
+        // Backend now handles sorting, but keep client-side sort as fallback
+        sessionsList.sort((a: Session, b: Session) => {
+          const dateA = a.time?.updated || a.time?.created || 0
+          const dateB = b.time?.updated || b.time?.created || 0
           return dateB - dateA
         })
-        setSessions(data)
+        setSessions(sessionsList)
+        setTotalSessions(data.total ?? sessionsList.length)
+        setHasMoreSessions(data.hasMore ?? false)
       } else {
         setError('Failed to load sessions')
       }
@@ -41,6 +69,35 @@ export function useSessions(selectedCodebase: string) {
       setLoading(false)
     }
   }, [])
+
+  const loadMoreSessions = useCallback(async (id: string) => {
+    if (!id || loadingMoreSessions || !hasMoreSessions) return
+    setLoadingMoreSessions(true)
+    const newOffset = sessionsOffset.current + SESSIONS_PAGE_SIZE
+    try {
+      const params = new URLSearchParams({
+        limit: String(SESSIONS_PAGE_SIZE),
+        offset: String(newOffset),
+      })
+      if (currentQuery.current) {
+        params.set('q', currentQuery.current)
+      }
+      const res = await fetch(
+        `${API_URL}/v1/opencode/codebases/${id}/sessions?${params.toString()}`,
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const newSessions = data.sessions || []
+        setSessions(prev => [...prev, ...newSessions])
+        setHasMoreSessions(data.hasMore ?? false)
+        sessionsOffset.current = newOffset
+      }
+    } catch (e) {
+      console.error('Failed to load more sessions:', e)
+    } finally {
+      setLoadingMoreSessions(false)
+    }
+  }, [loadingMoreSessions, hasMoreSessions])
 
   const loadSessionMessages = useCallback(
     async (
@@ -135,19 +192,24 @@ export function useSessions(selectedCodebase: string) {
     latestLoadedSessionId.current = null
     currentLimit.current = null
     currentOffset.current = null
+    currentQuery.current = ''
   }, [])
 
   return {
     sessions,
     sessionMessages,
     loadSessions,
+    loadMoreSessions,
     loadSessionMessages,
     loadMoreMessages,
     clearSessions,
     loading,
     loadingMore,
+    loadingMoreSessions,
     hasMore,
+    hasMoreSessions,
     totalMessages,
+    totalSessions,
     error,
   }
 }

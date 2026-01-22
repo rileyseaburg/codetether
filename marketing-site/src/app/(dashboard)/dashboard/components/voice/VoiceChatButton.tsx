@@ -3,6 +3,23 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 
+const generateUuid = () => {
+  if (typeof crypto !== 'undefined') {
+    if (typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+      return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+    }
+  }
+  return `voice-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 // SVG Icon
 const MicIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -46,15 +63,18 @@ export default function VoiceChatButton({
   const [isLoading, setIsLoading] = useState(false);
 
   // Generate a persistent user ID for session reconnection
-  const [userId] = useState(() =>
-    typeof window !== 'undefined'
-      ? localStorage.getItem('voice_user_id') || (() => {
-          const id = crypto.randomUUID();
-          localStorage.setItem('voice_user_id', id);
-          return id;
-        })()
-      : crypto.randomUUID()
-  );
+  const [userId] = useState(() => {
+    if (typeof window === 'undefined') {
+      return generateUuid();
+    }
+    const stored = localStorage.getItem('voice_user_id');
+    if (stored) {
+      return stored;
+    }
+    const id = generateUuid();
+    localStorage.setItem('voice_user_id', id);
+    return id;
+  });
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run';
 

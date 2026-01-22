@@ -9,7 +9,7 @@ export function StreamStatus({ connected, status }: StreamStatusProps) {
 
     return (
         <div
-            className="hidden sm:flex items-center gap-2"
+            className="hidden items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 sm:flex"
             role="status"
             aria-live="polite"
             aria-label={`Stream status: ${displayStatus}. ${connectionLabel}`}
@@ -18,9 +18,7 @@ export function StreamStatus({ connected, status }: StreamStatusProps) {
                 className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
                 aria-hidden="true"
             />
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-                {displayStatus}
-            </span>
+            <span>{displayStatus}</span>
         </div>
     )
 }

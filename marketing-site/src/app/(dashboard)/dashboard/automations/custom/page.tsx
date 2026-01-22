@@ -16,7 +16,7 @@ export default function CustomAutomationPage() {
 
     try {
       const token = localStorage.getItem('a2a_token')
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
       // Use the automation API which queues tasks and sends email notifications
       const response = await fetch(`${apiUrl}/v1/automation/tasks`, {

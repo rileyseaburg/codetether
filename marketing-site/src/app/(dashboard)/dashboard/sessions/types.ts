@@ -1,5 +1,5 @@
 export { API_URL } from './types/config'
 export type { Codebase, Session } from './types/codebase'
 export type { TokenUsage, ToolState } from './types/tokens'
-export type { SessionPart, SessionMessage } from './types/message'
+export type { SessionPart, SessionMessage, SessionMessageWithParts } from './types/message'
 export type { NormalizedRole, ToolEntry, ChatItem } from './types/chat'

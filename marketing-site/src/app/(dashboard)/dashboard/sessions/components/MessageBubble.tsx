@@ -3,24 +3,31 @@
 import { useState, useMemo, useId, memo } from 'react'
 import type { ChatItem } from '../types'
 import { formatCost, formatTokens } from '../utils'
+import { parseJsonPayload } from './JsonHelpers'
 import { MarkdownMessage } from './MarkdownMessage'
 import { ToolDetails } from './ToolDetails'
 
-interface Props { message: ChatItem; isUser: boolean }
+interface Props { message: ChatItem; isUser: boolean; isNew?: boolean }
 
 // Thresholds for truncation
 const TRUNCATE_CHARS = 1500
 const TRUNCATE_LINES = 40
 
-function MessageBubbleInner({ message: m, isUser }: Props) {
+function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
     const [isExpanded, setIsExpanded] = useState(false)
     const tokenInfo = formatTokens(m.usage?.tokens)
     const costText = formatCost(m.usage?.cost)
     const bubbleClass = isUser ? 'bg-indigo-600 text-white ring-indigo-700/40' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
+    const highlightClass = isNew ? 'ring-2 ring-indigo-400/30 shadow-[0_0_0_1px_rgba(99,102,241,0.2)]' : ''
 
     // Calculate if message should be truncated
     const { shouldTruncate, truncatedText, stats } = useMemo(() => {
         if (!m.text || isUser) return { shouldTruncate: false, truncatedText: m.text || '', stats: null }
+
+        const hasStructuredPayload = !!parseJsonPayload(m.text)
+        if (hasStructuredPayload) {
+            return { shouldTruncate: false, truncatedText: m.text, stats: null }
+        }
         
         const text = m.text
         const lines = text.split('\n')
@@ -64,10 +71,10 @@ function MessageBubbleInner({ message: m, isUser }: Props) {
     // Count tools and reasoning for summary
     const hasReasoning = !!m.reasoning
     const toolCount = m.tools?.length || 0
-    const hasExtras = hasReasoning || toolCount > 0 || !!m.rawDetails
+    const hasExtras = hasReasoning || toolCount > 0
 
     return (
-        <div className={`rounded-2xl shadow-sm ring-1 ${bubbleClass} overflow-hidden`}>
+        <div className={`rounded-2xl shadow-sm ring-1 ${bubbleClass} ${highlightClass} overflow-hidden`}>
             {/* Summary bar for complex messages */}
             {!isUser && hasExtras && (
                 <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700/50 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
@@ -151,8 +158,7 @@ function MessageBubbleInner({ message: m, isUser }: Props) {
                 {/* Usage stats */}
                 {(tokenInfo || costText) && <Usage tokenInfo={tokenInfo} costText={costText} isUser={isUser} />}
                 
-                {/* Raw details - collapsed by default */}
-                {m.rawDetails && <Details text={m.rawDetails} isUser={isUser} />}
+
             </div>
         </div>
     )
@@ -228,44 +234,13 @@ const Usage = ({ tokenInfo, costText, isUser }: { tokenInfo: { summary: string; 
     </div>
 )
 
-const Details = ({ text, isUser }: { text: string; isUser: boolean }) => {
-    const [isOpen, setIsOpen] = useState(false)
-    const id = useId()
-
-    return (
-        <details
-            className="mt-3"
-            onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}
-        >
-            <summary
-                className={`cursor-pointer text-xs ${isUser ? 'text-indigo-100/90' : 'text-gray-600 dark:text-gray-300'} focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded flex items-center gap-1`}
-                aria-expanded={isOpen}
-                aria-controls={id}
-            >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                <span className="sr-only">{isOpen ? 'Hide' : 'Show'} </span>
-                Raw JSON
-            </summary>
-            <pre
-                id={id}
-                className="mt-2 overflow-x-auto rounded bg-gray-900/90 p-3 text-[11px] text-gray-100 max-h-64 overflow-y-auto"
-                tabIndex={0}
-                aria-label="Raw message details"
-            >
-                {text}
-            </pre>
-        </details>
-    )
-}
-
 // Memoize MessageBubble - only re-render when message content changes
 export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
     return (
         prev.message.key === next.message.key &&
         prev.message.text === next.message.text &&
-        prev.isUser === next.isUser
+        prev.isUser === next.isUser &&
+        prev.isNew === next.isNew
     )
 })
 MessageBubble.displayName = 'MessageBubble'

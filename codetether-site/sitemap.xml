@@ -2,126 +2,186 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://docs.codetether.run/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/api/jsonrpc/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/api/opencode/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/api/overview/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/api/rest/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/api/sse/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/auth/keycloak/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/auth/overview/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/auth/tokens/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/concepts/a2a-protocol/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/concepts/a2a-sdk-migration/</loc>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/concepts/architecture/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/concepts/message-broker/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/concepts/task-management/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/deployment/docker/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/deployment/helm/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/deployment/kubernetes/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/deployment/production/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/agent-messaging/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/agent-worker/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/distributed-workers/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/features/marketing-coordinator/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/features/marketing-tools/</loc>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/mcp-tools/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/monitor-ui/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/opencode/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/features/ralph/</loc>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/sessions/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/features/streaming/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/features/voice-agent/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/features/worker-sse/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/features/zapier/</loc>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/getting-started/configuration/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/getting-started/installation/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/getting-started/quickstart/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/async-polling-pattern/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/gap-analysis/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/make-quickstart/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/n8n-quickstart/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/zapier-app-manifest/</loc>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/integrations/zapier-quickstart/</loc>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/reference/cli/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/reference/environment-variables/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
     </url>
     <url>
          <loc>https://docs.codetether.run/reference/errors/</loc>
-         <lastmod>2025-12-16</lastmod>
+         <lastmod>2026-01-22</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.codetether.run/reference/troubleshooting/</loc>
+         <lastmod>2026-01-22</lastmod>
     </url>
 </urlset>

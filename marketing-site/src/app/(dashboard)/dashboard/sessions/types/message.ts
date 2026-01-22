@@ -1,9 +1,18 @@
 import type { TokenUsage, ToolState } from './tokens'
 
-export interface SessionPart {
-    id?: string
+export interface SessionPartBase {
+    id: string
+    sessionID: string
+    messageID: string
     type: string
     text?: string
+    time?: {
+        start?: number
+        end?: number
+    }
+}
+
+export interface SessionPart extends SessionPartBase {
     tool?: string
     callID?: string
     state?: ToolState
@@ -18,21 +27,38 @@ export interface SessionPart {
     snapshot?: string
 }
 
-export interface SessionMessage {
-    id?: string
-    sessionID?: string
-    info?: { role?: string; model?: string; content?: unknown; cost?: number; tokens?: TokenUsage; parts?: SessionPart[] }
-    role?: string
-    model?: string
+export interface SessionMessageBase {
+    id: string
+    sessionID: string
+    role: 'user' | 'assistant'
+    time: {
+        created: number
+        completed?: number
+    }
+    summary?: {
+        title?: string
+        diffs?: unknown[]
+    }
+    parentID?: string
+    modelID?: string
+    providerID?: string
+    mode?: string
+    path?: {
+        cwd: string
+        root: string
+    }
+    cost?: number
+    tokens?: TokenUsage
     agent?: string
-    cost?: number | null
-    tokens?: TokenUsage | null
-    tool_calls?: unknown[]
-    toolCalls?: unknown[]
-    created_at?: string
-    time?: { created?: string }
-    parts?: SessionPart[]
-    type?: string
-    event_type?: string
-    part?: unknown
+    model?: {
+        providerID: string
+        modelID: string
+    }
+}
+
+export type SessionMessage = SessionMessageBase
+
+export interface SessionMessageWithParts {
+    info: SessionMessage
+    parts: SessionPart[]
 }

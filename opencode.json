@@ -1,0 +1,41 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "zhipuai": {
+      "api": "https://api.z.ai/api/paas/v4",
+      "models": {
+        "glm-4.7-flashx": {
+          "id": "glm-4.7-flashx",
+          "name": "GLM-4.7-FlashX",
+          "family": "glm",
+          "attachment": false,
+          "reasoning": true,
+          "tool_call": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          },
+          "temperature": true,
+          "release_date": "2025-12-22",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "cost": {
+            "input": 0.07,
+            "output": 0.4,
+            "cache_read": 0.01,
+            "cache_write": 0
+          },
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          }
+        }
+      }
+    }
+  }
+}
