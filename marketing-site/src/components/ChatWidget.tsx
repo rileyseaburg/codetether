@@ -3,22 +3,37 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// Constants
+const STORAGE_KEY = 'intercom-chat-messages'
+const CONVERSATION_ID_KEY = 'intercom-chat-conversation-id'
+
 // Types
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  timestamp: Date
+  timestamp: string // Changed to string for JSON serialization
   status?: 'sending' | 'sent' | 'error'
   taskId?: string
 }
 
+interface StoredMessages {
+  messages: Message[]
+  conversationId: string
+}
+
 interface TaskResponse {
-  task_id: string
+  id: string
+  task_id?: string // Some endpoints return task_id instead of id
   title: string
   status: string
   result?: string
   description?: string
+}
+
+// Helper to get task ID from response (handles both 'id' and 'task_id' fields)
+function getTaskId(response: TaskResponse): string {
+  return response.id || response.task_id || ''
 }
 
 // API Configuration
@@ -91,6 +106,81 @@ function LoadingDots() {
   )
 }
 
+function RetryIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+      />
+    </svg>
+  )
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+      />
+    </svg>
+  )
+}
+
+// Helper to generate conversation ID
+function generateConversationId(): string {
+  return `conv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
+
+// localStorage helpers
+function loadFromStorage(): StoredMessages | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return null
+    return JSON.parse(stored)
+  } catch {
+    return null
+  }
+}
+
+function saveToStorage(messages: Message[], conversationId: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    const data: StoredMessages = { messages, conversationId }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function clearStorage(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(CONVERSATION_ID_KEY)
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 // API Functions
 async function createTask(prompt: string): Promise<TaskResponse> {
   const response = await fetch(`${API_URL}/v1/opencode/tasks`, {
@@ -100,7 +190,7 @@ async function createTask(prompt: string): Promise<TaskResponse> {
     },
     body: JSON.stringify({
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
-      description: prompt,
+      prompt: prompt,
       agent_type: 'build',
     }),
   })
@@ -155,7 +245,26 @@ export function ChatWidget() {
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [conversationId, setConversationId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    const stored = loadFromStorage()
+    if (stored) {
+      setMessages(stored.messages)
+      setConversationId(stored.conversationId)
+    } else {
+      setConversationId(generateConversationId())
+    }
+  }, [])
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (conversationId && messages.length > 0) {
+      saveToStorage(messages, conversationId)
+    }
+  }, [messages, conversationId])
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = useCallback(() => {
@@ -166,22 +275,42 @@ export function ChatWidget() {
     scrollToBottom()
   }, [messages, scrollToBottom])
 
-  const sendMessage = async (userMessage: string) => {
-    const userMsgId = `user-${Date.now()}`
-    const userMsg: Message = {
-      id: userMsgId,
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date(),
-      status: 'sent',
+  // Clear chat history
+  const clearChat = useCallback(() => {
+    setMessages([])
+    clearStorage()
+    setConversationId(generateConversationId())
+  }, [])
+
+  const sendMessage = async (userMessage: string, isRetry = false, retryMsgId?: string) => {
+    const userMsgId = isRetry ? retryMsgId! : `user-${Date.now()}`
+    
+    if (!isRetry) {
+      const userMsg: Message = {
+        id: userMsgId,
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date().toISOString(),
+        status: 'sent',
+      }
+      setMessages((prev) => [...prev, userMsg])
     }
 
-    setMessages((prev) => [...prev, userMsg])
     setIsLoading(true)
+
+    // If retrying, remove the old error message first
+    if (isRetry && retryMsgId) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== retryMsgId))
+    }
 
     try {
       // Create task via POST /v1/opencode/tasks
       const task = await createTask(userMessage)
+      const taskId = getTaskId(task)
+
+      if (!taskId) {
+        throw new Error('Failed to create task: no task ID returned')
+      }
 
       // Add placeholder for AI response
       const aiMsgId = `assistant-${Date.now()}`
@@ -189,14 +318,14 @@ export function ChatWidget() {
         id: aiMsgId,
         role: 'assistant',
         content: '',
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
         status: 'sending',
-        taskId: task.task_id,
+        taskId: taskId,
       }
       setMessages((prev) => [...prev, aiMsg])
 
       // Poll for completion
-      const completedTask = await pollForCompletion(task.task_id)
+      const completedTask = await pollForCompletion(taskId)
 
       // Update AI message with result
       setMessages((prev) =>
@@ -211,12 +340,18 @@ export function ChatWidget() {
         )
       )
     } catch (error) {
-      // Add error message
+      // Add error message with retry info
+      const errorContent = error instanceof Error 
+        ? (error.message === 'Task polling timed out' 
+            ? 'Request timed out after 60 seconds. Please try again.'
+            : error.message)
+        : 'An error occurred'
+      
       const errorMsg: Message = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: error instanceof Error ? error.message : 'An error occurred',
-        timestamp: new Date(),
+        content: errorContent,
+        timestamp: new Date().toISOString(),
         status: 'error',
       }
       setMessages((prev) => [...prev, errorMsg])
@@ -224,6 +359,21 @@ export function ChatWidget() {
       setIsLoading(false)
     }
   }
+
+  // Retry a failed message
+  const retryMessage = useCallback((errorMsgId: string) => {
+    // Find the last user message before this error
+    const errorIndex = messages.findIndex((m) => m.id === errorMsgId)
+    if (errorIndex === -1) return
+
+    // Look backwards for the last user message
+    for (let i = errorIndex - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        sendMessage(messages[i].content, true, errorMsgId)
+        break
+      }
+    }
+  }, [messages])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -247,13 +397,25 @@ export function ChatWidget() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-cyan-500 text-white">
               <h3 className="font-semibold text-base">Chat with AI</h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 rounded-full hover:bg-white/20 transition-colors"
-                aria-label="Close chat"
-              >
-                <CloseIcon className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && (
+                  <button
+                    onClick={clearChat}
+                    className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                    aria-label="Clear chat"
+                    title="Clear chat history"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                  aria-label="Close chat"
+                >
+                  <CloseIcon className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Message Area */}
@@ -269,19 +431,31 @@ export function ChatWidget() {
                       key={msg.id}
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div
-                        className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm ${
-                          msg.role === 'user'
-                            ? 'bg-cyan-500 text-white rounded-br-md'
-                            : msg.status === 'error'
-                              ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-bl-md'
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-md'
-                        }`}
-                      >
-                        {msg.status === 'sending' ? (
-                          <LoadingDots />
-                        ) : (
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <div className="flex flex-col items-start max-w-[80%]">
+                        <div
+                          className={`px-4 py-2 rounded-2xl text-sm ${
+                            msg.role === 'user'
+                              ? 'bg-cyan-500 text-white rounded-br-md'
+                              : msg.status === 'error'
+                                ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-bl-md'
+                                : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-md'
+                          }`}
+                        >
+                          {msg.status === 'sending' ? (
+                            <LoadingDots />
+                          ) : (
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          )}
+                        </div>
+                        {/* Retry button for error messages */}
+                        {msg.status === 'error' && !isLoading && (
+                          <button
+                            onClick={() => retryMessage(msg.id)}
+                            className="mt-1 flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                          >
+                            <RetryIcon className="w-3 h-3" />
+                            Retry
+                          </button>
                         )}
                       </div>
                     </div>

@@ -1097,6 +1097,34 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
             }
         })
         
+        // Handle real-time agent output
+        eventSource.addEventListener('output', (e) => {
+            try {
+                const data = JSON.parse(e.data)
+                const outputText = data.output?.trim()
+                if (outputText) {
+                    // Add agent output as a log entry
+                    setRun(prev => {
+                        if (!prev) return null
+                        // Create a unique ID for this output chunk
+                        const outputId = `output-${data.task_id}-${Date.now()}`
+                        return {
+                            ...prev,
+                            logs: [...prev.logs, {
+                                id: outputId,
+                                timestamp: data.timestamp || new Date().toISOString(),
+                                type: 'info' as RalphLogEntry['type'],
+                                message: outputText,
+                                storyId: data.story_id,
+                            }],
+                        }
+                    })
+                }
+            } catch (err) {
+                console.error('Failed to parse output event:', err)
+            }
+        })
+        
         // Handle completion
         eventSource.addEventListener('done', (e) => {
             try {

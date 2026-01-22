@@ -291,6 +291,15 @@ run-all: ## Run Python server, React (Next.js) dev server, and a local worker
 	fi) & \
 	$(MAKE) run RELOAD=$(RELOAD)
 
+.PHONY: dev-no-worker
+dev-no-worker: ## Run Python server and React dev server (no worker)
+	@echo "🚀 Starting Python server and React dev server (no worker)..."
+	@trap 'kill 0' EXIT; \
+	(\
+		cd marketing-site && npm run dev \
+	) & \
+	$(MAKE) run RELOAD=1
+
 .PHONY: worker
 worker: ## Run a local worker
 	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.

@@ -11,14 +11,21 @@ interface Message {
   timestamp: Date
   status?: 'sending' | 'sent' | 'error'
   taskId?: string
+  originalMessage?: string // For retry functionality - stores the original user message
 }
 
 interface TaskResponse {
-  task_id: string
+  id: string
+  task_id?: string // Some endpoints return task_id instead of id
   title: string
   status: string
   result?: string
   description?: string
+}
+
+// Helper to get task ID from response (handles both 'id' and 'task_id' fields)
+function getTaskId(response: TaskResponse): string {
+  return response.id || response.task_id || ''
 }
 
 // API Configuration
@@ -28,6 +35,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 const STORAGE_KEY_MESSAGES = 'intercom-chat-messages'
 const STORAGE_KEY_CONVERSATION_ID = 'intercom-chat-conversation-id'
 
+// Timeout configuration
+const TIMEOUT_MS = 60000 // 60 seconds timeout
+
 // Serializable message type for localStorage (Date as string)
 interface StoredMessage {
   id: string
@@ -36,6 +46,52 @@ interface StoredMessage {
   timestamp: string
   status?: 'sending' | 'sent' | 'error'
   taskId?: string
+  originalMessage?: string
+}
+
+// Error types for better user messaging
+type ErrorType = 'network' | 'timeout' | 'api' | 'unknown'
+
+interface ErrorInfo {
+  type: ErrorType
+  message: string
+  originalMessage?: string
+}
+
+function getErrorInfo(error: unknown, originalMessage?: string): ErrorInfo {
+  if (error instanceof Error) {
+    if (error.message === 'Request timed out after 60 seconds') {
+      return {
+        type: 'timeout',
+        message: 'Request timed out after 60 seconds. Please try again.',
+        originalMessage,
+      }
+    }
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      return {
+        type: 'network',
+        message: 'Network error. Please check your connection and try again.',
+        originalMessage,
+      }
+    }
+    if (error.message.includes('Failed to create task') || error.message.includes('Failed to get task')) {
+      return {
+        type: 'api',
+        message: `API error: ${error.message}`,
+        originalMessage,
+      }
+    }
+    return {
+      type: 'unknown',
+      message: error.message,
+      originalMessage,
+    }
+  }
+  return {
+    type: 'unknown',
+    message: 'An unexpected error occurred. Please try again.',
+    originalMessage,
+  }
 }
 
 function ChatIcon({ className }: { className?: string }) {
@@ -95,6 +151,25 @@ function SendIcon({ className }: { className?: string }) {
   )
 }
 
+function RetryIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+      />
+    </svg>
+  )
+}
+
 function LoadingIndicator() {
   return (
     <div className="flex items-center space-x-1.5 px-4 py-2">
@@ -114,7 +189,7 @@ async function createTask(prompt: string): Promise<TaskResponse> {
     },
     body: JSON.stringify({
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
-      description: prompt,
+      prompt: prompt,
       agent_type: 'build',
     }),
   })
@@ -143,11 +218,12 @@ async function getTask(taskId: string): Promise<TaskResponse> {
 
 async function pollForCompletion(
   taskId: string,
-  onUpdate?: (task: TaskResponse) => void,
-  maxAttempts = 60,
-  intervalMs = 1000
+  onUpdate?: (task: TaskResponse) => void
 ): Promise<TaskResponse> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  const startTime = Date.now()
+  const intervalMs = 1000
+
+  while (Date.now() - startTime < TIMEOUT_MS) {
     const task = await getTask(taskId)
     
     if (onUpdate) {
@@ -161,7 +237,7 @@ async function pollForCompletion(
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
 
-  throw new Error('Task polling timed out')
+  throw new Error('Request timed out after 60 seconds')
 }
 
 export function IntercomChat() {
@@ -239,37 +315,59 @@ export function IntercomChat() {
     scrollToBottom()
   }, [messages, isLoading, scrollToBottom])
 
-  const sendMessage = async (userMessage: string) => {
-    const userMsgId = `user-${Date.now()}`
-    const userMsg: Message = {
-      id: userMsgId,
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date(),
-      status: 'sent',
+  const sendMessage = useCallback(async (userMessage: string, isRetry = false) => {
+    // Don't send empty messages
+    if (!userMessage.trim()) {
+      return
     }
 
-    setMessages((prev) => [...prev, userMsg])
+    // Only add user message if this is not a retry
+    if (!isRetry) {
+      const userMsgId = `user-${Date.now()}`
+      const userMsg: Message = {
+        id: userMsgId,
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date(),
+        status: 'sent',
+      }
+      setMessages((prev) => [...prev, userMsg])
+    }
+
     setIsLoading(true)
+
+    // Add placeholder for AI response
+    const aiMsgId = `assistant-${Date.now()}`
+    const aiMsg: Message = {
+      id: aiMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      status: 'sending',
+      originalMessage: userMessage, // Store for retry
+    }
+    setMessages((prev) => [...prev, aiMsg])
 
     try {
       // Create task via POST /v1/opencode/tasks
       const task = await createTask(userMessage)
+      const taskId = getTaskId(task)
 
-      // Add placeholder for AI response
-      const aiMsgId = `assistant-${Date.now()}`
-      const aiMsg: Message = {
-        id: aiMsgId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        status: 'sending',
-        taskId: task.task_id,
+      if (!taskId) {
+        throw new Error('Failed to create task: no task ID returned')
       }
-      setMessages((prev) => [...prev, aiMsg])
 
-      // Poll for completion
-      const completedTask = await pollForCompletion(task.task_id)
+      // Update the placeholder with taskId
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMsgId
+            ? { ...msg, taskId: taskId }
+            : msg
+        )
+      )
+
+      // Poll for completion with timeout
+      const completedTask = await pollForCompletion(taskId)
 
       // Update AI message with result
       setMessages((prev) =>
@@ -279,31 +377,49 @@ export function IntercomChat() {
                 ...msg,
                 content: completedTask.result || 'No response received',
                 status: 'sent',
+                originalMessage: undefined, // Clear retry info on success
               }
             : msg
         )
       )
     } catch (error) {
-      // Add error message
-      const errorMsg: Message = {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: error instanceof Error ? error.message : 'An error occurred',
-        timestamp: new Date(),
-        status: 'error',
-      }
-      setMessages((prev) => [...prev, errorMsg])
+      // Get detailed error info
+      const errorInfo = getErrorInfo(error, userMessage)
+      
+      // Update the AI message placeholder to show error
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMsgId
+            ? {
+                ...msg,
+                content: errorInfo.message,
+                status: 'error',
+                originalMessage: userMessage, // Keep for retry
+              }
+            : msg
+        )
+      )
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  // Retry handler for failed messages
+  const handleRetry = useCallback((originalMessage: string, errorMessageId: string) => {
+    // Remove the error message
+    setMessages((prev) => prev.filter((msg) => msg.id !== errorMessageId))
+    // Resend the message as a retry (don't add user message again)
+    sendMessage(originalMessage, true)
+  }, [sendMessage])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (message.trim() && !isLoading) {
-      sendMessage(message.trim())
-      setMessage('')
+    // Don't send empty messages or while loading
+    if (!message.trim() || isLoading) {
+      return
     }
+    sendMessage(message.trim())
+    setMessage('')
   }
 
   // User message style: right-aligned with purple/cyan gradient
@@ -379,7 +495,21 @@ export function IntercomChat() {
                         {msg.status === 'sending' ? (
                           <LoadingIndicator />
                         ) : (
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <>
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            {/* Retry button for failed messages */}
+                            {msg.status === 'error' && msg.originalMessage && (
+                              <button
+                                onClick={() => handleRetry(msg.originalMessage!, msg.id)}
+                                disabled={isLoading}
+                                className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Retry sending message"
+                              >
+                                <RetryIcon className="w-3.5 h-3.5" />
+                                Retry
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
