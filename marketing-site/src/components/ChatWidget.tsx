@@ -181,6 +181,32 @@ function clearStorage(): void {
   }
 }
 
+// CodeTether system context for chat
+const CODETETHER_CONTEXT = `You are a helpful assistant for CodeTether, an AI-powered development platform.
+
+About CodeTether:
+- CodeTether is an A2A (Agent-to-Agent) server that orchestrates AI coding agents
+- It enables autonomous development through PRD-driven workflows (Ralph)
+- Features include: task queuing, worker management, SSE streaming, multi-model support
+- Workers can run OpenCode (Claude-based coding agent) to execute development tasks
+- Supports multiple AI models: Claude, GPT-4, Gemini, and more
+- Has a marketing site, dashboard, and API at api.codetether.run
+
+Key Features:
+1. Ralph - Autonomous PRD-driven development loop that takes a PRD and implements all user stories
+2. Task Queue - Distributed task management across workers  
+3. Real-time streaming - SSE for live updates
+4. Multi-tenant support with Keycloak SSO
+5. Worker registration and health monitoring
+6. MCP (Model Context Protocol) server support
+
+Getting Started:
+- Install: pip install codetether
+- Run worker: codetether-worker --api-url https://api.codetether.run
+- Use the dashboard at codetether.run to manage tasks and workers
+
+Answer questions helpfully and concisely. Focus on CodeTether's capabilities and how it can help developers.`
+
 // API Functions
 async function createTask(prompt: string): Promise<TaskResponse> {
   const response = await fetch(`${API_URL}/v1/opencode/tasks`, {
@@ -190,8 +216,8 @@ async function createTask(prompt: string): Promise<TaskResponse> {
     },
     body: JSON.stringify({
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
-      prompt: prompt,
-      agent_type: 'build',
+      prompt: `${CODETETHER_CONTEXT}\n\n---\n\nUser question: ${prompt}\n\nProvide a helpful, concise response.`,
+      agent_type: 'general',
     }),
   })
 
