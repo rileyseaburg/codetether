@@ -217,6 +217,66 @@ async function getTask(taskId: string): Promise<TaskResponse> {
   return response.json()
 }
 
+// Parse OpenCode JSON output to extract readable text
+function parseOpenCodeResult(result: string): string {
+  if (!result) return 'No response received'
+  
+  // If it doesn't look like JSON, return as-is
+  if (!result.trim().startsWith('{') && !result.includes('{"type":')) {
+    return result
+  }
+  
+  const textParts: string[] = []
+  
+  // Split by newlines and parse each JSON line
+  const lines = result.split('\n').filter(line => line.trim())
+  
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line)
+      
+      // Extract text from different event types
+      if (parsed.type === 'text' && parsed.part?.text) {
+        textParts.push(parsed.part.text)
+      } else if (parsed.type === 'assistant' && parsed.part?.text) {
+        textParts.push(parsed.part.text)
+      } else if (parsed.type === 'message_complete' && parsed.part?.text) {
+        textParts.push(parsed.part.text)
+      } else if (parsed.text) {
+        textParts.push(parsed.text)
+      } else if (parsed.content) {
+        textParts.push(parsed.content)
+      }
+    } catch {
+      // If not valid JSON, might be plain text between JSON lines
+      if (!line.trim().startsWith('{')) {
+        textParts.push(line)
+      }
+    }
+  }
+  
+  // If we extracted text, join it
+  if (textParts.length > 0) {
+    return textParts.join('')
+  }
+  
+  // Fallback: try to find any readable text in the result
+  // Look for common patterns in OpenCode output
+  const textMatch = result.match(/"text"\s*:\s*"([^"]+)"/g)
+  if (textMatch) {
+    const texts = textMatch.map(m => {
+      const match = m.match(/"text"\s*:\s*"([^"]+)"/)
+      return match ? match[1] : ''
+    }).filter(Boolean)
+    if (texts.length > 0) {
+      return texts.join('')
+    }
+  }
+  
+  // Last resort: return truncated result
+  return result.length > 500 ? result.substring(0, 500) + '...' : result
+}
+
 async function pollForCompletion(
   taskId: string,
   onUpdate?: (task: TaskResponse) => void,
@@ -327,13 +387,14 @@ export function ChatWidget() {
       // Poll for completion
       const completedTask = await pollForCompletion(taskId)
 
-      // Update AI message with result
+      // Update AI message with result (parse OpenCode JSON format)
+      const parsedResult = parseOpenCodeResult(completedTask.result || '')
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMsgId
             ? {
                 ...msg,
-                content: completedTask.result || 'No response received',
+                content: parsedResult,
                 status: 'sent',
               }
             : msg
