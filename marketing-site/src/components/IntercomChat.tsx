@@ -29,7 +29,7 @@ function getTaskId(response: TaskResponse): string {
 }
 
 // API Configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
 // LocalStorage Keys
 const STORAGE_KEY_MESSAGES = 'intercom-chat-messages'
