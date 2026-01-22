@@ -58,6 +58,7 @@ from .tenant_api import router as tenant_router
 from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
 from .a2a_agent_card import a2a_agent_card_router
+from .ralph_api import ralph_router
 
 # Import admin API for system overview
 try:
@@ -270,6 +271,9 @@ class A2AServer:
 
         # Include OpenCode integration routes
         self.app.include_router(opencode_router)
+
+        # Include Ralph autonomous development routes
+        self.app.include_router(ralph_router)
 
         # Include authentication routes
         self.app.include_router(auth_router)

@@ -4,7 +4,9 @@ const authentication = require('./authentication');
 const newTaskTrigger = require('./triggers/new_task');
 const createTaskAction = require('./creates/create_task');
 const sendMessageAction = require('./creates/send_message');
+const startRalphAction = require('./creates/start_ralph');
 const findTaskSearch = require('./searches/find_task');
+const findRalphRunSearch = require('./searches/find_ralph_run');
 const cancelTaskAction = require('./creates/cancel_task');
 
 // Add OAuth token to all requests
@@ -38,11 +40,13 @@ module.exports = {
 
   searches: {
     [findTaskSearch.key]: findTaskSearch,
+    [findRalphRunSearch.key]: findRalphRunSearch,
   },
 
   creates: {
     [createTaskAction.key]: createTaskAction,
     [sendMessageAction.key]: sendMessageAction,
+    [startRalphAction.key]: startRalphAction,
     [cancelTaskAction.key]: cancelTaskAction,
   },
 };
