@@ -4,15 +4,27 @@ import { Suspense } from 'react'
 // Above-the-fold components - load immediately
 import { CISOBanner } from '@/components/CISOBanner'
 import { Hero } from '@/components/Hero'
-import { RLMFeature } from '@/components/RLMFeature'
-import { CopilotComparison } from '@/components/CopilotComparison'
+import { ChatWidget } from '@/components/ChatWidget'
 
-// Below-the-fold components - lazy load for faster initial page load
+// Below-the-fold components - lazy load
+const RLMExplainer = dynamic(
+    () => import('@/components/RLMExplainer').then((m) => m.RLMExplainer),
+    { ssr: true }
+)
+const RLMDemo = dynamic(
+    () => import('@/components/RLMDemo').then((m) => m.RLMDemo),
+    { ssr: true }
+)
+const RalphDemo = dynamic(
+    () => import('@/components/RalphDemo').then((m) => m.RalphDemo),
+    { ssr: true }
+)
+const CopilotComparison = dynamic(
+    () => import('@/components/CopilotComparison').then((m) => m.CopilotComparison),
+    { ssr: true }
+)
 const TemporalComparison = dynamic(
-    () =>
-        import('@/components/TemporalComparison').then(
-            (m) => m.TemporalComparison
-        ),
+    () => import('@/components/TemporalComparison').then((m) => m.TemporalComparison),
     { ssr: true }
 )
 const WhyNotDIY = dynamic(
@@ -23,28 +35,12 @@ const SocialProof = dynamic(
     () => import('@/components/SocialProof').then((m) => m.SocialProof),
     { ssr: true }
 )
-const PrimaryFeatures = dynamic(
-    () =>
-        import('@/components/PrimaryFeatures').then((m) => m.PrimaryFeatures),
-    { ssr: true }
-)
-const SecondaryFeatures = dynamic(
-    () =>
-        import('@/components/SecondaryFeatures').then(
-            (m) => m.SecondaryFeatures
-        ),
+const Testimonials = dynamic(
+    () => import('@/components/SocialProof').then((m) => m.Testimonials),
     { ssr: true }
 )
 const UseCases = dynamic(
     () => import('@/components/UseCases').then((m) => m.UseCases),
-    { ssr: true }
-)
-const Roadmap = dynamic(
-    () => import('@/components/Roadmap').then((m) => m.Roadmap),
-    { ssr: true }
-)
-const Testimonials = dynamic(
-    () => import('@/components/SocialProof').then((m) => m.Testimonials),
     { ssr: true }
 )
 const Pricing = dynamic(
@@ -64,7 +60,6 @@ const ContactForm = dynamic(
     { ssr: true }
 )
 
-// Loading placeholder for lazy-loaded sections
 function SectionSkeleton() {
     return (
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -73,7 +68,6 @@ function SectionSkeleton() {
                 <div className="space-y-4">
                     <div className="h-4 w-full rounded bg-gray-200" />
                     <div className="h-4 w-5/6 rounded bg-gray-200" />
-                    <div className="h-4 w-4/6 rounded bg-gray-200" />
                 </div>
             </div>
         </div>
@@ -83,37 +77,50 @@ function SectionSkeleton() {
 export default function Home() {
     return (
         <>
-            {/* Critical above-the-fold content - no lazy loading */}
+            {/* Above the fold */}
             <CISOBanner />
             <Hero />
-            <RLMFeature />
-            <CopilotComparison />
-
-            {/* Below-the-fold content - lazy loaded with SSR */}
+            
+            {/* RLM Explainer - the tech behind CodeTether */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <RLMExplainer />
+            </Suspense>
+            
+            {/* RLM Demo - interactive demonstration */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <RLMDemo />
+            </Suspense>
+            
+            {/* Ralph Demo - autonomous agent loop */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <RalphDemo />
+            </Suspense>
+            
+            {/* Core value props */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <Testimonials />
+            </Suspense>
+            <Suspense fallback={<SectionSkeleton />}>
+                <CopilotComparison />
+            </Suspense>
             <Suspense fallback={<SectionSkeleton />}>
                 <TemporalComparison />
             </Suspense>
             <Suspense fallback={<SectionSkeleton />}>
                 <WhyNotDIY />
             </Suspense>
+            
+            {/* Social proof */}
             <Suspense fallback={<SectionSkeleton />}>
                 <SocialProof />
             </Suspense>
-            <Suspense fallback={<SectionSkeleton />}>
-                <PrimaryFeatures />
-            </Suspense>
-            <Suspense fallback={<SectionSkeleton />}>
-                <SecondaryFeatures />
-            </Suspense>
+            
+            {/* Use cases */}
             <Suspense fallback={<SectionSkeleton />}>
                 <UseCases />
             </Suspense>
-            <Suspense fallback={<SectionSkeleton />}>
-                <Roadmap />
-            </Suspense>
-            <Suspense fallback={<SectionSkeleton />}>
-                <Testimonials />
-            </Suspense>
+            
+            {/* Conversion */}
             <Suspense fallback={<SectionSkeleton />}>
                 <Pricing />
             </Suspense>
@@ -126,6 +133,9 @@ export default function Home() {
             <Suspense fallback={<SectionSkeleton />}>
                 <ContactForm />
             </Suspense>
+            
+            {/* Floating Chat Widget */}
+            <ChatWidget />
         </>
     )
 }
