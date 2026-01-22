@@ -1056,14 +1056,14 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 
             if (response.ok) {
                 const data = await response.json()
-                addLog('info', `Server-side Ralph run started: ${data.id}`)
-                addLog('info', 'The run will continue even if you close this page.')
+                addLog('info', `Background Ralph run started: ${data.id}`)
+                addLog('info', 'This run will continue even if you close the page. Check "Background Ralph Runs" below for progress.')
             } else {
                 const err = await response.text()
-                addLog('error', `Failed to start server run: ${err}`)
+                addLog('error', `Failed to start background run: ${err}`)
             }
         } catch (err) {
-            addLog('error', `Failed to start server run: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            addLog('error', `Failed to start background run: ${err instanceof Error ? err.message : 'Unknown error'}`)
         }
     }
 
@@ -1153,19 +1153,19 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                                 onClick={startServerRalph}
                                 disabled={!prd}
                                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Run on server (persists across page reloads)"
+                                title="Background run - continues even if you close this page"
                             >
                                 <UploadIcon className="h-4 w-4" />
-                                Server Run
+                                Background
                             </button>
                             <button
                                 onClick={startRalph}
                                 disabled={!prd}
                                 className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Run in browser (stops if you leave the page)"
+                                title="Interactive run - see live output, stops if you leave"
                             >
                                 <PlayIcon className="h-4 w-4" />
-                                Browser Run
+                                Interactive
                             </button>
                         </div>
                     )}
@@ -1660,8 +1660,8 @@ function ServerRalphRuns() {
         <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Server-Side Ralph Runs
-                    <span className="ml-2 text-xs font-normal text-gray-500">(persists across page reloads)</span>
+                    Background Ralph Runs
+                    <span className="ml-2 text-xs font-normal text-gray-500">(continue even if you close the page)</span>
                 </h2>
                 <button
                     onClick={loadRuns}
@@ -1673,8 +1673,8 @@ function ServerRalphRuns() {
             </div>
             {runs.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                    <p className="text-sm">No server-side runs yet</p>
-                    <p className="text-xs mt-1">Click "Server Run" above to start a persistent run that survives page reloads</p>
+                    <p className="text-sm">No background runs yet</p>
+                    <p className="text-xs mt-1">Click "Background" above to start a run that continues even if you close this page</p>
                 </div>
             ) : (
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
