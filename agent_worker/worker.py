@@ -3146,11 +3146,16 @@ class TaskExecutor:
             # Get model: prefer model_ref from task (set via routing), fall back to metadata.model
             # model_ref uses provider:model format, OpenCode expects provider/model
             model_ref = task.get('model_ref')
-            model = (
-                self._resolve_model_for_opencode(model_ref)
-                if model_ref
-                else metadata.get('model')
-            )
+            if model_ref:
+                model = self._resolve_model_for_opencode(model_ref)
+            else:
+                # Also convert metadata.model since it may come from clients using colon format
+                metadata_model = metadata.get('model')
+                model = (
+                    self._resolve_model_for_opencode(metadata_model)
+                    if metadata_model
+                    else None
+                )
 
             resume_session_id = metadata.get(
                 'resume_session_id'
