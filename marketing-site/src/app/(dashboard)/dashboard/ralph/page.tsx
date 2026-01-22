@@ -486,17 +486,19 @@ export default function RalphPage() {
             
             if (hasChanges) {
                 setPrd({ ...prd, userStories: updatedStories })
-                addLog('info', `Synced ${ralphTasks.length} task(s) from server`)
+                // Silent sync - don't spam logs
             }
         } catch (err) {
             console.error('Failed to sync stories with tasks:', err)
         }
     }, [prd, setPrd, addLog])
 
-    // Sync on mount and when PRD changes
+    // Only sync stories with tasks while Ralph is running
     useEffect(() => {
-        syncStoriesWithTasks()
-    }, [syncStoriesWithTasks])
+        if (isRunning) {
+            syncStoriesWithTasks()
+        }
+    }, [isRunning, syncStoriesWithTasks])
 
     // Restore in-progress run on mount (after page reload)
     useEffect(() => {
