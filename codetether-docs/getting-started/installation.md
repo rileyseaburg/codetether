@@ -13,9 +13,14 @@ CodeTether Server can be installed in several ways depending on your needs.
 - Docker 20.10+ (for container deployment)
 - Redis 6+ (optional, for distributed workers)
 
-## Install via pip (recommended)
+## Install via pip (Agent Worker)
 
-If you have a Python environment already set up, pip is the simplest option.
+The pip package installs the **Agent Worker** - the component that executes tasks on machines where your code lives. The server itself is typically deployed via Docker or Kubernetes.
+
+!!! info "What's in the pip package?"
+    - `codetether-worker` — Agent worker CLI that polls for tasks and runs OpenCode
+    - `codetether` — Server CLI (for local development/testing)
+    - `a2a-server` — Alias for server CLI
 
 ```bash
 pip install codetether
@@ -24,8 +29,8 @@ pip install codetether
 Verify the installation:
 
 ```bash
-codetether --version
-# 1.0.0
+codetether-worker --version
+# 1.4.3
 ```
 
 ### Install from GitHub (pip)
@@ -164,17 +169,58 @@ For more details, see [OpenCode Integration](../features/opencode.md).
 
 ## Agent Worker (systemd, Linux)
 
-To execute OpenCode tasks on machines that host codebases, install the agent worker.
-First ensure you have [built OpenCode from the local fork](#opencode-local-fork).
+The agent worker executes OpenCode tasks on machines where your code lives. It polls the server for tasks and runs them in the configured codebase directories.
+
+### Prerequisites
+
+1. [Build OpenCode from the local fork](#opencode-local-fork)
+2. Python 3.10+ with a virtual environment
+
+### Installation
 
 ```bash
+# Clone and set up
 git clone https://github.com/rileyseaburg/codetether.git
 cd codetether
 
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install the worker
+pip install codetether
+
+# Run the installer (sets up systemd service)
 sudo ./agent_worker/install.sh
+
+# Start the worker
 sudo systemctl start a2a-agent-worker
 sudo journalctl -u a2a-agent-worker -f
 ```
+
+### Upgrading the Worker
+
+To upgrade to a new version:
+
+```bash
+# Activate the virtual environment used by the worker
+source /path/to/your/venv/bin/activate
+
+# Upgrade codetether
+pip install --upgrade codetether
+
+# Restart the service
+sudo systemctl restart a2a-agent-worker
+```
+
+### Configuration
+
+Edit `/etc/a2a-agent-worker/config.json` to configure:
+
+- `server_url` — URL of the CodeTether server
+- `codebases` — List of directories to register
+- `agent_name` — Name for this worker
+- `models_supported` — LLM models this worker can use
 
 ## Kubernetes (Helm)
 
