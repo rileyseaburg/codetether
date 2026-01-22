@@ -91,24 +91,39 @@ Plus CodeTether extensions:
 - **Email Reply to Continue** — Reply directly to task notification emails to keep working with an agent
 - **Task Reaper** — Automatic stuck task recovery with retry and notification
 
-## Quick Example
+## Quick Start
+
+### Option 1: Docker (Server)
 
 ```bash
-# Install
+# Run the server
+docker run -d -p 8000:8000 -p 9000:9000 \
+  ghcr.io/rileyseaburg/codetether-server:latest
+```
+
+### Option 2: pip (Agent Worker)
+
+The pip package is primarily for installing the **agent worker** on machines where your code lives:
+
+```bash
+# Install the worker
 pip install codetether
 
-# Run server
-codetether serve --port 8000
+# Configure and start (see installation docs for systemd setup)
+codetether-worker --server-url https://api.codetether.run --codebases /path/to/code
+```
 
-# In another terminal, send a task
+### Send a Task
+
+```bash
 curl -X POST http://localhost:8000/v1/a2a \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-        "method": "message/send",
+    "method": "message/send",
     "params": {
       "message": {
-                "parts": [{"type": "text", "content": "Analyze this codebase"}]
+        "parts": [{"type": "text", "content": "Analyze this codebase"}]
       }
     },
     "id": "1"
