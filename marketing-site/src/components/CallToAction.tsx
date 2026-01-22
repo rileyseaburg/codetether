@@ -23,16 +23,12 @@ export function CallToAction() {
                         <span>Powered by <span className="text-cyan-400 font-medium">RLM</span> (MIT Research)</span>
                     </div>
 
-                    <h2 className="text-3xl font-medium tracking-tight text-white sm:text-4xl">
-                        Stop Babysitting AI.<br />
-                        <span className="text-cyan-400">Start Getting Results.</span>
+                    <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Ready to Stop Babysitting AI?<br />
+                        <span className="text-cyan-400\">Trigger a task. Go do other things.</span>
                     </h2>
-                    <p className="mt-4 text-lg text-gray-300">
-                        Unlimited context. No data limits. Recursive task decomposition
-                        that handles complexity you couldn&apos;t before.
-                    </p>
-                    <p className="mt-2 text-base text-gray-400">
-                        Trigger a task. Go do other things. Get files in your inbox.
+                    <p className="mt-4 text-lg text-gray-300\">
+                        Get real files delivered when it&apos;s done.
                     </p>
 
                     {/* CTA Buttons */}
@@ -40,9 +36,9 @@ export function CallToAction() {
                         <Button href="/register" color="cyan" className="text-base px-8 py-3">
                             Start Free - 10 Tasks/Month
                         </Button>
-                        <Button 
-                            href="#pricing" 
-                            variant="outline" 
+                        <Button
+                            href="#pricing"
+                            variant="outline"
                             className="text-gray-300 text-base px-8 py-3"
                         >
                             View Pricing

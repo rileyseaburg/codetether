@@ -16,6 +16,7 @@ const plans = [
         featured: false,
         price: { monthly: '$0', annually: '$0' },
         description: 'Try before you buy. Perfect for testing workflows.',
+        bestFor: 'Testing & experimentation',
         button: {
             label: 'Start Free',
             href: '/register',
@@ -42,6 +43,7 @@ const plans = [
         featured: true,
         price: { monthly: '$297', annually: '$297' },
         description: 'For automation builders replacing Zapier + VAs.',
+        bestFor: 'Solopreneurs & automation builders',
         button: {
             label: 'Upgrade to Pro',
             href: '/register',
@@ -70,6 +72,7 @@ const plans = [
         featured: false,
         price: { monthly: '$497', annually: '$497' },
         description: 'For teams running client automations at scale.',
+        bestFor: 'Agencies & teams',
         button: {
             label: 'Upgrade to Agency',
             href: '/register',
@@ -110,6 +113,7 @@ function Plan({
     name,
     price,
     description,
+    bestFor,
     button,
     features,
     limits,
@@ -125,6 +129,7 @@ function Plan({
         annually: string
     }
     description: string
+    bestFor: string
     button: {
         label: string
         href: string
@@ -142,7 +147,7 @@ function Plan({
     upgrading: string | null
 }) {
     const isUpgrading = upgrading === id
-    
+
     const handleClick = (e: React.MouseEvent) => {
         if (button.action === 'checkout') {
             e.preventDefault()
@@ -190,7 +195,10 @@ function Plan({
             >
                 {description}
             </p>
-            
+            <p className="mt-2 text-xs font-medium text-cyan-500 dark:text-cyan-400">
+                Best for: {bestFor}
+            </p>
+
             {/* Limits highlight */}
             <div className={clsx(
                 'mt-4 rounded-lg p-3',
@@ -238,7 +246,7 @@ function Plan({
                     </div>
                 </div>
             </div>
-            
+
             <div className="order-last mt-6">
                 <ul
                     role="list"
@@ -295,7 +303,7 @@ export function Pricing() {
 
         try {
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-            
+
             const response = await fetch(`${API_BASE_URL}/v1/users/billing/checkout`, {
                 method: 'POST',
                 headers: {
@@ -316,7 +324,7 @@ export function Pricing() {
             }
 
             const data = await response.json()
-            
+
             // Redirect to Stripe Checkout
             if (data.checkout_url) {
                 window.location.href = data.checkout_url
@@ -360,10 +368,10 @@ export function Pricing() {
 
                 <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 items-start gap-x-8 gap-y-10 sm:mt-20 lg:max-w-none lg:grid-cols-3">
                     {plans.map((plan) => (
-                        <Plan 
-                            key={plan.name} 
-                            {...plan} 
-                            activePeriod={activePeriod} 
+                        <Plan
+                            key={plan.name}
+                            {...plan}
+                            activePeriod={activePeriod}
                             onUpgrade={handleUpgrade}
                             upgrading={upgrading}
                         />

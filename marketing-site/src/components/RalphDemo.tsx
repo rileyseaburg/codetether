@@ -95,7 +95,7 @@ Updating prd.json: passes: true`,
 ---
 ### US-001 PASSED
 - Database uses PostgreSQL with ENUM types
-- Migration pattern: timestamp_description.sql  
+- Migration pattern: timestamp_description.sql
 - Test command: npm run test:migrations
 - Gotcha: Remember to run migrations before tests`,
         duration: 1.5,
@@ -155,7 +155,7 @@ All checks passed!`,
         storyId: 'US-002',
         content: `Appending to progress.txt (now 45,230 tokens):
 ---
-### US-002 PASSED  
+### US-002 PASSED
 - Component path: src/components/StatusBadge.tsx
 - Uses existing Badge from @/components/ui
 - Color map in src/lib/constants.ts
@@ -295,7 +295,7 @@ const [filter, setFilter] = useQueryState('status')
 Ralph + RLM finished successfully!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Iterations: 4
-Stories: 4/4 passed  
+Stories: 4/4 passed
 Commits: 4
 RLM compressions: 1 (saved 61K tokens)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -340,16 +340,16 @@ export function RalphDemo() {
 
         const timer = setTimeout(() => {
             setCompletedEvents(prev => [...prev, event])
-            
+
             // Update stories and stats based on event type
             if (event.type === 'story_start' && event.storyId) {
-                setStories(prev => prev.map(s => 
+                setStories(prev => prev.map(s =>
                     s.id === event.storyId ? { ...s, status: 'running' as const } : s
                 ))
                 setStats(s => ({ ...s, iterations: s.iterations + 1 }))
             }
             if (event.type === 'story_pass' && event.storyId) {
-                setStories(prev => prev.map(s => 
+                setStories(prev => prev.map(s =>
                     s.id === event.storyId ? { ...s, status: 'passed' as const } : s
                 ))
                 setStats(s => ({ ...s, passed: s.passed + 1 }))
@@ -360,7 +360,7 @@ export function RalphDemo() {
             if (event.type === 'rlm_complete') {
                 setStats(s => ({ ...s, rlmCompressions: s.rlmCompressions + 1, tokensSaved: s.tokensSaved + 61240 }))
             }
-            
+
             setCurrentEvent(prev => prev + 1)
         }, delay)
 
@@ -403,11 +403,11 @@ export function RalphDemo() {
                             Ralph + RLM Integration
                         </span>
                         <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                            Watch a Feature Build Itself
+                            Build Features from a PRD — Automatically
                         </h2>
                         <p className="mt-4 text-lg text-gray-400 max-w-2xl mx-auto">
-                            Ralph runs AI agents in a loop until your PRD is complete.
-                            When context grows too large, <span className="text-pink-400 font-medium">RLM compresses it</span> so the next iteration can continue.
+                            Ralph runs autonomous dev loops: PRD → implement → test → commit → repeat.
+                            When context grows too large, <span className="text-pink-400 font-medium">RLM compresses it</span> so the loop keeps going.
                         </p>
                     </div>
 
@@ -433,44 +433,40 @@ export function RalphDemo() {
                                         <p className="text-xs text-gray-500 mb-2">User Stories</p>
                                         <div className="space-y-2">
                                             {stories.map((story) => (
-                                                <div 
+                                                <div
                                                     key={story.id}
-                                                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-mono transition-all ${
-                                                        story.status === 'passed' 
-                                                            ? 'bg-emerald-950/50 border border-emerald-500/30' 
+                                                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-mono transition-all ${story.status === 'passed'
+                                                            ? 'bg-emerald-950/50 border border-emerald-500/30'
                                                             : story.status === 'running'
-                                                            ? 'bg-yellow-950/50 border border-yellow-500/30 animate-pulse'
-                                                            : 'bg-gray-800/50 border border-gray-700/50'
-                                                    }`}
+                                                                ? 'bg-yellow-950/50 border border-yellow-500/30 animate-pulse'
+                                                                : 'bg-gray-800/50 border border-gray-700/50'
+                                                        }`}
                                                 >
-                                                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
-                                                        story.status === 'passed' ? 'bg-emerald-500 text-white' :
-                                                        story.status === 'running' ? 'bg-yellow-500 text-black' :
-                                                        'bg-gray-600 text-gray-300'
-                                                    }`}>
-                                                        {story.status === 'passed' ? '✓' : 
-                                                         story.status === 'running' ? '→' : '○'}
+                                                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${story.status === 'passed' ? 'bg-emerald-500 text-white' :
+                                                            story.status === 'running' ? 'bg-yellow-500 text-black' :
+                                                                'bg-gray-600 text-gray-300'
+                                                        }`}>
+                                                        {story.status === 'passed' ? '✓' :
+                                                            story.status === 'running' ? '→' : '○'}
                                                     </span>
-                                                    <span className={`flex-1 ${
-                                                        story.status === 'passed' ? 'text-emerald-300' :
-                                                        story.status === 'running' ? 'text-yellow-300' :
-                                                        'text-gray-400'
-                                                    }`}>
+                                                    <span className={`flex-1 ${story.status === 'passed' ? 'text-emerald-300' :
+                                                            story.status === 'running' ? 'text-yellow-300' :
+                                                                'text-gray-400'
+                                                        }`}>
                                                         {story.id}: {story.title}
                                                     </span>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                    
+
                                     {/* RLM Status */}
                                     <div className="pt-3 border-t border-gray-700">
                                         <p className="text-xs text-gray-500 mb-2">RLM Status</p>
-                                        <div className={`p-2 rounded-lg text-xs font-mono ${
-                                            stats.rlmCompressions > 0 
-                                                ? 'bg-pink-950/50 border border-pink-500/30' 
+                                        <div className={`p-2 rounded-lg text-xs font-mono ${stats.rlmCompressions > 0
+                                                ? 'bg-pink-950/50 border border-pink-500/30'
                                                 : 'bg-gray-800/50 border border-gray-700/50'
-                                        }`}>
+                                            }`}>
                                             <div className="flex justify-between">
                                                 <span className="text-gray-400">Compressions:</span>
                                                 <span className="text-pink-400">{stats.rlmCompressions}</span>
@@ -608,18 +604,18 @@ export function RalphDemo() {
                     <div className="mt-12 grid sm:grid-cols-3 gap-6">
                         <div className="text-center p-6 rounded-xl bg-gray-900/50 border border-gray-800">
                             <div className="text-3xl mb-3">🔄</div>
-                            <h3 className="text-white font-semibold mb-2">Ralph: Fresh Context Loop</h3>
-                            <p className="text-sm text-gray-400">Each iteration spawns a new AI agent. Memory persists via git commits and progress.txt.</p>
+                            <h3 className="text-white font-semibold mb-2">Autonomous Loop</h3>
+                            <p className="text-sm text-gray-400">Ralph implements each story, runs tests, commits code, and moves to the next without stopping.</p>
                         </div>
                         <div className="text-center p-6 rounded-xl bg-gradient-to-b from-pink-950/30 to-gray-900/50 border border-pink-500/20">
                             <div className="text-3xl mb-3">🗜️</div>
-                            <h3 className="text-pink-300 font-semibold mb-2">RLM: Smart Compression</h3>
-                            <p className="text-sm text-gray-400">When progress.txt exceeds threshold, RLM compresses it using sub-LM calls while preserving key learnings.</p>
+                            <h3 className="text-pink-300 font-semibold mb-2">RLM Compression</h3>
+                            <p className="text-sm text-gray-400">When memory exceeds threshold, RLM compresses progress while preserving key learnings and file paths.</p>
                         </div>
                         <div className="text-center p-6 rounded-xl bg-gray-900/50 border border-gray-800">
                             <div className="text-3xl mb-3">⚡</div>
-                            <h3 className="text-white font-semibold mb-2">A2A: Distributed Workers</h3>
-                            <p className="text-sm text-gray-400">Run stories in parallel across multiple workers. 3 workers = 3x faster feature development.</p>
+                            <h3 className="text-white font-semibold mb-2">Ship Faster, Smarter</h3>
+                            <p className="text-sm text-gray-400">Turns PRD into production code without context degradation. This is how you ship without losing quality.</p>
                         </div>
                     </div>
 

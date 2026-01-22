@@ -13,13 +13,13 @@ export function RLMExplainer() {
                 {/* Header */}
                 <div className="mx-auto max-w-3xl text-center">
                     <span className="inline-flex items-center rounded-full bg-cyan-950 px-4 py-1.5 text-sm font-medium text-cyan-400 ring-1 ring-inset ring-cyan-500/20 mb-6">
-                        MIT Research
+                        Powered by MIT Research
                     </span>
                     <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Powered by Recursive Language Models
+                        Unlimited Context. Real Outputs. Reliable Automation.
                     </h2>
                     <p className="mt-4 text-lg text-gray-400">
-                        The breakthrough that lets AI handle tasks 100x larger than ChatGPT.
+                        Most AI degrades as context grows. RLM processes large inputs recursively—breaking work into chunks, verifying results, and producing deliverables.
                     </p>
                 </div>
 
@@ -27,15 +27,10 @@ export function RLMExplainer() {
                 <div className="mt-16 grid md:grid-cols-2 gap-8">
                     {/* Problem */}
                     <div className="rounded-2xl bg-gray-900 border border-gray-800 p-8">
-                        <h3 className="text-xl font-semibold text-white mb-4">The Problem: Context Rot</h3>
-                        <p className="text-gray-400 mb-4">
-                            Regular LLMs like ChatGPT degrade as input gets longer. Feed them a large dataset 
-                            and accuracy drops from 44% to near zero. This is called <span className="text-white font-medium">context rot</span>.
-                        </p>
+                        <h3 className="text-xl font-semibold text-white mb-4">The Problem: Context Limits</h3>
                         <div className="bg-gray-800 rounded-lg p-4">
-                            <div className="text-sm text-gray-500 mb-2">GPT-5 on 6-11M token tasks:</div>
-                            <div className="text-3xl font-bold text-red-400">0% accuracy</div>
-                            <div className="text-sm text-gray-500 mt-1">Task fails completely</div>
+                            <div className="text-sm text-gray-400 mb-3">Base models hit context limits on 6–11M token tasks.</div>
+                            <div className="text-sm text-gray-400">RLM completes them with 91.33% accuracy (MIT CSAIL).</div>
                         </div>
                     </div>
 
@@ -43,7 +38,7 @@ export function RLMExplainer() {
                     <div className="rounded-2xl bg-cyan-950/30 border border-cyan-900 p-8">
                         <h3 className="text-xl font-semibold text-white mb-4">The Solution: RLM</h3>
                         <p className="text-gray-300 mb-4">
-                            RLM treats input as an <span className="text-cyan-400 font-medium">environment variable</span>, not 
+                            RLM treats input as an <span className="text-cyan-400 font-medium">environment variable</span>, not
                             direct context. The AI writes code to peek, decompose, and recursively call itself on chunks.
                         </p>
                         <div className="bg-gray-900 rounded-lg p-4">
@@ -108,7 +103,7 @@ export function RLMExplainer() {
                         <div>
                             <div className="text-4xl font-bold text-cyan-400">91%</div>
                             <div className="text-sm text-gray-400 mt-1">accuracy on huge tasks</div>
-                            <div className="text-xs text-gray-500 mt-1">vs 0% for base GPT-5</div>
+                            <div className="text-xs text-gray-500 mt-1">vs context-limited base models</div>
                         </div>
                         <div>
                             <div className="text-4xl font-bold text-cyan-400">3x</div>
@@ -130,7 +125,7 @@ export function RLMExplainer() {
                         className="inline-flex items-center gap-2 rounded-full bg-gray-800 px-6 py-3 text-sm font-medium text-white hover:bg-gray-700 transition-colors"
                     >
                         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h4v2h-4v-2zm0 4h4v2h-4v-2zM8 9h2v2H8V9zm0 4h2v2H8v-2zm0 4h2v2H8v-2z"/>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h4v2h-4v-2zm0 4h4v2h-4v-2zM8 9h2v2H8V9zm0 4h2v2H8v-2zm0 4h2v2H8v-2z" />
                         </svg>
                         Read the Paper: Recursive Language Models
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

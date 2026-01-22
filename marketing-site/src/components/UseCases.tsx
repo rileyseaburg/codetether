@@ -62,12 +62,12 @@ export function UseCases() {
                 <div className="mx-auto max-w-2xl lg:mx-0">
                     <h2
                         id="use-cases-title"
-                        className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
+                        className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white"
                     >
-                        AI Agents for Every Workflow
+                        Background Tasks for Every Workflow
                     </h2>
-                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        You&apos;ve automated the simple stuff. Now automate the work that actually requires thinking.
+                    <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                        Trigger from dashboard, API, or automation platform. Kick back. Get real deliverables in your inbox.
                     </p>
                 </div>
                 <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-6 sm:mt-20 lg:max-w-none lg:grid-cols-3">

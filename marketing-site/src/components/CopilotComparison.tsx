@@ -50,23 +50,23 @@ const comparisonData = [
 const painPoints = [
     {
         title: 'The Copy/Paste Problem',
-        problem: 'ChatGPT gives you text. You copy it, paste it, format it. Repeat 50 times.',
-        solution: 'CodeTether outputs real files. CSV with 1000 rows? Delivered to your inbox.',
+        problem: 'ChatGPT gives you text. You copy it, paste it, format it… again and again.',
+        solution: 'CodeTether delivers real files ready to use.',
     },
     {
         title: 'The Babysitting Problem',
-        problem: 'Complex tasks need multiple prompts. You sit there, prompting, waiting.',
-        solution: 'Fire and forget. Trigger via webhook, get email when done.',
+        problem: 'Complex tasks take multiple prompts and constant steering.',
+        solution: 'CodeTether runs in the background and finishes the job.',
     },
     {
-        title: 'The Integration Problem',
-        problem: 'ChatGPT doesn\'t connect to your automation stack.',
-        solution: 'Webhook in, callback out. Works with Zapier, n8n, Make.',
+        title: 'The Timeout Problem',
+        problem: 'Zapier "AI steps" fail when tasks take longer than 30 seconds.',
+        solution: 'CodeTether runs for up to 60 minutes with checkpointed progress.',
     },
     {
-        title: 'The Context Rot Problem',
-        problem: 'ChatGPT quality degrades as context gets longer. GPT-5 drops to 44% accuracy on 131K token tasks.',
-        solution: 'RLM treats input as environment, not context. MIT research shows 28% improvement on long tasks.',
+        title: 'The Context Limit Problem',
+        problem: 'Normal LLMs break down on big datasets and long context.',
+        solution: 'CodeTether uses RLM (MIT research) to process 10M+ tokens without degradation.',
     },
 ]
 
@@ -85,8 +85,10 @@ export function CopilotComparison() {
                         <span className="text-cyan-600 dark:text-cyan-400">CodeTether is a Worker.</span>
                     </h2>
                     <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                        ChatGPT is great for quick questions. CodeTether handles the 30-minute tasks 
-                        you&apos;d otherwise do yourself or delegate to a VA.
+                        ChatGPT is great for quick answers. CodeTether is for tasks you'd normally spend <span className="font-semibold">30–60 minutes</span> doing yourself—or pay someone else to do.
+                    </p>
+                    <p className="mt-2 text-gray-600 dark:text-gray-300">
+                        <span className="font-semibold">Trigger once → walk away → get deliverables.</span>
                     </p>
                 </div>
 
