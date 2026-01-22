@@ -182,30 +182,66 @@ function clearStorage(): void {
 }
 
 // CodeTether system context for chat
-const CODETETHER_CONTEXT = `You are a helpful assistant for CodeTether, an AI-powered development platform.
+const CODETETHER_CONTEXT = `You are a helpful assistant for CodeTether. Answer questions based on this documentation:
 
-About CodeTether:
-- CodeTether is an A2A (Agent-to-Agent) server that orchestrates AI coding agents
-- It enables autonomous development through PRD-driven workflows (Ralph)
-- Features include: task queuing, worker management, SSE streaming, multi-model support
-- Workers can run OpenCode (Claude-based coding agent) to execute development tasks
-- Supports multiple AI models: Claude, GPT-4, Gemini, and more
-- Has a marketing site, dashboard, and API at api.codetether.run
+# CodeTether - Turn AI Agents into Production Systems
 
-Key Features:
-1. Ralph - Autonomous PRD-driven development loop that takes a PRD and implements all user stories
-2. Task Queue - Distributed task management across workers  
-3. Real-time streaming - SSE for live updates
-4. Multi-tenant support with Keycloak SSO
-5. Worker registration and health monitoring
-6. MCP (Model Context Protocol) server support
+CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that is **officially A2A Protocol v0.3 compliant**. Build AI agent systems that actually work in the real world.
 
-Getting Started:
-- Install: pip install codetether
-- Run worker: codetether-worker --api-url https://api.codetether.run
-- Use the dashboard at codetether.run to manage tasks and workers
+## Key Features
 
-Answer questions helpfully and concisely. Focus on CodeTether's capabilities and how it can help developers.`
+### Ralph: Autonomous Development
+Ralph implements entire PRDs with zero human intervention. Define user stories, Ralph writes the code, runs tests, and commits—autonomously iterating until all acceptance criteria pass.
+
+### MCP Tool Integration
+Connect to 100+ tools via Model Context Protocol. File systems, databases, APIs, and more.
+
+### AI Coding at Scale
+Deploy AI coding agents across your infrastructure using OpenCode. Automated code generation, refactoring, and testing.
+
+### RLM (Recursive Language Models)
+Process arbitrarily long contexts through recursive LLM calls. Analyze entire monorepos without context limits.
+
+### Email Reply to Continue Tasks
+Workers send email notifications when tasks complete. Reply directly to the email to continue the conversation.
+
+### Zapier Integration
+Connect CodeTether to 5,000+ apps with native Zapier integration. OAuth2 authentication, triggers, actions, and searches.
+
+### Voice Agent
+Real-time voice interactions with AI agents through LiveKit integration.
+
+### Real-Time Streaming
+Watch agents think in real-time with SSE streaming.
+
+## Quick Start
+
+\`\`\`bash
+# Install from PyPI
+pip install codetether
+
+# Run a worker connected to the hosted API
+codetether-worker --api-url https://api.codetether.run
+
+# Or run your own server
+codetether-server --host 0.0.0.0 --port 8000
+\`\`\`
+
+## A2A Protocol Endpoints
+- \`/.well-known/agent-card.json\` - Agent capability discovery
+- \`/a2a/jsonrpc\` - JSON-RPC 2.0 endpoint
+- \`/a2a/rest/*\` - RESTful API endpoints
+
+## Links
+- API: https://api.codetether.run
+- Docs: https://docs.codetether.run
+- GitHub: https://github.com/rileyseaburg/codetether
+- PyPI: https://pypi.org/project/codetether/
+
+## Pricing
+CodeTether is open source (Apache 2.0). The hosted API at api.codetether.run is free for development use.
+
+Answer questions helpfully and concisely based on the above documentation.`
 
 // API Functions
 async function createTask(prompt: string): Promise<TaskResponse> {
