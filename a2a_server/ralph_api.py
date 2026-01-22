@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import database as db
@@ -809,3 +810,84 @@ async def get_ralph_run_logs(
         logs = [log for log in logs if log.get('timestamp', '') > since]
 
     return logs[-limit:]
+
+
+@ralph_router.get('/runs/{run_id}/stream')
+async def stream_ralph_run(run_id: str):
+    """Stream real-time updates for a Ralph run via Server-Sent Events.
+
+    Events:
+    - log: New log entry added
+    - status: Run status changed
+    - story: Story status updated
+    - done: Run completed/failed/cancelled
+    """
+    # Verify run exists
+    db_run = await db.db_get_ralph_run(run_id)
+    if not db_run:
+        raise HTTPException(status_code=404, detail='Ralph run not found')
+
+    async def event_generator():
+        last_log_count = 0
+        last_status = db_run.get('status')
+        last_story_results = json.dumps(db_run.get('story_results') or [])
+
+        # Send initial state
+        yield f'event: status\ndata: {json.dumps({"status": last_status, "run_id": run_id})}\n\n'
+
+        # Send existing logs
+        for log in db_run.get('logs') or []:
+            yield f'event: log\ndata: {json.dumps(log)}\n\n'
+            last_log_count += 1
+
+        # Poll for updates until run completes
+        while True:
+            await asyncio.sleep(1)
+
+            try:
+                current_run = await db.db_get_ralph_run(run_id)
+                if not current_run:
+                    yield f'event: error\ndata: {json.dumps({"error": "Run not found"})}\n\n'
+                    break
+
+                current_status = current_run.get('status')
+                current_logs = current_run.get('logs') or []
+                current_story_results = json.dumps(
+                    current_run.get('story_results') or []
+                )
+
+                # Send new logs
+                if len(current_logs) > last_log_count:
+                    for log in current_logs[last_log_count:]:
+                        yield f'event: log\ndata: {json.dumps(log)}\n\n'
+                    last_log_count = len(current_logs)
+
+                # Send status change
+                if current_status != last_status:
+                    yield f'event: status\ndata: {json.dumps({"status": current_status, "run_id": run_id})}\n\n'
+                    last_status = current_status
+
+                # Send story updates
+                if current_story_results != last_story_results:
+                    yield f'event: story\ndata: {current_story_results}\n\n'
+                    last_story_results = current_story_results
+
+                # Check if done
+                if current_status in ['completed', 'failed', 'cancelled']:
+                    yield f'event: done\ndata: {json.dumps({"status": current_status, "run_id": run_id})}\n\n'
+                    break
+
+            except Exception as e:
+                logger.error(f'Error streaming Ralph run {run_id}: {e}')
+                yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
+                break
+
+    return StreamingResponse(
+        event_generator(),
+        media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        },
+    )

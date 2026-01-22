@@ -1025,6 +1025,110 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
         setRun(prev => prev ? { ...prev, status: 'paused' } : null)
     }
 
+    // SSE connection for real-time server logs
+    const eventSourceRef = useRef<EventSource | null>(null)
+    
+    const startServerLogStream = useCallback((runId: string) => {
+        // Close any existing connection
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close()
+        }
+        
+        const streamUrl = `${API_URL}/v1/ralph/runs/${runId}/stream`
+        const eventSource = new EventSource(streamUrl)
+        eventSourceRef.current = eventSource
+        setIsRunning(true)
+        
+        // Handle log events
+        eventSource.addEventListener('log', (e) => {
+            try {
+                const log = JSON.parse(e.data)
+                setRun(prev => {
+                    if (!prev) return null
+                    // Avoid duplicates
+                    if (prev.logs.some(l => l.id === log.id)) return prev
+                    return {
+                        ...prev,
+                        logs: [...prev.logs, {
+                            id: log.id,
+                            timestamp: log.timestamp,
+                            type: log.type as RalphLogEntry['type'],
+                            message: log.message,
+                            storyId: log.story_id,
+                        }],
+                    }
+                })
+            } catch (err) {
+                console.error('Failed to parse log event:', err)
+            }
+        })
+        
+        // Handle status events
+        eventSource.addEventListener('status', (e) => {
+            try {
+                const data = JSON.parse(e.data)
+                setRun(prev => prev ? { ...prev, status: data.status as RalphRun['status'] } : null)
+            } catch (err) {
+                console.error('Failed to parse status event:', err)
+            }
+        })
+        
+        // Handle story updates
+        eventSource.addEventListener('story', (e) => {
+            try {
+                const storyResults = JSON.parse(e.data)
+                if (prd) {
+                    const updatedStories = prd.userStories.map(story => {
+                        const result = storyResults.find((r: {story_id: string}) => r.story_id === story.id)
+                        if (result) {
+                            return {
+                                ...story,
+                                taskId: result.task_id,
+                                taskStatus: result.status,
+                                passes: result.status === 'passed'
+                            }
+                        }
+                        return story
+                    })
+                    setPrd({ ...prd, userStories: updatedStories })
+                }
+            } catch (err) {
+                console.error('Failed to parse story event:', err)
+            }
+        })
+        
+        // Handle completion
+        eventSource.addEventListener('done', (e) => {
+            try {
+                const data = JSON.parse(e.data)
+                setRun(prev => prev ? { ...prev, status: data.status as RalphRun['status'] } : null)
+                setIsRunning(false)
+                eventSource.close()
+                eventSourceRef.current = null
+            } catch (err) {
+                console.error('Failed to parse done event:', err)
+            }
+        })
+        
+        // Handle errors
+        eventSource.addEventListener('error', () => {
+            console.error('SSE connection error, falling back to polling')
+            eventSource.close()
+            eventSourceRef.current = null
+            // Could implement polling fallback here
+        })
+        
+    }, [prd, setPrd, setRun, setIsRunning])
+    
+    // Cleanup SSE on unmount
+    useEffect(() => {
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close()
+            }
+        }
+    }, [])
+    
     // Start server-side Ralph run (persisted, survives page reload)
     const [startingRun, setStartingRun] = useState(false)
     
@@ -1081,9 +1185,9 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
             if (response.ok) {
                 const data = await response.json()
                 addLog('info', `Ralph run started: ${data.id}`)
-                addLog('info', 'Check "Ralph Run History" below for progress.')
-                // Update run ID
+                // Update run ID and start SSE stream for real-time updates
                 setRun(prev => prev ? { ...prev, id: data.id, status: 'running' } : null)
+                startServerLogStream(data.id)
             } else {
                 const err = await response.text()
                 addLog('error', `Failed to start Ralph: ${err}`)
