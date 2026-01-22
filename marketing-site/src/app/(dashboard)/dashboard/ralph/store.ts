@@ -86,6 +86,7 @@ interface RalphState {
     // Settings
     selectedCodebase: string
     selectedModel: string
+    selectedAgentMode: 'build' | 'plan' | 'general' | 'explore'
     maxIterations: number
     runMode: 'sequential' | 'parallel'
     maxParallel: number
