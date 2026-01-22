@@ -4,6 +4,7 @@ import clsx from 'clsx'
 
 import '@/styles/tailwind.css'
 import { AuthProvider } from '@/components/AuthProvider'
+import { ChatWidget } from '@/components/ChatWidget'
 
 const inter = Inter({
     subsets: ['latin'],
@@ -54,7 +55,10 @@ export default function RootLayout({
     return (
         <html lang="en" style={{ maxHeight: '100vh' }} className={clsx('bg-gray-50 dark:bg-blue-950 antialiased', inter.variable)}>
             <body style={{ maxHeight: '100vh' }} className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
-                <AuthProvider>{children}</AuthProvider>
+                <AuthProvider>
+                    {children}
+                    <ChatWidget />
+                </AuthProvider>
             </body>
         </html>
     )

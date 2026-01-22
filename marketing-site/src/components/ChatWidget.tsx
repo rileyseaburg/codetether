@@ -1,0 +1,163 @@
+'use client'
+
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+
+function ChatIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
+      />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 18 18 6M6 6l12 12"
+      />
+    </svg>
+  )
+}
+
+function SendIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
+      />
+    </svg>
+  )
+}
+
+export function ChatWidget() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (message.trim()) {
+      // Message handling will be implemented in future stories
+      setMessage('')
+    }
+  }
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="absolute bottom-[calc(60px+16px)] right-0 w-[400px] h-[500px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-cyan-500 text-white">
+              <h3 className="font-semibold text-base">Chat with AI</h3>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                aria-label="Close chat"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Message Area */}
+            <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+              <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
+                <p>Welcome! How can I help you today?</p>
+              </div>
+            </div>
+
+            {/* Input Field */}
+            <form onSubmit={handleSubmit} className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+                <button
+                  type="submit"
+                  disabled={!message.trim()}
+                  className="p-2 rounded-full bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Send message"
+                >
+                  <SendIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Button */}
+      <motion.button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-[60px] h-[60px] rounded-full bg-cyan-500 text-white shadow-lg hover:bg-cyan-600 transition-colors flex items-center justify-center"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        aria-label={isOpen ? 'Close chat' : 'Open chat'}
+      >
+        <AnimatePresence mode="wait">
+          {isOpen ? (
+            <motion.div
+              key="close"
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: 90, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <CloseIcon className="w-7 h-7" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="chat"
+              initial={{ rotate: 90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: -90, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <ChatIcon className="w-7 h-7" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    </div>
+  )
+}
