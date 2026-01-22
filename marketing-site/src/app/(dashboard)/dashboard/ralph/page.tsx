@@ -1656,16 +1656,12 @@ function ServerRalphRuns() {
         return { passed, total }
     }
 
-    if (runs.length === 0 && !loading) {
-        return null // Don't show section if no server-side runs
-    }
-
     return (
         <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                     Server-Side Ralph Runs
-                    <span className="ml-2 text-xs font-normal text-gray-500">(API-triggered)</span>
+                    <span className="ml-2 text-xs font-normal text-gray-500">(persists across page reloads)</span>
                 </h2>
                 <button
                     onClick={loadRuns}
@@ -1675,6 +1671,12 @@ function ServerRalphRuns() {
                     <RefreshIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 </button>
             </div>
+            {runs.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    <p className="text-sm">No server-side runs yet</p>
+                    <p className="text-xs mt-1">Click "Server Run" above to start a persistent run that survives page reloads</p>
+                </div>
+            ) : (
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {runs.map((run) => {
                     const { passed, total } = getProgress(run)
@@ -1808,6 +1810,7 @@ function ServerRalphRuns() {
                     )
                 })}
             </div>
+            )}
         </div>
     )
 }
