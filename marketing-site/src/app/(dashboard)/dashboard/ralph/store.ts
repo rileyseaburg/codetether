@@ -107,6 +107,7 @@ interface RalphState {
     setTasks: (tasks: Task[]) => void
     setSelectedCodebase: (codebase: string) => void
     setSelectedModel: (model: string) => void
+    setSelectedAgentMode: (mode: 'build' | 'plan' | 'general' | 'explore') => void
     setMaxIterations: (iterations: number) => void
     setRunMode: (mode: 'sequential' | 'parallel') => void
     setMaxParallel: (max: number) => void
@@ -133,6 +134,7 @@ const initialState = {
     tasks: [],
     selectedCodebase: 'global',
     selectedModel: '',
+    selectedAgentMode: 'build' as const,
     maxIterations: 10,
     runMode: 'sequential' as const,
     maxParallel: 3,
@@ -175,6 +177,7 @@ export const useRalphStore = create<RalphState>()(
             setTasks: (tasks) => set({ tasks }),
             setSelectedCodebase: (selectedCodebase) => set({ selectedCodebase }),
             setSelectedModel: (selectedModel) => set({ selectedModel }),
+            setSelectedAgentMode: (selectedAgentMode) => set({ selectedAgentMode }),
             setMaxIterations: (maxIterations) => set({ maxIterations }),
             setRunMode: (runMode) => set({ runMode }),
             setMaxParallel: (maxParallel) => set({ maxParallel }),

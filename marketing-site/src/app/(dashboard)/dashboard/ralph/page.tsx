@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useCodebases } from '../sessions/hooks/useCodebases'
 import { PRDBuilder } from './PRDBuilder'
+import { AIPRDBuilder } from './AIPRDBuilder'
 import { 
     useRalphStore, 
     useAvailableModels,
@@ -280,6 +281,9 @@ export default function RalphPage() {
     const availableModels = useAvailableModels()
     const passedCount = usePassedCount()
     const totalCount = useTotalCount()
+    
+    // Local UI state for PRD builder mode
+    const [prdBuilderMode, setPrdBuilderMode] = useState<'ai' | 'manual'>('ai')
     
     const logsRef = useRef<HTMLDivElement>(null)
     const { codebases } = useCodebases()
@@ -1333,8 +1337,15 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* PRD Builder Modal */}
-                {showPRDBuilder && (
+                {/* PRD Builder Modal - AI or Manual mode */}
+                {showPRDBuilder && prdBuilderMode === 'ai' && (
+                    <AIPRDBuilder
+                        onPRDComplete={handlePRDFromBuilder}
+                        onCancel={() => setShowPRDBuilder(false)}
+                        onSwitchToManual={() => setPrdBuilderMode('manual')}
+                    />
+                )}
+                {showPRDBuilder && prdBuilderMode === 'manual' && (
                     <PRDBuilder
                         onPRDComplete={handlePRDFromBuilder}
                         onCancel={() => setShowPRDBuilder(false)}
@@ -1348,13 +1359,33 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">PRD Configuration</h2>
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setShowPRDBuilder(true)}
-                                    disabled={isRunning}
-                                    className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1 rounded hover:bg-purple-200 dark:hover:bg-purple-800 disabled:opacity-50"
-                                >
-                                    + Create PRD
-                                </button>
+                                <div className="flex items-center">
+                                    <button
+                                        onClick={() => {
+                                            setPrdBuilderMode('ai')
+                                            setShowPRDBuilder(true)
+                                        }}
+                                        disabled={isRunning}
+                                        className="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-l-lg hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 flex items-center gap-1.5"
+                                        title="AI will ask you questions to create your PRD"
+                                    >
+                                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                        </svg>
+                                        AI Assist
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setPrdBuilderMode('manual')
+                                            setShowPRDBuilder(true)
+                                        }}
+                                        disabled={isRunning}
+                                        className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1.5 rounded-r-lg border-l border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+                                        title="Manually create your PRD using the form builder"
+                                    >
+                                        Manual
+                                    </button>
+                                </div>
                                 <button
                                     onClick={loadExample}
                                     disabled={isRunning}
