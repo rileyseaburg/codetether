@@ -1026,8 +1026,32 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
     }
 
     // Start server-side Ralph run (persisted, survives page reload)
+    const [startingRun, setStartingRun] = useState(false)
+    
     const startServerRalph = async () => {
         if (!prd) return
+        
+        setStartingRun(true)
+        setError(null)
+        
+        // Initialize a run object to show logs FIRST
+        const newRun: RalphRun = {
+            id: 'pending',
+            prd,
+            status: 'running',
+            currentIteration: 0,
+            maxIterations,
+            startedAt: new Date().toISOString(),
+            logs: [{
+                id: generateUUID(),
+                timestamp: new Date().toISOString(),
+                type: 'info',
+                message: 'Starting Ralph run...',
+            }],
+            rlmCompressions: 0,
+            tokensSaved: 0
+        }
+        setRun(newRun)
         
         try {
             const response = await fetch(`${API_URL}/v1/ralph/runs`, {
@@ -1058,12 +1082,19 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                 const data = await response.json()
                 addLog('info', `Ralph run started: ${data.id}`)
                 addLog('info', 'Check "Ralph Run History" below for progress.')
+                // Update run ID
+                setRun(prev => prev ? { ...prev, id: data.id, status: 'running' } : null)
             } else {
                 const err = await response.text()
                 addLog('error', `Failed to start Ralph: ${err}`)
+                setError(`Failed to start Ralph: ${err}`)
             }
         } catch (err) {
-            addLog('error', `Failed to start Ralph: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            const msg = err instanceof Error ? err.message : 'Unknown error'
+            addLog('error', `Failed to start Ralph: ${msg}`)
+            setError(`Failed to start Ralph: ${msg}`)
+        } finally {
+            setStartingRun(false)
         }
     }
 
@@ -1150,11 +1181,20 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                     ) : (
                         <button
                             onClick={startServerRalph}
-                            disabled={!prd}
+                            disabled={!prd || startingRun}
                             className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <PlayIcon className="h-4 w-4" />
-                            Start Ralph
+                            {startingRun ? (
+                                <>
+                                    <RefreshIcon className="h-4 w-4 animate-spin" />
+                                    Starting...
+                                </>
+                            ) : (
+                                <>
+                                    <PlayIcon className="h-4 w-4" />
+                                    Start Ralph
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
