@@ -1,7 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+
+// Types
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+  status?: 'sending' | 'sent' | 'error'
+  taskId?: string
+}
+
+interface TaskResponse {
+  task_id: string
+  title: string
+  status: string
+  result?: string
+  description?: string
+}
+
+// API Configuration
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 function ChatIcon({ className }: { className?: string }) {
   return (
@@ -60,14 +81,154 @@ function SendIcon({ className }: { className?: string }) {
   )
 }
 
+function LoadingDots() {
+  return (
+    <div className="flex space-x-1">
+      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+    </div>
+  )
+}
+
+// API Functions
+async function createTask(prompt: string): Promise<TaskResponse> {
+  const response = await fetch(`${API_URL}/v1/opencode/tasks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+      description: prompt,
+      agent_type: 'build',
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to create task: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+async function getTask(taskId: string): Promise<TaskResponse> {
+  const response = await fetch(`${API_URL}/v1/opencode/tasks/${taskId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to get task: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+async function pollForCompletion(
+  taskId: string,
+  onUpdate?: (task: TaskResponse) => void,
+  maxAttempts = 60,
+  intervalMs = 1000
+): Promise<TaskResponse> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const task = await getTask(taskId)
+    
+    if (onUpdate) {
+      onUpdate(task)
+    }
+
+    if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
+      return task
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Task polling timed out')
+}
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState('')
+  const [messages, setMessages] = useState<Message[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, scrollToBottom])
+
+  const sendMessage = async (userMessage: string) => {
+    const userMsgId = `user-${Date.now()}`
+    const userMsg: Message = {
+      id: userMsgId,
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date(),
+      status: 'sent',
+    }
+
+    setMessages((prev) => [...prev, userMsg])
+    setIsLoading(true)
+
+    try {
+      // Create task via POST /v1/opencode/tasks
+      const task = await createTask(userMessage)
+
+      // Add placeholder for AI response
+      const aiMsgId = `assistant-${Date.now()}`
+      const aiMsg: Message = {
+        id: aiMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        status: 'sending',
+        taskId: task.task_id,
+      }
+      setMessages((prev) => [...prev, aiMsg])
+
+      // Poll for completion
+      const completedTask = await pollForCompletion(task.task_id)
+
+      // Update AI message with result
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMsgId
+            ? {
+                ...msg,
+                content: completedTask.result || 'No response received',
+                status: 'sent',
+              }
+            : msg
+        )
+      )
+    } catch (error) {
+      // Add error message
+      const errorMsg: Message = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: error instanceof Error ? error.message : 'An error occurred',
+        timestamp: new Date(),
+        status: 'error',
+      }
+      setMessages((prev) => [...prev, errorMsg])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (message.trim()) {
-      // Message handling will be implemented in future stories
+    if (message.trim() && !isLoading) {
+      sendMessage(message.trim())
       setMessage('')
     }
   }
@@ -97,9 +258,37 @@ export function ChatWidget() {
 
             {/* Message Area */}
             <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
-              <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
-                <p>Welcome! How can I help you today?</p>
-              </div>
+              {messages.length === 0 ? (
+                <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
+                  <p>Welcome! How can I help you today?</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm ${
+                          msg.role === 'user'
+                            ? 'bg-cyan-500 text-white rounded-br-md'
+                            : msg.status === 'error'
+                              ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-bl-md'
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-md'
+                        }`}
+                      >
+                        {msg.status === 'sending' ? (
+                          <LoadingDots />
+                        ) : (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
             </div>
 
             {/* Input Field */}
@@ -110,11 +299,12 @@ export function ChatWidget() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50"
                 />
                 <button
                   type="submit"
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || isLoading}
                   className="p-2 rounded-full bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   aria-label="Send message"
                 >
