@@ -24,6 +24,20 @@ interface TaskResponse {
 // API Configuration
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
+// LocalStorage Keys
+const STORAGE_KEY_MESSAGES = 'intercom-chat-messages'
+const STORAGE_KEY_CONVERSATION_ID = 'intercom-chat-conversation-id'
+
+// Serializable message type for localStorage (Date as string)
+interface StoredMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  status?: 'sending' | 'sent' | 'error'
+  taskId?: string
+}
+
 function ChatIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -155,8 +169,64 @@ export function IntercomChat() {
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  // Restore messages and conversation ID from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedMessages = localStorage.getItem(STORAGE_KEY_MESSAGES)
+      const storedConversationId = localStorage.getItem(STORAGE_KEY_CONVERSATION_ID)
+
+      if (storedMessages) {
+        const parsed: StoredMessage[] = JSON.parse(storedMessages)
+        // Convert timestamp strings back to Date objects and filter out incomplete messages
+        const restoredMessages: Message[] = parsed
+          .filter((msg) => msg.status !== 'sending') // Don't restore messages that were sending
+          .map((msg) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }))
+        setMessages(restoredMessages)
+      }
+
+      if (storedConversationId) {
+        setConversationId(storedConversationId)
+      } else {
+        // Generate a new conversation ID if none exists
+        const newConversationId = `conv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+        setConversationId(newConversationId)
+        localStorage.setItem(STORAGE_KEY_CONVERSATION_ID, newConversationId)
+      }
+    } catch (error) {
+      console.error('Failed to restore chat history from localStorage:', error)
+    }
+  }, [])
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    try {
+      // Convert Date objects to strings for storage
+      const messagesToStore: StoredMessage[] = messages.map((msg) => ({
+        ...msg,
+        timestamp: msg.timestamp.toISOString(),
+      }))
+      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messagesToStore))
+    } catch (error) {
+      console.error('Failed to save chat history to localStorage:', error)
+    }
+  }, [messages])
+
+  // Clear chat handler - resets localStorage and state
+  const handleClearChat = useCallback(() => {
+    setMessages([])
+    localStorage.removeItem(STORAGE_KEY_MESSAGES)
+    // Generate a new conversation ID for fresh threading
+    const newConversationId = `conv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    setConversationId(newConversationId)
+    localStorage.setItem(STORAGE_KEY_CONVERSATION_ID, newConversationId)
+  }, [])
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = useCallback(() => {
@@ -263,13 +333,24 @@ export function IntercomChat() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white">
               <h3 className="font-semibold text-base">Chat with us</h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 rounded-full hover:bg-white/20 transition-colors"
-                aria-label="Close chat"
-              >
-                <CloseIcon className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && (
+                  <button
+                    onClick={handleClearChat}
+                    className="px-2 py-1 text-xs rounded-full hover:bg-white/20 transition-colors"
+                    aria-label="Clear chat"
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                  aria-label="Close chat"
+                >
+                  <CloseIcon className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Message Area */}
