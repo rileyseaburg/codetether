@@ -353,6 +353,28 @@ async def _init_schema():
             )
         """)
 
+        # Ralph runs table for autonomous development
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS ralph_runs (
+                id TEXT PRIMARY KEY,
+                prd JSONB NOT NULL,
+                codebase_id TEXT,
+                model TEXT,
+                status TEXT DEFAULT 'pending',
+                max_iterations INTEGER DEFAULT 10,
+                current_iteration INTEGER DEFAULT 0,
+                run_mode TEXT DEFAULT 'sequential',
+                max_parallel INTEGER DEFAULT 3,
+                story_results JSONB DEFAULT '[]'::jsonb,
+                logs JSONB DEFAULT '[]'::jsonb,
+                error TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                started_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                tenant_id TEXT REFERENCES tenants(id)
+            )
+        """)
+
         # Create indexes
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status)'
@@ -432,6 +454,20 @@ async def _init_schema():
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_outbound_emails_status ON outbound_emails(status)'
+        )
+
+        # Ralph indexes
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_ralph_runs_status ON ralph_runs(status)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_ralph_runs_created ON ralph_runs(created_at DESC)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_ralph_runs_codebase ON ralph_runs(codebase_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_ralph_runs_tenant ON ralph_runs(tenant_id)'
         )
 
         logger.info('✓ PostgreSQL schema initialized')
@@ -2772,3 +2808,403 @@ async def db_list_outbound_emails(
     except Exception as e:
         logger.error(f'Failed to list outbound emails: {e}')
         return []
+
+
+# ============================================================================
+# Ralph Runs Database Functions
+# ============================================================================
+
+
+async def db_create_ralph_run(
+    run_id: str,
+    prd: Dict[str, Any],
+    codebase_id: Optional[str] = None,
+    model: Optional[str] = None,
+    max_iterations: int = 10,
+    run_mode: str = 'sequential',
+    max_parallel: int = 3,
+    tenant_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Create a new Ralph run in the database.
+
+    Args:
+        run_id: Unique run identifier
+        prd: PRD document as dict
+        codebase_id: Target codebase ID
+        model: AI model to use
+        max_iterations: Maximum iterations per story
+        run_mode: 'sequential' or 'parallel'
+        max_parallel: Max concurrent stories in parallel mode
+        tenant_id: Tenant ID for multi-tenancy
+
+    Returns:
+        Created run record or None on failure
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO ralph_runs (
+                    id, prd, codebase_id, model, status,
+                    max_iterations, run_mode, max_parallel, tenant_id
+                ) VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8)
+                RETURNING *
+                """,
+                run_id,
+                json.dumps(prd),
+                codebase_id,
+                model,
+                max_iterations,
+                run_mode,
+                max_parallel,
+                tenant_id,
+            )
+            result = dict(row)
+            # Parse JSONB fields
+            if result.get('prd'):
+                result['prd'] = (
+                    json.loads(result['prd'])
+                    if isinstance(result['prd'], str)
+                    else result['prd']
+                )
+            if result.get('story_results'):
+                result['story_results'] = (
+                    json.loads(result['story_results'])
+                    if isinstance(result['story_results'], str)
+                    else result['story_results']
+                )
+            if result.get('logs'):
+                result['logs'] = (
+                    json.loads(result['logs'])
+                    if isinstance(result['logs'], str)
+                    else result['logs']
+                )
+            return result
+    except Exception as e:
+        logger.error(f'Failed to create Ralph run: {e}')
+        return None
+
+
+async def db_get_ralph_run(run_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a Ralph run by ID.
+
+    Args:
+        run_id: Run ID to retrieve
+
+    Returns:
+        Run record or None if not found
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM ralph_runs WHERE id = $1',
+                run_id,
+            )
+            if not row:
+                return None
+            result = dict(row)
+            # Parse JSONB fields
+            if result.get('prd'):
+                result['prd'] = (
+                    json.loads(result['prd'])
+                    if isinstance(result['prd'], str)
+                    else result['prd']
+                )
+            if result.get('story_results'):
+                result['story_results'] = (
+                    json.loads(result['story_results'])
+                    if isinstance(result['story_results'], str)
+                    else result['story_results']
+                )
+            if result.get('logs'):
+                result['logs'] = (
+                    json.loads(result['logs'])
+                    if isinstance(result['logs'], str)
+                    else result['logs']
+                )
+            return result
+    except Exception as e:
+        logger.error(f'Failed to get Ralph run {run_id}: {e}')
+        return None
+
+
+async def db_update_ralph_run(
+    run_id: str,
+    status: Optional[str] = None,
+    current_iteration: Optional[int] = None,
+    story_results: Optional[List[Dict[str, Any]]] = None,
+    logs: Optional[List[Dict[str, Any]]] = None,
+    error: Optional[str] = None,
+    started_at: Optional[datetime] = None,
+    completed_at: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Update a Ralph run.
+
+    Args:
+        run_id: Run ID to update
+        status: New status
+        current_iteration: Current iteration number
+        story_results: Updated story results
+        logs: Updated logs
+        error: Error message if failed
+        started_at: Start timestamp
+        completed_at: Completion timestamp
+
+    Returns:
+        Updated run record or None on failure
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        updates = []
+        params = []
+        param_idx = 1
+
+        if status is not None:
+            updates.append(f'status = ${param_idx}')
+            params.append(status)
+            param_idx += 1
+
+        if current_iteration is not None:
+            updates.append(f'current_iteration = ${param_idx}')
+            params.append(current_iteration)
+            param_idx += 1
+
+        if story_results is not None:
+            updates.append(f'story_results = ${param_idx}')
+            params.append(json.dumps(story_results))
+            param_idx += 1
+
+        if logs is not None:
+            updates.append(f'logs = ${param_idx}')
+            params.append(json.dumps(logs))
+            param_idx += 1
+
+        if error is not None:
+            updates.append(f'error = ${param_idx}')
+            params.append(error)
+            param_idx += 1
+
+        if started_at is not None:
+            updates.append(f'started_at = ${param_idx}')
+            params.append(started_at)
+            param_idx += 1
+
+        if completed_at is not None:
+            updates.append(f'completed_at = ${param_idx}')
+            params.append(completed_at)
+            param_idx += 1
+
+        if not updates:
+            return await db_get_ralph_run(run_id)
+
+        params.append(run_id)
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"""
+                UPDATE ralph_runs
+                SET {', '.join(updates)}
+                WHERE id = ${param_idx}
+                RETURNING *
+                """,
+                *params,
+            )
+            if not row:
+                return None
+            result = dict(row)
+            # Parse JSONB fields
+            if result.get('prd'):
+                result['prd'] = (
+                    json.loads(result['prd'])
+                    if isinstance(result['prd'], str)
+                    else result['prd']
+                )
+            if result.get('story_results'):
+                result['story_results'] = (
+                    json.loads(result['story_results'])
+                    if isinstance(result['story_results'], str)
+                    else result['story_results']
+                )
+            if result.get('logs'):
+                result['logs'] = (
+                    json.loads(result['logs'])
+                    if isinstance(result['logs'], str)
+                    else result['logs']
+                )
+            return result
+    except Exception as e:
+        logger.error(f'Failed to update Ralph run {run_id}: {e}')
+        return None
+
+
+async def db_list_ralph_runs(
+    status: Optional[str] = None,
+    codebase_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Dict[str, Any]]:
+    """
+    List Ralph runs with optional filtering.
+
+    Args:
+        status: Filter by status
+        codebase_id: Filter by codebase
+        tenant_id: Filter by tenant
+        limit: Maximum number of results
+        offset: Offset for pagination
+
+    Returns:
+        List of Ralph run records
+    """
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        conditions = []
+        params = []
+        param_idx = 1
+
+        if status:
+            conditions.append(f'status = ${param_idx}')
+            params.append(status)
+            param_idx += 1
+
+        if codebase_id:
+            conditions.append(f'codebase_id = ${param_idx}')
+            params.append(codebase_id)
+            param_idx += 1
+
+        if tenant_id:
+            conditions.append(f'tenant_id = ${param_idx}')
+            params.append(tenant_id)
+            param_idx += 1
+
+        where_clause = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+        params.extend([limit, offset])
+
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                f"""
+                SELECT * FROM ralph_runs
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT ${param_idx} OFFSET ${param_idx + 1}
+                """,
+                *params,
+            )
+            results = []
+            for row in rows:
+                result = dict(row)
+                # Parse JSONB fields
+                if result.get('prd'):
+                    result['prd'] = (
+                        json.loads(result['prd'])
+                        if isinstance(result['prd'], str)
+                        else result['prd']
+                    )
+                if result.get('story_results'):
+                    result['story_results'] = (
+                        json.loads(result['story_results'])
+                        if isinstance(result['story_results'], str)
+                        else result['story_results']
+                    )
+                if result.get('logs'):
+                    result['logs'] = (
+                        json.loads(result['logs'])
+                        if isinstance(result['logs'], str)
+                        else result['logs']
+                    )
+                results.append(result)
+            return results
+    except Exception as e:
+        logger.error(f'Failed to list Ralph runs: {e}')
+        return []
+
+
+async def db_delete_ralph_run(run_id: str) -> bool:
+    """
+    Delete a Ralph run.
+
+    Args:
+        run_id: Run ID to delete
+
+    Returns:
+        True if deleted, False otherwise
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                'DELETE FROM ralph_runs WHERE id = $1',
+                run_id,
+            )
+            return result == 'DELETE 1'
+    except Exception as e:
+        logger.error(f'Failed to delete Ralph run {run_id}: {e}')
+        return False
+
+
+async def db_add_ralph_log(
+    run_id: str,
+    log_type: str,
+    message: str,
+    story_id: Optional[str] = None,
+) -> bool:
+    """
+    Add a log entry to a Ralph run.
+
+    Args:
+        run_id: Run ID
+        log_type: Log type (info, error, story_pass, etc.)
+        message: Log message
+        story_id: Optional story ID
+
+    Returns:
+        True if added, False otherwise
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        log_entry = {
+            'id': str(uuid.uuid4()),
+            'timestamp': datetime.utcnow().isoformat(),
+            'type': log_type,
+            'message': message,
+            'story_id': story_id,
+        }
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE ralph_runs
+                SET logs = logs || $1::jsonb
+                WHERE id = $2
+                """,
+                json.dumps([log_entry]),
+                run_id,
+            )
+            return True
+    except Exception as e:
+        logger.error(f'Failed to add log to Ralph run {run_id}: {e}')
+        return False
