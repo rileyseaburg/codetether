@@ -1025,6 +1025,48 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
         setRun(prev => prev ? { ...prev, status: 'paused' } : null)
     }
 
+    // Start server-side Ralph run (persisted, survives page reload)
+    const startServerRalph = async () => {
+        if (!prd) return
+        
+        try {
+            const response = await fetch(`${API_URL}/v1/ralph/runs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prd: {
+                        project: prd.project,
+                        branchName: prd.branchName,
+                        description: prd.description,
+                        userStories: prd.userStories.map(s => ({
+                            id: s.id,
+                            title: s.title,
+                            description: s.description,
+                            acceptanceCriteria: s.acceptanceCriteria,
+                            priority: s.priority,
+                        })),
+                    },
+                    codebase_id: selectedCodebase === 'global' ? null : selectedCodebase,
+                    model: selectedModel || null,
+                    max_iterations: maxIterations,
+                    run_mode: runMode,
+                    max_parallel: maxParallel,
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                addLog('info', `Server-side Ralph run started: ${data.id}`)
+                addLog('info', 'The run will continue even if you close this page.')
+            } else {
+                const err = await response.text()
+                addLog('error', `Failed to start server run: ${err}`)
+            }
+        } catch (err) {
+            addLog('error', `Failed to start server run: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        }
+    }
+
     // Get status color
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -1106,14 +1148,26 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                             Stop
                         </button>
                     ) : (
-                        <button
-                            onClick={startRalph}
-                            disabled={!prd}
-                            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <PlayIcon className="h-4 w-4" />
-                            Start Ralph
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={startServerRalph}
+                                disabled={!prd}
+                                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Run on server (persists across page reloads)"
+                            >
+                                <UploadIcon className="h-4 w-4" />
+                                Server Run
+                            </button>
+                            <button
+                                onClick={startRalph}
+                                disabled={!prd}
+                                className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Run in browser (stops if you leave the page)"
+                            >
+                                <PlayIcon className="h-4 w-4" />
+                                Browser Run
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -1428,6 +1482,9 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                 </div>
             </div>
 
+            {/* Server-Side Ralph Runs */}
+            <ServerRalphRuns />
+
             {/* Active Tasks */}
             {tasks.length > 0 && (
                 <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
@@ -1474,6 +1531,283 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                     </div>
                 </div>
             )}
+        </div>
+    )
+}
+
+// ============================================================================
+// Server-Side Ralph Runs Component
+// ============================================================================
+
+interface ServerRalphRun {
+    id: string
+    prd: {
+        project: string
+        branchName: string
+        userStories: Array<{ id: string; title: string }>
+    }
+    status: string
+    current_iteration: number
+    max_iterations: number
+    story_results: Array<{ story_id: string; status: string }>
+    created_at: string
+    started_at?: string
+    completed_at?: string
+    error?: string
+}
+
+function ServerRalphRuns() {
+    const [runs, setRuns] = useState<ServerRalphRun[]>([])
+    const [loading, setLoading] = useState(false)
+    const [expanded, setExpanded] = useState<string | null>(null)
+    const [logs, setLogs] = useState<Record<string, Array<{id: string; timestamp: string; type: string; message: string; story_id?: string}>>>({})
+    const [loadingLogs, setLoadingLogs] = useState<string | null>(null)
+
+    const loadRuns = useCallback(async () => {
+        setLoading(true)
+        try {
+            const response = await fetch(`${API_URL}/v1/ralph/runs?limit=20`)
+            if (response.ok) {
+                const data = await response.json()
+                setRuns(data)
+            }
+        } catch (err) {
+            console.error('Failed to load Ralph runs:', err)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    // Load logs for a specific run
+    const loadLogs = useCallback(async (runId: string) => {
+        setLoadingLogs(runId)
+        try {
+            const response = await fetch(`${API_URL}/v1/ralph/runs/${runId}/logs?limit=50`)
+            if (response.ok) {
+                const data = await response.json()
+                setLogs(prev => ({ ...prev, [runId]: data }))
+            }
+        } catch (err) {
+            console.error('Failed to load logs:', err)
+        } finally {
+            setLoadingLogs(null)
+        }
+    }, [])
+
+    // Cancel a running run
+    const cancelRun = useCallback(async (runId: string) => {
+        try {
+            const response = await fetch(`${API_URL}/v1/ralph/runs/${runId}/cancel`, { method: 'POST' })
+            if (response.ok) {
+                loadRuns()
+            }
+        } catch (err) {
+            console.error('Failed to cancel run:', err)
+        }
+    }, [loadRuns])
+
+    // Delete a run
+    const deleteRun = useCallback(async (runId: string) => {
+        if (!confirm('Delete this Ralph run? This cannot be undone.')) return
+        try {
+            const response = await fetch(`${API_URL}/v1/ralph/runs/${runId}`, { method: 'DELETE' })
+            if (response.ok) {
+                loadRuns()
+            }
+        } catch (err) {
+            console.error('Failed to delete run:', err)
+        }
+    }, [loadRuns])
+
+    useEffect(() => {
+        loadRuns()
+    }, [loadRuns])
+
+    // Auto-refresh when there are running tasks
+    useEffect(() => {
+        const hasRunning = runs.some(r => r.status === 'running' || r.status === 'pending')
+        if (hasRunning) {
+            const interval = setInterval(loadRuns, 5000)
+            return () => clearInterval(interval)
+        }
+    }, [runs, loadRuns])
+
+    // Load logs when expanding a run
+    useEffect(() => {
+        if (expanded && !logs[expanded]) {
+            loadLogs(expanded)
+        }
+    }, [expanded, logs, loadLogs])
+
+    const getRunStatusColor = (status: string) => {
+        switch (status) {
+            case 'completed': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
+            case 'running': return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+            case 'failed': return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+            case 'cancelled': return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+            case 'pending': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+            default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+        }
+    }
+
+    const getProgress = (run: ServerRalphRun) => {
+        const passed = run.story_results?.filter(r => r.status === 'passed').length || 0
+        const total = run.prd?.userStories?.length || 0
+        return { passed, total }
+    }
+
+    if (runs.length === 0 && !loading) {
+        return null // Don't show section if no server-side runs
+    }
+
+    return (
+        <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Server-Side Ralph Runs
+                    <span className="ml-2 text-xs font-normal text-gray-500">(API-triggered)</span>
+                </h2>
+                <button
+                    onClick={loadRuns}
+                    disabled={loading}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-50"
+                >
+                    <RefreshIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {runs.map((run) => {
+                    const { passed, total } = getProgress(run)
+                    const isExpanded = expanded === run.id
+                    
+                    return (
+                        <div key={run.id} className="p-4">
+                            <div 
+                                className="flex items-center justify-between cursor-pointer"
+                                onClick={() => setExpanded(isExpanded ? null : run.id)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-lg">
+                                        {run.status === 'completed' && passed === total ? '✅' : 
+                                         run.status === 'running' ? '⏳' :
+                                         run.status === 'failed' ? '❌' :
+                                         run.status === 'cancelled' ? '🛑' : '○'}
+                                    </span>
+                                    <div>
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                            {run.prd?.project || 'Unknown Project'}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                            {run.prd?.branchName} • {passed}/{total} stories
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={`px-2 py-1 text-xs rounded-full ${getRunStatusColor(run.status)}`}>
+                                        {run.status}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {new Date(run.created_at).toLocaleString()}
+                                    </span>
+                                    <svg 
+                                        className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            {isExpanded && (
+                                <div className="mt-3 pl-9 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            <span className="font-medium">Run ID:</span> {run.id}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {(run.status === 'running' || run.status === 'pending') && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); cancelRun(run.id) }}
+                                                    className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded hover:bg-yellow-200 dark:hover:bg-yellow-800"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteRun(run.id) }}
+                                                className="text-xs px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {run.error && (
+                                        <div className="text-xs text-red-600 dark:text-red-400">
+                                            <span className="font-medium">Error:</span> {run.error}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Stories */}
+                                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Stories:</div>
+                                    <div className="space-y-1">
+                                        {run.prd?.userStories?.map((story) => {
+                                            const result = run.story_results?.find(r => r.story_id === story.id)
+                                            return (
+                                                <div key={story.id} className="flex items-center gap-2 text-xs">
+                                                    <span>
+                                                        {result?.status === 'passed' ? '✅' :
+                                                         result?.status === 'failed' ? '❌' :
+                                                         result?.status === 'running' ? '⏳' : '○'}
+                                                    </span>
+                                                    <span className="font-mono text-gray-600 dark:text-gray-400">{story.id}</span>
+                                                    <span className="text-gray-700 dark:text-gray-300">{story.title}</span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    
+                                    {/* Logs Section */}
+                                    <div className="mt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Logs:</div>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); loadLogs(run.id) }}
+                                                disabled={loadingLogs === run.id}
+                                                className="text-xs text-purple-600 hover:text-purple-500 dark:text-purple-400 disabled:opacity-50"
+                                            >
+                                                {loadingLogs === run.id ? 'Loading...' : 'Refresh'}
+                                            </button>
+                                        </div>
+                                        <div className="bg-gray-900 rounded p-2 max-h-48 overflow-y-auto font-mono text-xs">
+                                            {(!logs[run.id] || logs[run.id].length === 0) ? (
+                                                <div className="text-gray-500">No logs yet</div>
+                                            ) : (
+                                                logs[run.id].map((log) => (
+                                                    <div key={log.id} className="flex gap-2 py-0.5">
+                                                        <span className="text-gray-600 shrink-0">
+                                                            {new Date(log.timestamp).toLocaleTimeString()}
+                                                        </span>
+                                                        <span className={
+                                                            log.type === 'story_pass' ? 'text-emerald-400' :
+                                                            log.type === 'story_fail' || log.type === 'error' ? 'text-red-400' :
+                                                            log.type === 'complete' ? 'text-emerald-400' :
+                                                            log.type === 'story_start' ? 'text-yellow-400' :
+                                                            'text-gray-400'
+                                                        }>
+                                                            {log.story_id && <span className="text-gray-500">[{log.story_id}] </span>}
+                                                            {log.message}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     )
 }

@@ -3,6 +3,8 @@ Ralph API - Server-side autonomous development loop.
 
 Provides endpoints to run Ralph (PRD-driven development) as a background task,
 enabling automation via Zapier, API calls, or scheduled jobs.
+
+Data is persisted to PostgreSQL for durability across restarts.
 """
 
 import asyncio
@@ -17,7 +19,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from . import database as db
-from .opencode_bridge import get_opencode_bridge
+from .monitor_api import get_opencode_bridge
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +121,7 @@ class RalphRun(BaseModel):
     error: Optional[str] = None
 
 
-# In-memory storage for runs (can be moved to database later)
-_ralph_runs: Dict[str, RalphRun] = {}
+# In-memory task handles for cancellation (run data is in database)
 _ralph_tasks: Dict[str, asyncio.Task] = {}
 
 
@@ -137,18 +138,91 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def add_log(
-    run: RalphRun, log_type: str, message: str, story_id: Optional[str] = None
+async def add_log_to_db(
+    run_id: str, log_type: str, message: str, story_id: Optional[str] = None
 ):
-    """Add a log entry to a run."""
-    run.logs.append(
-        {
-            'id': generate_uuid(),
-            'timestamp': now_iso(),
-            'type': log_type,
-            'message': message,
-            'story_id': story_id,
-        }
+    """Add a log entry to a run (persisted to database)."""
+    await db.db_add_ralph_log(run_id, log_type, message, story_id)
+
+
+def db_run_to_model(db_run: Dict[str, Any]) -> RalphRun:
+    """Convert a database row to a RalphRun model."""
+    # Parse story results from DB format
+    story_results = []
+    for sr in db_run.get('story_results') or []:
+        story_results.append(
+            StoryResult(
+                story_id=sr.get('story_id', ''),
+                status=StoryStatus(sr.get('status', 'pending')),
+                task_id=sr.get('task_id'),
+                iteration=sr.get('iteration', 1),
+                result=sr.get('result'),
+                error=sr.get('error'),
+                started_at=sr.get('started_at'),
+                completed_at=sr.get('completed_at'),
+            )
+        )
+
+    # Parse PRD from DB
+    prd_data = db_run.get('prd', {})
+    user_stories = []
+    for us in prd_data.get('userStories', prd_data.get('user_stories', [])):
+        user_stories.append(
+            UserStory(
+                id=us.get('id', ''),
+                title=us.get('title', ''),
+                description=us.get('description', ''),
+                acceptanceCriteria=us.get(
+                    'acceptanceCriteria', us.get('acceptance_criteria', [])
+                ),
+                priority=us.get('priority', 1),
+            )
+        )
+
+    prd = PRD(
+        project=prd_data.get('project', ''),
+        branchName=prd_data.get('branchName', prd_data.get('branch_name', '')),
+        description=prd_data.get('description', ''),
+        userStories=user_stories,
+    )
+
+    # Parse timestamps
+    created_at = db_run.get('created_at')
+    if created_at is not None and hasattr(created_at, 'isoformat'):
+        created_at = created_at.isoformat()
+    elif created_at is None:
+        created_at = now_iso()
+    else:
+        created_at = str(created_at)
+
+    started_at = db_run.get('started_at')
+    if started_at is not None and hasattr(started_at, 'isoformat'):
+        started_at = started_at.isoformat()
+    elif started_at is not None:
+        started_at = str(started_at)
+
+    completed_at = db_run.get('completed_at')
+    if completed_at is not None and hasattr(completed_at, 'isoformat'):
+        completed_at = completed_at.isoformat()
+    elif completed_at is not None:
+        completed_at = str(completed_at)
+
+    return RalphRun(
+        id=db_run.get('id', ''),
+        prd=prd,
+        codebase_id=db_run.get('codebase_id'),
+        model=db_run.get('model'),
+        status=RunStatus(db_run.get('status', 'pending')),
+        max_iterations=db_run.get('max_iterations', 10),
+        current_iteration=db_run.get('current_iteration', 0),
+        run_mode=db_run.get('run_mode', 'sequential'),
+        max_parallel=db_run.get('max_parallel', 3),
+        story_results=story_results,
+        logs=db_run.get('logs') or [],
+        created_at=created_at,
+        started_at=started_at,
+        completed_at=completed_at,
+        error=db_run.get('error'),
     )
 
 
@@ -215,7 +289,10 @@ Do NOT ask for clarification - make reasonable assumptions and proceed.
     if not task:
         return None
 
-    return task.get('id')
+    # Handle both dict and object responses
+    if isinstance(task, dict):
+        return task.get('id')
+    return getattr(task, 'id', None)
 
 
 async def wait_for_task(
@@ -238,213 +315,340 @@ async def wait_for_task(
             await asyncio.sleep(2)
             continue
 
-        status = task.get('status')
+        # Handle both dict and object responses
+        if isinstance(task, dict):
+            status = task.get('status')
+            result_val = task.get('result', '')
+            error_val = task.get('error', 'Task failed')
+        else:
+            status = getattr(task, 'status', None)
+            result_val = getattr(task, 'result', '') or ''
+            error_val = getattr(task, 'error', 'Task failed') or 'Task failed'
+
         if status == 'completed':
-            result = task.get('result', '')
             success = (
-                'STORY_COMPLETE' in result or 'STORY_BLOCKED' not in result
+                'STORY_COMPLETE' in result_val
+                or 'STORY_BLOCKED' not in result_val
             )
-            return {'success': success, 'result': result}
+            return {'success': success, 'result': result_val}
         elif status == 'failed':
-            return {
-                'success': False,
-                'result': task.get('error', 'Task failed'),
-            }
+            return {'success': False, 'result': error_val}
         elif status == 'cancelled':
             return {'success': False, 'result': 'Task cancelled'}
 
         await asyncio.sleep(2)
 
 
-async def run_ralph_sequential(run: RalphRun):
-    """Run Ralph loop sequentially."""
-    add_log(run, 'info', f'Starting Ralph loop for {run.prd.project}')
-    add_log(run, 'info', f'Branch: {run.prd.branch_name}')
-    add_log(run, 'info', f'Stories: {len(run.prd.user_stories)}')
-    add_log(run, 'info', f'Mode: sequential')
+async def run_ralph_sequential(run_id: str, run_data: Dict[str, Any]):
+    """Run Ralph loop sequentially with database persistence."""
+    prd = run_data.get('prd', {})
+    project = prd.get('project', 'Unknown')
+    branch = prd.get('branchName', prd.get('branch_name', ''))
+    user_stories = prd.get('userStories', prd.get('user_stories', []))
+    max_iterations = run_data.get('max_iterations', 10)
 
-    for iteration in range(1, run.max_iterations + 1):
-        run.current_iteration = iteration
+    await add_log_to_db(run_id, 'info', f'Starting Ralph loop for {project}')
+    await add_log_to_db(run_id, 'info', f'Branch: {branch}')
+    await add_log_to_db(run_id, 'info', f'Stories: {len(user_stories)}')
+    await add_log_to_db(run_id, 'info', 'Mode: sequential')
+
+    # Get current story results from DB
+    story_results = run_data.get('story_results') or []
+
+    for iteration in range(1, max_iterations + 1):
+        # Update current iteration in DB
+        await db.db_update_ralph_run(run_id, current_iteration=iteration)
 
         # Find next incomplete story
+        passed_story_ids = {
+            r.get('story_id')
+            for r in story_results
+            if r.get('status') == 'passed'
+        }
         pending_stories = [
-            s
-            for s in run.prd.user_stories
-            if not any(
-                r.story_id == s.id and r.status == StoryStatus.PASSED
-                for r in run.story_results
-            )
+            s for s in user_stories if s.get('id') not in passed_story_ids
         ]
 
         if not pending_stories:
-            add_log(run, 'complete', 'All stories complete!')
-            run.status = RunStatus.COMPLETED
+            await add_log_to_db(run_id, 'complete', 'All stories complete!')
             break
 
         story = pending_stories[0]
-        add_log(
-            run, 'story_start', f'Starting {story.id}: {story.title}', story.id
+        story_id = story.get('id', '')
+        story_title = story.get('title', '')
+
+        await add_log_to_db(
+            run_id,
+            'story_start',
+            f'Starting {story_id}: {story_title}',
+            story_id,
         )
 
         # Create story result
-        story_result = StoryResult(
-            story_id=story.id,
-            status=StoryStatus.RUNNING,
-            iteration=iteration,
-            started_at=now_iso(),
-        )
-        run.story_results.append(story_result)
+        story_result = {
+            'story_id': story_id,
+            'status': 'running',
+            'iteration': iteration,
+            'started_at': now_iso(),
+        }
+        story_results.append(story_result)
+        await db.db_update_ralph_run(run_id, story_results=story_results)
+
+        # Build a minimal run object for create_story_task
+        run_obj = db_run_to_model(run_data)
 
         try:
             # Create task
-            add_log(run, 'info', f'Creating task for {story.id}...', story.id)
-            task_id = await create_story_task(run, story, iteration)
+            await add_log_to_db(
+                run_id, 'info', f'Creating task for {story_id}...', story_id
+            )
+
+            # Build UserStory for create_story_task
+            story_obj = UserStory(
+                id=story_id,
+                title=story_title,
+                description=story.get('description', ''),
+                acceptanceCriteria=story.get(
+                    'acceptanceCriteria', story.get('acceptance_criteria', [])
+                ),
+                priority=story.get('priority', 1),
+            )
+            task_id = await create_story_task(run_obj, story_obj, iteration)
 
             if not task_id:
-                story_result.status = StoryStatus.FAILED
-                story_result.error = 'Failed to create task'
-                story_result.completed_at = now_iso()
-                add_log(
-                    run,
+                story_result['status'] = 'failed'
+                story_result['error'] = 'Failed to create task'
+                story_result['completed_at'] = now_iso()
+                await db.db_update_ralph_run(
+                    run_id, story_results=story_results
+                )
+                await add_log_to_db(
+                    run_id,
                     'error',
-                    f'Failed to create task for {story.id}',
-                    story.id,
+                    f'Failed to create task for {story_id}',
+                    story_id,
                 )
                 continue
 
-            story_result.task_id = task_id
-            add_log(run, 'info', f'Task created: {task_id}', story.id)
+            story_result['task_id'] = task_id
+            await db.db_update_ralph_run(run_id, story_results=story_results)
+            await add_log_to_db(
+                run_id, 'info', f'Task created: {task_id}', story_id
+            )
 
             # Wait for completion
             result = await wait_for_task(task_id)
-            story_result.result = result.get('result', '')
-            story_result.completed_at = now_iso()
+            story_result['result'] = result.get('result', '')
+            story_result['completed_at'] = now_iso()
 
             if result['success']:
-                story_result.status = StoryStatus.PASSED
-                add_log(run, 'story_pass', f'{story.id} PASSED!', story.id)
-            else:
-                story_result.status = StoryStatus.FAILED
-                story_result.error = result.get('result', 'Unknown error')
-                add_log(
-                    run,
-                    'story_fail',
-                    f'{story.id} FAILED: {story_result.error[:200]}',
-                    story.id,
+                story_result['status'] = 'passed'
+                await add_log_to_db(
+                    run_id, 'story_pass', f'{story_id} PASSED!', story_id
                 )
+            else:
+                story_result['status'] = 'failed'
+                story_result['error'] = result.get('result', 'Unknown error')
+                await add_log_to_db(
+                    run_id,
+                    'story_fail',
+                    f'{story_id} FAILED: {story_result["error"][:200]}',
+                    story_id,
+                )
+
+            await db.db_update_ralph_run(run_id, story_results=story_results)
 
         except Exception as e:
-            story_result.status = StoryStatus.FAILED
-            story_result.error = str(e)
-            story_result.completed_at = now_iso()
-            add_log(run, 'error', f'Error on {story.id}: {e}', story.id)
+            story_result['status'] = 'failed'
+            story_result['error'] = str(e)
+            story_result['completed_at'] = now_iso()
+            await db.db_update_ralph_run(run_id, story_results=story_results)
+            await add_log_to_db(
+                run_id, 'error', f'Error on {story_id}: {e}', story_id
+            )
 
     # Final status
-    passed = sum(1 for r in run.story_results if r.status == StoryStatus.PASSED)
-    total = len(run.prd.user_stories)
+    passed = sum(1 for r in story_results if r.get('status') == 'passed')
+    total = len(user_stories)
 
     if passed == total:
-        run.status = RunStatus.COMPLETED
-        add_log(
-            run, 'complete', f'Ralph completed: {passed}/{total} stories passed'
+        await add_log_to_db(
+            run_id,
+            'complete',
+            f'Ralph completed: {passed}/{total} stories passed',
         )
     else:
-        run.status = RunStatus.COMPLETED  # Completed but with failures
-        add_log(run, 'info', f'Ralph finished: {passed}/{total} stories passed')
+        await add_log_to_db(
+            run_id, 'info', f'Ralph finished: {passed}/{total} stories passed'
+        )
 
-    run.completed_at = now_iso()
 
+async def run_ralph_parallel(run_id: str, run_data: Dict[str, Any]):
+    """Run Ralph loop with parallel story execution and database persistence."""
+    prd = run_data.get('prd', {})
+    project = prd.get('project', 'Unknown')
+    branch = prd.get('branchName', prd.get('branch_name', ''))
+    user_stories = prd.get('userStories', prd.get('user_stories', []))
+    max_parallel = run_data.get('max_parallel', 3)
 
-async def run_ralph_parallel(run: RalphRun):
-    """Run Ralph loop with parallel story execution."""
-    add_log(run, 'info', f'Starting Ralph loop for {run.prd.project}')
-    add_log(run, 'info', f'Branch: {run.prd.branch_name}')
-    add_log(run, 'info', f'Stories: {len(run.prd.user_stories)}')
-    add_log(run, 'info', f'Mode: parallel (max {run.max_parallel})')
+    await add_log_to_db(run_id, 'info', f'Starting Ralph loop for {project}')
+    await add_log_to_db(run_id, 'info', f'Branch: {branch}')
+    await add_log_to_db(run_id, 'info', f'Stories: {len(user_stories)}')
+    await add_log_to_db(run_id, 'info', f'Mode: parallel (max {max_parallel})')
 
-    semaphore = asyncio.Semaphore(run.max_parallel)
+    semaphore = asyncio.Semaphore(max_parallel)
+    story_results = []
+    results_lock = asyncio.Lock()
 
-    async def run_story(story: UserStory, iteration: int):
+    # Build run object for create_story_task
+    run_obj = db_run_to_model(run_data)
+
+    async def run_story(story: Dict[str, Any], iteration: int):
         async with semaphore:
-            story_result = StoryResult(
-                story_id=story.id,
-                status=StoryStatus.RUNNING,
-                iteration=iteration,
-                started_at=now_iso(),
-            )
-            run.story_results.append(story_result)
+            story_id = story.get('id', '')
+            story_title = story.get('title', '')
+
+            story_result = {
+                'story_id': story_id,
+                'status': 'running',
+                'iteration': iteration,
+                'started_at': now_iso(),
+            }
+
+            async with results_lock:
+                story_results.append(story_result)
+                await db.db_update_ralph_run(
+                    run_id, story_results=story_results
+                )
 
             try:
-                add_log(
-                    run,
+                await add_log_to_db(
+                    run_id,
                     'story_start',
-                    f'Starting {story.id}: {story.title}',
-                    story.id,
+                    f'Starting {story_id}: {story_title}',
+                    story_id,
                 )
-                task_id = await create_story_task(run, story, iteration)
+
+                # Build UserStory object
+                story_obj = UserStory(
+                    id=story_id,
+                    title=story_title,
+                    description=story.get('description', ''),
+                    acceptanceCriteria=story.get(
+                        'acceptanceCriteria',
+                        story.get('acceptance_criteria', []),
+                    ),
+                    priority=story.get('priority', 1),
+                )
+                task_id = await create_story_task(run_obj, story_obj, iteration)
 
                 if not task_id:
-                    story_result.status = StoryStatus.FAILED
-                    story_result.error = 'Failed to create task'
-                    story_result.completed_at = now_iso()
+                    story_result['status'] = 'failed'
+                    story_result['error'] = 'Failed to create task'
+                    story_result['completed_at'] = now_iso()
+                    async with results_lock:
+                        await db.db_update_ralph_run(
+                            run_id, story_results=story_results
+                        )
                     return
 
-                story_result.task_id = task_id
+                story_result['task_id'] = task_id
+                async with results_lock:
+                    await db.db_update_ralph_run(
+                        run_id, story_results=story_results
+                    )
+
                 result = await wait_for_task(task_id)
-                story_result.result = result.get('result', '')
-                story_result.completed_at = now_iso()
+                story_result['result'] = result.get('result', '')
+                story_result['completed_at'] = now_iso()
 
                 if result['success']:
-                    story_result.status = StoryStatus.PASSED
-                    add_log(run, 'story_pass', f'{story.id} PASSED!', story.id)
+                    story_result['status'] = 'passed'
+                    await add_log_to_db(
+                        run_id, 'story_pass', f'{story_id} PASSED!', story_id
+                    )
                 else:
-                    story_result.status = StoryStatus.FAILED
-                    story_result.error = result.get('result', 'Unknown error')
-                    add_log(run, 'story_fail', f'{story.id} FAILED', story.id)
+                    story_result['status'] = 'failed'
+                    story_result['error'] = result.get(
+                        'result', 'Unknown error'
+                    )
+                    await add_log_to_db(
+                        run_id, 'story_fail', f'{story_id} FAILED', story_id
+                    )
+
+                async with results_lock:
+                    await db.db_update_ralph_run(
+                        run_id, story_results=story_results
+                    )
 
             except Exception as e:
-                story_result.status = StoryStatus.FAILED
-                story_result.error = str(e)
-                story_result.completed_at = now_iso()
-                add_log(run, 'error', f'Error on {story.id}: {e}', story.id)
+                story_result['status'] = 'failed'
+                story_result['error'] = str(e)
+                story_result['completed_at'] = now_iso()
+                async with results_lock:
+                    await db.db_update_ralph_run(
+                        run_id, story_results=story_results
+                    )
+                await add_log_to_db(
+                    run_id, 'error', f'Error on {story_id}: {e}', story_id
+                )
 
     # Run all stories in parallel (with semaphore limiting concurrency)
-    tasks = [run_story(s, 1) for s in run.prd.user_stories]
+    tasks = [run_story(s, 1) for s in user_stories]
     await asyncio.gather(*tasks, return_exceptions=True)
 
     # Final status
-    passed = sum(1 for r in run.story_results if r.status == StoryStatus.PASSED)
-    total = len(run.prd.user_stories)
+    passed = sum(1 for r in story_results if r.get('status') == 'passed')
+    total = len(user_stories)
 
-    run.status = RunStatus.COMPLETED
-    run.completed_at = now_iso()
-    add_log(run, 'complete', f'Ralph finished: {passed}/{total} stories passed')
+    await add_log_to_db(
+        run_id, 'complete', f'Ralph finished: {passed}/{total} stories passed'
+    )
 
 
 async def run_ralph(run_id: str):
-    """Background task to run Ralph."""
-    run = _ralph_runs.get(run_id)
-    if not run:
-        logger.error(f'Ralph run {run_id} not found')
+    """Background task to run Ralph with database persistence."""
+    # Load run from database
+    run_data = await db.db_get_ralph_run(run_id)
+    if not run_data:
+        logger.error(f'Ralph run {run_id} not found in database')
         return
 
-    run.status = RunStatus.RUNNING
-    run.started_at = now_iso()
+    # Update status to running
+    await db.db_update_ralph_run(
+        run_id,
+        status='running',
+        started_at=datetime.now(timezone.utc),
+    )
 
     try:
-        if run.run_mode == 'parallel':
-            await run_ralph_parallel(run)
+        run_mode = run_data.get('run_mode', 'sequential')
+        if run_mode == 'parallel':
+            await run_ralph_parallel(run_id, run_data)
         else:
-            await run_ralph_sequential(run)
+            await run_ralph_sequential(run_id, run_data)
+
+        # Mark as completed
+        await db.db_update_ralph_run(
+            run_id,
+            status='completed',
+            completed_at=datetime.now(timezone.utc),
+        )
     except asyncio.CancelledError:
-        run.status = RunStatus.CANCELLED
-        run.completed_at = now_iso()
-        add_log(run, 'info', 'Ralph run cancelled')
+        await db.db_update_ralph_run(
+            run_id,
+            status='cancelled',
+            completed_at=datetime.now(timezone.utc),
+        )
+        await add_log_to_db(run_id, 'info', 'Ralph run cancelled')
     except Exception as e:
-        run.status = RunStatus.FAILED
-        run.error = str(e)
-        run.completed_at = now_iso()
-        add_log(run, 'error', f'Ralph run failed: {e}')
+        await db.db_update_ralph_run(
+            run_id,
+            status='failed',
+            error=str(e),
+            completed_at=datetime.now(timezone.utc),
+        )
+        await add_log_to_db(run_id, 'error', f'Ralph run failed: {e}')
         logger.exception(f'Ralph run {run_id} failed')
     finally:
         # Clean up task reference
@@ -474,32 +678,45 @@ async def create_ralph_run(
     """
     run_id = generate_uuid()
 
-    # Initialize story results
-    story_results = [
-        StoryResult(story_id=s.id, status=StoryStatus.PENDING)
-        for s in request.prd.user_stories
-    ]
+    # Convert PRD to dict for database storage
+    prd_dict = {
+        'project': request.prd.project,
+        'branchName': request.prd.branch_name,
+        'description': request.prd.description,
+        'userStories': [
+            {
+                'id': s.id,
+                'title': s.title,
+                'description': s.description,
+                'acceptanceCriteria': s.acceptance_criteria,
+                'priority': s.priority,
+            }
+            for s in request.prd.user_stories
+        ],
+    }
 
-    run = RalphRun(
-        id=run_id,
-        prd=request.prd,
+    # Create run in database
+    db_run = await db.db_create_ralph_run(
+        run_id=run_id,
+        prd=prd_dict,
         codebase_id=request.codebase_id,
         model=request.model,
-        status=RunStatus.PENDING,
         max_iterations=request.max_iterations,
         run_mode=request.run_mode,
         max_parallel=request.max_parallel,
-        story_results=story_results,
-        created_at=now_iso(),
     )
 
-    _ralph_runs[run_id] = run
+    if not db_run:
+        raise HTTPException(
+            status_code=500, detail='Failed to create Ralph run in database'
+        )
 
     # Start background task
     task = asyncio.create_task(run_ralph(run_id))
     _ralph_tasks[run_id] = task
 
-    return run
+    # Convert to response model
+    return db_run_to_model(db_run)
 
 
 @ralph_router.get('/runs', response_model=List[RalphRun])
@@ -508,37 +725,31 @@ async def list_ralph_runs(
     limit: int = 50,
 ):
     """List Ralph runs, optionally filtered by status."""
-    runs = list(_ralph_runs.values())
-
-    if status:
-        runs = [r for r in runs if r.status == status]
-
-    # Sort by created_at descending
-    runs.sort(key=lambda r: r.created_at, reverse=True)
-
-    return runs[:limit]
+    db_runs = await db.db_list_ralph_runs(status=status, limit=limit)
+    return [db_run_to_model(r) for r in db_runs]
 
 
 @ralph_router.get('/runs/{run_id}', response_model=RalphRun)
 async def get_ralph_run(run_id: str):
     """Get a specific Ralph run by ID."""
-    run = _ralph_runs.get(run_id)
-    if not run:
+    db_run = await db.db_get_ralph_run(run_id)
+    if not db_run:
         raise HTTPException(status_code=404, detail='Ralph run not found')
-    return run
+    return db_run_to_model(db_run)
 
 
 @ralph_router.post('/runs/{run_id}/cancel')
 async def cancel_ralph_run(run_id: str):
     """Cancel a running Ralph run."""
-    run = _ralph_runs.get(run_id)
-    if not run:
+    db_run = await db.db_get_ralph_run(run_id)
+    if not db_run:
         raise HTTPException(status_code=404, detail='Ralph run not found')
 
-    if run.status not in [RunStatus.PENDING, RunStatus.RUNNING]:
+    status = db_run.get('status')
+    if status not in ['pending', 'running']:
         raise HTTPException(
             status_code=400,
-            detail=f'Cannot cancel run with status {run.status}',
+            detail=f'Cannot cancel run with status {status}',
         )
 
     # Cancel the background task
@@ -546,9 +757,13 @@ async def cancel_ralph_run(run_id: str):
     if task and not task.done():
         task.cancel()
 
-    run.status = RunStatus.CANCELLED
-    run.completed_at = now_iso()
-    add_log(run, 'info', 'Run cancelled by user')
+    # Update in database
+    await db.db_update_ralph_run(
+        run_id,
+        status='cancelled',
+        completed_at=datetime.now(timezone.utc),
+    )
+    await add_log_to_db(run_id, 'info', 'Run cancelled by user')
 
     return {'status': 'cancelled', 'run_id': run_id}
 
@@ -556,18 +771,19 @@ async def cancel_ralph_run(run_id: str):
 @ralph_router.delete('/runs/{run_id}')
 async def delete_ralph_run(run_id: str):
     """Delete a Ralph run from history."""
-    if run_id not in _ralph_runs:
+    db_run = await db.db_get_ralph_run(run_id)
+    if not db_run:
         raise HTTPException(status_code=404, detail='Ralph run not found')
 
-    run = _ralph_runs[run_id]
-
     # Cancel if still running
-    if run.status in [RunStatus.PENDING, RunStatus.RUNNING]:
+    status = db_run.get('status')
+    if status in ['pending', 'running']:
         task = _ralph_tasks.get(run_id)
         if task and not task.done():
             task.cancel()
 
-    del _ralph_runs[run_id]
+    # Delete from database
+    await db.db_delete_ralph_run(run_id)
     _ralph_tasks.pop(run_id, None)
 
     return {'status': 'deleted', 'run_id': run_id}
@@ -583,13 +799,13 @@ async def get_ralph_run_logs(
 
     Use 'since' timestamp to get only new logs (for polling).
     """
-    run = _ralph_runs.get(run_id)
-    if not run:
+    db_run = await db.db_get_ralph_run(run_id)
+    if not db_run:
         raise HTTPException(status_code=404, detail='Ralph run not found')
 
-    logs = run.logs
+    logs = db_run.get('logs') or []
 
     if since:
-        logs = [l for l in logs if l['timestamp'] > since]
+        logs = [log for log in logs if log.get('timestamp', '') > since]
 
     return logs[-limit:]
