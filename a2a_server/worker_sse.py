@@ -146,8 +146,30 @@ class WorkerRegistry:
         """
         Atomically claim a task for a worker.
 
-        Returns True if claim succeeded, False if task was already claimed.
+        Returns True if claim succeeded, False if task was already claimed
+        or if the worker doesn't own the task's codebase.
         """
+        # First, verify worker can handle this task's codebase (before acquiring lock)
+        from .monitor_api import get_opencode_bridge
+
+        bridge = get_opencode_bridge()
+        if bridge:
+            task = await bridge.get_task(task_id)
+            if task:
+                codebase_id = task.codebase_id
+                # Check if this is a restricted codebase (not global/__pending__)
+                if codebase_id and codebase_id not in ('global', '__pending__'):
+                    # Worker must own this codebase to claim it
+                    worker = self._workers.get(worker_id)
+                    if worker:
+                        can_handle = codebase_id in worker.codebases
+                        if not can_handle:
+                            logger.warning(
+                                f'Worker {worker_id} ({worker.agent_name}) tried to claim task {task_id} '
+                                f'for codebase {codebase_id} it does not own (worker codebases: {worker.codebases})'
+                            )
+                            return False
+
         async with self._lock:
             if task_id in self._claimed_tasks:
                 existing_worker = self._claimed_tasks[task_id]
