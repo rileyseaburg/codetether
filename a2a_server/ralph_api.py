@@ -820,8 +820,12 @@ async def stream_ralph_run(run_id: str):
     - log: New log entry added
     - status: Run status changed
     - story: Story status updated
+    - output: Real-time agent output from running task
     - done: Run completed/failed/cancelled
     """
+    # Import task output streams from monitor_api
+    from .monitor_api import _task_output_streams
+
     # Verify run exists
     db_run = await db.db_get_ralph_run(run_id)
     if not db_run:
@@ -831,6 +835,9 @@ async def stream_ralph_run(run_id: str):
         last_log_count = 0
         last_status = db_run.get('status')
         last_story_results = json.dumps(db_run.get('story_results') or [])
+
+        # Track output streams for running tasks
+        task_output_indices: dict = {}  # {task_id: last_output_index}
 
         # Send initial state
         yield f'event: status\ndata: {json.dumps({"status": last_status, "run_id": run_id})}\n\n'
@@ -842,7 +849,7 @@ async def stream_ralph_run(run_id: str):
 
         # Poll for updates until run completes
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)  # Faster polling for real-time output
 
             try:
                 current_run = await db.db_get_ralph_run(run_id)
@@ -852,9 +859,8 @@ async def stream_ralph_run(run_id: str):
 
                 current_status = current_run.get('status')
                 current_logs = current_run.get('logs') or []
-                current_story_results = json.dumps(
-                    current_run.get('story_results') or []
-                )
+                current_story_results = current_run.get('story_results') or []
+                current_story_results_json = json.dumps(current_story_results)
 
                 # Send new logs
                 if len(current_logs) > last_log_count:
@@ -868,9 +874,34 @@ async def stream_ralph_run(run_id: str):
                     last_status = current_status
 
                 # Send story updates
-                if current_story_results != last_story_results:
-                    yield f'event: story\ndata: {current_story_results}\n\n'
-                    last_story_results = current_story_results
+                if current_story_results_json != last_story_results:
+                    yield f'event: story\ndata: {current_story_results_json}\n\n'
+                    last_story_results = current_story_results_json
+
+                # Stream real-time output from running tasks
+                for story_result in current_story_results:
+                    task_id = story_result.get('task_id')
+                    if not task_id:
+                        continue
+
+                    # Only stream for running tasks
+                    if story_result.get('status') != 'running':
+                        # Clean up index when task completes
+                        task_output_indices.pop(task_id, None)
+                        continue
+
+                    # Initialize index for new tasks
+                    if task_id not in task_output_indices:
+                        task_output_indices[task_id] = 0
+
+                    # Get new output chunks
+                    outputs = _task_output_streams.get(task_id, [])
+                    last_idx = task_output_indices[task_id]
+
+                    if len(outputs) > last_idx:
+                        for output in outputs[last_idx:]:
+                            yield f'event: output\ndata: {json.dumps({"task_id": task_id, "story_id": story_result.get("story_id"), "output": output.get("output", ""), "timestamp": output.get("timestamp", "")})}\n\n'
+                        task_output_indices[task_id] = len(outputs)
 
                 # Check if done
                 if current_status in ['completed', 'failed', 'cancelled']:
