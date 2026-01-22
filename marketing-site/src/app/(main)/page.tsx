@@ -91,11 +91,6 @@ export default function Home() {
                 <RLMDemo />
             </Suspense>
             
-            {/* Ralph Demo - autonomous agent loop */}
-            <Suspense fallback={<SectionSkeleton />}>
-                <RalphDemo />
-            </Suspense>
-            
             {/* Core value props */}
             <Suspense fallback={<SectionSkeleton />}>
                 <Testimonials />
@@ -103,6 +98,12 @@ export default function Home() {
             <Suspense fallback={<SectionSkeleton />}>
                 <CopilotComparison />
             </Suspense>
+            
+            {/* Ralph Demo - autonomous agent loop (moved after ChatGPT comparison) */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <RalphDemo />
+            </Suspense>
+            
             <Suspense fallback={<SectionSkeleton />}>
                 <TemporalComparison />
             </Suspense>

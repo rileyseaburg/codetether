@@ -42,11 +42,11 @@ export function TemporalComparison() {
                 {/* Header */}
                 <div className="mx-auto max-w-2xl text-center">
                     <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-                        The AI Step Your Automations Deserve
+                        Zapier Moves Data.<br />
+                        <span className="text-cyan-600 dark:text-cyan-400">CodeTether Does the Work.</span>
                     </h2>
                     <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                        Zapier&apos;s ChatGPT integration is great for &quot;summarize this email.&quot;
-                        CodeTether handles the heavy lifting.
+                        No 30-second timeouts. No context limits. Real deliverables.
                     </p>
                 </div>
 
@@ -102,7 +102,7 @@ export function TemporalComparison() {
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-6">
                         <h4 className="font-semibold text-gray-900 dark:text-white">Trigger a Task</h4>
                         <pre className="mt-4 text-sm text-gray-600 dark:text-gray-400 overflow-x-auto bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-{`POST /v1/tasks
+                            {`POST /v1/tasks
 {
   "prompt": "Analyze leads.csv",
   "email_results": true,

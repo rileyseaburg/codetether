@@ -20,7 +20,7 @@ const faqs = [
     [
         {
             question: 'Why can CodeTether handle longer tasks than ChatGPT?',
-            answer: 'Regular LLMs suffer from "context rot"—quality degrades as input grows. GPT-5 scores 0% on tasks with 6-11M tokens. CodeTether uses RLM architecture to handle these same tasks with 91% accuracy by processing recursively instead of all at once.',
+            answer: 'Base models hit context limits on 6–11M token tasks. RLM processes them recursively and completes them with 91.33% accuracy (MIT CSAIL).',
         },
         {
             question: 'How do I get the output?',

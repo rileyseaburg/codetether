@@ -87,34 +87,52 @@ export function Hero() {
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-20">
           <div className="relative z-10 mx-auto max-w-2xl lg:col-span-7 lg:max-w-none lg:pt-6 xl:col-span-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-cyan-950/50 border border-cyan-900/50 px-3 py-1 mb-4">
-              <span className="text-xs font-medium text-cyan-400">Powered by RLM</span>
-              <span className="text-xs text-gray-400">Unlimited context. Zero degradation.</span>
+              <span className="text-xs font-medium text-cyan-400">Powered by MIT Research</span>
+              <span className="text-xs text-gray-400">Recursive Language Models</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight leading-tight text-white sm:text-4xl lg:text-5xl">
-              AI That Works.<br />
-              <span className="text-cyan-400">You Get Results.</span>
+              AI work that actually finishes.<br />
+              <span className="text-cyan-400">Trigger once → get real files delivered.</span>
             </h1>
             <p className="mt-6 text-lg text-gray-300">
-              Stop babysitting ChatGPT. Stop paying VAs $1,800/mo for repeatable tasks.
-              CodeTether is an <span className="font-semibold text-white">AI worker</span> that 
-              runs in the background and delivers real files when done.
+              Run 5–60 minute tasks in the background and get <span className="font-semibold text-white">CSV/PDF/code delivered</span> by email or webhook.
             </p>
             <p className="mt-4 text-base text-gray-400">
-              Use the web dashboard, iOS app, webhook API, or automate with Zapier.
-              Get CSV, PDF, or code delivered however you want.
+              Works with <span className="text-cyan-300">Zapier, n8n, Make — or call the API directly.</span>
             </p>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
-              <Button href="/dashboard/sessions" color="cyan">
-                <PlayIcon className="h-5 w-5 flex-none" />
-                <span className="ml-2.5">Open Dashboard</span>
+              <Button href="/register" color="cyan">
+                <span>Start Free (10 Tasks / Month)</span>
               </Button>
               <Button
-                href="/register"
+                href="#demo"
                 variant="outline"
                 className="text-gray-300"
               >
-                <span>Start Free</span>
+                <span>Watch the Demo</span>
               </Button>
+            </div>
+            <p className="mt-6 text-xs text-gray-500">
+              No credit card required. Get your first file output fast — usually in minutes.
+            </p>
+
+            {/* Example tasks */}
+            <div className="mt-12 pt-8 border-t border-gray-800">
+              <p className="text-xs text-gray-400 font-medium mb-4">Example tasks you can trigger:</p>
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
+                  <p className="text-sm text-white font-medium">📊 Lead scoring</p>
+                  <p className="text-xs text-gray-400 mt-1">Analyze 500 leads → <code className="text-cyan-300 bg-gray-800 px-1 rounded text-[11px]">lead_scores.csv</code> + reasons</p>
+                </div>
+                <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
+                  <p className="text-sm text-white font-medium">📄 Client report</p>
+                  <p className="text-xs text-gray-400 mt-1">Website audit → PDF report + action list</p>
+                </div>
+                <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
+                  <p className="text-sm text-white font-medium">📝 Transcript</p>
+                  <p className="text-xs text-gray-400 mt-1">2-hour call → 1-page summary + next steps</p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="relative mt-10 sm:mt-20 lg:col-span-5 lg:row-span-2 lg:mt-0 xl:col-span-6">
