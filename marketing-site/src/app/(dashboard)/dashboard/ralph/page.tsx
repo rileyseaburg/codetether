@@ -116,6 +116,14 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function TrashIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+    )
+}
+
 function EyeIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
@@ -265,6 +273,7 @@ export default function RalphPage() {
         loadingAgents, setLoadingAgents,
         showPRDBuilder, setShowPRDBuilder,
         addLog,
+        reset,
     } = useRalphStore()
     
     // Derived state from store using memoized hooks
@@ -1073,6 +1082,19 @@ ${story.acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
+                    {!isRunning && (prd || run) && (
+                        <button
+                            onClick={() => {
+                                if (confirm('Clear all Ralph state? This will reset PRD, logs, and run history.')) {
+                                    reset()
+                                }
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-500"
+                        >
+                            <TrashIcon className="h-4 w-4" />
+                            Clear State
+                        </button>
+                    )}
                     {isRunning ? (
                         <button
                             onClick={stopRalph}
