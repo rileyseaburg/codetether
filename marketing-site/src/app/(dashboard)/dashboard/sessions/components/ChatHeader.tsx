@@ -5,7 +5,7 @@ import type { Session } from '../types'
 import { formatDate } from '../utils'
 import { StreamStatus } from './StreamStatus'
 import { ModeSelector } from './ModeSelector'
-import { ModelSelector } from './ModelSelector'
+import { ModelSelector } from '@/components/ModelSelector'
 import { SessionActions } from './SessionActions'
 
 interface Props {
@@ -112,7 +112,7 @@ export function ChatHeader(p: Props) {
                                 aria-controls="chat-mobile-controls"
                                 className={`inline-flex items-center justify-center rounded-full border p-1 text-gray-600 transition-colors ${
                                     mobileControlsOpen
-                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-500/20 dark:text-indigo-200'
+                                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-500/20 dark:text-cyan-200'
                                         : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700'
                                 }`}
                                 aria-label={mobileControlsOpen ? 'Close controls' : 'Open controls'}
@@ -137,7 +137,7 @@ export function ChatHeader(p: Props) {
                         aria-controls="chat-settings-panel"
                         className={`hidden items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors md:inline-flex ${
                             settingsOpen
-                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-500/20 dark:text-indigo-200'
+                                ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-500/20 dark:text-cyan-200'
                                 : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700'
                         }`}
                     >
@@ -186,7 +186,7 @@ export function ChatHeader(p: Props) {
                     className={`hidden flex-wrap items-center gap-3 md:col-span-2 ${settingsOpen ? 'md:flex' : 'md:hidden'}`}
                 >
                     <ModeSelector value={p.selectedMode} onChange={p.onModeChange} />
-                    <ModelSelector value={p.selectedModel} suggestions={p.suggestedModels} onChange={p.onModelChange} />
+                    <ModelSelector visualVariant="default" label="Model" />
                 </div>
             </div>
 
@@ -258,7 +258,7 @@ export function ChatHeader(p: Props) {
                             )}
 
                             <ModeSelector value={p.selectedMode} onChange={p.onModeChange} />
-                            <ModelSelector value={p.selectedModel} suggestions={p.suggestedModels} onChange={p.onModelChange} />
+                            <ModelSelector visualVariant="default" label="Model" />
                         </div>
                     </div>
                 </div>

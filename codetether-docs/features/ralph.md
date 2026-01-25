@@ -247,6 +247,93 @@ userStories:
 
 ---
 
+## MCP Integration
+
+Ralph can be controlled entirely via MCP tools, enabling **end-to-end autonomous development from any AI assistant**.
+
+!!! success "E2E Tested"
+    The MCP-to-Ralph pipeline has been validated end-to-end: PRD creation via MCP → Ralph execution → successful implementation.
+
+### Create Run via MCP
+
+```bash
+curl -s -X POST http://localhost:9000/mcp/v1/rpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "ralph_create_run",
+      "arguments": {
+        "project": "My Feature",
+        "branch_name": "feature/my-feature",
+        "description": "Implement new feature",
+        "codebase_id": "ec77c942",
+        "user_stories": [
+          {
+            "id": "US-001",
+            "title": "Add login endpoint",
+            "description": "As a user, I can login with email/password",
+            "acceptance_criteria": [
+              "POST /api/auth/login accepts credentials",
+              "Returns JWT on success"
+            ]
+          }
+        ],
+        "max_iterations": 5
+      }
+    }
+  }'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "run_id": "ad564688-d272-4907-ac59-8acc20a584d5",
+  "status": "pending",
+  "current_iteration": 0,
+  "max_iterations": 5,
+  "message": "Ralph run started for project \"My Feature\""
+}
+```
+
+### Monitor via MCP
+
+```bash
+curl -s -X POST http://localhost:9000/mcp/v1/rpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "ralph_get_run",
+      "arguments": {"run_id": "ad564688-d272-4907-ac59-8acc20a584d5"}
+    }
+  }'
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `ralph_create_run` | Create and start a Ralph run |
+| `ralph_get_run` | Get run status and results |
+| `ralph_list_runs` | List runs (optionally by codebase) |
+| `ralph_cancel_run` | Cancel a running execution |
+| `prd_chat` | AI-assisted PRD generation |
+| `prd_list_sessions` | List PRD chat sessions |
+
+!!! warning "Codebase ID Required"
+    Always specify `codebase_id` when creating runs. Tasks without a codebase won't be picked up by workers.
+
+See [MCP Tools](mcp-tools.md) for complete documentation.
+
+---
+
 ## API Reference
 
 ### Start Ralph Run
@@ -256,12 +343,14 @@ POST /v1/ralph/runs
 Content-Type: application/json
 
 {
-  "codebase_id": "cb_abc123",
-  "prd": "...(YAML string)...",
-  "config": {
-    "max_iterations": 5,
-    "auto_commit": true
-  }
+  "codebase_id": "ec77c942",
+  "prd": {
+    "project": "My App",
+    "branchName": "feature/my-feature",
+    "description": "Feature description",
+    "userStories": [...]
+  },
+  "max_iterations": 5
 }
 ```
 
@@ -274,7 +363,7 @@ GET /v1/ralph/runs/{run_id}
 ### List Runs
 
 ```http
-GET /v1/ralph/runs?codebase_id=cb_abc123
+GET /v1/ralph/runs?codebase_id=ec77c942&limit=20
 ```
 
 ### Cancel Run

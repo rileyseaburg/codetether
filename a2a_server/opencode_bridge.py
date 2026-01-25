@@ -160,6 +160,7 @@ class AgentTask:
     error: Optional[str] = None
     session_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    target_agent_name: Optional[str] = None  # If set, only this agent can claim
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -182,6 +183,7 @@ class AgentTask:
             'error': self.error,
             'session_id': self.session_id,
             'metadata': self.metadata,
+            'target_agent_name': self.target_agent_name,
         }
 
 
@@ -435,8 +437,50 @@ class OpenCodeBridge:
                     self._codebase_tasks[task.codebase_id].append(task_id)
                 return task
         except Exception as e:
-            logger.error(f'Failed to load task from PostgreSQL: {e}')
+            logger.error(f'Failed to load task {task_id}: {e}')
         return None
+
+    async def _load_codebases_from_db(self):
+        """Load all codebases from PostgreSQL and cache in memory."""
+
+        def parse_dt(val):
+            if isinstance(val, datetime):
+                return val
+            if isinstance(val, str):
+                try:
+                    return datetime.fromisoformat(val.replace('Z', '+00:00'))
+                except ValueError:
+                    return datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%f')
+            return None
+
+        try:
+            codebases = await db.db_list_codebases()
+            loaded_count = 0
+            for row in codebases:
+                codebase_id = row.get('id')
+                if not codebase_id:
+                    continue
+
+                self._codebases[codebase_id] = RegisteredCodebase(
+                    id=codebase_id,
+                    name=row.get('name', ''),
+                    path=row.get('path', ''),
+                    description=row.get('description', ''),
+                    registered_at=parse_dt(row.get('created_at'))
+                    or datetime.utcnow(),
+                    agent_config=row.get('agent_config') or {},
+                    last_triggered=parse_dt(row.get('last_triggered')),
+                    status=AgentStatus(row.get('status', 'idle')),
+                    opencode_port=row.get('opencode_port'),
+                    session_id=row.get('session_id'),
+                    watch_mode=row.get('watch_mode', False),
+                    watch_interval=row.get('watch_interval', 5),
+                    worker_id=row.get('worker_id'),
+                )
+                loaded_count += 1
+            logger.info(f'Loaded {loaded_count} codebases from PostgreSQL')
+        except Exception as e:
+            logger.error(f'Failed to load codebases from PostgreSQL: {e}')
 
     async def _load_tasks_from_db(
         self,
@@ -1126,7 +1170,7 @@ class OpenCodeBridge:
 
     async def create_task(
         self,
-        codebase_id: str,
+        codebase_id: Optional[str],
         title: str,
         prompt: str,
         agent_type: str = 'build',
@@ -1138,15 +1182,20 @@ class OpenCodeBridge:
         Create a new task for an agent.
 
         Special codebase_id values:
+        - None: Global tasks that any worker can claim
         - '__pending__': Registration tasks that any worker can claim
-        - 'global': Tasks without a specific codebase that any worker with a registered global codebase can pick up
+        - 'global': Alias for None (deprecated, use None instead)
 
         Args:
             model: Full provider/model-id (e.g., 'minimax/minimax-m2.1'). Use resolve_model() to convert friendly names.
         """
-        # Allow special '__pending__' and 'global' codebase_id values
-        # 'global' is for MCP tasks that any worker with a registered global codebase can pick up
-        if codebase_id not in ('__pending__', 'global'):
+        # Normalize 'global' to None for database compatibility
+        if codebase_id == 'global':
+            codebase_id = None
+
+        # Allow special '__pending__' and None codebase_id values
+        # None is for global tasks that any worker can pick up
+        if codebase_id is not None and codebase_id != '__pending__':
             codebase = self._codebases.get(codebase_id)
             if not codebase:
                 logger.error(

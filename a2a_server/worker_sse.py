@@ -274,8 +274,9 @@ class WorkerRegistry:
     async def get_available_workers(
         self,
         codebase_id: Optional[str] = None,
-        required_capabilities: Optional[List[str]] = None,
         target_agent_name: Optional[str] = None,
+        target_worker_id: Optional[str] = None,
+        required_capabilities: Optional[List[str]] = None,
     ) -> List[ConnectedWorker]:
         """
         Get workers available to accept a new task.
@@ -285,6 +286,7 @@ class WorkerRegistry:
         - Handles the specified codebase (workers must explicitly register codebases)
         - Optionally: has required capabilities
         - Optionally: matches target_agent_name (for agent-targeted routing)
+        - Optionally: matches target_worker_id (for worker-targeted routing)
 
         IMPORTANT: Workers with no registered codebases will ONLY receive
         'global' or '__pending__' tasks. This prevents cross-server task leakage
@@ -292,6 +294,7 @@ class WorkerRegistry:
 
         Agent Targeting:
         - If target_agent_name is set, ONLY notify workers with that agent_name
+        - If target_worker_id is set, ONLY notify the specific worker
         - This reduces noise/wakeups for targeted tasks
         - Claim-time filtering is the real enforcement; this is for efficiency
         """
@@ -300,6 +303,11 @@ class WorkerRegistry:
             for worker in self._workers.values():
                 if worker.is_busy:
                     continue
+
+                # Worker ID targeting filter - most specific, check first
+                if target_worker_id:
+                    if worker.worker_id != target_worker_id:
+                        continue
 
                 # Agent targeting filter (notify-time filtering for efficiency)
                 # If task is targeted at a specific agent, only notify that agent
@@ -350,7 +358,7 @@ class WorkerRegistry:
                 return True
 
             # Fall back to database query
-            from . import db
+            from . import database as db
 
             codebase_data = await db.db_get_codebase(codebase_id)
             if codebase_data and codebase_data.get('worker_id') == worker_id:
@@ -413,19 +421,25 @@ class WorkerRegistry:
         task: Dict[str, Any],
         codebase_id: Optional[str] = None,
         target_agent_name: Optional[str] = None,
+        target_worker_id: Optional[str] = None,
         required_capabilities: Optional[List[str]] = None,
     ) -> List[str]:
         """
         Broadcast a task to all available workers that can handle it.
 
-        For targeted tasks (target_agent_name set), only notifies the specific agent.
+        For targeted tasks (target_agent_name or target_worker_id set), only notifies the specific worker.
         This is notify-time filtering for efficiency; claim-time is the real enforcement.
 
         Returns list of worker_ids that received the notification.
         """
+        # Check metadata for target_worker_id if not passed directly
+        if not target_worker_id and task.get('metadata'):
+            target_worker_id = task['metadata'].get('target_worker_id')
+
         available = await self.get_available_workers(
             codebase_id=codebase_id,
             target_agent_name=target_agent_name,
+            target_worker_id=target_worker_id,
             required_capabilities=required_capabilities,
         )
         notified = []
@@ -435,8 +449,10 @@ class WorkerRegistry:
                 notified.append(worker.worker_id)
 
         routing_info = ''
-        if target_agent_name:
-            routing_info = f' (targeted at {target_agent_name})'
+        if target_worker_id:
+            routing_info = f' (targeted at worker {target_worker_id})'
+        elif target_agent_name:
+            routing_info = f' (targeted at agent {target_agent_name})'
 
         logger.info(
             f'Task {task.get("id", "unknown")} broadcast to {len(notified)} workers{routing_info}'
@@ -481,6 +497,10 @@ class WorkerRegistry:
                 )
                 return []
 
+            # Use getattr for backwards compatibility with AgentTask objects
+            # that may not have target_agent_name attribute
+            task_target_agent = getattr(task, 'target_agent_name', None)
+
             task_data = {
                 'id': task.id,
                 'codebase_id': task.codebase_id,
@@ -490,7 +510,7 @@ class WorkerRegistry:
                 'priority': task.priority,
                 'metadata': task.metadata,
                 'model': task.model,
-                'target_agent_name': task.target_agent_name,
+                'target_agent_name': task_target_agent,
                 'created_at': task.created_at.isoformat()
                 if task.created_at
                 else None,
@@ -499,7 +519,7 @@ class WorkerRegistry:
             return await self.broadcast_task(
                 task_data,
                 codebase_id=codebase_id or task.codebase_id,
-                target_agent_name=target_agent_name or task.target_agent_name,
+                target_agent_name=target_agent_name or task_target_agent,
             )
         except Exception as e:
             logger.error(f'Error broadcasting task {task_id}: {e}')

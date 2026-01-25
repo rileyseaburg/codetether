@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useCodebases } from '../sessions/hooks/useCodebases'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+import { listAllTasksV1OpencodeTasksGet } from '@/lib/api'
 
 interface Task {
     id: string
@@ -37,10 +36,10 @@ export default function TasksPage() {
 
     const loadTasks = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/tasks`)
-            if (response.ok) {
-                const data = await response.json()
-                setTasks(data)
+            const { data, error } = await listAllTasksV1OpencodeTasksGet()
+            if (!error && data) {
+                const response = data as any
+                setTasks(Array.isArray(response) ? response : (response?.tasks ?? []))
             }
         } catch (error) {
             console.error('Failed to load tasks:', error)

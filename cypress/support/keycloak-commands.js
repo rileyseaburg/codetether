@@ -228,7 +228,7 @@ Cypress.Commands.add('kcLogin', (username, password) => {
             nonce: createUUID(),
             response_mode: 'fragment',
             response_type: 'code',
-            mini
+            scope: 'openid'
         }
     };
 

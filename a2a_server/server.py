@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request, Response, HTTPException, Depends
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from .models import (
@@ -57,6 +58,7 @@ from .tenant_middleware import TenantContextMiddleware
 from .tenant_api import router as tenant_router
 from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
+from .user_auth import router as user_auth_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
 
@@ -77,6 +79,15 @@ try:
 except ImportError:
     AUTOMATION_API_AVAILABLE = False
     automation_api_router = None
+
+# Import analytics API for first-party event tracking
+try:
+    from .analytics_api import router as analytics_api_router
+
+    ANALYTICS_API_AVAILABLE = True
+except ImportError:
+    ANALYTICS_API_AVAILABLE = False
+    analytics_api_router = None
 
 # OAuth is handled by Keycloak - no custom OAuth server needed
 
@@ -302,6 +313,10 @@ class A2AServer:
         # Include billing webhook routes for Stripe
         self.app.include_router(billing_webhook_router)
 
+        # Include user authentication and billing routes (mid-market individual users)
+        self.app.include_router(user_auth_router)
+        logger.info('User auth API router mounted at /v1/users')
+
         # Include queue API routes for operational visibility (mid-market)
         if QUEUE_API_AVAILABLE and queue_api_router:
             self.app.include_router(queue_api_router)
@@ -319,6 +334,18 @@ class A2AServer:
         if AUTOMATION_API_AVAILABLE and automation_api_router:
             self.app.include_router(automation_api_router)
             logger.info('Automation API router mounted at /v1/automation')
+
+        # Include analytics API for first-party event tracking
+        if ANALYTICS_API_AVAILABLE and analytics_api_router:
+            self.app.include_router(analytics_api_router)
+            logger.info('Analytics API router mounted at /v1/analytics')
+
+        # Mount static files for analytics.js and other assets
+        import os
+        static_dir = os.path.join(os.path.dirname(__file__), 'static')
+        if os.path.exists(static_dir):
+            self.app.mount('/static', StaticFiles(directory=static_dir), name='static')
+            logger.info(f'Static files mounted at /static from {static_dir}')
 
         # Include A2A protocol router for standards-compliant agent communication
         # This provides JSON-RPC and REST bindings at /a2a/*

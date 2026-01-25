@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { createGlobalTaskV1OpencodeTasksPost, getTaskV1OpencodeTasksTaskIdGet } from '@/lib/api'
 
 // Types
 interface Message {
@@ -27,9 +28,6 @@ interface TaskResponse {
 function getTaskId(response: TaskResponse): string {
   return response.id || response.task_id || ''
 }
-
-// API Configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
 // LocalStorage Keys
 const STORAGE_KEY_MESSAGES = 'intercom-chat-messages'
@@ -180,40 +178,48 @@ function LoadingIndicator() {
   )
 }
 
-// API Functions
 async function createTask(prompt: string): Promise<TaskResponse> {
-  const response = await fetch(`${API_URL}/v1/opencode/tasks`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  const result = await createGlobalTaskV1OpencodeTasksPost({
+    body: {
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
       prompt: prompt,
       agent_type: 'build',
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to create task: ${response.statusText}`)
-  }
-
-  return response.json()
-}
-
-async function getTask(taskId: string): Promise<TaskResponse> {
-  const response = await fetch(`${API_URL}/v1/opencode/tasks/${taskId}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
     },
   })
 
-  if (!response.ok) {
-    throw new Error(`Failed to get task: ${response.statusText}`)
+  if (!result.data) {
+    throw new Error('Failed to create task: No data returned')
   }
 
-  return response.json()
+  const data = result.data as any
+  return {
+    id: data.id,
+    task_id: data.task_id,
+    title: data.title,
+    status: data.status,
+    result: data.result,
+    description: data.description,
+  }
+}
+
+async function getTask(taskId: string): Promise<TaskResponse> {
+  const result = await getTaskV1OpencodeTasksTaskIdGet({
+    path: { task_id: taskId },
+  })
+
+  if (!result.data) {
+    throw new Error('Failed to get task: No data returned')
+  }
+
+  const data = result.data as any
+  return {
+    id: data.id,
+    task_id: data.task_id,
+    title: data.title,
+    status: data.status,
+    result: data.result,
+    description: data.description,
+  }
 }
 
 async function pollForCompletion(
@@ -422,9 +428,9 @@ export function IntercomChat() {
     setMessage('')
   }
 
-  // User message style: right-aligned with purple/cyan gradient
+  // User message style: right-aligned with cyan gradient
   const getUserMessageStyle = () => {
-    return 'bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-2xl rounded-br-md'
+    return 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-2xl rounded-br-md'
   }
 
   // AI message style: left-aligned with gray background
@@ -447,7 +453,7 @@ export function IntercomChat() {
             className="absolute bottom-[calc(60px+16px)] right-0 w-[400px] h-[500px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white">
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white">
               <h3 className="font-semibold text-base">Chat with us</h3>
               <div className="flex items-center gap-2">
                 {messages.length > 0 && (
@@ -529,12 +535,12 @@ export function IntercomChat() {
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type a message..."
                   disabled={isLoading}
-                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50"
+                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   disabled={!message.trim() || isLoading}
-                  className="p-2 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500 text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  className="p-2 rounded-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                   aria-label="Send message"
                 >
                   <SendIcon className="w-5 h-5" />
@@ -548,7 +554,7 @@ export function IntercomChat() {
       {/* Floating Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-[60px] h-[60px] rounded-full bg-gradient-to-r from-purple-500 to-cyan-500 text-white shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
+        className="w-[60px] h-[60px] rounded-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}

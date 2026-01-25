@@ -2,6 +2,17 @@
 -- This adds tenant_id column and RLS policies for multi-tenant isolation
 
 -- ============================================
+-- Create admin role if it doesn't exist
+-- ============================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'a2a_admin') THEN
+        CREATE ROLE a2a_admin NOLOGIN;
+    END IF;
+END $$;
+
+-- ============================================
 -- Add tenant_id column to task_runs
 -- ============================================
 
@@ -147,13 +158,15 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE VIEW rls_status AS
 SELECT 
-    schemaname,
-    tablename,
-    rowsecurity as rls_enabled,
-    forcerowsecurity as rls_forced
-FROM pg_tables
-WHERE schemaname = 'public'
-AND tablename IN ('workers', 'codebases', 'tasks', 'sessions', 'tenants', 'task_runs');
+    n.nspname as schemaname,
+    c.relname as tablename,
+    c.relrowsecurity as rls_enabled,
+    c.relforcerowsecurity as rls_forced
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+AND c.relkind = 'r'
+AND c.relname IN ('workers', 'codebases', 'tasks', 'sessions', 'tenants', 'task_runs');
 
 -- Record migration
 INSERT INTO schema_migrations (migration_name, checksum)

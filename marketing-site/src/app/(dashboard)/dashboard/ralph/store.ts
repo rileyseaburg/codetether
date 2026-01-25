@@ -68,12 +68,12 @@ export interface Task {
     codebase_id?: string
     metadata?: Record<string, unknown>
 }
-
 // ============================================================================
+
 // Store State
 // ============================================================================
 
-interface RalphState {
+export interface RalphState {
     // PRD
     prd: PRD | null
     prdJson: string
@@ -86,6 +86,7 @@ interface RalphState {
     // Settings
     selectedCodebase: string
     selectedModel: string
+    selectedWorker: string
     selectedAgentMode: 'build' | 'plan' | 'general' | 'explore'
     maxIterations: number
     runMode: 'sequential' | 'parallel'
@@ -107,6 +108,7 @@ interface RalphState {
     setTasks: (tasks: Task[]) => void
     setSelectedCodebase: (codebase: string) => void
     setSelectedModel: (model: string) => void
+    setSelectedWorker: (worker: string) => void
     setSelectedAgentMode: (mode: 'build' | 'plan' | 'general' | 'explore') => void
     setMaxIterations: (iterations: number) => void
     setRunMode: (mode: 'sequential' | 'parallel') => void
@@ -134,6 +136,7 @@ const initialState = {
     tasks: [],
     selectedCodebase: 'global',
     selectedModel: '',
+    selectedWorker: '',
     selectedAgentMode: 'build' as const,
     maxIterations: 10,
     runMode: 'sequential' as const,
@@ -177,6 +180,7 @@ export const useRalphStore = create<RalphState>()(
             setTasks: (tasks) => set({ tasks }),
             setSelectedCodebase: (selectedCodebase) => set({ selectedCodebase }),
             setSelectedModel: (selectedModel) => set({ selectedModel }),
+            setSelectedWorker: (selectedWorker) => set({ selectedWorker }),
             setSelectedAgentMode: (selectedAgentMode) => set({ selectedAgentMode }),
             setMaxIterations: (maxIterations) => set({ maxIterations }),
             setRunMode: (runMode) => set({ runMode }),
@@ -228,6 +232,7 @@ export const useRalphStore = create<RalphState>()(
                 isRunning: state.isRunning,
                 selectedCodebase: state.selectedCodebase,
                 selectedModel: state.selectedModel,
+                selectedWorker: state.selectedWorker,
                 maxIterations: state.maxIterations,
                 runMode: state.runMode,
                 maxParallel: state.maxParallel,

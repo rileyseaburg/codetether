@@ -176,7 +176,7 @@ export function RLMDemo() {
         code: { icon: '💻', label: 'Code', color: 'border-green-500/50 bg-green-950/50' },
         output: { icon: '📤', label: 'Output', color: 'border-gray-500/50 bg-gray-800/50' },
         subcall: { icon: '🔄', label: 'Sub-call', color: 'border-cyan-500/50 bg-cyan-950/50' },
-        stitch: { icon: '🧵', label: 'Stitch', color: 'border-purple-500/50 bg-purple-950/50' },
+        stitch: { icon: '🧵', label: 'Stitch', color: 'border-cyan-500/50 bg-cyan-950/50' },
         result: { icon: '✅', label: 'Result', color: 'border-emerald-500/50 bg-emerald-950/50' },
     }
 

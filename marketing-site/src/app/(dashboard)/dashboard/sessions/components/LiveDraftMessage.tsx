@@ -14,7 +14,7 @@ export function LiveDraftMessage({
 }: LiveDraftMessageProps) {
     if (!liveDraft) return null
 
-    const agentMode = selectedMode || sessionAgent || 'build'
+    const agentMode = selectedMode || sessionAgent || 'code'
     const deferredDraft = useDeferredValue(liveDraft)
 
     return (

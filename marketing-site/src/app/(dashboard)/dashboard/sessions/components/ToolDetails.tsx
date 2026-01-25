@@ -63,7 +63,7 @@ export function ToolDetails({ tools, isUser }: ToolDetailsProps) {
 
     return (
         <details
-            className={`mt-3 rounded-lg transition-shadow ${isUser ? 'bg-indigo-500/20' : 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200/50 dark:ring-blue-700/30'}`}
+            className={`mt-3 rounded-lg transition-shadow ${isUser ? 'bg-cyan-500/20' : 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200/50 dark:ring-blue-700/30'}`}
             onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}
         >
             <summary
@@ -159,7 +159,7 @@ function ToolItem({ tool, index, isExpanded, onToggle }: ToolItemProps) {
 
     return (
         <div
-            className={`rounded-lg bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 overflow-hidden transition-shadow ${isExpanded ? 'shadow-md ring-indigo-200/60 dark:ring-indigo-600/40' : 'shadow-sm'}`}
+            className={`rounded-lg bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 overflow-hidden transition-shadow ${isExpanded ? 'shadow-md ring-cyan-200/60 dark:ring-cyan-600/40' : 'shadow-sm'}`}
             role="listitem"
         >
             <button

@@ -10,6 +10,7 @@ Integrates with the A2A server to expose actual agent capabilities as MCP tools.
 import asyncio
 import json
 import logging
+import os
 import uuid
 from typing import Any, Dict, List, Optional
 from datetime import datetime
@@ -35,15 +36,29 @@ from .worker_sse import (
     setup_task_creation_hook,
 )
 
-# Import marketing tools
-try:
-    from .marketing_tools import (
-        get_marketing_tools,
-        MARKETING_TOOL_HANDLERS,
-    )
+logger = logging.getLogger(__name__)
 
-    MARKETING_TOOLS_AVAILABLE = True
-except ImportError:
+# Import marketing tools (disabled by default - these call external Spotless Bin Co APIs)
+# Enable with MARKETING_TOOLS_ENABLED=true if running the Spotless backend
+MARKETING_TOOLS_ENABLED = (
+    os.environ.get('MARKETING_TOOLS_ENABLED', 'false').lower() == 'true'
+)
+
+if MARKETING_TOOLS_ENABLED:
+    try:
+        from .marketing_tools import (
+            get_marketing_tools,
+            MARKETING_TOOL_HANDLERS,
+        )
+
+        MARKETING_TOOLS_AVAILABLE = True
+        logger.info('Marketing tools enabled (MARKETING_TOOLS_ENABLED=true)')
+    except ImportError:
+        MARKETING_TOOLS_AVAILABLE = False
+        get_marketing_tools = lambda: []
+        MARKETING_TOOL_HANDLERS = {}
+        logger.warning('Marketing tools requested but import failed')
+else:
     MARKETING_TOOLS_AVAILABLE = False
     get_marketing_tools = lambda: []
     MARKETING_TOOL_HANDLERS = {}
@@ -94,8 +109,6 @@ except ImportError:
     AUTOMATION_API_AVAILABLE = False
     automation_router = None
 
-logger = logging.getLogger(__name__)
-
 
 class MCPRequest(BaseModel):
     """MCP JSON-RPC request."""
@@ -117,6 +130,10 @@ class MCPResponse(BaseModel):
 
 class MCPHTTPServer:
     """HTTP-based MCP server that exposes A2A agent capabilities as MCP tools."""
+
+    # Session state storage for active codebase per session
+    _session_codebases: Dict[str, str] = {}  # session_id -> codebase_id
+    _default_codebase_id: Optional[str] = None  # Global default if no session
 
     def __init__(
         self, host: str = '0.0.0.0', port: int = 9000, a2a_server=None
@@ -160,10 +177,11 @@ class MCPHTTPServer:
         self._setup_routes()
 
     def _get_tools_from_a2a_server(self) -> List[Dict[str, Any]]:
-        """Extract MCP tools from A2A server capabilities."""
-        if not self.a2a_server:
-            return self._get_fallback_tools()
+        """Get MCP tools for A2A operations.
 
+        These tools work regardless of whether an A2A server instance is passed -
+        they call the A2A REST API (configured via A2A_SERVER_URL env var).
+        """
         tools = [
             # Core A2A operations exposed as MCP tools
             {
@@ -515,6 +533,239 @@ class MCPHTTPServer:
                         }
                     },
                     'required': ['tool_name'],
+                },
+            },
+            {
+                'name': 'get_current_codebase',
+                'description': "Get the current codebase context. Returns codebase_id, name, and path for the codebase this MCP server is connected to. Use this to get the correct codebase_id for task creation. If no specific codebase is set, returns the default 'global' codebase info.",
+                'inputSchema': {'type': 'object', 'properties': {}},
+            },
+            {
+                'name': 'list_codebases',
+                'description': 'List all registered codebases. Returns array of codebases with id, name, path, worker_id, and status. Use this to find valid codebase_id values for targeting tasks.',
+                'inputSchema': {'type': 'object', 'properties': {}},
+            },
+            {
+                'name': 'create_codebase',
+                'description': 'Register a new codebase for agent work. The codebase path must exist on the worker machine. If worker_id is provided, registration is immediate. Otherwise, a task is created for workers to validate and register.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string',
+                            'description': 'Human-readable name for the codebase (e.g., "marketing-site", "api-server")',
+                        },
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the codebase directory (e.g., "/home/user/projects/my-app")',
+                        },
+                        'description': {
+                            'type': 'string',
+                            'description': 'Optional description of the codebase',
+                        },
+                        'worker_id': {
+                            'type': 'string',
+                            'description': 'Optional worker ID for immediate registration (skip validation task)',
+                        },
+                    },
+                    'required': ['name', 'path'],
+                },
+            },
+            {
+                'name': 'get_codebase',
+                'description': 'Get detailed information about a specific codebase by ID.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'The codebase ID to retrieve',
+                        },
+                    },
+                    'required': ['codebase_id'],
+                },
+            },
+            {
+                'name': 'delete_codebase',
+                'description': 'Unregister a codebase. This removes it from the system but does not delete any files.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'The codebase ID to delete',
+                        },
+                    },
+                    'required': ['codebase_id'],
+                },
+            },
+            {
+                'name': 'set_active_codebase',
+                'description': 'Set the active/default codebase for this session. Subsequent ralph_create_run and task operations will use this codebase automatically if no codebase_id is specified.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'The codebase ID to set as active (use list_codebases to find IDs)',
+                        },
+                    },
+                    'required': ['codebase_id'],
+                },
+            },
+            {
+                'name': 'get_active_codebase',
+                'description': 'Get the currently active codebase for this session.',
+                'inputSchema': {'type': 'object', 'properties': {}},
+            },
+            # Ralph (PRD-driven development) tools
+            {
+                'name': 'ralph_create_run',
+                'description': 'Start a Ralph run to implement a PRD (Product Requirements Document). Ralph autonomously implements user stories by iterating until all stories are complete. Returns run_id for tracking progress.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'project': {
+                            'type': 'string',
+                            'description': 'Project name (e.g., "User Authentication System")',
+                        },
+                        'branch_name': {
+                            'type': 'string',
+                            'description': 'Git branch name for the implementation (e.g., "feature/user-auth")',
+                        },
+                        'description': {
+                            'type': 'string',
+                            'description': 'High-level description of what to build',
+                        },
+                        'user_stories': {
+                            'type': 'array',
+                            'description': 'List of user stories to implement',
+                            'items': {
+                                'type': 'object',
+                                'properties': {
+                                    'id': {
+                                        'type': 'string',
+                                        'description': 'Unique story ID (e.g., "US-001")',
+                                    },
+                                    'title': {
+                                        'type': 'string',
+                                        'description': 'Story title',
+                                    },
+                                    'description': {
+                                        'type': 'string',
+                                        'description': 'Detailed description',
+                                    },
+                                    'acceptance_criteria': {
+                                        'type': 'array',
+                                        'items': {'type': 'string'},
+                                        'description': 'List of acceptance criteria',
+                                    },
+                                },
+                                'required': ['id', 'title', 'description'],
+                            },
+                        },
+                        'max_iterations': {
+                            'type': 'integer',
+                            'description': 'Maximum iterations before stopping (default: 10)',
+                        },
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'Target codebase ID (use list_codebases to find valid IDs)',
+                        },
+                    },
+                    'required': ['project', 'branch_name', 'user_stories'],
+                },
+            },
+            {
+                'name': 'ralph_get_run',
+                'description': 'Get the status and details of a Ralph run. Returns current status, completed stories, and iteration count.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'run_id': {
+                            'type': 'string',
+                            'description': 'The Ralph run ID to check',
+                        },
+                    },
+                    'required': ['run_id'],
+                },
+            },
+            {
+                'name': 'ralph_list_runs',
+                'description': 'List all Ralph runs, optionally filtered by status. Returns run summaries with progress information.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'status': {
+                            'type': 'string',
+                            'enum': [
+                                'pending',
+                                'running',
+                                'completed',
+                                'failed',
+                                'cancelled',
+                            ],
+                            'description': 'Filter by status (optional)',
+                        },
+                        'limit': {
+                            'type': 'integer',
+                            'description': 'Max number of runs to return (default: 20)',
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'ralph_cancel_run',
+                'description': 'Cancel a running Ralph run. The run will stop after the current iteration completes.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'run_id': {
+                            'type': 'string',
+                            'description': 'The Ralph run ID to cancel',
+                        },
+                    },
+                    'required': ['run_id'],
+                },
+            },
+            # PRD Chat tools
+            {
+                'name': 'prd_chat',
+                'description': 'Chat with AI to generate a PRD (Product Requirements Document). Describe your project and the AI will help create structured user stories. Use conversation_id to continue a conversation.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'message': {
+                            'type': 'string',
+                            'description': 'Your message describing the project or answering AI questions',
+                        },
+                        'conversation_id': {
+                            'type': 'string',
+                            'description': 'Conversation ID to continue an existing PRD chat session',
+                        },
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'Target codebase ID for the PRD',
+                        },
+                    },
+                    'required': ['message'],
+                },
+            },
+            {
+                'name': 'prd_list_sessions',
+                'description': 'List PRD chat sessions for a codebase. Use to find and continue previous PRD conversations.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'codebase_id': {
+                            'type': 'string',
+                            'description': 'Codebase ID to list sessions for',
+                        },
+                        'limit': {
+                            'type': 'integer',
+                            'description': 'Max sessions to return (default: 20)',
+                        },
+                    },
                 },
             },
         ]
@@ -921,10 +1172,11 @@ class MCPHTTPServer:
     async def _call_tool(
         self, tool_name: str, arguments: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute A2A operations based on tool name."""
-        if not self.a2a_server:
-            return {'error': 'No A2A server connected'}
+        """Execute A2A operations based on tool name.
 
+        Tools work by calling the OpenCode bridge or REST APIs directly,
+        not requiring an in-process A2A server reference.
+        """
         try:
             if tool_name == 'send_message':
                 return await self._send_message(arguments)
@@ -979,6 +1231,47 @@ class MCPHTTPServer:
 
             elif tool_name == 'list_task_runs':
                 return await self._list_task_runs(arguments)
+
+            elif tool_name == 'get_current_codebase':
+                return await self._get_current_codebase()
+
+            elif tool_name == 'list_codebases':
+                return await self._list_codebases()
+
+            elif tool_name == 'create_codebase':
+                return await self._create_codebase(arguments)
+
+            elif tool_name == 'get_codebase':
+                return await self._get_codebase(arguments)
+
+            elif tool_name == 'delete_codebase':
+                return await self._delete_codebase(arguments)
+
+            elif tool_name == 'set_active_codebase':
+                return await self._set_active_codebase(arguments)
+
+            elif tool_name == 'get_active_codebase':
+                return await self._get_active_codebase()
+
+            # Ralph (PRD-driven development) tools
+            elif tool_name == 'ralph_create_run':
+                return await self._ralph_create_run(arguments)
+
+            elif tool_name == 'ralph_get_run':
+                return await self._ralph_get_run(arguments)
+
+            elif tool_name == 'ralph_list_runs':
+                return await self._ralph_list_runs(arguments)
+
+            elif tool_name == 'ralph_cancel_run':
+                return await self._ralph_cancel_run(arguments)
+
+            # PRD Chat tools
+            elif tool_name == 'prd_chat':
+                return await self._prd_chat(arguments)
+
+            elif tool_name == 'prd_list_sessions':
+                return await self._prd_list_sessions(arguments)
 
             # Check if it's a marketing tool
             elif (
@@ -1104,6 +1397,26 @@ class MCPHTTPServer:
             'timestamp': datetime.now().isoformat(),
         }
 
+    def _resolve_codebase_id(self, codebase_id: Optional[str]) -> Optional[str]:
+        """
+        Resolve a codebase_id, handling the special 'global' case.
+
+        If codebase_id is 'global' (the default), look up the actual codebase
+        with name='global' and return its ID. If no 'global' codebase exists,
+        return None to allow task creation without a specific codebase.
+        """
+        if codebase_id is None or codebase_id == 'global':
+            # Look up the actual 'global' codebase by name
+            bridge = get_opencode_bridge()
+            if bridge:
+                codebases = bridge.list_codebases()
+                for cb in codebases:
+                    if cb.name == 'global':
+                        return cb.id
+            # No global codebase found - return None
+            return None
+        return codebase_id
+
     async def _send_message_async(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send a message asynchronously by creating a task and enqueuing it.
@@ -1117,7 +1430,9 @@ class MCPHTTPServer:
 
         message = args.get('message', '')
         conversation_id = args.get('conversation_id') or str(uuid.uuid4())
-        codebase_id = args.get('codebase_id', 'global')
+        codebase_id = self._resolve_codebase_id(
+            args.get('codebase_id', 'global')
+        )
         priority = args.get('priority', 0)
         notify_email = args.get('notify_email')
         model_ref = args.get('model_ref')  # Normalized provider:model format
@@ -1218,7 +1533,9 @@ class MCPHTTPServer:
 
         message = args.get('message', '')
         conversation_id = args.get('conversation_id') or str(uuid.uuid4())
-        codebase_id = args.get('codebase_id', 'global')
+        codebase_id = self._resolve_codebase_id(
+            args.get('codebase_id', 'global')
+        )
         priority = args.get('priority', 0)
         deadline_seconds = args.get('deadline_seconds')
         notify_email = args.get('notify_email')
@@ -1341,7 +1658,9 @@ class MCPHTTPServer:
 
         title = args.get('title')
         description = args.get('description', '')
-        codebase_id = args.get('codebase_id', 'global')
+        codebase_id = self._resolve_codebase_id(
+            args.get('codebase_id', 'global')
+        )
         agent_type = args.get('agent_type', 'build')
         priority = args.get('priority', 0)
         # Resolve user-friendly model name to full provider/model-id
@@ -1610,6 +1929,467 @@ class MCPHTTPServer:
             }
         except Exception as e:
             return {'error': f'Failed to list task runs: {str(e)}'}
+
+    async def _get_current_codebase(self) -> Dict[str, Any]:
+        """Get the current codebase context from the bridge."""
+        bridge = get_opencode_bridge()
+        if bridge is None:
+            return {'error': 'OpenCode bridge not available'}
+
+        # Get all codebases and find the one we're running in
+        codebases = bridge.list_codebases()
+
+        # Try to determine which codebase we're in based on the working directory
+        import os
+
+        cwd = os.getcwd()
+
+        # Find the codebase that matches our current working directory
+        current_codebase = None
+        for cb in codebases:
+            if cb.path and cwd.startswith(cb.path):
+                # Prefer more specific matches (longer paths)
+                if current_codebase is None or len(cb.path) > len(
+                    current_codebase.path
+                ):
+                    current_codebase = cb
+
+        # If no match, look for a codebase named "global" or return the first one
+        if current_codebase is None:
+            for cb in codebases:
+                if cb.name == 'global':
+                    current_codebase = cb
+                    break
+
+        if current_codebase is None and codebases:
+            current_codebase = codebases[0]
+
+        if current_codebase is None:
+            return {
+                'error': 'No codebase found',
+                'hint': 'Register a codebase first or use list_codebases to see available options',
+            }
+
+        return {
+            'codebase_id': current_codebase.id,
+            'name': current_codebase.name,
+            'path': current_codebase.path,
+            'worker_id': current_codebase.worker_id,
+            'status': current_codebase.status,
+            'description': current_codebase.description,
+        }
+
+    async def _list_codebases(self) -> Dict[str, Any]:
+        """List all registered codebases."""
+        bridge = get_opencode_bridge()
+        if bridge is None:
+            return {'error': 'OpenCode bridge not available'}
+
+        codebases = bridge.list_codebases()
+
+        return {
+            'codebases': [
+                {
+                    'codebase_id': cb.id,
+                    'name': cb.name,
+                    'path': cb.path,
+                    'worker_id': cb.worker_id,
+                    'status': cb.status,
+                    'description': cb.description,
+                }
+                for cb in codebases
+            ],
+            'count': len(codebases),
+        }
+
+    async def _create_codebase(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Register a new codebase for agent work."""
+        import aiohttp
+
+        name = args.get('name')
+        path = args.get('path')
+        description = args.get('description', '')
+        worker_id = args.get('worker_id')
+
+        if not name:
+            return {'error': 'name is required'}
+        if not path:
+            return {'error': 'path is required'}
+
+        payload = {
+            'name': name,
+            'path': path,
+            'description': description,
+        }
+        if worker_id:
+            payload['worker_id'] = worker_id
+
+        api_url = 'http://localhost:8001/v1/opencode/codebases'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload) as resp:
+                    if resp.status in (200, 201):
+                        data = await resp.json()
+                        # If pending (no worker_id), return task info
+                        if data.get('pending'):
+                            return {
+                                'success': True,
+                                'pending': True,
+                                'task_id': data.get('task_id'),
+                                'message': data.get('message')
+                                or f'Registration task created for "{name}". A worker will validate the path.',
+                            }
+                        # Otherwise return codebase info
+                        return {
+                            'success': True,
+                            'pending': False,
+                            'codebase_id': data.get('id')
+                            or data.get('codebase_id'),
+                            'name': data.get('name') or name,
+                            'path': data.get('path') or path,
+                            'status': data.get('status'),
+                            'message': f'Codebase "{name}" registered successfully',
+                        }
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to create codebase: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call codebase API: {str(e)}'}
+
+    async def _get_codebase(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Get detailed information about a specific codebase."""
+        import aiohttp
+
+        codebase_id = args.get('codebase_id')
+        if not codebase_id:
+            return {'error': 'codebase_id is required'}
+
+        api_url = f'http://localhost:8001/v1/opencode/codebases/{codebase_id}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return {
+                            'codebase_id': data.get('id')
+                            or data.get('codebase_id'),
+                            'name': data.get('name'),
+                            'path': data.get('path'),
+                            'worker_id': data.get('worker_id'),
+                            'status': data.get('status'),
+                            'description': data.get('description'),
+                            'created_at': data.get('created_at'),
+                        }
+                    elif resp.status == 404:
+                        return {'error': f'Codebase not found: {codebase_id}'}
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to get codebase: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call codebase API: {str(e)}'}
+
+    async def _delete_codebase(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Unregister a codebase."""
+        import aiohttp
+
+        codebase_id = args.get('codebase_id')
+        if not codebase_id:
+            return {'error': 'codebase_id is required'}
+
+        api_url = f'http://localhost:8001/v1/opencode/codebases/{codebase_id}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(api_url) as resp:
+                    if resp.status in (200, 204):
+                        return {
+                            'success': True,
+                            'codebase_id': codebase_id,
+                            'message': f'Codebase {codebase_id} deleted successfully',
+                        }
+                    elif resp.status == 404:
+                        return {'error': f'Codebase not found: {codebase_id}'}
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to delete codebase: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call codebase API: {str(e)}'}
+
+    async def _set_active_codebase(
+        self, args: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Set the active codebase for subsequent operations."""
+        codebase_id = args.get('codebase_id')
+        if not codebase_id:
+            return {'error': 'codebase_id is required'}
+
+        # Verify the codebase exists
+        result = await self._get_codebase(args)
+        if 'error' in result:
+            return result
+
+        # Store as the default codebase
+        MCPHTTPServer._default_codebase_id = codebase_id
+
+        return {
+            'success': True,
+            'active_codebase_id': codebase_id,
+            'name': result.get('name'),
+            'path': result.get('path'),
+            'message': f'Active codebase set to "{result.get("name")}" ({codebase_id})',
+        }
+
+    async def _get_active_codebase(self) -> Dict[str, Any]:
+        """Get the currently active codebase."""
+        codebase_id = MCPHTTPServer._default_codebase_id
+
+        if not codebase_id:
+            return {
+                'active_codebase_id': None,
+                'message': 'No active codebase set. Use set_active_codebase or list_codebases to select one.',
+            }
+
+        # Get codebase details
+        result = await self._get_codebase({'codebase_id': codebase_id})
+        if 'error' in result:
+            # Codebase was deleted or doesn't exist anymore
+            MCPHTTPServer._default_codebase_id = None
+            return {
+                'active_codebase_id': None,
+                'message': 'Previously active codebase no longer exists. Use set_active_codebase to select a new one.',
+            }
+
+        return {
+            'active_codebase_id': codebase_id,
+            'name': result.get('name'),
+            'path': result.get('path'),
+            'worker_id': result.get('worker_id'),
+            'status': result.get('status'),
+        }
+
+    # =========================================================================
+    # Ralph (PRD-driven development) tool handlers
+    # =========================================================================
+
+    async def _ralph_create_run(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new Ralph run to implement a PRD."""
+        import aiohttp
+
+        project = args.get('project', '')
+        branch_name = args.get('branch_name', '')
+        description = args.get('description', '')
+        user_stories = args.get('user_stories', [])
+        max_iterations = args.get('max_iterations', 10)
+        codebase_id = args.get('codebase_id')
+
+        # Use active codebase if none specified
+        if not codebase_id and MCPHTTPServer._default_codebase_id:
+            codebase_id = MCPHTTPServer._default_codebase_id
+
+        if not project or not branch_name or not user_stories:
+            return {
+                'error': 'Missing required fields: project, branch_name, and user_stories are required'
+            }
+
+        # Build the PRD payload
+        prd_payload = {
+            'prd': {
+                'project': project,
+                'branchName': branch_name,
+                'description': description,
+                'userStories': [
+                    {
+                        'id': s.get('id', f'US-{i + 1}'),
+                        'title': s.get('title', ''),
+                        'description': s.get('description', ''),
+                        'acceptanceCriteria': s.get('acceptance_criteria', []),
+                        'status': 'pending',
+                    }
+                    for i, s in enumerate(user_stories)
+                ],
+            },
+            'max_iterations': max_iterations,
+        }
+
+        if codebase_id:
+            prd_payload['codebase_id'] = codebase_id
+
+        # Call the Ralph API
+        api_url = f'http://localhost:8001/v1/ralph/runs'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=prd_payload) as resp:
+                    if resp.status in (200, 201):
+                        data = await resp.json()
+                        return {
+                            'success': True,
+                            'run_id': data.get(
+                                'id'
+                            ),  # API returns 'id' not 'run_id'
+                            'status': data.get('status'),
+                            'current_iteration': data.get(
+                                'current_iteration', 0
+                            ),
+                            'max_iterations': data.get('max_iterations'),
+                            'message': f'Ralph run started for project "{project}"',
+                        }
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to create Ralph run: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call Ralph API: {str(e)}'}
+
+    async def _ralph_get_run(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Get the status of a Ralph run."""
+        import aiohttp
+
+        run_id = args.get('run_id')
+        if not run_id:
+            return {'error': 'run_id is required'}
+
+        api_url = f'http://localhost:8001/v1/ralph/runs/{run_id}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data
+                    elif resp.status == 404:
+                        return {'error': f'Ralph run not found: {run_id}'}
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to get Ralph run: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call Ralph API: {str(e)}'}
+
+    async def _ralph_list_runs(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """List Ralph runs."""
+        import aiohttp
+
+        status = args.get('status')
+        limit = args.get('limit', 20)
+
+        api_url = f'http://localhost:8001/v1/ralph/runs?limit={limit}'
+        if status:
+            api_url += f'&status={status}'
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to list Ralph runs: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call Ralph API: {str(e)}'}
+
+    async def _ralph_cancel_run(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Cancel a Ralph run."""
+        import aiohttp
+
+        run_id = args.get('run_id')
+        if not run_id:
+            return {'error': 'run_id is required'}
+
+        api_url = f'http://localhost:8001/v1/ralph/runs/{run_id}/cancel'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return {
+                            'success': True,
+                            'run_id': run_id,
+                            'status': data.get('status', 'cancelled'),
+                            'message': 'Ralph run cancelled',
+                        }
+                    elif resp.status == 404:
+                        return {'error': f'Ralph run not found: {run_id}'}
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to cancel Ralph run: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call Ralph API: {str(e)}'}
+
+    # =========================================================================
+    # PRD Chat tool handlers
+    # =========================================================================
+
+    async def _prd_chat(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Chat with AI to generate a PRD."""
+        import aiohttp
+
+        message = args.get('message')
+        if not message:
+            return {'error': 'message is required'}
+
+        conversation_id = args.get('conversation_id', 'prd-builder')
+        codebase_id = args.get('codebase_id')
+
+        payload = {
+            'message': message,
+            'conversation_id': conversation_id,
+        }
+        if codebase_id:
+            payload['codebase_id'] = codebase_id
+
+        api_url = 'http://localhost:8001/v1/ralph/chat'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return {
+                            'success': True,
+                            'task_id': data.get('task_id'),
+                            'status': data.get('status'),
+                            'conversation_id': conversation_id,
+                            'message': 'PRD chat message submitted. Poll the task for the AI response.',
+                        }
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to send PRD chat: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call PRD chat API: {str(e)}'}
+
+    async def _prd_list_sessions(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """List PRD chat sessions."""
+        import aiohttp
+
+        codebase_id = args.get('codebase_id', 'global')
+        limit = args.get('limit', 20)
+
+        api_url = f'http://localhost:8001/v1/ralph/chat/sessions/{codebase_id}?limit={limit}'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data
+                    else:
+                        error_text = await resp.text()
+                        return {
+                            'error': f'Failed to list PRD sessions: {error_text}'
+                        }
+        except Exception as e:
+            return {'error': f'Failed to call PRD sessions API: {str(e)}'}
 
     async def _discover_agents(self) -> Dict[str, Any]:
         """

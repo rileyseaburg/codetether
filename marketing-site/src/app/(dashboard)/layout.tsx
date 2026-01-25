@@ -2,9 +2,41 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import clsx from 'clsx'
+
+// Custom hook to get user from either NextAuth or localStorage
+function useAuth() {
+    const { data: session, status } = useSession()
+    const [customUser, setCustomUser] = useState<any>(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        // Check for custom token in localStorage
+        const token = localStorage.getItem('a2a_token')
+        const userStr = localStorage.getItem('a2a_user')
+        
+        if (token && userStr) {
+            try {
+                const user = JSON.parse(userStr)
+                setCustomUser(user)
+            } catch {
+                // Invalid user data
+                localStorage.removeItem('a2a_token')
+                localStorage.removeItem('a2a_user')
+            }
+        }
+        setIsLoading(false)
+    }, [])
+
+    // Prefer NextAuth session, fall back to custom auth
+    const user = session?.user || customUser
+    const isAuthenticated = status === 'authenticated' || !!customUser
+    const loading = status === 'loading' || isLoading
+
+    return { user, isAuthenticated, loading, session, customUser }
+}
 
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
@@ -87,9 +119,18 @@ function LoopIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function ServerIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+        </svg>
+    )
+}
+
 const navigation = [
     { name: 'Get Started', href: '/dashboard/getting-started', icon: RocketIcon, highlight: true },
     { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
+    { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
     { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
@@ -140,12 +181,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [darkMode, setDarkMode] = useState(false)
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const pathname = usePathname()
-    const { data: session } = useSession()
+    const router = useRouter()
+    const { user, isAuthenticated, loading, session, customUser } = useAuth()
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!loading && !isAuthenticated) {
+            router.push('/login?callbackUrl=' + encodeURIComponent(pathname))
+        }
+    }, [loading, isAuthenticated, router, pathname])
 
     // Check if user has admin role
-    const isAdmin = (session?.user as any)?.roles?.includes('admin') || 
-                    (session?.user as any)?.roles?.includes('a2a-admin') ||
-                    (session?.user as any)?.role === 'admin'
+    const isAdmin = (user as any)?.roles?.includes('admin') || 
+                    (user as any)?.roles?.includes('a2a-admin') ||
+                    (user as any)?.role === 'admin'
 
     // Build navigation with admin item if user is admin
     const navItems = isAdmin ? [...navigation, adminNavItem] : navigation
@@ -161,7 +210,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const handleSignOut = () => {
-        signOut({ callbackUrl: '/' })
+        // Clear custom auth tokens from localStorage
+        localStorage.removeItem('a2a_token')
+        localStorage.removeItem('a2a_user')
+        localStorage.removeItem('a2a_refresh_token')
+        localStorage.removeItem('a2a_session')
+        localStorage.removeItem('access_token')
+        
+        // Clear cookie
+        document.cookie = 'a2a_token=; path=/; max-age=0'
+        
+        // Sign out from NextAuth if using that
+        if (session) {
+            signOut({ callbackUrl: '/' })
+        } else {
+            router.push('/')
+        }
+    }
+
+    // Show loading state
+    if (loading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-900">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
+            </div>
+        )
+    }
+
+    // Don't render if not authenticated (will redirect)
+    if (!isAuthenticated) {
+        return null
     }
 
     return (
@@ -186,7 +264,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                         <span className="text-lg font-semibold text-white">CodeTether</span>
                     </Link>
-                    <button onClick={() => setSidebarOpen(false)} className="text-indigo-200 hover:text-white">
+                    <button onClick={() => setSidebarOpen(false)} className="text-cyan-200 hover:text-white">
                         <XIcon className="h-6 w-6" />
                     </button>
                 </div>
@@ -201,8 +279,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
                                         pathname === item.href
                                             ? 'bg-white/10 text-white'
-                                            : 'text-indigo-100 hover:bg-white/10',
-                                        item.name === 'Admin' && 'border-t border-indigo-600 dark:border-gray-700 mt-2 pt-2',
+                                            : 'text-cyan-100 hover:bg-white/10',
+                                        item.name === 'Admin' && 'border-t border-cyan-600 dark:border-gray-700 mt-2 pt-2',
                                         (item as any).highlight && 'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30'
                                     )}
                                 >
@@ -220,8 +298,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Desktop sidebar */}
             <div className="hidden md:fixed md:inset-y-0 md:z-50 md:flex md:w-60 lg:w-56 lg:flex-col">
-                <div className="flex grow flex-col overflow-y-auto bg-indigo-700 dark:bg-gray-800">
-                    <div className="flex h-16 items-center px-4 border-b border-indigo-600 dark:border-gray-700">
+                <div className="flex grow flex-col overflow-y-auto bg-cyan-700 dark:bg-gray-800">
+                    <div className="flex h-16 items-center px-4 border-b border-cyan-600 dark:border-gray-700">
                         <Link href="/dashboard" className="flex items-center gap-2">
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
                                 <TerminalIcon className="h-5 w-5 text-white" />
@@ -237,10 +315,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         href={item.href}
                                         className={clsx(
                                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-                                            pathname === item.href
-                                                ? 'bg-white/10 text-white'
-                                                : 'text-indigo-100 hover:bg-white/10',
-                                            item.name === 'Admin' && 'border-t border-indigo-600 dark:border-gray-700 mt-2 pt-2',
+                                             pathname === item.href
+                                                 ? 'bg-white/10 text-white'
+                                                 : 'text-cyan-100 hover:bg-white/10',
+                                             item.name === 'Admin' && 'border-t border-cyan-600 dark:border-gray-700 mt-2 pt-2',
                                             (item as any).highlight && 'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30'
                                         )}
                                     >
@@ -252,17 +330,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </Link>
                                 </li>
                             ))}
-                        </ul>
+                         </ul>
                         {/* Stats in sidebar */}
-                        <div className="mt-auto pt-4 border-t border-indigo-600 dark:border-gray-700">
+                        <div className="mt-auto pt-4 border-t border-cyan-600 dark:border-gray-700">
                             <div className="grid grid-cols-2 gap-2 text-center">
                                 <div className="rounded-lg bg-white/5 p-2">
                                     <div className="text-lg font-bold text-white">0</div>
-                                    <div className="text-xs text-indigo-200">Codebases</div>
+                                    <div className="text-xs text-cyan-200">Codebases</div>
                                 </div>
                                 <div className="rounded-lg bg-white/5 p-2">
                                     <div className="text-lg font-bold text-white">0</div>
-                                    <div className="text-xs text-indigo-200">Tasks</div>
+                                    <div className="text-xs text-cyan-200">Tasks</div>
                                 </div>
                             </div>
                         </div>
@@ -307,25 +385,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </button>
 
                             {/* User menu */}
-                            {session?.user ? (
+                            {user ? (
                                 <div className="relative">
                                     <button
                                         onClick={() => setUserMenuOpen(!userMenuOpen)}
                                         className="flex items-center gap-1 sm:gap-2 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
                                     >
-                                        {session.user.image ? (
+                                        {user.image ? (
                                             <img
-                                                src={session.user.image}
-                                                alt={session.user.name || 'User'}
+                                                src={user.image}
+                                                alt={user.name || user.first_name || 'User'}
                                                 className="h-8 w-8 rounded-full"
                                             />
-                                        ) : (
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white text-sm font-medium">
-                                                {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
+                                         ) : (
+                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-white text-sm font-medium">
+                                                {user.name?.charAt(0) || user.first_name?.charAt(0) || user.email?.charAt(0) || 'U'}
                                             </div>
                                         )}
                                         <span className="hidden xs:hidden sm:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 max-w-20 sm:max-w-none truncate">
-                                            {session.user.name || session.user.email}
+                                            {user.name || user.first_name || user.email}
                                         </span>
                                     </button>
 
@@ -339,7 +417,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                                     Signed in as
                                                     <div className="font-medium text-gray-900 dark:text-white truncate">
-                                                        {session.user.email}
+                                                        {user.email}
                                                     </div>
                                                 </div>
                                                 <Link
@@ -366,11 +444,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         </>
                                     )}
                                 </div>
-                            ) : (
-                                <Link
-                                    href="/login"
-                                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-                                >
+                             ) : (
+                                 <Link
+                                     href="/login"
+                                     className="text-sm font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
+                                 >
                                     Sign in
                                 </Link>
                             )}

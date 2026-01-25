@@ -128,3 +128,87 @@ make local-worker-restart
 - Show estimated completion time based on chunk progress
 - Add ability to cancel RLM execution in-progress
 - Performance metrics visualization (tokens/second, cost breakdown)
+
+---
+
+## Completed (Jan 23, 2026)
+
+### SDK Generation & Type-Safe API Calls
+
+1. **SDK Generation Setup** ✅
+   - Installed `@hey-api/openapi-ts` for auto-generating TypeScript SDK from OpenAPI spec
+   - Configured `openapi-ts.config.ts` to fetch from `https://api.codetether.run/openapi.json`
+   - Added `npm run generate:api` script to regenerate SDK
+   - Generated SDK files in `src/lib/api/generated/`
+
+2. **Environment-Aware Client** ✅
+   - Created `src/lib/api/index.ts` with environment-aware base URL
+   - Uses `NEXT_PUBLIC_API_URL` if set, else localhost:8000 in dev, else api.codetether.run
+
+3. **Ralph Page Migration (Partial)** ✅
+   - Migrated `RalphPageHooks.ts` to use SDK functions
+   - Migrated `ServerRalphRuns.tsx` to use SDK
+   - Migrated `page.tsx` task fetching to use SDK
+
+4. **Updated AGENTS.md** ✅
+   - Documented the SDK generation pattern and usage
+
+### Ralph Page Refactoring (50-Line Rule) ✅
+
+Refactored `ralph/page.tsx` from **2006 lines** to modular components:
+
+| Component | Lines | Purpose |
+|-----------|-------|---------|
+| `RalphIcons.tsx` | 44 | Shared icon components |
+| `RalphHeader.tsx` | 42 | Page header with controls |
+| `RalphPRDConfigPanel.tsx` | 50 | PRD JSON input & builder |
+| `RalphSettingsPanel.tsx` | 35 | Codebase, model, run settings |
+| `RalphStoriesPanel.tsx` | 39 | Stories list container |
+| `RalphStoryCard.tsx` | 39 | Individual story card |
+| `RalphLogViewer.tsx` | 45 | Terminal-style log output |
+| `ServerRalphRuns.tsx` | 39 | Run history |
+| `RalphTasksTable.tsx` | 29 | Active tasks table |
+| `RalphPageHooks.ts` | 36 | Business logic hooks |
+| `page.tsx` | 42 | Main orchestration |
+
+---
+
+## SDK Migration - Remaining Work
+
+### High Priority (Dashboard Core)
+| File | Endpoints to Migrate |
+|------|---------------------|
+| `dashboard/page.tsx` | codebases/list, workers, models, trigger, codebases CRUD |
+| `dashboard/tasks/page.tsx` | opencode/tasks |
+| `dashboard/settings/page.tsx` | providers, vault/status, api-keys, billing/status |
+| `dashboard/billing/page.tsx` | billing/status, checkout, portal |
+
+### Medium Priority (Features)
+| File | Endpoints |
+|------|-----------|
+| `components/IntercomChat.tsx` | opencode/tasks |
+| `components/ChatWidget.tsx` | opencode/tasks |
+| `components/WorkerSelector/index.tsx` | opencode/workers |
+| `sessions/hooks/useSessions.ts` | codebases sessions |
+| `sessions/hooks/useCodebases.ts` | codebases/list |
+| `ralph/prd-api.ts` | opencode/tasks |
+| `ralph/useAIPRDChat.ts` | opencode/tasks |
+
+### Lower Priority
+| File | Endpoints |
+|------|-----------|
+| `voice/*` | voice/voices, voice/sessions |
+| `admin/page.tsx` | admin/dashboard, admin/alerts |
+| `automations/*` | automation/tasks |
+
+### Commands
+```bash
+# Regenerate SDK after API changes
+cd marketing-site && npm run generate:api
+
+# Find remaining fetch calls
+grep -rn "fetch(" src --include="*.ts" --include="*.tsx" | grep -v generated
+
+# Check SDK functions available
+grep "export const" src/lib/api/generated/sdk.gen.ts | head -50
+```

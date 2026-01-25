@@ -17,7 +17,7 @@ def _read_readme() -> str:
 
 setup(
     name='codetether',
-    version='1.4.3',
+    version='1.4.1',
     description='CodeTether: A2A Protocol v0.3 compliant agent orchestration platform with MCP + OpenCode integration',
     long_description=_read_readme(),
     long_description_content_type='text/markdown',
@@ -74,7 +74,7 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: Apache License 2.0',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',

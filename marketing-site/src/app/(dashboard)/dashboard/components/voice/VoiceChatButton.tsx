@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { listVoicesV1VoiceVoicesGet, createVoiceSessionV1VoiceSessionsPost } from '@/lib/api';
 
 const generateUuid = () => {
   if (typeof crypto !== 'undefined') {
@@ -78,21 +79,12 @@ export default function VoiceChatButton({
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run';
 
-  // Helper to get auth headers
-  const getAuthHeaders = (): HeadersInit => ({
-    'Content-Type': 'application/json',
-    ...(session?.accessToken && { 'Authorization': `Bearer ${session.accessToken}` }),
-  });
-
   const fetchVoices = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/v1/voice/voices`, {
-        headers: getAuthHeaders(),
+      const { data } = await listVoicesV1VoiceVoicesGet({
+        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
       });
-      if (response.ok) {
-        return await response.json();
-      }
-      return [];
+      return ((data as unknown as { voices?: Voice[] })?.voices) || [];
     } catch {
       return [];
     }
@@ -101,26 +93,19 @@ export default function VoiceChatButton({
   const startSession = async (voice: Voice) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/v1/voice/sessions`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+      const { data } = await createVoiceSessionV1VoiceSessionsPost({
+        body: {
           voice: voice.id,
           codebase_id: codebaseId,
           session_id: sessionId,
           mode: mode,
           playback_style: playbackStyle,
           user_id: userId,
-        }),
+        },
+        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
       });
-      if (response.ok) {
-        const voiceSession = await response.json();
-        setConnectionInfo(voiceSession);
-        setIsOpen(true);
-      } else {
-        const error = await response.json();
-        console.error('Failed to start voice session:', error);
-      }
+      setConnectionInfo(data as VoiceSession);
+      setIsOpen(true);
     } catch (e) {
       console.error('Failed to start voice session:', e);
     } finally {

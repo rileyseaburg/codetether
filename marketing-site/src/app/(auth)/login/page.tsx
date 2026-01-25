@@ -77,6 +77,8 @@ function LoginForm() {
         // Store token and user info
         localStorage.setItem('a2a_token', data.access_token)
         localStorage.setItem('a2a_user', JSON.stringify(data.user))
+        // Also set cookie for server-side middleware
+        document.cookie = `a2a_token=${data.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
         router.push(callbackUrl)
         return
       }

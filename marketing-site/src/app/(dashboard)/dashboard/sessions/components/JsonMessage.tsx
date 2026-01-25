@@ -38,7 +38,7 @@ export function JsonMessage({ payload, rawText }: JsonMessageProps) {
                         type="button"
                         onClick={() => setShowRaw((prev) => !prev)}
                         className={`rounded-md border px-2 py-1 text-[10px] font-medium transition-all hover:border-gray-300 dark:hover:border-gray-500 ${showRaw
-                                ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200'
+                                ? 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200'
                                 : 'border-gray-200 bg-white/70 text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300'
                             }`}
                         aria-pressed={showRaw}

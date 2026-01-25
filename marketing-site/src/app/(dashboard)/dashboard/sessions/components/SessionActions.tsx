@@ -23,8 +23,8 @@ export function SessionActions({ loading, awaitingResponse, onResume, onRefresh,
                 <button
                     type="button"
                     onClick={onResume}
-                    disabled={loading}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                     disabled={loading}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                     aria-label={`Resume ${sessionTitle}`}
                     aria-busy={loading}
                 >
@@ -35,8 +35,8 @@ export function SessionActions({ loading, awaitingResponse, onResume, onRefresh,
             <button
                 type="button"
                 onClick={onRefresh}
-                disabled={loading}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                 disabled={loading}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                 aria-label={`Refresh messages for ${sessionTitle}`}
                 aria-busy={loading}
             >

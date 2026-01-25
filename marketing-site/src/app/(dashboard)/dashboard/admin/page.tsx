@@ -1,20 +1,61 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import {
+  getAdminDashboardV1AdminDashboardGet,
+  getSystemAlertsV1AdminAlertsGet,
+  listTenantsV1AdminTenantsGet,
+  listUsersV1AdminUsersGet,
+  listK8sInstancesV1AdminInstancesGet,
+  suspendInstanceV1AdminInstancesNamespaceSuspendPost,
+  resumeInstanceV1AdminInstancesNamespaceResumePost,
+  deleteInstanceV1AdminInstancesNamespaceDelete,
+} from '@/lib/api'
 
-interface DashboardStats {
+interface UserStats {
     total_users: number
-    active_users_24h: number
+    active_users: number
+    users_last_24h: number
+    users_last_7d: number
+    users_last_30d: number
+    pending_verification: number
+    suspended: number
+}
+
+interface TenantStats {
     total_tenants: number
-    active_tenants: number
-    suspended_tenants: number
-    total_instances: number
+    tenants_by_plan: Record<string, number>
+    tenants_with_k8s: number
+    tenants_last_24h: number
+    tenants_last_7d: number
+}
+
+interface SubscriptionStats {
+    total_subscriptions: number
+    active_subscriptions: number
+    mrr_estimate: number
+    subscriptions_by_tier: Record<string, number>
+    past_due: number
+    canceled_last_30d: number
+}
+
+interface K8sClusterStats {
+    total_namespaces: number
     running_instances: number
     suspended_instances: number
-    estimated_mrr: number
-    tier_distribution: Record<string, number>
+    total_pods: number
+    healthy_pods: number
+    unhealthy_pods: number
+}
+
+interface DashboardData {
+    users: UserStats
+    tenants: TenantStats
+    subscriptions: SubscriptionStats
+    k8s_cluster: K8sClusterStats | null
+    recent_signups: any[]
 }
 
 interface User {
@@ -29,10 +70,9 @@ interface User {
 
 interface Tenant {
     id: string
-    name: string
-    slug: string
-    tier: string
-    status: string
+    realm_name: string
+    display_name: string | null
+    plan: string
     created_at: string
     user_count: number
     k8s_namespace: string | null
@@ -108,7 +148,7 @@ export default function AdminDashboard() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tenants' | 'instances'>('overview')
-    const [stats, setStats] = useState<DashboardStats | null>(null)
+    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
     const [users, setUsers] = useState<User[]>([])
     const [tenants, setTenants] = useState<Tenant[]>([])
     const [instances, setInstances] = useState<Instance[]>([])
@@ -130,6 +170,14 @@ export default function AdminDashboard() {
             router.push('/login')
             return
         }
+        
+        // Check if token refresh failed - force re-login
+        if ((session as any)?.error === 'RefreshAccessTokenError') {
+            console.error('Token refresh failed, signing out...')
+            signOut({ callbackUrl: '/login?error=session_expired' })
+            return
+        }
+        
         if (!isAdmin) {
             router.push('/dashboard')
             return
@@ -141,29 +189,58 @@ export default function AdminDashboard() {
         setLoading(true)
         setError(null)
         try {
+            // accessToken is on the session object directly, not session.user
             const token = (session as any)?.accessToken
+            console.log('Admin dashboard - full session:', JSON.stringify(session, null, 2))
+            console.log('Admin dashboard - token:', token ? `${token.substring(0, 50)}...` : 'NO TOKEN')
+            console.log('Admin dashboard - session keys:', session ? Object.keys(session) : 'no session')
+            
+            if (!token) {
+                throw new Error('No access token available')
+            }
+            
             const headers = {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
 
-            const [dashboardRes, alertsRes] = await Promise.all([
+            const [dashboardRes, alertsRes, tenantsRes] = await Promise.all([
                 fetch(`${API_BASE}/v1/admin/dashboard`, { headers }),
-                fetch(`${API_BASE}/v1/admin/alerts`, { headers })
+                fetch(`${API_BASE}/v1/admin/alerts`, { headers }),
+                fetch(`${API_BASE}/v1/admin/tenants?limit=50`, { headers })
             ])
 
             if (!dashboardRes.ok) {
+                // Handle 401 - token expired or invalid
+                if (dashboardRes.status === 401) {
+                    console.error('API returned 401, signing out...')
+                    signOut({ callbackUrl: '/login?error=session_expired' })
+                    return
+                }
                 throw new Error(`Failed to fetch dashboard: ${dashboardRes.status}`)
             }
 
-            const dashboardData = await dashboardRes.json()
-            setStats(dashboardData.stats)
-            setUsers(dashboardData.recent_users || [])
-            setTenants(dashboardData.recent_tenants || [])
+            const data = await dashboardRes.json()
+            setDashboardData(data)
+            // Map recent_signups to users format for overview
+            setUsers((data.recent_signups || []).map((u: any) => ({
+                id: u.id,
+                email: u.email,
+                name: u.name,
+                created_at: u.created_at,
+                last_login: null,
+                tenant_id: null,
+                tenant_name: u.tenant
+            })))
 
             if (alertsRes.ok) {
                 const alertsData = await alertsRes.json()
                 setAlerts(alertsData.alerts || [])
+            }
+
+            if (tenantsRes.ok) {
+                const tenantsData = await tenantsRes.json()
+                setTenants(tenantsData.tenants || [])
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load dashboard')
@@ -244,10 +321,10 @@ export default function AdminDashboard() {
         if (activeTab === 'instances') fetchInstances()
     }, [activeTab])
 
-    if (status === 'loading' || loading) {
+     if (status === 'loading' || loading) {
         return (
             <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
             </div>
         )
     }
@@ -271,9 +348,9 @@ export default function AdminDashboard() {
                     <AlertIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Error Loading Dashboard</h2>
                     <p className="text-gray-600 dark:text-gray-400 mt-2">{error}</p>
-                    <button
+                     <button
                         onClick={fetchDashboardData}
-                        className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                        className="mt-4 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
                     >
                         Retry
                     </button>
@@ -286,8 +363,8 @@ export default function AdminDashboard() {
         <div className="h-full flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <ShieldIcon className="h-8 w-8 text-indigo-600" />
+                 <div className="flex items-center gap-3">
+                    <ShieldIcon className="h-8 w-8 text-cyan-600" />
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
                 </div>
                 <button
@@ -325,13 +402,13 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
-                            <UsersIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                        <div className="p-3 bg-cyan-100 dark:bg-cyan-900/50 rounded-lg">
+                            <UsersIcon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
                         </div>
                         <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Total Users</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.total_users || 0}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500">{stats?.active_users_24h || 0} active (24h)</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{dashboardData?.users?.total_users || 0}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">{dashboardData?.users?.users_last_24h || 0} new (24h)</p>
                         </div>
                     </div>
                 </div>
@@ -343,21 +420,21 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Total Tenants</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.total_tenants || 0}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500">{stats?.active_tenants || 0} active</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{dashboardData?.tenants?.total_tenants || 0}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">{dashboardData?.tenants?.tenants_with_k8s || 0} with K8s</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                            <ServerIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                        <div className="p-3 bg-cyan-100 dark:bg-cyan-900/50 rounded-lg">
+                            <ServerIcon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
                         </div>
                         <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">K8s Instances</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.total_instances || 0}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500">{stats?.running_instances || 0} running</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{dashboardData?.k8s_cluster?.total_namespaces || 0}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">{dashboardData?.k8s_cluster?.running_instances || 0} running</p>
                         </div>
                     </div>
                 </div>
@@ -370,23 +447,23 @@ export default function AdminDashboard() {
                         <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Estimated MRR</p>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                ${stats?.estimated_mrr?.toLocaleString() || 0}
+                                ${dashboardData?.subscriptions?.mrr_estimate?.toLocaleString() || 0}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500">monthly recurring</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">{dashboardData?.subscriptions?.active_subscriptions || 0} active subs</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Tier Distribution */}
-            {stats?.tier_distribution && Object.keys(stats.tier_distribution).length > 0 && (
+            {dashboardData?.subscriptions?.subscriptions_by_tier && Object.keys(dashboardData.subscriptions.subscriptions_by_tier).length > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tier Distribution</h3>
                     <div className="flex flex-wrap gap-4">
-                        {Object.entries(stats.tier_distribution).map(([tier, count]) => (
+                        {Object.entries(dashboardData.subscriptions.subscriptions_by_tier).map(([tier, count]) => (
                             <div key={tier} className="flex items-center gap-2">
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                    tier === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
+                                    tier === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
                                     tier === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
                                     tier === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
                                     'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
@@ -408,7 +485,7 @@ export default function AdminDashboard() {
                             onClick={() => setActiveTab(tab)}
                             className={`py-2 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${
                                 activeTab === tab
-                                    ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                                    ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
                                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                             }`}
                         >
@@ -454,14 +531,16 @@ export default function AdminDashboard() {
                                 {tenants.slice(0, 5).map((tenant) => (
                                     <div key={tenant.id} className="p-4 flex items-center justify-between">
                                         <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">{tenant.name}</p>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{tenant.slug}</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">{tenant.display_name || 'Unnamed'}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{tenant.realm_name}</p>
                                         </div>
                                         <span className={`px-2 py-1 text-xs rounded-full ${
-                                            tenant.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                                                tenant.plan === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
+                                            tenant.plan === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
+                                            tenant.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                         }`}>
-                                            {tenant.tier}
+                                            {tenant.plan || 'free'}
                                         </span>
                                     </div>
                                 ))}
@@ -515,9 +594,9 @@ export default function AdminDashboard() {
                             <thead className="bg-gray-50 dark:bg-gray-900">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tenant</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tier</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Plan</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Users</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">K8s URL</th>
                                 </tr>
                             </thead>
@@ -526,35 +605,29 @@ export default function AdminDashboard() {
                                     <tr key={tenant.id}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
-                                                <div className="font-medium text-gray-900 dark:text-white">{tenant.name}</div>
-                                                <div className="text-sm text-gray-500 dark:text-gray-400">{tenant.slug}</div>
+                                                <div className="font-medium text-gray-900 dark:text-white">{tenant.display_name || 'Unnamed'}</div>
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">{tenant.realm_name}</div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 py-1 text-xs rounded-full ${
-                                                tenant.tier === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
-                                                tenant.tier === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                                                tenant.tier === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                                            tenant.plan === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
+                                                tenant.plan === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
+                                                tenant.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
                                                 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                             }`}>
-                                                {tenant.tier}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                                tenant.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                                tenant.status === 'suspended' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' :
-                                                'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
-                                            }`}>
-                                                {tenant.status}
+                                                {tenant.plan || 'free'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             {tenant.user_count}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {new Date(tenant.created_at).toLocaleDateString()}
+                                        </td>
+                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {tenant.k8s_external_url ? (
-                                                <a href={tenant.k8s_external_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                                                <a href={tenant.k8s_external_url} target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline">
                                                     {tenant.k8s_external_url}
                                                 </a>
                                             ) : '-'}

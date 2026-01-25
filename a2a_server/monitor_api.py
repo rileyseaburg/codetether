@@ -79,6 +79,27 @@ class InterventionRequest(BaseModel):
     timestamp: str
 
 
+class AgentTaskResponse(BaseModel):
+    """Response model for an agent task."""
+
+    id: str
+    codebase_id: str
+    title: str
+    prompt: str
+    agent_type: str = 'build'
+    model: Optional[str] = None
+    status: str
+    priority: int = 0
+    created_at: str
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    result: Optional[str] = None
+    error: Optional[str] = None
+    session_id: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+    target_agent_name: Optional[str] = None
+
+
 class PersistentMessageStore:
     """SQLite-based persistent storage for monitor messages with fallback to in-memory."""
 
@@ -1470,9 +1491,9 @@ def get_opencode_bridge():
                 else:
                     loop.run_until_complete(_deduplicate_on_startup())
             except RuntimeError:
-                # No event loop, skip deduplication
+                # No event loop, skip initialization
                 logger.debug(
-                    'No event loop available for startup deduplication'
+                    'No event loop available for startup initialization'
                 )
 
             # Set up SSE worker notification hook for task updates
@@ -1638,6 +1659,22 @@ class WatchModeConfig(BaseModel):
 
 # OpenCode API Router
 opencode_router = APIRouter(prefix='/v1/opencode', tags=['opencode'])
+
+
+@opencode_router.on_event('startup')
+async def opencode_startup():
+    """Load codebases from PostgreSQL on startup."""
+    try:
+        bridge = None
+        try:
+            bridge = get_opencode_bridge()
+        except Exception:
+            pass
+
+        if bridge:
+            await bridge._load_codebases_from_db()
+    except Exception as e:
+        logger.warning(f'Failed to load codebases on startup: {e}')
 
 
 @lru_cache(maxsize=1)
@@ -3709,7 +3746,7 @@ async def list_codebase_tasks(codebase_id: str, status: Optional[str] = None):
     return tasks
 
 
-@opencode_router.get('/tasks/{task_id}')
+@opencode_router.get('/tasks/{task_id}', response_model=AgentTaskResponse)
 async def get_task(task_id: str):
     """Get details of a specific task."""
     bridge = get_opencode_bridge()
@@ -5171,8 +5208,8 @@ async def unregister_worker(worker_id: str):
 
 
 @opencode_router.get('/workers')
-async def list_workers():
-    """List all registered workers."""
+async def list_workers(search: Optional[str] = None):
+    """List all registered workers with optional model search filter."""
     # Priority: PostgreSQL > Redis > in-memory
     db_workers = await db.db_list_workers()
     redis_workers = await _redis_list_workers()
@@ -5197,7 +5234,22 @@ async def list_workers():
         if wid and wid not in merged:
             merged[wid] = w
 
-    return list(merged.values())
+    workers = list(merged.values())
+
+    if search:
+        search_lower = search.lower()
+        workers = [
+            w
+            for w in workers
+            if any(
+                search_lower in str(model).lower()
+                for models in w.get('models', [])
+                if isinstance(models, list)
+                for model in models
+            )
+        ]
+
+    return workers
 
 
 @opencode_router.get('/workers/{worker_id}')
@@ -5478,7 +5530,7 @@ async def get_stuck_tasks(
     async with pool.acquire() as conn:
         stuck_tasks = await conn.fetch(
             """
-            SELECT id, codebase_id, title, status, priority, worker_id, 
+            SELECT id, codebase_id, title, status, priority, worker_id,
                    started_at, created_at,
                    EXTRACT(EPOCH FROM (NOW() - started_at))::int as stuck_seconds,
                    COALESCE((metadata->>'attempts')::int, 1) as attempts,

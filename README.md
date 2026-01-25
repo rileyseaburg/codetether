@@ -15,7 +15,7 @@
 
 **The open-source platform for building, deploying, and orchestrating AI agent systems at scale.**
 
-**🎉 v1.4.0 Production Release** - Now with Ralph autonomous development and Zapier integration at [api.codetether.run](https://api.codetether.run)
+**🎉 v1.4.1 Production Release** - MCP-to-Ralph E2E integration: AI assistants can now autonomously create and execute PRDs via MCP tools
 
 [🚀 Quick Start](#-quick-start) • [📖 Documentation](https://docs.codetether.run) • [💬 Discord](https://discord.gg/codetether) • [🐦 Twitter](https://twitter.com/codetether)
 
@@ -70,7 +70,7 @@ Ralph implements entire PRDs with zero human intervention. Define user stories, 
 
 ### 🛠️ **MCP Tool Integration**
 
-Connect to 100+ tools via Model Context Protocol. File systems, databases, APIs, and more.
+**29 MCP tools** including Ralph integration. AI assistants can autonomously create PRDs, start Ralph runs, and monitor execution—all via MCP. File systems, databases, APIs, and more.
 
 ### 💻 **AI Coding at Scale**
 

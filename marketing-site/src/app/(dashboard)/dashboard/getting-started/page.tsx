@@ -65,7 +65,7 @@ const integrationMethods = [
         name: 'REST API',
         description: 'Full programmatic access to create tasks, send messages, and monitor agent activity.',
         icon: TerminalIcon,
-        color: 'bg-indigo-500',
+        color: 'bg-cyan-500',
         href: 'https://docs.codetether.run/api',
         external: true,
         featured: false,
@@ -81,7 +81,7 @@ const integrationMethods = [
         name: 'Webhooks',
         description: 'Receive real-time notifications when tasks complete, fail, or need attention.',
         icon: WebhookIcon,
-        color: 'bg-purple-500',
+        color: 'bg-cyan-500',
         href: '/dashboard/settings',
         external: false,
         featured: false,
@@ -303,14 +303,14 @@ export default function GettingStartedPage() {
                         href="https://docs.codetether.run"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
                     >
                         Documentation
                     </a>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
                     <a
                         href="mailto:support@codetether.io"
-                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
                     >
                         Email Support
                     </a>
@@ -319,7 +319,7 @@ export default function GettingStartedPage() {
                         href="https://discord.gg/codetether"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
                     >
                         Discord Community
                     </a>
