@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS rls_audit_log (
     operation TEXT NOT NULL,
     tenant_id TEXT,
     row_tenant_id TEXT,
-    user_name TEXT DEFAULT current_user,
-    session_user TEXT DEFAULT session_user,
+    user_name TEXT DEFAULT CURRENT_USER,
+    session_user_name TEXT DEFAULT SESSION_USER,
     details JSONB DEFAULT '{}'::jsonb
 );
 
@@ -176,7 +176,7 @@ CREATE POLICY admin_bypass_workers ON workers
     USING (true)
     WITH CHECK (true);
 
-RAISE NOTICE 'RLS enabled on workers table';
+-- RLS enabled on workers table
 
 -- ============================================
 -- Enable RLS on Codebases Table
@@ -240,7 +240,7 @@ CREATE POLICY admin_bypass_codebases ON codebases
     USING (true)
     WITH CHECK (true);
 
-RAISE NOTICE 'RLS enabled on codebases table';
+-- RLS enabled on codebases table
 
 -- ============================================
 -- Enable RLS on Tasks Table
@@ -304,7 +304,7 @@ CREATE POLICY admin_bypass_tasks ON tasks
     USING (true)
     WITH CHECK (true);
 
-RAISE NOTICE 'RLS enabled on tasks table';
+-- RLS enabled on tasks table
 
 -- ============================================
 -- Enable RLS on Sessions Table
@@ -368,7 +368,7 @@ CREATE POLICY admin_bypass_sessions ON sessions
     USING (true)
     WITH CHECK (true);
 
-RAISE NOTICE 'RLS enabled on sessions table';
+-- RLS enabled on sessions table
 
 -- ============================================
 -- Create RLS Status View
@@ -376,13 +376,15 @@ RAISE NOTICE 'RLS enabled on sessions table';
 
 CREATE OR REPLACE VIEW rls_status AS
 SELECT 
-    schemaname,
-    tablename,
-    rowsecurity as rls_enabled,
-    forcerowsecurity as rls_forced
-FROM pg_tables
-WHERE schemaname = 'public'
-AND tablename IN ('workers', 'codebases', 'tasks', 'sessions', 'tenants');
+    n.nspname as schemaname,
+    c.relname as tablename,
+    c.relrowsecurity as rls_enabled,
+    c.relforcerowsecurity as rls_forced
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+AND c.relkind = 'r'
+AND c.relname IN ('workers', 'codebases', 'tasks', 'sessions', 'tenants');
 
 COMMENT ON VIEW rls_status IS 
 'View showing RLS status for all tenant-scoped tables.
@@ -401,7 +403,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 
 -- Record this migration
 INSERT INTO schema_migrations (migration_name, checksum)
-VALUES ('enable_rls', md5(pg_read_file('/dev/null')::text))
+VALUES ('enable_rls', md5('enable_rls'))
 ON CONFLICT (migration_name) DO UPDATE SET applied_at = NOW();
 
 -- ============================================

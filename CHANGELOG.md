@@ -1,5 +1,66 @@
 # Changelog
 
+## [1.4.1] - 2026-01-25
+
+### Added - MCP-to-Ralph Integration (E2E Validated)
+
+Complete end-to-end MCP integration enabling AI assistants to autonomously create and monitor Ralph runs.
+
+#### New MCP Tools (6 tools added, 29 total)
+
+| Tool | Description |
+|------|-------------|
+| `ralph_create_run` | Create and start autonomous development runs |
+| `ralph_get_run` | Monitor run status and story results |
+| `ralph_list_runs` | List runs filtered by codebase |
+| `ralph_cancel_run` | Cancel running executions |
+| `prd_chat` | AI-assisted PRD generation via chat |
+| `prd_list_sessions` | List PRD chat sessions |
+
+#### E2E Test Results
+
+Successfully validated the complete pipeline:
+1. **MCP Tool Call** → `ralph_create_run` with PRD and codebase_id
+2. **Task Creation** → Ralph creates tasks for each user story
+3. **Worker Execution** → Worker claims and executes tasks
+4. **AI Implementation** → OpenCode implements acceptance criteria
+5. **Completion** → Run marked complete with story results
+
+#### Key Implementation Details
+
+- PRD stored in PostgreSQL `ralph_runs` table as JSONB
+- `codebase_id` is **required** for worker task pickup
+- Worker must be registered and connected to claim tasks
+- Story results include pass/fail status and implementation details
+
+#### Example Usage
+
+```bash
+# Create Ralph run via MCP
+curl -X POST http://localhost:9000/mcp/v1/rpc \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+       "params": {"name": "ralph_create_run", "arguments": {
+         "project": "My Feature",
+         "codebase_id": "ec77c942",
+         "user_stories": [{"id": "US-001", "title": "...", ...}]
+       }}}'
+
+# Response: {"run_id": "uuid", "status": "pending", ...}
+```
+
+### Fixed
+
+- Ralph API returns `id` not `run_id` - MCP handler now correctly parses response
+- Tasks without `codebase_id` weren't being picked up by workers
+
+### Documentation
+
+- Updated `codetether-docs/features/mcp-tools.md` with complete Ralph MCP documentation
+- Updated `codetether-docs/features/ralph.md` with MCP integration section
+- Added E2E example workflow with code samples
+
+---
+
 ## [1.4.0] - 2026-01-22
 
 ### Added - Ralph: Autonomous Development Loop

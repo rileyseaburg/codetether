@@ -297,7 +297,7 @@ export function ChatMessages({
                   setShowHistoryWhileStreaming(true)
                   requestAnimationFrame(() => scrollToBottom('auto'))
                 }}
-                className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
+                 className="text-cyan-600 hover:text-cyan-700 dark:text-cyan-300 dark:hover:text-cyan-200"
               >
                 Show history
               </button>
@@ -312,10 +312,10 @@ export function ChatMessages({
         </div>
       </div>
 
-      {showScrollButton && (
+       {showScrollButton && (
         <button
-          onClick={() => scrollToBottom()}
-          className={`absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg transition-all hover:bg-indigo-700 ${unreadCount > 0 ? 'animate-pulse' : ''}`}
+            onClick={() => scrollToBottom()}
+            className={`absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-cyan-600 px-3 py-2 text-sm font-medium text-white shadow-lg transition-all hover:bg-cyan-700 ${unreadCount > 0 ? 'animate-pulse' : ''}`}
           aria-label={
             unreadCount > 0 ? `${unreadCount} new messages` : 'Scroll to bottom'
           }
@@ -335,7 +335,7 @@ export function ChatMessages({
             />
           </svg>
           {unreadCount > 0 && (
-            <span className="min-w-[20px] rounded-full bg-white px-1.5 py-0.5 text-center text-xs font-bold text-indigo-600">
+                 <span className="min-w-[20px] rounded-full bg-white px-1.5 py-0.5 text-center text-xs font-bold text-cyan-600">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}

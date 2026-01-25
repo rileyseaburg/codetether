@@ -81,8 +81,8 @@ function ExpandableDetail({ label, content, variant }: ExpandableDetailProps) {
 
     return (
         <details onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}>
-            <summary
-                className={`cursor-pointer text-[11px] ${textColor} focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 rounded`}
+             <summary
+                 className={`cursor-pointer text-[11px] ${textColor} focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-1 rounded`}
                 aria-expanded={isOpen}
                 aria-controls={id}
             >

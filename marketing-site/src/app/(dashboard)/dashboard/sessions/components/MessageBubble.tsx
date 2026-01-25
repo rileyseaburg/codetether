@@ -17,8 +17,8 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
     const [isExpanded, setIsExpanded] = useState(false)
     const tokenInfo = formatTokens(m.usage?.tokens)
     const costText = formatCost(m.usage?.cost)
-    const bubbleClass = isUser ? 'bg-indigo-600 text-white ring-indigo-700/40' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
-    const highlightClass = isNew ? 'ring-2 ring-indigo-400/30 shadow-[0_0_0_1px_rgba(99,102,241,0.2)]' : ''
+    const bubbleClass = isUser ? 'bg-cyan-600 text-white ring-cyan-700/40' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
+    const highlightClass = isNew ? 'ring-2 ring-cyan-400/30 shadow-[0_0_0_1px_rgba(34,211,238,0.2)]' : ''
 
     // Calculate if message should be truncated
     const { shouldTruncate, truncatedText, stats } = useMemo(() => {
@@ -115,9 +115,9 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
                                 {!isExpanded && (
                                     <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent" />
                                 )}
-                                <button
+                                 <button
                                     onClick={() => setIsExpanded(!isExpanded)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 rounded-full transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 rounded-full transition-colors"
                                     aria-expanded={isExpanded}
                                     aria-label={isExpanded ? 'Show less content' : `Show ${stats?.hiddenLines || 'more'} more lines`}
                                 >
@@ -164,17 +164,16 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
     )
 }
 
-const Reasoning = ({ text, isUser }: { text: string; isUser: boolean }) => {
+    const Reasoning = ({ text, isUser }: { text: string; isUser: boolean }) => {
     const [isOpen, setIsOpen] = useState(false)
     const id = useId()
     
-    // Calculate preview
     const lines = text.split('\n').length
     const preview = text.slice(0, 100).replace(/\n/g, ' ')
 
     return (
         <details
-            className={`mt-3 rounded-lg ${isUser ? 'bg-indigo-500/20' : 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-200/50 dark:ring-amber-700/30'}`}
+            className={`mt-3 rounded-lg ${isUser ? 'bg-cyan-500/20' : 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-200/50 dark:ring-amber-700/30'}`}
             onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}
         >
             <summary
@@ -214,9 +213,9 @@ const Reasoning = ({ text, isUser }: { text: string; isUser: boolean }) => {
     )
 }
 
-const Usage = ({ tokenInfo, costText, isUser }: { tokenInfo: { summary: string; detail?: string } | null; costText: string; isUser: boolean }) => (
+ const Usage = ({ tokenInfo, costText, isUser }: { tokenInfo: { summary: string; detail?: string } | null; costText: string; isUser: boolean }) => (
     <div
-        className={`mt-3 flex flex-wrap gap-x-3 text-[11px] ${isUser ? 'text-indigo-100/90' : 'text-gray-500 dark:text-gray-400'}`}
+        className={`mt-3 flex flex-wrap gap-x-3 text-[11px] ${isUser ? 'text-cyan-100/90' : 'text-gray-500 dark:text-gray-400'}`}
         aria-label="Token usage and cost information"
     >
         {tokenInfo && (

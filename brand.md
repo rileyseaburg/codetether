@@ -30,7 +30,7 @@ AI agents are powerful, but most deployments stop at chat. CodeTether provides t
 
 ## Proof points
 - Official A2A Protocol v0.3 compliance via the Google a2a-sdk
-- Open source under Apache 2.0
+- Open source under MIT, A2A Protocol reference implementation is Apache 2.0
 - Production deployment at `https://api.codetether.run`
 - 100+ MCP tools supported
 - 10M+ token contexts via RLM

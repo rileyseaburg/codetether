@@ -288,7 +288,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- View for queue dashboard
-CREATE OR REPLACE VIEW task_queue_status AS
+-- Drop first to allow recreation with potentially different columns
+DROP VIEW IF EXISTS task_queue_status CASCADE;
+CREATE VIEW task_queue_status AS
 SELECT 
     status,
     COUNT(*) as count,
@@ -299,7 +301,9 @@ WHERE created_at > NOW() - INTERVAL '24 hours'
 GROUP BY status;
 
 -- View for user queue status
-CREATE OR REPLACE VIEW user_queue_status AS
+-- Drop first to allow recreation with potentially different columns
+DROP VIEW IF EXISTS user_queue_status CASCADE;
+CREATE VIEW user_queue_status AS
 SELECT 
     u.id as user_id,
     u.email,

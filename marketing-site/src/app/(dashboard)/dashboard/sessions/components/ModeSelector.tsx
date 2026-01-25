@@ -4,10 +4,11 @@ interface ModeSelectorProps {
 }
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
-    build: 'Build mode - for writing and editing code',
-    plan: 'Plan mode - for creating implementation plans',
-    explore: 'Explore mode - for navigating and understanding code',
-    general: 'General mode - for general questions and tasks',
+    architect: 'Architect mode - for planning, designing, or strategizing before implementation',
+    code: 'Code mode - for writing, modifying, or refactoring code',
+    ask: 'Ask mode - for explanations, documentation, or answers to technical questions',
+    debug: 'Debug mode - for troubleshooting issues, investigating errors, or diagnosing problems',
+    orchestrator: 'Orchestrator mode - for complex, multi-step projects that require coordination across different specialties',
 }
 
 export function ModeSelector({ value, onChange }: ModeSelectorProps) {
@@ -31,11 +32,10 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
                             aria-checked={isActive}
                             onClick={() => onChange(mode)}
                             title={MODE_DESCRIPTIONS[mode] || mode}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                                isActive
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${isActive
                                     ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white'
-                            }`}
+                                }`}
                         >
                             {mode}
                         </button>
@@ -45,3 +45,4 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
         </div>
     )
 }
+

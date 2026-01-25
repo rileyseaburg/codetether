@@ -11,6 +11,7 @@ import {
 } from '@livekit/components-react';
 import { ConnectionState, Track, RoomEvent, DataPacket_Kind } from 'livekit-client';
 import '@livekit/components-styles';
+import { getVoiceSessionV1VoiceSessionsRoomNameGet, getVoiceSessionStateV1VoiceSessionsRoomNameStateGet } from '@/lib/api';
 
 // Agent state type for polling
 type AgentState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'tool_calling' | 'tool_complete' | 'error';
@@ -139,25 +140,19 @@ export default function VoiceChatModal({
     if (!userId) return;
     
     try {
-      const headers: HeadersInit = accessToken 
-        ? { 'Authorization': `Bearer ${accessToken}` } 
-        : {};
-      
-      const res = await fetch(
-        `${apiBaseUrl}/v1/voice/sessions/${room}?user_id=${userId}`,
-        { headers }
-      );
-      
-      if (res.ok) {
-        const data = await res.json();
-        setToken(data.access_token);
-        setServerUrl(data.livekit_url);
-        setRoomName(data.room_name);
-      }
+      const { data } = await getVoiceSessionV1VoiceSessionsRoomNameGet({
+        path: { room_name: room },
+        query: { user_id: userId },
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+
+      setToken(((data as unknown as { access_token?: string })?.access_token) || '');
+      setServerUrl(((data as unknown as { livekit_url?: string })?.livekit_url) || '');
+      setRoomName(((data as unknown as { room_name?: string })?.room_name) || '');
     } catch (err) {
       console.error('Reconnection failed:', err);
     }
-  }, [apiBaseUrl, userId, accessToken]);
+  }, [userId, accessToken]);
 
   const handleError = useCallback((err: Error) => {
     console.error('LiveKit error:', err);
@@ -231,32 +226,25 @@ export default function VoiceChatModal({
 
     const pollState = async () => {
       try {
-        const headers: HeadersInit = accessToken 
-          ? { 'Authorization': `Bearer ${accessToken}` } 
-          : {};
+        const { data } = await getVoiceSessionStateV1VoiceSessionsRoomNameStateGet({
+          path: { room_name: roomName },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        });
         
-        const res = await fetch(
-          `${apiBaseUrl}/v1/voice/sessions/${roomName}/state`,
-          { headers }
-        );
-        
-        if (res.ok) {
-          const state = await res.text();
-          const parsedState = state.replace(/"/g, '') as AgentState;
-          // Only update if not in tool_calling state (data channel takes priority)
+        if (data) {
+          const state = typeof data === 'string' ? data.replace(/"/g, '') : 'idle';
           if (agentState !== 'tool_calling') {
-            setAgentState(parsedState);
+            setAgentState(state as AgentState);
           }
         }
       } catch {
-        // Ignore polling errors
       }
     };
 
-    pollState(); // Initial poll
+    pollState();
     const interval = setInterval(pollState, 1000);
     return () => clearInterval(interval);
-  }, [roomName, isConnected, apiBaseUrl, accessToken, agentState]);
+  }, [roomName, isConnected, accessToken, agentState]);
 
   // Toggle tool result expansion
   const toggleToolExpansion = useCallback((id: string) => {
@@ -381,7 +369,7 @@ function ModalHeader({
   };
 
   return (
-    <div className={`flex items-center justify-between p-4 bg-gradient-to-r ${gradientClass} transition-colors duration-300`}>
+    <div className={`flex items-center justify-between p-4 bg-linear-to-r ${gradientClass} transition-colors duration-300`}>
       <div className="flex items-center gap-3">
         <div className="p-2 bg-white/20 rounded-lg">
           {agentState === 'tool_calling' ? (
@@ -575,9 +563,9 @@ function TranscriptEntry({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {isToolEntry && (
             isLoading ? (
-              <SpinnerIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+              <SpinnerIcon className="w-4 h-4 text-purple-500 shrink-0" />
             ) : (
-              <ToolIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+              <ToolIcon className="w-4 h-4 text-purple-500 shrink-0" />
             )
           )}
           <span className={`text-xs font-semibold ${roleLabelColors[entry.role]}`}>
@@ -590,17 +578,17 @@ function TranscriptEntry({
         {hasResult && (
           <button
             onClick={onToggle}
-            className="p-1 hover:bg-white/50 dark:hover:bg-black/20 rounded transition-colors flex-shrink-0"
+            className="p-1 hover:bg-white/50 dark:hover:bg-black/20 rounded transition-colors shrink-0"
           >
             <ChevronIcon className="w-4 h-4 text-gray-500" isExpanded={entry.isExpanded} />
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 break-words">
+      <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 wrap-break-word">
         {entry.text}
       </p>
       {hasResult && entry.isExpanded && (
-        <div className="mt-2 p-2 bg-white/50 dark:bg-black/20 rounded text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+        <div className="mt-2 p-2 bg-white/50 dark:bg-black/20 rounded text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto">
           {entry.toolResult}
         </div>
       )}

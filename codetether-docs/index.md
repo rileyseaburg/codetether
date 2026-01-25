@@ -7,8 +7,8 @@ description: Production-ready A2A Protocol implementation for AI agent coordinat
 
 **Turn AI Agents Into Production Systems.**
 
-!!! success "v1.4.0 Production Release"
-    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). Now with **Ralph** autonomous development, **RLM** infinite context, and **Zapier** integration.
+!!! success "v1.4.1 Production Release"
+    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). Now with **MCP-to-Ralph E2E integration** - AI assistants can autonomously create and execute PRDs via 29 MCP tools.
 
 CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), the open standard from the Linux Foundation that enables AI agents to communicate, collaborate, and solve complex problems together.
 

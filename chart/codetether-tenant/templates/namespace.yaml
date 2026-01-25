@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "codetether-tenant.namespace" . }}
+  labels:
+    {{- include "codetether-tenant.labels" . | nindent 4 }}
+  annotations:
+    codetether.run/provisioned-at: {{ now | date "2006-01-02T15:04:05Z" | quote }}

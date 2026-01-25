@@ -74,7 +74,7 @@ export function UseCases() {
                     {useCases.map((useCase) => (
                         <div
                             key={useCase.title}
-                            className="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 p-8 hover:border-purple-500 dark:hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/10 transition-all bg-white dark:bg-gray-950"
+                            className="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 p-8 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-500/10 transition-all bg-white dark:bg-gray-950"
                         >
                             <div className="text-4xl">{useCase.icon}</div>
                             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
@@ -83,8 +83,8 @@ export function UseCases() {
                             <p className="mt-2 flex-grow text-sm text-gray-600 dark:text-gray-300">
                                 {useCase.description}
                             </p>
-                            <div className="mt-4 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                                <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                            <div className="mt-4 p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20">
+                                <p className="text-xs font-medium text-cyan-700 dark:text-cyan-300">
                                     {useCase.workflow}
                                 </p>
                             </div>

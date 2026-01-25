@@ -20,11 +20,22 @@ Best practices:
 import logging
 import os
 import asyncio
+import subprocess
+import shutil
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Dict, Any
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Helm chart path
+HELM_CHART_PATH = Path(__file__).parent.parent / 'chart' / 'codetether-tenant'
+
+# Feature flag for Helm-based provisioning
+USE_HELM_PROVISIONING = (
+    os.environ.get('USE_HELM_PROVISIONING', 'true').lower() == 'true'
+)
 
 # Kubernetes client - imported conditionally to allow running without k8s
 try:
@@ -64,7 +75,7 @@ class K8sInstanceConfig:
     replicas: int = 1
 
     # Image configuration
-    image: str = 'registry.quantum-forge.net/library/a2a-server:latest'
+    image: str = 'us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp:latest'
     image_pull_policy: str = 'Always'
 
     # Domain configuration
@@ -183,6 +194,144 @@ class K8sProvisioningService:
             logger.error(f'Failed to initialize Kubernetes client: {e}')
             return False
 
+    async def _provision_with_helm(
+        self,
+        user_id: str,
+        tenant_id: str,
+        org_slug: str,
+        tier: str = 'free',
+    ) -> K8sProvisioningResult:
+        """
+        Provision a tenant instance using Helm chart.
+
+        This is the preferred method as it provides:
+        - Declarative configuration
+        - Easy upgrades and rollbacks
+        - Consistent resource creation
+        """
+        release_name = f'tenant-{org_slug}'
+        namespace = f'tenant-{org_slug}'
+        k8s_config = K8sInstanceConfig.for_tier(tier)
+        ingress_host = f'{org_slug}.{k8s_config.base_domain}'
+
+        logger.info(
+            f'Provisioning K8s instance with Helm for user {user_id}: '
+            f'release={release_name}'
+        )
+
+        try:
+            # Build Helm install command
+            helm_cmd = [
+                'helm',
+                'upgrade',
+                '--install',
+                release_name,
+                str(HELM_CHART_PATH),
+                '--create-namespace',
+                '--namespace',
+                namespace,
+                '--set',
+                f'tenant.id={tenant_id}',
+                '--set',
+                f'tenant.orgSlug={org_slug}',
+                '--set',
+                f'tenant.userId={user_id}',
+                '--set',
+                f'tier={tier}',
+                '--wait',
+                '--timeout',
+                '300s',
+            ]
+
+            # Run Helm install
+            result = await asyncio.to_thread(
+                subprocess.run,
+                helm_cmd,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                logger.error(f'Helm install failed: {result.stderr}')
+                return K8sProvisioningResult(
+                    success=False,
+                    error_message=f'Helm install failed: {result.stderr}',
+                    status=K8sProvisioningStatus.FAILED,
+                )
+
+            # Build result
+            deployment_name = f'a2a-{org_slug}'
+            service_name = f'{deployment_name}-svc'
+            internal_url = (
+                f'http://{service_name}.{namespace}.svc.cluster.local:8000'
+            )
+            external_url = f'https://{ingress_host}'
+
+            logger.info(
+                f'K8s instance provisioned successfully via Helm: {external_url}'
+            )
+
+            return K8sProvisioningResult(
+                success=True,
+                namespace=namespace,
+                deployment_name=deployment_name,
+                service_name=service_name,
+                ingress_host=ingress_host,
+                internal_url=internal_url,
+                external_url=external_url,
+                status=K8sProvisioningStatus.COMPLETED,
+            )
+
+        except Exception as e:
+            logger.error(f'Helm provisioning failed: {e}')
+            return K8sProvisioningResult(
+                success=False,
+                error_message=str(e),
+                status=K8sProvisioningStatus.FAILED,
+            )
+
+    async def delete_instance_with_helm(self, org_slug: str) -> bool:
+        """Delete a tenant instance using Helm uninstall."""
+        release_name = f'tenant-{org_slug}'
+        namespace = f'tenant-{org_slug}'
+
+        try:
+            helm_cmd = [
+                'helm',
+                'uninstall',
+                release_name,
+                '--namespace',
+                namespace,
+            ]
+
+            result = await asyncio.to_thread(
+                subprocess.run,
+                helm_cmd,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                logger.error(f'Helm uninstall failed: {result.stderr}')
+                return False
+
+            # Optionally delete the namespace
+            ns_cmd = [
+                'kubectl',
+                'delete',
+                'namespace',
+                namespace,
+                '--ignore-not-found',
+            ]
+            await asyncio.to_thread(subprocess.run, ns_cmd, capture_output=True)
+
+            logger.info(f'Deleted K8s instance via Helm: {release_name}')
+            return True
+
+        except Exception as e:
+            logger.error(f'Failed to delete Helm release: {e}')
+            return False
+
     async def provision_instance(
         self,
         user_id: str,
@@ -204,6 +353,16 @@ class K8sProvisioningService:
         Returns:
             K8sProvisioningResult with instance details
         """
+        # Use Helm-based provisioning if enabled
+        if USE_HELM_PROVISIONING and shutil.which('helm'):
+            return await self._provision_with_helm(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                org_slug=org_slug,
+                tier=tier,
+            )
+
+        # Fall back to direct K8s API
         if not self._init_k8s_client():
             return K8sProvisioningResult(
                 success=False,
@@ -343,6 +502,55 @@ class K8sProvisioningService:
             else:
                 raise
 
+        # Copy image pull secret from source namespace
+        await self._copy_image_pull_secret(name)
+
+    async def _copy_image_pull_secret(
+        self,
+        target_namespace: str,
+        source_namespace: str = 'a2a-server',
+        secret_name: str = 'gcr-pull-secret',
+    ) -> None:
+        """Copy image pull secret from source namespace to target namespace."""
+        try:
+            # Get the source secret
+            source_secret = await asyncio.to_thread(
+                self.core_api.read_namespaced_secret,
+                name=secret_name,
+                namespace=source_namespace,
+            )
+
+            # Create new secret in target namespace
+            new_secret = client.V1Secret(
+                metadata=client.V1ObjectMeta(
+                    name=secret_name,
+                    namespace=target_namespace,
+                ),
+                type=source_secret.type,
+                data=source_secret.data,
+            )
+
+            await asyncio.to_thread(
+                self.core_api.create_namespaced_secret,
+                namespace=target_namespace,
+                body=new_secret,
+            )
+            logger.info(
+                f'Copied image pull secret {secret_name} to {target_namespace}'
+            )
+        except ApiException as e:
+            if e.status == 409:  # Already exists
+                logger.info(
+                    f'Image pull secret {secret_name} already exists in {target_namespace}'
+                )
+            elif e.status == 404:
+                logger.warning(
+                    f'Source secret {secret_name} not found in {source_namespace}'
+                )
+            else:
+                logger.error(f'Failed to copy image pull secret: {e}')
+                raise
+
     async def _create_deployment(
         self,
         namespace: str,
@@ -437,6 +645,12 @@ class K8sProvisioningService:
                             run_as_user=1000,
                             fs_group=1000,
                         ),
+                        # Image pull secrets for GCP Artifact Registry
+                        image_pull_secrets=[
+                            client.V1LocalObjectReference(
+                                name='gcr-pull-secret'
+                            ),
+                        ],
                     ),
                 ),
             ),

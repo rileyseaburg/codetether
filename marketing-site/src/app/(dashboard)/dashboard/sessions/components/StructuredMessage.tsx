@@ -387,7 +387,7 @@ function summarizeEvent(event: Record<string, any>, index: number): EventSummary
 function getEventDotClass(kind: EventSummary['kind']): string {
     switch (kind) {
         case 'step_start':
-            return 'bg-indigo-500 dark:bg-indigo-400'
+            return 'bg-cyan-500 dark:bg-cyan-400'
         case 'step_finish':
             return 'bg-emerald-500 dark:bg-emerald-400'
         case 'tool':
@@ -522,33 +522,33 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
     )
 
     const bubbleClass = isUser
-        ? 'bg-indigo-600 text-white ring-indigo-700/40'
+        ? 'bg-cyan-600 text-white ring-cyan-700/40'
         : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ring-gray-200 dark:ring-white/10'
 
     const panelClass = isUser
-        ? 'border-indigo-400/30 bg-indigo-500/10 text-indigo-50'
+        ? 'border-cyan-400/30 bg-cyan-500/10 text-cyan-50'
         : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 text-gray-700 dark:text-gray-200'
-    const panelMutedText = isUser ? 'text-indigo-100/80' : 'text-gray-500 dark:text-gray-400'
+    const panelMutedText = isUser ? 'text-cyan-100/80' : 'text-gray-500 dark:text-gray-400'
     const chipClass = isUser
-        ? 'bg-indigo-500/20 text-indigo-100'
+        ? 'bg-cyan-500/20 text-cyan-100'
         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
     const eventRowClass = isUser
-        ? 'border-indigo-400/20 bg-indigo-500/10'
+        ? 'border-cyan-400/20 bg-cyan-500/10'
         : 'border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/50'
     const messageRowClass = isUser
-        ? 'border-indigo-400/25 bg-indigo-500/15'
+        ? 'border-cyan-400/25 bg-cyan-500/15'
         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60'
-    const eventLabelClass = isUser ? 'text-indigo-50' : 'text-gray-700 dark:text-gray-100'
-    const eventDetailClass = isUser ? 'text-indigo-100/80' : 'text-gray-600 dark:text-gray-300'
+    const eventLabelClass = isUser ? 'text-cyan-50' : 'text-gray-700 dark:text-gray-100'
+    const eventDetailClass = isUser ? 'text-cyan-100/80' : 'text-gray-600 dark:text-gray-300'
     const eventBadgeClass = isUser
-        ? 'bg-indigo-500/30 text-indigo-100'
+        ? 'bg-cyan-500/30 text-cyan-100'
         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
 
     const typeLabel = getDataTypeLabel(dataType)
 
     return (
         <div className={`relative rounded-2xl shadow-sm ring-1 ${bubbleClass} overflow-hidden`}>
-            <div className={`px-4 py-2.5 border-b ${isUser ? 'border-indigo-500/30' : 'border-gray-100 dark:border-gray-700/50'} flex items-center justify-between`}>
+            <div className={`px-4 py-2.5 border-b ${isUser ? 'border-cyan-500/30' : 'border-gray-100 dark:border-gray-700/50'} flex items-center justify-between`}>
                 <div className="flex items-center gap-2 text-xs">
                     <svg
                         className="w-4 h-4 shrink-0"
@@ -559,11 +559,11 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                     >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                     </svg>
-                    <span className={`font-semibold ${isUser ? 'text-indigo-100' : 'text-gray-700 dark:text-gray-200'}`}>
+                    <span className={`font-semibold ${isUser ? 'text-cyan-100' : 'text-gray-700 dark:text-gray-200'}`}>
                         {typeLabel}
                     </span>
                     {model && (
-                        <span className={`opacity-60 ${isUser ? 'text-indigo-100' : 'text-gray-400'}`}>
+                        <span className={`opacity-60 ${isUser ? 'text-cyan-100' : 'text-gray-400'}`}>
                             • {model}
                         </span>
                     )}
@@ -625,7 +625,7 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                             type="button"
                                             onClick={() => setShowTimeline((prev) => !prev)}
                                             className={`w-full rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${isUser
-                                                    ? 'border-indigo-400/40 bg-indigo-500/10 text-indigo-100 hover:bg-indigo-500/20'
+                                                    ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/20'
                                                     : 'border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/40 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                                                 }`}
                                             aria-expanded={timelineVisible}
@@ -705,20 +705,20 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div>
-                                            <span className={`font-medium ${isUser ? 'text-indigo-200' : 'text-gray-500'}`}>ID:</span>{' '}
-                                            <span className={`block truncate ${isUser ? 'text-indigo-100' : 'text-gray-700'}`}>{(dataType.data as Project).id.slice(0, 8)}...</span>
+                                            <span className={`font-medium ${isUser ? 'text-cyan-200' : 'text-gray-500'}`}>ID:</span>{' '}
+                                            <span className={`block truncate ${isUser ? 'text-cyan-100' : 'text-gray-700'}`}>{(dataType.data as Project).id.slice(0, 8)}...</span>
                                         </div>
                                         <div>
-                                            <span className={`font-medium ${isUser ? 'text-indigo-200' : 'text-gray-500'}`}>VCS:</span>{' '}
-                                            <span className={isUser ? 'text-indigo-100' : 'text-gray-700'}>{(dataType.data as Project).vcs || 'None'}</span>
+                                            <span className={`font-medium ${isUser ? 'text-cyan-200' : 'text-gray-500'}`}>VCS:</span>{' '}
+                                            <span className={isUser ? 'text-cyan-100' : 'text-gray-700'}>{(dataType.data as Project).vcs || 'None'}</span>
                                         </div>
                                         <div>
-                                            <span className={`font-medium ${isUser ? 'text-indigo-200' : 'text-gray-500'}`}>Sandboxes:</span>{' '}
-                                            <span className={isUser ? 'text-indigo-100' : 'text-gray-700'}>{(dataType.data as Project).sandboxes.length}</span>
+                                            <span className={`font-medium ${isUser ? 'text-cyan-200' : 'text-gray-500'}`}>Sandboxes:</span>{' '}
+                                            <span className={isUser ? 'text-cyan-100' : 'text-gray-700'}>{(dataType.data as Project).sandboxes.length}</span>
                                         </div>
                                     </div>
                                     <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                                        <div className={`text-xs ${isUser ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                        <div className={`text-xs ${isUser ? 'text-cyan-200' : 'text-gray-400'}`}>
                                             {(dataType.data as Project).worktree}
                                         </div>
                                     </div>
@@ -727,17 +727,17 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
 
                             {dataType.type === 'Session' && (
                                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
-                                    <div className={`text-sm font-medium ${isUser ? 'text-indigo-100 mb-2' : 'text-gray-700 mb-2'}`}>
+                                    <div className={`text-sm font-medium ${isUser ? 'text-cyan-100 mb-2' : 'text-gray-700 mb-2'}`}>
                                         {(dataType.data as Session).title}
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div>
-                                            <span className={`font-medium ${isUser ? 'text-indigo-200' : 'text-gray-500'}`}>Version:</span>{' '}
-                                            <span className={isUser ? 'text-indigo-100' : 'text-gray-700'}>{(dataType.data as Session).version}</span>
+                                            <span className={`font-medium ${isUser ? 'text-cyan-200' : 'text-gray-500'}`}>Version:</span>{' '}
+                                            <span className={isUser ? 'text-cyan-100' : 'text-gray-700'}>{(dataType.data as Session).version}</span>
                                         </div>
                                         <div>
-                                            <span className={`font-medium ${isUser ? 'text-indigo-200' : 'text-gray-500'}`}>Dir:</span>{' '}
-                                            <span className={`block truncate ${isUser ? 'text-indigo-100' : 'text-gray-700'}`}>{(dataType.data as Session).directory.split('/').pop() || '...'}</span>
+                                            <span className={`font-medium ${isUser ? 'text-cyan-200' : 'text-gray-500'}`}>Dir:</span>{' '}
+                                            <span className={`block truncate ${isUser ? 'text-cyan-100' : 'text-gray-700'}`}>{(dataType.data as Session).directory.split('/').pop() || '...'}</span>
                                         </div>
                                     </div>
                                     {(dataType.data as Session).summary && (
@@ -748,7 +748,7 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                             <span className={isUser ? 'text-red-200' : 'text-red-600'}>
                                                 -{(dataType.data as Session).summary?.deletions || 0}
                                             </span>
-                                            <span className={isUser ? 'text-indigo-200' : 'text-indigo-600'}>
+                                            <span className={isUser ? 'text-cyan-200' : 'text-cyan-600'}>
                                                 {(dataType.data as Session).summary?.files || 0} files
                                             </span>
                                         </div>
@@ -756,16 +756,16 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                 </div>
                             )}
 
-                            {dataType.type === 'Message' && (
+                             {dataType.type === 'Message' && (
                                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
                                     <div className="flex items-center justify-between text-xs mb-2">
                                         <span className={`px-2 py-0.5 rounded font-medium ${(dataType.data as Message).role === 'user'
-                                                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200'
+                                                ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-200'
                                                 : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200'
                                             }`}>
                                             {(dataType.data as Message).role}
                                         </span>
-                                        <div className={`opacity-70 ${isUser ? 'text-indigo-100' : 'text-gray-500'}`}>
+                                         <div className={`opacity-70 ${isUser ? 'text-cyan-100' : 'text-gray-500'}`}>
                                             {(dataType.data as Message).mode || 'No mode'}
                                         </div>
                                     </div>
@@ -778,9 +778,9 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                 </div>
                             )}
 
-                            {dataType.type === 'Diff' && (
+                             {dataType.type === 'Diff' && (
                                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
-                                    <div className={`text-sm font-medium ${isUser ? 'text-indigo-100 mb-2' : 'text-gray-700 mb-2'}`}>
+                                    <div className={`text-sm font-medium ${isUser ? 'text-cyan-100 mb-2' : 'text-gray-700 mb-2'}`}>
                                         {(dataType.data as Diff).file}
                                     </div>
                                     <div className="flex gap-4 text-xs">
@@ -806,7 +806,7 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                                         todo.priority === 'high' ? 'bg-red-500' :
                                                             'bg-gray-400'
                                                 }`} />
-                                            <span className={isUser ? 'text-indigo-100' : 'text-gray-700'}>{todo.content}</span>
+                                             <span className={isUser ? 'text-cyan-100' : 'text-gray-700'}>{todo.content}</span>
                                         </div>
                                     ))}
                                     {dataType.data.length > 3 && (
@@ -817,8 +817,8 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                                 </div>
                             )}
 
-                            {dataType.type === 'Unknown' && (
-                                <p className={`text-sm ${isUser ? 'text-indigo-50' : 'text-gray-600 dark:text-gray-400'}`}>
+                             {dataType.type === 'Unknown' && (
+                                <p className={`text-sm ${isUser ? 'text-cyan-50' : 'text-gray-600 dark:text-gray-400'}`}>
                                     Complex data structure. Click below to view full content.
                                 </p>
                             )}
@@ -827,10 +827,10 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
                 )}
 
                 <div className="px-4 pb-3">
-                    <button
+                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
                         className={`w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium rounded-lg transition-colors ${isUser
-                                ? 'bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500/30'
+                                ? 'bg-cyan-500/20 text-cyan-100 hover:bg-cyan-500/30'
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                             }`}
                         aria-expanded={isExpanded}

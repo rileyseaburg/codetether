@@ -6,7 +6,7 @@ DOCKER_REGISTRY ?= us-central1-docker.pkg.dev/spotlessbinco/codetether
 OCI_REGISTRY = us-central1-docker.pkg.dev/spotlessbinco/codetether
 PORT ?= 8001
 CHART_PATH = chart/a2a-server
-CHART_VERSION ?= 1.0.0
+CHART_VERSION ?= 1.4.1
 NAMESPACE ?= a2a-server
 RELEASE_NAME ?= codetether
 VALUES_FILE ?= chart/codetether-values.yaml
@@ -277,28 +277,79 @@ dev: ## Alias for run-all (starts Python and Next.js)
 	$(MAKE) run-all RELOAD=1
 
 .PHONY: run-all
-run-all: ## Run Python server, React (Next.js) dev server, and a local worker
+run-all: ## Run Python server (includes MCP on 9000), React (Next.js) dev server, and a local worker
 	@echo "🚀 Starting Python server, React dev server, and local worker..."
+	@echo "   (MCP server starts automatically on port 9000 via run_server.py)"
 	@trap 'kill 0' EXIT; \
-	(\
-		cd marketing-site && npm run dev \
+	(if [ "$(RELOAD)" = "1" ]; then \
+		echo "🔄 Server auto-reload enabled"; \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+	else \
+		$(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+	fi) & \
+	(echo "⏳ Waiting for Python server to be ready..."; \
+		for i in $$(seq 1 30); do \
+			if curl -s http://localhost:$(PORT)/openapi.json > /dev/null 2>&1; then \
+				echo "✅ Python server ready"; \
+				break; \
+			fi; \
+			sleep 1; \
+		done; \
+		echo "🔄 Regenerating TypeScript API SDK from local server..."; \
+		cd marketing-site && npm run generate:api:local; \
+		echo "✅ API SDK regenerated"; \
+		npm run dev \
 	) & \
 	(if [ "$(RELOAD)" = "1" ]; then \
-		echo "🔄 Worker auto-reload enabled"; \
-		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
-	else \
-		$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+		echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
+		sleep 10; \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --directory=./a2a_server --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"'; \
 	fi) & \
-	$(MAKE) run RELOAD=$(RELOAD)
+	(echo "⏳ Waiting for MCP server to be ready..."; \
+		for i in $$(seq 1 30); do \
+			if curl -s http://localhost:9000/mcp > /dev/null 2>&1; then \
+				echo "✅ MCP server ready"; \
+				break; \
+			fi; \
+			sleep 1; \
+		done; \
+		if [ "$(RELOAD)" = "1" ]; then \
+			echo "🔄 Worker auto-reload enabled"; \
+			$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+		else \
+			$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+		fi \
+	) & \
+	wait
 
 .PHONY: dev-no-worker
 dev-no-worker: ## Run Python server and React dev server (no worker)
 	@echo "🚀 Starting Python server and React dev server (no worker)..."
 	@trap 'kill 0' EXIT; \
-	(\
-		cd marketing-site && npm run dev \
+	(if [ "$(RELOAD)" = "1" ]; then \
+		echo "🔄 Server auto-reload enabled"; \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+	else \
+		$(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+	fi) & \
+	(echo "⏳ Waiting for Python server to be ready..."; \
+		for i in $$(seq 1 30); do \
+			if curl -s http://localhost:$(PORT)/openapi.json > /dev/null 2>&1; then \
+				echo "✅ Python server ready"; \
+				break; \
+			fi; \
+			sleep 1; \
+		done; \
+		echo "🔄 Regenerating TypeScript API SDK from local server..."; \
+		cd marketing-site && npm run generate:api:local; \
+		echo "✅ API SDK regenerated"; \
+		npm run dev \
 	) & \
-	$(MAKE) run RELOAD=1
+	(echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
+		sleep 10; \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --directory=./a2a_server --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"' \
+	) & \
+	wait
 
 .PHONY: worker
 worker: ## Run a local worker
@@ -747,7 +798,7 @@ codetether-status: ## Show CodeTether deployment status
 	kubectl get certificates -n $(NAMESPACE)
 
 .PHONY: codetether-full-deploy
-codetether-full-deploy: codetether-build-all helm-package helm-push codetether-deploy ## Full build and deploy pipeline
+codetether-full-deploy: codetether-build-all helm-package helm-push codetether-deploy codetether-restart-marketing codetether-restart-docs ## Full build and deploy pipeline
 
 
 .PHONY: test-models
@@ -814,12 +865,45 @@ voice-agent-restart: ## Restart voice agent deployment
 	kubectl rollout status deployment/$(VOICE_AGENT_RELEASE_NAME) -n $(NAMESPACE) --timeout=120s
 
 .PHONY: marketing-build-push-deploy
-marketing-build-push-deploy: codetether-build-marketing codetether-deploy
+marketing-build-push-deploy: codetether-build-marketing codetether-restart-marketing ## Build, push, and rolling restart marketing site
 	@echo "✅ Marketing site built, pushed, and deployed."
+
+.PHONY: codetether-marketing-deploy
+codetether-marketing-deploy: codetether-build-marketing codetether-restart-marketing ## Build, push, and deploy marketing site (alias)
+	@echo "✅ Marketing site deployed."
+
+# =============================================================================
+# Marketing Site Blue-Green Deployment
+# =============================================================================
+
+.PHONY: marketing-bluegreen
+marketing-bluegreen: codetether-build-marketing marketing-bluegreen-deploy ## Build marketing image and deploy with blue-green strategy
+	@echo "✅ Marketing site blue-green deployment complete."
+
+.PHONY: marketing-bluegreen-deploy
+marketing-bluegreen-deploy: ## Deploy marketing site with blue-green (assumes image exists)
+	@chmod +x scripts/bluegreen-marketing.sh
+	IMAGE_TAG=$(DOCKER_TAG) NAMESPACE=$(NAMESPACE) ./scripts/bluegreen-marketing.sh deploy
+
+.PHONY: marketing-bluegreen-rollback
+marketing-bluegreen-rollback: ## Rollback marketing site to previous blue-green slot
+	@chmod +x scripts/bluegreen-marketing.sh
+	NAMESPACE=$(NAMESPACE) ./scripts/bluegreen-marketing.sh rollback
+
+.PHONY: marketing-bluegreen-status
+marketing-bluegreen-status: ## Show marketing site blue-green deployment status
+	@chmod +x scripts/bluegreen-marketing.sh
+	NAMESPACE=$(NAMESPACE) ./scripts/bluegreen-marketing.sh status
 
 
 .PHONY: build-opencode
 build-opencode: ## Build OpenCode integration
 	@echo "🔧 Building OpenCode integration..."
-	cd /home/riley/A2A-Server-MCP/opencode/packages/opencode && bun run build && cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.local/bin/opencode && cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.opencode/bin/opencode && opencode --version
+	cd /home/riley/A2A-Server-MCP/opencode/packages/opencode && bun run build
+	@echo "🔪 Killing any running opencode binaries..."
+	-pkill -9 -x "opencode" || true
+	@sleep 1
+	cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.local/bin/opencode
+	cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.opencode/bin/opencode
+	opencode --version
 	@echo "✅ OpenCode integration built successfully."

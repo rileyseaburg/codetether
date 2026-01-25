@@ -1,10 +1,18 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import VoiceChatButton from './components/voice/VoiceChatButton'
-
-// API base URL - use environment variable or default
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+import TenantStatusBanner from '@/components/TenantStatusBanner'
+import { useTenantApi } from '@/hooks/useTenantApi'
+import {
+    listCodebasesV1OpencodeCodebasesListGet,
+    listWorkersV1OpencodeWorkersGet,
+    listModelsV1OpencodeModelsGet,
+    triggerAgentV1OpencodeCodebasesCodebaseIdTriggerPost,
+    registerCodebaseV1OpencodeCodebasesPost,
+    unregisterCodebaseV1OpencodeCodebasesCodebaseIdDelete,
+} from '@/lib/api'
 
 interface Codebase {
     id: string
@@ -56,6 +64,8 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 }
 
 export default function DashboardPage() {
+    const { data: session } = useSession()
+    const { apiUrl, tenantId, tenantSlug, isAuthenticated } = useTenantApi()
     const [codebases, setCodebases] = useState<Codebase[]>([])
     const [workers, setWorkers] = useState<Worker[]>([])
     const [models, setModels] = useState<Model[]>([])
@@ -72,12 +82,35 @@ export default function DashboardPage() {
         worker_id: ''
     })
 
+    // Redirect to dedicated instance if user has one and we're on the shared site
+    useEffect(() => {
+        if (isAuthenticated && session?.tenantApiUrl && tenantSlug) {
+            const currentHost = window.location.host
+            const tenantHost = `${tenantSlug}.codetether.run`
+            
+            // If user has a dedicated instance and we're NOT on it, redirect
+            if (!currentHost.includes(tenantSlug) && 
+                session.tenantApiUrl.includes(tenantSlug) &&
+                !currentHost.includes('localhost')) {
+                console.log(`Redirecting to dedicated instance: ${session.tenantApiUrl}`)
+                window.location.href = `${session.tenantApiUrl}/dashboard`
+            }
+        }
+    }, [isAuthenticated, session?.tenantApiUrl, tenantSlug])
+
+    // Log tenant info for debugging
+    useEffect(() => {
+        if (isAuthenticated) {
+            console.log('Tenant API Config:', { apiUrl, tenantId, tenantSlug })
+        }
+    }, [apiUrl, tenantId, tenantSlug, isAuthenticated])
+
     const loadCodebases = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/codebases/list`)
-            if (response.ok) {
-                const data = await response.json()
-                const items = Array.isArray(data) ? data : (data?.codebases ?? [])
+            const { data, error } = await listCodebasesV1OpencodeCodebasesListGet()
+            if (!error && data) {
+                const response = data as any
+                const items = Array.isArray(response) ? response : (response?.codebases ?? response?.data ?? [])
                 setCodebases(
                     (items as any[])
                         .map((cb) => ({
@@ -98,10 +131,9 @@ export default function DashboardPage() {
 
     const loadWorkers = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/workers`)
-            if (response.ok) {
-                const data = await response.json()
-                setWorkers(data || [])
+            const { data, error } = await listWorkersV1OpencodeWorkersGet()
+            if (!error && data) {
+                setWorkers(Array.isArray(data) ? data : (data as any)?.workers ?? [])
             }
         } catch (error) {
             console.error('Failed to load workers:', error)
@@ -110,15 +142,15 @@ export default function DashboardPage() {
 
     const loadModels = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/models`)
-            if (response.ok) {
-                const data = await response.json()
-                setModels(data.models || [])
-                if (data.default) setSelectedModel(data.default)
+            const { data, error } = await listModelsV1OpencodeModelsGet()
+            if (!error && data) {
+                const response = data as any
+                const modelsList = Array.isArray(response) ? response : (response?.models ?? [])
+                setModels(modelsList)
+                if (response?.default) setSelectedModel(response.default)
             }
         } catch (error) {
             console.error('Failed to load models:', error)
-            // Fallback models
             setModels([
                 { id: 'google/gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)', provider: 'Google' },
                 { id: 'z-ai/coding-plain-v1', name: 'Z.AI Coding Plain v1', provider: 'Z.AI Coding Plan' },
@@ -144,15 +176,11 @@ export default function DashboardPage() {
         if (!selectedCodebase || !prompt.trim()) return
         setLoading(true)
         try {
-            const payload: { prompt: string; agent: string; model?: string } = { prompt, agent: selectedAgent }
-            if (selectedModel) payload.model = selectedModel
-
-            const response = await fetch(`${API_URL}/v1/opencode/codebases/${selectedCodebase}/trigger`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            const { error } = await triggerAgentV1OpencodeCodebasesCodebaseIdTriggerPost({
+                path: { codebase_id: selectedCodebase },
+                body: { prompt, agent: selectedAgent, ...(selectedModel && { model: selectedModel }) }
             })
-            if (response.ok) {
+            if (!error) {
                 setPrompt('')
                 alert('Agent triggered successfully!')
             }
@@ -167,19 +195,15 @@ export default function DashboardPage() {
     const registerCodebase = async () => {
         if (!registerForm.name || !registerForm.path) return
         try {
-            const payload: { name: string; path: string; description?: string; worker_id?: string } = {
-                name: registerForm.name,
-                path: registerForm.path
-            }
-            if (registerForm.description) payload.description = registerForm.description
-            if (registerForm.worker_id) payload.worker_id = registerForm.worker_id
-
-            const response = await fetch(`${API_URL}/v1/opencode/codebases`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            const { error } = await registerCodebaseV1OpencodeCodebasesPost({
+                body: {
+                    name: registerForm.name,
+                    path: registerForm.path,
+                    ...(registerForm.description && { description: registerForm.description }),
+                    ...(registerForm.worker_id && { worker_id: registerForm.worker_id })
+                }
             })
-            if (response.ok) {
+            if (!error) {
                 setShowRegisterModal(false)
                 setRegisterForm({ name: '', path: '', description: '', worker_id: '' })
                 loadCodebases()
@@ -192,7 +216,7 @@ export default function DashboardPage() {
     const deleteCodebase = async (id: string) => {
         if (!confirm('Delete this codebase?')) return
         try {
-            await fetch(`${API_URL}/v1/opencode/codebases/${id}`, { method: 'DELETE' })
+            await unregisterCodebaseV1OpencodeCodebasesCodebaseIdDelete({ path: { codebase_id: id } })
             loadCodebases()
         } catch (error) {
             console.error('Failed to delete codebase:', error)
@@ -223,7 +247,11 @@ export default function DashboardPage() {
     }, {} as Record<string, Model[]>)
 
     return (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <div className="space-y-6">
+            {/* Tenant Status Banner */}
+            <TenantStatusBanner />
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             {/* Left sidebar - Codebases */}
             <div className="lg:col-span-1">
                 <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
@@ -493,6 +521,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     )
 }

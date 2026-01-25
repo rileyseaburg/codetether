@@ -24,7 +24,7 @@ import { RLMExecutionPane } from './components/RLMExecutionPane'
 export default function SessionsPage() {
   const [selectedCodebase, setSelectedCodebase] = useState('')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
-  const [selectedMode, setSelectedMode] = useState('build')
+  const [selectedMode, setSelectedMode] = useState('code')
   const [draftMessage, setDraftMessage] = useState('')
   const [awaitingResponse, setAwaitingResponse] = useState(false)
   const [optimisticMessages, setOptimisticMessages] = useState<ChatItem[]>([])
@@ -95,14 +95,14 @@ export default function SessionsPage() {
     return [...chatItems, ...optimisticMessages]
   }, [chatItems, optimisticMessages])
   const suggestedModels = useSuggestedModels(chatItems)
-  
+
   // Extract RLM data from historical messages and combine with live data
   const { steps: historyRlmSteps, stats: historyRlmStats } = useRlmFromHistory(chatItems)
-  const combinedRlmSteps = useMemo(() => 
-    rlmSteps.length > 0 ? rlmSteps : historyRlmSteps, 
+  const combinedRlmSteps = useMemo(() =>
+    rlmSteps.length > 0 ? rlmSteps : historyRlmSteps,
     [rlmSteps, historyRlmSteps]
   )
-  const combinedRlmStats = useMemo(() => 
+  const combinedRlmStats = useMemo(() =>
     (rlmStats.tokens > 0 || rlmStats.chunks > 0 || rlmStats.subcalls.total > 0) ? rlmStats : historyRlmStats,
     [rlmStats, historyRlmStats]
   )
@@ -207,7 +207,7 @@ export default function SessionsPage() {
 
   const onSessionSelect = useCallback((s: Session) => {
     setSelectedSession(s)
-    setSelectedMode('build')
+    setSelectedMode('code')
     setMobilePane('chat')
   }, [])
 
@@ -248,7 +248,7 @@ export default function SessionsPage() {
       {/* Skip link for keyboard users */}
       <a
         href="#chat-message-input"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-cyan-600 focus:px-4 focus:py-2 focus:text-white"
       >
         Skip to message input
       </a>

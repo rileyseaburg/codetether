@@ -86,7 +86,7 @@ export function JsonNode({ name, value, depth, path }: JsonNodeProps) {
             : typeof value === 'number'
                 ? 'text-sky-700 dark:text-sky-300'
                 : typeof value === 'boolean'
-                    ? 'text-violet-700 dark:text-violet-300'
+                    ? 'text-cyan-700 dark:text-cyan-300'
                     : 'text-gray-500 dark:text-gray-400'
 
     return (

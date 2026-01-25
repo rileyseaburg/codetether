@@ -28,8 +28,6 @@ DROP POLICY IF EXISTS admin_bypass_workers ON workers;
 
 ALTER TABLE workers DISABLE ROW LEVEL SECURITY;
 
-RAISE NOTICE 'RLS disabled on workers table';
-
 -- ============================================
 -- Disable RLS on Codebases Table
 -- ============================================
@@ -41,8 +39,6 @@ DROP POLICY IF EXISTS tenant_isolation_codebases_delete ON codebases;
 DROP POLICY IF EXISTS admin_bypass_codebases ON codebases;
 
 ALTER TABLE codebases DISABLE ROW LEVEL SECURITY;
-
-RAISE NOTICE 'RLS disabled on codebases table';
 
 -- ============================================
 -- Disable RLS on Tasks Table
@@ -56,8 +52,6 @@ DROP POLICY IF EXISTS admin_bypass_tasks ON tasks;
 
 ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
 
-RAISE NOTICE 'RLS disabled on tasks table';
-
 -- ============================================
 -- Disable RLS on Sessions Table
 -- ============================================
@@ -69,8 +63,6 @@ DROP POLICY IF EXISTS tenant_isolation_sessions_delete ON sessions;
 DROP POLICY IF EXISTS admin_bypass_sessions ON sessions;
 
 ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
-
-RAISE NOTICE 'RLS disabled on sessions table';
 
 -- ============================================
 -- Remove helper functions (optional - keep for potential re-enable)

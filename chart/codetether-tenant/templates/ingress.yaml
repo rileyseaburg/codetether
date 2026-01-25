@@ -1,0 +1,32 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "codetether-tenant.fullname" . }}-ingress
+  namespace: {{ include "codetether-tenant.namespace" . }}
+  labels:
+    {{- include "codetether-tenant.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ include "codetether-tenant.hostname" . }}
+      secretName: {{ include "codetether-tenant.fullname" . }}-tls
+  {{- end }}
+  rules:
+    - host: {{ include "codetether-tenant.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "codetether-tenant.fullname" . }}-svc
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

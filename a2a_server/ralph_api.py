@@ -125,6 +125,9 @@ class RalphRun(BaseModel):
 # In-memory task handles for cancellation (run data is in database)
 _ralph_tasks: Dict[str, asyncio.Task] = {}
 
+# Flag to track if recovery has been run
+_recovery_started = False
+
 
 # ============================================================================
 # Helper Functions
@@ -305,6 +308,8 @@ async def wait_for_task(
         return {'success': False, 'result': 'OpenCode bridge not available'}
 
     start_time = asyncio.get_event_loop().time()
+    consecutive_failures = 0
+    max_consecutive_failures = 30  # Give up after 30 consecutive failures (60s)
 
     while True:
         elapsed = asyncio.get_event_loop().time() - start_time
@@ -313,8 +318,20 @@ async def wait_for_task(
 
         task = await bridge.get_task(task_id)
         if not task:
+            consecutive_failures += 1
+            if consecutive_failures >= max_consecutive_failures:
+                logger.warning(
+                    f'Task {task_id}: {consecutive_failures} consecutive failures fetching task, giving up'
+                )
+                return {
+                    'success': False,
+                    'result': f'Failed to fetch task status after {consecutive_failures} attempts',
+                }
             await asyncio.sleep(2)
             continue
+
+        # Reset failure counter on successful fetch
+        consecutive_failures = 0
 
         # Handle both dict and object responses
         if isinstance(task, dict):
@@ -657,8 +674,212 @@ async def run_ralph(run_id: str):
 
 
 # ============================================================================
+# Recovery Functions
+# ============================================================================
+
+
+async def recover_stuck_runs():
+    """Recover Ralph runs that were interrupted by server restart.
+
+    This function:
+    1. Finds runs with status='running' that have no in-memory task
+    2. Checks if their underlying tasks are actually completed/failed
+    3. Updates the run status accordingly or resumes the run
+    """
+    global _recovery_started
+    if _recovery_started:
+        return
+    _recovery_started = True
+
+    logger.info('Ralph: Starting recovery of stuck runs...')
+
+    try:
+        # Find all runs marked as 'running' in the database
+        running_runs = await db.db_list_ralph_runs(status='running', limit=100)
+
+        if not running_runs:
+            logger.info('Ralph: No stuck runs to recover')
+            return
+
+        logger.info(f'Ralph: Found {len(running_runs)} potentially stuck runs')
+
+        bridge = get_opencode_bridge()
+
+        for db_run in running_runs:
+            run_id = db_run.get('id')
+            if not run_id:
+                continue
+
+            # Skip if we already have an in-memory task for this run
+            if run_id in _ralph_tasks:
+                continue
+
+            logger.info(f'Ralph: Checking stuck run {run_id}')
+
+            # Check the status of any running story tasks
+            story_results = db_run.get('story_results') or []
+            needs_resume = False
+            updated_results = False
+
+            for story_result in story_results:
+                if story_result.get('status') != 'running':
+                    continue
+
+                task_id = story_result.get('task_id')
+                if not task_id:
+                    continue
+
+                # Check task status in the task queue
+                if bridge:
+                    task = await bridge.get_task(task_id)
+                    if task:
+                        task_status = (
+                            task.get('status')
+                            if isinstance(task, dict)
+                            else getattr(task, 'status', None)
+                        )
+                        task_error = (
+                            task.get('error')
+                            if isinstance(task, dict)
+                            else getattr(task, 'error', None)
+                        )
+                        task_result = (
+                            task.get('result')
+                            if isinstance(task, dict)
+                            else getattr(task, 'result', None)
+                        )
+
+                        if task_status == 'completed':
+                            # Task completed while we were down
+                            success = task_result and (
+                                'STORY_COMPLETE' in str(task_result)
+                                or 'STORY_BLOCKED' not in str(task_result)
+                            )
+                            story_result['status'] = (
+                                'passed' if success else 'failed'
+                            )
+                            story_result['result'] = task_result
+                            story_result['completed_at'] = now_iso()
+                            updated_results = True
+                            logger.info(
+                                f'Ralph: Story {story_result.get("story_id")} task completed -> {story_result["status"]}'
+                            )
+                        elif task_status == 'failed':
+                            # Task failed while we were down
+                            story_result['status'] = 'failed'
+                            story_result['error'] = (
+                                task_error
+                                or 'Task failed during server restart'
+                            )
+                            story_result['completed_at'] = now_iso()
+                            updated_results = True
+                            logger.info(
+                                f'Ralph: Story {story_result.get("story_id")} task failed'
+                            )
+                        elif task_status == 'cancelled':
+                            story_result['status'] = 'failed'
+                            story_result['error'] = 'Task cancelled'
+                            story_result['completed_at'] = now_iso()
+                            updated_results = True
+                            logger.info(
+                                f'Ralph: Story {story_result.get("story_id")} task cancelled'
+                            )
+                        elif task_status in ['pending', 'running', 'queued']:
+                            # Task is still running/queued, need to resume monitoring
+                            needs_resume = True
+                            logger.info(
+                                f'Ralph: Story {story_result.get("story_id")} task still {task_status}, will resume'
+                            )
+                    else:
+                        # Task not found - mark as failed
+                        story_result['status'] = 'failed'
+                        story_result['error'] = (
+                            'Task not found after server restart'
+                        )
+                        story_result['completed_at'] = now_iso()
+                        updated_results = True
+                        logger.info(
+                            f'Ralph: Story {story_result.get("story_id")} task not found, marking failed'
+                        )
+
+            # Update story results in database
+            if updated_results:
+                await db.db_update_ralph_run(
+                    run_id, story_results=story_results
+                )
+                await add_log_to_db(
+                    run_id,
+                    'info',
+                    'Recovered story results after server restart',
+                )
+
+            # Check if we should resume or mark as failed
+            if needs_resume:
+                # Resume the run
+                logger.info(f'Ralph: Resuming run {run_id}')
+                await add_log_to_db(
+                    run_id, 'info', 'Resuming run after server restart'
+                )
+                task = asyncio.create_task(run_ralph(run_id))
+                _ralph_tasks[run_id] = task
+            else:
+                # Check final status
+                passed = sum(
+                    1 for r in story_results if r.get('status') == 'passed'
+                )
+                total = len(
+                    db_run.get('prd', {}).get(
+                        'userStories',
+                        db_run.get('prd', {}).get('user_stories', []),
+                    )
+                )
+
+                if passed == total:
+                    await db.db_update_ralph_run(
+                        run_id,
+                        status='completed',
+                        completed_at=datetime.now(timezone.utc),
+                    )
+                    await add_log_to_db(
+                        run_id,
+                        'complete',
+                        f'Run completed after recovery: {passed}/{total} passed',
+                    )
+                    logger.info(f'Ralph: Run {run_id} completed after recovery')
+                else:
+                    await db.db_update_ralph_run(
+                        run_id,
+                        status='failed',
+                        error='Run interrupted by server restart',
+                        completed_at=datetime.now(timezone.utc),
+                    )
+                    await add_log_to_db(
+                        run_id, 'error', 'Run failed after server restart'
+                    )
+                    logger.info(
+                        f'Ralph: Run {run_id} marked as failed after recovery'
+                    )
+
+    except Exception as e:
+        logger.exception(f'Ralph: Error during recovery: {e}')
+
+
+# ============================================================================
 # API Endpoints
 # ============================================================================
+
+
+@ralph_router.on_event('startup')
+async def ralph_startup():
+    """Run recovery on server startup."""
+    # Schedule recovery to run after a short delay to let the server fully start
+    asyncio.create_task(_delayed_recovery())
+
+
+async def _delayed_recovery():
+    """Run recovery after a short delay."""
+    await asyncio.sleep(5)  # Wait for database connection to be ready
+    await recover_stuck_runs()
 
 
 @ralph_router.post('/runs', response_model=RalphRun)
@@ -718,6 +939,18 @@ async def create_ralph_run(
 
     # Convert to response model
     return db_run_to_model(db_run)
+
+
+@ralph_router.post('/recover')
+async def trigger_recovery():
+    """Manually trigger recovery of stuck Ralph runs.
+
+    Use this endpoint if runs are stuck after a server restart.
+    """
+    global _recovery_started
+    _recovery_started = False  # Reset so recovery runs again
+    await recover_stuck_runs()
+    return {'status': 'recovery_complete'}
 
 
 @ralph_router.get('/runs', response_model=List[RalphRun])
@@ -922,3 +1155,211 @@ async def stream_ralph_run(run_id: str):
             'X-Accel-Buffering': 'no',
         },
     )
+
+
+# ============================================================================
+# AI PRD Chat Endpoint
+# ============================================================================
+
+
+class PRDChatRequest(BaseModel):
+    """Request for PRD chat."""
+
+    message: str
+    conversation_id: Optional[str] = 'prd-builder'
+    history: Optional[List[Dict[str, str]]] = None
+    model: Optional[str] = None
+    worker_id: Optional[str] = None  # Route to specific worker
+    codebase_id: Optional[str] = None  # Target codebase
+
+
+class PRDChatResponse(BaseModel):
+    """Response from PRD chat."""
+
+    task_id: str
+    status: str
+
+
+PRD_SYSTEM_PROMPT = """You are a helpful assistant that helps users create Product Requirements Documents (PRDs) for software development.
+
+Your role is to:
+1. Ask clarifying questions about the feature/project
+2. Understand the user's requirements
+3. Generate a structured PRD with user stories
+
+When you have enough information, generate a PRD in this JSON format:
+```json
+{
+  "project": "Project Name",
+  "branchName": "feature/branch-name",
+  "description": "Brief description of the feature",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Story title",
+      "description": "As a [user], I want [feature] so that [benefit]",
+      "acceptanceCriteria": ["Criteria 1", "Criteria 2"],
+      "priority": 1
+    }
+  ]
+}
+```
+
+Keep responses concise. Ask one or two questions at a time. When ready to generate the PRD, include the JSON block in your response."""
+
+
+@ralph_router.post('/chat')
+async def prd_chat(request: PRDChatRequest):
+    """Chat endpoint for AI-assisted PRD generation - creates a task for workers."""
+    from .monitor_api import get_opencode_bridge
+
+    bridge = get_opencode_bridge()
+    if not bridge:
+        raise HTTPException(
+            status_code=500, detail='OpenCode bridge not available'
+        )
+
+    # Build conversation context
+    conversation_history = ''
+    if request.history:
+        for msg in request.history:
+            role = 'User' if msg.get('role') == 'user' else 'Assistant'
+            conversation_history += f'{role}: {msg.get("content", "")}\n\n'
+
+    prompt = f'{PRD_SYSTEM_PROMPT}\n\nPrevious conversation:\n{conversation_history}\nUser: {request.message}'
+
+    # Use provided codebase_id, or None for global tasks
+    codebase_id = (
+        request.codebase_id
+        if request.codebase_id and request.codebase_id != 'global'
+        else None
+    )
+
+    # Create a session to track PRD chat history
+    # Use conversation_id as the session identifier to group related messages
+    session_id = request.conversation_id or 'prd-builder'
+
+    # Generate a unique session UUID if codebase_id is provided
+    if codebase_id:
+        # Check if session exists for this conversation_id + codebase_id
+        existing_sessions = await db.db_list_sessions(codebase_id)
+        existing_prd_session = None
+        for s in existing_sessions:
+            if (
+                s.get('metadata', {}).get('conversation_id')
+                == request.conversation_id
+            ):
+                existing_prd_session = s
+                break
+
+        if existing_prd_session:
+            session_id = existing_prd_session.get('id')
+        else:
+            # Create new session
+            session_id = str(uuid.uuid4())
+            await db.db_upsert_session(
+                {
+                    'id': session_id,
+                    'codebase_id': codebase_id,
+                    'title': f'PRD Chat: {request.message[:50]}',
+                    'metadata': {
+                        'prd_chat': True,
+                        'conversation_id': request.conversation_id
+                        or 'prd-builder',
+                    },
+                }
+            )
+
+        # Track this as a PRD chat session (upsert to prd_chat_sessions table)
+        if session_id:
+            await db.db_upsert_prd_chat_session(
+                codebase_id=codebase_id,
+                session_id=session_id,
+                title=f'PRD Chat: {request.message[:50]}',
+            )
+
+        # Store user message in session
+        await db.db_upsert_message(
+            {
+                'id': str(uuid.uuid4()),
+                'session_id': session_id,
+                'role': 'user',
+                'content': request.message,
+                'created_at': datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+    # Create task for workers to pick up
+    metadata = {
+        'prd_chat': True,
+        'conversation_id': request.conversation_id,
+    }
+    if codebase_id:
+        metadata['session_id'] = session_id
+    # If worker_id specified, add to metadata for routing
+    if request.worker_id:
+        metadata['target_worker_id'] = request.worker_id
+
+    task = await bridge.create_task(
+        codebase_id=codebase_id,
+        title=f'PRD Chat: {request.message[:50]}',
+        prompt=prompt,
+        agent_type='general',
+        priority=5,
+        model=request.model,
+        metadata=metadata,
+    )
+
+    if not task:
+        raise HTTPException(status_code=500, detail='Failed to create task')
+
+    return PRDChatResponse(task_id=task.id, status=task.status.value)
+
+
+# ============================================================================
+# PRD Chat Sessions Endpoint
+# ============================================================================
+
+
+class PRDChatSession(BaseModel):
+    """A PRD chat session."""
+
+    id: str
+    codebase_id: str
+    session_id: str
+    title: Optional[str] = None
+    message_count: int = 0
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PRDChatSessionsResponse(BaseModel):
+    """Response for listing PRD chat sessions."""
+
+    sessions: List[PRDChatSession]
+
+
+@ralph_router.get('/chat/sessions/{codebase_id}')
+async def list_prd_chat_sessions(
+    codebase_id: str, limit: int = 50
+) -> PRDChatSessionsResponse:
+    """List PRD chat sessions for a codebase."""
+    rows = await db.db_list_prd_chat_sessions(codebase_id, limit)
+
+    sessions = []
+    for row in rows:
+        created = row.get('created_at')
+        updated = row.get('updated_at')
+        sessions.append(
+            PRDChatSession(
+                id=str(row.get('id', '')),
+                codebase_id=row.get('codebase_id', ''),
+                session_id=row.get('session_id', ''),
+                title=row.get('title'),
+                message_count=row.get('message_count', 0),
+                created_at=created.isoformat() if created else None,
+                updated_at=updated.isoformat() if updated else None,
+            )
+        )
+
+    return PRDChatSessionsResponse(sessions=sessions)

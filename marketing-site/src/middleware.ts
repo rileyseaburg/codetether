@@ -18,8 +18,12 @@ export default auth((req) => {
         pathname.startsWith(route)
     )
 
-    if (isProtectedRoute && !req.auth) {
-        // Redirect to login if not authenticated
+    // Check for custom auth token in cookie (for self-service users)
+    const customToken = req.cookies.get('a2a_token')?.value
+    const hasCustomAuth = !!customToken
+
+    if (isProtectedRoute && !req.auth && !hasCustomAuth) {
+        // Redirect to login if not authenticated via NextAuth OR custom token
         const loginUrl = new URL('/login', req.url)
         loginUrl.searchParams.set('callbackUrl', pathname)
         return NextResponse.redirect(loginUrl)

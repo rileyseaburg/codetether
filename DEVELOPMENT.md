@@ -388,6 +388,51 @@ A2A_AUTH_ENABLED=false
 A2A_AUTH_TOKENS=client1:secret123,client2:secret456
 ```
 
+### Database Configuration
+
+The A2A server requires PostgreSQL. **Development and production use separate databases** to ensure isolation.
+
+| Environment | Database | Usage |
+|-------------|----------|-------|
+| Development | `a2a_server_dev` | Local `make dev`, testing |
+| Production | `a2a_server` | Production deployment |
+
+**Environment Variables:**
+```bash
+# Development (default in .env)
+DATABASE_URL=postgresql://postgres:password@localhost:5432/a2a_server_dev
+
+# Production
+DATABASE_URL=postgresql://postgres:password@localhost:5432/a2a_server
+```
+
+**Running Migrations:**
+
+```bash
+# Run migrations on dev database
+python scripts/migrate.py --dev
+
+# Run migrations on prod database
+python scripts/migrate.py --prod
+
+# Create database if it doesn't exist, then migrate
+python scripts/migrate.py --dev --create
+
+# Use a specific database URL
+python scripts/migrate.py --url postgresql://user:pass@host:5432/dbname
+```
+
+**Creating a New Database:**
+
+```bash
+# Create dev database and run migrations
+python scripts/migrate.py --dev --create
+
+# Or manually via psql
+psql -U postgres -c "CREATE DATABASE a2a_server_dev;"
+python scripts/migrate.py --dev
+```
+
 ### Helm Chart Configuration
 
 The Helm chart supports multiple deployment environments:
@@ -1814,6 +1859,71 @@ curl -X POST https://api.codetether.run/v1/auth/login \
 # Health check
 https://api.codetether.run/health
 ```
+
+---
+
+## Known Footguns
+
+> **Warning**: This section documents known issues that can cause confusion or errors during development.
+
+### File Ownership with Multi-User Development
+
+When multiple users (e.g., `riley` and `a2a-worker`) work on the same codebase, file ownership conflicts can prevent edits:
+
+```bash
+# Check who owns a file
+ls -la path/to/file.tsx
+
+# PROBLEM: File owned by a2a-worker, but you're logged in as riley
+-rw-r--r-- 1 a2a-worker a2a-worker 26426 Jan 22 18:37 AIPRDBuilder.tsx
+```
+
+**Solution**: Make files world-writable in trusted development environments:
+
+```bash
+# Fix a single file
+echo "spike2" | sudo -S chmod 666 path/to/file.tsx
+
+# Fix an entire directory recursively
+echo "spike2" | sudo -S chmod -R 666 marketing-site/src/
+
+# Or change ownership
+echo "spike2" | sudo -S chown riley:riley path/to/file.tsx
+```
+
+**Why this happens**: 
+- The `a2a-worker` user runs automated tasks and creates/modifies files
+- When you log in as `riley`, you can't edit files owned by `a2a-worker`
+- This is an **open trusted workflow** - SSH, firewall, and WAF provide security at the perimeter
+
+**Best Practice**: Set up a shared group or use `umask 000` for the worker process to create world-writable files by default:
+
+```bash
+# Add to worker's environment
+umask 000
+```
+
+### JSON-RPC Endpoint Confusion
+
+❌ **Wrong**: Sending to `/v1/message/send`
+```bash
+curl -X POST http://localhost:4400/v1/message/send  # 404 Not Found!
+```
+
+✅ **Correct**: Send JSON-RPC to root endpoint `/`
+```bash
+curl -X POST http://localhost:4400/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": {...}}'
+```
+
+### Session Token Expiry
+
+Keycloak tokens expire after ~5 minutes. If API calls start returning 401:
+
+1. The NextAuth `jwt` callback should auto-refresh tokens
+2. If refresh fails, users are redirected to `/login?error=session_expired`
+3. Check browser console for `Token refresh failed, signing out...`
 
 ---
 

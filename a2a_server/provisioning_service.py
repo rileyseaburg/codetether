@@ -32,6 +32,7 @@ from .tenant_service import (
     KeycloakTenantServiceError,
     TenantAlreadyExistsError,
 )
+from .cloudflare_dns import setup_tenant_dns, delete_tenant_dns
 
 logger = logging.getLogger(__name__)
 
@@ -182,8 +183,10 @@ class InstanceProvisioningService:
         # Track provisioning state for rollback
         keycloak_realm_created = False
         tenant_created = False
+        dns_created = False
         tenant_info: Optional[TenantInfo] = None
         db_tenant: Optional[dict] = None
+        org_slug: Optional[str] = None
 
         try:
             # Step 1: Generate unique org slug
@@ -233,7 +236,24 @@ class InstanceProvisioningService:
             await self._link_user_to_tenant(user_id, db_tenant['id'])
             logger.info(f'Linked user {user_id} to tenant {db_tenant["id"]}')
 
-            # Step 5: Create Kubernetes deployment (if enabled)
+            # Step 5: Set up Cloudflare DNS and tunnel
+            dns_created = False
+            try:
+                dns_result = await setup_tenant_dns(
+                    subdomain=org_slug,
+                    tenant_id=db_tenant['id'],
+                )
+                if dns_result.success:
+                    dns_created = True
+                    logger.info(f'Created DNS for {org_slug}.codetether.run')
+                else:
+                    logger.warning(
+                        f'DNS setup failed (non-fatal): {dns_result.error_message}'
+                    )
+            except Exception as e:
+                logger.warning(f'DNS setup error (non-fatal): {e}')
+
+            # Step 6: Create Kubernetes deployment (if enabled)
             k8s_namespace = None
             k8s_external_url = None
             k8s_internal_url = None
@@ -259,12 +279,17 @@ class InstanceProvisioningService:
                         )
 
                         # Store K8s instance info in tenant record
-                        await self._update_tenant_k8s_info(
-                            tenant_id=db_tenant['id'],
-                            namespace=k8s_namespace,
-                            external_url=k8s_external_url,
-                            internal_url=k8s_internal_url,
-                        )
+                        if (
+                            k8s_namespace
+                            and k8s_external_url
+                            and k8s_internal_url
+                        ):
+                            await self._update_tenant_k8s_info(
+                                tenant_id=db_tenant['id'],
+                                namespace=k8s_namespace,
+                                external_url=k8s_external_url,
+                                internal_url=k8s_internal_url,
+                            )
                     else:
                         logger.warning(
                             f'K8s provisioning failed (non-fatal): '
@@ -297,6 +322,8 @@ class InstanceProvisioningService:
                 tenant_info=tenant_info,
                 tenant_created=tenant_created,
                 db_tenant=db_tenant,
+                org_slug=org_slug,
+                dns_created=dns_created,
             )
 
             return ProvisioningResult(
@@ -365,6 +392,8 @@ class InstanceProvisioningService:
         tenant_info: Optional[TenantInfo],
         tenant_created: bool,
         db_tenant: Optional[dict],
+        org_slug: Optional[str] = None,
+        dns_created: bool = False,
     ) -> None:
         """
         Rollback provisioning changes in reverse order.
@@ -373,7 +402,15 @@ class InstanceProvisioningService:
         """
         logger.warning(f'Rolling back provisioning for user {user_id}')
 
-        # Rollback Step 4: Unlink user from tenant (if linked)
+        # Rollback Step 6: Delete DNS records (if created)
+        if dns_created and org_slug:
+            try:
+                await delete_tenant_dns(org_slug)
+                logger.info(f'Rollback: Deleted DNS for {org_slug}')
+            except Exception as e:
+                logger.error(f'Rollback failed: Could not delete DNS: {e}')
+
+        # Rollback Step 5: Unlink user from tenant (if linked)
         try:
             pool = await get_pool()
             if pool:
@@ -386,7 +423,7 @@ class InstanceProvisioningService:
         except Exception as e:
             logger.error(f'Rollback failed: Could not unlink user: {e}')
 
-        # Rollback Step 3: Delete database tenant
+        # Rollback Step 4: Delete database tenant
         if tenant_created and db_tenant:
             try:
                 pool = await get_pool()
@@ -402,7 +439,7 @@ class InstanceProvisioningService:
             except Exception as e:
                 logger.error(f'Rollback failed: Could not delete tenant: {e}')
 
-        # Rollback Step 2: Delete Keycloak realm
+        # Rollback Step 3: Delete Keycloak realm
         if keycloak_realm_created and tenant_info:
             try:
                 await self.keycloak_service.delete_tenant(

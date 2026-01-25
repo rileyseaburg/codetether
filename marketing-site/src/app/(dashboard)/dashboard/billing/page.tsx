@@ -3,6 +3,12 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
+import {
+    getSubscriptionV1BillingSubscriptionGet,
+    createCheckoutV1BillingCheckoutPost,
+    createPortalV1BillingPortalPost,
+    getUsageV1BillingUsageGet
+} from '@/lib/api'
 
 interface BillingStatus {
     tier: string
@@ -15,7 +21,7 @@ interface BillingStatus {
     max_runtime_seconds: number
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+
 
 const tierDetails: Record<string, { price: string; description: string; color: string }> = {
     free: {
@@ -83,17 +89,39 @@ function BillingContent() {
         setError(null)
 
         try {
-            const response = await fetch(`${API_BASE_URL}/v1/users/billing/status`, {
-                headers: getAuthHeaders(),
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.detail || 'Failed to load billing status')
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
             }
 
-            const data = await response.json()
-            setBillingStatus(data)
+            const subscriptionRes = await getSubscriptionV1BillingSubscriptionGet({ headers })
+
+            if (subscriptionRes.error) {
+                throw new Error((subscriptionRes.error as any)?.detail || 'Failed to load billing status')
+            }
+
+            const subscription = subscriptionRes.data as any
+
+            try {
+                const usageRes = await getUsageV1BillingUsageGet({ headers })
+                const usage = usageRes.data as any
+                setBillingStatus({
+                    ...subscription,
+                    tasks_used: usage?.tasks_used ?? 0,
+                    tasks_limit: usage?.tasks_limit ?? 0,
+                    concurrency_limit: subscription?.concurrency_limit ?? 1,
+                    max_runtime_seconds: subscription?.max_runtime_seconds ?? 600
+                })
+            } catch {
+                setBillingStatus({
+                    ...subscription,
+                    tasks_used: 0,
+                    tasks_limit: subscription?.tasks_limit ?? 0,
+                    concurrency_limit: subscription?.concurrency_limit ?? 1,
+                    max_runtime_seconds: subscription?.max_runtime_seconds ?? 600
+                })
+            }
         } catch (err) {
             console.error('Failed to load billing status:', err)
             setError(err instanceof Error ? err.message : 'Failed to load billing status')
@@ -107,27 +135,30 @@ function BillingContent() {
         setError(null)
 
         try {
-            const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-
-            const response = await fetch(`${API_BASE_URL}/v1/users/billing/checkout`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    tier: tierId,
-                    success_url: `${baseUrl}/dashboard/billing?upgraded=true`,
-                    cancel_url: `${baseUrl}/dashboard/billing`,
-                }),
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.detail || 'Failed to create checkout session')
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
             }
 
-            const data = await response.json()
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
-            if (data.checkout_url) {
-                window.location.href = data.checkout_url
+            const { data, error: checkoutError } = await createCheckoutV1BillingCheckoutPost({
+                headers,
+                body: {
+                    plan: tierId,
+                    success_url: `${baseUrl}/dashboard/billing?upgraded=true`,
+                    cancel_url: `${baseUrl}/dashboard/billing`,
+                }
+            })
+
+            if (checkoutError) {
+                throw new Error((checkoutError as any)?.detail || 'Failed to create checkout session')
+            }
+
+            const response = data as any
+            if (response?.checkout_url) {
+                window.location.href = response.checkout_url
             } else {
                 throw new Error('No checkout URL returned')
             }
@@ -143,25 +174,26 @@ function BillingContent() {
         setError(null)
 
         try {
-            const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-
-            const response = await fetch(`${API_BASE_URL}/v1/users/billing/portal`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    return_url: `${baseUrl}/dashboard/billing`,
-                }),
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.detail || 'Failed to create portal session')
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
             }
 
-            const data = await response.json()
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
-            if (data.portal_url) {
-                window.location.href = data.portal_url
+            const { data, error: portalError } = await createPortalV1BillingPortalPost({
+                headers,
+                body: { return_url: `${baseUrl}/dashboard/billing` }
+            })
+
+            if (portalError) {
+                throw new Error((portalError as any)?.detail || 'Failed to create portal session')
+            }
+
+            const response = data as any
+            if (response?.portal_url) {
+                window.location.href = response.portal_url
             } else {
                 throw new Error('No portal URL returned')
             }

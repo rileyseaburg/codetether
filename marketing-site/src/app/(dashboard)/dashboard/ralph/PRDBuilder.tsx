@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRalphStore, useAvailableModels, type PRD, type UserStory } from './store'
+import { useRalphStore, type PRD, type UserStory } from './store'
+import { ModelSelector } from '@/components/ModelSelector'
 
 // ============================================================================
 // Props
@@ -163,13 +164,8 @@ const storyTemplates = [
 // ============================================================================
 
 export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
-    // Get shared state from Zustand store
-    const { 
-        selectedModel, setSelectedModel,
-        selectedCodebase, setSelectedCodebase,
-        loadingAgents
-    } = useRalphStore()
-    const availableModels = useAvailableModels()
+    // Get shared state from Zustand store (only what we need locally)
+    const { selectedCodebase, setSelectedCodebase } = useRalphStore()
     
     // Local state for builder
     const [step, setStep] = useState<'project' | 'stories' | 'review'>('project')
@@ -303,9 +299,9 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                     <div className="flex items-center gap-2">
                         {/* Progress dots */}
                         <div className="flex gap-1.5">
-                            <div className={`h-2 w-2 rounded-full ${step === 'project' ? 'bg-purple-500' : 'bg-purple-500'}`} />
-                            <div className={`h-2 w-2 rounded-full ${step === 'stories' || step === 'review' ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                            <div className={`h-2 w-2 rounded-full ${step === 'review' ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                            <div className={`h-2 w-2 rounded-full ${step === 'project' ? 'bg-cyan-500' : 'bg-cyan-500'}`} />
+                            <div className={`h-2 w-2 rounded-full ${step === 'stories' || step === 'review' ? 'bg-cyan-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                            <div className={`h-2 w-2 rounded-full ${step === 'review' ? 'bg-cyan-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                         </div>
                     </div>
                 </div>
@@ -324,7 +320,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                                     value={project}
                                     onChange={(e) => handleProjectChange(e.target.value)}
                                     placeholder="MyApp"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                                 />
                             </div>
 
@@ -337,7 +333,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Describe what this feature does..."
                                     rows={3}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
                                 />
                             </div>
 
@@ -350,7 +346,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                                     value={branchName}
                                     onChange={(e) => setBranchName(e.target.value)}
                                     placeholder="ralph/feature-name"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono text-sm"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     Ralph will create this branch and commit to it
@@ -358,9 +354,9 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                             </div>
 
                             {/* Tips */}
-                            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                                <h4 className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-2">Tips for good PRDs</h4>
-                                <ul className="text-xs text-purple-700 dark:text-purple-400 space-y-1">
+                            <div className="p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
+                                <h4 className="text-sm font-medium text-cyan-800 dark:text-cyan-300 mb-2">Tips for good PRDs</h4>
+                                <ul className="text-xs text-cyan-700 dark:text-cyan-400 space-y-1">
                                     <li>• Keep stories small - each should be completable in one iteration</li>
                                     <li>• Order by dependency - database changes before API, API before UI</li>
                                     <li>• Be specific in acceptance criteria - vague criteria lead to failures</li>
@@ -377,7 +373,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                             <div className="flex gap-2">
                                 <button
                                     onClick={addBlankStory}
-                                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-medium"
+                                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium"
                                 >
                                     <PlusIcon className="h-4 w-4" />
                                     Add Story
@@ -428,7 +424,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                                             key={story.id}
                                             className={`p-4 rounded-lg border ${
                                                 editingStory === story.id
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                                    ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
                                                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
                                             }`}
                                         >
@@ -459,7 +455,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                                                     </button>
                                                     <button
                                                         onClick={() => setEditingStory(editingStory === story.id ? null : story.id)}
-                                                        className="px-2 py-1 text-xs text-purple-600 hover:text-purple-500"
+                                                        className="px-2 py-1 text-xs text-cyan-600 hover:text-cyan-500"
                                                     >
                                                         {editingStory === story.id ? 'Done' : 'Edit'}
                                                     </button>
@@ -560,35 +556,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                             </div>
 
                             {/* Model Selection */}
-                            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                                <h4 className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-3">Execution Settings</h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-xs text-purple-700 dark:text-purple-400 mb-1">
-                                            Model
-                                        </label>
-                                        <select
-                                            value={selectedModel}
-                                            onChange={(e) => setSelectedModel(e.target.value)}
-                                            disabled={loadingAgents}
-                                            className="w-full px-3 py-2 text-sm border border-purple-300 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        >
-                                            <option value="">Any available model</option>
-                                            {availableModels.map((model, idx) => (
-                                                <option key={`${model}-${idx}`} value={model}>{model}</option>
-                                            ))}
-                                        </select>
-                                        {selectedModel && (
-                                            <p className="mt-1 text-xs text-purple-600 dark:text-purple-400">
-                                                Tasks will route to workers supporting: {selectedModel}
-                                            </p>
-                                        )}
-                                        {availableModels.length === 0 && !loadingAgents && (
-                                            <p className="mt-1 text-xs text-purple-500">No workers with models registered</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                            <ModelSelector visualVariant="card" />
 
                             <div>
                                 <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
@@ -597,7 +565,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                                 <div className="space-y-2">
                                     {stories.map((story) => (
                                         <div key={story.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                                            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-mono rounded">
+                                            <span className="px-2 py-1 bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300 text-xs font-mono rounded">
                                                 {story.id}
                                             </span>
                                             <div className="flex-1">
@@ -635,7 +603,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                         {step === 'review' ? (
                             <button
                                 onClick={() => onPRDComplete(buildPRD())}
-                                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-medium"
+                                className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium"
                             >
                                 Create PRD & Start Ralph
                             </button>
@@ -643,7 +611,7 @@ export function PRDBuilder({ onPRDComplete, onCancel }: PRDBuilderProps) {
                             <button
                                 onClick={() => setStep(step === 'project' ? 'stories' : 'review')}
                                 disabled={!canProceed()}
-                                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Continue
                             </button>

@@ -11,13 +11,19 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "generate:api": "openapi-ts",
+    "generate:api:local": "OPENAPI_URL=http://localhost:8001/openapi.json openapi-ts"
   },
   "browserslist": "defaults, not ie <= 11",
   "dependencies": {
     "@headlessui/react": "^2.2.9",
     "@livekit/components-react": "^2.9.17",
     "@livekit/components-styles": "^1.2.0",
+    "@orpc/client": "^1.13.4",
+    "@orpc/openapi-client": "^1.13.4",
+    "@orpc/react": "^1.13.4",
+    "@orpc/zod": "^1.13.4",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/postcss": "^4.1.18",
     "clsx": "^2.1.1",
@@ -37,6 +43,8 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@hey-api/client-fetch": "^0.13.1",
+    "@hey-api/openapi-ts": "^0.90.9",
     "@next/bundle-analyzer": "^16.1.0",
     "@playwright/test": "^1.57.0",
     "@testing-library/jest-dom": "^6.1.6",

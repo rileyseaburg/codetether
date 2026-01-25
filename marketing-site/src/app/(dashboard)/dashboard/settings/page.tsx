@@ -3,6 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import {
+    listProvidersV1OpencodeProvidersGet,
+    vaultStatusV1OpencodeVaultStatusGet,
+    listApiKeysV1OpencodeApiKeysGet,
+    createOrUpdateApiKeyV1OpencodeApiKeysPost,
+    deleteApiKeyV1OpencodeApiKeysProviderIdDelete,
+    testApiKeyEndpointV1OpencodeApiKeysTestPost,
+    getSubscriptionV1BillingSubscriptionGet,
+    client
+} from '@/lib/api'
 
 interface Provider {
     id: string
@@ -39,6 +49,17 @@ interface BillingStatus {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
+const getAuthHeaders = () => {
+    const headers: Record<string, string> = {}
+    if (typeof window !== 'undefined') {
+        const storedToken = localStorage.getItem('a2a_token')
+        if (storedToken) {
+            headers['Authorization'] = `Bearer ${storedToken}`
+        }
+    }
+    return headers
+}
+
 export default function SettingsPage() {
     const { data: session, status } = useSession()
     const [providers, setProviders] = useState<Provider[]>([])
@@ -51,14 +72,12 @@ export default function SettingsPage() {
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
 
-    // Form state for adding new key
     const [selectedProvider, setSelectedProvider] = useState('')
     const [apiKey, setApiKey] = useState('')
-    const [baseUrl, setBaseUrl] = useState('')
+    const [baseUrlInput, setBaseUrlInput] = useState('')
 
     const getAuthToken = () => {
-        // @ts-ignore - accessToken/idToken may be on session
-        const sessionToken = session?.accessToken || session?.idToken
+        const sessionToken = session?.accessToken || (session as any)?.idToken
         if (sessionToken) {
             return sessionToken as string
         }
@@ -69,17 +88,6 @@ export default function SettingsPage() {
             }
         }
         return null
-    }
-
-    const getAuthHeaders = () => {
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-        }
-        const token = getAuthToken()
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`
-        }
-        return headers
     }
 
     useEffect(() => {
@@ -93,38 +101,43 @@ export default function SettingsPage() {
         setError(null)
 
         try {
-            // Load providers
-            const providersRes = await fetch(`${API_BASE_URL}/v1/opencode/providers`)
-            if (providersRes.ok) {
-                const data = await providersRes.json()
-                setProviders(data.providers || [])
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
             }
 
-            // Load vault status
-            const vaultRes = await fetch(`${API_BASE_URL}/v1/opencode/vault/status`)
-            if (vaultRes.ok) {
-                const data = await vaultRes.json()
-                setVaultStatus(data)
+            const [providersRes, vaultRes, keysRes, billingRes] = await Promise.all([
+                listProvidersV1OpencodeProvidersGet(),
+                vaultStatusV1OpencodeVaultStatusGet(),
+                token ? listApiKeysV1OpencodeApiKeysGet({ headers }) : Promise.resolve({ data: undefined, error: undefined }),
+                token ? getSubscriptionV1BillingSubscriptionGet({ headers }) : Promise.resolve({ data: undefined, error: undefined })
+            ])
+
+            if (!providersRes.error && providersRes.data) {
+                const response = providersRes.data as any
+                setProviders(Array.isArray(response) ? response : (response?.providers ?? []))
             }
 
-            // Load user's API keys
-            const keysRes = await fetch(`${API_BASE_URL}/v1/opencode/api-keys`, {
-                headers: getAuthHeaders(),
-            })
-            if (keysRes.ok) {
-                const data = await keysRes.json()
-                setApiKeys(data.keys || [])
-            } else if (keysRes.status === 401) {
+            if (!vaultRes.error && vaultRes.data) {
+                setVaultStatus(vaultRes.data as any)
+            }
+
+            if (!keysRes.error && keysRes.data) {
+                const response = keysRes.data as any
+                setApiKeys(Array.isArray(response) ? response : (response?.keys ?? []))
+            } else if (keysRes.error && typeof keysRes.error === 'object' && 'status' in keysRes.error && (keysRes.error as any).status === 401) {
                 setError('Please sign in to manage your API keys')
             }
 
-            // Load billing status
-            const billingRes = await fetch(`${API_BASE_URL}/v1/users/billing/status`, {
-                headers: getAuthHeaders(),
-            })
-            if (billingRes.ok) {
-                const data = await billingRes.json()
-                setBillingStatus(data)
+            if (!billingRes.error && billingRes.data) {
+                const response = billingRes.data as any
+                setBillingStatus({
+                    tier: response.tier ?? 'free',
+                    tier_name: response.tier_name ?? 'Free',
+                    tasks_used: response.tasks_used ?? 0,
+                    tasks_limit: response.tasks_limit ?? 0
+                })
             }
         } catch (err) {
             console.error('Failed to load data:', err)
@@ -146,26 +159,29 @@ export default function SettingsPage() {
         setSuccess(null)
 
         try {
-            const res = await fetch(`${API_BASE_URL}/v1/opencode/api-keys`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
+            }
+
+            const { error, data } = await createOrUpdateApiKeyV1OpencodeApiKeysPost({
+                headers,
+                body: {
                     provider_id: selectedProvider,
                     api_key: apiKey,
-                    base_url: baseUrl || undefined,
-                }),
+                    ...(baseUrlInput && { base_url: baseUrlInput })
+                }
             })
 
-            if (res.ok) {
-                const data = await res.json()
-                setSuccess(data.message || 'API key saved successfully')
+            if (!error) {
+                setSuccess((data as any)?.message || 'API key saved successfully')
                 setSelectedProvider('')
                 setApiKey('')
-                setBaseUrl('')
-                loadData() // Refresh the list
+                setBaseUrlInput('')
+                loadData()
             } else {
-                const data = await res.json()
-                setError(data.detail || 'Failed to save API key')
+                setError((error as any)?.detail || 'Failed to save API key')
             }
         } catch (err) {
             console.error('Failed to save API key:', err)
@@ -184,22 +200,25 @@ export default function SettingsPage() {
         setSuccess(null)
 
         try {
-            // For testing, we need the user to provide the full key
-            // This is a simplified test using the existing key
-            const res = await fetch(`${API_BASE_URL}/v1/opencode/api-keys/test`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
+            }
+
+            const { error, data } = await testApiKeyEndpointV1OpencodeApiKeysTestPost({
+                headers,
+                body: {
                     provider_id: providerId,
-                    api_key: apiKey || 'test', // Placeholder - in real UI, prompt for key
-                }),
+                    api_key: apiKey || 'test',
+                }
             })
 
-            const data = await res.json()
-            if (data.success) {
-                setSuccess(data.message)
+            const response = data as any
+            if (response?.success || !error) {
+                setSuccess(response?.message || 'API key test passed')
             } else {
-                setError(data.message || 'API key test failed')
+                setError(response?.message || (error as any)?.detail || 'API key test failed')
             }
         } catch (err) {
             console.error('Failed to test API key:', err)
@@ -218,17 +237,22 @@ export default function SettingsPage() {
         setSuccess(null)
 
         try {
-            const res = await fetch(`${API_BASE_URL}/v1/opencode/api-keys/${providerId}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders(),
+            const token = getAuthToken()
+            const headers: Record<string, string> = {}
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
+            }
+
+            const { error } = await deleteApiKeyV1OpencodeApiKeysProviderIdDelete({
+                path: { provider_id: providerId },
+                headers
             })
 
-            if (res.ok) {
+            if (!error) {
                 setSuccess('API key deleted successfully')
                 loadData()
             } else {
-                const data = await res.json()
-                setError(data.detail || 'Failed to delete API key')
+                setError((error as any)?.detail || 'Failed to delete API key')
             }
         } catch (err) {
             console.error('Failed to delete API key:', err)
@@ -479,8 +503,8 @@ export default function SettingsPage() {
                             <input
                                 type="url"
                                 id="baseUrl"
-                                value={baseUrl}
-                                onChange={e => setBaseUrl(e.target.value)}
+                                value={baseUrlInput}
+                                onChange={e => setBaseUrlInput(e.target.value)}
                                 placeholder="https://your-endpoint.example.com/v1"
                                 className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             />

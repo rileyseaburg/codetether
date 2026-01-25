@@ -379,7 +379,7 @@ export function RalphDemo() {
         story_start: { icon: '📋', label: 'Story', color: 'border-yellow-500/50 bg-yellow-950/50' },
         code: { icon: '💻', label: 'Code', color: 'border-green-500/50 bg-green-950/50' },
         check: { icon: '✓', label: 'Check', color: 'border-cyan-500/50 bg-cyan-950/50' },
-        commit: { icon: '📦', label: 'Commit', color: 'border-purple-500/50 bg-purple-950/50' },
+        commit: { icon: '📦', label: 'Commit', color: 'border-cyan-500/50 bg-cyan-950/50' },
         story_pass: { icon: '✅', label: 'Pass', color: 'border-emerald-500/50 bg-emerald-950/50' },
         story_fail: { icon: '❌', label: 'Fail', color: 'border-red-500/50 bg-red-950/50' },
         learning: { icon: '📝', label: 'Memory', color: 'border-orange-500/50 bg-orange-950/50' },
@@ -399,7 +399,7 @@ export function RalphDemo() {
                 <div className="mx-auto max-w-5xl">
                     {/* Header */}
                     <div className="text-center mb-12">
-                        <span className="inline-flex items-center rounded-full bg-gradient-to-r from-purple-950 to-pink-950 px-4 py-1.5 text-sm font-medium text-purple-300 ring-1 ring-inset ring-purple-500/20 mb-4">
+                        <span className="inline-flex items-center rounded-full bg-gradient-to-r from-cyan-950 to-cyan-900 px-4 py-1.5 text-sm font-medium text-cyan-300 ring-1 ring-inset ring-cyan-500/20 mb-4">
                             Ralph + RLM Integration
                         </span>
                         <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -498,15 +498,15 @@ export function RalphDemo() {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         {isRunning && (
-                                            <div className="flex items-center gap-2 text-xs text-purple-400">
-                                                <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                                            <div className="flex items-center gap-2 text-xs text-cyan-400">
+                                                <div className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
                                                 Running...
                                             </div>
                                         )}
                                         {!isRunning && completedEvents.length === 0 && (
                                             <button
                                                 onClick={runDemo}
-                                                className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-medium rounded-lg transition-colors"
+                                                className="px-4 py-1.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white text-sm font-medium rounded-lg transition-colors"
                                             >
                                                 Start Ralph
                                             </button>
@@ -526,7 +526,7 @@ export function RalphDemo() {
                                 <div className="flex items-center gap-6 px-4 py-2 bg-gray-900/50 border-b border-gray-700 text-xs font-mono">
                                     <div>
                                         <span className="text-gray-500">Iterations: </span>
-                                        <span className="text-purple-400">{stats.iterations}</span>
+                                        <span className="text-cyan-400">{stats.iterations}</span>
                                     </div>
                                     <div>
                                         <span className="text-gray-500">Passed: </span>
@@ -551,7 +551,7 @@ export function RalphDemo() {
                                                 Watch how <span className="text-pink-400">RLM</span> compresses context when it gets too large
                                             </p>
                                             <p className="text-xs mt-4 text-gray-600">
-                                                Based on <a href="https://ghuntley.com/ralph" className="text-purple-400 hover:underline" target="_blank" rel="noopener noreferrer">Geoffrey Huntley&apos;s Ralph pattern</a>
+                                                Based on <a href="https://ghuntley.com/ralph" className="text-cyan-400 hover:underline" target="_blank" rel="noopener noreferrer">Geoffrey Huntley&apos;s Ralph pattern</a>
                                             </p>
                                         </div>
                                     )}
@@ -588,9 +588,9 @@ export function RalphDemo() {
                                     {isRunning && currentEvent < demoEvents.length && (
                                         <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
                                             <div className="flex gap-1">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                                                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                                             </div>
                                             <span>Processing...</span>
                                         </div>
@@ -623,7 +623,7 @@ export function RalphDemo() {
                     <div className="mt-12 p-6 rounded-xl bg-gray-900/50 border border-gray-800">
                         <h3 className="text-white font-semibold mb-4 text-center">How Ralph + RLM Work Together</h3>
                         <div className="flex flex-wrap justify-center items-center gap-3 text-sm">
-                            <span className="px-3 py-1.5 rounded-lg bg-purple-950/50 text-purple-300 border border-purple-500/30">
+                            <span className="px-3 py-1.5 rounded-lg bg-cyan-950/50 text-cyan-300 border border-cyan-500/30">
                                 📋 PRD Story
                             </span>
                             <span className="text-gray-500">→</span>
@@ -635,7 +635,7 @@ export function RalphDemo() {
                                 ✓ Tests Pass
                             </span>
                             <span className="text-gray-500">→</span>
-                            <span className="px-3 py-1.5 rounded-lg bg-purple-950/50 text-purple-300 border border-purple-500/30">
+                            <span className="px-3 py-1.5 rounded-lg bg-cyan-950/50 text-cyan-300 border border-cyan-500/30">
                                 📦 Git Commit
                             </span>
                             <span className="text-gray-500">→</span>
@@ -658,7 +658,7 @@ export function RalphDemo() {
                     <div className="mt-12 text-center">
                         <a
                             href="/register"
-                            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 text-sm font-semibold text-white hover:from-purple-500 hover:to-pink-500 transition-colors"
+                            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:from-cyan-500 hover:to-cyan-400 transition-colors"
                         >
                             Try Ralph + RLM on Your Codebase
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -18,9 +18,9 @@ type MarkdownCodeElementProps = {
     className?: string
 }
 
-export const MarkdownComponents: Components = {
+ export const MarkdownComponents: Components = {
     a: ({ children, ...props }: MarkdownAnchorProps) => (
-        <a {...props} className="text-indigo-600 hover:underline dark:text-indigo-400" target="_blank" rel="noreferrer">{children}</a>
+        <a {...props} className="text-cyan-600 hover:underline dark:text-cyan-400" target="_blank" rel="noreferrer">{children}</a>
     ),
     code: ({ inline, children, className, ...props }: MarkdownCodeProps) => {
         if (inline) {
@@ -71,12 +71,12 @@ export function looksLikeDiff(text: string, className?: string): boolean {
     return headers > 0 && changes > 0
 }
 
-export function diffLineClass(line: string): string {
+ export function diffLineClass(line: string): string {
     if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('*** ')) {
         return 'text-gray-300/80'
     }
     if (line.startsWith('@@')) {
-        return 'bg-indigo-500/10 text-indigo-200'
+        return 'bg-cyan-500/10 text-cyan-200'
     }
     if (line.startsWith('+++') || line.startsWith('---')) {
         return 'text-gray-300'

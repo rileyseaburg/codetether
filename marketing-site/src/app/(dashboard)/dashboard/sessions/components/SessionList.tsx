@@ -142,7 +142,7 @@ export function SessionList({
                             id="codebase-select"
                             value={selectedCodebase}
                             onChange={(e) => onCodebaseChange(e.target.value)}
-                            className="min-w-0 rounded-md border-gray-300 bg-white text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                             className="min-w-0 rounded-md border-gray-300 bg-white text-sm text-gray-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             aria-describedby="codebase-hint"
                         >
                             <option value="">Select codebase...</option>
@@ -158,7 +158,7 @@ export function SessionList({
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search sessions..."
-                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-sm text-gray-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
                         {query && (
                             <button
@@ -181,7 +181,7 @@ export function SessionList({
                             id="session-sort"
                             value={sortOrder}
                             onChange={(e) => setSortOrder(e.target.value as 'recent' | 'oldest')}
-                            className="min-w-[140px] rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                             className="min-w-[140px] rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                         >
                             <option value="recent">Most recent</option>
                             <option value="oldest">Oldest first</option>

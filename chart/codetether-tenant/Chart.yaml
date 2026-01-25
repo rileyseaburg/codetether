@@ -1,0 +1,14 @@
+apiVersion: v2
+name: codetether-tenant
+description: A Helm chart for CodeTether tenant instances
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - codetether
+  - tenant
+  - a2a
+  - multi-tenant
+maintainers:
+  - name: CodeTether
+    email: support@codetether.run

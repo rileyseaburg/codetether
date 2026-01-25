@@ -1116,6 +1116,20 @@ async def db_update_task_status(
     if not pool:
         return False
 
+    task = None
+    session_id = None
+    is_prd_chat = False
+
+    # Get task metadata before update to check if it's a PRD chat
+    try:
+        task = await db_get_task(task_id)
+        if task:
+            metadata = task.get('metadata', {}) or {}
+            is_prd_chat = metadata.get('prd_chat') == True
+            session_id = metadata.get('session_id')
+    except Exception:
+        pass
+
     try:
         async with pool.acquire() as conn:
             updates = ['status = $2', 'updated_at = NOW()']
@@ -1144,6 +1158,20 @@ async def db_update_task_status(
 
             query = f'UPDATE tasks SET {", ".join(updates)} WHERE id = $1'
             result_msg = await conn.execute(query, *params)
+
+            # If this is a PRD chat task and it completed with a result, save to session
+            if is_prd_chat and session_id and status == 'completed' and result:
+                await db_upsert_message(
+                    {
+                        'id': str(uuid.uuid4()),
+                        'session_id': session_id,
+                        'role': 'assistant',
+                        'content': result,
+                        'created_at': datetime.utcnow().isoformat(),
+                    }
+                )
+                logger.info(f'Saved PRD chat result to session {session_id}')
+
             return 'UPDATE 1' in result_msg
     except Exception as e:
         logger.error(f'Failed to update task status: {e}')
@@ -2807,6 +2835,68 @@ async def db_list_outbound_emails(
             return [dict(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list outbound emails: {e}')
+        return []
+
+
+# ============================================================================
+# PRD Chat Sessions Database Functions
+# ============================================================================
+
+
+async def db_upsert_prd_chat_session(
+    codebase_id: str,
+    session_id: str,
+    title: Optional[str] = None,
+) -> bool:
+    """Upsert a PRD chat session link."""
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO prd_chat_sessions (codebase_id, session_id, title, updated_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (codebase_id, session_id)
+                DO UPDATE SET updated_at = NOW(), title = COALESCE($3, prd_chat_sessions.title)
+                """,
+                codebase_id,
+                session_id,
+                title,
+            )
+        return True
+    except Exception as e:
+        logger.error(f'Failed to upsert PRD chat session: {e}')
+        return False
+
+
+async def db_list_prd_chat_sessions(
+    codebase_id: str, limit: int = 50
+) -> List[Dict[str, Any]]:
+    """List PRD chat sessions for a codebase."""
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT p.id, p.codebase_id, p.session_id, p.title, p.created_at, p.updated_at,
+                       (SELECT COUNT(*) FROM session_messages WHERE session_id = p.session_id) as message_count
+                FROM prd_chat_sessions p
+                WHERE p.codebase_id = $1
+                ORDER BY p.updated_at DESC
+                LIMIT $2
+                """,
+                codebase_id,
+                limit,
+            )
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list PRD chat sessions: {e}')
         return []
 
 

@@ -32,7 +32,7 @@ export function ChatInput({ draftMessage, loading, actionStatus, hasSession, onD
                 onSubmit={(e) => { e.preventDefault(); onSend() }}
                 className="space-y-1 sm:space-y-2"
             >
-                <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white p-1 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 sm:p-2">
+                 <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white p-1 shadow-sm focus-within:ring-2 focus-within:ring-cyan-500 dark:border-gray-700 dark:bg-gray-800 sm:p-2">
                     <div className="flex-1">
                         <label htmlFor="chat-message-input" className="sr-only">
                             Type your message to the agent
@@ -53,10 +53,10 @@ export function ChatInput({ draftMessage, loading, actionStatus, hasSession, onD
                             Press Enter to send, Shift+Enter for new line. {characterCount} characters typed.
                         </span>
                     </div>
-                    <button
+                     <button
                         type="submit"
                         disabled={!canSend}
-                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:px-3 sm:py-2 sm:text-sm"
+                        className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:px-3 sm:py-2 sm:text-sm"
                         aria-label={loading ? 'Sending message...' : 'Send message'}
                         aria-busy={loading}
                     >

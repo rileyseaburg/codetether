@@ -40,6 +40,15 @@ JWT_SECRET = os.environ.get('JWT_SECRET', secrets.token_urlsafe(32))
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = int(os.environ.get('JWT_EXPIRATION_HOURS', '24'))
 
+# Keycloak Configuration (for validating Keycloak-issued tokens)
+KEYCLOAK_ISSUER = os.environ.get(
+    'KEYCLOAK_ISSUER', 'https://auth.quantum-forge.io/realms/quantum-forge'
+)
+KEYCLOAK_JWKS_URL = f'{KEYCLOAK_ISSUER}/protocol/openid-connect/certs'
+
+# Cache for Keycloak JWKS
+_keycloak_jwks_client = None
+
 # Security
 security = HTTPBearer(auto_error=False)
 
@@ -189,14 +198,236 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> Dict[str, Any]:
-    """Decode and validate a JWT access token."""
+    """Decode and validate a JWT access token (HS256 self-issued or RS256 Keycloak)."""
     try:
+        # First try HS256 (self-issued tokens)
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get('type') != 'access':
             raise HTTPException(status_code=401, detail='Invalid token type')
         return payload
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f'Invalid token: {str(e)}')
+    except JWTError:
+        # Fall back to Keycloak RS256 token validation
+        return decode_keycloak_token(token)
+
+
+def _decode_keycloak_token_unverified(token: str) -> Dict[str, Any]:
+    """
+    Decode a Keycloak token WITHOUT signature verification.
+
+    WARNING: This is INSECURE and should only be used in dev environments
+    where the backend cannot reach Keycloak's JWKS endpoint.
+
+    Enable by setting ALLOW_UNVERIFIED_KEYCLOAK_TOKENS=true
+    """
+    from jose import jwt as jose_jwt
+
+    logger.warning(
+        'SECURITY WARNING: Decoding Keycloak token without verification!'
+    )
+
+    try:
+        # Log token info for debugging
+        token_parts = token.split('.')
+        logger.warning(f'Token has {len(token_parts)} parts')
+        logger.warning(f'Token prefix: {token[:100]}...')
+
+        if len(token_parts) != 3:
+            logger.error(
+                f'Invalid JWT format: expected 3 parts, got {len(token_parts)}'
+            )
+            raise HTTPException(
+                status_code=401, detail='Invalid token format - not a JWT'
+            )
+
+        # Decode without verification
+        payload = jose_jwt.get_unverified_claims(token)
+        logger.warning(f'Decoded payload keys: {list(payload.keys())}')
+        logger.warning(
+            f'Payload: sub={payload.get("sub")}, email={payload.get("email")}, iss={payload.get("iss")}'
+        )
+
+        # Basic sanity checks - try alternative claim names
+        # Keycloak tokens should have 'sub', but some configurations omit it
+        # Fall back to sid (session ID), jti (JWT ID), or derive from email
+        subject = (
+            payload.get('sub')
+            or payload.get('sid')  # Session ID as fallback
+            or payload.get('jti')  # JWT ID as fallback
+            or payload.get('user_id')
+            or payload.get('id')
+        )
+        email = payload.get('email') or payload.get('preferred_username')
+
+        # If still no subject but we have email, generate a deterministic ID from email
+        if not subject and email:
+            import hashlib
+
+            subject = (
+                f'keycloak:{hashlib.sha256(email.encode()).hexdigest()[:16]}'
+            )
+            logger.warning(
+                f'No sub claim in token, using derived subject: {subject}'
+            )
+
+        if not subject:
+            logger.error(
+                f'No subject found in token. Available claims: {list(payload.keys())}'
+            )
+            raise HTTPException(
+                status_code=401, detail='Token missing subject claim'
+            )
+        if not email:
+            logger.error(
+                f'No email found in token. Available claims: {list(payload.keys())}'
+            )
+            raise HTTPException(
+                status_code=401, detail='Token missing email claim'
+            )
+
+        logger.info(f'Token validated for user: {email} (sub: {subject})')
+
+        # Update payload with found values
+        payload['sub'] = subject
+        payload['email'] = email
+
+        # Check expiration manually (skip in dev mode with unverified tokens)
+        exp = payload.get('exp')
+        if exp:
+            from datetime import datetime
+
+            if datetime.utcnow().timestamp() > exp:
+                # In dev mode, just warn about expired tokens but allow them
+                logger.warning(
+                    f'Token expired at {exp}, but allowing due to ALLOW_UNVERIFIED_KEYCLOAK_TOKENS=true'
+                )
+
+        return {
+            'sub': payload.get('sub'),
+            'email': payload.get('email'),
+            'type': 'keycloak',
+            'exp': payload.get('exp'),
+            'iat': payload.get('iat'),
+            'preferred_username': payload.get('preferred_username'),
+            'name': payload.get('name'),
+            'roles': _extract_keycloak_roles(payload),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f'Failed to decode unverified token: {e}')
+        raise HTTPException(status_code=401, detail='Invalid token format')
+
+
+def decode_keycloak_token(token: str) -> Dict[str, Any]:
+    """Decode and validate a Keycloak-issued JWT token using JWKS."""
+    import httpx
+    from jose import jwt as jose_jwt
+    from jose.exceptions import JWTError as JoseJWTError
+
+    global _keycloak_jwks_client
+
+    try:
+        # Fetch JWKS from Keycloak (with caching)
+        if _keycloak_jwks_client is None:
+            logger.info(f'Fetching Keycloak JWKS from {KEYCLOAK_JWKS_URL}')
+            try:
+                response = httpx.get(KEYCLOAK_JWKS_URL, timeout=5.0)
+                response.raise_for_status()
+                _keycloak_jwks_client = response.json()
+                logger.info(
+                    f'Successfully fetched JWKS with {len(_keycloak_jwks_client.get("keys", []))} keys'
+                )
+            except httpx.HTTPError as e:
+                logger.warning(
+                    f'Failed to fetch Keycloak JWKS: {e}. Trying unverified decode.'
+                )
+                # Fall back to unverified decode for dev environments
+                # This is INSECURE but allows local dev without Keycloak connectivity
+                if (
+                    os.environ.get(
+                        'ALLOW_UNVERIFIED_KEYCLOAK_TOKENS', ''
+                    ).lower()
+                    == 'true'
+                ):
+                    return _decode_keycloak_token_unverified(token)
+                raise
+
+        # Get the key ID from the token header
+        unverified_header = jose_jwt.get_unverified_header(token)
+        kid = unverified_header.get('kid')
+
+        # Find the matching key in JWKS
+        rsa_key = None
+        for key in _keycloak_jwks_client.get('keys', []):
+            if key.get('kid') == kid:
+                rsa_key = key
+                break
+
+        if not rsa_key:
+            raise HTTPException(
+                status_code=401, detail='Unable to find matching key'
+            )
+
+        # Decode and validate the token
+        payload = jose_jwt.decode(
+            token,
+            rsa_key,
+            algorithms=['RS256'],
+            audience='account',  # Keycloak default audience
+            issuer=KEYCLOAK_ISSUER,
+            options={
+                'verify_aud': False
+            },  # Keycloak tokens may not have standard audience
+        )
+
+        # Map Keycloak claims to our format
+        return {
+            'sub': payload.get('sub'),
+            'email': payload.get('email'),
+            'type': 'keycloak',  # Mark as Keycloak token
+            'exp': payload.get('exp'),
+            'iat': payload.get('iat'),
+            'preferred_username': payload.get('preferred_username'),
+            'name': payload.get('name'),
+            'roles': _extract_keycloak_roles(payload),
+        }
+    except JoseJWTError as e:
+        logger.error(f'Keycloak token validation error: {e}')
+        raise HTTPException(
+            status_code=401, detail=f'Invalid Keycloak token: {str(e)}'
+        )
+    except httpx.HTTPError as e:
+        logger.error(f'Failed to fetch Keycloak JWKS: {e}')
+        # Try unverified fallback for dev
+        if (
+            os.environ.get('ALLOW_UNVERIFIED_KEYCLOAK_TOKENS', '').lower()
+            == 'true'
+        ):
+            logger.warning(
+                'Using unverified token decode (ALLOW_UNVERIFIED_KEYCLOAK_TOKENS=true)'
+            )
+            return _decode_keycloak_token_unverified(token)
+        raise HTTPException(status_code=503, detail='Unable to validate token')
+    except Exception as e:
+        logger.error(f'Unexpected error validating Keycloak token: {e}')
+        raise HTTPException(status_code=401, detail='Token validation failed')
+
+
+def _extract_keycloak_roles(payload: Dict[str, Any]) -> List[str]:
+    """Extract roles from Keycloak token payload."""
+    roles = []
+
+    # Realm roles
+    realm_access = payload.get('realm_access', {})
+    roles.extend(realm_access.get('roles', []))
+
+    # Client roles
+    resource_access = payload.get('resource_access', {})
+    for client in resource_access.values():
+        if isinstance(client, dict):
+            roles.extend(client.get('roles', []))
+
+    return list(set(roles))  # Dedupe
 
 
 # ========================================
@@ -220,6 +451,14 @@ async def get_current_user(
     # Otherwise treat as JWT
     try:
         payload = decode_access_token(token)
+
+        # Handle Keycloak tokens (may not have user in our DB)
+        if payload.get('type') == 'keycloak':
+            # For Keycloak users, create a virtual user object from token claims
+            # or look them up / create them in our database
+            return await _get_or_create_keycloak_user(payload)
+
+        # Handle self-issued tokens (user must exist in DB)
         user = await get_user_by_id(payload['sub'])
         if not user:
             raise HTTPException(status_code=401, detail='User not found')
@@ -231,6 +470,92 @@ async def get_current_user(
     except Exception as e:
         logger.error(f'Token validation error: {e}')
         raise HTTPException(status_code=401, detail='Invalid token')
+
+
+async def _get_or_create_keycloak_user(
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Get or create a user from Keycloak token claims."""
+    keycloak_sub = payload.get('sub')
+    email = payload.get('email')
+
+    if not keycloak_sub or not email:
+        raise HTTPException(
+            status_code=401,
+            detail='Invalid Keycloak token: missing sub or email',
+        )
+
+    pool = await get_pool()
+    if not pool:
+        # If DB is unavailable, return a virtual user from token claims
+        logger.warning('Database unavailable, returning virtual Keycloak user')
+        return {
+            'id': keycloak_sub,
+            'email': email,
+            'first_name': payload.get('name', '').split()[0]
+            if payload.get('name')
+            else None,
+            'last_name': ' '.join(payload.get('name', '').split()[1:])
+            if payload.get('name')
+            else None,
+            'status': 'active',
+            'tier': 'free',  # Default tier for Keycloak users
+            'keycloak_sub': keycloak_sub,
+            'roles': payload.get('roles', []),
+            'usage_count': 0,
+            'usage_limit': 10,  # Free tier default
+        }
+
+    async with pool.acquire() as conn:
+        # Try to find existing user by Keycloak subject
+        user = await conn.fetchrow(
+            'SELECT * FROM users WHERE keycloak_sub = $1 OR email = $2',
+            keycloak_sub,
+            email,
+        )
+
+        if user:
+            # Update keycloak_sub if not set
+            if not user['keycloak_sub']:
+                await conn.execute(
+                    'UPDATE users SET keycloak_sub = $1 WHERE id = $2',
+                    keycloak_sub,
+                    user['id'],
+                )
+            return dict(user)
+
+        # Create new user from Keycloak claims
+        user_id = str(uuid.uuid4())
+        name_parts = (payload.get('name') or '').split()
+        first_name = name_parts[0] if name_parts else None
+        last_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else None
+
+        await conn.execute(
+            """
+            INSERT INTO users (id, email, first_name, last_name, status, tier, keycloak_sub, created_at)
+            VALUES ($1, $2, $3, $4, 'active', 'free', $5, NOW())
+            """,
+            user_id,
+            email,
+            first_name,
+            last_name,
+            keycloak_sub,
+        )
+
+        logger.info(f'Created user from Keycloak: {email} ({keycloak_sub})')
+
+        return {
+            'id': user_id,
+            'email': email,
+            'first_name': first_name,
+            'last_name': last_name,
+            'status': 'active',
+            'tier': 'free',
+            'keycloak_sub': keycloak_sub,
+            'roles': payload.get('roles', []),
+            'usage_count': 0,
+            'usage_limit': 10,
+        }
 
 
 async def require_user(

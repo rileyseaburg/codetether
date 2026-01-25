@@ -175,7 +175,7 @@ function FeaturesDesktop() {
                         className={clsx(
                             'rounded-2xl p-6 text-left transition-colors',
                             'hover:bg-gray-100 dark:hover:bg-gray-800/30 focus:outline-none',
-                            'data-[selected]:bg-purple-50 dark:data-[selected]:bg-purple-900/20 data-[selected]:ring-2 data-[selected]:ring-purple-500'
+                            'data-[selected]:bg-cyan-50 dark:data-[selected]:bg-cyan-900/20 data-[selected]:ring-2 data-[selected]:ring-cyan-500'
                         )}
                     >
                         <feature.icon className="h-8 w-8" />
