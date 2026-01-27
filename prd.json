@@ -132,8 +132,8 @@
         "chart/a2a-server/values.yaml"
       ],
       "estimatedHours": 2,
-      "priority": 7,
-      "passes": false
+      "priority": 0,
+      "passes": true
     },
     {
       "id": "8",
