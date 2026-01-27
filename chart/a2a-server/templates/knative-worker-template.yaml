@@ -98,7 +98,15 @@ data:
                 - name: EMAIL_INBOUND_DOMAIN
                   value: "{{ .Values.knative.worker.emailInboundDomain | default "" }}"
                 {{- end }}
-              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret }}
+                {{- if .Values.knative.worker.dbEncryptionSecret }}
+                # Database encryption key for API key encryption
+                - name: DB_ENCRYPTION_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.knative.worker.dbEncryptionSecret }}
+                      key: encryption-key
+                {{- end }}
+              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.dbEncryptionSecret }}
               volumeMounts:
                 {{- if .Values.knative.worker.authSecret }}
                 - name: opencode-auth
