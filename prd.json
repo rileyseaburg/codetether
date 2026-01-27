@@ -114,8 +114,8 @@
         "a2a_server/admin_api.py"
       ],
       "estimatedHours": 6,
-      "priority": 6,
-      "passes": false
+      "priority": 0,
+      "passes": true
     },
     {
       "id": "7",

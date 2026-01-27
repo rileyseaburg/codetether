@@ -442,6 +442,10 @@ knative:
     sendgridSecret: ""
     # Domain for inbound email replies (optional)
     emailInboundDomain: ""
+    # Secret containing database encryption key for API key encryption
+    # Create: kubectl create secret generic db-encryption-key \
+    #   --from-literal=encryption-key=your-32-byte-key-here -n a2a-server
+    dbEncryptionSecret: ""
 
 # Marketing site configuration
 marketing:
