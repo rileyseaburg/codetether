@@ -56,8 +56,8 @@
         "opencode/packages/opencode/src/server/routes/cloudevent.ts"
       ],
       "estimatedHours": 6,
-      "priority": 3,
-      "passes": false
+      "priority": 0,
+      "passes": true
     },
     {
       "id": "4",
