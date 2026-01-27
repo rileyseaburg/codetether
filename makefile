@@ -66,9 +66,24 @@ help: ## Show this help message
 	@echo "  DEBUG           - Enable debug output for deployments"
 
 
+# Models.dev targets
+.PHONY: models-build
+models-build: ## Build models.dev api.json from TOML files
+	@echo "📦 Building models.dev api.json..."
+	cd models.dev/packages/web && bun run script/build.ts
+	mkdir -p a2a_server/static/models
+	cp models.dev/packages/web/dist/_api.json a2a_server/static/models/api.json
+	@echo "✅ models/api.json built and copied to static directory"
+
+.PHONY: models-update
+models-update: ## Pull latest from upstream models.dev and rebuild
+	@echo "🔄 Updating models.dev from upstream..."
+	cd models.dev && git fetch upstream && git merge upstream/dev --no-edit || true
+	$(MAKE) models-build
+
 # Docker targets
 .PHONY: docker-build
-docker-build: ## Build Docker image (API server only)
+docker-build: models-build ## Build Docker image (API server only)
 	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) . --network=host
 
 .PHONY: docker-build-marketing
@@ -277,9 +292,9 @@ dev: ## Alias for run-all (starts Python and Next.js)
 	$(MAKE) run-all RELOAD=1
 
 .PHONY: run-all
-run-all: ## Run Python server (includes MCP on 9000), React (Next.js) dev server, and a local worker
+run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev server, and a local worker
 	@echo "🚀 Starting Python server, React dev server, and local worker..."
-	@echo "   (MCP server starts automatically on port 9000 via run_server.py)"
+	@echo "   (MCP is now integrated on port $(PORT) at /mcp/*)"
 	@trap 'kill 0' EXIT; \
 	(if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 Server auto-reload enabled"; \
@@ -305,19 +320,19 @@ run-all: ## Run Python server (includes MCP on 9000), React (Next.js) dev server
 		sleep 10; \
 		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --directory=./a2a_server --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"'; \
 	fi) & \
-	(echo "⏳ Waiting for MCP server to be ready..."; \
+	(echo "⏳ Waiting for MCP endpoint to be ready..."; \
 		for i in $$(seq 1 30); do \
-			if curl -s http://localhost:9000/mcp > /dev/null 2>&1; then \
-				echo "✅ MCP server ready"; \
+			if curl -s http://localhost:$(PORT)/mcp > /dev/null 2>&1; then \
+				echo "✅ MCP endpoint ready"; \
 				break; \
 			fi; \
 			sleep 1; \
 		done; \
 		if [ "$(RELOAD)" = "1" ]; then \
 			echo "🔄 Worker auto-reload enabled"; \
-			$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+			$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
 		else \
-			$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
+			$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
 		fi \
 	) & \
 	wait
@@ -352,8 +367,8 @@ dev-no-worker: ## Run Python server and React dev server (no worker)
 	wait
 
 .PHONY: worker
-worker: ## Run a local worker
-	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:9000 --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
+worker: ## Run a local worker (MCP now on same port as server)
+	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
 
 # Keycloak utilities
 .PHONY: keycloak-client
@@ -903,7 +918,10 @@ build-opencode: ## Build OpenCode integration
 	@echo "🔪 Killing any running opencode binaries..."
 	-pkill -9 -x "opencode" || true
 	@sleep 1
+	@echo "📦 Copying opencode binary to all locations..."
 	cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.local/bin/opencode
 	cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /home/riley/.opencode/bin/opencode
+	sudo cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /usr/local/bin/opencode
+	sudo cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /opt/a2a-worker/bin/opencode
 	opencode --version
 	@echo "✅ OpenCode integration built successfully."

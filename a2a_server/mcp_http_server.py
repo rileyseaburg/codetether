@@ -1417,6 +1417,177 @@ class MCPHTTPServer:
             return None
         return codebase_id
 
+    async def _get_available_models(self) -> Dict[str, List[str]]:
+        """
+        Get all available models from registered workers.
+
+        Returns a dict mapping model_id to list of worker_ids that support it.
+        """
+        from . import database as db
+
+        workers = await db.db_list_workers()
+        model_to_workers: Dict[str, List[str]] = {}
+
+        for worker in workers:
+            worker_id = worker.get('worker_id', 'unknown')
+            models = worker.get('models', [])
+            for model in models:
+                # Models can be dicts with 'id' key or strings
+                if isinstance(model, dict):
+                    model_id = model.get('id', '')
+                else:
+                    model_id = str(model)
+
+                if model_id:
+                    if model_id not in model_to_workers:
+                        model_to_workers[model_id] = []
+                    model_to_workers[model_id].append(worker_id)
+
+        return model_to_workers
+
+    async def _validate_model_ref(
+        self, model_ref: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Validate that the requested model_ref is available from at least one worker.
+
+        Returns None if valid, or an error dict if invalid.
+        """
+        if not model_ref:
+            return None
+
+        available_models = await self._get_available_models()
+
+        # Check exact match first
+        if model_ref in available_models:
+            return None
+
+        # Check with colon vs slash normalization (provider:model vs provider/model)
+        normalized_slash = (
+            model_ref.replace(':', '/', 1) if ':' in model_ref else model_ref
+        )
+        normalized_colon = (
+            model_ref.replace('/', ':', 1) if '/' in model_ref else model_ref
+        )
+
+        if (
+            normalized_slash in available_models
+            or normalized_colon in available_models
+        ):
+            return None
+
+        # Model not found - build helpful error
+        # Group models by provider for readability
+        providers: Dict[str, List[str]] = {}
+        for model_id in available_models.keys():
+            if '/' in model_id:
+                provider, model_name = model_id.split('/', 1)
+            elif ':' in model_id:
+                provider, model_name = model_id.split(':', 1)
+            else:
+                provider, model_name = 'unknown', model_id
+
+            if provider not in providers:
+                providers[provider] = []
+            providers[provider].append(model_name)
+
+        # Build suggestions - find similar models
+        suggestions = []
+        search_term = model_ref.lower()
+        for model_id in available_models.keys():
+            if any(part in model_id.lower() for part in search_term.split('/')):
+                suggestions.append(model_id)
+
+        return {
+            'error': f"Model '{model_ref}' not available from any registered worker",
+            'available_providers': list(providers.keys()),
+            'available_models_sample': list(available_models.keys())[:20],
+            'suggestions': suggestions[:5] if suggestions else [],
+            'hint': 'Use format provider/model (e.g., "google/gemini-2.5-flash", "zai-coding-plan/glm-4.7")',
+            'total_models_available': len(available_models),
+        }
+
+    async def _validate_codebase_worker(
+        self, codebase_id: Optional[str], model_ref: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Validate that a worker exists for the codebase and supports the model.
+
+        Returns None if valid, or an error dict if invalid.
+        """
+        from . import database as db
+
+        # Global/None codebase - check if any worker exists with the model
+        if not codebase_id or codebase_id == 'global':
+            if model_ref:
+                return await self._validate_model_ref(model_ref)
+            return None
+
+        # Check if codebase exists and has a worker
+        codebase = await db.db_get_codebase(codebase_id)
+        if not codebase:
+            # List available codebases for helpful error
+            all_codebases = await db.db_list_codebases()
+            return {
+                'error': f"Codebase '{codebase_id}' not found",
+                'available_codebases': [
+                    {
+                        'id': cb.get('id'),
+                        'name': cb.get('name'),
+                        'path': cb.get('path'),
+                    }
+                    for cb in all_codebases[:10]
+                ],
+                'hint': 'Use list_codebases to find valid codebase IDs, or omit codebase_id for global tasks.',
+            }
+
+        worker_id = codebase.get('worker_id')
+        if not worker_id:
+            return {
+                'error': f"Codebase '{codebase_id}' ({codebase.get('name')}) has no worker assigned",
+                'codebase': {
+                    'id': codebase.get('id'),
+                    'name': codebase.get('name'),
+                    'path': codebase.get('path'),
+                },
+                'hint': 'A worker must register this codebase before tasks can be executed. Start a worker with --codebase flag.',
+            }
+
+        # If model_ref specified, check if the worker supports it
+        if model_ref:
+            worker = await db.db_get_worker(worker_id)
+            if not worker:
+                return {
+                    'error': f"Worker '{worker_id}' for codebase '{codebase_id}' not found in registry",
+                    'hint': 'The worker may have gone offline. Check worker status.',
+                }
+
+            models = worker.get('models', [])
+            model_ids = set()
+            for m in models:
+                mid = m.get('id', '') if isinstance(m, dict) else str(m)
+                if mid:
+                    model_ids.add(mid)
+
+            normalized = (
+                model_ref.replace(':', '/', 1)
+                if ':' in model_ref
+                else model_ref
+            )
+            if model_ref not in model_ids and normalized not in model_ids:
+                return {
+                    'error': f"Model '{model_ref}' not supported by worker '{worker_id}' for codebase '{codebase_id}'",
+                    'worker': {
+                        'id': worker_id,
+                        'name': worker.get('name'),
+                        'hostname': worker.get('hostname'),
+                    },
+                    'available_models_on_worker': list(model_ids)[:20],
+                    'hint': 'Use a model supported by this worker, or omit model_ref to use the worker default.',
+                }
+
+        return None
+
     async def _send_message_async(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send a message asynchronously by creating a task and enqueuing it.
@@ -1437,6 +1608,13 @@ class MCPHTTPServer:
         notify_email = args.get('notify_email')
         model_ref = args.get('model_ref')  # Normalized provider:model format
 
+        # Validate codebase has a worker and worker supports the model
+        validation_error = await self._validate_codebase_worker(
+            codebase_id, model_ref
+        )
+        if validation_error:
+            return validation_error
+
         bridge = get_opencode_bridge()
         if bridge is None:
             return {'error': 'OpenCode bridge not available'}
@@ -1454,6 +1632,7 @@ class MCPHTTPServer:
                 'conversation_id': conversation_id,
                 'source': 'send_message_async',
             },
+            model_ref=model_ref,
         )
 
         if task is None:
@@ -1541,6 +1720,13 @@ class MCPHTTPServer:
         notify_email = args.get('notify_email')
         model_ref = args.get('model_ref')  # Normalized provider:model format
 
+        # Validate codebase has a worker and worker supports the model
+        validation_error = await self._validate_codebase_worker(
+            codebase_id, model_ref
+        )
+        if validation_error:
+            return validation_error
+
         bridge = get_opencode_bridge()
         if bridge is None:
             return {'error': 'OpenCode bridge not available'}
@@ -1559,6 +1745,7 @@ class MCPHTTPServer:
                 'source': 'send_to_agent',
                 'target_agent_name': agent_name,
             },
+            model_ref=model_ref,
         )
 
         if task is None:

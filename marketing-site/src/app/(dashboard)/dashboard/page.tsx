@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import VoiceChatButton from './components/voice/VoiceChatButton'
 import TenantStatusBanner from '@/components/TenantStatusBanner'
+import { ModelSelector } from '@/components/ModelSelector'
+import { useRalphStore } from './ralph/store'
 import { useTenantApi } from '@/hooks/useTenantApi'
 import {
     listCodebasesV1OpencodeCodebasesListGet,
     listWorkersV1OpencodeWorkersGet,
-    listModelsV1OpencodeModelsGet,
     triggerAgentV1OpencodeCodebasesCodebaseIdTriggerPost,
     registerCodebaseV1OpencodeCodebasesPost,
     unregisterCodebaseV1OpencodeCodebasesCodebaseIdDelete,
@@ -30,13 +31,6 @@ interface Worker {
     status: string
     global_codebase_id?: string
     last_seen?: string
-}
-
-interface Model {
-    id: string
-    name: string
-    provider: string
-    custom?: boolean
 }
 
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -66,12 +60,10 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 export default function DashboardPage() {
     const { data: session } = useSession()
     const { apiUrl, tenantId, tenantSlug, isAuthenticated } = useTenantApi()
+    const { selectedModel, setSelectedModel, selectedCodebase, setSelectedCodebase } = useRalphStore()
     const [codebases, setCodebases] = useState<Codebase[]>([])
     const [workers, setWorkers] = useState<Worker[]>([])
-    const [models, setModels] = useState<Model[]>([])
-    const [selectedCodebase, setSelectedCodebase] = useState('')
     const [selectedAgent, setSelectedAgent] = useState('build')
-    const [selectedModel, setSelectedModel] = useState('')
     const [prompt, setPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [showRegisterModal, setShowRegisterModal] = useState(false)
@@ -82,14 +74,21 @@ export default function DashboardPage() {
         worker_id: ''
     })
 
+    // Auto sign out when token refresh fails
+    useEffect(() => {
+        if (session?.error === 'RefreshAccessTokenError') {
+            signOut({ callbackUrl: '/' })
+        }
+    }, [session])
+
     // Redirect to dedicated instance if user has one and we're on the shared site
     useEffect(() => {
         if (isAuthenticated && session?.tenantApiUrl && tenantSlug) {
             const currentHost = window.location.host
             const tenantHost = `${tenantSlug}.codetether.run`
-            
+
             // If user has a dedicated instance and we're NOT on it, redirect
-            if (!currentHost.includes(tenantSlug) && 
+            if (!currentHost.includes(tenantSlug) &&
                 session.tenantApiUrl.includes(tenantSlug) &&
                 !currentHost.includes('localhost')) {
                 console.log(`Redirecting to dedicated instance: ${session.tenantApiUrl}`)
@@ -140,37 +139,15 @@ export default function DashboardPage() {
         }
     }, [])
 
-    const loadModels = useCallback(async () => {
-        try {
-            const { data, error } = await listModelsV1OpencodeModelsGet()
-            if (!error && data) {
-                const response = data as any
-                const modelsList = Array.isArray(response) ? response : (response?.models ?? [])
-                setModels(modelsList)
-                if (response?.default) setSelectedModel(response.default)
-            }
-        } catch (error) {
-            console.error('Failed to load models:', error)
-            setModels([
-                { id: 'google/gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)', provider: 'Google' },
-                { id: 'z-ai/coding-plain-v1', name: 'Z.AI Coding Plain v1', provider: 'Z.AI Coding Plan' },
-                { id: 'z-ai/coding-plain-v2', name: 'Z.AI Coding Plain v2', provider: 'Z.AI Coding Plan' },
-                { id: 'anthropic/claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-                { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
-            ])
-        }
-    }, [])
-
     useEffect(() => {
         loadCodebases()
         loadWorkers()
-        loadModels()
         const interval = setInterval(() => {
             loadCodebases()
             loadWorkers()
         }, 10000)
         return () => clearInterval(interval)
-    }, [loadCodebases, loadWorkers, loadModels])
+    }, [loadCodebases, loadWorkers])
 
     const triggerAgent = async () => {
         if (!selectedCodebase || !prompt.trim()) return
@@ -223,6 +200,14 @@ export default function DashboardPage() {
         }
     }
 
+    const isWorkerOnline = (worker: Worker) => {
+        if (!worker.last_seen) return false
+        const lastSeen = new Date(worker.last_seen)
+        const now = new Date()
+        const hoursSinceLastSeen = (now.getTime() - lastSeen.getTime()) / (1000 * 60 * 60)
+        return hoursSinceLastSeen < 24
+    }
+
     const getStatusClasses = (status: string) => {
         const classes: Record<string, string> = {
             idle: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
@@ -235,292 +220,274 @@ export default function DashboardPage() {
         return classes[status] || classes.idle
     }
 
-    // Group models by provider and ensure unique IDs
-    const seenModelIds = new Set<string>()
-    const modelsByProvider = models.reduce((acc, m) => {
-        if (seenModelIds.has(m.id)) return acc
-        seenModelIds.add(m.id)
-        const provider = m.provider || 'Other'
-        if (!acc[provider]) acc[provider] = []
-        acc[provider].push(m)
-        return acc
-    }, {} as Record<string, Model[]>)
-
     return (
         <div className="space-y-6">
             {/* Tenant Status Banner */}
             <TenantStatusBanner />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-            {/* Left sidebar - Codebases */}
-            <div className="lg:col-span-1">
-                <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Codebases</h2>
+                {/* Left sidebar - Codebases */}
+                <div className="lg:col-span-1">
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Codebases</h2>
+                                <button
+                                    onClick={() => setShowRegisterModal(true)}
+                                    className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                                >
+                                    <PlusIcon className="h-4 w-4 inline mr-1" />
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-300px)] overflow-y-auto">
+                            {codebases.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                    <FolderIcon className="mx-auto h-12 w-12 text-gray-400" />
+                                    <p className="mt-2 text-sm">No codebases registered</p>
+                                </div>
+                            ) : (
+                                codebases.map((cb) => (
+                                    <div
+                                        key={cb.id}
+                                        className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                                        onClick={() => setSelectedCodebase(cb.id)}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{cb.name}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{cb.path}</p>
+                                            </div>
+                                            <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(cb.status)}`}>
+                                                {cb.status}
+                                            </span>
+                                        </div>
+                                        {cb.worker_id && (
+                                            <p className="mt-1 text-xs text-gray-400">Worker: {cb.worker_id}</p>
+                                        )}
+                                        <div className="mt-2 flex gap-2">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteCodebase(cb.id) }}
+                                                className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                                            >
+                                                🗑️ Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main content - Trigger Agent */}
+                <div className="lg:col-span-2">
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trigger Agent</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Select a codebase and run an AI agent</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Codebase
+                                </label>
+                                <select
+                                    value={selectedCodebase}
+                                    onChange={(e) => setSelectedCodebase(e.target.value)}
+                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="">Select a codebase...</option>
+                                    {codebases.map((cb) => (
+                                        <option key={cb.id} value={cb.id}>{cb.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Agent Type
+                                </label>
+                                <select
+                                    value={selectedAgent}
+                                    onChange={(e) => setSelectedAgent(e.target.value)}
+                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="build">🔧 Build - Full access agent</option>
+                                    <option value="plan">📋 Plan - Read-only analysis</option>
+                                    <option value="coder">💻 Coder - Code writing focused</option>
+                                    <option value="explore">🔍 Explore - Codebase search</option>
+                                </select>
+                            </div>
+                            <ModelSelector label="Model" showSelectedInfo showCountBadge />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Prompt
+                                </label>
+                                <textarea
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    rows={4}
+                                    placeholder="Enter your instructions for the AI agent..."
+                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
+                                />
+                            </div>
                             <button
-                                onClick={() => setShowRegisterModal(true)}
-                                className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                                onClick={triggerAgent}
+                                disabled={loading || !selectedCodebase || !prompt.trim()}
+                                className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <PlusIcon className="h-4 w-4 inline mr-1" />
-                                Add
+                                {loading ? '⏳ Running...' : '🚀 Run Agent'}
                             </button>
                         </div>
                     </div>
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-300px)] overflow-y-auto">
-                        {codebases.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                                <FolderIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                <p className="mt-2 text-sm">No codebases registered</p>
-                            </div>
-                        ) : (
-                            codebases.map((cb) => (
-                                <div
-                                    key={cb.id}
-                                    className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                                    onClick={() => setSelectedCodebase(cb.id)}
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{cb.name}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{cb.path}</p>
-                                        </div>
-                                        <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(cb.status)}`}>
-                                            {cb.status}
-                                        </span>
-                                    </div>
-                                    {cb.worker_id && (
-                                        <p className="mt-1 text-xs text-gray-400">Worker: {cb.worker_id}</p>
-                                    )}
-                                    <div className="mt-2 flex gap-2">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); deleteCodebase(cb.id) }}
-                                            className="text-xs text-red-600 dark:text-red-400 hover:underline"
-                                        >
-                                            🗑️ Delete
-                                        </button>
-                                    </div>
+                </div>
+
+                {/* Right sidebar - Quick Actions & Workers */}
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Workers Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Active Workers</h3>
+                        </div>
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[300px] overflow-y-auto">
+                            {workers.filter(isWorkerOnline).length === 0 ? (
+                                <div className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
+                                    No workers connected
                                 </div>
-                            ))
-                        )}
+                            ) : (
+                                workers.filter(isWorkerOnline).map((w) => (
+                                    <div key={w.worker_id} className="p-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{w.name}</p>
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{w.hostname || w.worker_id}</p>
+                                            </div>
+                                            <span className="ml-2 h-2 w-2 rounded-full bg-green-500" />
+                                        </div>
+                                        {w.global_codebase_id && (
+                                            <button
+                                                onClick={() => setSelectedCodebase(w.global_codebase_id!)}
+                                                className="mt-2 w-full rounded bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center justify-center gap-1"
+                                            >
+                                                💬 Chat Directly
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Main content - Trigger Agent */}
-            <div className="lg:col-span-2">
-                <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trigger Agent</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Select a codebase and run an AI agent</p>
-                    </div>
-                    <div className="p-6 space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Codebase
-                            </label>
-                            <select
-                                value={selectedCodebase}
-                                onChange={(e) => setSelectedCodebase(e.target.value)}
-                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">Select a codebase...</option>
-                                {codebases.map((cb) => (
-                                    <option key={cb.id} value={cb.id}>{cb.name}</option>
-                                ))}
-                            </select>
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Agent Type
-                            </label>
-                            <select
-                                value={selectedAgent}
-                                onChange={(e) => setSelectedAgent(e.target.value)}
-                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="build">🔧 Build - Full access agent</option>
-                                <option value="plan">📋 Plan - Read-only analysis</option>
-                                <option value="coder">💻 Coder - Code writing focused</option>
-                                <option value="explore">🔍 Explore - Codebase search</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Model
-                            </label>
-                            <select
-                                value={selectedModel}
-                                onChange={(e) => setSelectedModel(e.target.value)}
-                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">🤖 Default Model</option>
-                                {Object.entries(modelsByProvider).map(([provider, providerModels]) => (
-                                    <optgroup key={provider} label={provider}>
-                                        {providerModels.map((m) => (
-                                            <option key={m.id} value={m.id}>{m.name}</option>
-                                        ))}
-                                    </optgroup>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Prompt
-                            </label>
-                            <textarea
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                rows={4}
-                                placeholder="Enter your instructions for the AI agent..."
-                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
-                            />
-                        </div>
-                        <button
-                            onClick={triggerAgent}
-                            disabled={loading || !selectedCodebase || !prompt.trim()}
-                            className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? '⏳ Running...' : '🚀 Run Agent'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right sidebar - Quick Actions & Workers */}
-            <div className="lg:col-span-1 space-y-6">
-                {/* Workers Section */}
-                <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Active Workers</h3>
-                    </div>
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[300px] overflow-y-auto">
-                        {workers.length === 0 ? (
-                            <div className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
-                                No workers connected
+                        <div className="p-4 space-y-2">
+                            <div className="mb-3">
+                                <VoiceChatButton
+                                    codebaseId={selectedCodebase || undefined}
+                                    mode="chat"
+                                />
                             </div>
-                        ) : (
-                            workers.map((w) => (
-                                <div key={w.worker_id} className="p-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{w.name}</p>
-                                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{w.hostname || w.worker_id}</p>
-                                        </div>
-                                        <span className={`ml-2 h-2 w-2 rounded-full ${w.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                    </div>
-                                    {w.global_codebase_id && (
-                                        <button
-                                            onClick={() => setSelectedCodebase(w.global_codebase_id!)}
-                                            className="mt-2 w-full rounded bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center justify-center gap-1"
-                                        >
-                                            💬 Chat Directly
-                                        </button>
-                                    )}
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
-                    </div>
-                    <div className="p-4 space-y-2">
-                        <div className="mb-3">
-                            <VoiceChatButton 
-                                codebaseId={selectedCodebase || undefined}
-                                mode="chat"
-                            />
+                            <button
+                                onClick={() => setShowRegisterModal(true)}
+                                className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                            >
+                                <span>📁</span> Register Codebase
+                            </button>
+                            <button
+                                onClick={loadCodebases}
+                                className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                            >
+                                <RefreshIcon className="h-4 w-4" /> Refresh All
+                            </button>
+                            <button
+                                onClick={() => signOut({ callbackUrl: '/' })}
+                                className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                            >
+                                <span>🚪</span> Sign Out
+                            </button>
                         </div>
-                        <button
-                            onClick={() => setShowRegisterModal(true)}
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                        >
-                            <span>📁</span> Register Codebase
-                        </button>
-                        <button
-                            onClick={loadCodebases}
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                        >
-                            <RefreshIcon className="h-4 w-4" /> Refresh All
-                        </button>
                     </div>
                 </div>
-            </div>
 
-            {/* Register Modal */}
-            {showRegisterModal && (
-                <div className="fixed inset-0 z-50">
-                    <div className="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75" onClick={() => setShowRegisterModal(false)} />
-                    <div className="fixed inset-0 z-10 overflow-y-auto">
-                        <div className="flex min-h-full items-center justify-center p-4">
-                            <div className="relative w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
-                                <div className="p-6">
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Codebase</h3>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                                            <input
-                                                type="text"
-                                                value={registerForm.name}
-                                                onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                                                placeholder="my-project"
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
+                {/* Register Modal */}
+                {showRegisterModal && (
+                    <div className="fixed inset-0 z-50">
+                        <div className="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75" onClick={() => setShowRegisterModal(false)} />
+                        <div className="fixed inset-0 z-10 overflow-y-auto">
+                            <div className="flex min-h-full items-center justify-center p-4">
+                                <div className="relative w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
+                                    <div className="p-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Codebase</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={registerForm.name}
+                                                    onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                                                    placeholder="my-project"
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Path</label>
+                                                <input
+                                                    type="text"
+                                                    value={registerForm.path}
+                                                    onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                    placeholder="/home/user/projects/my-project"
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
+                                                <input
+                                                    type="text"
+                                                    value={registerForm.description}
+                                                    onChange={(e) => setRegisterForm({ ...registerForm, description: e.target.value })}
+                                                    placeholder="A brief description"
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Worker (optional)</label>
+                                                <select
+                                                    value={registerForm.worker_id}
+                                                    onChange={(e) => setRegisterForm({ ...registerForm, worker_id: e.target.value })}
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                >
+                                                    <option value="">Auto-assign (default)</option>
+                                                    {workers.filter(isWorkerOnline).map((w) => (
+                                                        <option key={w.worker_id} value={w.worker_id}>
+                                                            {w.name} ({w.hostname || w.worker_id})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Path</label>
-                                            <input
-                                                type="text"
-                                                value={registerForm.path}
-                                                onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
-                                                placeholder="/home/user/projects/my-project"
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
+                                        <div className="mt-6 flex gap-3 justify-end">
+                                            <button
+                                                onClick={() => setShowRegisterModal(false)}
+                                                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={registerCodebase}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                            >
+                                                Register
+                                            </button>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
-                                            <input
-                                                type="text"
-                                                value={registerForm.description}
-                                                onChange={(e) => setRegisterForm({ ...registerForm, description: e.target.value })}
-                                                placeholder="A brief description"
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Worker ID (optional)</label>
-                                            <input
-                                                type="text"
-                                                value={registerForm.worker_id}
-                                                onChange={(e) => setRegisterForm({ ...registerForm, worker_id: e.target.value })}
-                                                placeholder="For remote codebases"
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="mt-6 flex gap-3 justify-end">
-                                        <button
-                                            onClick={() => setShowRegisterModal(false)}
-                                            className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={registerCodebase}
-                                            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                                        >
-                                            Register
-                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
             </div>
         </div>
     )

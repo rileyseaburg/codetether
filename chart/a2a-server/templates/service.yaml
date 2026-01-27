@@ -22,12 +22,8 @@ spec:
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
       name: http
-    {{- if .Values.service.mcp.enabled }}
-    - port: {{ .Values.service.mcp.port }}
-      targetPort: {{ .Values.service.mcp.targetPort }}
-      protocol: TCP
-      name: mcp-http
-    {{- end }}
+    # MCP is now integrated on the same port under /mcp/* paths
+    # No separate MCP port needed
   selector:
     {{- if and .Values.blueGreen.enabled (eq .Values.blueGreen.mode "bluegreen") }}
     {{- include "a2a-server.blueGreenSelectorLabels" . | nindent 4 }}

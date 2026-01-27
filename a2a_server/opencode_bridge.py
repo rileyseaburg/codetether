@@ -34,6 +34,19 @@ import aiohttp
 # Import PostgreSQL database module
 from . import database as db
 
+# Import Knative modules for event-driven worker spawning
+from .knative_spawner import (
+    knative_spawner,
+    KnativeSpawnerError,
+    WorkerStatus,
+    KNATIVE_ENABLED as KNATIVE_SPAWNER_ENABLED,
+)
+from .knative_events import (
+    publish_task_event,
+    is_enabled as is_knative_events_enabled,
+    KnativeEventError,
+)
+
 logger = logging.getLogger(__name__)
 
 # OpenCode host configuration - allows container to connect to host VM's opencode
@@ -58,6 +71,7 @@ class AgentTaskStatus(str, Enum):
     """Status of an agent task."""
 
     PENDING = 'pending'
+    QUEUED = 'queued'  # Task queued for Knative worker
     ASSIGNED = 'assigned'
     RUNNING = 'running'
     COMPLETED = 'completed'
@@ -106,6 +120,15 @@ MODEL_SELECTOR = {
 
 # List of valid model selector keys for enum validation
 MODEL_SELECTOR_KEYS = list(MODEL_SELECTOR.keys())
+
+
+def is_knative_enabled() -> bool:
+    """
+    Check if Knative worker spawning is enabled.
+
+    Returns True if both Knative spawning and Knative events are enabled.
+    """
+    return KNATIVE_SPAWNER_ENABLED and is_knative_events_enabled()
 
 
 def resolve_model(model_input: Optional[str]) -> Optional[str]:
@@ -161,6 +184,11 @@ class AgentTask:
     session_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     target_agent_name: Optional[str] = None  # If set, only this agent can claim
+    worker_id: Optional[str] = None  # ID of the worker that executed this task
+    model_ref: Optional[str] = None  # Requested model (provider:model format)
+    model_used: Optional[str] = (
+        None  # Actual model used (may differ if fallback)
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -184,6 +212,9 @@ class AgentTask:
             'session_id': self.session_id,
             'metadata': self.metadata,
             'target_agent_name': self.target_agent_name,
+            'worker_id': self.worker_id,
+            'model_ref': self.model_ref,
+            'model_used': self.model_used,
         }
 
 
@@ -830,7 +861,11 @@ class OpenCodeBridge:
                 error=f'Codebase not found: {request.codebase_id}',
             )
 
-        # For remote workers, create a task instead of local execution
+        # Check if Knative is enabled - use Knative workers for task execution
+        if is_knative_enabled():
+            return await self._trigger_agent_knative(request, codebase)
+
+        # For remote workers (SSE-based), create a task instead of local execution
         if codebase.worker_id:
             task = await self.create_task(
                 codebase_id=request.codebase_id,
@@ -956,6 +991,286 @@ class OpenCodeBridge:
                 error=str(e),
                 codebase_id=codebase.id,
             )
+
+    async def _trigger_agent_knative(
+        self,
+        request: AgentTriggerRequest,
+        codebase: RegisteredCodebase,
+    ) -> AgentTriggerResponse:
+        """
+        Trigger an agent using Knative worker infrastructure.
+
+        This method:
+        1. Creates a task in PostgreSQL
+        2. Ensures a Knative worker exists for the session
+        3. Publishes a task CloudEvent to route to the worker
+        4. Returns immediately (async execution)
+
+        Args:
+            request: The trigger request with prompt and configuration
+            codebase: The registered codebase
+
+        Returns:
+            Response with session/task ID and QUEUED status
+        """
+        # Generate session ID (or use existing)
+        session_id = request.metadata.get('session_id') or str(uuid.uuid4())[:8]
+        task_id = str(uuid.uuid4())
+
+        # Prepare model specification for CloudEvent
+        model_spec = None
+        if request.model:
+            parts_model = request.model.split('/')
+            if len(parts_model) == 2:
+                model_spec = {
+                    'providerID': parts_model[0],
+                    'modelID': parts_model[1],
+                }
+
+        try:
+            # 1. Create task in PostgreSQL (for tracking and as source of truth)
+            task = await self.create_task(
+                codebase_id=request.codebase_id,
+                title=request.prompt[:80]
+                + ('...' if len(request.prompt) > 80 else ''),
+                prompt=request.prompt,
+                agent_type=request.agent,
+                model=request.model,
+                metadata={
+                    'session_id': session_id,
+                    'files': request.files,
+                    'knative': True,
+                    **request.metadata,
+                },
+            )
+
+            if not task:
+                return AgentTriggerResponse(
+                    success=False,
+                    error='Failed to create task in database',
+                    codebase_id=request.codebase_id,
+                )
+
+            # Update task with session_id
+            task.session_id = session_id
+            await self._save_task(task)
+
+            # 2. Ensure Knative worker exists for this session
+            worker_info = await knative_spawner.get_worker_status(session_id)
+
+            if worker_info.status == WorkerStatus.NOT_FOUND:
+                # Get tenant_id from codebase agent_config or default
+                tenant_id = codebase.agent_config.get('tenant_id', 'default')
+
+                logger.info(
+                    f'Creating Knative worker for session {session_id}, '
+                    f'codebase {codebase.id}'
+                )
+
+                spawn_result = await knative_spawner.create_session_worker(
+                    session_id=session_id,
+                    tenant_id=tenant_id,
+                    codebase_id=codebase.id,
+                )
+
+                if not spawn_result.success:
+                    # Update task to failed if worker creation fails
+                    await self.update_task_status(
+                        task_id=task.id,
+                        status=AgentTaskStatus.FAILED,
+                        error=f'Failed to create Knative worker: {spawn_result.error_message}',
+                    )
+                    return AgentTriggerResponse(
+                        success=False,
+                        error=spawn_result.error_message,
+                        codebase_id=request.codebase_id,
+                    )
+
+                # Store Knative service name in session metadata
+                if spawn_result.service_name:
+                    task.metadata['knative_service_name'] = (
+                        spawn_result.service_name
+                    )
+                    await self._save_task(task)
+
+                logger.info(
+                    f'Created Knative worker: service={spawn_result.service_name}, '
+                    f'url={spawn_result.url}'
+                )
+
+            elif worker_info.status == WorkerStatus.FAILED:
+                # Worker exists but failed - try to recreate
+                logger.warning(
+                    f'Knative worker for session {session_id} is in failed state, '
+                    f'attempting recreation'
+                )
+                await knative_spawner.delete_session_worker(session_id)
+
+                tenant_id = codebase.agent_config.get('tenant_id', 'default')
+                spawn_result = await knative_spawner.create_session_worker(
+                    session_id=session_id,
+                    tenant_id=tenant_id,
+                    codebase_id=codebase.id,
+                )
+
+                if not spawn_result.success:
+                    await self.update_task_status(
+                        task_id=task.id,
+                        status=AgentTaskStatus.FAILED,
+                        error=f'Failed to recreate Knative worker: {spawn_result.error_message}',
+                    )
+                    return AgentTriggerResponse(
+                        success=False,
+                        error=spawn_result.error_message,
+                        codebase_id=request.codebase_id,
+                    )
+
+            # 3. Publish task CloudEvent for routing to worker
+            # Get tenant_id from codebase config or use default
+            tenant_id = codebase.agent_config.get('tenant_id', 'default')
+            # Get notify_email from request metadata if provided
+            notify_email = (
+                request.metadata.get('notify_email')
+                if hasattr(request, 'metadata')
+                else None
+            )
+
+            try:
+                await publish_task_event(
+                    session_id=session_id,
+                    task_id=task.id,
+                    prompt=request.prompt,
+                    agent=request.agent,
+                    model=json.dumps(model_spec) if model_spec else None,
+                    metadata={
+                        'codebase_id': codebase.id,
+                        'codebase_path': codebase.path,
+                        'files': request.files,
+                        **request.metadata,
+                    },
+                    tenant_id=tenant_id,
+                    notify_email=notify_email,
+                )
+
+                logger.info(
+                    f'Published task event: task_id={task.id}, session_id={session_id}'
+                )
+
+            except KnativeEventError as e:
+                # Event publishing failed - update task status
+                logger.error(f'Failed to publish task event: {e}')
+                await self.update_task_status(
+                    task_id=task.id,
+                    status=AgentTaskStatus.FAILED,
+                    error=f'Failed to publish task event: {e}',
+                )
+                return AgentTriggerResponse(
+                    success=False,
+                    error=str(e),
+                    codebase_id=request.codebase_id,
+                )
+
+            # 4. Update task status to QUEUED
+            await self.update_task_status(
+                task_id=task.id,
+                status=AgentTaskStatus.QUEUED,
+                session_id=session_id,
+            )
+
+            # Update codebase with session info
+            codebase.session_id = session_id
+            codebase.last_triggered = datetime.utcnow()
+            await self._save_codebase(codebase)
+
+            return AgentTriggerResponse(
+                success=True,
+                session_id=session_id,
+                message=f'Task queued for Knative worker (task: {task.id})',
+                codebase_id=codebase.id,
+                agent=request.agent,
+            )
+
+        except KnativeSpawnerError as e:
+            logger.error(f'Knative spawner error: {e}')
+            return AgentTriggerResponse(
+                success=False,
+                error=str(e),
+                codebase_id=request.codebase_id,
+            )
+        except Exception as e:
+            logger.error(f'Failed to trigger agent via Knative: {e}')
+            return AgentTriggerResponse(
+                success=False,
+                error=str(e),
+                codebase_id=request.codebase_id,
+            )
+
+    async def end_session(self, session_id: str) -> bool:
+        """
+        End a session and optionally clean up its Knative worker.
+
+        This method:
+        1. Marks the session as ended in PostgreSQL
+        2. Triggers final MinIO sync (via CloudEvent)
+        3. Optionally schedules worker deletion (or lets GC handle it)
+
+        Args:
+            session_id: The session ID to end
+
+        Returns:
+            True if session was ended successfully
+        """
+        logger.info(f'Ending session: {session_id}')
+
+        # Find tasks associated with this session
+        try:
+            tasks = await self._load_tasks_from_db(status=None, limit=100)
+            session_tasks = [t for t in tasks if t.session_id == session_id]
+
+            # Mark any running tasks as cancelled
+            for task in session_tasks:
+                if task.status in (
+                    AgentTaskStatus.PENDING,
+                    AgentTaskStatus.QUEUED,
+                    AgentTaskStatus.ASSIGNED,
+                    AgentTaskStatus.RUNNING,
+                ):
+                    await self.update_task_status(
+                        task_id=task.id,
+                        status=AgentTaskStatus.CANCELLED,
+                        error='Session ended',
+                    )
+                    logger.info(f'Cancelled task {task.id} due to session end')
+
+        except Exception as e:
+            logger.error(
+                f'Error cancelling tasks for session {session_id}: {e}'
+            )
+
+        # If Knative is enabled, publish session end event and optionally delete worker
+        if is_knative_enabled():
+            try:
+                # Publish session end event (for final sync, cleanup, etc.)
+                from .knative_events import publish_session_event
+
+                await publish_session_event(
+                    session_id=session_id,
+                    event_type='session.ended',
+                    data={'reason': 'user_requested'},
+                )
+                logger.info(f'Published session.ended event for {session_id}')
+
+            except Exception as e:
+                logger.error(
+                    f'Failed to publish session end event for {session_id}: {e}'
+                )
+
+            # Note: We don't delete the worker immediately to allow for:
+            # - Final sync to complete
+            # - Potential session resumption
+            # The garbage collector will clean up idle workers after max_age_hours
+
+        return True
 
     async def get_available_models(self) -> List[Dict[str, Any]]:
         """
@@ -1177,6 +1492,7 @@ class OpenCodeBridge:
         priority: int = 0,
         model: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        model_ref: Optional[str] = None,
     ) -> Optional[AgentTask]:
         """
         Create a new task for an agent.
@@ -1188,6 +1504,7 @@ class OpenCodeBridge:
 
         Args:
             model: Full provider/model-id (e.g., 'minimax/minimax-m2.1'). Use resolve_model() to convert friendly names.
+            model_ref: Requested model for routing (provider:model format). Stored for visibility.
         """
         # Normalize 'global' to None for database compatibility
         if codebase_id == 'global':
@@ -1218,6 +1535,7 @@ class OpenCodeBridge:
             model=model,
             priority=priority,
             metadata=metadata or {},
+            model_ref=model_ref,
         )
 
         self._tasks[task_id] = task
@@ -1281,8 +1599,20 @@ class OpenCodeBridge:
         result: Optional[str] = None,
         error: Optional[str] = None,
         session_id: Optional[str] = None,
+        worker_id: Optional[str] = None,
+        model_used: Optional[str] = None,
     ) -> Optional[AgentTask]:
-        """Update task status."""
+        """Update task status.
+
+        Args:
+            task_id: The task ID to update
+            status: New task status
+            result: Optional result data
+            error: Optional error message
+            session_id: Optional OpenCode session ID
+            worker_id: Optional worker ID that executed this task
+            model_used: Optional model that was used (may differ from requested model_ref)
+        """
         task = self._tasks.get(task_id)
         if not task:
             # Task not in memory - try to load from database
@@ -1294,6 +1624,10 @@ class OpenCodeBridge:
             self._tasks[task_id] = task
 
         task.status = status
+
+        # Track which worker executed this task
+        if worker_id:
+            task.worker_id = worker_id
 
         # Idempotency: workers may send multiple RUNNING updates (e.g., once
         # to claim and later to attach session_id). Preserve the original
@@ -1365,16 +1699,30 @@ class OpenCodeBridge:
                 logger.error(f'Error in task update callback: {e}')
 
         # Broadcast to SSE workers if task is pending (new task available)
+        # Skip broadcast for Knative tasks - they're routed via CloudEvents
         if task.status == AgentTaskStatus.PENDING:
-            try:
-                from .worker_sse import get_worker_registry
+            is_knative_task = (
+                task.metadata.get('knative', False) if task.metadata else False
+            )
+            logger.info(
+                f'Task {task.id} notify_task_update: metadata={task.metadata}, is_knative={is_knative_task}'
+            )
+            if is_knative_task:
+                logger.info(
+                    f'Skipping SSE broadcast for Knative task {task.id}'
+                )
+            else:
+                try:
+                    from .worker_sse import get_worker_registry
 
-                registry = get_worker_registry()
-                if registry:
-                    await registry.broadcast_task_available(task.id)
-                    logger.debug(f'Broadcast task {task.id} to SSE workers')
-            except Exception as e:
-                logger.debug(f'Could not broadcast task to SSE workers: {e}')
+                    registry = get_worker_registry()
+                    if registry:
+                        await registry.broadcast_task_available(task.id)
+                        logger.debug(f'Broadcast task {task.id} to SSE workers')
+                except Exception as e:
+                    logger.debug(
+                        f'Could not broadcast task to SSE workers: {e}'
+                    )
 
     # ========================================
     # Watch Mode (Persistent Agent Workers)

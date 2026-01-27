@@ -1,0 +1,165 @@
+{{- if .Values.knative.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-knative-worker-template
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+data:
+  service-template.yaml: |
+    apiVersion: serving.knative.dev/v1
+    kind: Service
+    metadata:
+      name: opencode-session-SESSION_ID
+      namespace: {{ .Release.Namespace }}
+      labels:
+        codetether.run/tenant: "TENANT_ID"
+        codetether.run/session: "SESSION_ID"
+        codetether.run/codebase: "CODEBASE_ID"
+    spec:
+      template:
+        metadata:
+          annotations:
+            autoscaling.knative.dev/min-scale: "0"
+            autoscaling.knative.dev/max-scale: "1"
+            autoscaling.knative.dev/scale-to-zero-pod-retention-period: "{{ .Values.knative.worker.idleTimeoutSeconds | default 300 }}s"
+        spec:
+          containerConcurrency: {{ .Values.knative.worker.containerConcurrency | default 1 }}
+          timeoutSeconds: {{ .Values.knative.worker.maxTimeoutSeconds | default 600 }}
+          containers:
+            - image: {{ .Values.knative.worker.image }}
+              env:
+                - name: OPENCODE_TENANT_ID
+                  value: "TENANT_ID"
+                - name: OPENCODE_SESSION_ID
+                  value: "SESSION_ID"
+                - name: OPENCODE_CODEBASE_ID
+                  value: "CODEBASE_ID"
+                - name: OPENCODE_STORAGE
+                  value: "postgres"
+                - name: DATABASE_URL
+                  value: "{{ .Values.externalPostgresql.url }}"
+                - name: MINIO_ENDPOINT
+                  value: "{{ .Values.minio.endpoint }}"
+                - name: MINIO_BUCKET
+                  value: "{{ .Values.minio.bucket }}"
+                - name: MINIO_ACCESS_KEY
+                  value: "{{ .Values.minio.accessKey }}"
+                - name: MINIO_SECRET_KEY
+                  value: "{{ .Values.minio.secretKey }}"
+                - name: MINIO_SECURE
+                  value: "{{ .Values.minio.secure }}"
+                # A2A Server callback URL for task status updates
+                - name: A2A_SERVER_URL
+                  value: "http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}"
+                {{- if .Values.knative.worker.apiKeySecret }}
+                # AI provider API keys from secret
+                - name: ANTHROPIC_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.knative.worker.apiKeySecret }}
+                      key: ANTHROPIC_API_KEY
+                      optional: true
+                - name: OPENAI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.knative.worker.apiKeySecret }}
+                      key: OPENAI_API_KEY
+                      optional: true
+                - name: GOOGLE_GENERATIVE_AI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.knative.worker.apiKeySecret }}
+                      key: GOOGLE_GENERATIVE_AI_API_KEY
+                      optional: true
+                {{- end }}
+                {{- if .Values.knative.worker.gcpCredentialsSecret }}
+                # GCP credentials for Vertex AI
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: "/secrets/gcp/credentials.json"
+                - name: GOOGLE_VERTEX_LOCATION
+                  value: "{{ .Values.knative.worker.googleVertexLocation | default "us-central1" }}"
+                - name: GOOGLE_VERTEX_PROJECT
+                  value: "{{ .Values.knative.worker.googleVertexProject | default "spotlessbinco" }}"
+                {{- end }}
+                {{- if .Values.knative.worker.sendgridSecret }}
+                # SendGrid email configuration
+                - name: SENDGRID_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.knative.worker.sendgridSecret }}
+                      key: SENDGRID_API_KEY
+                - name: SENDGRID_FROM_EMAIL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.knative.worker.sendgridSecret }}
+                      key: SENDGRID_FROM_EMAIL
+                - name: EMAIL_INBOUND_DOMAIN
+                  value: "{{ .Values.knative.worker.emailInboundDomain | default "" }}"
+                {{- end }}
+              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret }}
+              volumeMounts:
+                {{- if .Values.knative.worker.authSecret }}
+                - name: opencode-auth
+                  mountPath: /secrets/opencode-auth
+                  readOnly: true
+                {{- end }}
+                {{- if .Values.knative.worker.configSecret }}
+                - name: opencode-config
+                  mountPath: /secrets/opencode-config
+                  readOnly: true
+                {{- end }}
+                {{- if .Values.knative.worker.gcpCredentialsSecret }}
+                - name: gcp-credentials
+                  mountPath: /secrets/gcp
+                  readOnly: true
+                {{- end }}
+              {{- end }}
+              resources:
+                limits:
+                  memory: {{ .Values.knative.worker.resources.limits.memory | default "2Gi" }}
+                  cpu: {{ .Values.knative.worker.resources.limits.cpu | default "2" | quote }}
+                requests:
+                  memory: {{ .Values.knative.worker.resources.requests.memory | default "512Mi" }}
+                  cpu: {{ .Values.knative.worker.resources.requests.cpu | default "250m" | quote }}
+          {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret }}
+          volumes:
+            {{- if .Values.knative.worker.authSecret }}
+            - name: opencode-auth
+              secret:
+                secretName: {{ .Values.knative.worker.authSecret }}
+            {{- end }}
+            {{- if .Values.knative.worker.configSecret }}
+            - name: opencode-config
+              secret:
+                secretName: {{ .Values.knative.worker.configSecret }}
+            {{- end }}
+            {{- if .Values.knative.worker.gcpCredentialsSecret }}
+            - name: gcp-credentials
+              secret:
+                secretName: {{ .Values.knative.worker.gcpCredentialsSecret }}
+            {{- end }}
+          {{- end }}
+  trigger-template.yaml: |
+    apiVersion: eventing.knative.dev/v1
+    kind: Trigger
+    metadata:
+      name: trigger-session-SESSION_ID
+      namespace: {{ .Release.Namespace }}
+      labels:
+        codetether.run/tenant: "TENANT_ID"
+        codetether.run/session: "SESSION_ID"
+    spec:
+      broker: {{ .Values.knative.broker | default "task-broker" }}
+      filter:
+        attributes:
+          type: codetether.task.created
+          session: "SESSION_ID"
+      subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: opencode-session-SESSION_ID
+        uri: /task
+{{- end }}

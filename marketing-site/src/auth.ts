@@ -18,14 +18,14 @@ function decodeJwtPayload(token: string): Record<string, any> | null {
 function extractRolesFromToken(accessToken: string): string[] {
     const payload = decodeJwtPayload(accessToken)
     if (!payload) return []
-    
+
     const roles: string[] = []
-    
+
     // Realm roles (realm_access.roles)
     if (payload.realm_access?.roles) {
         roles.push(...payload.realm_access.roles)
     }
-    
+
     // Client roles (resource_access.<client>.roles)
     if (payload.resource_access) {
         for (const client of Object.values(payload.resource_access) as any[]) {
@@ -34,7 +34,7 @@ function extractRolesFromToken(accessToken: string): string[] {
             }
         }
     }
-    
+
     return [...new Set(roles)] // dedupe
 }
 
@@ -42,7 +42,7 @@ function extractRolesFromToken(accessToken: string): string[] {
 function extractTenantFromToken(accessToken: string): { tenantId?: string; tenantSlug?: string } {
     const payload = decodeJwtPayload(accessToken)
     if (!payload) return {}
-    
+
     return {
         // Keycloak can include custom claims for tenant
         tenantId: payload.tenant_id || payload.tenantId || payload['codetether:tenant_id'],
@@ -61,10 +61,10 @@ function getTenantApiUrl(tenantSlug?: string): string {
 }
 
 // Fetch tenant info from the API (for users whose JWT doesn't have tenant claims)
-async function fetchTenantInfo(accessToken: string): Promise<{ 
+async function fetchTenantInfo(accessToken: string): Promise<{
     tenantId?: string
     tenantSlug?: string
-    tenantApiUrl?: string 
+    tenantApiUrl?: string
 }> {
     try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
@@ -74,18 +74,18 @@ async function fetchTenantInfo(accessToken: string): Promise<{
                 'Content-Type': 'application/json',
             },
         })
-        
+
         if (!response.ok) {
             // User may not have a tenant yet (new signup flow)
             console.log('User does not have a tenant yet')
             return {}
         }
-        
+
         const tenant = await response.json()
-        
+
         // Extract subdomain from realm_name (e.g., "riley-041b27.codetether.run" -> "riley-041b27")
         const tenantSlug = tenant.realm_name?.split('.')[0] || tenant.subdomain
-        
+
         return {
             tenantId: tenant.id,
             tenantSlug: tenantSlug,
@@ -102,7 +102,7 @@ async function refreshAccessToken(token: any): Promise<any> {
     try {
         const issuer = process.env.KEYCLOAK_ISSUER || 'https://auth.quantum-forge.io/realms/quantum-forge'
         const tokenEndpoint = `${issuer}/protocol/openid-connect/token`
-        
+
         const response = await fetch(tokenEndpoint, {
             method: 'POST',
             headers: {
@@ -120,11 +120,21 @@ async function refreshAccessToken(token: any): Promise<any> {
 
         if (!response.ok) {
             console.error('Token refresh failed:', refreshedTokens)
-            throw new Error(refreshedTokens.error || 'RefreshAccessTokenError')
+            // For invalid_grant, the refresh token is revoked - clear all tokens to force re-login
+            if (refreshedTokens.error === 'invalid_grant') {
+                return {
+                    error: 'RefreshAccessTokenError',
+                }
+            }
+            // Return error state instead of throwing - allows graceful session invalidation
+            return {
+                ...token,
+                error: refreshedTokens.error || 'RefreshAccessTokenError',
+            }
         }
 
         console.log('Token refreshed successfully')
-        
+
         return {
             ...token,
             accessToken: refreshedTokens.access_token,
@@ -135,7 +145,7 @@ async function refreshAccessToken(token: any): Promise<any> {
         }
     } catch (error) {
         console.error('Error refreshing access token:', error)
-        
+
         return {
             ...token,
             error: 'RefreshAccessTokenError',
@@ -164,10 +174,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.expiresAt = account.expires_at
                 token.idToken = account.id_token
                 token.roles = extractRolesFromToken(account.access_token as string)
-                
+
                 // Try to extract tenant info from JWT claims first
                 const jwtTenantInfo = extractTenantFromToken(account.access_token as string)
-                
+
                 if (jwtTenantInfo.tenantId) {
                     // Tenant info in JWT - use it directly
                     token.tenantId = jwtTenantInfo.tenantId
@@ -180,14 +190,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     token.tenantSlug = apiTenantInfo.tenantSlug
                     token.tenantApiUrl = apiTenantInfo.tenantApiUrl
                 }
-                
+
                 // Add user info from profile
                 if (profile) {
                     token.email = profile.email
                     token.name = profile.name
                     token.preferred_username = profile.name
                 }
-                
+
                 return token
             }
 
@@ -196,7 +206,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const expiresAt = token.expiresAt as number
             const now = Math.floor(Date.now() / 1000)
             const bufferSeconds = 60
-            
+
             if (expiresAt && now < expiresAt - bufferSeconds) {
                 // Token is still valid
                 return token
@@ -204,7 +214,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
             // Access token has expired (or will expire soon), try to refresh it
             console.log('Access token expired, attempting refresh...')
-            return await refreshAccessToken(token)
+            const refreshedToken = await refreshAccessToken(token)
+            if (refreshedToken.error) {
+                console.log('Refresh failed, clearing session:', refreshedToken.error)
+                return refreshedToken
+            }
+            return refreshedToken
         },
         async session({ session, token }) {
             // Send properties to the client
@@ -213,17 +228,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.refreshToken = token.refreshToken as string
                 session.idToken = token.idToken as string
                 session.error = token.error as string | undefined
-                
-                // Pass roles to the session user object
-                ;(session.user as any).roles = token.roles || []
+
+                    // Pass roles to the session user object
+                    ; (session.user as any).roles = token.roles || []
                 if (token.preferred_username) {
                     session.user.name = token.preferred_username as string
                 }
-                
+
                 // Pass tenant info to session
                 session.tenantId = token.tenantId as string | undefined
                 session.tenantSlug = token.tenantSlug as string | undefined
                 session.tenantApiUrl = token.tenantApiUrl as string | undefined
+            }
+            // Propagate error to client so it can trigger signOut
+            if (token.error) {
+                session.error = token.error as string
             }
             return session
         },
