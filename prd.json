@@ -95,8 +95,8 @@
         "opencode/packages/opencode/src/util/email.ts"
       ],
       "estimatedHours": 4,
-      "priority": 5,
-      "passes": false
+      "priority": 0,
+      "passes": true
     },
     {
       "id": "6",

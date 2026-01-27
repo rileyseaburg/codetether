@@ -987,3 +987,223 @@ async def get_health(admin: UserSession = Depends(require_admin)):
 async def get_system_alerts(admin: UserSession = Depends(require_admin)):
     """Get current system alerts."""
     return await get_alerts()
+
+
+# ========================================
+# Tenant Email Settings Endpoints
+# ========================================
+
+
+class TenantEmailSettingsRequest(BaseModel):
+    """Request model for updating tenant email settings."""
+
+    provider: str = 'sendgrid'
+    api_key: str
+    from_email: str
+    from_name: Optional[str] = None
+    reply_to_domain: Optional[str] = None
+    enabled: bool = True
+    daily_limit: int = 1000
+
+
+class TenantEmailSettingsResponse(BaseModel):
+    """Response model for tenant email settings (API key masked)."""
+
+    tenant_id: str
+    provider: str
+    from_email: str
+    from_name: Optional[str]
+    reply_to_domain: Optional[str]
+    enabled: bool
+    daily_limit: int
+    emails_sent_today: int
+    last_reset_date: str
+    created_at: str
+    updated_at: str
+
+
+class TenantEmailStats(BaseModel):
+    """Email statistics for a tenant."""
+
+    total_sent: int
+    total_failed: int
+    sent_last_24h: int
+    sent_last_7d: int
+    sent_last_30d: int
+    quota_usage_percent: float
+
+
+@router.get('/tenants/{tenant_id}/email-settings')
+async def get_tenant_email_settings(
+    tenant_id: str,
+    admin: UserSession = Depends(require_admin),
+) -> TenantEmailSettingsResponse:
+    """Get email settings for a tenant (API key is masked)."""
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT 
+                tenant_id, provider, from_email, from_name,
+                reply_to_domain, enabled, daily_limit,
+                emails_sent_today, last_reset_date,
+                created_at, updated_at
+            FROM tenant_email_settings 
+            WHERE tenant_id = $1
+            """,
+            tenant_id,
+        )
+
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail=f'Email settings not found for tenant {tenant_id}',
+            )
+
+        return TenantEmailSettingsResponse(
+            tenant_id=row['tenant_id'],
+            provider=row['provider'],
+            from_email=row['from_email'],
+            from_name=row['from_name'],
+            reply_to_domain=row['reply_to_domain'],
+            enabled=row['enabled'],
+            daily_limit=row['daily_limit'],
+            emails_sent_today=row['emails_sent_today'],
+            last_reset_date=str(row['last_reset_date']),
+            created_at=row['created_at'].isoformat(),
+            updated_at=row['updated_at'].isoformat(),
+        )
+
+
+@router.post('/tenants/{tenant_id}/email-settings')
+async def update_tenant_email_settings(
+    tenant_id: str,
+    settings: TenantEmailSettingsRequest,
+    admin: UserSession = Depends(require_admin),
+) -> TenantEmailSettingsResponse:
+    """Update email settings for a tenant."""
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    async with pool.acquire() as conn:
+        # Encrypt the API key
+        encrypted_key = await conn.fetchval(
+            "SELECT pgp_sym_encrypt($1, current_setting('app.encryption_key', true))",
+            settings.api_key,
+        )
+
+        if not encrypted_key:
+            raise HTTPException(
+                status_code=500, detail='Failed to encrypt API key'
+            )
+
+        # Upsert settings
+        row = await conn.fetchrow(
+            """
+            INSERT INTO tenant_email_settings (
+                tenant_id, provider, api_key_encrypted, from_email,
+                from_name, reply_to_domain, enabled, daily_limit
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (tenant_id) DO UPDATE SET
+                provider = EXCLUDED.provider,
+                api_key_encrypted = EXCLUDED.api_key_encrypted,
+                from_email = EXCLUDED.from_email,
+                from_name = EXCLUDED.from_name,
+                reply_to_domain = EXCLUDED.reply_to_domain,
+                enabled = EXCLUDED.enabled,
+                daily_limit = EXCLUDED.daily_limit,
+                updated_at = NOW()
+            RETURNING 
+                tenant_id, provider, from_email, from_name,
+                reply_to_domain, enabled, daily_limit,
+                emails_sent_today, last_reset_date,
+                created_at, updated_at
+            """,
+            tenant_id,
+            settings.provider,
+            encrypted_key,
+            settings.from_email,
+            settings.from_name,
+            settings.reply_to_domain,
+            settings.enabled,
+            settings.daily_limit,
+        )
+
+        logger.info(
+            f'Admin {admin.email} updated email settings for tenant {tenant_id}'
+        )
+
+        return TenantEmailSettingsResponse(
+            tenant_id=row['tenant_id'],
+            provider=row['provider'],
+            from_email=row['from_email'],
+            from_name=row['from_name'],
+            reply_to_domain=row['reply_to_domain'],
+            enabled=row['enabled'],
+            daily_limit=row['daily_limit'],
+            emails_sent_today=row['emails_sent_today'],
+            last_reset_date=str(row['last_reset_date']),
+            created_at=row['created_at'].isoformat(),
+            updated_at=row['updated_at'].isoformat(),
+        )
+
+
+@router.get('/tenants/{tenant_id}/email-stats')
+async def get_tenant_email_stats(
+    tenant_id: str,
+    days: int = 30,
+    admin: UserSession = Depends(require_admin),
+) -> TenantEmailStats:
+    """Get email sending statistics for a tenant."""
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    async with pool.acquire() as conn:
+        # Get settings for quota calculation
+        settings = await conn.fetchrow(
+            'SELECT daily_limit, emails_sent_today FROM tenant_email_settings WHERE tenant_id = $1',
+            tenant_id,
+        )
+
+        if not settings:
+            raise HTTPException(
+                status_code=404,
+                detail=f'Email settings not found for tenant {tenant_id}',
+            )
+
+        # Get stats from outbound_emails table
+        stats = await conn.fetchrow(
+            """
+            SELECT 
+                COUNT(*) as total_sent,
+                COUNT(CASE WHEN status = 'failed' THEN 1 END) as total_failed,
+                COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END) as sent_last_24h,
+                COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END) as sent_last_7d,
+                COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as sent_last_30d
+            FROM outbound_emails 
+            WHERE tenant_id = $1
+            AND created_at > NOW() - INTERVAL '%s days'
+            """,
+            tenant_id,
+            days,
+        )
+
+        quota_usage = (
+            settings['emails_sent_today'] / settings['daily_limit'] * 100
+            if settings['daily_limit'] > 0
+            else 0
+        )
+
+        return TenantEmailStats(
+            total_sent=stats['total_sent'] or 0,
+            total_failed=stats['total_failed'] or 0,
+            sent_last_24h=stats['sent_last_24h'] or 0,
+            sent_last_7d=stats['sent_last_7d'] or 0,
+            sent_last_30d=stats['sent_last_30d'] or 0,
+            quota_usage_percent=round(quota_usage, 2),
+        )
