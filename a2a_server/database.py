@@ -200,7 +200,9 @@ async def _init_schema():
                 status TEXT DEFAULT 'active',
                 session_id TEXT,
                 opencode_port INTEGER,
-                tenant_id TEXT REFERENCES tenants(id)
+                tenant_id TEXT REFERENCES tenants(id),
+                minio_path TEXT,
+                last_sync_at TIMESTAMPTZ
             )
         """)
 
@@ -208,6 +210,20 @@ async def _init_schema():
         try:
             await conn.execute(
                 'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+            )
+        except Exception:
+            pass
+
+        # Migration: Add MinIO columns to codebases
+        try:
+            await conn.execute(
+                'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS minio_path TEXT'
+            )
+        except Exception:
+            pass
+        try:
+            await conn.execute(
+                'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ'
             )
         except Exception:
             pass
@@ -262,7 +278,10 @@ async def _init_schema():
                 summary JSONB DEFAULT '{}'::jsonb,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
-                tenant_id TEXT REFERENCES tenants(id)
+                tenant_id TEXT REFERENCES tenants(id),
+                knative_service_name TEXT,
+                worker_status TEXT DEFAULT 'pending',
+                last_activity_at TIMESTAMPTZ
             )
         """)
 
@@ -270,6 +289,26 @@ async def _init_schema():
         try:
             await conn.execute(
                 'ALTER TABLE sessions ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+            )
+        except Exception:
+            pass
+
+        # Migration: Add Knative session worker columns to sessions
+        try:
+            await conn.execute(
+                'ALTER TABLE sessions ADD COLUMN IF NOT EXISTS knative_service_name TEXT'
+            )
+        except Exception:
+            pass
+        try:
+            await conn.execute(
+                "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS worker_status TEXT DEFAULT 'pending'"
+            )
+        except Exception:
+            pass
+        try:
+            await conn.execute(
+                'ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ'
             )
         except Exception:
             pass
@@ -936,6 +975,10 @@ def _row_to_codebase(row) -> Dict[str, Any]:
         'status': row['status'],
         'session_id': row['session_id'],
         'opencode_port': row['opencode_port'],
+        'minio_path': row.get('minio_path'),
+        'last_sync_at': row['last_sync_at'].isoformat()
+        if row.get('last_sync_at')
+        else None,
     }
 
 
@@ -1399,7 +1442,159 @@ def _row_to_session(row) -> Dict[str, Any]:
         'updated_at': row['updated_at'].isoformat()
         if row['updated_at']
         else None,
+        'knative_service_name': row.get('knative_service_name'),
+        'worker_status': row.get('worker_status', 'pending'),
+        'last_activity_at': row['last_activity_at'].isoformat()
+        if row.get('last_activity_at')
+        else None,
     }
+
+
+async def db_update_session_worker_status(
+    session_id: str,
+    worker_status: str,
+    knative_service_name: Optional[str] = None,
+) -> bool:
+    """Update session worker status and optionally the Knative service name.
+
+    Args:
+        session_id: The session ID to update
+        worker_status: Worker status (pending, creating, ready, running,
+                       scaled_to_zero, failed, terminated)
+        knative_service_name: Optional Knative Service name
+                              (e.g., "opencode-session-ses123")
+
+    Returns:
+        True if updated successfully
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            if knative_service_name is not None:
+                result = await conn.execute(
+                    """
+                    UPDATE sessions
+                    SET worker_status = $2,
+                        knative_service_name = $3,
+                        updated_at = NOW()
+                    WHERE id = $1
+                    """,
+                    session_id,
+                    worker_status,
+                    knative_service_name,
+                )
+            else:
+                result = await conn.execute(
+                    """
+                    UPDATE sessions
+                    SET worker_status = $2,
+                        updated_at = NOW()
+                    WHERE id = $1
+                    """,
+                    session_id,
+                    worker_status,
+                )
+            return 'UPDATE 1' in result
+    except Exception as e:
+        logger.error(f'Failed to update session worker status: {e}')
+        return False
+
+
+async def db_update_session_activity(session_id: str) -> bool:
+    """Update session's last_activity_at timestamp to now.
+
+    Args:
+        session_id: The session ID to update
+
+    Returns:
+        True if updated successfully
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE sessions
+                SET last_activity_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = $1
+                """,
+                session_id,
+            )
+            return 'UPDATE 1' in result
+    except Exception as e:
+        logger.error(f'Failed to update session activity: {e}')
+        return False
+
+
+async def db_update_codebase_minio_path(
+    codebase_id: str, minio_path: str
+) -> bool:
+    """Update codebase's MinIO path.
+
+    Args:
+        codebase_id: The codebase ID to update
+        minio_path: Path in MinIO bucket (e.g., "codebases/cb123.tar.gz")
+
+    Returns:
+        True if updated successfully
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE codebases
+                SET minio_path = $2,
+                    updated_at = NOW()
+                WHERE id = $1
+                """,
+                codebase_id,
+                minio_path,
+            )
+            return 'UPDATE 1' in result
+    except Exception as e:
+        logger.error(f'Failed to update codebase MinIO path: {e}')
+        return False
+
+
+async def db_update_codebase_sync_time(codebase_id: str) -> bool:
+    """Update codebase's last_sync_at timestamp to now.
+
+    Args:
+        codebase_id: The codebase ID to update
+
+    Returns:
+        True if updated successfully
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE codebases
+                SET last_sync_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = $1
+                """,
+                codebase_id,
+            )
+            return 'UPDATE 1' in result
+    except Exception as e:
+        logger.error(f'Failed to update codebase sync time: {e}')
+        return False
 
 
 # ========================================

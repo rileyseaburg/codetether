@@ -62,6 +62,16 @@ from .user_auth import router as user_auth_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
 
+# Import MCP router for unified MCP protocol support on same port
+try:
+    from .mcp_router import create_mcp_router, MCPToolHandler
+
+    MCP_ROUTER_AVAILABLE = True
+except ImportError:
+    MCP_ROUTER_AVAILABLE = False
+    create_mcp_router = None
+    MCPToolHandler = None
+
 # Import admin API for system overview
 try:
     from .admin_api import router as admin_router
@@ -221,6 +231,27 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start Knative garbage collector for idle session workers
+        @self.app.on_event('startup')
+        async def start_knative_gc():
+            try:
+                from .knative_gc import start_background_gc, GC_ENABLED
+
+                if GC_ENABLED:
+                    start_background_gc()
+                    logger.info('Knative GC started')
+            except Exception as e:
+                logger.warning(f'Failed to start Knative GC: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_knative_gc():
+            try:
+                from .knative_gc import stop_background_gc
+
+                stop_background_gc()
+            except Exception:
+                pass
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
@@ -342,9 +373,12 @@ class A2AServer:
 
         # Mount static files for analytics.js and other assets
         import os
+
         static_dir = os.path.join(os.path.dirname(__file__), 'static')
         if os.path.exists(static_dir):
-            self.app.mount('/static', StaticFiles(directory=static_dir), name='static')
+            self.app.mount(
+                '/static', StaticFiles(directory=static_dir), name='static'
+            )
             logger.info(f'Static files mounted at /static from {static_dir}')
 
         # Include A2A protocol router for standards-compliant agent communication
@@ -365,6 +399,17 @@ class A2AServer:
                 logger.info('A2A protocol router mounted at /a2a')
             except Exception as e:
                 logger.warning(f'Failed to mount A2A router: {e}')
+
+        # Include MCP protocol router for unified MCP support on same port
+        # This eliminates the need for a separate MCP server on port 9000
+        if MCP_ROUTER_AVAILABLE and create_mcp_router and MCPToolHandler:
+            try:
+                mcp_handler = MCPToolHandler(a2a_server=self)
+                mcp_router = create_mcp_router(mcp_handler)
+                self.app.include_router(mcp_router)
+                logger.info('MCP protocol router mounted at /mcp')
+            except Exception as e:
+                logger.warning(f'Failed to mount MCP router: {e}')
 
     async def _handle_jsonrpc_request(
         self,

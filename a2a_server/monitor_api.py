@@ -1510,6 +1510,18 @@ def get_opencode_bridge():
                         hasattr(task, 'status')
                         and task.status.value == 'pending'
                     ):
+                        # Skip SSE notification for Knative tasks - they're routed via CloudEvents
+                        is_knative_task = (
+                            task.metadata.get('knative', False)
+                            if hasattr(task, 'metadata') and task.metadata
+                            else False
+                        )
+                        if is_knative_task:
+                            logger.info(
+                                f'Task {task.id} is Knative task, skipping SSE notification'
+                            )
+                            return
+
                         task_data = {
                             'id': task.id,
                             'title': task.title,
@@ -2731,7 +2743,11 @@ async def unregister_codebase(codebase_id: str):
 
 @opencode_router.post('/codebases/{codebase_id}/trigger')
 async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
-    """Trigger an OpenCode agent to work on a codebase."""
+    """Trigger an OpenCode agent to work on a codebase.
+
+    When Knative is enabled, this will spawn an ephemeral Knative worker
+    for the session. Otherwise, it creates a task for SSE-connected workers.
+    """
     # Look up codebase from database (primary source of truth)
     db_codebase = await db.db_get_codebase(codebase_id)
     if not db_codebase:
@@ -2758,7 +2774,41 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     except Exception as e:
         logger.debug(f'Failed to log user trigger prompt: {e}')
 
-    # Create a task in the database for the worker to pick up
+    # Try to use the bridge's trigger_agent for Knative support
+    bridge = get_opencode_bridge()
+    if bridge is not None:
+        from .opencode_bridge import is_knative_enabled, AgentTriggerRequest
+
+        # If Knative is enabled, use the bridge which has Knative integration
+        if is_knative_enabled():
+            logger.info(
+                f'Using Knative path for trigger on codebase {codebase_id}'
+            )
+            trigger_request = AgentTriggerRequest(
+                codebase_id=codebase_id,
+                prompt=trigger.prompt,
+                agent=trigger.agent,
+                model=trigger.model,
+                files=trigger.files or [],
+                metadata=trigger.metadata or {},
+            )
+            response = await bridge.trigger_agent(trigger_request)
+            if response.success:
+                return {
+                    'success': True,
+                    'session_id': response.session_id,
+                    'message': response.message or 'Task triggered via Knative',
+                    'codebase_id': codebase_id,
+                    'agent': trigger.agent,
+                    'knative': True,
+                }
+            else:
+                # Fall through to legacy path if Knative fails
+                logger.warning(
+                    f'Knative trigger failed: {response.error}, falling back to SSE workers'
+                )
+
+    # Legacy path: Create a task in the database for SSE workers to pick up
     task_id = str(uuid.uuid4())
     task_title = trigger.prompt[:80] + (
         '...' if len(trigger.prompt) > 80 else ''
@@ -5351,6 +5401,7 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
         result=update.result,
         error=update.error,
         session_id=update.session_id,
+        worker_id=update.worker_id,
     )
 
     if not task:
@@ -6284,6 +6335,437 @@ async def test_api_key_endpoint(
     # Allow testing without auth (just testing the key itself)
     result = await vault_test_api_key(key_data.provider_id, key_data.api_key)
     return result
+
+
+# =============================================================================
+# Codebase Storage Endpoints (MinIO Upload/Download)
+# =============================================================================
+# These endpoints allow uploading/downloading codebase tarballs to MinIO
+# and syncing from workers.
+
+
+def _get_minio_client():
+    """Get or create a MinIO client for codebase storage."""
+    if not MINIO_ENDPOINT or not MINIO_ACCESS_KEY or not MINIO_SECRET_KEY:
+        return None
+
+    try:
+        from minio import Minio
+
+        endpoint = (
+            MINIO_ENDPOINT.replace('http://', '').replace('https://', '')
+            if MINIO_ENDPOINT
+            else ''
+        )
+        client = Minio(
+            endpoint,
+            access_key=MINIO_ACCESS_KEY or '',
+            secret_key=MINIO_SECRET_KEY or '',
+            secure=MINIO_SECURE,
+        )
+        return client
+    except ImportError:
+        logger.debug('minio package not installed')
+        return None
+    except Exception as e:
+        logger.warning(f'Failed to create MinIO client: {e}')
+        return None
+
+
+async def _verify_codebase_ownership(
+    codebase_id: str, tenant_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Verify that a codebase exists and optionally belongs to a tenant.
+
+    Returns the codebase dict if valid, None otherwise.
+    """
+    codebase = await db.db_get_codebase(codebase_id)
+    if not codebase:
+        return None
+
+    # If RLS/tenant enforcement is enabled and tenant_id provided, check ownership
+    if tenant_id and db.RLS_ENABLED:
+        codebase_tenant = codebase.get('tenant_id')
+        if codebase_tenant and codebase_tenant != tenant_id:
+            return None
+
+    return codebase
+
+
+class CodebaseSyncRequest(BaseModel):
+    """Request model for codebase sync from worker."""
+
+    size_bytes: int
+    files_changed: int = 0
+    worker_id: Optional[str] = None
+
+
+class WorkerStatusResponse(BaseModel):
+    """Response model for worker status."""
+
+    status: str  # pending, creating, ready, failed, not_found
+    url: Optional[str] = None
+    created_at: Optional[str] = None
+    last_activity: Optional[str] = None
+    tenant_id: Optional[str] = None
+    codebase_id: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+@opencode_router.post('/codebases/{codebase_id}/upload')
+async def upload_codebase_tarball(
+    codebase_id: str,
+    request: Request,
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+):
+    """Upload a codebase tarball to MinIO.
+
+    This endpoint accepts multipart/form-data with a file field containing
+    the codebase tarball (typically .tar.gz).
+
+    The file is stored at codebases/{codebase_id}.tar.gz in the configured
+    MinIO bucket.
+
+    Args:
+        codebase_id: The codebase ID to upload to
+        request: The FastAPI request (for multipart parsing)
+        user: Optional authenticated user for tenant validation
+
+    Returns:
+        JSON with minio_path and size_bytes
+    """
+    # Verify codebase exists
+    tenant_id = user.user_id if user else None
+    codebase = await _verify_codebase_ownership(codebase_id, tenant_id)
+    if not codebase:
+        raise HTTPException(
+            status_code=404, detail=f'Codebase {codebase_id} not found'
+        )
+
+    # Get MinIO client
+    minio_client = _get_minio_client()
+    if not minio_client:
+        raise HTTPException(
+            status_code=503,
+            detail='MinIO storage not configured. Set MINIO_ENDPOINT, MINIO_ACCESS_KEY, and MINIO_SECRET_KEY.',
+        )
+
+    # Parse multipart form data
+    from fastapi import UploadFile, File
+    import aiofiles
+
+    try:
+        form = await request.form()
+        file = form.get('file')
+        if not file:
+            raise HTTPException(
+                status_code=400,
+                detail='No file provided. Include a "file" field in multipart form data.',
+            )
+
+        # Read file content
+        content = await file.read()
+        size_bytes = len(content)
+
+        # Validate size (max 500MB)
+        max_size = 500 * 1024 * 1024
+        if size_bytes > max_size:
+            raise HTTPException(
+                status_code=413,
+                detail=f'File too large. Maximum size is {max_size // (1024 * 1024)}MB.',
+            )
+
+        # Determine file path in MinIO
+        minio_path = f'codebases/{codebase_id}.tar.gz'
+
+        # Ensure bucket exists
+        if not minio_client.bucket_exists(MINIO_BUCKET):
+            minio_client.make_bucket(MINIO_BUCKET)
+
+        # Upload to MinIO
+        minio_client.put_object(
+            MINIO_BUCKET,
+            minio_path,
+            io.BytesIO(content),
+            length=size_bytes,
+            content_type='application/gzip',
+        )
+
+        # Update codebase record with minio_path
+        pool = await db.get_pool()
+        if pool:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE codebases
+                    SET minio_path = $2, last_sync_at = NOW(), updated_at = NOW()
+                    WHERE id = $1
+                    """,
+                    codebase_id,
+                    minio_path,
+                )
+
+        logger.info(
+            f'Uploaded codebase {codebase_id} to MinIO: {minio_path} ({size_bytes} bytes)'
+        )
+
+        return {
+            'minio_path': minio_path,
+            'size_bytes': size_bytes,
+            'bucket': MINIO_BUCKET,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f'Failed to upload codebase {codebase_id}: {e}')
+        raise HTTPException(status_code=500, detail=f'Upload failed: {str(e)}')
+
+
+@opencode_router.get('/codebases/{codebase_id}/download')
+async def download_codebase_tarball(
+    codebase_id: str,
+    stream: bool = False,
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+):
+    """Get a presigned URL or stream the codebase tarball from MinIO.
+
+    By default, returns a presigned URL that expires in 1 hour.
+    Set stream=true to stream the file directly.
+
+    Args:
+        codebase_id: The codebase ID to download
+        stream: If True, stream the file directly instead of returning a URL
+        user: Optional authenticated user for tenant validation
+
+    Returns:
+        JSON with presigned url and expiry, or streams the file directly
+    """
+    # Verify codebase exists
+    tenant_id = user.user_id if user else None
+    codebase = await _verify_codebase_ownership(codebase_id, tenant_id)
+    if not codebase:
+        raise HTTPException(
+            status_code=404, detail=f'Codebase {codebase_id} not found'
+        )
+
+    # Get MinIO client
+    minio_client = _get_minio_client()
+    if not minio_client:
+        raise HTTPException(
+            status_code=503,
+            detail='MinIO storage not configured',
+        )
+
+    # Determine file path - prefer stored path, fall back to convention
+    minio_path = codebase.get('minio_path') or f'codebases/{codebase_id}.tar.gz'
+
+    # Check if file exists
+    try:
+        minio_client.stat_object(MINIO_BUCKET, minio_path)
+    except Exception:
+        raise HTTPException(
+            status_code=404,
+            detail=f'Codebase tarball not found at {minio_path}',
+        )
+
+    if stream:
+        # Stream the file directly
+        try:
+            response = minio_client.get_object(MINIO_BUCKET, minio_path)
+
+            def iterfile():
+                try:
+                    for chunk in response.stream(32 * 1024):
+                        yield chunk
+                finally:
+                    response.close()
+                    response.release_conn()
+
+            return StreamingResponse(
+                iterfile(),
+                media_type='application/gzip',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{codebase_id}.tar.gz"'
+                },
+            )
+        except Exception as e:
+            logger.error(f'Failed to stream codebase {codebase_id}: {e}')
+            raise HTTPException(
+                status_code=500, detail=f'Download failed: {str(e)}'
+            )
+    else:
+        # Generate presigned URL
+        try:
+            expires_in = 3600  # 1 hour
+            url = minio_client.presigned_get_object(
+                MINIO_BUCKET,
+                minio_path,
+                expires=timedelta(seconds=expires_in),
+            )
+
+            return {
+                'url': url,
+                'expires_in': expires_in,
+                'minio_path': minio_path,
+            }
+        except Exception as e:
+            logger.error(
+                f'Failed to generate presigned URL for {codebase_id}: {e}'
+            )
+            raise HTTPException(
+                status_code=500, detail=f'Failed to generate URL: {str(e)}'
+            )
+
+
+@opencode_router.post('/codebases/{codebase_id}/sync')
+async def sync_codebase_from_worker(
+    codebase_id: str,
+    sync_request: CodebaseSyncRequest,
+):
+    """Receive sync notification from a worker (webhook).
+
+    Workers call this endpoint after syncing their local codebase to MinIO.
+    This updates the last_sync_at timestamp in the database.
+
+    Args:
+        codebase_id: The codebase ID being synced
+        sync_request: Sync details (size_bytes, files_changed)
+
+    Returns:
+        JSON acknowledgment
+    """
+    # Verify codebase exists (no tenant validation for worker sync)
+    codebase = await db.db_get_codebase(codebase_id)
+    if not codebase:
+        raise HTTPException(
+            status_code=404, detail=f'Codebase {codebase_id} not found'
+        )
+
+    # Update the codebase record
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE codebases
+                SET last_sync_at = NOW(), updated_at = NOW()
+                WHERE id = $1
+                """,
+                codebase_id,
+            )
+
+        logger.info(
+            f'Codebase {codebase_id} synced from worker {sync_request.worker_id}: '
+            f'{sync_request.size_bytes} bytes, {sync_request.files_changed} files changed'
+        )
+
+        # Update worker last-seen if provided
+        if sync_request.worker_id:
+            await db.db_update_worker_heartbeat(sync_request.worker_id)
+
+        return {
+            'acknowledged': True,
+            'codebase_id': codebase_id,
+            'size_bytes': sync_request.size_bytes,
+            'files_changed': sync_request.files_changed,
+            'synced_at': datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f'Failed to update sync status for {codebase_id}: {e}')
+        raise HTTPException(status_code=500, detail=f'Sync failed: {str(e)}')
+
+
+@opencode_router.get('/sessions/{session_id}/worker-status')
+async def get_session_worker_status(
+    session_id: str,
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+):
+    """Get Knative worker status for a session.
+
+    Returns the status of the Knative service worker associated with
+    this session, including URL, creation time, and last activity.
+
+    Args:
+        session_id: The session ID to check
+
+    Returns:
+        WorkerStatusResponse with status details
+    """
+    # First check the sessions table for knative metadata
+    session = await db.db_get_session(session_id)
+
+    if session:
+        # Check if we have Knative service info stored
+        knative_service_name = session.get('knative_service_name')
+        worker_status = session.get('worker_status', 'pending')
+        last_activity = session.get('last_activity_at')
+
+        if not knative_service_name:
+            # Session exists but no Knative worker
+            return WorkerStatusResponse(
+                status='pending',
+                codebase_id=session.get('codebase_id'),
+                created_at=session.get('created_at'),
+                last_activity=last_activity,
+            )
+
+    # Try to get status from Knative spawner
+    try:
+        from .knative_spawner import get_worker_status, KNATIVE_ENABLED
+
+        if not KNATIVE_ENABLED:
+            return WorkerStatusResponse(
+                status='disabled',
+                error_message='Knative spawning is not enabled',
+            )
+
+        worker_info = await get_worker_status(session_id)
+
+        return WorkerStatusResponse(
+            status=worker_info.status.value,
+            url=worker_info.url,
+            created_at=worker_info.created_at.isoformat()
+            if worker_info.created_at
+            else None,
+            last_activity=worker_info.last_activity_at.isoformat()
+            if hasattr(worker_info, 'last_activity_at')
+            and worker_info.last_activity_at
+            else None,
+            tenant_id=worker_info.tenant_id,
+            codebase_id=worker_info.codebase_id,
+            error_message=worker_info.error_message,
+        )
+
+    except ImportError:
+        # Knative spawner not available
+        logger.debug('Knative spawner not available')
+
+        # Return status from session if available
+        if session:
+            return WorkerStatusResponse(
+                status=session.get('worker_status', 'unknown'),
+                codebase_id=session.get('codebase_id'),
+                created_at=session.get('created_at'),
+                last_activity=session.get('last_activity_at'),
+                error_message='Knative spawner module not available',
+            )
+
+        raise HTTPException(
+            status_code=404, detail=f'Session {session_id} not found'
+        )
+
+    except Exception as e:
+        logger.error(
+            f'Failed to get worker status for session {session_id}: {e}'
+        )
+        raise HTTPException(
+            status_code=500, detail=f'Failed to get worker status: {str(e)}'
+        )
 
 
 AVAILABLE_VOICES = [

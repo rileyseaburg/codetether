@@ -1,0 +1,160 @@
+{
+  "project": "A2A-Server-MCP",
+  "branchName": "feature/multi-tenant-email",
+  "description": "Implement multi-tenant email support for Knative workers with per-tenant SendGrid configuration, database encryption, and RLS integration",
+  "userStories": [
+    {
+      "id": "1",
+      "title": "Database Schema - Create tenant_email_settings table",
+      "description": "Create PostgreSQL table for per-tenant email configuration with encryption and RLS policies",
+      "acceptanceCriteria": [
+        "Table tenant_email_settings created with columns: tenant_id, provider, api_key_encrypted, from_email, from_name, reply_to_domain, provider_settings, enabled, daily_limit, created_at, updated_at",
+        "RLS policy tenant_email_settings_isolation created using tenant_id check",
+        "RLS enabled on the table",
+        "Foreign key constraint to tenants(id)",
+        "Migration script created to backfill existing tenants with global config"
+      ],
+      "filesToModify": [
+        "a2a_server/database.py"
+      ],
+      "estimatedHours": 2,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "2",
+      "title": "A2A Server - Pass tenant_id in CloudEvents",
+      "description": "Update publish_task_event to include tenant_id in CloudEvent headers and body for multi-tenant routing",
+      "acceptanceCriteria": [
+        "Add tenant_id parameter to publish_task_event function signature",
+        "Include ce-tenant header in CloudEvent headers via extensions parameter",
+        "Include tenant_id in event body JSON",
+        "Add notify_email parameter support to function",
+        "Update automation_api.py to pass tenant_id from authenticated user to publish_task_event",
+        "Update _build_cloudevent_headers to handle tenant extension attribute"
+      ],
+      "filesToModify": [
+        "a2a_server/knative_events.py",
+        "a2a_server/automation_api.py"
+      ],
+      "estimatedHours": 4,
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "3",
+      "title": "Worker - Extract tenant_id and set DB context",
+      "description": "Update CloudEvent handler to extract tenant_id from headers and set PostgreSQL tenant context",
+      "acceptanceCriteria": [
+        "Extract tenant_id from ce-tenant header in CloudEvent",
+        "Execute 'SELECT set_config(\"app.current_tenant_id\", ${tenantId}, false)' before any DB operations",
+        "Handle missing tenant_id gracefully with fallback to global config",
+        "Ensure tenant context is set before email config query",
+        "Maintain backward compatibility for events without tenant_id"
+      ],
+      "filesToModify": [
+        "opencode/packages/opencode/src/server/routes/cloudevent.ts"
+      ],
+      "estimatedHours": 6,
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "4",
+      "title": "Worker - Create tenant email configuration module",
+      "description": "Create TypeScript module to query and decrypt tenant email settings from database",
+      "acceptanceCriteria": [
+        "Create opencode/packages/opencode/src/util/tenant-email.ts",
+        "Define TenantEmailConfig interface with provider, apiKey, fromEmail, fromName, replyToDomain",
+        "Implement getTenantEmailConfig(tenantId) that queries DB and decrypts API key",
+        "Implement isEmailQuotaExceeded(tenantId) to check daily limits",
+        "Implement incrementEmailCount(tenantId) to track usage",
+        "Use pgp_sym_decrypt with DB_ENCRYPTION_KEY environment variable",
+        "Return null if no config found or tenant disabled"
+      ],
+      "filesToModify": [
+        "opencode/packages/opencode/src/util/tenant-email.ts"
+      ],
+      "estimatedHours": 8,
+      "priority": 4,
+      "passes": false
+    },
+    {
+      "id": "5",
+      "title": "Worker - Update email module for multi-tenant",
+      "description": "Modify email.ts to accept and use tenant-specific configuration",
+      "acceptanceCriteria": [
+        "Update sendTaskCompletionEmail to accept optional tenantConfig parameter",
+        "Use tenantConfig if provided, otherwise fall back to global config from env vars",
+        "Extract From address and name from tenantConfig",
+        "Send email using tenant-specific SendGrid API key",
+        "Handle case where tenant has no email config (log warning)",
+        "Update imports to use tenant-email module"
+      ],
+      "filesToModify": [
+        "opencode/packages/opencode/src/util/email.ts"
+      ],
+      "estimatedHours": 4,
+      "priority": 5,
+      "passes": false
+    },
+    {
+      "id": "6",
+      "title": "Admin API - Tenant email settings endpoints",
+      "description": "Create REST API endpoints for managing tenant email configuration",
+      "acceptanceCriteria": [
+        "Create POST /api/v1/admin/tenants/{tenant_id}/email-settings endpoint",
+        "Create GET /api/v1/admin/tenants/{tenant_id}/email-settings endpoint that masks API key",
+        "Create GET /api/v1/admin/tenants/{tenant_id}/email-stats endpoint for usage stats",
+        "Implement encryption of API keys using pgp_sym_encrypt before storage",
+        "Add authentication and authorization checks (admin only)",
+        "Validate email settings before saving"
+      ],
+      "filesToModify": [
+        "a2a_server/admin_api.py"
+      ],
+      "estimatedHours": 6,
+      "priority": 6,
+      "passes": false
+    },
+    {
+      "id": "7",
+      "title": "Helm - Add DB_ENCRYPTION_KEY configuration",
+      "description": "Update Helm templates and values to support database encryption key for API key encryption",
+      "acceptanceCriteria": [
+        "Add DB_ENCRYPTION_KEY env var to knative-worker-template.yaml container spec",
+        "Create secret reference in values.yaml under knative.worker.dbEncryptionSecret",
+        "Document encryption key generation in comments",
+        "Ensure key is mounted as environment variable in worker pods"
+      ],
+      "filesToModify": [
+        "chart/a2a-server/templates/knative-worker-template.yaml",
+        "chart/a2a-server/values.yaml"
+      ],
+      "estimatedHours": 2,
+      "priority": 7,
+      "passes": false
+    },
+    {
+      "id": "8",
+      "title": "Testing - Unit and integration tests",
+      "description": "Create comprehensive test suite for multi-tenant email functionality",
+      "acceptanceCriteria": [
+        "Test tenant context setting and RLS policies",
+        "Test email config encryption and decryption",
+        "Test CloudEvent parsing with tenant_id header",
+        "Integration test: full flow from task creation to email receipt",
+        "Test RLS isolation - verify Tenant A cannot access Tenant B settings",
+        "Test rate limiting enforcement",
+        "Test fallback to global config when tenant config missing"
+      ],
+      "filesToModify": [
+        "tests/test_tenant_email.py",
+        "tests/test_cloudevent_handler.ts"
+      ],
+      "estimatedHours": 8,
+      "priority": 8,
+      "passes": false
+    }
+  ]
+}
