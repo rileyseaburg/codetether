@@ -38,8 +38,8 @@
         "a2a_server/automation_api.py"
       ],
       "estimatedHours": 4,
-      "priority": 2,
-      "passes": false
+      "priority": 0,
+      "passes": true
     },
     {
       "id": "3",
