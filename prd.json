@@ -76,8 +76,8 @@
         "opencode/packages/opencode/src/util/tenant-email.ts"
       ],
       "estimatedHours": 8,
-      "priority": 4,
-      "passes": false
+      "priority": 0,
+      "passes": true
     },
     {
       "id": "5",
