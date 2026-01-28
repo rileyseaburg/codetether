@@ -171,6 +171,22 @@ codetether --port 8000
 docker run -p 8000:8000 registry.quantum-forge.net/library/a2a-server-mcp:latest
 ```
 
+### OpenCode AI CLI
+
+Download pre-built binaries from [GitHub Releases](https://github.com/rileyseaburg/A2A-Server-MCP/releases):
+
+**One-line install:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+```
+
+**Or download manually:**
+- Linux: `opencode-v1.1.25-linux-x64.tar.gz`
+- macOS: `opencode-v1.1.25-darwin-arm64.tar.gz`  
+- Windows: `opencode-v1.1.25-windows-x64.zip`
+
+**Available platforms:** Linux (x64/ARM64/glibc/musl), macOS (x64/ARM64), Windows (x64) - with baseline builds for older CPUs.
+
 ### Kubernetes (Production)
 
 ```bash

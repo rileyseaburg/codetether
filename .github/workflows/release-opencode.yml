@@ -1,0 +1,161 @@
+name: Build and Release OpenCode Binaries
+
+on:
+  push:
+    tags:
+      - 'opencode-v*'
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.1.25)'
+        required: false
+        type: string
+
+env:
+  OPENCODE_DIR: opencode/packages/opencode
+  BINARY_NAME: opencode
+
+jobs:
+  build-binaries:
+    name: Build binaries for ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - linux-x64
+          - linux-x64-baseline
+          - linux-x64-musl
+          - linux-x64-baseline-musl
+          - linux-arm64
+          - linux-arm64-musl
+          - darwin-x64
+          - darwin-x64-baseline
+          - darwin-arm64
+          - windows-x64
+          - windows-x64-baseline
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(jq -r '.version' ${{ env.OPENCODE_DIR }}/package.json)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Install dependencies
+        working-directory: ${{ env.OPENCODE_DIR }}
+        run: bun install
+
+      - name: Build binary for ${{ matrix.target }}
+        working-directory: ${{ env.OPENCODE_DIR }}
+        run: |
+          # Map matrix target to build command
+          case "${{ matrix.target }}" in
+            linux-x64)
+              bun run build -- --single
+              ;;
+            linux-x64-baseline)
+              bun run build -- --single --baseline
+              ;;
+            *)
+              # Build all targets then filter
+              bun run build
+              ;;
+          esac
+
+      - name: Package binary
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          TARGET="${{ matrix.target }}"
+          DIST_DIR="${{ env.OPENCODE_DIR }}/dist/${{ env.BINARY_NAME }}-${TARGET}"
+          
+          if [ -f "${DIST_DIR}/bin/opencode" ]; then
+            # Unix binary
+            chmod +x "${DIST_DIR}/bin/opencode"
+            tar -czf "opencode-${VERSION}-${TARGET}.tar.gz" -C "${DIST_DIR}/bin" opencode
+            echo "Created opencode-${VERSION}-${TARGET}.tar.gz"
+          elif [ -f "${DIST_DIR}/bin/opencode.exe" ]; then
+            # Windows binary
+            chmod +x "${DIST_DIR}/bin/opencode.exe"
+            zip -j "opencode-${VERSION}-${TARGET}.zip" "${DIST_DIR}/bin/opencode.exe"
+            echo "Created opencode-${VERSION}-${TARGET}.zip"
+          else
+            echo "Binary not found for ${TARGET}"
+            ls -la "${DIST_DIR}/bin/" || echo "Directory does not exist"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencode-${{ matrix.target }}
+          path: |
+            opencode-*.tar.gz
+            opencode-*.zip
+          if-no-files-found: warn
+
+  release:
+    name: Create GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(jq -r '.version' ${{ env.OPENCODE_DIR }}/package.json)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          pattern: opencode-*
+
+      - name: List artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find ./artifacts -type f -name "opencode-*" | sort
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OpenCode ${{ steps.get_version.outputs.version }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('opencode-v{0}', steps.get_version.outputs.version) }}
+          files: ./artifacts/**/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## OpenCode Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Binaries:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          find ./artifacts -type f -name "opencode-*" | sort >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

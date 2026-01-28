@@ -53,7 +53,10 @@ help: ## Show this help message
 	@grep -E '^(install|test|lint|format|run|docs)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Other targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -vE '^(docker-|helm-|codetether-|bluegreen-|deploy-|rollback-|cleanup-|k8s|get-pods|describe-pod|scale-|rollout-|install|test|lint|format|run|docs)' | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -vE '^(docker-|helm-|codetether-|bluegreen-|deploy-|rollback-|cleanup-|k8s|get-pods|describe-pod|scale-|rollout-|install|test|lint|format|run|docs|release-opencode|build-opencode)' | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "OpenCode targets:"
+	@grep -E '^(build-opencode|release-opencode)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Worker management:"
 	@grep -E '^local-worker-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
@@ -925,3 +928,56 @@ build-opencode: ## Build OpenCode integration
 	sudo cp /home/riley/A2A-Server-MCP/opencode/packages/opencode/dist/opencode-linux-x64/bin/opencode /opt/a2a-worker/bin/opencode
 	opencode --version
 	@echo "✅ OpenCode integration built successfully."
+
+.PHONY: release-opencode
+release-opencode: ## Trigger GitHub Actions workflow to release opencode binaries
+	@echo "🚀 Triggering GitHub Actions release workflow..."
+	@if ! command -v gh >/dev/null 2>&1; then \
+		echo "❌ GitHub CLI (gh) is not installed. Install it from https://cli.github.com/"; \
+		exit 1; \
+	fi
+	@VERSION=$$(jq -r '.version' opencode/packages/opencode/package.json); \
+	TAG="opencode-v$$VERSION"; \
+	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
+		echo "⚠️  Tag $$TAG already exists. Triggering workflow dispatch..."; \
+		gh workflow run release-opencode.yml --ref main -f version="$$VERSION"; \
+	else \
+		echo "🏷️  Creating tag $$TAG and pushing..."; \
+		git tag "$$TAG"; \
+		git push origin "$$TAG"; \
+	fi; \
+	echo "✅ Release workflow triggered. Check https://github.com/$$(git remote get-url origin | sed 's/.*://;s/\.git$$//')/actions"
+
+.PHONY: release-opencode-local
+release-opencode-local: build-opencode ## Build and upload binaries to existing GitHub release (requires gh CLI)
+	@echo "📦 Preparing binaries for GitHub release..."
+	@if ! command -v gh >/dev/null 2>&1; then \
+		echo "❌ GitHub CLI (gh) is not installed. Install it from https://cli.github.com/"; \
+		exit 1; \
+	fi
+	@VERSION=$$(jq -r '.version' opencode/packages/opencode/package.json); \
+	TAG="opencode-v$$VERSION"; \
+	echo "📦 Creating release packages for version $$VERSION..."; \
+	mkdir -p /tmp/opencode-release; \
+	cd opencode/packages/opencode/dist; \
+	for dir in */; do \
+		target=$$(echo "$$dir" | sed 's:/$$::'); \
+		if [ -f "$$target/bin/opencode" ]; then \
+			tar -czf "/tmp/opencode-release/opencode-$$VERSION-$$target.tar.gz" -C "$$target/bin" opencode; \
+			echo "Created opencode-$$VERSION-$$target.tar.gz"; \
+		elif [ -f "$$target/bin/opencode.exe" ]; then \
+			cd "$$target/bin" && zip "/tmp/opencode-release/opencode-$$VERSION-$$target.zip" opencode.exe && cd -; \
+			echo "Created opencode-$$VERSION-$$target.zip"; \
+		fi; \
+	done; \
+	echo ""; \
+	if gh release view "$$TAG" >/dev/null 2>&1; then \
+		echo "📤 Uploading to existing release $$TAG..."; \
+		gh release upload "$$TAG" /tmp/opencode-release/* --clobber; \
+	else \
+		echo "🆕 Creating new release $$TAG..."; \
+		gh release create "$$TAG" /tmp/opencode-release/* \
+			--title "OpenCode $$VERSION" \
+			--notes "OpenCode CLI binaries for all platforms"; \
+	fi; \
+	echo "✅ Release $$TAG updated with binaries!"
