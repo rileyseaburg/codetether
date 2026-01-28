@@ -505,6 +505,15 @@ export namespace Provider {
         },
       }
     },
+    kimik: async () => {
+      return {
+        autoload: false,
+        async getModel(sdk: any, modelID: string) {
+          return sdk.chat(modelID)
+        },
+        options: {},
+      }
+    },
   }
 
   export const Model = z
@@ -990,7 +999,7 @@ export namespace Provider {
         const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS
         const auth = new GoogleAuth({
           scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-          ...(keyFile ? { keyFile } : {})
+          ...(keyFile ? { keyFile } : {}),
         })
         const client = await auth.getClient()
         customFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
