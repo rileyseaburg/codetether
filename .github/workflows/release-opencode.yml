@@ -3,12 +3,12 @@ name: Build and Release OpenCode Binaries
 on:
   push:
     tags:
-      - 'opencode-v*'
-      - 'v*'
+      - "opencode-v*"
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.1.25)'
+        description: "Version to release (e.g., 1.1.25)"
         required: false
         type: string
 
@@ -60,6 +60,9 @@ jobs:
 
       - name: Build binary for ${{ matrix.target }}
         working-directory: ${{ env.OPENCODE_DIR }}
+        env:
+          OPENCODE_CHANNEL: latest
+          OPENCODE_VERSION: ${{ steps.get_version.outputs.version }}
         run: |
           # Map matrix target to build command
           case "${{ matrix.target }}" in
@@ -80,7 +83,7 @@ jobs:
           VERSION="${{ steps.get_version.outputs.version }}"
           TARGET="${{ matrix.target }}"
           DIST_DIR="${{ env.OPENCODE_DIR }}/dist/${{ env.BINARY_NAME }}-${TARGET}"
-          
+
           if [ -f "${DIST_DIR}/bin/opencode" ]; then
             # Unix binary
             chmod +x "${DIST_DIR}/bin/opencode"
