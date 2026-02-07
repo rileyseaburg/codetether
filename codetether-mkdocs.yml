@@ -26,6 +26,7 @@ nav:
       - Configuration: getting-started/configuration.md
   - Core Concepts:
       - Architecture: concepts/architecture.md
+      - Perpetual Persona Swarms: concepts/perpetual-persona-swarms.md
       - A2A Protocol: concepts/a2a-protocol.md
       - Message Broker: concepts/message-broker.md
       - Task Management: concepts/task-management.md
