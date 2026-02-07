@@ -252,6 +252,8 @@ class WorkerRegistry:
                         'priority': task.priority,
                         'metadata': task.metadata,
                         'model': task.model,
+                        'model_ref': getattr(task, 'model_ref', None)
+                        or (task.metadata or {}).get('model_ref'),
                         'target_agent_name': getattr(
                             task, 'target_agent_name', None
                         ),
@@ -510,6 +512,8 @@ class WorkerRegistry:
                 'priority': task.priority,
                 'metadata': task.metadata,
                 'model': task.model,
+                'model_ref': getattr(task, 'model_ref', None)
+                or (task.metadata or {}).get('model_ref'),
                 'target_agent_name': task_target_agent,
                 'created_at': task.created_at.isoformat()
                 if task.created_at
@@ -625,6 +629,13 @@ class CodebaseUpdateRequest(BaseModel):
     """Request to update worker's codebase list."""
 
     codebases: List[str]
+    # Accept extra fields from workers that send full registration payloads
+    worker_id: Optional[str] = None
+    agent_name: Optional[str] = None
+    models: Optional[Any] = None
+    capabilities: Optional[List[str]] = None
+
+    model_config = {'extra': 'ignore'}
 
 
 @worker_sse_router.get('/tasks/stream')
@@ -740,6 +751,9 @@ async def worker_task_stream(
 
                     for task in pending_tasks:
                         task_codebase = task.codebase_id
+                        task_target_agent = getattr(
+                            task, 'target_agent_name', None
+                        ) or (task.metadata or {}).get('target_agent_name')
                         # Worker can handle task if:
                         # 1. Task has no specific codebase (global/__pending__)
                         # 2. Worker has the task's codebase in their list
@@ -749,6 +763,12 @@ async def worker_task_stream(
                             task_codebase in ('__pending__', 'global')
                             or task_codebase in worker_codebases
                         )
+
+                        if (
+                            task_target_agent
+                            and task_target_agent != resolved_agent_name
+                        ):
+                            continue
 
                         if can_handle:
                             task_data = {
@@ -760,6 +780,11 @@ async def worker_task_stream(
                                 'priority': task.priority,
                                 'metadata': task.metadata,
                                 'model': task.model,
+                                'model_ref': getattr(
+                                    task, 'model_ref', None
+                                )
+                                or (task.metadata or {}).get('model_ref'),
+                                'target_agent_name': task_target_agent,
                                 'created_at': task.created_at.isoformat()
                                 if task.created_at
                                 else None,
@@ -914,6 +939,41 @@ async def release_task(
     success = await registry.release_task(release.task_id, resolved_worker_id)
 
     if success:
+        # Persist status/result/error to in-memory cache AND database
+        try:
+            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import AgentTaskStatus
+            bridge = get_opencode_bridge()
+            if bridge:
+                status_enum = AgentTaskStatus(release.status)
+                await bridge.update_task_status(
+                    task_id=release.task_id,
+                    status=status_enum,
+                    result=release.result,
+                    error=release.error,
+                    worker_id=resolved_worker_id,
+                )
+                logger.info(
+                    f'Task {release.task_id} status updated to {release.status} via bridge'
+                )
+            else:
+                # Fallback: direct DB update if bridge not available
+                from .database import db_update_task_status
+                await db_update_task_status(
+                    task_id=release.task_id,
+                    status=release.status,
+                    worker_id=resolved_worker_id,
+                    result=release.result,
+                    error=release.error,
+                )
+                logger.info(
+                    f'Task {release.task_id} status updated to {release.status} in DB (no bridge)'
+                )
+        except Exception as e:
+            logger.error(
+                f'Failed to update task {release.task_id} status: {e}'
+            )
+
         return {
             'success': True,
             'task_id': release.task_id,
@@ -943,11 +1003,11 @@ async def update_worker_codebases(
     """
     _verify_auth(request)
 
-    resolved_worker_id = worker_id or x_worker_id
+    resolved_worker_id = worker_id or x_worker_id or update.worker_id
     if not resolved_worker_id:
         raise HTTPException(
             status_code=400,
-            detail='worker_id is required (query param or X-Worker-ID header)',
+            detail='worker_id is required (query param, X-Worker-ID header, or in body)',
         )
 
     registry = get_worker_registry()

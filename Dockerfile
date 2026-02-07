@@ -32,7 +32,8 @@ COPY --from=builder /app/deps /app/deps
 # Copy application code
 COPY --from=builder /app/a2a_server /app/a2a_server
 COPY --from=builder /app/run_server.py /app/run_server.py
-COPY --from=builder /app/agent_worker /app/agent_worker
+# NOTE: agent_worker/ (legacy Python worker) is no longer shipped.
+# Workers now use the codetether Rust binary in SSE mode (codetether a2a).
 
 # Expose the default port
 EXPOSE 8000

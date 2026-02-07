@@ -207,6 +207,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const now = Math.floor(Date.now() / 1000)
             const bufferSeconds = 60
 
+            // If a previous refresh already failed, don't retry — let the client handle sign-out
+            if (token.error === 'RefreshAccessTokenError') {
+                return token
+            }
+
             if (expiresAt && now < expiresAt - bufferSeconds) {
                 // Token is still valid
                 return token

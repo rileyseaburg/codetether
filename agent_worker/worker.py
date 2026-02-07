@@ -1,7 +1,27 @@
 #!/usr/bin/env python3
 """
-A2A Agent Worker - Runs on machines with codebases, connects to A2A server
+A2A Agent Worker - DEPRECATED
 
+!!! DEPRECATION NOTICE !!!
+This Python worker (which shells out to the OpenCode CLI) is replaced by the
+codetether Rust binary's built-in A2A worker mode.
+
+New worker setup:
+    # Install
+    sudo ./agent_worker/install-codetether-worker.sh
+
+    # Or run directly
+    codetether a2a --server https://api.codetether.run --auto-approve all
+
+See: agent_worker/install-codetether-worker.sh
+See: agent_worker/systemd/codetether-worker.service
+See: Dockerfile.worker
+
+This file is kept for reference during the migration period.
+It will be removed in a future release.
+!!! END DEPRECATION NOTICE !!!
+
+Legacy description:
 This worker:
 1. Registers itself with the A2A server
 2. Registers local codebases it can work on
@@ -10,7 +30,7 @@ This worker:
 5. Reports results back to the server
 6. Reports OpenCode session history to the server
 
-Usage:
+Usage (DEPRECATED):
     python worker.py --server https://api.codetether.run --name "dev-vm-worker"
 """
 
@@ -2812,7 +2832,7 @@ Format as a handoff note for the next agent."""
 {original_prompt}
 
 ---
-Note: This task continues from a previous session. The summary above describes what was already done. 
+Note: This task continues from a previous session. The summary above describes what was already done.
 Please review and continue the work, avoiding redundant actions on files already modified."""
 
         return handoff_context

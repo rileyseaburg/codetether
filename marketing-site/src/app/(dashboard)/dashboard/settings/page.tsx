@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
-    listProvidersV1OpencodeProvidersGet,
-    vaultStatusV1OpencodeVaultStatusGet,
-    listApiKeysV1OpencodeApiKeysGet,
-    createOrUpdateApiKeyV1OpencodeApiKeysPost,
-    deleteApiKeyV1OpencodeApiKeysProviderIdDelete,
-    testApiKeyEndpointV1OpencodeApiKeysTestPost,
+    listProvidersV1AgentProvidersGet,
+    vaultStatusV1AgentVaultStatusGet,
+    listApiKeysV1AgentApiKeysGet,
+    createOrUpdateApiKeyV1AgentApiKeysPost,
+    deleteApiKeyV1AgentApiKeysProviderIdDelete,
+    testApiKeyEndpointV1AgentApiKeysTestPost,
     getSubscriptionV1BillingSubscriptionGet,
     client
 } from '@/lib/api'
@@ -108,9 +108,9 @@ export default function SettingsPage() {
             }
 
             const [providersRes, vaultRes, keysRes, billingRes] = await Promise.all([
-                listProvidersV1OpencodeProvidersGet(),
-                vaultStatusV1OpencodeVaultStatusGet(),
-                token ? listApiKeysV1OpencodeApiKeysGet({ headers }) : Promise.resolve({ data: undefined, error: undefined }),
+                listProvidersV1AgentProvidersGet(),
+                vaultStatusV1AgentVaultStatusGet(),
+                token ? listApiKeysV1AgentApiKeysGet({ headers }) : Promise.resolve({ data: undefined, error: undefined }),
                 token ? getSubscriptionV1BillingSubscriptionGet({ headers }) : Promise.resolve({ data: undefined, error: undefined })
             ])
 
@@ -165,7 +165,7 @@ export default function SettingsPage() {
                 headers['Authorization'] = `Bearer ${token}`
             }
 
-            const { error, data } = await createOrUpdateApiKeyV1OpencodeApiKeysPost({
+            const { error, data } = await createOrUpdateApiKeyV1AgentApiKeysPost({
                 headers,
                 body: {
                     provider_id: selectedProvider,
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                 headers['Authorization'] = `Bearer ${token}`
             }
 
-            const { error, data } = await testApiKeyEndpointV1OpencodeApiKeysTestPost({
+            const { error, data } = await testApiKeyEndpointV1AgentApiKeysTestPost({
                 headers,
                 body: {
                     provider_id: providerId,
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                 headers['Authorization'] = `Bearer ${token}`
             }
 
-            const { error } = await deleteApiKeyV1OpencodeApiKeysProviderIdDelete({
+            const { error } = await deleteApiKeyV1AgentApiKeysProviderIdDelete({
                 path: { provider_id: providerId },
                 headers
             })

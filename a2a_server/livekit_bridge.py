@@ -9,6 +9,7 @@ This module handles all communication with LiveKit services, including:
 """
 
 import os
+import json
 import time
 import logging
 from typing import Optional, Dict, Any, List
@@ -125,7 +126,7 @@ class LiveKitBridge:
                     empty_timeout=empty_timeout,
                     departure_timeout=departure_timeout,
                     max_participants=max_participants,
-                    metadata=str(metadata) if metadata else None,
+                    metadata=json.dumps(metadata) if metadata else None,
                 )
             )
 
@@ -319,8 +320,56 @@ class LiveKitBridge:
 
         return grants
 
+    async def dispatch_agent(
+        self,
+        room_name: str,
+        agent_name: str,
+        metadata: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a LiveKit agent dispatch for a room.
+
+        Args:
+            room_name: Name of the room to dispatch into
+            agent_name: LiveKit worker agent name to target
+            metadata: Optional dispatch metadata string
+
+        Returns:
+            Dictionary with dispatch details
+        """
+        if not room_name:
+            raise ValueError('room_name is required for agent dispatch')
+        if not agent_name:
+            raise ValueError('agent_name is required for agent dispatch')
+
+        try:
+            dispatch = await self.livekit_api.agent_dispatch.create_dispatch(
+                api.CreateAgentDispatchRequest(
+                    room=room_name,
+                    agent_name=agent_name,
+                    metadata=metadata or '',
+                )
+            )
+
+            dispatch_id = getattr(dispatch, 'id', None)
+            logger.info(
+                f'Created agent dispatch for room {room_name} to agent {agent_name}'
+                + (f' (dispatch_id={dispatch_id})' if dispatch_id else '')
+            )
+
+            return {
+                'id': dispatch_id,
+                'room': getattr(dispatch, 'room', room_name),
+                'agent_name': getattr(dispatch, 'agent_name', agent_name),
+                'metadata': getattr(dispatch, 'metadata', metadata or ''),
+            }
+        except Exception as e:
+            logger.error(
+                f'Failed to dispatch agent {agent_name} for room {room_name}: {e}'
+            )
+            raise
+
     async def delete_room(self, room_name: str) -> bool:
-        """Delete a LiveKit room via HTTP API.
+        """Delete a LiveKit room via SDK API.
 
         Args:
             room_name: Name of the room to delete
@@ -329,33 +378,18 @@ class LiveKitBridge:
             True if deletion was successful, False otherwise
         """
         try:
-            # Generate auth token for API request
-            auth_token = self._generate_api_token()
-
-            response = await self.http_client.post(
-                f'{self.livekit_url}/twirp/livekit.RoomService/DeleteRoom',
-                json={'room': room_name},
-                headers={
-                    'Authorization': f'Bearer {auth_token}',
-                    'Content-Type': 'application/json',
-                },
+            await self.livekit_api.room.delete_room(
+                api.DeleteRoomRequest(room=room_name)
             )
-
-            if response.status_code == 200:
-                logger.info(f'Deleted LiveKit room: {room_name}')
-                return True
-            else:
-                logger.error(
-                    f'Failed to delete room {room_name}: {response.status_code}'
-                )
-                return False
+            logger.info(f'Deleted LiveKit room: {room_name}')
+            return True
 
         except Exception as e:
             logger.error(f'Failed to delete room {room_name}: {e}')
             return False
 
     async def list_participants(self, room_name: str) -> List[Dict[str, Any]]:
-        """List participants in a room via HTTP API.
+        """List participants in a room via SDK API.
 
         Args:
             room_name: Name of the room
@@ -364,26 +398,20 @@ class LiveKitBridge:
             List of participant information dictionaries
         """
         try:
-            # Generate auth token for API request
-            auth_token = self._generate_api_token()
-
-            response = await self.http_client.post(
-                f'{self.livekit_url}/twirp/livekit.RoomService/ListParticipants',
-                json={'room': room_name},
-                headers={
-                    'Authorization': f'Bearer {auth_token}',
-                    'Content-Type': 'application/json',
-                },
+            participants = await self.livekit_api.room.list_participants(
+                api.ListParticipantsRequest(room=room_name)
             )
-
-            if response.status_code == 200:
-                participants_data = response.json()
-                return participants_data.get('participants', [])
-            else:
-                logger.error(
-                    f'Failed to list participants for room {room_name}: {response.status_code}'
-                )
-                return []
+            return [
+                {
+                    'sid': p.sid,
+                    'identity': p.identity,
+                    'name': p.name,
+                    'state': int(p.state) if p.state is not None else None,
+                    'metadata': p.metadata,
+                    'joined_at': p.joined_at,
+                }
+                for p in participants
+            ]
 
         except Exception as e:
             logger.error(
@@ -422,8 +450,9 @@ class LiveKitBridge:
             return f'{url}?room={room_name}&token={token}'
 
     async def close(self):
-        """Close the HTTP client."""
-        await self.http_client.aclose()
+        """Close LiveKit API client resources."""
+        if self._livekit_api is not None:
+            await self._livekit_api.aclose()
 
 
 def create_livekit_bridge() -> Optional[LiveKitBridge]:

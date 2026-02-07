@@ -23,7 +23,7 @@ class ServerConfig(BaseModel):
     auth_enabled: bool = False
     auth_tokens: Optional[Dict[str, str]] = None
     log_level: str = 'INFO'
-    # OpenCode host configuration - use host.docker.internal for container->host communication
+    # Agent host configuration - use host.docker.internal for container->host communication
     opencode_host: str = 'localhost'
     opencode_port: int = 9777
 

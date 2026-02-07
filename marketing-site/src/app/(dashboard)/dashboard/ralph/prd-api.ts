@@ -1,4 +1,4 @@
-import { createGlobalTaskV1OpencodeTasksPost, getTaskV1OpencodeTasksTaskIdGet } from '@/lib/api'
+import { createGlobalTaskV1AgentTasksPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 export interface TaskResponse {
     id: string
@@ -8,7 +8,7 @@ export interface TaskResponse {
 }
 
 export async function createTask(prompt: string, conversationContext: string, codebaseId?: string): Promise<TaskResponse> {
-    const result = await createGlobalTaskV1OpencodeTasksPost({
+    const result = await createGlobalTaskV1AgentTasksPost({
         body: {
             title: `PRD Builder: ${prompt.substring(0, 50)}...`,
             prompt: conversationContext,
@@ -32,7 +32,7 @@ export async function createTask(prompt: string, conversationContext: string, co
 }
 
 export async function getTask(taskId: string): Promise<TaskResponse> {
-    const result = await getTaskV1OpencodeTasksTaskIdGet({
+    const result = await getTaskV1AgentTasksTaskIdGet({
         path: { task_id: taskId },
     })
 

@@ -1,56 +1,86 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to CodeTether"
+description: "The A2A-native AI coding platform"
 ---
 
-## Setting up
+## What is CodeTether?
 
-Get your documentation site up and running in minutes.
+CodeTether is a platform for AI-powered software development, built on the [A2A (Agent-to-Agent) protocol](https://github.com/google/a2a). It provides:
 
-<Card title="Start here" icon="rocket" href="/quickstart" horizontal>
-  Follow our three step quickstart guide.
+- **CodeTether Agent** - A high-performance Rust CLI that connects to the platform as a worker
+- **A2A Server** - Orchestrates tasks between human users and AI agents
+- **Multi-Provider AI** - Use OpenAI, Anthropic, Google, DeepSeek, and more
+- **Enterprise Security** - All secrets managed via HashiCorp Vault
+
+<Card title="Quick Start" icon="rocket" href="/quickstart" horizontal>
+  Get up and running in 5 minutes.
 </Card>
 
-## Make it yours
+## Architecture
 
-Design a docs site that looks great and empowers your users.
+```
+┌──────────────────────────────────────────────────────────┐
+│                    CodeTether Platform                    │
+│                   api.codetether.run                      │
+└─────────────┬────────────────────────────┬───────────────┘
+              │                            │
+              ▼                            ▼
+┌─────────────────────────┐  ┌─────────────────────────────┐
+│   CodeTether Agent      │  │      Web Dashboard          │
+│   (Rust CLI)            │  │      (React)                │
+│   - A2A Worker          │  │   - Task submission         │
+│   - Local tools         │  │   - Agent monitoring        │
+│   - TUI interface       │  │   - Session history         │
+└─────────────────────────┘  └─────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────┐
+│    HashiCorp Vault      │
+│    (Secrets)            │
+└─────────────────────────┘
+```
+
+## Core Components
 
 <Columns cols={2}>
-  <Card title="Edit locally" icon="pen-to-square" href="/development">
-    Edit your docs locally and preview them in real time.
+  <Card title="CodeTether Agent" icon="terminal" href="/agent/introduction">
+    High-performance Rust agent that runs locally and connects to the platform.
   </Card>
-  <Card title="Customize your site" icon="palette" href="/essentials/settings">
-    Customize the design and colors of your site to match your brand.
+  <Card title="A2A Protocol" icon="network-wired" href="/agent/a2a-worker">
+    Industry-standard protocol for agent-to-agent communication.
   </Card>
-  <Card title="Set up navigation" icon="map" href="/essentials/navigation">
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Vault Integration" icon="lock" href="/agent/vault-setup">
+    Secure secrets management with HashiCorp Vault.
   </Card>
-  <Card title="API documentation" icon="terminal" href="/api-reference/introduction">
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="AI Providers" icon="robot" href="/ai-tools/overview">
+    Connect to OpenAI, Anthropic, Google, DeepSeek, and more.
   </Card>
 </Columns>
 
-## Create beautiful pages
+## Get Started
 
-Everything you need to create world-class documentation.
+<Steps>
+  <Step title="Install the Agent">
+    ```bash
+    cargo install codetether-agent
+    ```
+  </Step>
+  <Step title="Configure Vault">
+    Store your API keys securely in HashiCorp Vault.
+  </Step>
+  <Step title="Connect to Platform">
+    ```bash
+    codetether --server https://api.codetether.run
+    ```
+  </Step>
+</Steps>
 
-<Columns cols={2}>
-  <Card title="Write with MDX" icon="pen-fancy" href="/essentials/markdown">
-    Use MDX to style your docs pages.
-  </Card>
-  <Card title="Code samples" icon="code" href="/essentials/code">
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card title="Images" icon="image" href="/essentials/images">
-    Display images and other media.
-  </Card>
-  <Card title="Reusable snippets" icon="recycle" href="/essentials/reusable-snippets">
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Why CodeTether?
 
-## Need inspiration?
-
-<Card title="See complete examples" icon="stars" href="https://mintlify.com/customers">
-  Browse our showcase of exceptional documentation sites.
-</Card>
+| Feature | CodeTether | Others |
+|---------|------------|--------|
+| **A2A Protocol** | ✅ Native support | ❌ Proprietary |
+| **Secure Secrets** | ✅ Vault only | ⚠️ Env vars |
+| **Performance** | ✅ Rust | ⚠️ Node.js |
+| **Multi-Provider** | ✅ 15+ providers | ⚠️ Limited |
+| **Self-Hosted** | ✅ Enterprise | ⚠️ Cloud only |

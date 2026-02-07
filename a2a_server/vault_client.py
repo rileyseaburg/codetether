@@ -355,10 +355,10 @@ async def get_all_user_api_keys(user_id: str) -> Dict[str, Dict[str, Any]]:
     return keys
 
 
-async def get_user_opencode_auth_json(
+async def get_user_agent_auth_json(
     user_id: str,
 ) -> Dict[str, Dict[str, str]]:
-    """Get all API keys for a user formatted as OpenCode auth.json structure."""
+    """Get all API keys for a user formatted as agent auth.json structure."""
     all_keys = await get_all_user_api_keys(user_id)
 
     auth_json = {}
@@ -371,7 +371,7 @@ async def get_user_opencode_auth_json(
     return auth_json
 
 
-async def get_user_opencode_provider_config(
+async def get_user_agent_provider_config(
     user_id: str,
 ) -> Dict[str, Dict[str, Any]]:
     """Get provider configuration for a user's custom providers."""
@@ -410,12 +410,12 @@ async def get_worker_sync_data(user_id: str) -> Dict[str, Any]:
 
     Returns:
         Dict containing:
-        - auth: OpenCode auth.json format
-        - providers: Custom provider configurations for opencode.json
+        - auth: Agent auth.json format
+        - providers: Custom provider configurations for agent config
         - updated_at: Timestamp of last update
     """
-    auth_json = await get_user_opencode_auth_json(user_id)
-    provider_config = await get_user_opencode_provider_config(user_id)
+    auth_json = await get_user_agent_auth_json(user_id)
+    provider_config = await get_user_agent_provider_config(user_id)
 
     return {
         'user_id': user_id,

@@ -16,7 +16,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from a2a_server.opencode_bridge import OpenCodeBridge, AgentTaskStatus
+from a2a_server.agent_bridge import AgentBridge, AgentTaskStatus
 from a2a_server.monitor_api import opencode_router
 import a2a_server.monitor_api as monitor_api
 
@@ -25,7 +25,7 @@ import a2a_server.monitor_api as monitor_api
 async def test_bridge_running_updates_preserve_started_at_and_set_session_id(
     tmp_path,
 ):
-    bridge = OpenCodeBridge(
+    bridge = AgentBridge(
         auto_start=False, db_path=str(tmp_path / 'opencode.db')
     )
 
@@ -80,7 +80,7 @@ async def client(monkeypatch):
 async def test_api_task_status_accepts_session_id_and_does_not_reset_started_at(
     tmp_path, monkeypatch, client
 ):
-    bridge = OpenCodeBridge(
+    bridge = AgentBridge(
         auto_start=False, db_path=str(tmp_path / 'opencode.db')
     )
     cb = await bridge.register_codebase(
@@ -93,7 +93,7 @@ async def test_api_task_status_accepts_session_id_and_does_not_reset_started_at(
     assert task is not None
 
     # Route API calls to our in-test bridge.
-    monkeypatch.setattr(monitor_api, 'get_opencode_bridge', lambda: bridge)
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: bridge)
 
     # Seed the worker registry so update_task_status doesn't need Redis.
     monitor_api._registered_workers['wrk_test'] = {

@@ -44,7 +44,8 @@ from .message_broker import MessageBroker, InMemoryMessageBroker
 from .agent_card import AgentCard
 from .monitor_api import (
     monitor_router,
-    opencode_router,
+    agent_router,
+    opencode_router,  # backward-compat alias (same object as agent_router) — kept for redirect
     voice_router,
     auth_router,
     nextauth_router,
@@ -231,6 +232,25 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start cron scheduler for scheduled tasks
+        @self.app.on_event('startup')
+        async def start_cron_scheduler():
+            try:
+                from .cron_scheduler import start_cron_scheduler
+
+                await start_cron_scheduler()
+            except Exception as e:
+                logger.warning(f'Failed to start cron scheduler: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_cron_scheduler():
+            try:
+                from .cron_scheduler import stop_cron_scheduler
+
+                await stop_cron_scheduler()
+            except Exception:
+                pass
+
         # Start Knative garbage collector for idle session workers
         @self.app.on_event('startup')
         async def start_knative_gc():
@@ -311,8 +331,26 @@ class A2AServer:
         # Include monitoring API routes
         self.app.include_router(monitor_router)
 
-        # Include OpenCode integration routes
-        self.app.include_router(opencode_router)
+        # Include agent integration routes (/v1/agent/*)
+        # NOTE: agent_router IS opencode_router (alias) so this single
+        # include_router call serves both /v1/agent/* paths.
+        self.app.include_router(agent_router)
+        logger.info('Agent API router mounted at /v1/agent')
+
+        # Legacy backward-compat: redirect /v1/opencode/* → /v1/agent/*
+        # This allows old clients/workers to keep functioning during migration.
+        from fastapi import APIRouter as _Router
+        from fastapi.responses import RedirectResponse as _Redirect
+
+        _legacy_router = _Router(prefix='/v1/opencode', tags=['opencode-legacy'], deprecated=True)
+
+        @_legacy_router.api_route('/{path:path}', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+        async def _opencode_to_agent_redirect(path: str, request: Request):
+            new_url = str(request.url).replace('/v1/opencode/', '/v1/agent/', 1)
+            return _Redirect(url=new_url, status_code=307)
+
+        self.app.include_router(_legacy_router)
+        logger.info('Legacy /v1/opencode/* redirect router mounted')
 
         # Include Ralph autonomous development routes
         self.app.include_router(ralph_router)
@@ -370,6 +408,15 @@ class A2AServer:
         if ANALYTICS_API_AVAILABLE and analytics_api_router:
             self.app.include_router(analytics_api_router)
             logger.info('Analytics API router mounted at /v1/analytics')
+
+        # Include cronjobs API for scheduled task management
+        try:
+            from .cronjobs_api import router as cronjobs_router
+
+            self.app.include_router(cronjobs_router)
+            logger.info('Cronjobs API router mounted at /v1/cronjobs')
+        except Exception as e:
+            logger.warning(f'Failed to mount cronjobs router: {e}')
 
         # Mount static files for analytics.js and other assets
         import os

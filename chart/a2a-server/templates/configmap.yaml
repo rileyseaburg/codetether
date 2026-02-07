@@ -34,6 +34,8 @@ data:
   {{- if .Values.persistence.enabled }}
   MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"
   SESSIONS_DB_PATH: "{{ .Values.persistence.mountPath }}/sessions.db"
-  OPENCODE_DB_PATH: "{{ .Values.persistence.mountPath }}/opencode.db"
+  AGENT_DB_PATH: "{{ .Values.persistence.mountPath }}/agent.db"
+  # Backward compat: old env var still recognized by the server
+  OPENCODE_DB_PATH: "{{ .Values.persistence.mountPath }}/agent.db"
   {{- end }}
 {{- end }}

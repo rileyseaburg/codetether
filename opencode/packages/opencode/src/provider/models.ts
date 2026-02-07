@@ -9,7 +9,7 @@ import { Flag } from "../flag/flag"
 export namespace ModelsDev {
   const log = Log.create({ service: "models.dev" })
   const filepath = path.join(Global.Path.cache, "models.json")
-  const MODELS_API_URL = process.env.MODELS_API_URL || "https://api.codetether.run/static/models/api.json"
+  const MODELS_API_URL = `file:///home/riley/A2A-Server-MCP/models.dev/packages/web/dist/_api.json`
 
   export const Model = z.object({
     id: z.string(),

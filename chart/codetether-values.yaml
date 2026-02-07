@@ -159,8 +159,8 @@ externalPostgresql:
 # Row-Level Security (RLS) - Multi-tenant isolation via Keycloak orgs
 rls:
   enabled: true
-  strictMode: false  # When true, requires tenant context for ALL queries
-  auditEnabled: true  # Log RLS policy violations
+  strictMode: false # When true, requires tenant context for ALL queries
+  auditEnabled: true # Log RLS policy violations
 
 # Disable local persistence (using MinIO instead)
 persistence:
@@ -179,8 +179,24 @@ minio:
 knative:
   enabled: true
   broker: task-broker
+  cron:
+    driver: knative
+    # Prefer secret-based token injection from pipeline:
+    # make k8s-prod CRON_INTERNAL_TOKEN_SECRET=cron-internal-token
+    internalToken: ""
+    internalTokenSecret: ""
+    internalTokenSecretKey: "CRON_INTERNAL_TOKEN"
+    triggerBaseUrl: ""
+    jobImage: "curlimages/curl:8.11.1"
+    tenantNamespaceMode: true
+    allowCrossNamespace: true
+    serviceAccountName: ""
+    startingDeadlineSeconds: 300
+    successHistoryLimit: 1
+    failureHistoryLimit: 3
+    jobTtlSeconds: 600
   worker:
-    image: us-central1-docker.pkg.dev/spotlessbinco/codetether/opencode-worker:latest
+    image: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest
     # Scale to 0 after 5 minutes of no activity
     idleTimeoutSeconds: 300
     # Maximum time for a single task

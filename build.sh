@@ -2,7 +2,7 @@
 
 # Build script for A2A Server components
 # Usage: ./build.sh [service-name] [tag]
-# Services: a2a-server, docs, marketing, opencode, all
+# Services: a2a-server, docs, marketing, worker, all
 
 set -e
 
@@ -27,8 +27,8 @@ build_service() {
             --build-arg AUTH_SECRET="Gzez2UkA76TcFpnUEXUmT16+/G3UX2RmoGxyByfAJO4=" \
             --build-arg KEYCLOAK_CLIENT_SECRET="Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1" \
             -t $full_tag .
-    elif [ "$target" = "opencode" ]; then
-        docker build --target opencode -f Dockerfile.unified -t $full_tag .
+    elif [ "$target" = "worker" ]; then
+        docker build -f Dockerfile.worker -t $full_tag .
     else
         docker build --target $target -f Dockerfile.unified -t $full_tag .
     fi
@@ -42,7 +42,7 @@ if [ "$SERVICE" = "all" ]; then
     build_service "a2a-server" "a2a-server"
     build_service "docs" "codetether-docs"
     build_service "marketing" "a2a-marketing"
-    build_service "opencode" "opencode"
+    build_service "worker" "codetether-worker"
 else
     # Backwards-compatible single-service mode:
     # - a2a-server -> a2a-server
@@ -53,10 +53,10 @@ else
         a2a-server) build_service "a2a-server" "a2a-server" ;;
         docs) build_service "docs" "codetether-docs" ;;
         marketing) build_service "marketing" "a2a-marketing" ;;
-        opencode) build_service "opencode" "opencode" ;;
+        worker) build_service "worker" "codetether-worker" ;;
         *)
             echo "Unknown service: $SERVICE"
-            echo "Services: a2a-server, docs, marketing, opencode, all"
+            echo "Services: a2a-server, docs, marketing, worker, all"
             exit 1
             ;;
     esac

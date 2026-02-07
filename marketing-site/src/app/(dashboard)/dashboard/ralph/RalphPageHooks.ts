@@ -2,9 +2,9 @@
 
 import { useCallback } from 'react'
 import {
-    listWorkersV1OpencodeWorkersGet,
+    listWorkersV1AgentWorkersGet,
     createRalphRunV1RalphRunsPost,
-    listAllTasksV1OpencodeTasksGet,
+    listAllTasksV1AgentTasksGet,
 } from '@/lib/api'
 import type { PRD, RalphState, Task as StoreTask } from './store'
 
@@ -50,7 +50,7 @@ export function useRalphHooks(store: RalphState) {
     const loadAgents = useCallback(async () => {
         store.setLoadingAgents(true)
         try {
-            const { data: workers } = await listWorkersV1OpencodeWorkersGet()
+            const { data: workers } = await listWorkersV1AgentWorkersGet()
             if (workers && Array.isArray(workers)) {
                 store.setAgents((workers as unknown as Worker[]).map((w: Worker) => ({
                     name: w.name || '',
@@ -118,7 +118,7 @@ export function useRalphHooks(store: RalphState) {
 
     const loadTasks = useCallback(async () => {
         try {
-            const { data: tasks } = await listAllTasksV1OpencodeTasksGet()
+            const { data: tasks } = await listAllTasksV1AgentTasksGet()
             if (tasks && Array.isArray(tasks)) {
                 store.setTasks((tasks as unknown as StoreTask[]).filter((t: StoreTask) =>
                     (t.metadata as { ralph?: boolean })?.ralph || t.title?.startsWith('Ralph:')

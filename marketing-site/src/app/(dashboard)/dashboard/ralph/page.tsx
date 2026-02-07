@@ -12,7 +12,7 @@ import { ServerRalphRuns } from '@/components/Ralph/ServerRalphRuns'
 import { RalphTasksTable } from '@/components/Ralph/RalphTasksTable'
 import { PRDChatHistory } from './PRDChatHistory'
 import { useRalphHooks } from './RalphPageHooks'
-import { getTaskV1OpencodeTasksTaskIdGet } from '@/lib/api'
+import { getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 export default function RalphPage() {
     const store = useRalphStore()
@@ -44,7 +44,7 @@ export default function RalphPage() {
                         setPrdBuilderMode('ai')
                         store.setShowPRDBuilder(true)
                     }} />
-                    <RalphStoriesPanel prd={store.prd} run={store.run} passedCount={passedCount} totalCount={totalCount} isRunning={store.isRunning} onResume={startServerRalph} onRetryStory={(id) => store.setPrd(p => p ? { ...p, userStories: p.userStories.map(s => s.id === id ? { ...s, passes: false, taskId: undefined, taskStatus: undefined } : s) } : null)} onViewTask={async (id) => { const story = store.prd?.userStories.find(s => s.id === id); if (story?.taskId) { try { const { data: task } = await getTaskV1OpencodeTasksTaskIdGet({ path: { task_id: story.taskId } }); if (task) { const taskData = task as { result_summary?: string }; store.setRun(p => p ? { ...p, logs: [...p.logs, { id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'info', message: `--- ${id} ---`, storyId: id }, { id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'info', message: taskData.result_summary?.slice(0, 500) || 'No result', storyId: id }] } : null) } } catch { } } }} />
+                    <RalphStoriesPanel prd={store.prd} run={store.run} passedCount={passedCount} totalCount={totalCount} isRunning={store.isRunning} onResume={startServerRalph} onRetryStory={(id) => store.setPrd(p => p ? { ...p, userStories: p.userStories.map(s => s.id === id ? { ...s, passes: false, taskId: undefined, taskStatus: undefined } : s) } : null)} onViewTask={async (id) => { const story = store.prd?.userStories.find(s => s.id === id); if (story?.taskId) { try { const { data: task } = await getTaskV1AgentTasksTaskIdGet({ path: { task_id: story.taskId } }); if (task) { const taskData = task as { result_summary?: string }; store.setRun(p => p ? { ...p, logs: [...p.logs, { id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'info', message: `--- ${id} ---`, storyId: id }, { id: crypto.randomUUID(), timestamp: new Date().toISOString(), type: 'info', message: taskData.result_summary?.slice(0, 500) || 'No result', storyId: id }] } : null) } } catch { } } }} />
                 </div>
                 <div className="lg:col-span-2"><RalphLogViewer run={store.run} prd={store.prd} isRunning={store.isRunning} maxIterations={store.maxIterations} /></div>
             </div>

@@ -4,6 +4,7 @@ This module provides an async client to interact with CodeTether's MCP (Model Co
 tools and APIs.
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -99,6 +100,42 @@ class CodeTetherMCP:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
+    @staticmethod
+    def _unwrap_mcp_content(mcp_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Unwrap MCP content format to extract the inner JSON data.
+
+        MCP tools/call returns: {"content": [{"type": "text", "text": "<json>"}]}
+        This extracts and parses the JSON from the text content.
+
+        Args:
+            mcp_result: The raw MCP result with content array.
+
+        Returns:
+            The parsed inner JSON data as a dict.
+        """
+        if not isinstance(mcp_result, dict):
+            return mcp_result
+
+        content = mcp_result.get('content')
+        if not content or not isinstance(content, list):
+            # Already unwrapped or unexpected format — return as-is
+            return mcp_result
+
+        # Extract text from the first content item
+        for item in content:
+            if isinstance(item, dict) and item.get('type') == 'text':
+                text = item.get('text', '')
+                try:
+                    return json.loads(text)
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning(
+                        f'MCP content text is not valid JSON: {text[:200]}'
+                    )
+                    return {'raw_text': text}
+
+        # No text content found — return as-is
+        return mcp_result
+
     async def call_tool(
         self, tool_name: str, arguments: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -157,11 +194,17 @@ class CodeTetherMCP:
                     raise MCPError('MCP tool call returned no result')
 
                 logger.info(f'MCP tool {tool_name} completed successfully')
-                return result['result']
+
+                # Unwrap MCP content format: {"content": [{"type": "text", "text": "<json>"}]}
+                mcp_result = result['result']
+                return self._unwrap_mcp_content(mcp_result)
 
         except aiohttp.ClientError as e:
             logger.error(f'Network error calling MCP tool {tool_name}: {e}')
             raise MCPError(f'Network error: {str(e)}')
+        except asyncio.TimeoutError:
+            logger.error(f'Timeout calling MCP tool {tool_name} (30s)')
+            raise MCPError(f'Timeout calling tool {tool_name}')
 
     async def create_task(
         self,
@@ -194,7 +237,7 @@ class CodeTetherMCP:
         result = await self.call_tool('create_task', arguments)
 
         return Task(
-            id=result.get('id', ''),
+            id=result.get('task_id', result.get('id', '')),
             title=result.get('title', title),
             description=result.get('description', description),
             status=result.get('status', 'pending'),
@@ -230,7 +273,7 @@ class CodeTetherMCP:
         for task_data in result.get('tasks', []):
             tasks.append(
                 Task(
-                    id=task_data.get('id', ''),
+                    id=task_data.get('task_id', task_data.get('id', '')),
                     title=task_data.get('title', ''),
                     description=task_data.get('description', ''),
                     status=task_data.get('status', 'pending'),
@@ -260,7 +303,7 @@ class CodeTetherMCP:
             return None
 
         return Task(
-            id=result.get('id', ''),
+            id=result.get('task_id', result.get('id', '')),
             title=result.get('title', ''),
             description=result.get('description', ''),
             status=result.get('status', 'pending'),
@@ -359,6 +402,8 @@ class CodeTetherMCP:
     ) -> Dict[str, Any]:
         """Send a message to an agent.
 
+        Uses the 'send_to_agent' MCP tool which routes messages to specific agents.
+
         Args:
             agent_name: The name of the agent to send the message to.
             message: The message content.
@@ -367,6 +412,6 @@ class CodeTetherMCP:
             The response from the agent.
         """
         result = await self.call_tool(
-            'send_message', {'agent_name': agent_name, 'message': message}
+            'send_to_agent', {'agent_name': agent_name, 'message': message}
         )
         return result

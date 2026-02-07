@@ -20,12 +20,16 @@ from .a2a_agent_card import (
 )
 
 
-# Lazy import for opencode bridge to avoid dependency issues
-def get_opencode_bridge():
-    """Get the OpenCode bridge for triggering AI coding agents."""
-    from .opencode_bridge import get_bridge
+# Lazy import for agent bridge to avoid dependency issues
+def get_agent_bridge():
+    """Get the agent bridge for managing codebases, tasks, and SSE workers."""
+    from .agent_bridge import get_bridge
 
     return get_bridge()
+
+
+# Backward-compatible alias
+get_opencode_bridge = get_agent_bridge
 
 
 __all__ = [
@@ -36,5 +40,6 @@ __all__ = [
     'a2a_agent_card_router',
     'MessageBroker',
     'TaskManager',
+    'get_agent_bridge',
     'get_opencode_bridge',
 ]

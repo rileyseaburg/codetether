@@ -20,7 +20,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import database as db
-from .monitor_api import get_opencode_bridge
+from .monitor_api import get_agent_bridge
 
 logger = logging.getLogger(__name__)
 
@@ -236,10 +236,10 @@ async def create_story_task(
     iteration: int,
 ) -> Optional[str]:
     """Create an A2A task for a user story."""
-    bridge = get_opencode_bridge()
+    bridge = get_agent_bridge()
     if not bridge:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     # Build the prompt
@@ -303,9 +303,9 @@ async def wait_for_task(
     task_id: str, timeout_seconds: int = 600
 ) -> Dict[str, Any]:
     """Wait for a task to complete."""
-    bridge = get_opencode_bridge()
+    bridge = get_agent_bridge()
     if not bridge:
-        return {'success': False, 'result': 'OpenCode bridge not available'}
+        return {'success': False, 'result': 'Agent bridge not available'}
 
     start_time = asyncio.get_event_loop().time()
     consecutive_failures = 0
@@ -703,7 +703,7 @@ async def recover_stuck_runs():
 
         logger.info(f'Ralph: Found {len(running_runs)} potentially stuck runs')
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
 
         for db_run in running_runs:
             run_id = db_run.get('id')
@@ -1211,12 +1211,12 @@ Keep responses concise. Ask one or two questions at a time. When ready to genera
 @ralph_router.post('/chat')
 async def prd_chat(request: PRDChatRequest):
     """Chat endpoint for AI-assisted PRD generation - creates a task for workers."""
-    from .monitor_api import get_opencode_bridge
+    from .monitor_api import get_agent_bridge
 
-    bridge = get_opencode_bridge()
+    bridge = get_agent_bridge()
     if not bridge:
         raise HTTPException(
-            status_code=500, detail='OpenCode bridge not available'
+            status_code=500, detail='Agent bridge not available'
         )
 
     # Build conversation context

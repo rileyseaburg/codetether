@@ -1,8 +1,9 @@
 """CodeTether agent worker package.
 
-This file exists so the worker can be executed as a module:
+DEPRECATED: The Python worker (agent_worker/worker.py) is replaced by the
+codetether Rust binary's built-in A2A worker mode:
 
-    python -m agent_worker.worker
+    codetether a2a --server https://api.codetether.run --auto-approve all
 
-and so we can provide a packaged console script (`codetether-worker`).
+See: agent_worker/install-codetether-worker.sh for systemd installation.
 """

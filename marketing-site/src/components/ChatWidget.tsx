@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createGlobalTaskV1OpencodeTasksPost, getTaskV1OpencodeTasksTaskIdGet } from '@/lib/api'
+import { createGlobalTaskV1AgentTasksPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 // Constants
 const STORAGE_KEY = 'intercom-chat-messages'
@@ -153,7 +153,7 @@ Answer questions helpfully and concisely based on the above documentation.`
 
 // API Functions using SDK
 async function createTask(prompt: string): Promise<TaskResponse> {
-  const result = await createGlobalTaskV1OpencodeTasksPost({
+  const result = await createGlobalTaskV1AgentTasksPost({
     body: {
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
       prompt: `${CODETETHER_CONTEXT}\n\n---\n\nUser question: ${prompt}\n\nProvide a helpful, concise response.`,
@@ -177,7 +177,7 @@ async function createTask(prompt: string): Promise<TaskResponse> {
 }
 
 async function getTask(taskId: string): Promise<TaskResponse> {
-  const result = await getTaskV1OpencodeTasksTaskIdGet({
+  const result = await getTaskV1AgentTasksTaskIdGet({
     path: { task_id: taskId },
   })
 
@@ -426,13 +426,12 @@ export function ChatWidget() {
                   {messages.map(msg => (
                     <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className="flex flex-col items-start max-w-[80%]">
-                        <div className={`px-4 py-2 rounded-2xl text-sm ${
-                          msg.role === 'user'
+                        <div className={`px-4 py-2 rounded-2xl text-sm ${msg.role === 'user'
                             ? 'bg-cyan-500 text-white rounded-br-md'
                             : msg.status === 'error'
                               ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-bl-md'
                               : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-md'
-                        }`}>
+                          }`}>
                           {msg.status === 'sending' ? <LoadingDots /> : <p className="whitespace-pre-wrap">{msg.content}</p>}
                         </div>
                         {msg.status === 'error' && !isLoading && (

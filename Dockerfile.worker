@@ -1,0 +1,60 @@
+# ============================================
+# CodeTether Worker Dockerfile (Rust binary)
+# ============================================
+# Builds the codetether-agent Rust binary and runs it as an A2A SSE worker.
+#
+# Usage:
+#   docker build -f Dockerfile.worker -t codetether-worker .
+#   docker run -e A2A_SERVER_URL=https://api.codetether.run \
+#              -e ANTHROPIC_API_KEY=sk-ant-... \
+#              codetether-worker
+#
+
+# ─── Builder stage ──────────────────────────────────────────────────
+FROM rust:1.86-slim AS builder
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        pkg-config \
+        libssl-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy the Cargo workspace
+COPY codetether-agent/Cargo.toml codetether-agent/Cargo.lock ./
+COPY codetether-agent/src ./src
+
+# Build release binary
+RUN cargo build --release && \
+    strip target/release/codetether
+
+# ─── Runtime stage ──────────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd --system --shell /bin/false --create-home worker
+USER worker
+WORKDIR /home/worker
+
+# Copy binary from builder
+COPY --from=builder /build/target/release/codetether /usr/local/bin/codetether
+
+# Environment defaults
+ENV A2A_SERVER_URL=https://api.codetether.run
+ENV A2A_WORKER_NAME=docker-worker
+ENV CODETETHER_LOG_LEVEL=info
+
+# Health check: codetether binary exists and responds
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD codetether --version || exit 1
+
+# Run codetether in A2A worker mode
+ENTRYPOINT ["codetether", "a2a"]
+CMD ["--server", "${A2A_SERVER_URL}", "--auto-approve", "all", "--name", "${A2A_WORKER_NAME}"]

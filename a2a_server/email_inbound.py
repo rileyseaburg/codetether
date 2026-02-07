@@ -534,14 +534,14 @@ async def create_continuation_task(
     Create a new task that continues the conversation from an email reply.
 
     The task will use the same session_id so the worker continues
-    the existing OpenCode session.
+    the existing agent session.
     """
     # Import here to avoid circular imports
-    from .monitor_api import get_opencode_bridge
+    from .monitor_api import get_agent_bridge
 
-    bridge = get_opencode_bridge()
+    bridge = get_agent_bridge()
     if bridge is None:
-        raise RuntimeError('OpenCode bridge not available')
+        raise RuntimeError('Agent bridge not available')
 
     # Determine codebase_id - try to look it up from the session if not provided
     codebase_id = context.codebase_id

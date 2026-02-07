@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { listWorkersV1OpencodeWorkersGet } from '@/lib/api'
+import { listWorkersV1AgentWorkersGet } from '@/lib/api'
 
 export interface Worker {
     worker_id: string
@@ -21,7 +21,7 @@ export function useWorkers() {
     useEffect(() => {
         const fetchWorkers = async () => {
             try {
-                const result = await listWorkersV1OpencodeWorkersGet()
+                const result = await listWorkersV1AgentWorkersGet()
                 if (result.data) {
                     const workersData = result.data as any
                     setWorkers(workersData.map((w: any) => ({

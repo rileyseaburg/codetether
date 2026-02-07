@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { API_URL, Codebase } from '../types'
-import { listCodebasesV1OpencodeCodebasesListGet } from '@/lib/api'
+import { listCodebasesV1AgentCodebasesListGet } from '@/lib/api'
 
 export function useCodebases() {
     const [codebases, setCodebases] = useState<Codebase[]>([])
 
     const loadCodebases = useCallback(async () => {
         try {
-            const result = await listCodebasesV1OpencodeCodebasesListGet()
+            const result = await listCodebasesV1AgentCodebasesListGet()
             if (result.data) {
                 const items: any[] = Array.isArray(result.data) ? result.data : (result.data as any)?.codebases ?? []
                 setCodebases(

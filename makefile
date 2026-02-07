@@ -13,16 +13,91 @@ VALUES_FILE ?= chart/codetether-values.yaml
 RELOAD ?= 0
 
 # Local systemd worker (optional)
-LOCAL_WORKER_SERVICE ?= a2a-agent-worker
+LOCAL_WORKER_SERVICE ?= codetether-worker
 RESTART_LOCAL_WORKER ?= 1
 AUTO_INSTALL_LOCAL_WORKER ?= 1
-LOCAL_WORKER_INSTALL_SCRIPT ?= agent_worker/install.sh
+LOCAL_WORKER_INSTALL_SCRIPT ?= agent_worker/install-codetether-worker.sh
 SUDO ?= sudo
 
 # Additional image names for full platform
 MARKETING_IMAGE_NAME = codetether-marketing
 DOCS_IMAGE_NAME = codetether-docs
 VOICE_AGENT_IMAGE_NAME = codetether-voice-agent
+
+# Knative-first deployment overrides (optional)
+KNATIVE_ENABLED ?=
+KNATIVE_BROKER ?=
+KNATIVE_WORKER_IMAGE ?=
+CRON_DRIVER ?=
+CRON_INTERNAL_TOKEN ?=
+CRON_INTERNAL_TOKEN_SECRET ?=
+CRON_INTERNAL_TOKEN_SECRET_KEY ?= CRON_INTERNAL_TOKEN
+CRON_TRIGGER_BASE_URL ?=
+CRON_JOB_IMAGE ?=
+CRON_TENANT_NAMESPACE_MODE ?=
+CRON_ALLOW_CROSS_NAMESPACE ?=
+CRON_JOB_SERVICE_ACCOUNT ?=
+CRON_STARTING_DEADLINE_SECONDS ?=
+CRON_SUCCESS_HISTORY_LIMIT ?=
+CRON_FAILURE_HISTORY_LIMIT ?=
+CRON_JOB_TTL_SECONDS ?=
+
+# Lightweight deploy controls
+DEPLOY_VOICE_AGENT ?= 0
+RESTART_LOCAL_WORKER_AFTER_DEPLOY ?= 0
+
+# Shared Helm args for Knative + cron scheduler configuration.
+HELM_KNATIVE_ARGS :=
+ifneq ($(strip $(KNATIVE_ENABLED)),)
+HELM_KNATIVE_ARGS += --set knative.enabled=$(KNATIVE_ENABLED)
+endif
+ifneq ($(strip $(KNATIVE_BROKER)),)
+HELM_KNATIVE_ARGS += --set-string knative.broker=$(KNATIVE_BROKER)
+endif
+ifneq ($(strip $(KNATIVE_WORKER_IMAGE)),)
+HELM_KNATIVE_ARGS += --set-string knative.worker.image=$(KNATIVE_WORKER_IMAGE)
+endif
+ifneq ($(strip $(CRON_DRIVER)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.driver=$(CRON_DRIVER)
+endif
+ifneq ($(strip $(CRON_TRIGGER_BASE_URL)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.triggerBaseUrl=$(CRON_TRIGGER_BASE_URL)
+endif
+ifneq ($(strip $(CRON_JOB_IMAGE)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.jobImage=$(CRON_JOB_IMAGE)
+endif
+ifneq ($(strip $(CRON_TENANT_NAMESPACE_MODE)),)
+HELM_KNATIVE_ARGS += --set knative.cron.tenantNamespaceMode=$(CRON_TENANT_NAMESPACE_MODE)
+endif
+ifneq ($(strip $(CRON_ALLOW_CROSS_NAMESPACE)),)
+HELM_KNATIVE_ARGS += --set knative.cron.allowCrossNamespace=$(CRON_ALLOW_CROSS_NAMESPACE)
+endif
+ifneq ($(strip $(CRON_JOB_SERVICE_ACCOUNT)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.serviceAccountName=$(CRON_JOB_SERVICE_ACCOUNT)
+endif
+ifneq ($(strip $(CRON_STARTING_DEADLINE_SECONDS)),)
+HELM_KNATIVE_ARGS += --set knative.cron.startingDeadlineSeconds=$(CRON_STARTING_DEADLINE_SECONDS)
+endif
+ifneq ($(strip $(CRON_SUCCESS_HISTORY_LIMIT)),)
+HELM_KNATIVE_ARGS += --set knative.cron.successHistoryLimit=$(CRON_SUCCESS_HISTORY_LIMIT)
+endif
+ifneq ($(strip $(CRON_FAILURE_HISTORY_LIMIT)),)
+HELM_KNATIVE_ARGS += --set knative.cron.failureHistoryLimit=$(CRON_FAILURE_HISTORY_LIMIT)
+endif
+ifneq ($(strip $(CRON_JOB_TTL_SECONDS)),)
+HELM_KNATIVE_ARGS += --set knative.cron.jobTtlSeconds=$(CRON_JOB_TTL_SECONDS)
+endif
+ifneq ($(strip $(CRON_INTERNAL_TOKEN_SECRET)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.internalTokenSecret=$(CRON_INTERNAL_TOKEN_SECRET)
+ifneq ($(strip $(CRON_INTERNAL_TOKEN_SECRET_KEY)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.internalTokenSecretKey=$(CRON_INTERNAL_TOKEN_SECRET_KEY)
+endif
+endif
+ifeq ($(strip $(CRON_INTERNAL_TOKEN_SECRET)),)
+ifneq ($(strip $(CRON_INTERNAL_TOKEN)),)
+HELM_KNATIVE_ARGS += --set-string knative.cron.internalToken=$(CRON_INTERNAL_TOKEN)
+endif
+endif
 
 
 
@@ -67,6 +142,12 @@ help: ## Show this help message
 	@echo "  CHART_VERSION   - Helm chart version (default: 0.4.2)"
 	@echo "  VALUES_FILE     - Path to Helm values file"
 	@echo "  DEBUG           - Enable debug output for deployments"
+	@echo "  KNATIVE_ENABLED - Override knative.enabled (true|false)"
+	@echo "  CRON_DRIVER     - Override knative cron driver (auto|app|knative|disabled)"
+	@echo "  CRON_INTERNAL_TOKEN_SECRET - Secret name containing CRON_INTERNAL_TOKEN"
+	@echo "  CRON_INTERNAL_TOKEN - Plain token override (prefer secret-based value)"
+	@echo "  DEPLOY_VOICE_AGENT - For lightweight targets, also deploy voice agent (0|1)"
+	@echo "  RESTART_LOCAL_WORKER_AFTER_DEPLOY - For lightweight targets, restart local worker (0|1)"
 
 
 # Models.dev targets
@@ -331,12 +412,8 @@ run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev
 			fi; \
 			sleep 1; \
 		done; \
-		if [ "$(RELOAD)" = "1" ]; then \
-			echo "🔄 Worker auto-reload enabled"; \
-			$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./agent_worker --pattern="*.py" --recursive -- $(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
-		else \
-			$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.; \
-		fi \
+		echo "🚀 Starting codetether A2A worker..."; \
+		codetether worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "local-worker"; \
 	) & \
 	wait
 
@@ -370,7 +447,11 @@ dev-no-worker: ## Run Python server and React dev server (no worker)
 	wait
 
 .PHONY: worker
-worker: ## Run a local worker (MCP now on same port as server)
+worker: ## Run a local codetether A2A worker
+	codetether worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "local-worker"
+
+.PHONY: worker-legacy
+worker-legacy: ## Run the DEPRECATED Python worker (will be removed)
 	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
 
 # Keycloak utilities
@@ -474,7 +555,7 @@ one-command-deploy: ## Build image, load/push depending on environment, and depl
 	fi; \
 	echo "Deploying Helm chart with image=$$IMAGE_REF"; \
 	helm upgrade --install a2a-server ./chart/a2a-server --namespace spotlessbinco --create-namespace \
-		--set image.repository=$$(echo $$IMAGE_REF | sed -e 's/:.*$$//') --set image.tag=$$(echo $$IMAGE_REF | sed -e 's/^.*://')
+		--set image.repository=$$(echo $$IMAGE_REF | sed -e 's/:.*$$//') --set image.tag=$$(echo $$IMAGE_REF | sed -e 's/^.*://') $(HELM_KNATIVE_ARGS)
 
 # =============================================================================
 # Blue-Green Deployment Targets
@@ -525,7 +606,7 @@ deploy-status: ## Show blue-green deployment status
 bluegreen-deploy: ## Deploy with blue-green strategy (zero-downtime)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment..."
-	BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	BACKEND_TAG=$(DOCKER_TAG) EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" ./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: bluegreen-rollback
 bluegreen-rollback: ## Rollback blue-green deployment to previous version
@@ -544,6 +625,7 @@ bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push im
 	@echo "🚀 Starting blue-green deployment with OCI chart..."
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
+		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 # =============================================================================
@@ -557,6 +639,7 @@ k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to 
 	NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
 		VALUES_FILE=$(CHART_PATH)/values-dev.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
+		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: k8s-staging
@@ -566,21 +649,67 @@ k8s-staging: docker-build-all docker-push-all ## Build and deploy all containers
 	NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
 		VALUES_FILE=$(CHART_PATH)/values-staging.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
+		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
+.PHONY: validate-knative-cron-config
+validate-knative-cron-config: ## Validate required Knative cron config for production deploys
+	@if [ "$(CRON_DRIVER)" = "knative" ] && [ -z "$(CRON_INTERNAL_TOKEN_SECRET)" ] && [ -z "$(CRON_INTERNAL_TOKEN)" ]; then \
+		echo "❌ CRON_DRIVER=knative requires CRON_INTERNAL_TOKEN_SECRET or CRON_INTERNAL_TOKEN."; \
+		echo "   Example: make k8s-prod CRON_DRIVER=knative CRON_INTERNAL_TOKEN_SECRET=cron-internal-token"; \
+		exit 1; \
+	fi
+
 .PHONY: k8s-prod
-k8s-prod: docker-build-all docker-push-all helm-package helm-push helm-package-voice-agent helm-push-voice-agent ## Build and deploy ALL containers to production (server, marketing, docs, voice-agent)
+k8s-prod: validate-knative-cron-config docker-build-all docker-push-all helm-package helm-push helm-package-voice-agent helm-push-voice-agent ## Build and deploy ALL containers to production (server, marketing, docs, voice-agent)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
 	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site, Voice Agent"
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		VALUES_FILE=$(VALUES_FILE) \
-		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) \
+		CHART_SOURCE=$(if $(CHART_SOURCE),$(CHART_SOURCE),local) CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
+		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 	@$(MAKE) voice-agent-deploy
 	@$(MAKE) local-worker-restart
+
+.PHONY: k8s-prod-knative
+k8s-prod-knative: ## Low-resource Knative-first production deploy (no image build/push)
+	@$(MAKE) _k8s-prod-knative-apply \
+		KNATIVE_ENABLED=true \
+		CRON_DRIVER=knative \
+		CRON_ALLOW_CROSS_NAMESPACE=true \
+		CRON_INTERNAL_TOKEN=$(CRON_INTERNAL_TOKEN) \
+		CRON_INTERNAL_TOKEN_SECRET=$(if $(CRON_INTERNAL_TOKEN_SECRET),$(CRON_INTERNAL_TOKEN_SECRET),$(if $(CRON_INTERNAL_TOKEN),,cron-internal-token))
+
+.PHONY: _k8s-prod-knative-apply
+_k8s-prod-knative-apply: validate-knative-cron-config
+	@chmod +x scripts/bluegreen-deploy.sh
+	@echo "🚀 Starting PRODUCTION Knative-first deployment (no local image build/push)"
+	@echo "📦 Deploying chart with existing published images"
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
+		VALUES_FILE=$(VALUES_FILE) \
+		CHART_SOURCE=$(if $(CHART_SOURCE),$(CHART_SOURCE),local) CHART_VERSION=$(CHART_VERSION) \
+		BACKEND_TAG=$(DOCKER_TAG) \
+		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		./scripts/bluegreen-deploy.sh deploy
+	@if [ "$(DEPLOY_VOICE_AGENT)" = "1" ]; then \
+		$(MAKE) voice-agent-deploy; \
+	fi
+	@if [ "$(RESTART_LOCAL_WORKER_AFTER_DEPLOY)" = "1" ]; then \
+		$(MAKE) local-worker-restart; \
+	fi
+
+.PHONY: k8s-prod-knative-full
+k8s-prod-knative-full: ## Full build/push + Knative-first production deploy
+	@$(MAKE) k8s-prod \
+		KNATIVE_ENABLED=true \
+		CRON_DRIVER=knative \
+		CRON_ALLOW_CROSS_NAMESPACE=true \
+		CRON_INTERNAL_TOKEN=$(CRON_INTERNAL_TOKEN) \
+		CRON_INTERNAL_TOKEN_SECRET=$(if $(CRON_INTERNAL_TOKEN_SECRET),$(CRON_INTERNAL_TOKEN_SECRET),$(if $(CRON_INTERNAL_TOKEN),,cron-internal-token))
 
 .PHONY: k8s-prod-docs
 k8s-prod-docs: docker-build-docs docker-push-docs ## Build and deploy Documentation Site only to production
@@ -693,13 +822,14 @@ deploy-fast: helm-package helm-push ## Fast deploy (chart only, assumes images e
 	@echo "⚡ Fast deployment (chart update only)..."
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
+		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: deploy-now
 deploy-now: ## Immediate deploy with existing chart (no build)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Immediate deployment with existing chart..."
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) BACKEND_TAG=$(DOCKER_TAG) ./scripts/bluegreen-deploy.sh deploy
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) BACKEND_TAG=$(DOCKER_TAG) EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" ./scripts/bluegreen-deploy.sh deploy
 
 # =============================================================================
 # Kubernetes Utilities
@@ -750,7 +880,7 @@ codetether-deploy: ## Deploy CodeTether with values file (auto-recovers from stu
 	helm upgrade --install $(RELEASE_NAME) oci://$(OCI_REGISTRY)/a2a-server \
 		--version $(CHART_VERSION) \
 		-n $(NAMESPACE) \
-		-f $(VALUES_FILE)
+		-f $(VALUES_FILE) $(HELM_KNATIVE_ARGS)
 
 .PHONY: codetether-build-marketing
 codetether-build-marketing: ## Build and push marketing site
@@ -914,8 +1044,29 @@ marketing-bluegreen-status: ## Show marketing site blue-green deployment status
 	NAMESPACE=$(NAMESPACE) ./scripts/bluegreen-marketing.sh status
 
 
+.PHONY: build-codetether-worker
+build-codetether-worker: ## Build codetether worker binary from Rust source
+	@echo "🔧 Building codetether worker..."
+	cd codetether-agent && cargo build --release
+	@echo "📦 Installing codetether binary..."
+	cp codetether-agent/target/release/codetether ~/.local/bin/codetether 2>/dev/null || true
+	cp codetether-agent/target/release/codetether ~/.cargo/bin/codetether 2>/dev/null || true
+	sudo cp codetether-agent/target/release/codetether /usr/local/bin/codetether 2>/dev/null || true
+	sudo cp codetether-agent/target/release/codetether /opt/codetether-worker/bin/codetether 2>/dev/null || true
+	codetether --version
+	@echo "✅ codetether worker built successfully."
+
+.PHONY: docker-build-worker
+docker-build-worker: ## Build codetether worker Docker image
+	docker build -f Dockerfile.worker -t codetether-worker:$(DOCKER_TAG) .
+
+.PHONY: docker-push-worker
+docker-push-worker: ## Push codetether worker Docker image to OCI registry
+	docker tag codetether-worker:$(DOCKER_TAG) $(OCI_REGISTRY)/codetether-worker:$(DOCKER_TAG)
+	docker push $(OCI_REGISTRY)/codetether-worker:$(DOCKER_TAG)
+
 .PHONY: build-opencode
-build-opencode: ## Build OpenCode integration
+build-opencode: ## [DEPRECATED] Build OpenCode integration - use build-codetether-worker instead
 	@echo "🔧 Building OpenCode integration..."
 	cd /home/riley/A2A-Server-MCP/opencode/packages/opencode && bun run build
 	@echo "🔪 Killing any running opencode binaries..."

@@ -54,7 +54,7 @@ log_step() { echo -e "\n${CYAN}=== $1 ===${NC}"; }
 cleanup() {
     if [ "$CLEANUP" = true ] && [ -n "$SESSION_ID" ]; then
         log_info "Cleaning up Knative resources..."
-        kubectl delete ksvc "opencode-session-${SESSION_ID}" -n "$NAMESPACE" 2>/dev/null || true
+        kubectl delete ksvc "codetether-session-${SESSION_ID}" -n "$NAMESPACE" 2>/dev/null || true
         kubectl delete trigger "trigger-session-${SESSION_ID}" -n "$NAMESPACE" 2>/dev/null || true
     fi
 }
@@ -63,13 +63,13 @@ trap cleanup EXIT
 # Get codebase
 log_step "Setup"
 if [ -z "$CODEBASE_ID" ]; then
-    CODEBASE_ID=$(curl -s "${API_URL}/v1/opencode/codebases" | jq -r '.[0].id')
+    CODEBASE_ID=$(curl -s "${API_URL}/v1/agent/codebases" | jq -r '.[0].id')
 fi
 log_info "Using codebase: $CODEBASE_ID"
 
 # Trigger agent
 log_step "1. Triggering Agent"
-TRIGGER_RESPONSE=$(curl -s -X POST "${API_URL}/v1/opencode/codebases/${CODEBASE_ID}/trigger" \
+TRIGGER_RESPONSE=$(curl -s -X POST "${API_URL}/v1/agent/codebases/${CODEBASE_ID}/trigger" \
     -H "Content-Type: application/json" \
     -d '{"prompt": "What is 2+2? Reply with ONLY the number, nothing else.", "agent": "code", "model": ""}')
 
@@ -95,20 +95,20 @@ log_info "Task ID: $TASK_ID"
 
 # Wait for Knative Service
 log_step "2. Waiting for Knative Service"
-KSVC_NAME="opencode-session-${SESSION_ID}"
+KSVC_NAME="codetether-session-${SESSION_ID}"
 START=$(date +%s)
 
 while true; do
     ELAPSED=$(($(date +%s) - START))
     [ $ELAPSED -gt $TIMEOUT ] && { log_error "Timeout waiting for Knative Service"; exit 1; }
-    
+
     READY=$(kubectl get ksvc "$KSVC_NAME" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
-    
+
     if [ "$READY" = "True" ]; then
         log_success "Knative Service is Ready"
         break
     fi
-    
+
     log_info "Waiting for service... ($ELAPSED s)"
     sleep $POLL_INTERVAL
 done
@@ -131,10 +131,10 @@ START=$(date +%s)
 while true; do
     ELAPSED=$(($(date +%s) - START))
     [ $ELAPSED -gt $TIMEOUT ] && { log_error "Timeout waiting for task"; exit 1; }
-    
-    TASK_RESPONSE=$(curl -s "${API_URL}/v1/opencode/tasks/${TASK_ID}")
+
+    TASK_RESPONSE=$(curl -s "${API_URL}/v1/agent/tasks/${TASK_ID}")
     STATUS=$(echo "$TASK_RESPONSE" | jq -r '.status // empty')
-    
+
     case "$STATUS" in
         completed|complete|done)
             log_success "Task completed!"
@@ -149,7 +149,7 @@ while true; do
             log_info "Task status: $STATUS ($ELAPSED s)"
             ;;
     esac
-    
+
     sleep $POLL_INTERVAL
 done
 
@@ -167,7 +167,7 @@ fi
 
 if [ -n "$RESULT" ] && [ "$RESULT" != "null" ]; then
     log_success "Task result: $RESULT"
-    
+
     # Check if result contains "4"
     if echo "$RESULT" | grep -q "4"; then
         log_success "Result contains expected answer (4)"
@@ -176,9 +176,9 @@ if [ -n "$RESULT" ] && [ "$RESULT" != "null" ]; then
     fi
 else
     log_info "No result field (check task output endpoint)"
-    
+
     # Try getting output
-    OUTPUT=$(curl -s "${API_URL}/v1/opencode/tasks/${TASK_ID}/output" | jq -r '.output // empty')
+    OUTPUT=$(curl -s "${API_URL}/v1/agent/tasks/${TASK_ID}/output" | jq -r '.output // empty')
     if [ -n "$OUTPUT" ]; then
         log_info "Task output: $OUTPUT"
     fi
