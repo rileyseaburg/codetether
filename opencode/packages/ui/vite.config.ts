@@ -45,7 +45,7 @@ function providerIconsPlugin() {
 }
 
 async function fetchProviderIcons() {
-  const modelsApiUrl = process.env.MODELS_API_URL || "https://api.codetether.run/static/models/api.json"
+  const modelsApiUrl = "/home/riley/A2A-Server-MCP/models.dev/packages/web/dist/_api.json"
   const providers = await fetch(modelsApiUrl)
     .then((res) => res.json())
     .then((json) => Object.keys(json))

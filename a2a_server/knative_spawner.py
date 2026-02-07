@@ -1,8 +1,8 @@
 """
-Knative Spawner for per-session OpenCode workers.
+Knative Spawner for per-session agent workers.
 
 This module manages the lifecycle of Knative Services and Triggers for
-on-demand OpenCode worker instances. Each session gets its own isolated
+on-demand agent worker instances. Each session gets its own isolated
 Knative Service that scales to zero when idle.
 
 Architecture:
@@ -150,10 +150,10 @@ class TemplateError(KnativeSpawnerError):
 
 class KnativeSpawner:
     """
-    Manages Knative Services and Triggers for per-session OpenCode workers.
+    Manages Knative Services and Triggers for per-session agent workers.
 
     Each session gets:
-    - A Knative Service that runs the OpenCode worker container
+    - A Knative Service that runs the codetether-agent worker container
     - A Knative Trigger that routes tasks to the service
 
     Services scale to zero when idle and are garbage collected after max_age.
@@ -307,7 +307,7 @@ class KnativeSpawner:
                 'Must be lowercase alphanumeric with hyphens.',
             )
 
-        service_name = f'opencode-session-{session_id}'
+        service_name = f'codetether-session-{session_id}'
         trigger_name = f'trigger-session-{session_id}'
 
         logger.info(
@@ -430,7 +430,7 @@ class KnativeSpawner:
             logger.error('Kubernetes client initialization failed')
             return False
 
-        service_name = f'opencode-session-{session_id}'
+        service_name = f'codetether-session-{session_id}'
         trigger_name = f'trigger-session-{session_id}'
 
         logger.info(f'Deleting Knative worker for session {session_id}')
@@ -530,7 +530,7 @@ class KnativeSpawner:
                 error_message='Kubernetes client initialization failed',
             )
 
-        service_name = f'opencode-session-{session_id}'
+        service_name = f'codetether-session-{session_id}'
 
         try:
             service = await self._custom_api.get_namespaced_custom_object(
@@ -643,7 +643,7 @@ class KnativeSpawner:
 
                 # Extract session_id from name
                 name = metadata.get('name', '')
-                session_id = name.replace('opencode-session-', '')
+                session_id = name.replace('codetether-session-', '')
 
                 # Parse creation timestamp
                 created_at = None

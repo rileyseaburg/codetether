@@ -75,7 +75,7 @@ class HostedWorker:
         # Feature flags (e.g., rlm: True for RLM support)
         self.features = features or {}
 
-        # Auto-detect RLM capability if python3 is available and OPENCODE_RLM_ENABLED=1
+        # Auto-detect RLM capability if python3 is available and CODETETHER_RLM_ENABLED=1
         if 'rlm' not in self.features:
             self.features['rlm'] = self._detect_rlm_capability()
 
@@ -95,7 +95,7 @@ class HostedWorker:
         import shutil
 
         # Check if RLM is explicitly enabled via env var
-        rlm_enabled = os.environ.get('OPENCODE_RLM_ENABLED', '0') == '1'
+        rlm_enabled = os.environ.get('CODETETHER_RLM_ENABLED', '0') == '1'
         if not rlm_enabled:
             return False
 
@@ -298,7 +298,7 @@ class HostedWorker:
             async with self._pool.acquire() as conn:
                 row = await conn.fetchrow(
                     """
-                    SELECT id, title, prompt, agent_type, codebase_id, status, 
+                    SELECT id, title, prompt, agent_type, codebase_id, status,
                            metadata, created_at
                     FROM tasks WHERE id = $1
                     """,
@@ -326,7 +326,7 @@ class HostedWorker:
             return None
         try:
             response = await self._http_client.get(
-                f'{self._api_base_url}/v1/opencode/tasks/{task_id}',
+                f'{self._api_base_url}/v1/agent/tasks/{task_id}',
             )
             response.raise_for_status()
             return response.json()
@@ -365,18 +365,18 @@ class HostedWorker:
         )
 
         # For global/custom automation tasks, call LLM directly via Anthropic API
-        # For codebase tasks, use the OpenCode bridge
+        # For codebase tasks, use the agent bridge
         if not codebase_id or codebase_id == 'global' or codebase_id == 'None':
             return await self._run_llm_task(task_id, prompt, model)
 
-        # Execute codebase task via the OpenCode bridge sync endpoint
+        # Execute codebase task via the agent bridge sync endpoint
         if not self._http_client:
             raise Exception('HTTP client not initialized')
 
         try:
             # Create a session for this task execution
             session_response = await self._http_client.post(
-                f'{self._api_base_url}/v1/opencode/sessions',
+                f'{self._api_base_url}/v1/agent/sessions',
                 json={
                     'codebase_id': codebase_id,
                     'agent_type': agent_type,
@@ -394,7 +394,7 @@ class HostedWorker:
 
             # Send the message synchronously
             message_response = await self._http_client.post(
-                f'{self._api_base_url}/v1/opencode/sessions/{session_id}/messages/sync',
+                f'{self._api_base_url}/v1/agent/sessions/{session_id}/messages/sync',
                 json={
                     'content': prompt,
                     'model': model,
@@ -422,29 +422,29 @@ class HostedWorker:
         self, task_id: str, prompt: str, model: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Execute a global task via OpenCode CLI.
+        Execute a global task via codetether-agent CLI.
 
-        This runs OpenCode as a subprocess, which handles LLM provider
+        This runs codetether-agent as a subprocess, which handles LLM provider
         authentication and execution.
         """
-        # Find OpenCode binary
-        opencode_bin = self._find_opencode_binary()
-        if not opencode_bin:
+        # Find agent binary
+        agent_bin = self._find_agent_binary()
+        if not agent_bin:
             raise Exception(
-                'OpenCode binary not found. Install OpenCode or set OPENCODE_BIN env var.'
+                'Agent binary not found. Install codetether or set CODETETHER_BIN_PATH env var.'
             )
 
-        # Map model to OpenCode format if needed
-        opencode_model = self._normalize_model_for_opencode(model)
+        # Map model to agent format if needed
+        agent_model = self._normalize_model(model)
 
         logger.info(
-            f'Running task {task_id} via OpenCode CLI'
-            f'{f" with model {opencode_model}" if opencode_model else ""}'
+            f'Running task {task_id} via agent CLI'
+            f'{f" with model {agent_model}" if agent_model else ""}'
         )
 
         # Build command
         cmd = [
-            opencode_bin,
+            agent_bin,
             'run',
             '--agent',
             'general',  # Use general agent for custom automation
@@ -452,14 +452,14 @@ class HostedWorker:
             'json',  # Get structured output
         ]
 
-        if opencode_model:
-            cmd.extend(['--model', opencode_model])
+        if agent_model:
+            cmd.extend(['--model', agent_model])
 
         # Add the prompt
         cmd.append('--')
         cmd.append(prompt)
 
-        # Execute OpenCode as subprocess
+        # Execute agent as subprocess
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -481,13 +481,12 @@ class HostedWorker:
 
             if process.returncode != 0:
                 error_msg = stderr.decode('utf-8', errors='replace').strip()
-                logger.error(f'OpenCode failed for task {task_id}: {error_msg}')
-                raise Exception(f'OpenCode execution failed: {error_msg}')
+                logger.error(f'Agent failed for task {task_id}: {error_msg}')
+                raise Exception(f'Agent execution failed: {error_msg}')
 
-            # Parse OpenCode streaming JSON output
-            # OpenCode outputs one JSON object per line (NDJSON format)
+            # Parse agent streaming JSON output (NDJSON format)
             output = stdout.decode('utf-8', errors='replace').strip()
-            content = self._parse_opencode_output(output)
+            content = self._parse_agent_output(output)
 
             # Truncate for summary
             summary = content[:500] + '...' if len(content) > 500 else content
@@ -495,30 +494,31 @@ class HostedWorker:
             return {
                 'summary': summary,
                 'result': content,
-                'model': opencode_model,
+                'model': agent_model,
                 'exit_code': process.returncode,
             }
 
         except asyncio.TimeoutError:
-            logger.error(f'OpenCode timed out for task {task_id}')
+            logger.error(f'Agent timed out for task {task_id}')
             raise Exception('Task execution timed out')
         except Exception as e:
-            logger.error(f'OpenCode execution error for task {task_id}: {e}')
+            logger.error(f'Agent execution error for task {task_id}: {e}')
             raise
 
-    def _find_opencode_binary(self) -> Optional[str]:
-        """Find the OpenCode binary path."""
+    def _find_agent_binary(self) -> Optional[str]:
+        """Find the codetether agent binary path."""
         # Check environment variable first
-        env_bin = os.environ.get('OPENCODE_BIN')
+        env_bin = os.environ.get('CODETETHER_BIN_PATH')
         if env_bin and os.path.isfile(env_bin) and os.access(env_bin, os.X_OK):
             return env_bin
 
         # Check common locations
         candidates = [
-            '/opt/a2a-worker/bin/opencode',
-            str(Path.home() / '.local' / 'bin' / 'opencode'),
-            '/usr/local/bin/opencode',
-            '/usr/bin/opencode',
+            '/opt/codetether-worker/bin/codetether',
+            str(Path.home() / '.cargo' / 'bin' / 'codetether'),
+            str(Path.home() / '.local' / 'bin' / 'codetether'),
+            '/usr/local/bin/codetether',
+            '/usr/bin/codetether',
         ]
 
         for candidate in candidates:
@@ -526,22 +526,22 @@ class HostedWorker:
                 return candidate
 
         # Try PATH
-        path_bin = shutil.which('opencode')
+        path_bin = shutil.which('codetether')
         if path_bin:
             return path_bin
 
         return None
 
-    def _normalize_model_for_opencode(
+    def _normalize_model(
         self, model: Optional[str]
     ) -> Optional[str]:
         """
-        Convert model identifier to OpenCode format (provider/model).
+        Convert model identifier to provider/model format.
 
         Input formats:
         - "claude-sonnet" -> "anthropic/claude-sonnet-4-20250514"
         - "anthropic:claude-sonnet-4" -> "anthropic/claude-sonnet-4"
-        - None -> None (use OpenCode default)
+        - None -> None (use agent default)
         """
         if not model:
             return None
@@ -573,16 +573,16 @@ class HostedWorker:
             'gemini-flash': 'google/gemini-2.5-flash',
             'minimax': 'minimax/minimax-m2.1',
             'grok': 'xai/grok-3',
-            'default': None,  # Let OpenCode use its default
+            'default': None,  # Use agent default
         }
 
         return model_map.get(model.lower(), model)
 
-    def _parse_opencode_output(self, output: str) -> str:
+    def _parse_agent_output(self, output: str) -> str:
         """
-        Parse OpenCode's streaming JSON output to extract the text content.
+        Parse agent streaming JSON output to extract the text content.
 
-        OpenCode outputs NDJSON (newline-delimited JSON) with various event types:
+        The agent outputs NDJSON (newline-delimited JSON) with various event types:
         - step_start: Agent starting
         - text: Actual text content from the LLM
         - tool_call: Tool being called
@@ -696,7 +696,7 @@ class HostedWorker:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT tr.notify_email, tr.notify_webhook_url, 
+                SELECT tr.notify_email, tr.notify_webhook_url,
                        tr.notification_status, tr.webhook_status,
                        tr.result_summary, tr.result_full, tr.task_id,
                        tr.runtime_seconds, tr.last_error,
@@ -1182,7 +1182,7 @@ class HostedWorkerPool:
                     async with self._pool.acquire() as conn:
                         full_row = await conn.fetchrow(
                             """
-                            SELECT tr.notify_email, tr.notify_webhook_url, 
+                            SELECT tr.notify_email, tr.notify_webhook_url,
                                    tr.notification_status, tr.webhook_status,
                                    tr.result_summary, tr.result_full, tr.task_id,
                                    tr.runtime_seconds, tr.last_error, tr.status,

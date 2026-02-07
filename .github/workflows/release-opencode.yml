@@ -1,10 +1,12 @@
-name: Build and Release OpenCode Binaries
+name: "[DEPRECATED] Build and Release OpenCode Binaries"
+# DEPRECATED: OpenCode has been replaced by codetether-agent (Rust worker).
+# This workflow is retained for emergency backward-compat builds only.
+# New worker builds are handled by the main build-and-push.yml workflow.
 
 on:
   push:
     tags:
       - "opencode-v*"
-      - "v*"
   workflow_dispatch:
     inputs:
       version:

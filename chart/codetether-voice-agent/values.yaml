@@ -63,6 +63,14 @@ env:
     value: "wss://live.quantum-forge.net"
   - name: CODETETHER_API_URL
     value: "https://api.codetether.run"
+  - name: VOICE_AGENT_NAME
+    value: "codetether-voice-agent"
+  - name: VOICE_WORKER_INIT_TIMEOUT_SEC
+    value: "45"
+  - name: VOICE_WORKER_SHUTDOWN_TIMEOUT_SEC
+    value: "15"
+  - name: VOICE_WORKER_MAX_RETRY
+    value: "24"
   - name: FUNCTIONGEMMA_MODEL_PATH
     value: "google/functiongemma-270m-it"
 

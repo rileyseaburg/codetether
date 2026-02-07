@@ -43,6 +43,51 @@ function getModelString(m: Worker['models'][0]): string {
     return m.name || m.id || 'unknown'
 }
 
+type WorkerType = 'codetether-agent' | 'opencode' | 'unknown'
+
+function detectWorkerType(worker: Worker): WorkerType {
+    const name = (worker.name || '').toLowerCase()
+    const caps = (worker.capabilities || []).map(c => c.toLowerCase())
+    // codetether-agent: name contains 'codetether', or has ralph/swarm/rlm capabilities
+    if (name.includes('codetether') || caps.includes('ralph') || caps.includes('swarm') || caps.includes('rlm')) {
+        return 'codetether-agent'
+    }
+    // opencode worker: has 'opencode' capability, or name contains 'opencode'
+    if (caps.includes('opencode') || name.includes('opencode')) {
+        return 'opencode'
+    }
+    return 'unknown'
+}
+
+const workerTypeMeta: Record<WorkerType, { label: string, color: string, icon: string }> = {
+    'codetether-agent': {
+        label: 'CodeTether Agent',
+        color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800',
+        icon: '🦀',
+    },
+    'opencode': {
+        label: 'OpenCode Worker',
+        color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800',
+        icon: '🐍',
+    },
+    'unknown': {
+        label: 'Worker',
+        color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600',
+        icon: '⚙️',
+    },
+}
+
+function WorkerTypeBadge({ worker }: { worker: Worker }) {
+    const type = detectWorkerType(worker)
+    const meta = workerTypeMeta[type]
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${meta.color}`}>
+            <span>{meta.icon}</span>
+            {meta.label}
+        </span>
+    )
+}
+
 function StatusBadge({ status, lastSeen }: { status: string, lastSeen: string }) {
     const isRecent = (new Date().getTime() - new Date(lastSeen).getTime()) < 120000
     const color = isRecent ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
@@ -58,6 +103,9 @@ function WorkerCard({ worker, codebases }: { worker: Worker, codebases: Codebase
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <WorkerTypeBadge worker={worker} />
+                    </div>
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{worker.name}</h3>
                         <StatusBadge status={worker.status} lastSeen={worker.last_seen} />
@@ -80,6 +128,14 @@ function WorkerCard({ worker, codebases }: { worker: Worker, codebases: Codebase
 
             {expanded && (
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                    <div>
+                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Worker Type</h4>
+                        <div className="flex items-center gap-2">
+                            <WorkerTypeBadge worker={worker} />
+                            <span className="text-xs text-gray-400">{detectWorkerType(worker) === 'codetether-agent' ? 'Rust-based agent with ralph/swarm/rlm capabilities' : detectWorkerType(worker) === 'opencode' ? 'Python-based worker with opencode/build/deploy capabilities' : 'Unknown worker type'}</span>
+                        </div>
+                    </div>
+
                     <div>
                         <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Linked Codebases</h4>
                         {linkedCodebases.length === 0 ? (
@@ -160,6 +216,8 @@ export default function WorkersPage() {
 
     const onlineWorkers = workers.filter(w => (new Date().getTime() - new Date(w.last_seen).getTime()) < 120000)
     const staleWorkers = workers.filter(w => (new Date().getTime() - new Date(w.last_seen).getTime()) >= 120000)
+    const codetetherWorkers = workers.filter(w => detectWorkerType(w) === 'codetether-agent')
+    const opencodeWorkers = workers.filter(w => detectWorkerType(w) === 'opencode')
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -175,7 +233,7 @@ export default function WorkersPage() {
 
             {error && <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm">{error}</div>}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">{workers.length}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Total Workers</div>
@@ -187,6 +245,14 @@ export default function WorkersPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div className="text-2xl font-bold text-yellow-600">{staleWorkers.length}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Stale</div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+                    <div className="text-2xl font-bold text-orange-600">{codetetherWorkers.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">\ud83e\udd80 CodeTether</div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800">
+                    <div className="text-2xl font-bold text-indigo-600">{opencodeWorkers.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">\ud83d\udc0d OpenCode</div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div className="text-2xl font-bold text-purple-600">{codebases.length}</div>

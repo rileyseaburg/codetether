@@ -191,10 +191,10 @@ SYSTEM_INSTRUCTIONS = """You are a voice assistant for CodeTether, an Agent-to-A
 
 ## About CodeTether / A2A Server
 CodeTether is a system that allows AI agents to collaborate on coding tasks. Key concepts:
-- **Tasks**: Work items that get queued and executed by worker agents (build, test, review, etc.)
-- **Workers**: Python processes that pick up tasks via SSE and spawn OpenCode to execute them
-- **Agents**: Registered services that can communicate with each other
-- **Monitoring**: All agent activity is logged and can be reviewed
+- **Tasks**: Work items that get queued and executed by worker agents (build, test, review, deploy, etc.)
+- **Workers**: Rust-based codetether-agent processes that connect via SSE and autonomously execute tasks using AI models
+- **Agents**: Registered services that can communicate with each other via the A2A protocol
+- **Monitoring**: All agent activity is logged and can be reviewed in real time
 
 ## Your Role
 You are the voice interface to the CodeTether system. Users talk to you to:
@@ -206,7 +206,7 @@ You are the voice interface to the CodeTether system. Users talk to you to:
 ## Available Tools
 
 ### Task Management
-- **create_task**: Queue a new coding task. Specify title, description, priority (0-10). Tasks go to workers that execute them with OpenCode.
+- **create_task**: Queue a new coding task. Specify title, description, priority (0-10). Tasks are claimed by codetether-agent workers via SSE.
 - **list_tasks**: See all tasks. Filter by status (pending, working, completed, failed, cancelled).
 - **get_task**: Get detailed info about a specific task by its ID.
 - **cancel_task**: Stop a pending or in-progress task.
@@ -519,12 +519,17 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
             result = await mcp_client.send_message(
                 agent_name=agent_name, message=message
             )
-            if isinstance(result, dict) and result.get('success'):
-                response = f'Message sent to {agent_name}.'
-                if 'response' in result:
-                    response += f' They responded: {result["response"][:200]}'
+            if isinstance(result, dict):
+                response_text = result.get('response', result.get('message', ''))
+                task_id = result.get('task_id', '')
+                if response_text:
+                    response = f'Message sent to {agent_name}. Response: {str(response_text)[:200]}'
+                elif task_id:
+                    response = f'Message sent to {agent_name}. Task ID: {task_id}'
+                else:
+                    response = f'Message sent to {agent_name} successfully.'
             else:
-                response = f'Message sent to {agent_name}.'
+                response = f'Message sent to {agent_name}. Result: {str(result)[:200]}'
             await publish_state(
                 _current_room,
                 'tool_complete',
@@ -829,11 +834,8 @@ async def entrypoint(ctx: JobContext) -> None:
                 {'step': 'tools_failed', 'error': str(e)},
             )
 
-        session = AgentSession(
-            llm=gemini_model,
-            tools=agent_tools if agent_tools else None,
-        )
-        logger.info('AgentSession created with tools')
+        session = AgentSession()
+        logger.info('AgentSession created')
 
         if mode == 'playback' and session_id:
             logger.info(
@@ -852,10 +854,11 @@ async def entrypoint(ctx: JobContext) -> None:
 
         logger.info(f'Starting agent session in room: {ctx.room.name}')
 
-        # Create the Agent with the Gemini model
+        # Create the Agent with tools and instructions (canonical pattern)
         agent = Agent(
             instructions=full_instructions,
             llm=gemini_model,
+            tools=agent_tools if agent_tools else None,
         )
 
         # Emit ready state before starting
@@ -876,8 +879,21 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 if __name__ == '__main__':
+    init_timeout = float(
+        os.getenv('VOICE_WORKER_INIT_TIMEOUT_SEC', '45')
+    )
+    shutdown_timeout = float(
+        os.getenv('VOICE_WORKER_SHUTDOWN_TIMEOUT_SEC', '15')
+    )
+    max_retry = int(os.getenv('VOICE_WORKER_MAX_RETRY', '24'))
+    agent_name = os.getenv('VOICE_AGENT_NAME', 'codetether-voice-agent')
+
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
+            initialize_process_timeout=init_timeout,
+            shutdown_process_timeout=shutdown_timeout,
+            agent_name=agent_name,
+            max_retry=max_retry,
         ),
     )

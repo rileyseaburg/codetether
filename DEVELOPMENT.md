@@ -60,11 +60,16 @@ python run_server.py run --name "CodeTether Server" --port 8000
 # - Media Agent (LiveKit sessions)
 ```
 
-**Terminal 2: Run the Agent Worker (Python only)**
+**Terminal 2: Run the Agent Worker**
 ```bash
-# Run the worker to handle OpenCode tasks
-cd agent_worker
-python worker.py --server http://localhost:8000 --name "Local Worker"
+# One-command deploy (registers current directory as a codebase)
+./deploy-worker.sh --server http://localhost:8000 --codebases .
+
+# Or run the binary directly:
+codetether worker --server http://localhost:8000 --codebases . --auto-approve safe --name "Local Worker"
+
+# Or via make:
+make worker
 ```
 
 **Terminal 3: Run Agent-to-Agent Messaging Demo**
@@ -467,40 +472,40 @@ The A2A server uses **JSON-RPC 2.0** over HTTP. All method calls are sent to the
 The server provides REST endpoints for OpenCode agent management:
 
 **Codebases:**
-- **`GET /v1/opencode/codebases`** - List all registered codebases
-- **`POST /v1/opencode/codebases`** - Register a new codebase
-- **`GET /v1/opencode/codebases/{id}`** - Get codebase details
-- **`DELETE /v1/opencode/codebases/{id}`** - Unregister a codebase
+- **`GET /v1/agent/codebases`** - List all registered codebases
+- **`POST /v1/agent/codebases`** - Register a new codebase
+- **`GET /v1/agent/codebases/{id}`** - Get codebase details
+- **`DELETE /v1/agent/codebases/{id}`** - Unregister a codebase
 
 **Tasks:**
-- **`GET /v1/opencode/tasks`** - List all tasks (filter by status, worker_id)
-- **`POST /v1/opencode/tasks`** - Create a new task
-- **`GET /v1/opencode/tasks/{id}`** - Get task details
-- **`PUT /v1/opencode/tasks/{id}/status`** - Update task status
-- **`POST /v1/opencode/tasks/{id}/output`** - Stream output to task (workers)
-- **`GET /v1/opencode/tasks/{id}/output`** - Get task output
-- **`GET /v1/opencode/tasks/{id}/output/stream`** - SSE stream for real-time output
+- **`GET /v1/agent/tasks`** - List all tasks (filter by status, worker_id)
+- **`POST /v1/agent/tasks`** - Create a new task
+- **`GET /v1/agent/tasks/{id}`** - Get task details
+- **`PUT /v1/agent/tasks/{id}/status`** - Update task status
+- **`POST /v1/agent/tasks/{id}/output`** - Stream output to task (workers)
+- **`GET /v1/agent/tasks/{id}/output`** - Get task output
+- **`GET /v1/agent/tasks/{id}/output/stream`** - SSE stream for real-time output
 
 **Sessions:**
-- **`GET /v1/opencode/codebases/{id}/sessions`** - List sessions for a codebase
-- **`POST /v1/opencode/codebases/{id}/sessions/sync`** - Sync sessions from worker
-- **`POST /v1/opencode/codebases/{id}/sessions/{session_id}/ingest`** - Ingest external chat/session transcripts (e.g., VS Code chat)
-- **`GET /v1/opencode/codebases/{id}/sessions/{session_id}/messages`** - Get session messages
-- **`POST /v1/opencode/codebases/{id}/sessions/{session_id}/resume`** - Resume a session
+- **`GET /v1/agent/codebases/{id}/sessions`** - List sessions for a codebase
+- **`POST /v1/agent/codebases/{id}/sessions/sync`** - Sync sessions from worker
+- **`POST /v1/agent/codebases/{id}/sessions/{session_id}/ingest`** - Ingest external chat/session transcripts (e.g., VS Code chat)
+- **`GET /v1/agent/codebases/{id}/sessions/{session_id}/messages`** - Get session messages
+- **`POST /v1/agent/codebases/{id}/sessions/{session_id}/resume`** - Resume a session
 
 **Workers:**
-- **`POST /v1/opencode/workers/register`** - Register a worker
-- **`POST /v1/opencode/workers/{id}/unregister`** - Unregister a worker
+- **`POST /v1/agent/workers/register`** - Register a worker
+- **`POST /v1/agent/workers/{id}/unregister`** - Unregister a worker
 
 ### Runtime Sessions API
 
-Direct access to local OpenCode sessions without requiring codebase registration. When OpenCode is detected on a system, users can immediately browse and resume sessions:
+Direct access to local agent sessions without requiring codebase registration:
 
-- **`GET /v1/opencode/runtime/status`** - Check if OpenCode runtime is available
-- **`GET /v1/opencode/runtime/projects`** - List all local projects
-- **`GET /v1/opencode/runtime/sessions`** - List all sessions (with pagination)
-- **`GET /v1/opencode/runtime/sessions/{id}`** - Get session details
-- **`GET /v1/opencode/runtime/sessions/{id}/messages`** - Get conversation history
+- **`GET /v1/agent/runtime/status`** - Check if agent runtime is available
+- **`GET /v1/agent/runtime/projects`** - List all local projects
+- **`GET /v1/agent/runtime/sessions`** - List all sessions (with pagination)
+- **`GET /v1/agent/runtime/sessions/{id}`** - Get session details
+- **`GET /v1/agent/runtime/sessions/{id}/messages`** - Get conversation history
 - **`GET /v1/opencode/runtime/sessions/{id}/parts`** - Get message content parts
 
 ```bash
@@ -1103,9 +1108,11 @@ a2a_server/
 └── task_manager.py          # Task lifecycle management
 
 agent_worker/
-├── worker.py                # Distributed worker implementation
-├── install.sh               # Worker installation script
-└── config.example.json      # Example worker configuration
+├── install-codetether-worker.sh  # Worker installation script (Rust binary)
+├── systemd/codetether-worker.service  # Systemd service unit
+├── worker.py                # DEPRECATED - legacy Python worker
+├── install.sh               # DEPRECATED - legacy install script
+└── config.example.json      # DEPRECATED - legacy worker configuration
 
 examples/
 ├── a2a_cli.py               # Command-line client
@@ -1593,93 +1600,81 @@ The Agent Worker daemon runs on machines with codebases, connecting to the A2A s
 git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP
 
-# Run installer as root (creates systemd service)
-sudo ./agent_worker/install.sh
+# Run installer as root (installs codetether binary + systemd service)
+sudo ./agent_worker/install-codetether-worker.sh
 ```
 
-**Manual Setup:**
+**Build from Source:**
 ```bash
-# Install on remote machine
-cd agent_worker
-sudo cp worker.py /opt/a2a-worker/
-sudo cp config.example.json /etc/a2a-worker/config.json
-
-# Configure worker
-sudo nano /etc/a2a-worker/config.json
-
-# Start as service
-sudo systemctl start a2a-agent-worker
-sudo systemctl enable a2a-agent-worker
-
-# Or run manually
-python worker.py --config /etc/a2a-worker/config.json
+# Build the Rust binary and install systemd service
+sudo ./agent_worker/install-codetether-worker.sh --from-cargo
 ```
 
-**Example config.json:**
-```json
-{
-  "server_url": "https://api.codetether.run",
-  "worker_name": "dev-vm-worker",
-  "codebases": [
-    {
-      "name": "my-project",
-      "path": "/home/user/projects/my-project",
-      "description": "Main application codebase"
-    }
-  ],
-  "poll_interval": 5,
-  "opencode_bin": "/home/user/.local/bin/opencode",
-  "capabilities": ["opencode", "build", "deploy", "test"]
-}
-```
-
-**Command Line Options:**
+**Run Directly (no systemd):**
 ```bash
-# Basic usage
-python worker.py --server https://api.codetether.run --name my-worker
+# One-command deploy (foreground)
+./deploy-worker.sh --server https://api.codetether.run --codebases /path/to/project
 
-# With inline codebases
-python worker.py -s https://api.codetether.run -b my-project:/home/user/my-project
+# Or run the binary directly
+codetether worker --server https://api.codetether.run --codebases /path/to/project --auto-approve safe --name my-worker
+```
 
-# Custom poll interval
-python worker.py --server https://api.codetether.run --poll-interval 10
+**Configure the Service:**
+```bash
+# Edit environment (API keys, server URL)
+sudo nano /etc/codetether-worker/env
+
+# Start the service
+sudo systemctl start codetether-worker
+sudo systemctl enable codetether-worker
+
+# View logs
+sudo journalctl -u codetether-worker -f
 ```
 
 ### 🚀 Production Worker Setup
 
 To connect a local worker to the production CodeTether service:
 
-1. **Install the worker**:
+1. **Deploy** (one command):
    ```bash
-   sudo ./agent_worker/install.sh
+   # Foreground (dev/testing)
+   ./deploy-worker.sh --server https://api.codetether.run --codebases /path/to/project
+
+   # Systemd service (production)
+   sudo ./deploy-worker.sh --systemd --server https://api.codetether.run --codebases /path/to/project
    ```
 
-2. **Configure for production**:
-   Edit `/etc/a2a-worker/env`:
+2. **Or install manually**:
+   ```bash
+   sudo ./agent_worker/install-codetether-worker.sh --codebases /path/to/project
+   ```
+
+3. **Configure** (systemd only) — edit `/etc/codetether-worker/env`:
    ```bash
    A2A_SERVER_URL=https://api.codetether.run
+   A2A_CODEBASES=/path/to/project
+   A2A_AUTO_APPROVE=safe
+   ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY
    ```
 
-3. **Authenticate models**:
-   Ensure your models are authenticated in `~/.local/share/opencode/auth.json`. The worker will only register models it has credentials for.
-
-4. **Restart the service**:
+4. **Start the service**:
    ```bash
-   sudo systemctl restart a2a-agent-worker
+   sudo systemctl start codetether-worker
    ```
 
 **What the Worker Does:**
-1. **Registers** itself and its codebases with the server
-2. **Polls** for pending tasks assigned to its codebases
-3. **Executes** tasks using the local OpenCode fork (from `opencode/` directory)
-4. **Streams** real-time output back to the server
-5. **Syncs** OpenCode session history every ~60 seconds
+1. **Connects** to the A2A server via SSE (Server-Sent Events)
+2. **Registers** with `--codebases` paths — the server routes tasks by codebase ownership
+3. **Receives** task assignments pushed from the server in real-time
+4. **Executes** tasks using its built-in agentic loop (28+ tools, 8 LLM providers)
+5. **Streams** real-time output back to the server
 
 For complete documentation, see [Agent Worker Guide](codetether-docs/features/agent-worker.md).
 
 ### Session History & Resumption
 
-Workers automatically sync OpenCode session history to the server, enabling:
+Workers automatically report task results to the server, enabling:
 
 - **Cross-Device Access**: View all past coding sessions from any device
 - **Session Resumption**: Continue a conversation from where you left off
@@ -1689,18 +1684,18 @@ Workers automatically sync OpenCode session history to the server, enabling:
 
 ```bash
 # List all sessions for a codebase
-curl https://api.codetether.run/v1/opencode/codebases/{id}/sessions
+curl https://api.codetether.run/v1/agent/codebases/{id}/sessions
 
 # Get messages for a specific session
-curl https://api.codetether.run/v1/opencode/codebases/{id}/sessions/{session_id}/messages
+curl https://api.codetether.run/v1/agent/codebases/{id}/sessions/{session_id}/messages
 
 # Resume a session (creates a new task)
-curl -X POST https://api.codetether.run/v1/opencode/codebases/{id}/sessions/{session_id}/resume \
+curl -X POST https://api.codetether.run/v1/agent/codebases/{id}/sessions/{session_id}/resume \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Continue with the refactoring"}'
 
 # Stream task output (SSE)
-curl https://api.codetether.run/v1/opencode/tasks/{task_id}/output/stream
+curl https://api.codetether.run/v1/agent/tasks/{task_id}/output/stream
 ```
 
 ### Real-time Output Streaming
@@ -1891,7 +1886,7 @@ echo "spike2" | sudo -S chmod -R 666 marketing-site/src/
 echo "spike2" | sudo -S chown riley:riley path/to/file.tsx
 ```
 
-**Why this happens**: 
+**Why this happens**:
 - The `a2a-worker` user runs automated tasks and creates/modifies files
 - When you log in as `riley`, you can't edit files owned by `a2a-worker`
 - This is an **open trusted workflow** - SSH, firewall, and WAF provide security at the perimeter

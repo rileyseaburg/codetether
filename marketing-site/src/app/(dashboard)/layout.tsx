@@ -127,11 +127,20 @@ function ServerIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function ClockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    )
+}
+
 const navigation = [
     { name: 'Get Started', href: '/dashboard/getting-started', icon: RocketIcon, highlight: true },
     { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
     { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
     { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
+    { name: 'Cronjobs', href: '/cronjobs', icon: ClockIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
     { name: 'Output', href: '/dashboard/output', icon: TerminalIcon },

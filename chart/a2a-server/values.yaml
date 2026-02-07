@@ -398,6 +398,31 @@ extraDeploy: []
 knative:
   enabled: false
   broker: task-broker
+  cron:
+    # Cron scheduler backend: auto | app | knative | disabled
+    driver: auto
+    # Shared token expected by /v1/cronjobs/internal/{id}/trigger
+    # Prefer setting via internalTokenSecret rather than plaintext.
+    internalToken: ""
+    # Existing secret containing CRON_INTERNAL_TOKEN
+    internalTokenSecret: ""
+    internalTokenSecretKey: "CRON_INTERNAL_TOKEN"
+    # Optional explicit callback URL for cronjobs.
+    # Default: http://<release-name>.<namespace>.svc.cluster.local:<service.port>
+    triggerBaseUrl: ""
+    # Container image used by generated Kubernetes CronJob resources
+    jobImage: "curlimages/curl:8.11.1"
+    # Prefer tenant.k8s_namespace when available
+    tenantNamespaceMode: true
+    # Allow reconciling cronjobs outside this release namespace
+    allowCrossNamespace: false
+    # Optional service account for generated CronJob pods
+    serviceAccountName: ""
+    # Kubernetes CronJob tuning
+    startingDeadlineSeconds: 300
+    successHistoryLimit: 1
+    failureHistoryLimit: 3
+    jobTtlSeconds: 600
   worker:
     image: ""
     # Scale to 0 after 5 minutes of no activity
@@ -420,13 +445,15 @@ knative:
     #   --from-literal=ANTHROPIC_API_KEY=sk-ant-xxx \
     #   --from-literal=OPENAI_API_KEY=sk-xxx
     apiKeySecret: ""
-    # Secret containing OpenCode auth.json file for provider authentication
-    # Create from local auth: kubectl create secret generic opencode-auth \
-    #   --from-file=auth.json=$HOME/.local/share/opencode/auth.json -n a2a-server
+    # Secret containing codetether-agent auth credentials for AI providers
+    # (Legacy: was OpenCode auth.json — now used by codetether-agent Rust worker)
+    # Create: kubectl create secret generic agent-auth \
+    #   --from-file=auth.json=$HOME/.config/codetether/auth.json -n a2a-server
     authSecret: ""
-    # Secret containing OpenCode opencode.json config file
-    # Create from local config: kubectl create secret generic opencode-config \
-    #   --from-file=opencode.json=$HOME/.config/opencode/opencode.json -n a2a-server
+    # Secret containing codetether-agent config file
+    # (Legacy: was opencode.json — now used by codetether-agent Rust worker)
+    # Create: kubectl create secret generic agent-config \
+    #   --from-file=config.json=$HOME/.config/codetether/config.json -n a2a-server
     configSecret: ""
     # Secret containing GCP service account credentials for Vertex AI
     # Create: kubectl create secret generic gcp-vertex-credentials \

@@ -11,7 +11,7 @@ data:
     apiVersion: serving.knative.dev/v1
     kind: Service
     metadata:
-      name: opencode-session-SESSION_ID
+      name: codetether-session-SESSION_ID
       namespace: {{ .Release.Namespace }}
       labels:
         codetether.run/tenant: "TENANT_ID"
@@ -30,14 +30,15 @@ data:
           containers:
             - image: {{ .Values.knative.worker.image }}
               env:
-                - name: OPENCODE_TENANT_ID
+                - name: A2A_TENANT_ID
                   value: "TENANT_ID"
-                - name: OPENCODE_SESSION_ID
+                - name: A2A_SESSION_ID
                   value: "SESSION_ID"
-                - name: OPENCODE_CODEBASE_ID
+                - name: A2A_CODEBASE_ID
                   value: "CODEBASE_ID"
-                - name: OPENCODE_STORAGE
-                  value: "postgres"
+                # codetether stores state in its own format
+                - name: CODETETHER_LOG_LEVEL
+                  value: "info"
                 - name: DATABASE_URL
                   value: "{{ .Values.externalPostgresql.url }}"
                 - name: MINIO_ENDPOINT
@@ -109,13 +110,13 @@ data:
               {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.dbEncryptionSecret }}
               volumeMounts:
                 {{- if .Values.knative.worker.authSecret }}
-                - name: opencode-auth
-                  mountPath: /secrets/opencode-auth
+                - name: worker-auth
+                  mountPath: /secrets/worker-auth
                   readOnly: true
                 {{- end }}
                 {{- if .Values.knative.worker.configSecret }}
-                - name: opencode-config
-                  mountPath: /secrets/opencode-config
+                - name: worker-config
+                  mountPath: /secrets/worker-config
                   readOnly: true
                 {{- end }}
                 {{- if .Values.knative.worker.gcpCredentialsSecret }}
@@ -134,12 +135,12 @@ data:
           {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret }}
           volumes:
             {{- if .Values.knative.worker.authSecret }}
-            - name: opencode-auth
+            - name: worker-auth
               secret:
                 secretName: {{ .Values.knative.worker.authSecret }}
             {{- end }}
             {{- if .Values.knative.worker.configSecret }}
-            - name: opencode-config
+            - name: worker-config
               secret:
                 secretName: {{ .Values.knative.worker.configSecret }}
             {{- end }}
@@ -168,6 +169,6 @@ data:
         ref:
           apiVersion: serving.knative.dev/v1
           kind: Service
-          name: opencode-session-SESSION_ID
+          name: codetether-session-SESSION_ID
         uri: /task
 {{- end }}

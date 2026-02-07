@@ -1,96 +1,288 @@
 ---
-title: "Development"
-description: "Preview changes locally to update your docs"
+title: "SDK Reference"
+description: "Integrate CodeTether into your applications"
 ---
 
-<Info>**Prerequisites**: - Node.js version 19 or higher - A docs repository with a `docs.json` file</Info>
+## Overview
 
-Follow these steps to install and run Mintlify on your operating system.
+The CodeTether SDK allows you to programmatically interact with the CodeTether platform and agents. Available in TypeScript/JavaScript and Rust.
 
-<Steps>
-<Step title="Install the Mintlify CLI">
+## TypeScript SDK
 
-```bash
-npm i -g mint
-```
-
-</Step>
-
-<Step title="Preview locally">
-
-Navigate to your docs directory where your `docs.json` file is located, and run the following command:
+### Installation
 
 ```bash
-mint dev
+npm install @codetether/sdk
+# or
+bun add @codetether/sdk
 ```
 
-A local preview of your documentation will be available at `http://localhost:3000`.
+### Quick Start
 
-</Step>
-</Steps>
+```typescript
+import { CodeTether } from "@codetether/sdk";
 
-## Custom ports
+const client = new CodeTether({
+  server: "https://api.codetether.run",
+  token: process.env.CODETETHER_TOKEN,
+});
 
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. For example, to run Mintlify on port 3333, use this command:
+// Send a task to an agent
+const task = await client.tasks.send({
+  message: {
+    role: "user",
+    content: "Implement a binary search function in Rust",
+  },
+});
+
+// Wait for completion
+const result = await client.tasks.wait(task.id);
+console.log(result.artifacts);
+```
+
+### A2A Client
+
+```typescript
+import { A2AClient } from "@codetether/sdk";
+
+const a2a = new A2AClient("https://api.codetether.run");
+
+// Send message with streaming
+const stream = a2a.sendMessageStream({
+  role: "user",
+  content: "Fix the bug in src/parser.rs",
+});
+
+for await (const update of stream) {
+  console.log(update.status);
+}
+```
+
+### Type Definitions
+
+```typescript
+interface Task {
+  id: string;
+  state: "submitted" | "working" | "completed" | "failed" | "cancelled";
+  message: Message;
+  artifacts?: Artifact[];
+  error?: TaskError;
+}
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  parts?: Part[];
+}
+
+interface Artifact {
+  type: "text" | "code" | "file";
+  path?: string;
+  content: string;
+}
+```
+
+## Rust SDK
+
+### Installation
+
+Add to `Cargo.toml`:
+
+```toml
+[dependencies]
+codetether = "0.1"
+```
+
+### Quick Start
+
+```rust
+use codetether::{Client, Message};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::new("https://api.codetether.run")
+        .with_token(std::env::var("CODETETHER_TOKEN")?);
+
+    let task = client
+        .tasks()
+        .send(Message::user("Implement a parser"))
+        .await?;
+
+    let result = client.tasks().wait(&task.id).await?;
+    println!("{:?}", result.artifacts);
+    
+    Ok(())
+}
+```
+
+### A2A Protocol
+
+```rust
+use codetether::a2a::{A2AClient, Message};
+
+let client = A2AClient::new("https://api.codetether.run");
+
+// Get agent capabilities
+let agent = client.get_agent_card().await?;
+println!("Agent: {} v{}", agent.name, agent.version);
+
+// Send streaming message
+let mut stream = client.send_message_stream(
+    Message::user("Review this code")
+).await?;
+
+while let Some(update) = stream.next().await {
+    match update {
+        Ok(event) => println!("{:?}", event),
+        Err(e) => eprintln!("Error: {}", e),
+    }
+}
+```
+
+## REST API
+
+### Base URL
+
+```
+https://api.codetether.run
+```
+
+### Authentication
 
 ```bash
-mint dev --port 3333
+curl -H "Authorization: Bearer $TOKEN" https://api.codetether.run/tasks
 ```
 
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
+### Endpoints
 
-```md
-Port 3000 is already in use. Trying 3001 instead.
-```
-
-## Mintlify versions
-
-Please note that each CLI release is associated with a specific version of Mintlify. If your local preview does not align with the production version, please update the CLI:
+#### Submit Task
 
 ```bash
-npm mint update
+POST /
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "Your request here"}]
+    }
+  },
+  "id": "1"
+}
 ```
 
-## Validating links
-
-The CLI can assist with validating links in your documentation. To identify any broken links, use the following command:
+#### Get Task Status
 
 ```bash
-mint broken-links
+POST /
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "tasks/get",
+  "params": {
+    "id": "task-123"
+  },
+  "id": "2"
+}
 ```
 
-## Deployment
+#### Stream Task
 
-If the deployment is successful, you should see the following:
+```bash
+POST /
+Content-Type: application/json
 
-<Frame>
-  <img
-    src="/images/checks-passed.png"
-    alt="Screenshot of a deployment confirmation message that says All checks have passed."
-    style={{ borderRadius: "0.5rem" }}
-  />
-</Frame>
+{
+  "jsonrpc": "2.0",
+  "method": "message/stream",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "Your request here"}]
+    }
+  },
+  "id": "3"
+}
+```
 
-## Code formatting
+Returns SSE stream with task updates.
 
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
+## WebSocket API
 
-## Troubleshooting
+```javascript
+const ws = new WebSocket("wss://api.codetether.run/ws");
 
-<AccordionGroup>
-  <Accordion title='Error: Could not load the "sharp" module using the darwin-arm64 runtime'>
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    jsonrpc: "2.0",
+    method: "message/send",
+    params: { message: { role: "user", content: "Hello" } },
+    id: "1"
+  }));
+};
 
-    This may be due to an outdated version of node. Try the following:
-    1. Remove the currently-installed version of the CLI: `npm remove -g mint`
-    2. Upgrade to Node v19 or higher.
-    3. Reinstall the CLI: `npm i -g mint`
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log(data);
+};
+```
 
-  </Accordion>
+## Examples
 
-  <Accordion title="Issue: Encountering an unknown error">
-  
-    Solution: Go to the root of your device and delete the `~/.mintlify` folder. Then run `mint dev` again.
-  </Accordion>
-</AccordionGroup>
+### GitHub Integration
 
-Curious about what changed in the latest CLI version? Check out the [CLI changelog](https://www.npmjs.com/package/mintlify?activeTab=versions).
+```typescript
+import { CodeTether } from "@codetether/sdk";
+
+const ct = new CodeTether({ server: "https://api.codetether.run" });
+
+// Review a PR
+const review = await ct.tasks.send({
+  message: {
+    role: "user",
+    content: `Review PR #${prNumber} on ${repo}`,
+    context: { github_token: process.env.GITHUB_TOKEN },
+  },
+});
+```
+
+### VS Code Extension
+
+```typescript
+import { CodeTether } from "@codetether/sdk";
+
+export function activate(context: vscode.ExtensionContext) {
+  const client = new CodeTether({
+    server: vscode.workspace.getConfiguration("codetether").get("server"),
+  });
+
+  vscode.commands.registerCommand("codetether.ask", async () => {
+    const question = await vscode.window.showInputBox();
+    const result = await client.tasks.send({ message: { role: "user", content: question } });
+    // Display result...
+  });
+}
+```
+
+## Rate Limits
+
+| Tier | Requests/min | Concurrent Tasks |
+|------|-------------|------------------|
+| Free | 10 | 1 |
+| Pro | 100 | 10 |
+| Team | 1000 | 50 |
+| Enterprise | Unlimited | Unlimited |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `UNAUTHORIZED` | Invalid or expired token |
+| `RATE_LIMITED` | Too many requests |
+| `TASK_NOT_FOUND` | Task ID doesn't exist |
+| `AGENT_UNAVAILABLE` | No workers available |
+| `PROVIDER_ERROR` | AI provider error |

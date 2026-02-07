@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { generateUUID } from './utils'
 import { useRalphStore } from './store'
 import { useCodebases } from '../sessions/hooks/useCodebases'
-import { prdChatV1RalphChatPost, getTaskV1OpencodeTasksTaskIdGet } from '@/lib/api'
+import { prdChatV1RalphChatPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 type Role = 'user' | 'assistant' | 'system'
 type Status = 'sending' | 'sent' | 'error'
@@ -218,7 +218,7 @@ export function useAIPRDChat(selectedCodebase: string) {
                 await new Promise(resolve => setTimeout(resolve, 1000))
                 attempts++
 
-                const statusResult = await getTaskV1OpencodeTasksTaskIdGet({
+                const statusResult = await getTaskV1AgentTasksTaskIdGet({
                     path: { task_id: taskId },
                 })
 

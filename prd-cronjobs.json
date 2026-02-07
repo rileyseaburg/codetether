@@ -1,0 +1,234 @@
+{
+  "project": "A2A-Server-MCP",
+  "branchName": "feature/cronjobs",
+  "description": "Implement a complete cronjob system with custom cron expression support for scheduling tasks, including database schema, scheduler service, REST API, and React-based management UI",
+  "userStories": [
+    {
+      "id": "1",
+      "title": "Database Schema - Create cronjobs table",
+      "description": "Create PostgreSQL table for storing scheduled cronjobs with full cron expression support",
+      "acceptanceCriteria": [
+        "Table cronjobs created with columns: id, tenant_id, user_id, name, description, cron_expression, task_template (JSON), enabled, last_run_at, next_run_at, run_count, error_count, created_at, updated_at",
+        "Cron expression validation at database level (standard 5-field format: min hour day month weekday)",
+        "Indexes on tenant_id, user_id, next_run_at, enabled",
+        "RLS policy cronjobs_tenant_isolation created",
+        "RLS enabled on the table",
+        "Foreign key constraints to tenants(id) and users(id)"
+      ],
+      "estimatedHours": 3,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "2",
+      "title": "Database Schema - Create cronjob_runs table",
+      "description": "Create execution history table for tracking cronjob runs",
+      "acceptanceCriteria": [
+        "Table cronjob_runs created with columns: id, cronjob_id, tenant_id, status, started_at, completed_at, duration_ms, output, error_message, task_id",
+        "Foreign key to cronjobs(id) with ON DELETE CASCADE",
+        "Indexes on cronjob_id, tenant_id, started_at",
+        "RLS policy for tenant isolation",
+        "Retention policy: auto-delete runs older than 30 days"
+      ],
+      "estimatedHours": 2,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "3",
+      "title": "Python Module - Cron Scheduler Service",
+      "description": "Create the core scheduler service that evaluates cron expressions and spawns tasks",
+      "acceptanceCriteria": [
+        "Create a2a_server/cron_scheduler.py",
+        "Use croniter library for parsing cron expressions",
+        "Implement CronScheduler class with start/stop methods",
+        "Check interval: every 60 seconds by default",
+        "Query enabled cronjobs where next_run_at <= NOW()",
+        "For each due job: spawn task, create cronjob_run record, update next_run_at",
+        "Handle timezone support (default to UTC, configurable per job)",
+        "Error handling: log errors, increment error_count, continue on failure",
+        "Expose get_scheduler() singleton and start/stop functions",
+        "Integration with existing task_queue.py for task spawning"
+      ],
+      "estimatedHours": 8,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "4",
+      "title": "Python Module - Cronjobs API",
+      "description": "Create REST API endpoints for managing cronjobs",
+      "acceptanceCriteria": [
+        "Create a2a_server/cronjobs_api.py with FastAPI router",
+        "POST /api/v1/cronjobs - Create new cronjob",
+        "GET /api/v1/cronjobs - List cronjobs (with pagination, filtering by enabled)",
+        "GET /api/v1/cronjobs/{id} - Get single cronjob",
+        "PUT /api/v1/cronjobs/{id} - Update cronjob",
+        "DELETE /api/v1/cronjobs/{id} - Delete cronjob",
+        "POST /api/v1/cronjobs/{id}/toggle - Enable/disable cronjob",
+        "GET /api/v1/cronjobs/{id}/runs - Get execution history (with pagination)",
+        "POST /api/v1/cronjobs/{id}/trigger - Manual trigger (run now)",
+        "Validation: cron expression format, task_template structure",
+        "Authorization: user can only access their own cronjobs (with RLS)",
+        "Response includes next_run_at calculated from cron expression"
+      ],
+      "estimatedHours": 6,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "5",
+      "title": "Dependencies - Add croniter to requirements",
+      "description": "Add croniter library for cron expression parsing",
+      "acceptanceCriteria": [
+        "Add croniter>=2.0.0 to requirements.txt",
+        "Verify compatibility with existing dependencies"
+      ],
+      "estimatedHours": 0.5,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "6",
+      "title": "Server Integration - Start scheduler on startup",
+      "description": "Integrate cron scheduler into main server lifecycle",
+      "acceptanceCriteria": [
+        "Import and start scheduler in server.py startup (similar to task_reaper)",
+        "Graceful shutdown: stop scheduler on server shutdown",
+        "Add to health check endpoint",
+        "Configuration: CRON_SCHEDULER_ENABLED, CRON_CHECK_INTERVAL_SECONDS env vars"
+      ],
+      "estimatedHours": 2,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "7",
+      "title": "React UI - Cronjobs List Page",
+      "description": "Create main cronjobs management page with list view",
+      "acceptanceCriteria": [
+        "Create marketing-site/app/cronjobs/page.tsx",
+        "Table view showing: name, cron expression, enabled status, last run, next run, run count",
+        "Pagination and search/filter",
+        "Buttons: Create New, Edit, Delete, Enable/Disable, Trigger Now",
+        "Real-time status updates via polling or SSE",
+        "Empty state for no cronjobs",
+        "Responsive design"
+      ],
+      "estimatedHours": 6,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "8",
+      "title": "React UI - Cronjob Create/Edit Form",
+      "description": "Create form for creating and editing cronjobs",
+      "acceptanceCriteria": [
+        "Create marketing-site/app/cronjobs/[id]/edit/page.tsx",
+        "Form fields: name, description, cron expression (with human-readable preview), task template (JSON editor), enabled checkbox",
+        "Cron expression helper: show next 5 execution times",
+        "Validation: required fields, valid cron syntax",
+        "Task template builder with common presets",
+        "Save/Cancel buttons",
+        "Success/error toast notifications"
+      ],
+      "estimatedHours": 8,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "9",
+      "title": "React UI - Cronjob Detail View",
+      "description": "Create detailed view showing cronjob info and execution history",
+      "acceptanceCriteria": [
+        "Create marketing-site/app/cronjobs/[id]/page.tsx",
+        "Show cronjob details: name, description, cron expression with human-readable format, status, created/updated dates",
+        "Execution history table: status, started, completed, duration, output preview",
+        "Click to view full run output in modal",
+        "Charts: success/failure rate over time",
+        "Manual trigger button",
+        "Edit and Delete buttons"
+      ],
+      "estimatedHours": 6,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "10",
+      "title": "React UI - Cron Expression Builder Component",
+      "description": "Create reusable component for building cron expressions",
+      "acceptanceCriteria": [
+        "Create marketing-site/components/cron/CronBuilder.tsx",
+        "Visual builder: minute, hour, day, month, weekday selectors",
+        "Presets: Every minute, Hourly, Daily, Weekly, Monthly, Custom",
+        "Live preview of next 5 execution times",
+        "Human-readable text description (e.g., 'Every day at 2:00 PM')",
+        "Copy-paste raw cron expression",
+        "Validation feedback"
+      ],
+      "estimatedHours": 8,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "11",
+      "title": "React UI - Navigation and Routing",
+      "description": "Add cronjobs to main navigation",
+      "acceptanceCriteria": [
+        "Add 'Cronjobs' link to sidebar/navigation",
+        "Icon: Clock or Calendar",
+        "Route protection: authenticated users only",
+        "Active state styling",
+        "Breadcrumb navigation"
+      ],
+      "estimatedHours": 2,
+      "priority": 0,
+      "passes": true
+    },
+    {
+      "id": "12",
+      "title": "Testing - Unit tests for scheduler",
+      "description": "Create comprehensive tests for the cron scheduler",
+      "acceptanceCriteria": [
+        "Test cron expression parsing with various formats",
+        "Test next_run_at calculation",
+        "Test task spawning logic",
+        "Test error handling and retry",
+        "Test timezone handling",
+        "Mock database and task queue for isolation"
+      ],
+      "estimatedHours": 6,
+      "priority": 8,
+      "passes": false
+    },
+    {
+      "id": "13",
+      "title": "Testing - API integration tests",
+      "description": "Test the cronjobs REST API endpoints",
+      "acceptanceCriteria": [
+        "Test CRUD operations on cronjobs",
+        "Test validation (invalid cron expressions)",
+        "Test authorization (user isolation)",
+        "Test manual trigger endpoint",
+        "Test execution history endpoint"
+      ],
+      "estimatedHours": 4,
+      "priority": 8,
+      "passes": false
+    },
+    {
+      "id": "14",
+      "title": "Documentation - API Documentation",
+      "description": "Document the cronjobs API",
+      "acceptanceCriteria": [
+        "OpenAPI/Swagger annotations on all endpoints",
+        "Example requests and responses",
+        "Error codes documented",
+        "README section on cronjobs feature"
+      ],
+      "estimatedHours": 2,
+      "priority": 5,
+      "passes": false
+    }
+  ]
+}

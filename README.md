@@ -182,7 +182,7 @@ curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/sc
 
 **Or download manually:**
 - Linux: `opencode-v1.1.25-linux-x64.tar.gz`
-- macOS: `opencode-v1.1.25-darwin-arm64.tar.gz`  
+- macOS: `opencode-v1.1.25-darwin-arm64.tar.gz`
 - Windows: `opencode-v1.1.25-windows-x64.zip`
 
 **Available platforms:** Linux (x64/ARM64/glibc/musl), macOS (x64/ARM64), Windows (x64) - with baseline builds for older CPUs.
@@ -196,11 +196,23 @@ helm install codetether oci://registry.quantum-forge.net/library/a2a-server \
 
 ### Distributed Workers (Scale Anywhere)
 
-Run agents on any machine with the CodeTether Worker:
+Run agents on any machine with the CodeTether Worker (Rust binary):
 
 ```bash
 git clone https://github.com/rileyseaburg/codetether.git
-cd codetether && sudo ./agent_worker/install.sh
+cd codetether
+
+# One-command deploy (foreground, registers to this repo as a codebase)
+./deploy-worker.sh --codebases /path/to/your/project
+
+# Or install as a persistent systemd service
+sudo ./deploy-worker.sh --systemd --codebases /path/to/your/project
+```
+
+Or run the binary directly:
+
+```bash
+codetether worker --server https://api.codetether.run --codebases /path/to/project --auto-approve safe
 ```
 
 Learn more in the [Distributed Workers Guide](https://docs.codetether.run/features/distributed-workers/).
@@ -209,37 +221,51 @@ Learn more in the [Distributed Workers Guide](https://docs.codetether.run/featur
 
 To connect a local worker to the production CodeTether service:
 
-1. **Install the worker**:
-
+1. **Quick deploy** (recommended):
     ```bash
-    sudo ./agent_worker/install.sh
+    # Foreground (dev/testing)
+    ./deploy-worker.sh --server https://api.codetether.run --codebases /path/to/project
+
+    # Systemd service (production)
+    sudo ./deploy-worker.sh --systemd --server https://api.codetether.run --codebases /path/to/project
     ```
 
-2. **Configure for production**:
-   Edit `/etc/a2a-worker/env`:
+2. **Or install manually**:
+    ```bash
+    sudo ./agent_worker/install-codetether-worker.sh --codebases /path/to/project
+    ```
+
+    Build from source:
+    ```bash
+    sudo ./agent_worker/install-codetether-worker.sh --from-cargo --codebases /path/to/project
+    ```
+
+3. **Configure** (if using systemd):
+   Edit `/etc/codetether-worker/env`:
 
     ```bash
     A2A_SERVER_URL=https://api.codetether.run
+    A2A_CODEBASES=/path/to/project-a,/path/to/project-b
+    A2A_AUTO_APPROVE=safe   # all, safe (read-only), or none
+    ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY
     ```
 
-3. **Authenticate models**:
-   Ensure your models are authenticated in `~/.local/share/opencode/auth.json`. The worker will only register models it has credentials for.
-
-4. **Restart the service**:
+4. **Start the service**:
     ```bash
-    sudo systemctl restart a2a-agent-worker
+    sudo systemctl start codetether-worker
     ```
-    ```
+    ```bash
     # Or use the makefile shortcut:
     make local-worker-restart
     ```
 
 **How it works:**
 
-- Worker discovers local OpenCode sessions from `~/.local/share/opencode/storage/`
-- Worker syncs sessions to PostgreSQL via `/v1/opencode/codebases/{id}/sessions/sync`
-- Worker syncs session messages via `/v1/opencode/codebases/{id}/sessions/{id}/messages/sync`
-- Monitor UI and production API read sessions from PostgreSQL
+- Worker connects to the A2A server via SSE (Server-Sent Events)
+- Registers itself with `--codebases` paths — the server routes tasks by codebase ownership
+- Server pushes task assignments to the worker in real-time
+- Worker executes tasks using its built-in agentic loop (28+ tools, 8 LLM providers)
+- Worker streams results back to the server
 - Use `make local-worker-restart` to restart the worker service
 
 **That's it.** Your agent platform is running at `http://localhost:8000`
@@ -314,7 +340,7 @@ CodeTether is built on **five core pillars**:
 | Component               | Purpose                                        | Technology                        |
 | ----------------------- | ---------------------------------------------- | --------------------------------- |
 | **A2A Protocol Server** | Agent communication & orchestration            | Python, FastAPI, Redis            |
-| **Distributed Workers** | Scale agent execution across machines          | Python, Redis, Systemd/K8s        |
+| **Distributed Workers** | Scale agent execution across machines          | Rust (codetether worker), Systemd/K8s |
 | **MCP Integration**     | Tool access & resource management              | Model Context Protocol            |
 | **PostgreSQL Database** | Durable storage for sessions, codebases, tasks | PostgreSQL, asyncpg               |
 | **OpenCode Bridge**     | AI-powered code generation                     | Local OpenCode fork, Claude/GPT-4 |
@@ -335,7 +361,7 @@ codetether/
 **Data Flow:**
 
 ```
-OpenCode Storage (local) → Worker → PostgreSQL → Bridge/API → Monitor UI
+Worker (SSE) → A2A Server → PostgreSQL → Bridge/API → Monitor UI
 ```
 
 Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode bridge and Monitor UI read from PostgreSQL, providing a consistent view across server replicas and restarts.
@@ -478,7 +504,7 @@ If you don't see sessions in the production API for a codebase (like "spotlessbi
 
 3. **Verify worker is registered:**
     ```bash
-    curl http://localhost:8000/v1/opencode/database/workers
+    curl http://localhost:8000/v1/agent/database/workers
     ```
 
 For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs.codetether.run/troubleshooting/)

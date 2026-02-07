@@ -33,6 +33,7 @@ interface VoiceChatButtonProps {
   sessionId?: string;
   mode: 'chat' | 'playback';
   playbackStyle?: 'verbatim' | 'summary';
+  compact?: boolean;
 }
 
 interface VoiceSession {
@@ -55,6 +56,7 @@ export default function VoiceChatButton({
   sessionId,
   mode,
   playbackStyle = 'verbatim',
+  compact = false,
 }: VoiceChatButtonProps) {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
@@ -137,10 +139,17 @@ export default function VoiceChatButton({
       <button
         onClick={handleClick}
         disabled={isLoading}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className={compact
+          ? 'inline-flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors p-2'
+          : 'flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors'
+        }
+        aria-label={isLoading ? 'Connecting voice...' : mode === 'chat' ? 'Voice Chat' : 'Playback Session'}
+        title={mode === 'chat' ? 'Voice Chat' : 'Playback Session'}
       >
-        <MicIcon className="w-4 h-4" />
-        {isLoading ? 'Connecting...' : mode === 'chat' ? 'Voice Chat' : 'Playback Session'}
+        <MicIcon className={compact ? 'w-4 h-4' : 'w-4 h-4'} />
+        {!compact && (
+          <span>{isLoading ? 'Connecting...' : mode === 'chat' ? 'Voice Chat' : 'Playback Session'}</span>
+        )}
       </button>
 
       {showVoiceSelector && (

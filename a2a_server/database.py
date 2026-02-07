@@ -931,9 +931,9 @@ async def db_deduplicate_all_codebases() -> Dict[str, int]:
         async with pool.acquire() as conn:
             # Find all paths with duplicates
             rows = await conn.fetch("""
-                SELECT path, COUNT(*) as count 
-                FROM codebases 
-                GROUP BY path 
+                SELECT path, COUNT(*) as count
+                FROM codebases
+                GROUP BY path
                 HAVING COUNT(*) > 1
             """)
 
@@ -3492,4 +3492,202 @@ async def db_add_ralph_log(
             return True
     except Exception as e:
         logger.error(f'Failed to add log to Ralph run {run_id}: {e}')
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Worker Profiles CRUD
+# ---------------------------------------------------------------------------
+
+async def db_list_worker_profiles(
+    tenant_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    builtin_only: bool = False,
+) -> List[Dict[str, Any]]:
+    """List worker profiles visible to the caller.
+
+    Returns builtin profiles + tenant/user-owned custom profiles.
+    """
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        clauses = []
+        params: list = []
+        idx = 1
+
+        if builtin_only:
+            clauses.append('is_builtin = TRUE')
+        else:
+            # Always include builtins
+            parts = ['is_builtin = TRUE']
+            if tenant_id:
+                parts.append(f'tenant_id = ${idx}')
+                params.append(tenant_id)
+                idx += 1
+            if user_id:
+                parts.append(f'user_id = ${idx}')
+                params.append(user_id)
+                idx += 1
+            clauses.append(f"({' OR '.join(parts)})")
+
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        query = f'SELECT * FROM worker_profiles {where} ORDER BY is_builtin DESC, name ASC'
+
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f'Failed to list worker profiles: {e}')
+        return []
+
+
+async def db_get_worker_profile(profile_id: str) -> Optional[Dict[str, Any]]:
+    """Get a single worker profile by ID or slug."""
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM worker_profiles WHERE id = $1 OR slug = $1',
+                profile_id,
+            )
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f'Failed to get worker profile {profile_id}: {e}')
+        return None
+
+
+async def db_create_worker_profile(profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Create a new worker profile. Returns the created row."""
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        profile_id = profile.get('id') or str(uuid.uuid4())
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO worker_profiles
+                    (id, slug, name, description, system_prompt,
+                     default_capabilities, default_model_tier, default_model_ref,
+                     default_agent_type, icon, color, is_builtin, user_id, tenant_id)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                RETURNING *
+                """,
+                profile_id,
+                profile.get('slug'),
+                profile.get('name'),
+                profile.get('description', ''),
+                profile.get('system_prompt', ''),
+                json.dumps(profile.get('default_capabilities', [])),
+                profile.get('default_model_tier', 'balanced'),
+                profile.get('default_model_ref'),
+                profile.get('default_agent_type', 'build'),
+                profile.get('icon', '🤖'),
+                profile.get('color', '#6366f1'),
+                profile.get('is_builtin', False),
+                profile.get('user_id'),
+                profile.get('tenant_id'),
+            )
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f'Failed to create worker profile: {e}')
+        return None
+
+
+async def db_update_worker_profile(
+    profile_id: str, updates: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """Update a worker profile. Returns the updated row.
+
+    Cannot update builtin profiles except for non-critical fields.
+    """
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    allowed_fields = {
+        'name', 'slug', 'description', 'system_prompt',
+        'default_capabilities', 'default_model_tier', 'default_model_ref',
+        'default_agent_type', 'icon', 'color',
+    }
+
+    set_parts = []
+    params: list = []
+    idx = 1
+
+    for field, value in updates.items():
+        if field not in allowed_fields:
+            continue
+        if field == 'default_capabilities':
+            value = json.dumps(value) if isinstance(value, (list, dict)) else value
+        set_parts.append(f'{field} = ${idx}')
+        params.append(value)
+        idx += 1
+
+    if not set_parts:
+        return await db_get_worker_profile(profile_id)
+
+    set_parts.append(f'updated_at = ${idx}')
+    params.append(datetime.utcnow())
+    idx += 1
+
+    params.append(profile_id)
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"""
+                UPDATE worker_profiles
+                SET {', '.join(set_parts)}
+                WHERE id = ${idx} AND is_builtin = FALSE
+                RETURNING *
+                """,
+                *params,
+            )
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f'Failed to update worker profile {profile_id}: {e}')
+        return None
+
+
+async def db_delete_worker_profile(profile_id: str) -> bool:
+    """Delete a custom worker profile. Builtin profiles cannot be deleted."""
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                'DELETE FROM worker_profiles WHERE id = $1 AND is_builtin = FALSE',
+                profile_id,
+            )
+            return result == 'DELETE 1'
+    except Exception as e:
+        logger.error(f'Failed to delete worker profile {profile_id}: {e}')
+        return False
+
+
+async def db_set_worker_profile(worker_id: str, profile_id: Optional[str]) -> bool:
+    """Assign (or clear) a profile on a worker."""
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                'UPDATE workers SET profile_id = $1 WHERE worker_id = $2',
+                profile_id,
+                worker_id,
+            )
+        return True
+    except Exception as e:
+        logger.error(f'Failed to set worker profile: {e}')
         return False

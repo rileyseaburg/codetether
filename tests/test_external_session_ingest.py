@@ -121,7 +121,7 @@ async def test_list_sessions_merges_db_sessions_into_worker_sync(monkeypatch, cl
     monitor_api._get_auth_tokens_set.cache_clear()
 
     # No bridge (so list_sessions uses the in-memory worker cache).
-    monkeypatch.setattr(monitor_api, 'get_opencode_bridge', lambda: None)
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: None)
 
     monkeypatch.setitem(
         monitor_api._worker_sessions,

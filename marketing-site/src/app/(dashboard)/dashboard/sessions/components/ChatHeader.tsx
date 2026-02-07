@@ -7,6 +7,7 @@ import { StreamStatus } from './StreamStatus'
 import { ModeSelector } from './ModeSelector'
 import { ModelSelector } from '@/components/ModelSelector'
 import { SessionActions } from './SessionActions'
+import VoiceChatButton from '../../components/voice/VoiceChatButton'
 
 interface Props {
     selectedSession: Session | null
@@ -105,16 +106,23 @@ export function ChatHeader(p: Props) {
                         </div>
                         <div className="flex items-center gap-1 md:hidden">
                             {/* Mobile Resume button removed - sending a message resumes the session implicitly */}
+                            {p.selectedSession && (
+                                <VoiceChatButton
+                                    codebaseId={p.selectedCodebase}
+                                    sessionId={p.selectedSession.id}
+                                    mode="chat"
+                                    compact
+                                />
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setMobileControlsOpen((prev) => !prev)}
                                 aria-expanded={mobileControlsOpen}
                                 aria-controls="chat-mobile-controls"
-                                className={`inline-flex items-center justify-center rounded-full border p-1 text-gray-600 transition-colors ${
-                                    mobileControlsOpen
+                                className={`inline-flex items-center justify-center rounded-full border p-1 text-gray-600 transition-colors ${mobileControlsOpen
                                         ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-500/20 dark:text-cyan-200'
                                         : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700'
-                                }`}
+                                    }`}
                                 aria-label={mobileControlsOpen ? 'Close controls' : 'Open controls'}
                             >
                                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,11 +143,10 @@ export function ChatHeader(p: Props) {
                         onClick={() => setSettingsOpen((prev) => !prev)}
                         aria-expanded={settingsOpen}
                         aria-controls="chat-settings-panel"
-                        className={`hidden items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors md:inline-flex ${
-                            settingsOpen
+                        className={`hidden items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors md:inline-flex ${settingsOpen
                                 ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-500/20 dark:text-cyan-200'
                                 : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700'
-                        }`}
+                            }`}
                     >
                         Settings
                         <svg
@@ -154,11 +161,10 @@ export function ChatHeader(p: Props) {
                     {p.selectedSession && p.onToggleRLMPane && (
                         <button
                             onClick={p.onToggleRLMPane}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                                p.showRLMPane
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${p.showRLMPane
                                     ? 'bg-cyan-600 text-white'
                                     : 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:hover:bg-cyan-900/50'
-                            }`}
+                                }`}
                             aria-pressed={p.showRLMPane}
                             aria-label="Toggle RLM execution view"
                             title="View RLM execution"
@@ -230,11 +236,10 @@ export function ChatHeader(p: Props) {
                                         p.onToggleRLMPane?.()
                                         setMobileControlsOpen(false)
                                     }}
-                                    className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
-                                        p.showRLMPane
+                                    className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${p.showRLMPane
                                             ? 'bg-cyan-600 text-white'
                                             : 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:hover:bg-cyan-900/50'
-                                    }`}
+                                        }`}
                                     aria-pressed={p.showRLMPane}
                                     aria-label="Toggle RLM execution view"
                                 >

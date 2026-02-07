@@ -24,10 +24,12 @@ from .models import Message, Part
 from .monitor_api import (
     monitor_router,
     nextauth_router,
-    opencode_router,
+    agent_router,
+    opencode_router,  # backward-compat alias
     voice_router,
     log_agent_message,
-    get_opencode_bridge,
+    get_agent_bridge,
+    get_opencode_bridge,  # backward-compat alias → same as get_agent_bridge
 )
 from .worker_sse import (
     worker_sse_router,
@@ -35,6 +37,7 @@ from .worker_sse import (
     notify_workers_of_new_task,
     setup_task_creation_hook,
 )
+from .task_orchestration import orchestrate_task_route
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +149,8 @@ class MCPHTTPServer:
         # Include the monitor router for UI and monitoring endpoints
         self.app.include_router(monitor_router)
 
-        # Include OpenCode router for worker task management API
-        self.app.include_router(opencode_router)
+        # Include agent router for worker task management API (/v1/agent/*)
+        self.app.include_router(agent_router)
 
         # Include voice router for voice session management
         self.app.include_router(voice_router)
@@ -228,9 +231,17 @@ class MCPHTTPServer:
                             'type': 'string',
                             'description': 'Email to notify when task completes',
                         },
+                        'model': {
+                            'type': 'string',
+                            'description': 'Optional model selector (friendly name or provider/model). If both model and model_ref are provided, model_ref wins.',
+                        },
                         'model_ref': {
                             'type': 'string',
                             'description': 'Normalized model identifier (provider:model format, e.g., "openai:gpt-4.1", "anthropic:claude-3.5-sonnet"). If set, only workers supporting this model can claim the task.',
+                        },
+                        'worker_personality': {
+                            'type': 'string',
+                            'description': 'Optional worker personality/profile (e.g., "reviewer", "builder"). Routing policy may map this to target agent/model preferences.',
                         },
                     },
                     'required': ['message'],
@@ -270,9 +281,17 @@ class MCPHTTPServer:
                             'type': 'string',
                             'description': 'Email to notify when task completes',
                         },
+                        'model': {
+                            'type': 'string',
+                            'description': 'Optional model selector (friendly name or provider/model). If both model and model_ref are provided, model_ref wins.',
+                        },
                         'model_ref': {
                             'type': 'string',
                             'description': 'Normalized model identifier (provider:model format). If set, only workers supporting this model can claim the task.',
+                        },
+                        'worker_personality': {
+                            'type': 'string',
+                            'description': 'Optional worker personality/profile for orchestration policy routing.',
                         },
                     },
                     'required': ['agent_name', 'message'],
@@ -333,6 +352,14 @@ class MCPHTTPServer:
                                 'grok-3',
                             ],
                             'description': 'Model to use for this task. Use friendly names like "minimax", "claude-sonnet", "gemini" - they are automatically mapped to the correct provider/model-id format.',
+                        },
+                        'model_ref': {
+                            'type': 'string',
+                            'description': 'Normalized model identifier (provider:model). Takes precedence over model when both are provided.',
+                        },
+                        'worker_personality': {
+                            'type': 'string',
+                            'description': 'Optional worker personality/profile for orchestration policy routing.',
                         },
                         'priority': {
                             'type': 'integer',
@@ -1174,7 +1201,7 @@ class MCPHTTPServer:
     ) -> Dict[str, Any]:
         """Execute A2A operations based on tool name.
 
-        Tools work by calling the OpenCode bridge or REST APIs directly,
+        Tools work by calling the agent bridge or REST APIs directly,
         not requiring an in-process A2A server reference.
         """
         try:
@@ -1407,7 +1434,7 @@ class MCPHTTPServer:
         """
         if codebase_id is None or codebase_id == 'global':
             # Look up the actual 'global' codebase by name
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if bridge:
                 codebases = bridge.list_codebases()
                 for cb in codebases:
@@ -1597,7 +1624,7 @@ class MCPHTTPServer:
 
         This is the primary entry point for the "fire and forget" flow.
         """
-        from .monitor_api import get_opencode_bridge
+        from .monitor_api import get_agent_bridge
 
         message = args.get('message', '')
         conversation_id = args.get('conversation_id') or str(uuid.uuid4())
@@ -1606,7 +1633,23 @@ class MCPHTTPServer:
         )
         priority = args.get('priority', 0)
         notify_email = args.get('notify_email')
-        model_ref = args.get('model_ref')  # Normalized provider:model format
+
+        base_metadata = {
+            'conversation_id': conversation_id,
+            'source': 'send_message_async',
+        }
+        if isinstance(args.get('metadata'), dict):
+            base_metadata.update(args.get('metadata'))
+
+        routing_decision, routed_metadata = orchestrate_task_route(
+            prompt=message,
+            agent_type='general',
+            metadata=base_metadata,
+            model=args.get('model'),
+            model_ref=args.get('model_ref'),
+            worker_personality=args.get('worker_personality'),
+        )
+        model_ref = routing_decision.model_ref
 
         # Validate codebase has a worker and worker supports the model
         validation_error = await self._validate_codebase_worker(
@@ -1615,9 +1658,9 @@ class MCPHTTPServer:
         if validation_error:
             return validation_error
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         # Create a task with the message as the prompt
         task = await bridge.create_task(
@@ -1628,10 +1671,8 @@ class MCPHTTPServer:
             prompt=message,
             agent_type='general',
             priority=priority,
-            metadata={
-                'conversation_id': conversation_id,
-                'source': 'send_message_async',
-            },
+            model=routed_metadata.get('model'),
+            metadata=routed_metadata,
             model_ref=model_ref,
         )
 
@@ -1648,6 +1689,10 @@ class MCPHTTPServer:
             'priority': task.priority,
             'status': task.status.value,
             'created_at': task.created_at.isoformat(),
+            'metadata': task.metadata,
+            'model': task.model,
+            'model_ref': task.metadata.get('model_ref'),
+            'target_agent_name': task.target_agent_name,
         }
 
         # Notify SSE-connected workers
@@ -1671,6 +1716,7 @@ class MCPHTTPServer:
                     user_id=user_id,
                     priority=priority,
                     notify_email=notify_email,
+                    target_agent_name=routing_decision.target_agent_name,
                     model_ref=model_ref,
                 )
                 if task_run:
@@ -1689,6 +1735,12 @@ class MCPHTTPServer:
             'status': 'queued',
             'conversation_id': conversation_id,
             'model_ref': model_ref,
+            'routing': {
+                'complexity': routing_decision.complexity,
+                'model_tier': routing_decision.model_tier,
+                'target_agent_name': routing_decision.target_agent_name,
+                'worker_personality': routing_decision.worker_personality,
+            },
             'timestamp': datetime.now().isoformat(),
         }
 
@@ -1703,7 +1755,7 @@ class MCPHTTPServer:
         This enables explicit agent-to-agent communication where the caller
         needs work done by a specific agent (not just any available worker).
         """
-        from .monitor_api import get_opencode_bridge
+        from .monitor_api import get_agent_bridge
         from datetime import timedelta
 
         agent_name = args.get('agent_name')
@@ -1718,7 +1770,25 @@ class MCPHTTPServer:
         priority = args.get('priority', 0)
         deadline_seconds = args.get('deadline_seconds')
         notify_email = args.get('notify_email')
-        model_ref = args.get('model_ref')  # Normalized provider:model format
+
+        base_metadata = {
+            'conversation_id': conversation_id,
+            'source': 'send_to_agent',
+            'target_agent_name': agent_name,
+        }
+        if isinstance(args.get('metadata'), dict):
+            base_metadata.update(args.get('metadata'))
+
+        routing_decision, routed_metadata = orchestrate_task_route(
+            prompt=message,
+            agent_type='general',
+            metadata=base_metadata,
+            model=args.get('model'),
+            model_ref=args.get('model_ref'),
+            target_agent_name=agent_name,
+            worker_personality=args.get('worker_personality'),
+        )
+        model_ref = routing_decision.model_ref
 
         # Validate codebase has a worker and worker supports the model
         validation_error = await self._validate_codebase_worker(
@@ -1727,9 +1797,9 @@ class MCPHTTPServer:
         if validation_error:
             return validation_error
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         # Create a task with the message as the prompt
         task = await bridge.create_task(
@@ -1740,11 +1810,8 @@ class MCPHTTPServer:
             prompt=message,
             agent_type='general',
             priority=priority,
-            metadata={
-                'conversation_id': conversation_id,
-                'source': 'send_to_agent',
-                'target_agent_name': agent_name,
-            },
+            model=routed_metadata.get('model'),
+            metadata=routed_metadata,
             model_ref=model_ref,
         )
 
@@ -1772,6 +1839,9 @@ class MCPHTTPServer:
             'created_at': task.created_at.isoformat(),
             # Routing fields for notify-time filtering
             'target_agent_name': agent_name,
+            'metadata': task.metadata,
+            'model': task.model,
+            'model_ref': task.metadata.get('model_ref'),
         }
 
         # Notify SSE-connected workers (only the targeted agent will be notified)
@@ -1823,6 +1893,9 @@ class MCPHTTPServer:
             'required_capabilities': None,  # Not used in send_to_agent currently
             'deadline_at': deadline_at.isoformat() if deadline_at else None,
             'model_ref': model_ref,
+            'complexity': routing_decision.complexity,
+            'model_tier': routing_decision.model_tier,
+            'worker_personality': routing_decision.worker_personality,
         }
 
         result = {
@@ -1840,8 +1913,8 @@ class MCPHTTPServer:
 
     async def _create_task(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new task."""
-        from .monitor_api import get_opencode_bridge
-        from .opencode_bridge import AgentTaskStatus, resolve_model
+        from .monitor_api import get_agent_bridge
+        from .agent_bridge import AgentTaskStatus, resolve_model
 
         title = args.get('title')
         description = args.get('description', '')
@@ -1853,10 +1926,28 @@ class MCPHTTPServer:
         # Resolve user-friendly model name to full provider/model-id
         model_input = args.get('model')
         model = resolve_model(model_input) if model_input else None
+        model_ref_input = args.get('model_ref')
 
-        bridge = get_opencode_bridge()
+        base_metadata = {
+            'source': 'create_task',
+        }
+        if isinstance(args.get('metadata'), dict):
+            base_metadata.update(args.get('metadata'))
+
+        routing_decision, routed_metadata = orchestrate_task_route(
+            prompt=description,
+            agent_type=agent_type,
+            metadata=base_metadata,
+            model=model,
+            model_ref=model_ref_input,
+            worker_personality=args.get('worker_personality'),
+        )
+        model_ref = routing_decision.model_ref
+        effective_model = routed_metadata.get('model') or model
+
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         task = await bridge.create_task(
             codebase_id=codebase_id,
@@ -1864,7 +1955,9 @@ class MCPHTTPServer:
             prompt=description,
             agent_type=agent_type,
             priority=priority,
-            model=model,
+            model=effective_model,
+            metadata=routed_metadata,
+            model_ref=model_ref,
         )
 
         if task is None:
@@ -1878,9 +1971,12 @@ class MCPHTTPServer:
             'codebase_id': task.codebase_id,
             'agent_type': task.agent_type,
             'model': task.model,
+            'model_ref': task.metadata.get('model_ref'),
             'priority': task.priority,
             'status': task.status.value,
             'created_at': task.created_at.isoformat(),
+            'metadata': task.metadata,
+            'target_agent_name': task.target_agent_name,
         }
         try:
             notified = await notify_workers_of_new_task(task_data)
@@ -1910,6 +2006,8 @@ class MCPHTTPServer:
                     automation_id=automation_id,
                     priority=priority,
                     notify_email=notify_email,
+                    target_agent_name=routing_decision.target_agent_name,
+                    model_ref=model_ref,
                 )
                 if task_run:
                     run_id = task_run.id
@@ -1925,20 +2023,27 @@ class MCPHTTPServer:
             'description': task.prompt,
             'codebase_id': task.codebase_id,
             'model': task.model,
+            'model_ref': task.metadata.get('model_ref'),
+            'routing': {
+                'complexity': routing_decision.complexity,
+                'model_tier': routing_decision.model_tier,
+                'target_agent_name': routing_decision.target_agent_name,
+                'worker_personality': routing_decision.worker_personality,
+            },
             'status': task.status.value,
             'created_at': task.created_at.isoformat(),
         }
 
     async def _get_task(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Get task details."""
-        from .monitor_api import get_opencode_bridge
-        from .opencode_bridge import AgentTaskStatus
+        from .monitor_api import get_agent_bridge
+        from .agent_bridge import AgentTaskStatus
 
         task_id = args.get('task_id')
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         task = await bridge.get_task(task_id)
 
@@ -1979,12 +2084,12 @@ class MCPHTTPServer:
 
     async def _list_tasks(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """List all tasks."""
-        from .monitor_api import get_opencode_bridge
-        from .opencode_bridge import AgentTaskStatus
+        from .monitor_api import get_agent_bridge
+        from .agent_bridge import AgentTaskStatus
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         codebase_id = args.get('codebase_id')
         status_filter = args.get('status')
@@ -2027,9 +2132,9 @@ class MCPHTTPServer:
         """Cancel a task."""
         task_id = args.get('task_id')
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         success = await bridge.cancel_task(task_id)
         if not success:
@@ -2119,9 +2224,9 @@ class MCPHTTPServer:
 
     async def _get_current_codebase(self) -> Dict[str, Any]:
         """Get the current codebase context from the bridge."""
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         # Get all codebases and find the one we're running in
         codebases = bridge.list_codebases()
@@ -2168,9 +2273,9 @@ class MCPHTTPServer:
 
     async def _list_codebases(self) -> Dict[str, Any]:
         """List all registered codebases."""
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         codebases = bridge.list_codebases()
 
@@ -2211,7 +2316,7 @@ class MCPHTTPServer:
         if worker_id:
             payload['worker_id'] = worker_id
 
-        api_url = 'http://localhost:8001/v1/opencode/codebases'
+        api_url = 'http://localhost:8001/v1/agent/codebases'
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json=payload) as resp:
@@ -2253,7 +2358,7 @@ class MCPHTTPServer:
         if not codebase_id:
             return {'error': 'codebase_id is required'}
 
-        api_url = f'http://localhost:8001/v1/opencode/codebases/{codebase_id}'
+        api_url = f'http://localhost:8001/v1/agent/codebases/{codebase_id}'
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(api_url) as resp:
@@ -2287,7 +2392,7 @@ class MCPHTTPServer:
         if not codebase_id:
             return {'error': 'codebase_id is required'}
 
-        api_url = f'http://localhost:8001/v1/opencode/codebases/{codebase_id}'
+        api_url = f'http://localhost:8001/v1/agent/codebases/{codebase_id}'
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.delete(api_url) as resp:
@@ -2930,9 +3035,9 @@ class MCPHTTPServer:
 
     async def _get_task_updates(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Get recent task updates."""
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge is None:
-            return {'error': 'OpenCode bridge not available'}
+            return {'error': 'Agent bridge not available'}
 
         since_timestamp = args.get('since_timestamp')
         task_ids = args.get('task_ids', [])

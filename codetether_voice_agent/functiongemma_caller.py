@@ -15,9 +15,6 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-import torch
-from transformers import AutoModelForCausalLM, AutoProcessor
-
 logger = logging.getLogger(__name__)
 
 CODETETHER_TOOLS: List[Dict[str, Any]] = [
@@ -182,8 +179,8 @@ class FunctionGemmaCaller:
                 model ID or a local path. Defaults to "google/functiongemma-270m-it".
         """
         self.model_path = model_path
-        self._model: Optional[AutoModelForCausalLM] = None
-        self._processor: Optional[AutoProcessor] = None
+        self._model: Optional[Any] = None
+        self._processor: Optional[Any] = None
 
     def _load_model(self) -> None:
         """Load the FunctionGemma model and processor.
@@ -198,6 +195,11 @@ class FunctionGemmaCaller:
             return
 
         try:
+            # Delay heavy ML imports until first intent parse so worker process
+            # startup stays fast and avoids LiveKit process-init timeouts.
+            import torch
+            from transformers import AutoModelForCausalLM, AutoProcessor
+
             logger.info(f'Loading FunctionGemma model from {self.model_path}')
             self._processor = AutoProcessor.from_pretrained(
                 self.model_path,

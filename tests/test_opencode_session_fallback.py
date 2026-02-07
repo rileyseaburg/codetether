@@ -37,7 +37,7 @@ async def test_list_sessions_returns_db_results_without_bridge(monkeypatch, clie
     codebase_id = 'ec77c942'
 
     # Simulate a node where the OpenCode bridge is unavailable/empty.
-    monkeypatch.setattr(monitor_api, 'get_opencode_bridge', lambda: None)
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: None)
 
     async def fake_db_list_sessions(codebase_id: str, limit: int = 500):
         return [
@@ -69,7 +69,7 @@ async def test_list_sessions_returns_db_results_without_bridge(monkeypatch, clie
 async def test_list_sessions_returns_empty_list_when_codebase_exists(monkeypatch, client):
     codebase_id = 'ec77c942'
 
-    monkeypatch.setattr(monitor_api, 'get_opencode_bridge', lambda: None)
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: None)
 
     async def fake_db_list_sessions(codebase_id: str, limit: int = 500):
         return []
@@ -104,7 +104,7 @@ async def test_list_sessions_returns_empty_list_when_codebase_exists(monkeypatch
 async def test_list_sessions_404_when_codebase_unknown(monkeypatch, client):
     codebase_id = 'doesnotexist'
 
-    monkeypatch.setattr(monitor_api, 'get_opencode_bridge', lambda: None)
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: None)
 
     async def fake_db_list_sessions(codebase_id: str, limit: int = 500):
         return []

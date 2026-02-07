@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createGlobalTaskV1OpencodeTasksPost, getTaskV1OpencodeTasksTaskIdGet } from '@/lib/api'
+import { createGlobalTaskV1AgentTasksPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 // Types
 interface Message {
@@ -179,7 +179,7 @@ function LoadingIndicator() {
 }
 
 async function createTask(prompt: string): Promise<TaskResponse> {
-  const result = await createGlobalTaskV1OpencodeTasksPost({
+  const result = await createGlobalTaskV1AgentTasksPost({
     body: {
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
       prompt: prompt,
@@ -203,7 +203,7 @@ async function createTask(prompt: string): Promise<TaskResponse> {
 }
 
 async function getTask(taskId: string): Promise<TaskResponse> {
-  const result = await getTaskV1OpencodeTasksTaskIdGet({
+  const result = await getTaskV1AgentTasksTaskIdGet({
     path: { task_id: taskId },
   })
 

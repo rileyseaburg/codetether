@@ -125,6 +125,40 @@ spec:
               value: "{{ include "a2a-server.fullname" . }}-knative-worker-template"
             - name: KUBERNETES_NAMESPACE
               value: {{ .Release.Namespace | quote }}
+            - name: CRON_DRIVER
+              value: {{ .Values.knative.cron.driver | default "auto" | quote }}
+            - name: CRON_DEFAULT_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: CRON_TRIGGER_BASE_URL
+              value: {{ default (printf "http://%s.%s.svc.cluster.local:%v" (include "a2a-server.fullname" .) .Release.Namespace .Values.service.port) .Values.knative.cron.triggerBaseUrl | quote }}
+            {{- if .Values.knative.cron.internalTokenSecret }}
+            - name: CRON_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.knative.cron.internalTokenSecret | quote }}
+                  key: {{ .Values.knative.cron.internalTokenSecretKey | default "CRON_INTERNAL_TOKEN" | quote }}
+            {{- else }}
+            - name: CRON_INTERNAL_TOKEN
+              value: {{ .Values.knative.cron.internalToken | quote }}
+            {{- end }}
+            - name: CRON_JOB_IMAGE
+              value: {{ .Values.knative.cron.jobImage | default "curlimages/curl:8.11.1" | quote }}
+            - name: CRON_TENANT_NAMESPACE_MODE
+              value: {{ .Values.knative.cron.tenantNamespaceMode | default true | quote }}
+            - name: CRON_ALLOW_CROSS_NAMESPACE
+              value: {{ .Values.knative.cron.allowCrossNamespace | default false | quote }}
+            - name: CRON_STARTING_DEADLINE_SECONDS
+              value: {{ .Values.knative.cron.startingDeadlineSeconds | default 300 | quote }}
+            - name: CRON_SUCCESS_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.successHistoryLimit | default 1 | quote }}
+            - name: CRON_FAILURE_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.failureHistoryLimit | default 3 | quote }}
+            - name: CRON_JOB_TTL_SECONDS
+              value: {{ .Values.knative.cron.jobTtlSeconds | default 600 | quote }}
+            {{- if .Values.knative.cron.serviceAccountName }}
+            - name: CRON_JOB_SERVICE_ACCOUNT
+              value: {{ .Values.knative.cron.serviceAccountName | quote }}
+            {{- end }}
             {{- end }}
             {{- end }}
           resources:
@@ -278,6 +312,50 @@ spec:
               value: {{ .Values.minio.accessKey | quote }}
             - name: MINIO_SECRET_KEY
               value: {{ .Values.minio.secretKey | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.knative.enabled }}
+            - name: KNATIVE_ENABLED
+              value: "true"
+            - name: KNATIVE_BROKER_URL
+              value: "http://broker-ingress.knative-eventing.svc.cluster.local/{{ .Release.Namespace }}/{{ .Values.knative.broker | default "task-broker" }}"
+            - name: KNATIVE_TEMPLATE_CONFIGMAP
+              value: "{{ include "a2a-server.fullname" . }}-knative-worker-template"
+            - name: KUBERNETES_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: CRON_DRIVER
+              value: {{ .Values.knative.cron.driver | default "auto" | quote }}
+            - name: CRON_DEFAULT_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: CRON_TRIGGER_BASE_URL
+              value: {{ default (printf "http://%s.%s.svc.cluster.local:%v" (include "a2a-server.fullname" .) .Release.Namespace .Values.service.port) .Values.knative.cron.triggerBaseUrl | quote }}
+            {{- if .Values.knative.cron.internalTokenSecret }}
+            - name: CRON_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.knative.cron.internalTokenSecret | quote }}
+                  key: {{ .Values.knative.cron.internalTokenSecretKey | default "CRON_INTERNAL_TOKEN" | quote }}
+            {{- else }}
+            - name: CRON_INTERNAL_TOKEN
+              value: {{ .Values.knative.cron.internalToken | quote }}
+            {{- end }}
+            - name: CRON_JOB_IMAGE
+              value: {{ .Values.knative.cron.jobImage | default "curlimages/curl:8.11.1" | quote }}
+            - name: CRON_TENANT_NAMESPACE_MODE
+              value: {{ .Values.knative.cron.tenantNamespaceMode | default true | quote }}
+            - name: CRON_ALLOW_CROSS_NAMESPACE
+              value: {{ .Values.knative.cron.allowCrossNamespace | default false | quote }}
+            - name: CRON_STARTING_DEADLINE_SECONDS
+              value: {{ .Values.knative.cron.startingDeadlineSeconds | default 300 | quote }}
+            - name: CRON_SUCCESS_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.successHistoryLimit | default 1 | quote }}
+            - name: CRON_FAILURE_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.failureHistoryLimit | default 3 | quote }}
+            - name: CRON_JOB_TTL_SECONDS
+              value: {{ .Values.knative.cron.jobTtlSeconds | default 600 | quote }}
+            {{- if .Values.knative.cron.serviceAccountName }}
+            - name: CRON_JOB_SERVICE_ACCOUNT
+              value: {{ .Values.knative.cron.serviceAccountName | quote }}
             {{- end }}
             {{- end }}
           resources:
@@ -479,6 +557,50 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.livekit.existingSecret.apiSecret.name }}
                   key: {{ $.Values.livekit.existingSecret.apiSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- if $.Values.knative.enabled }}
+            - name: KNATIVE_ENABLED
+              value: "true"
+            - name: KNATIVE_BROKER_URL
+              value: "http://broker-ingress.knative-eventing.svc.cluster.local/{{ $.Release.Namespace }}/{{ $.Values.knative.broker | default "task-broker" }}"
+            - name: KNATIVE_TEMPLATE_CONFIGMAP
+              value: "{{ include "a2a-server.fullname" $ }}-knative-worker-template"
+            - name: KUBERNETES_NAMESPACE
+              value: {{ $.Release.Namespace | quote }}
+            - name: CRON_DRIVER
+              value: {{ $.Values.knative.cron.driver | default "auto" | quote }}
+            - name: CRON_DEFAULT_NAMESPACE
+              value: {{ $.Release.Namespace | quote }}
+            - name: CRON_TRIGGER_BASE_URL
+              value: {{ default (printf "http://%s.%s.svc.cluster.local:%v" (include "a2a-server.fullname" $) $.Release.Namespace $.Values.service.port) $.Values.knative.cron.triggerBaseUrl | quote }}
+            {{- if $.Values.knative.cron.internalTokenSecret }}
+            - name: CRON_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.knative.cron.internalTokenSecret | quote }}
+                  key: {{ $.Values.knative.cron.internalTokenSecretKey | default "CRON_INTERNAL_TOKEN" | quote }}
+            {{- else }}
+            - name: CRON_INTERNAL_TOKEN
+              value: {{ $.Values.knative.cron.internalToken | quote }}
+            {{- end }}
+            - name: CRON_JOB_IMAGE
+              value: {{ $.Values.knative.cron.jobImage | default "curlimages/curl:8.11.1" | quote }}
+            - name: CRON_TENANT_NAMESPACE_MODE
+              value: {{ $.Values.knative.cron.tenantNamespaceMode | default true | quote }}
+            - name: CRON_ALLOW_CROSS_NAMESPACE
+              value: {{ $.Values.knative.cron.allowCrossNamespace | default false | quote }}
+            - name: CRON_STARTING_DEADLINE_SECONDS
+              value: {{ $.Values.knative.cron.startingDeadlineSeconds | default 300 | quote }}
+            - name: CRON_SUCCESS_HISTORY_LIMIT
+              value: {{ $.Values.knative.cron.successHistoryLimit | default 1 | quote }}
+            - name: CRON_FAILURE_HISTORY_LIMIT
+              value: {{ $.Values.knative.cron.failureHistoryLimit | default 3 | quote }}
+            - name: CRON_JOB_TTL_SECONDS
+              value: {{ $.Values.knative.cron.jobTtlSeconds | default 600 | quote }}
+            {{- if $.Values.knative.cron.serviceAccountName }}
+            - name: CRON_JOB_SERVICE_ACCOUNT
+              value: {{ $.Values.knative.cron.serviceAccountName | quote }}
             {{- end }}
             {{- end }}
           resources:

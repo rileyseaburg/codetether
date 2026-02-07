@@ -210,6 +210,50 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         return decode_keycloak_token(token)
 
 
+def _parse_realm_from_issuer(issuer: Optional[str]) -> Optional[str]:
+    """Extract Keycloak realm from issuer URL."""
+    if not issuer or '/realms/' not in issuer:
+        return None
+    realm_part = issuer.split('/realms/', 1)[1]
+    realm_name = realm_part.split('/', 1)[0].strip()
+    return realm_name or None
+
+
+def _normalize_keycloak_identity(payload: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    """
+    Normalize user identity claims from Keycloak payloads.
+
+    Handles common cases where `sub` or `email` are missing from access tokens by
+    deriving stable fallbacks.
+    """
+    subject = (
+        payload.get('sub')
+        or payload.get('sid')
+        or payload.get('jti')
+        or payload.get('user_id')
+        or payload.get('id')
+    )
+    email = (
+        payload.get('email')
+        or payload.get('preferred_username')
+        or payload.get('upn')
+    )
+
+    # If subject is missing but we have an email/username, derive a stable ID.
+    if not subject and email:
+        subject = f'keycloak:{hashlib.sha256(email.encode()).hexdigest()[:24]}'
+
+    # If email is missing but we have a subject, provide a deterministic fallback.
+    if not email and subject:
+        email = f'{subject}@keycloak.local'
+
+    return {
+        'sub': subject,
+        'email': email,
+        'realm_name': _parse_realm_from_issuer(payload.get('iss')),
+    }
+
+
 def _decode_keycloak_token_unverified(token: str) -> Dict[str, Any]:
     """
     Decode a Keycloak token WITHOUT signature verification.
@@ -246,28 +290,9 @@ def _decode_keycloak_token_unverified(token: str) -> Dict[str, Any]:
             f'Payload: sub={payload.get("sub")}, email={payload.get("email")}, iss={payload.get("iss")}'
         )
 
-        # Basic sanity checks - try alternative claim names
-        # Keycloak tokens should have 'sub', but some configurations omit it
-        # Fall back to sid (session ID), jti (JWT ID), or derive from email
-        subject = (
-            payload.get('sub')
-            or payload.get('sid')  # Session ID as fallback
-            or payload.get('jti')  # JWT ID as fallback
-            or payload.get('user_id')
-            or payload.get('id')
-        )
-        email = payload.get('email') or payload.get('preferred_username')
-
-        # If still no subject but we have email, generate a deterministic ID from email
-        if not subject and email:
-            import hashlib
-
-            subject = (
-                f'keycloak:{hashlib.sha256(email.encode()).hexdigest()[:16]}'
-            )
-            logger.warning(
-                f'No sub claim in token, using derived subject: {subject}'
-            )
+        identity = _normalize_keycloak_identity(payload)
+        subject = identity.get('sub')
+        email = identity.get('email')
 
         if not subject:
             logger.error(
@@ -302,13 +327,14 @@ def _decode_keycloak_token_unverified(token: str) -> Dict[str, Any]:
                 )
 
         return {
-            'sub': payload.get('sub'),
-            'email': payload.get('email'),
+            'sub': subject,
+            'email': email,
             'type': 'keycloak',
             'exp': payload.get('exp'),
             'iat': payload.get('iat'),
             'preferred_username': payload.get('preferred_username'),
             'name': payload.get('name'),
+            'realm_name': identity.get('realm_name'),
             'roles': _extract_keycloak_roles(payload),
         }
     except HTTPException:
@@ -380,15 +406,24 @@ def decode_keycloak_token(token: str) -> Dict[str, Any]:
             },  # Keycloak tokens may not have standard audience
         )
 
+        # Normalize claims because some Keycloak access tokens omit standard claims.
+        identity = _normalize_keycloak_identity(payload)
+        if not identity.get('sub') or not identity.get('email'):
+            raise HTTPException(
+                status_code=401,
+                detail='Invalid Keycloak token: missing identity claims',
+            )
+
         # Map Keycloak claims to our format
         return {
-            'sub': payload.get('sub'),
-            'email': payload.get('email'),
+            'sub': identity.get('sub'),
+            'email': identity.get('email'),
             'type': 'keycloak',  # Mark as Keycloak token
             'exp': payload.get('exp'),
             'iat': payload.get('iat'),
             'preferred_username': payload.get('preferred_username'),
             'name': payload.get('name'),
+            'realm_name': identity.get('realm_name'),
             'roles': _extract_keycloak_roles(payload),
         }
     except JoseJWTError as e:
@@ -436,6 +471,7 @@ def _extract_keycloak_roles(payload: Dict[str, Any]) -> List[str]:
 
 
 async def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Optional[Dict[str, Any]]:
     """Get current authenticated user from JWT or API key."""
@@ -456,7 +492,7 @@ async def get_current_user(
         if payload.get('type') == 'keycloak':
             # For Keycloak users, create a virtual user object from token claims
             # or look them up / create them in our database
-            return await _get_or_create_keycloak_user(payload)
+            return await _get_or_create_keycloak_user(payload, request=request)
 
         # Handle self-issued tokens (user must exist in DB)
         user = await get_user_by_id(payload['sub'])
@@ -474,10 +510,13 @@ async def get_current_user(
 
 async def _get_or_create_keycloak_user(
     payload: Dict[str, Any],
+    request: Optional[Request] = None,
 ) -> Dict[str, Any]:
-    """Get or create a user from Keycloak token claims."""
-    keycloak_sub = payload.get('sub')
-    email = payload.get('email')
+    """Resolve a Keycloak-authenticated user for APIs expecting user-shaped dicts."""
+    identity = _normalize_keycloak_identity(payload)
+    keycloak_sub = identity.get('sub')
+    email = identity.get('email')
+    realm_name = payload.get('realm_name') or identity.get('realm_name')
 
     if not keycloak_sub or not email:
         raise HTTPException(
@@ -485,77 +524,79 @@ async def _get_or_create_keycloak_user(
             detail='Invalid Keycloak token: missing sub or email',
         )
 
-    pool = await get_pool()
-    if not pool:
-        # If DB is unavailable, return a virtual user from token claims
-        logger.warning('Database unavailable, returning virtual Keycloak user')
-        return {
-            'id': keycloak_sub,
-            'email': email,
-            'first_name': payload.get('name', '').split()[0]
-            if payload.get('name')
-            else None,
-            'last_name': ' '.join(payload.get('name', '').split()[1:])
-            if payload.get('name')
-            else None,
-            'status': 'active',
-            'tier': 'free',  # Default tier for Keycloak users
-            'keycloak_sub': keycloak_sub,
-            'roles': payload.get('roles', []),
-            'usage_count': 0,
-            'usage_limit': 10,  # Free tier default
-        }
-
-    async with pool.acquire() as conn:
-        # Try to find existing user by Keycloak subject
-        user = await conn.fetchrow(
-            'SELECT * FROM users WHERE keycloak_sub = $1 OR email = $2',
-            keycloak_sub,
-            email,
+    tenant_id = payload.get('tenant_id')
+    if not tenant_id and request is not None:
+        tenant_id = getattr(request.state, 'tenant_id', None) or request.headers.get(
+            'X-Tenant-ID'
         )
 
-        if user:
-            # Update keycloak_sub if not set
-            if not user['keycloak_sub']:
-                await conn.execute(
-                    'UPDATE users SET keycloak_sub = $1 WHERE id = $2',
-                    keycloak_sub,
-                    user['id'],
-                )
-            return dict(user)
+    if not tenant_id and realm_name:
+        try:
+            from .database import get_tenant_by_realm
 
-        # Create new user from Keycloak claims
-        user_id = str(uuid.uuid4())
-        name_parts = (payload.get('name') or '').split()
+            tenant = await get_tenant_by_realm(realm_name)
+            if tenant:
+                tenant_id = tenant.get('id') or tenant.get('tenant_id')
+        except Exception as e:
+            logger.debug(f'Could not resolve tenant from realm {realm_name}: {e}')
+
+    def _build_virtual_user() -> Dict[str, Any]:
+        name = payload.get('name') or ''
+        name_parts = name.split()
         first_name = name_parts[0] if name_parts else None
         last_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else None
-
-        await conn.execute(
-            """
-            INSERT INTO users (id, email, first_name, last_name, status, tier, keycloak_sub, created_at)
-            VALUES ($1, $2, $3, $4, 'active', 'free', $5, NOW())
-            """,
-            user_id,
-            email,
-            first_name,
-            last_name,
-            keycloak_sub,
-        )
-
-        logger.info(f'Created user from Keycloak: {email} ({keycloak_sub})')
-
         return {
-            'id': user_id,
+            'id': keycloak_sub,
+            'user_id': keycloak_sub,
             'email': email,
             'first_name': first_name,
             'last_name': last_name,
             'status': 'active',
             'tier': 'free',
+            'tier_id': 'free',
             'keycloak_sub': keycloak_sub,
             'roles': payload.get('roles', []),
             'usage_count': 0,
             'usage_limit': 10,
+            'tasks_used_this_month': 0,
+            'tasks_limit': 10,
+            'tenant_id': tenant_id,
+            'realm_name': realm_name,
         }
+
+    pool = await get_pool()
+    if not pool:
+        # If DB is unavailable, return a virtual user from token claims.
+        logger.warning('Database unavailable, returning virtual Keycloak user')
+        return _build_virtual_user()
+
+    async with pool.acquire() as conn:
+        # Link to an existing local account by email when available.
+        user = await conn.fetchrow(
+            'SELECT * FROM users WHERE lower(email) = lower($1)',
+            email,
+        )
+        if user:
+            user_dict = dict(user)
+            if tenant_id and not user_dict.get('tenant_id'):
+                try:
+                    await conn.execute(
+                        'UPDATE users SET tenant_id = $1 WHERE id = $2 AND tenant_id IS NULL',
+                        tenant_id,
+                        user_dict['id'],
+                    )
+                    user_dict['tenant_id'] = tenant_id
+                except Exception as e:
+                    logger.debug(
+                        f'Failed to backfill tenant_id on user {user_dict.get("id")}: {e}'
+                    )
+            user_dict['keycloak_sub'] = keycloak_sub
+            user_dict['roles'] = payload.get('roles', [])
+            user_dict['realm_name'] = realm_name
+            return user_dict
+
+        # If no local self-service account exists, expose a virtual user.
+        return _build_virtual_user()
 
 
 async def require_user(
@@ -1153,7 +1194,7 @@ async def get_billing_status(user: Dict[str, Any] = Depends(require_user)):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT 
+            SELECT
                 u.tier_id,
                 st.name as tier_name,
                 u.stripe_subscription_status,

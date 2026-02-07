@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getSessionMessagesByIdV1OpencodeCodebasesCodebaseIdSessionsSessionIdMessagesGet } from '@/lib/api'
+import { getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet } from '@/lib/api'
 
 export interface PRDChatMessage {
   role: 'user' | 'assistant'
@@ -71,7 +71,7 @@ export function useAIPRDSessions(codebaseId: string | undefined) {
     }
 
     try {
-      const { data, error: apiError } = await getSessionMessagesByIdV1OpencodeCodebasesCodebaseIdSessionsSessionIdMessagesGet({
+      const { data, error: apiError } = await getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet({
         path: { codebase_id: codebaseId, session_id: openCodeSessionId }
       })
 

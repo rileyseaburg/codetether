@@ -111,21 +111,21 @@ log_step() {
 cleanup() {
     if [ "$CLEANUP" = true ]; then
         log_info "Cleaning up test resources..."
-        
+
         # Delete Knative service if exists (use short session ID for resource name)
         if [ -n "$SESSION_ID" ]; then
             SHORT_SESSION="${SESSION_ID:0:12}"
-            kubectl delete ksvc "opencode-session-${SHORT_SESSION}" -n "$NAMESPACE" 2>/dev/null || true
+            kubectl delete ksvc "codetether-session-${SHORT_SESSION}" -n "$NAMESPACE" 2>/dev/null || true
             kubectl delete trigger "trigger-session-${SHORT_SESSION}" -n "$NAMESPACE" 2>/dev/null || true
         fi
-        
+
         log_success "Cleanup complete"
     else
         log_warning "Skipping cleanup (--no-cleanup specified)"
         if [ -n "$SESSION_ID" ]; then
             SHORT_SESSION="${SESSION_ID:0:12}"
             log_info "Resources to clean manually:"
-            echo "  kubectl delete ksvc opencode-session-${SHORT_SESSION} -n $NAMESPACE"
+            echo "  kubectl delete ksvc codetether-session-${SHORT_SESSION} -n $NAMESPACE"
             echo "  kubectl delete trigger trigger-session-${SHORT_SESSION} -n $NAMESPACE"
         fi
     fi
@@ -188,9 +188,9 @@ log_step 1 "Getting codebase"
 
 if [ -z "$CODEBASE_ID" ]; then
     log_info "No codebase ID specified, fetching first available codebase..."
-    CODEBASE_RESPONSE=$(curl -s "${API_URL}/v1/opencode/codebases" 2>/dev/null)
+    CODEBASE_RESPONSE=$(curl -s "${API_URL}/v1/agent/codebases" 2>/dev/null)
     CODEBASE_ID=$(echo "$CODEBASE_RESPONSE" | jq -r '.[0].id // empty')
-    
+
     if [ -z "$CODEBASE_ID" ]; then
         log_error "No codebases found. Please create one first or specify --codebase-id"
         exit 1
@@ -200,7 +200,7 @@ fi
 log_success "Using codebase: $CODEBASE_ID"
 
 # Get codebase details
-CODEBASE_INFO=$(curl -s "${API_URL}/v1/opencode/codebases/${CODEBASE_ID}" 2>/dev/null)
+CODEBASE_INFO=$(curl -s "${API_URL}/v1/agent/codebases/${CODEBASE_ID}" 2>/dev/null)
 CODEBASE_NAME=$(echo "$CODEBASE_INFO" | jq -r '.name // "unknown"')
 CODEBASE_PATH=$(echo "$CODEBASE_INFO" | jq -r '.path // "unknown"')
 log_info "Codebase name: $CODEBASE_NAME"
@@ -211,9 +211,9 @@ log_step 2 "Getting session"
 
 if [ -z "$SESSION_ID" ]; then
     log_info "No session ID specified, fetching most recent session..."
-    SESSIONS_RESPONSE=$(curl -s "${API_URL}/v1/opencode/codebases/${CODEBASE_ID}/sessions" 2>/dev/null)
+    SESSIONS_RESPONSE=$(curl -s "${API_URL}/v1/agent/codebases/${CODEBASE_ID}/sessions" 2>/dev/null)
     SESSION_ID=$(echo "$SESSIONS_RESPONSE" | jq -r '.sessions[0].id // empty')
-    
+
     if [ -z "$SESSION_ID" ]; then
         log_warning "No existing sessions found"
         log_info "Will use codebase-level task submission"
@@ -229,7 +229,7 @@ fi
 # Derive the Knative service name
 if [ -n "$SESSION_ID" ]; then
     SHORT_SESSION="${SESSION_ID:0:12}"
-    KSVC_NAME="opencode-session-${SHORT_SESSION}"
+    KSVC_NAME="codetether-session-${SHORT_SESSION}"
 else
     KSVC_NAME="opencode-codebase-${CODEBASE_ID}"
 fi
@@ -259,10 +259,10 @@ TRIGGER_JSON=$(cat <<EOF
 EOF
 )
 
-log_info "Trigger request to /v1/opencode/codebases/${CODEBASE_ID}/trigger:"
+log_info "Trigger request to /v1/agent/codebases/${CODEBASE_ID}/trigger:"
 echo "$TRIGGER_JSON" | jq .
 
-TRIGGER_RESPONSE=$(curl -s -X POST "${API_URL}/v1/opencode/codebases/${CODEBASE_ID}/trigger" \
+TRIGGER_RESPONSE=$(curl -s -X POST "${API_URL}/v1/agent/codebases/${CODEBASE_ID}/trigger" \
     -H "Content-Type: application/json" \
     -d "$TRIGGER_JSON" 2>/dev/null)
 
@@ -306,9 +306,9 @@ while true; do
         log_warning "Timeout waiting for Knative service (${TIMEOUT}s)"
         break
     fi
-    
+
     KSVC_STATUS=$(kubectl get ksvc "$KSVC_NAME" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "NotFound")
-    
+
     if [ "$KSVC_STATUS" = "True" ]; then
         log_success "Knative service is ready!"
         KSVC_URL=$(kubectl get ksvc "$KSVC_NAME" -n "$NAMESPACE" -o jsonpath='{.status.url}' 2>/dev/null)
@@ -326,7 +326,7 @@ while true; do
     else
         log_info "Knative service status: $KSVC_STATUS (${ELAPSED}s)"
     fi
-    
+
     sleep $POLL_INTERVAL
 done
 
@@ -343,7 +343,7 @@ kubectl get trigger -n "$NAMESPACE" 2>/dev/null || echo "  (none found)"
 
 echo ""
 echo "OpenCode Worker Pods:"
-kubectl get pods -n "$NAMESPACE" -l "app.kubernetes.io/component=opencode-worker" 2>/dev/null || \
+kubectl get pods -n "$NAMESPACE" -l "app.kubernetes.io/component=codetether-worker" 2>/dev/null || \
 kubectl get pods -n "$NAMESPACE" | grep -E "opencode|session" || echo "  (none found)"
 
 # Step 7: Check task status
@@ -351,14 +351,14 @@ log_step 7 "Checking task status"
 
 if [ -n "$TASK_ID" ]; then
     log_info "Polling task status..."
-    
+
     for i in {1..10}; do
-        TASK_STATUS_RESPONSE=$(curl -s "${API_URL}/v1/opencode/tasks/${TASK_ID}" 2>/dev/null)
+        TASK_STATUS_RESPONSE=$(curl -s "${API_URL}/v1/agent/tasks/${TASK_ID}" 2>/dev/null)
         TASK_STATUS=$(echo "$TASK_STATUS_RESPONSE" | jq -r '.status // empty')
-        
+
         if [ -n "$TASK_STATUS" ]; then
             log_info "Task status: $TASK_STATUS"
-            
+
             case "$TASK_STATUS" in
                 "completed"|"complete"|"done")
                     log_success "Task completed!"
@@ -372,7 +372,7 @@ if [ -n "$TASK_ID" ]; then
                     ;;
             esac
         fi
-        
+
         sleep 3
     done
 else

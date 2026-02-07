@@ -162,6 +162,7 @@ wait_for_deployment_by_labels() {
 helm_upgrade() {
     local -a extra=("$@")
     local -a cmd=(helm upgrade --install "$RELEASE_NAME" "$CHART_PATH")
+    local -a extra_from_env=()
 
     if [ "$CHART_SOURCE" = "oci" ]; then
         cmd+=(--version "$CHART_VERSION")
@@ -172,6 +173,14 @@ helm_upgrade() {
     fi
 
     cmd+=(-n "$NAMESPACE" --create-namespace )
+
+    if [ -n "${EXTRA_HELM_ARGS:-}" ]; then
+        # EXTRA_HELM_ARGS should contain complete Helm args, e.g.
+        # '--set-string knative.cron.driver=knative --set knative.enabled=true'
+        # shellcheck disable=SC2206
+        extra_from_env=( ${EXTRA_HELM_ARGS} )
+        extra+=("${extra_from_env[@]}")
+    fi
 
     log_info "Executing Helm upgrade (release=$RELEASE_NAME, ns=$NAMESPACE, chart=$CHART_PATH)"
 
@@ -517,6 +526,7 @@ main() {
 	            echo "  IMAGE_REPO     - OCI namespace (default: library)"
 	            echo "  MARKETING_REPOSITORY - Marketing image repository override"
 	            echo "  DOCS_REPOSITORY      - Docs image repository override"
+	            echo "  EXTRA_HELM_ARGS      - Extra Helm arguments appended to each upgrade"
 	            echo "  DEBUG          - Enable Helm debug output"
 	            exit 2
 	            ;;

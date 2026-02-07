@@ -1,0 +1,287 @@
+{
+  "project": "codetether-docs",
+  "feature": "Documentation Site for A2A Server and CodeTether Agent",
+  "branch_name": "feature/documentation-site-for-a2a-server-and-codetether-agent",
+  "version": "1.0",
+  "user_stories": [
+    {
+      "id": "US-001",
+      "title": "Create MkDocs configuration and project structure",
+      "description": "Set up the MkDocs configuration file with Material theme, navigation structure, and all necessary extensions. Create the directory structure for documentation content including topics, tutorials, api-reference, and deployment guides.",
+      "acceptance_criteria": [
+        "MkDocs configuration file exists with Material theme",
+        "Directory structure created: docs/{overview,architecture,api,cli,tools,deployment,tutorials,integrations,configuration,troubleshooting}",
+        "Navigation structure defined in mkdocs.yml",
+        "All CSS and asset directories created"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [],
+      "complexity": 2
+    },
+    {
+      "id": "US-002",
+      "title": "Write project overview documentation",
+      "description": "Create comprehensive overview pages for both A2A Server (Python) and CodeTether Agent (Rust). Include project descriptions, key features, architecture diagrams, and quick start guides.",
+      "acceptance_criteria": [
+        "docs/overview/index.md with project introduction",
+        "docs/overview/a2a-server.md covering Python server features",
+        "docs/overview/codetether-agent.md covering Rust agent features",
+        "Architecture diagrams for both projects",
+        "Quick start comparison table"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-003",
+      "title": "Document A2A protocol architecture",
+      "description": "Create detailed architecture documentation for the A2A protocol implementation including core components, message flow, task lifecycle, and agent discovery mechanisms.",
+      "acceptance_criteria": [
+        "docs/architecture/a2a-protocol.md with protocol overview",
+        "docs/architecture/components.md listing all server components",
+        "docs/architecture/message-flow.md with sequence diagrams",
+        "docs/architecture/task-lifecycle.md documenting task states",
+        "docs/architecture/agent-discovery.md covering Agent Cards"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-004",
+      "title": "Document CodeTether Agent architecture",
+      "description": "Create architecture documentation for the Rust agent including module structure, provider system, tool registry, session management, and swarm orchestration.",
+      "acceptance_criteria": [
+        "docs/architecture/agent-modules.md covering src/ structure",
+        "docs/architecture/provider-system.md for LLM providers",
+        "docs/architecture/tool-system.md for tool registry",
+        "docs/architecture/session-management.md for conversations",
+        "docs/architecture/swarm-orchestration.md for parallel execution"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-005",
+      "title": "Create API reference documentation",
+      "description": "Generate comprehensive API reference for A2A protocol endpoints, JSON-RPC methods, and REST API. Include request/response examples and authentication details.",
+      "acceptance_criteria": [
+        "docs/api/index.md with API overview",
+        "docs/api/json-rpc.md with all JSON-RPC methods",
+        "docs/api/rest.md with REST endpoints",
+        "docs/api/authentication.md covering auth methods",
+        "docs/api/examples.md with curl examples"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-006",
+      "title": "Document all CLI commands",
+      "description": "Create complete CLI reference for CodeTether Agent including all subcommands, options, environment variables, and usage examples.",
+      "acceptance_criteria": [
+        "docs/cli/index.md with CLI overview",
+        "docs/cli/tui.md for terminal UI mode",
+        "docs/cli/run.md for single execution mode",
+        "docs/cli/serve.md for API server mode",
+        "docs/cli/worker.md for A2A worker mode",
+        "docs/cli/ralph.md for autonomous development",
+        "docs/cli/rlm.md for recursive language models",
+        "docs/cli/swarm.md for parallel execution",
+        "docs/cli/mcp.md for MCP integration",
+        "docs/cli/stats.md for telemetry",
+        "docs/cli/cleanup.md for worktree cleanup",
+        "docs/cli/config.md for configuration"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-007",
+      "title": "Document all 24+ tools",
+      "description": "Create detailed documentation for each tool in the CodeTether Agent tool registry including parameters, examples, and use cases.",
+      "acceptance_criteria": [
+        "docs/tools/index.md with tool overview",
+        "docs/tools/file-operations.md (read, write, edit, multiedit, patch)",
+        "docs/tools/search.md (grep, codesearch, websearch)",
+        "docs/tools/navigation.md (list, glob)",
+        "docs/tools/execution.md (bash, batch)",
+        "docs/tools/development.md (lsp, skill, ralph, rlm)",
+        "docs/tools/planning.md (plan, todo, task)",
+        "docs/tools/communication.md (question, webfetch)",
+        "docs/tools/version-control.md (undo)",
+        "docs/tools/utility.md (invalid, confirm_edit, confirm_multiedit)",
+        "Each tool documented with parameters and examples"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-008",
+      "title": "Create deployment guides",
+      "description": "Write comprehensive deployment documentation for Kubernetes (Helm), Docker, and local development environments.",
+      "acceptance_criteria": [
+        "docs/deployment/index.md with deployment overview",
+        "docs/deployment/kubernetes.md with Helm chart usage",
+        "docs/deployment/docker.md with Docker deployment",
+        "docs/deployment/local.md for local development",
+        "docs/deployment/production.md with production best practices",
+        "docs/deployment/scaling.md for auto-scaling configuration"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-009",
+      "title": "Write tutorials and quickstarts",
+      "description": "Create step-by-step tutorials for common use cases including getting started, building agents, and advanced scenarios.",
+      "acceptance_criteria": [
+        "docs/tutorials/index.md with tutorial overview",
+        "docs/tutorials/quickstart.md for 5-minute setup",
+        "docs/tutorials/building-agents.md for custom agents",
+        "docs/tutorials/mcp-integration.md for MCP tools",
+        "docs/tutorials/a2a-workers.md for worker deployment",
+        "docs/tutorials/voice-agents.md for voice integration",
+        "docs/tutorials/zapier-integration.md for Zapier"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-002"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-010",
+      "title": "Document integrations",
+      "description": "Create integration guides for external systems including MCP, Voice (LiveKit), Zapier, Keycloak SSO, and cloud providers.",
+      "acceptance_criteria": [
+        "docs/integrations/index.md with integration overview",
+        "docs/integrations/mcp.md for MCP protocol",
+        "docs/integrations/voice.md for LiveKit voice",
+        "docs/integrations/zapier.md for Zapier automation",
+        "docs/integrations/keycloak.md for SSO",
+        "docs/integrations/opencode.md for OpenCode",
+        "docs/integrations/email.md for email notifications"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-011",
+      "title": "Document configuration and secrets",
+      "description": "Write comprehensive configuration documentation including environment variables, config files, and HashiCorp Vault secrets management.",
+      "acceptance_criteria": [
+        "docs/configuration/index.md with configuration overview",
+        "docs/configuration/environment.md for env vars",
+        "docs/configuration/file.md for config files",
+        "docs/configuration/vault.md for HashiCorp Vault",
+        "docs/configuration/providers.md for LLM provider setup",
+        "docs/configuration/security.md for security best practices"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-012",
+      "title": "Create troubleshooting and FAQ",
+      "description": "Write troubleshooting guides, common issues, FAQ, and support resources.",
+      "acceptance_criteria": [
+        "docs/troubleshooting/index.md with troubleshooting overview",
+        "docs/troubleshooting/common-issues.md with solutions",
+        "docs/troubleshooting/debugging.md for debugging tips",
+        "docs/troubleshooting/faq.md with frequently asked questions",
+        "docs/troubleshooting/support.md for getting help"
+      ],
+      "passes": false,
+      "priority": 4,
+      "depends_on": [
+        "US-002",
+        "US-005",
+        "US-006"
+      ],
+      "complexity": 2
+    },
+    {
+      "id": "US-013",
+      "title": "Set up automated documentation build",
+      "description": "Configure CI/CD pipeline for building and deploying documentation automatically on changes.",
+      "acceptance_criteria": [
+        "GitHub Actions workflow for docs build",
+        "Automated deployment to GitHub Pages or docs site",
+        "Link checking with lychee",
+        "Markdown linting",
+        "Version management with mike"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-014",
+      "title": "Add search and navigation enhancements",
+      "description": "Configure search functionality, navigation features, and user experience improvements.",
+      "acceptance_criteria": [
+        "Search index configured",
+        "Navigation tabs for main sections",
+        "Version selector working",
+        "Mobile responsive design",
+        "Dark/light mode toggle"
+      ],
+      "passes": false,
+      "priority": 4,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 2
+    }
+  ],
+  "technical_requirements": [],
+  "quality_checks": {
+    "typecheck": "mkdocs build --strict",
+    "test": "lychee docs/ --exclude localhost",
+    "lint": "markdownlint docs/",
+    "build": "mkdocs build"
+  },
+  "created_at": "2026-02-05T08:01:22.998465861+00:00",
+  "updated_at": "2026-02-05T08:01:22.998467571+00:00"
+}
