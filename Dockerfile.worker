@@ -11,18 +11,20 @@
 #
 
 # ─── Builder stage ──────────────────────────────────────────────────
-FROM rust:1.86-slim AS builder
+FROM rust:1.88-slim AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         pkg-config \
         libssl-dev \
+        g++ \
         && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
 # Copy the Cargo workspace
 COPY codetether-agent/Cargo.toml codetether-agent/Cargo.lock ./
+COPY codetether-agent/vendor ./vendor
 COPY codetether-agent/src ./src
 
 # Build release binary

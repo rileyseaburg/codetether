@@ -119,6 +119,14 @@ function LoopIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function BrainIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.5 4a3.5 3.5 0 00-3.5 3.5v.5a3 3 0 00-2 2.83V12a3 3 0 002 2.83v.67A3.5 3.5 0 009.5 19H11v-7H9.5A1.5 1.5 0 018 10.5 1.5 1.5 0 019.5 9H11V7.5A3.5 3.5 0 009.5 4zM14.5 4A3.5 3.5 0 0118 7.5v.5a3 3 0 012 2.83V12a3 3 0 01-2 2.83v.67A3.5 3.5 0 0114.5 19H13v-7h1.5a1.5 1.5 0 001.5-1.5A1.5 1.5 0 0014.5 9H13V7.5A3.5 3.5 0 0114.5 4z" />
+        </svg>
+    )
+}
+
 function ServerIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
@@ -140,6 +148,7 @@ const navigation = [
     { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
     { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
     { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
+    { name: 'Cognition', href: '/dashboard/cognition', icon: BrainIcon },
     { name: 'Cronjobs', href: '/cronjobs', icon: ClockIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },

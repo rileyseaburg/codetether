@@ -1127,7 +1127,9 @@ async def get_stats():
 
 @monitor_router.post('/intervene')
 async def send_intervention(intervention: InterventionRequest):
-    """Send a human intervention to an agent.        result = await monitoring_service.handle_intervention(
+    """Send a human intervention to an agent."""
+    try:
+        result = await monitoring_service.handle_intervention(
             agent_id=intervention.agent_id, message=intervention.message
         )
         return {'success': True, 'intervention': result}

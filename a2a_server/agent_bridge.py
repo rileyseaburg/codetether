@@ -473,13 +473,25 @@ class OpenCodeBridge:
         )
 
     async def _load_task_from_db(self, task_id: str) -> Optional[AgentTask]:
-        """Load a task from PostgreSQL and cache it in memory."""
+        """Load a task from PostgreSQL and cache it in memory.
+
+        IMPORTANT: Does NOT overwrite an existing in-memory task, because the
+        in-memory version may have been updated (e.g., status=completed) but
+        not yet flushed to the database.
+        """
+        # If already in memory, return that version (it may be more current)
+        existing = self._tasks.get(task_id)
+        if existing is not None:
+            return existing
         try:
             row = await db.db_get_task(task_id)
             if row:
                 task = self._task_from_db_row(row)
-                # Cache in memory
-                self._tasks[task_id] = task
+                # Cache in memory only if still absent (race guard)
+                if task_id not in self._tasks:
+                    self._tasks[task_id] = task
+                else:
+                    return self._tasks[task_id]
                 if task.codebase_id not in self._codebase_tasks:
                     self._codebase_tasks[task.codebase_id] = []
                 if task_id not in self._codebase_tasks[task.codebase_id]:
@@ -546,9 +558,18 @@ class OpenCodeBridge:
             )
             tasks = []
             for row in rows:
+                # Prefer in-memory version (it may have updates not yet in DB)
+                existing = self._tasks.get(row.get('id') or row.get('task_id'))
+                if existing is not None:
+                    tasks.append(existing)
+                    continue
                 task = self._task_from_db_row(row)
-                # Cache in memory
-                self._tasks[task.id] = task
+                # Cache in memory only if still absent (race guard)
+                if task.id not in self._tasks:
+                    self._tasks[task.id] = task
+                else:
+                    tasks.append(self._tasks[task.id])
+                    continue
                 if task.codebase_id not in self._codebase_tasks:
                     self._codebase_tasks[task.codebase_id] = []
                 if task.id not in self._codebase_tasks[task.codebase_id]:
@@ -1589,9 +1610,7 @@ class OpenCodeBridge:
         # Check in-memory cache first
         task = self._tasks.get(task_id)
         if task:
-            logger.info(f'get_task({task_id}): found in memory, status={task.status}, id(task)={id(task)}, id(self)={id(self)}, id(self._tasks)={id(self._tasks)}')
             return task
-        logger.info(f'get_task({task_id}): NOT in memory (keys={len(self._tasks)}), falling back to DB, id(self)={id(self)}')
         # Fall back to database
         return await self._load_task_from_db(task_id)
 
@@ -1645,7 +1664,6 @@ class OpenCodeBridge:
             model_used: Optional model that was used (may differ from requested model_ref)
         """
         task = self._tasks.get(task_id)
-        logger.info(f'update_task_status({task_id}, {status}): found_in_memory={task is not None}, id(self)={id(self)}, id(self._tasks)={id(self._tasks)}, keys={list(self._tasks.keys())[:5]}')
         if not task:
             # Task not in memory - try to load from database
             # (handles tasks created via direct DB writes, e.g., trigger endpoint)
@@ -1656,7 +1674,6 @@ class OpenCodeBridge:
             self._tasks[task_id] = task
 
         task.status = status
-        logger.info(f'update_task_status({task_id}): set status to {status}, id(task)={id(task)}, task.status={task.status}')
 
         # Track which worker executed this task
         if worker_id:

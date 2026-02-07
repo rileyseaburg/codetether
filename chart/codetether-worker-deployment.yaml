@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    component: ai-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: codetether-worker
+  template:
+    metadata:
+      labels:
+        app: codetether-worker
+        component: ai-worker
+    spec:
+      imagePullSecrets:
+        - name: gcr-pull-secret
+      containers:
+        - name: worker
+          image: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest
+          imagePullPolicy: Always
+          command: ["codetether", "worker"]
+          args:
+            - "--server"
+            - "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
+            - "--name"
+            - "k8s-worker"
+            - "/workspace"
+          env:
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_ADDR
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_TOKEN
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            - name: RUST_LOG
+              value: "info"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          emptyDir: {}
