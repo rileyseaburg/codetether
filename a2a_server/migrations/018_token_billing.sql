@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS model_pricing (
 CREATE INDEX IF NOT EXISTS idx_model_pricing_provider ON model_pricing(provider);
 CREATE INDEX IF NOT EXISTS idx_model_pricing_active ON model_pricing(is_active);
 
--- Seed with common model pricing (USD per 1M tokens, as of 2025)
+-- Seed with common model pricing (USD per 1M tokens, as of 2026)
 INSERT INTO model_pricing (provider, model, input_cost_per_m, output_cost_per_m, cache_read_cost_per_m, cache_write_cost_per_m, reasoning_cost_per_m) VALUES
     -- Anthropic
     ('anthropic', 'claude-opus-4-5',      5.00,  25.00,  0.50,  6.25,  NULL),

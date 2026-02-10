@@ -217,22 +217,6 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/mcp$", {"POST"}, "mcp:write"),
     (r"^/mcp", {"GET"}, "mcp:read"),
 
-    # ── Proactive Router (/v1/proactive) ─────────────────────────
-    (r"^/v1/proactive/rules$", {"POST"}, "automation:write"),
-    (r"^/v1/proactive/rules/[^/]+$", {"PUT"}, "automation:write"),
-    (r"^/v1/proactive/rules/[^/]+$", {"DELETE"}, "automation:delete"),
-    (r"^/v1/proactive/rules", {"GET"}, "automation:read"),
-    (r"^/v1/proactive/health-checks$", {"POST"}, "automation:write"),
-    (r"^/v1/proactive/health-checks/[^/]+$", {"PUT"}, "automation:write"),
-    (r"^/v1/proactive/health-checks/[^/]+$", {"DELETE"}, "automation:delete"),
-    (r"^/v1/proactive/health-checks", {"GET"}, "automation:read"),
-    (r"^/v1/proactive/loops$", {"POST"}, "automation:write"),
-    (r"^/v1/proactive/loops/[^/]+$", {"PUT"}, "automation:write"),
-    (r"^/v1/proactive/loops/[^/]+$", {"DELETE"}, "automation:delete"),
-    (r"^/v1/proactive/loops", {"GET"}, "automation:read"),
-    (r"^/v1/proactive/decisions$", {"GET"}, "automation:read"),
-    (r"^/v1/proactive/status$", {"GET"}, "automation:read"),
-
     # ── Token Billing Router (/v1/token-billing) ─────────────────
     (r"^/v1/token-billing/budgets", {"POST", "PUT", "DELETE"}, "billing:write"),
     (r"^/v1/token-billing/pricing", {"POST", "PUT", "DELETE"}, "billing:write"),

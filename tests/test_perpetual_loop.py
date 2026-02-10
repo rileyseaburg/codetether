@@ -186,16 +186,17 @@ class TestHandleTaskCompletion:
     @pytest.mark.asyncio
     async def test_ignores_non_loop_tasks(self):
         """Tasks without perpetual_loop_id in metadata should be ignored."""
-        mock_pool = AsyncMock()
         mock_conn = AsyncMock()
-        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_pool = MagicMock()
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+        mock_pool.acquire.return_value = mock_cm
 
         # Task has no perpetual_loop_id
         mock_conn.fetchrow.return_value = {'metadata': {'some': 'data'}}
 
-        with patch('a2a_server.perpetual_loop.db') as mock_db:
-            mock_db.get_pool = AsyncMock(return_value=mock_pool)
+        with patch('a2a_server.database.get_pool', new_callable=AsyncMock, return_value=mock_pool):
             await handle_task_completion_for_loops('task-1', 'completed', 'result')
 
         # Should not attempt to find iteration
@@ -205,7 +206,6 @@ class TestHandleTaskCompletion:
     async def test_skips_non_terminal_status(self):
         """Should skip if status is not completed or failed."""
         # Should return immediately without touching DB
-        with patch('a2a_server.perpetual_loop.db') as mock_db:
-            mock_db.get_pool = AsyncMock()
+        with patch('a2a_server.database.get_pool', new_callable=AsyncMock) as mock_get_pool:
             await handle_task_completion_for_loops('task-1', 'running', None)
-            mock_db.get_pool.assert_not_called()
+            mock_get_pool.assert_not_called()
