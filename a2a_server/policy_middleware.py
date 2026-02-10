@@ -97,11 +97,12 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/api-keys/test$", {"POST"}, "api_keys:write"),
     (r"^/v1/agent/api-keys/", {"DELETE"}, "api_keys:delete"),
 
-    # Worker management — registration, heartbeat, and claiming are internal
-    # infrastructure (workers run on trusted nodes), so skip auth for those.
+    # Worker management — registration, heartbeat, task-polling, and claiming
+    # are internal infrastructure (workers run on trusted nodes), so skip auth.
     (r"^/v1/agent/workers/register$", {"POST"}, ""),
     (r"^/v1/agent/workers/[^/]+/unregister$", {"POST"}, ""),
     (r"^/v1/agent/workers/[^/]+/heartbeat$", {"POST"}, ""),
+    (r"^/v1/agent/tasks$", {"GET"}, ""),  # worker task polling (status=pending)
     (r"^/v1/agent/workers/[^/]+/profile$", {"POST"}, "workers:write"),
     (r"^/v1/agent/workers$", {"GET"}, ""),
     (r"^/v1/agent/workers/", {"GET"}, ""),
