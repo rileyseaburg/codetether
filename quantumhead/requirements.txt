@@ -1,0 +1,34 @@
+# QuantumHead Inference Server Dependencies
+# Install on spike2 for serving trained models
+
+# Core
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+
+# FastAPI server
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# Audio processing
+transformers>=4.35.0
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# Computer vision
+opencv-python-headless>=4.8.0
+scikit-image>=0.22.0
+
+# 3D / Rendering
+gsplat>=0.1.0
+trimesh>=4.0.0
+plyfile>=1.0.0
+
+# Gaussian splatting (optional - for full rendering)
+# pytorch3d  # build from source if needed
+
+# Math & utils
+numpy>=1.24.0
+einops>=0.7.0
+tqdm>=4.66.0
