@@ -84,22 +84,22 @@ export default function Home() {
             {/* Above the fold */}
             <CISOBanner />
             <Hero />
-            
+
             {/* OpenClaw Comparison - direct response sales letter */}
             <Suspense fallback={<SectionSkeleton />}>
                 <OpenClawComparison />
             </Suspense>
-            
+
             {/* RLM Explainer - the tech behind CodeTether */}
             <Suspense fallback={<SectionSkeleton />}>
                 <RLMExplainer />
             </Suspense>
-            
+
             {/* RLM Demo - interactive demonstration */}
             <Suspense fallback={<SectionSkeleton />}>
                 <RLMDemo />
             </Suspense>
-            
+
             {/* Core value props */}
             <Suspense fallback={<SectionSkeleton />}>
                 <Testimonials />
@@ -107,29 +107,29 @@ export default function Home() {
             <Suspense fallback={<SectionSkeleton />}>
                 <CopilotComparison />
             </Suspense>
-            
+
             {/* Ralph Demo - autonomous agent loop (moved after ChatGPT comparison) */}
             <Suspense fallback={<SectionSkeleton />}>
                 <RalphDemo />
             </Suspense>
-            
+
             <Suspense fallback={<SectionSkeleton />}>
                 <TemporalComparison />
             </Suspense>
             <Suspense fallback={<SectionSkeleton />}>
                 <WhyNotDIY />
             </Suspense>
-            
+
             {/* Social proof */}
             <Suspense fallback={<SectionSkeleton />}>
                 <SocialProof />
             </Suspense>
-            
+
             {/* Use cases */}
             <Suspense fallback={<SectionSkeleton />}>
                 <UseCases />
             </Suspense>
-            
+
             {/* Conversion */}
             <Suspense fallback={<SectionSkeleton />}>
                 <Pricing />
@@ -143,7 +143,7 @@ export default function Home() {
             <Suspense fallback={<SectionSkeleton />}>
                 <ContactForm />
             </Suspense>
-            
+
             {/* Floating Chat Widget */}
             <ChatWidget />
         </>

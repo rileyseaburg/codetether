@@ -56,10 +56,10 @@ export function ContactForm() {
                             id="contact-title"
                             className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
                         >
-                            Ready to scale your AI agents?
+                            Ready to Deploy Agents You Can Actually Trust?
                         </h2>
                         <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                            Talk to our team about your use case. We'll help you get started.
+                            Tell us about your infrastructure. We&apos;ll help you deploy CodeTether.
                         </p>
                     </div>
 

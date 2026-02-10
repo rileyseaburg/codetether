@@ -56,7 +56,7 @@ export function Footer() {
                             Investor Pitch
                         </Link>
                         <Link href="https://github.com/rileyseaburg/codetether/blob/main/LICENSE" className="hover:text-gray-900 dark:hover:text-white">
-                            Apache 2.0 License
+                            MIT License
                         </Link>
                         <Link href="https://github.com/rileyseaburg/codetether/blob/main/CONTRIBUTING.md" className="hover:text-gray-900 dark:hover:text-white">
                             Contributing
@@ -66,7 +66,7 @@ export function Footer() {
                         </Link>
                     </div>
                     <p className="mt-6 text-sm text-gray-500 dark:text-gray-500 md:mt-0">
-                        &copy; {new Date().getFullYear()} CodeTether. Open source under <a href="https://github.com/rileyseaburg/codetether/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700 dark:hover:text-gray-300">Apache 2.0</a>.
+                        &copy; {new Date().getFullYear()} CodeTether. Open source under <a href="https://github.com/rileyseaburg/codetether/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700 dark:hover:text-gray-300">MIT License</a>.
                     </p>
                 </div>
             </Container>
