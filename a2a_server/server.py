@@ -356,6 +356,25 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start shared HTTP client (must start before marketing services)
+        @self.app.on_event('startup')
+        async def start_shared_http_client():
+            try:
+                from .http_client import start_http_client
+
+                await start_http_client()
+            except Exception as e:
+                logger.warning(f'Failed to start shared HTTP client: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_shared_http_client():
+            try:
+                from .http_client import stop_http_client
+
+                await stop_http_client()
+            except Exception:
+                pass
+
         # Start marketing automation service
         @self.app.on_event('startup')
         async def start_marketing():

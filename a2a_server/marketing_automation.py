@@ -35,8 +35,6 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
-
 logger = logging.getLogger(__name__)
 
 # ============================================================================
@@ -47,13 +45,7 @@ MARKETING_AUTOMATION_ENABLED = os.environ.get(
     'MARKETING_AUTOMATION_ENABLED', 'false'
 ).lower() == 'true'
 
-# Base URL of the marketing-site (Next.js)
-MARKETING_SITE_URL = os.environ.get(
-    'MARKETING_SITE_URL', 'http://localhost:3000'
-)
-
-# API key for authenticated calls (matches GOOGLE_ADS_INTERNAL_API_KEY on marketing-site)
-MARKETING_API_KEY = os.environ.get('MARKETING_API_KEY', '')
+# Base URL of the marketing-site (Next.js) — managed by http_client module
 
 # Poll interval for the background service (default: 1 hour)
 POLL_INTERVAL = int(os.environ.get('MARKETING_POLL_INTERVAL_SECONDS', '3600'))
@@ -104,7 +96,8 @@ class MarketingAutomationService:
         self._task = asyncio.create_task(self._main_loop())
         logger.info(
             'MarketingAutomationService started (poll=%ss, budget=$%d/day, site=%s)',
-            self.poll_interval, DAILY_BUDGET_DOLLARS, MARKETING_SITE_URL,
+            self.poll_interval, DAILY_BUDGET_DOLLARS,
+            os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000'),
         )
 
     async def stop(self) -> None:
@@ -156,11 +149,9 @@ class MarketingAutomationService:
     async def _fetch_report(self) -> Optional[Dict[str, Any]]:
         """Pull the self-selling performance report from the marketing site."""
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f'{MARKETING_SITE_URL}/api/optimization/report',
-                    headers=self._headers(),
-                )
+            from .http_client import http_request, CircuitBreakerOpenError
+
+            resp = await http_request('GET', '/api/optimization/report', timeout=30.0)
 
             if resp.status_code != 200:
                 logger.warning(
@@ -188,7 +179,10 @@ class MarketingAutomationService:
 
             return report
 
-        except httpx.RequestError as e:
+        except CircuitBreakerOpenError:
+            logger.warning('Marketing report fetch skipped: circuit breaker open')
+            return None
+        except Exception as e:
             logger.warning('Marketing report fetch error: %s', e)
             return None
 
@@ -199,15 +193,16 @@ class MarketingAutomationService:
     async def _run_ad_sync(self) -> Optional[Dict[str, Any]]:
         """Run the Google Ads ↔ Thompson Sampling sync cycle."""
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(
-                    f'{MARKETING_SITE_URL}/api/google/sync',
-                    headers=self._headers(),
-                    json={
-                        'dailyBudgetDollars': DAILY_BUDGET_DOLLARS,
-                        'dryRun': False,
-                    },
-                )
+            from .http_client import http_request, CircuitBreakerOpenError
+
+            resp = await http_request(
+                'POST', '/api/google/sync',
+                json={
+                    'dailyBudgetDollars': DAILY_BUDGET_DOLLARS,
+                    'dryRun': False,
+                },
+                timeout=60.0,
+            )
 
             if resp.status_code != 200:
                 logger.warning(
@@ -270,7 +265,10 @@ class MarketingAutomationService:
 
             return result
 
-        except httpx.RequestError as e:
+        except CircuitBreakerOpenError:
+            logger.warning('Ad sync skipped: circuit breaker open')
+            return None
+        except Exception as e:
             logger.warning('Ad sync request error: %s', e)
             return None
 
@@ -328,17 +326,18 @@ class MarketingAutomationService:
     async def _generate_video(self, script_style: str, reason: str) -> None:
         """Generate a video ad via the marketing-site pipeline."""
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                resp = await client.post(
-                    f'{MARKETING_SITE_URL}/api/google/video-pipeline',
-                    headers=self._headers(),
-                    json={
-                        'action': 'generate_and_launch',
-                        'scriptStyle': script_style,
-                        'dailyBudgetDollars': min(DAILY_BUDGET_DOLLARS, 25),
-                        'aspectRatio': '16:9',
-                    },
-                )
+            from .http_client import http_request, CircuitBreakerOpenError
+
+            resp = await http_request(
+                'POST', '/api/google/video-pipeline',
+                json={
+                    'action': 'generate_and_launch',
+                    'scriptStyle': script_style,
+                    'dailyBudgetDollars': min(DAILY_BUDGET_DOLLARS, 25),
+                    'aspectRatio': '16:9',
+                },
+                timeout=300.0,
+            )
 
             if resp.status_code in (200, 201):
                 result = resp.json()
@@ -379,19 +378,14 @@ class MarketingAutomationService:
                     },
                 )
 
-        except httpx.RequestError as e:
+        except CircuitBreakerOpenError:
+            logger.warning('Video generation skipped: circuit breaker open')
+        except Exception as e:
             logger.warning('Video generation request error: %s', e)
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    def _headers(self) -> Dict[str, str]:
-        """HTTP headers for marketing-site API calls."""
-        headers: Dict[str, str] = {'Content-Type': 'application/json'}
-        if MARKETING_API_KEY:
-            headers['x-api-key'] = MARKETING_API_KEY
-        return headers
 
     async def _audit(
         self,
@@ -420,7 +414,7 @@ class MarketingAutomationService:
             'enabled': MARKETING_AUTOMATION_ENABLED,
             'poll_interval_seconds': self.poll_interval,
             'daily_budget_dollars': DAILY_BUDGET_DOLLARS,
-            'marketing_site_url': MARKETING_SITE_URL,
+            'marketing_site_url': os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000'),
             'last_cycle': self._last_cycle.isoformat() if self._last_cycle else None,
             'videos_this_week': self._videos_this_week,
             'max_videos_per_week': MAX_VIDEOS_PER_WEEK,

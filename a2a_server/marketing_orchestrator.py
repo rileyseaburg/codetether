@@ -35,12 +35,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-import httpx
-
 logger = logging.getLogger(__name__)
 
-MARKETING_SITE_URL = os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000')
-MARKETING_API_KEY = os.environ.get('MARKETING_API_KEY', '')
 ORCHESTRATOR_ENABLED = os.environ.get(
     'MARKETING_ORCHESTRATOR_ENABLED', 'true'
 ).lower() == 'true'
@@ -351,43 +347,43 @@ class MarketingOrchestrator:
             }
 
     async def _action_fetch_report(self) -> Dict[str, Any]:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(
-                f'{MARKETING_SITE_URL}/api/optimization/report',
-                headers=self._headers(),
-            )
+        from .http_client import http_request
+
+        resp = await http_request('GET', '/api/optimization/report', timeout=30.0)
         if resp.status_code != 200:
             raise RuntimeError(f'Report API returned {resp.status_code}')
         return resp.json()
 
     async def _action_ad_sync(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        from .http_client import http_request
+
         daily_budget = int(os.environ.get('MARKETING_DAILY_BUDGET_DOLLARS', '50'))
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                f'{MARKETING_SITE_URL}/api/google/sync',
-                headers=self._headers(),
-                json={
-                    'dailyBudgetDollars': daily_budget,
-                    'dryRun': params.get('dry_run', False),
-                },
-            )
+        resp = await http_request(
+            'POST', '/api/google/sync',
+            json={
+                'dailyBudgetDollars': daily_budget,
+                'dryRun': params.get('dry_run', False),
+            },
+            timeout=60.0,
+        )
         if resp.status_code != 200:
             raise RuntimeError(f'Ad sync API returned {resp.status_code}')
         return resp.json()
 
     async def _action_generate_video(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        from .http_client import http_request
+
         daily_budget = int(os.environ.get('MARKETING_DAILY_BUDGET_DOLLARS', '50'))
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            resp = await client.post(
-                f'{MARKETING_SITE_URL}/api/google/video-pipeline',
-                headers=self._headers(),
-                json={
-                    'action': 'generate_and_launch',
-                    'scriptStyle': params.get('script_style', 'problem_focused'),
-                    'dailyBudgetDollars': min(daily_budget, 25),
-                    'aspectRatio': '16:9',
-                },
-            )
+        resp = await http_request(
+            'POST', '/api/google/video-pipeline',
+            json={
+                'action': 'generate_and_launch',
+                'scriptStyle': params.get('script_style', 'problem_focused'),
+                'dailyBudgetDollars': min(daily_budget, 25),
+                'aspectRatio': '16:9',
+            },
+            timeout=300.0,
+        )
         if resp.status_code not in (200, 201):
             raise RuntimeError(f'Video pipeline returned {resp.status_code}')
         return resp.json()
@@ -435,12 +431,6 @@ class MarketingOrchestrator:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    def _headers(self) -> Dict[str, str]:
-        headers: Dict[str, str] = {'Content-Type': 'application/json'}
-        if MARKETING_API_KEY:
-            headers['x-api-key'] = MARKETING_API_KEY
-        return headers
 
     async def _audit(
         self,

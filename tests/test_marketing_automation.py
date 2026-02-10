@@ -162,12 +162,7 @@ class TestReportFetch:
 
         mock_resp = _mock_httpx_response(200, report)
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.get = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock):
                 result = await service._fetch_report()
 
@@ -181,12 +176,7 @@ class TestReportFetch:
 
         mock_resp = _mock_httpx_response(500, {'error': 'Internal error'})
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.get = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock):
                 result = await service._fetch_report()
 
@@ -208,12 +198,7 @@ class TestAdSync:
 
         mock_resp = _mock_httpx_response(200, sync)
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock):
                 result = await service._run_ad_sync()
 
@@ -230,12 +215,7 @@ class TestAdSync:
         mock_engine = MagicMock()
         mock_engine.evaluate_event_rules = AsyncMock()
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock):
                 with patch('a2a_server.rule_engine.get_rule_engine', return_value=mock_engine):
                     result = await service._run_ad_sync()
@@ -254,12 +234,7 @@ class TestAdSync:
 
         mock_resp = _mock_httpx_response(401, {'error': 'Unauthorized'})
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock):
                 result = await service._run_ad_sync()
 
@@ -355,12 +330,7 @@ class TestVideoGeneration:
 
         mock_resp = _mock_httpx_response(201, video_result)
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock) as mock_audit:
                 await service._generate_video('problem_focused', 'Low ROAS')
 
@@ -375,20 +345,7 @@ class TestVideoGeneration:
 
 
 class TestConfiguration:
-    """Test configuration and helper methods."""
-
-    def test_headers_without_api_key(self):
-        service = MarketingAutomationService()
-        with patch('a2a_server.marketing_automation.MARKETING_API_KEY', ''):
-            headers = service._headers()
-        assert 'x-api-key' not in headers
-        assert headers['Content-Type'] == 'application/json'
-
-    def test_headers_with_api_key(self):
-        service = MarketingAutomationService()
-        with patch('a2a_server.marketing_automation.MARKETING_API_KEY', 'test-key-123'):
-            headers = service._headers()
-        assert headers['x-api-key'] == 'test-key-123'
+    """Test configuration."""
 
     def test_video_script_styles(self):
         """Verify all 3 script styles are defined."""
@@ -413,12 +370,7 @@ class TestAuditIntegration:
 
         mock_resp = _mock_httpx_response(200, report)
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.get = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock) as mock_audit:
                 await service._fetch_report()
 
@@ -432,12 +384,7 @@ class TestAuditIntegration:
 
         mock_resp = _mock_httpx_response(200, sync)
 
-        with patch('a2a_server.marketing_automation.httpx.AsyncClient') as mock_client_cls:
-            ctx = AsyncMock()
-            ctx.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=mock_resp):
             with patch.object(service, '_audit', new_callable=AsyncMock) as mock_audit:
                 await service._run_ad_sync()
 

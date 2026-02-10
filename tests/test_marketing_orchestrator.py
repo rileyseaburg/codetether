@@ -102,12 +102,8 @@ class TestStepExecution:
 
         report = {'funnelBrain': {}, 'adBrain': {}}
         resp = _mock_httpx_response(200, report)
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp):
             result = await orch._action_fetch_report()
 
         assert result == report
@@ -117,12 +113,8 @@ class TestStepExecution:
         orch = MarketingOrchestrator()
 
         resp = _mock_httpx_response(500)
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp):
             with pytest.raises(RuntimeError, match='500'):
                 await orch._action_fetch_report()
 
@@ -132,12 +124,8 @@ class TestStepExecution:
 
         sync_data = {'campaignsSynced': 4, 'overallRoas': 2.5}
         resp = _mock_httpx_response(200, sync_data)
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp):
             result = await orch._action_ad_sync({'dry_run': False})
 
         assert result['campaignsSynced'] == 4
@@ -148,12 +136,8 @@ class TestStepExecution:
 
         video_data = {'creatify': {'videoId': 'v-1'}, 'youtube': {'videoId': 'yt-1'}}
         resp = _mock_httpx_response(200, video_data)
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp):
             result = await orch._action_generate_video({'script_style': 'result_focused'})
 
         assert result['creatify']['videoId'] == 'v-1'
