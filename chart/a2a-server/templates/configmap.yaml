@@ -30,6 +30,11 @@ data:
   # Authentication enabled flag
   A2A_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
 
+  # Keycloak SSO configuration (non-secret values)
+  KEYCLOAK_URL: {{ .Values.keycloak.url | quote }}
+  KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.keycloak.clientId | quote }}
+
   # Database persistence paths (use mounted volume for persistence across restarts)
   {{- if .Values.persistence.enabled }}
   MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"
