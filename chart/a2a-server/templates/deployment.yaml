@@ -136,6 +136,24 @@ spec:
               value: {{ .Values.minio.secretKey | quote }}
             {{- end }}
             {{- end }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgresql.auth.username }}:$(POSTGRES_PASSWORD)@{{ include "a2a-server.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.auth.existingSecret | default (printf "%s-postgresql" (include "a2a-server.fullname" .)) }}
+                  key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey | default "password" }}
+            {{- else if .Values.externalPostgresql.url }}
+            - name: DATABASE_URL
+              value: {{ .Values.externalPostgresql.url | quote }}
+            {{- else if .Values.externalPostgresql.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalPostgresql.existingSecret }}
+                  key: {{ .Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
+            {{- end }}
             {{- if .Values.knative }}
             {{- if .Values.knative.enabled }}
             - name: KNATIVE_ENABLED
@@ -223,7 +241,20 @@ spec:
             {{- toYaml .Values.opa.resources | nindent 12 }}
           volumeMounts:
             - name: opa-policies
-              mountPath: /policies
+              mountPath: /policies/data.json
+              subPath: data.json
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/authz.rego
+              subPath: authz.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/api_keys.rego
+              subPath: api_keys.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/tenants.rego
+              subPath: tenants.rego
               readOnly: true
         {{- end }}
       volumes:
@@ -240,7 +271,9 @@ spec:
         {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+{{- end }}
 
+{{- if .Values.blueGreen.enabled }}
 {{- $legacyReplicas := (.Values.blueGreen.legacyReplicaCount | int) -}}
 {{- if gt $legacyReplicas 0 }}
 apiVersion: apps/v1

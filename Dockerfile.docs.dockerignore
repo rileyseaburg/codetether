@@ -1,0 +1,6 @@
+# Docs build only needs codetether-mkdocs.yml and codetether-docs/
+# Exclude everything else for fast builds
+
+*
+!codetether-mkdocs.yml
+!codetether-docs/
