@@ -5,44 +5,44 @@ import { Container } from '@/components/Container'
 const faqs = [
     [
         {
-            question: 'How is this different from ChatGPT?',
-            answer: 'ChatGPT is a chat interface. CodeTether is a task runner. You trigger a webhook, AI works in the background, and you get real files via email or callback.',
+            question: 'How is CodeTether different from OpenClaw?',
+            answer: 'OpenClaw is a Node.js gateway that shipped with auth: none by default. CodeTether is a Rust-based perpetual cognition runtime with mandatory authentication, sandboxed plugins, persona swarms with scoped permissions, and full audit logging. It self-deploys on Kubernetes and was built by someone who runs production infrastructure.',
+        },
+        {
+            question: 'Why is CodeTether written in Rust?',
+            answer: 'An autonomous agent with system-level access IS infrastructure. Memory safety isn\'t optional when your agent can read files, execute commands, and take actions on its own. You wouldn\'t write a database in JavaScript — you shouldn\'t write an autonomous agent in it either.',
+        },
+        {
+            question: 'What are Persona Swarms?',
+            answer: 'Instead of one bot, you get a coordinated team of agents — monitoring, deployment, code review — each with its own scoped permissions and security boundary. A compromised monitor can\'t escalate to deploy access. That\'s not paranoia, that\'s basic engineering.',
+        },
+    ],
+    [
+        {
+            question: 'What is perpetual cognition?',
+            answer: 'Most AI agents are request-response: you ask, they answer. CodeTether runs continuous thought loops that persist across restarts, survive node failures, and scale horizontally. Your agents reason, plan, and act autonomously — not just when you type something.',
+        },
+        {
+            question: 'Can agents modify their own code?',
+            answer: 'Yes. CodeTether agents can write code, open PRs, and evolve their capabilities. But every modification goes through an auditable gate you define. Every decision is logged, every action is traceable. The agents get smarter while you stay in control.',
         },
         {
             question: 'What is RLM?',
-            answer: 'RLM (Recursive Language Models) is MIT research that treats your input as an environment variable, not direct LLM context. Instead of stuffing everything into one prompt, RLM recursively decomposes tasks, processes chunks independently, verifies results, and stitches them together.',
-        },
-        {
-            question: 'Can I trigger tasks from Zapier/n8n/Make?',
-            answer: 'Yes. CodeTether provides webhook endpoints that work with any automation platform. Results come back via webhook callback or email.',
+            answer: 'RLM (Recursive Language Models) is MIT research that treats input as an environment variable, not direct LLM context. Instead of stuffing everything into one prompt, RLM recursively decomposes tasks, processes chunks independently, verifies results, and stitches them together. CodeTether uses RLM to handle 10M+ tokens.',
         },
     ],
     [
-        {
-            question: 'Why can CodeTether handle longer tasks than ChatGPT?',
-            answer: 'Base models hit context limits on 6–11M token tasks. RLM processes them recursively and completes them with 91.33% accuracy (MIT CSAIL).',
-        },
-        {
-            question: 'How do I get the output?',
-            answer: 'Three ways: (1) Email with file attachments, (2) Webhook callback with JSON, (3) Dashboard download. Reply to emails to refine results.',
-        },
-        {
-            question: 'What if a task fails?',
-            answer: 'You get notified with error details. Tasks checkpoint progress so partial work isn\'t lost. Pro plan includes priority support.',
-        },
-    ],
-    [
-        {
-            question: 'Is there a limit to how much data I can process?',
-            answer: 'CodeTether handles 10M+ tokens—100x more than typical LLMs. RLM architecture recursively breaks down massive inputs, processes them in chunks, and reconstructs verified results. Cost stays comparable to base model pricing.',
-        },
         {
             question: 'Can I self-host?',
-            answer: 'Yes. CodeTether is open source (Apache 2.0). Run it on your own servers with full control. Docker images and Helm charts provided.',
+            answer: 'Yes. CodeTether is open source under the MIT License. Run it on your own servers with full control. Docker images and Helm charts provided. Your infrastructure shouldn\'t depend on someone else\'s business model.',
         },
         {
-            question: 'What support is included?',
-            answer: 'Free: Community Discord. Pro: Priority email (24hr response). Agency: Onboarding call and dedicated support.',
+            question: 'How does the security model work?',
+            answer: 'Authentication is mandatory and cannot be disabled. All plugins are sandboxed and signed. Every autonomous decision is audit-logged. Persona swarms enforce least-privilege access — each agent only has the permissions it needs. No shared process, no ambient authority.',
+        },
+        {
+            question: 'Is there a managed/hosted option?',
+            answer: 'Yes. Self-host for free, or use our managed platform with tiered pricing: Free (10 tasks/mo), Pro ($297/mo, 300 tasks), and Agency ($497/mo, 2000 tasks). All plans include the same security guarantees.',
         },
     ],
 ]

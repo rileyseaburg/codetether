@@ -86,51 +86,51 @@ export function Hero() {
       <Container>
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-20">
           <div className="relative z-10 mx-auto max-w-2xl lg:col-span-7 lg:max-w-none lg:pt-6 xl:col-span-6">
-            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-950/50 border border-cyan-900/50 px-3 py-1 mb-4">
-              <span className="text-xs font-medium text-cyan-400">Powered by MIT Research</span>
-              <span className="text-xs text-gray-400">Recursive Language Models</span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-red-950/40 border border-red-900/50 px-3 py-1 mb-4">
+              <span className="text-xs font-medium text-red-400">Security Advisory</span>
+              <span className="text-xs text-gray-400">The most popular AI agent shipped with auth: none</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight leading-tight text-white sm:text-4xl lg:text-5xl">
-              AI work that actually finishes.<br />
-              <span className="text-cyan-400">Trigger once → get real files delivered.</span>
+              The AI agent your infrastructure<br />
+              <span className="text-cyan-400">actually deserves.</span>
             </h1>
             <p className="mt-6 text-lg text-gray-300">
-              Run 5–60 minute tasks in the background and get <span className="font-semibold text-white">CSV/PDF/code delivered</span> by email or webhook.
+              A perpetual cognition runtime written in <span className="font-semibold text-white">Rust</span>, self-deploying on <span className="font-semibold text-white">Kubernetes</span>, with mandatory auth and sandboxed plugins. Not a chatbot — <span className="text-cyan-300">infrastructure.</span>
             </p>
             <p className="mt-4 text-base text-gray-400">
-              Works with <span className="text-cyan-300">Zapier, n8n, Make — or call the API directly.</span>
+              Open source. Free to self-host. Built by someone who runs production systems for a living.
             </p>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
               <Button href="/register" color="cyan">
-                <span>Start Free (10 Tasks / Month)</span>
+                <span>Deploy CodeTether Free</span>
               </Button>
               <Button
-                href="#demo"
+                href="#openclaw-comparison"
                 variant="outline"
                 className="text-gray-300"
               >
-                <span>Watch the Demo</span>
+                <span>See Why We Built This ↓</span>
               </Button>
             </div>
             <p className="mt-6 text-xs text-gray-500">
-              No credit card required. Get your first file output fast — usually in minutes.
+              MIT License. No credit card required. Read the code, audit the architecture, deploy on your terms.
             </p>
 
-            {/* Example tasks */}
+            {/* What makes it different */}
             <div className="mt-12 pt-8 border-t border-gray-800">
-              <p className="text-xs text-gray-400 font-medium mb-4">Example tasks you can trigger:</p>
+              <p className="text-xs text-gray-400 font-medium mb-4">What you get that OpenClaw doesn&apos;t:</p>
               <div className="grid sm:grid-cols-3 gap-4">
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">📊 Lead scoring</p>
-                  <p className="text-xs text-gray-400 mt-1">Analyze 500 leads → <code className="text-cyan-300 bg-gray-800 px-1 rounded text-[11px]">lead_scores.csv</code> + reasons</p>
+                  <p className="text-sm text-white font-medium">🔒 Mandatory Auth</p>
+                  <p className="text-xs text-gray-400 mt-1">Cannot be disabled. Every action audit-logged.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">📄 Client report</p>
-                  <p className="text-xs text-gray-400 mt-1">Website audit → PDF report + action list</p>
+                  <p className="text-sm text-white font-medium">🧠 Persona Swarms</p>
+                  <p className="text-xs text-gray-400 mt-1">Coordinated agents with scoped permissions.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">📝 Transcript</p>
-                  <p className="text-xs text-gray-400 mt-1">2-hour call → 1-page summary + next steps</p>
+                  <p className="text-sm text-white font-medium">⚡ Rust Runtime</p>
+                  <p className="text-xs text-gray-400 mt-1">Memory-safe. Not Node.js. Not Python.</p>
                 </div>
               </div>
             </div>
@@ -139,88 +139,94 @@ export function Hero() {
             <BackgroundIllustration className="absolute top-4 left-1/2 h-[1026px] w-[1026px] -translate-x-1/3 mask-[linear-gradient(to_bottom,white_20%,transparent_75%)] stroke-gray-700/50 sm:top-16 sm:-translate-x-1/2 lg:-top-16 lg:ml-12 xl:-top-14 xl:ml-0" />
             <div className="-mx-4 h-[448px] px-9 sm:mx-0 lg:absolute lg:-inset-x-10 lg:-top-10 lg:-bottom-20 lg:h-auto lg:px-0 lg:pt-10 xl:-bottom-32">
               <div className="mx-auto max-w-[500px] rounded-2xl bg-gray-900 p-4 shadow-2xl ring-1 ring-gray-800">
-                {/* Ways to Use */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Web Dashboard */}
+                {/* Architecture overview */}
+                <div className="space-y-3">
+                  {/* Perpetual Cognition */}
                   <div className="rounded-xl bg-gray-800 p-4">
-                    <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-3">
-                      <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077l1.41-.513m14.095-5.13l1.41-.513M5.106 17.785l1.15-.964m11.49-9.642l1.149-.964M7.501 19.795l.75-1.3m7.5-12.99l.75-1.3m-6.063 16.658l.26-1.477m2.605-14.772l.26-1.477m0 17.726l-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.299M7.5 4.205L12 12m6.894 5.785l-1.149-.964M6.256 7.178l-1.15-.964m15.352 8.864l-1.41-.513M4.954 9.435l-1.41-.514M12.002 12l-3.75 6.495" />
+                        </svg>
+                      </div>
+                      <span className="font-medium text-white text-sm">Perpetual Cognition</span>
                     </div>
-                    <span className="font-medium text-white text-sm">Web Dashboard</span>
-                    <p className="text-xs text-gray-400 mt-1">Chat sessions with file output</p>
+                    <p className="text-xs text-gray-400">Continuous thought loops that persist across restarts. Not request-response.</p>
                   </div>
 
-                  {/* iOS App */}
+                  {/* Security Comparison */}
                   <div className="rounded-xl bg-gray-800 p-4">
-                    <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-3">
-                      <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                        </svg>
+                      </div>
+                      <span className="font-medium text-white text-sm">Security-First Architecture</span>
                     </div>
-                    <span className="font-medium text-white text-sm">iOS App</span>
-                    <p className="text-xs text-gray-400 mt-1">Tasks from your phone</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">Authentication</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-red-400 line-through">auth: none</span>
+                          <span className="text-cyan-400 font-medium">Mandatory</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">Plugin isolation</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-red-400 line-through">Shared process</span>
+                          <span className="text-cyan-400 font-medium">Sandboxed</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">Audit trail</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-red-400 line-through">None</span>
+                          <span className="text-cyan-400 font-medium">Every action</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Webhook API */}
+                  {/* Self-Deploying */}
                   <div className="rounded-xl bg-gray-800 p-4">
-                    <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-3">
-                      <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z" />
+                        </svg>
+                      </div>
+                      <span className="font-medium text-white text-sm">Self-Deploys on Kubernetes</span>
                     </div>
-                    <span className="font-medium text-white text-sm">Webhook API</span>
-                    <p className="text-xs text-gray-400 mt-1">Trigger programmatically</p>
-                  </div>
-
-                  {/* Zapier/n8n */}
-                  <div className="rounded-xl bg-gray-800 p-4">
-                    <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-3">
-                      <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </div>
-                    <span className="font-medium text-white text-sm">Zapier / n8n</span>
-                    <p className="text-xs text-gray-400 mt-1">No-code automation</p>
+                    <p className="text-xs text-gray-400">Manages its own pods, recovers from failures, scales horizontally. Ran 48 hours autonomously.</p>
                   </div>
                 </div>
 
-                {/* Output */}
-                <div className="mt-4 rounded-xl bg-cyan-950/50 border border-cyan-900 p-4">
-                  <p className="text-xs text-gray-400 mb-2">All methods deliver real output:</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded bg-gray-800 px-2 py-1 text-xs text-cyan-400">CSV</span>
-                    <span className="inline-flex items-center rounded bg-gray-800 px-2 py-1 text-xs text-cyan-400">PDF</span>
-                    <span className="inline-flex items-center rounded bg-gray-800 px-2 py-1 text-xs text-cyan-400">Code</span>
-                    <span className="inline-flex items-center rounded bg-gray-800 px-2 py-1 text-xs text-cyan-400">Reports</span>
-                  </div>
-                </div>
-
-                {/* RLM Badge */}
+                {/* Runtime badge */}
                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-500">
                   <svg className="h-3 w-3 text-cyan-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Handles 10M+ tokens via RLM</span>
+                  <span>Built in Rust · Memory safe · Production grade</span>
                 </div>
               </div>
             </div>
           </div>
           <div className="relative -mt-4 lg:col-span-7 lg:mt-0 xl:col-span-6">
             <p className="text-center text-sm font-semibold text-gray-400 lg:text-left">
-              Use it your way
+              Built for developers who think about what happens after the demo
             </p>
             <ul
               role="list"
               className="mx-auto mt-8 flex max-w-xl flex-wrap justify-center gap-x-8 gap-y-4 lg:mx-0 lg:justify-start"
             >
               {[
-                ['Web', 'Dashboard'],
-                ['iOS', 'App Store'],
-                ['API', 'Webhook'],
-                ['Zapier', 'No-code'],
-                ['Email', 'Reply to refine'],
+                ['Rust', 'Memory safe'],
+                ['Kubernetes', 'Self-deploying'],
+                ['Persona Swarms', 'Scoped access'],
+                ['Audit Logs', 'Every action'],
+                ['MIT License', 'Your terms'],
               ].map(([name, desc]) => (
                 <li key={name} className="text-center">
                   <span className="block text-sm font-medium text-gray-300">{name}</span>

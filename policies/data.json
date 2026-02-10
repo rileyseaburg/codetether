@@ -1,0 +1,138 @@
+{
+  "roles": {
+    "admin": {
+      "description": "Full system access",
+      "permissions": [
+        "admin:access",
+        "admin:manage_users",
+        "admin:manage_tenants",
+        "admin:view_dashboard",
+        "tasks:read",
+        "tasks:write",
+        "tasks:delete",
+        "tasks:execute",
+        "codebases:read",
+        "codebases:write",
+        "codebases:delete",
+        "workers:read",
+        "workers:write",
+        "workers:delete",
+        "sessions:read",
+        "sessions:write",
+        "sessions:delete",
+        "api_keys:read",
+        "api_keys:write",
+        "api_keys:delete",
+        "api_keys:sync",
+        "monitor:read",
+        "monitor:write",
+        "agent:read",
+        "agent:write",
+        "agent:execute",
+        "billing:read",
+        "billing:write",
+        "analytics:read",
+        "analytics:write",
+        "automation:read",
+        "automation:write",
+        "cronjobs:read",
+        "cronjobs:write",
+        "cronjobs:delete",
+        "tenants:read",
+        "tenants:write",
+        "queue:read",
+        "queue:write",
+        "voice:read",
+        "voice:write",
+        "email:read",
+        "email:write",
+        "mcp:read",
+        "mcp:write",
+        "ralph:read",
+        "ralph:write"
+      ]
+    },
+    "a2a-admin": {
+      "description": "Alias for admin (Keycloak realm role)",
+      "inherits": "admin"
+    },
+    "operator": {
+      "description": "Operations management — deploy, monitor, manage workers",
+      "permissions": [
+        "tasks:read",
+        "tasks:write",
+        "tasks:execute",
+        "codebases:read",
+        "codebases:write",
+        "workers:read",
+        "workers:write",
+        "sessions:read",
+        "sessions:write",
+        "api_keys:read",
+        "api_keys:write",
+        "monitor:read",
+        "monitor:write",
+        "agent:read",
+        "agent:write",
+        "agent:execute",
+        "analytics:read",
+        "automation:read",
+        "automation:write",
+        "cronjobs:read",
+        "cronjobs:write",
+        "queue:read",
+        "queue:write",
+        "voice:read",
+        "voice:write"
+      ]
+    },
+    "editor": {
+      "description": "Read/write access to tasks, codebases, and agents",
+      "permissions": [
+        "tasks:read",
+        "tasks:write",
+        "tasks:execute",
+        "codebases:read",
+        "codebases:write",
+        "workers:read",
+        "sessions:read",
+        "sessions:write",
+        "api_keys:read",
+        "api_keys:write",
+        "monitor:read",
+        "agent:read",
+        "agent:write",
+        "agent:execute",
+        "analytics:read",
+        "queue:read",
+        "voice:read",
+        "voice:write"
+      ]
+    },
+    "viewer": {
+      "description": "Read-only access",
+      "permissions": [
+        "tasks:read",
+        "codebases:read",
+        "workers:read",
+        "sessions:read",
+        "monitor:read",
+        "agent:read",
+        "analytics:read",
+        "queue:read",
+        "voice:read"
+      ]
+    }
+  },
+  "api_key_default_scopes": [
+    "tasks:read",
+    "tasks:write"
+  ],
+  "public_endpoints": [
+    "health",
+    "agent_card",
+    "auth:login",
+    "auth:register",
+    "auth:refresh"
+  ]
+}
