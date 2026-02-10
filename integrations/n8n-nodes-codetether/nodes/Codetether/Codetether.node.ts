@@ -36,7 +36,8 @@ export class Codetether implements INodeType {
                 noDataExpression: true,
                 options: [
                     { name: 'Task', value: 'task' },
-                    { name: 'Video Ad', value: 'videoAd' },
+                    { name: 'Video Ad (YouTube)', value: 'videoAd' },
+                    { name: 'Video Ad (Facebook)', value: 'facebookVideoAd' },
                 ],
                 default: 'task',
             },
@@ -427,8 +428,195 @@ export class Codetether implements INodeType {
                 type: 'number',
                 typeOptions: { minValue: 1, maxValue: 365 },
                 default: 30,
-                displayOptions: { show: { resource: ['videoAd'], operation: ['report'] } },
+                displayOptions: { show: { resource: ['videoAd', 'facebookVideoAd'], operation: ['report'] } },
                 description: 'Number of days to include in the report',
+            },
+
+            // ====== Facebook Video Ad Operations ======
+            {
+                displayName: 'Operation',
+                name: 'operation',
+                type: 'options',
+                noDataExpression: true,
+                displayOptions: { show: { resource: ['facebookVideoAd'] } },
+                options: [
+                    {
+                        name: 'Generate and Launch',
+                        value: 'generateAndLaunch',
+                        description: 'Generate video with Creatify → upload to Facebook → create campaign',
+                        action: 'Generate and launch Facebook video ad',
+                    },
+                    {
+                        name: 'Launch',
+                        value: 'launch',
+                        description: 'Upload existing video URL to Facebook and create campaign',
+                        action: 'Launch Facebook video ad',
+                    },
+                    {
+                        name: 'Check Video Status',
+                        value: 'checkVideo',
+                        description: 'Check Facebook video processing status',
+                        action: 'Check Facebook video status',
+                    },
+                    {
+                        name: 'Report',
+                        value: 'report',
+                        description: 'Get Facebook video campaign performance',
+                        action: 'Get Facebook video report',
+                    },
+                    {
+                        name: 'List Campaigns',
+                        value: 'listCampaigns',
+                        description: 'List Facebook ad campaigns',
+                        action: 'List Facebook campaigns',
+                    },
+                ],
+                default: 'generateAndLaunch',
+            },
+
+            // ------ Facebook Generate fields ------
+            {
+                displayName: 'Video Source',
+                name: 'fbVideoSource',
+                type: 'options',
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['generateAndLaunch'] } },
+                options: [
+                    { name: 'CodeTether Pre-built Script', value: 'script' },
+                    { name: 'Custom URL', value: 'url' },
+                    { name: 'Existing Video URL', value: 'existing' },
+                ],
+                default: 'script',
+                description: 'How to source the video',
+            },
+            {
+                displayName: 'Script Style',
+                name: 'fbScriptStyle',
+                type: 'options',
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['generateAndLaunch'], fbVideoSource: ['script'] } },
+                options: [
+                    { name: 'Problem Focused', value: 'problem_focused' },
+                    { name: 'Result Focused', value: 'result_focused' },
+                    { name: 'Comparison', value: 'comparison' },
+                ],
+                default: 'problem_focused',
+            },
+            {
+                displayName: 'URL',
+                name: 'fbUrl',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['generateAndLaunch'], fbVideoSource: ['url'] } },
+                description: 'Product URL to generate video from',
+                placeholder: 'https://codetether.io',
+            },
+            {
+                displayName: 'Video URL',
+                name: 'fbExistingVideoUrl',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['generateAndLaunch'], fbVideoSource: ['existing'] } },
+                description: 'Direct URL to an existing video file',
+            },
+
+            // ------ Facebook Launch fields ------
+            {
+                displayName: 'Video URL',
+                name: 'fbVideoUrl',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['launch'] } },
+                description: 'Public URL to the video file to upload to Facebook',
+            },
+
+            // ------ Facebook Campaign Options ------
+            {
+                displayName: 'Campaign Options',
+                name: 'fbCampaignOptions',
+                type: 'collection',
+                placeholder: 'Add Option',
+                default: {},
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['launch', 'generateAndLaunch'] } },
+                options: [
+                    {
+                        displayName: 'Campaign Name',
+                        name: 'campaignName',
+                        type: 'string',
+                        default: '',
+                        description: 'Name for the Facebook campaign',
+                    },
+                    {
+                        displayName: 'Daily Budget ($)',
+                        name: 'dailyBudgetDollars',
+                        type: 'number',
+                        typeOptions: { minValue: 1 },
+                        default: 25,
+                        description: 'Daily budget in dollars',
+                    },
+                    {
+                        displayName: 'Landing URL',
+                        name: 'landingUrl',
+                        type: 'string',
+                        default: 'https://codetether.run',
+                        description: 'Landing page URL',
+                    },
+                    {
+                        displayName: 'Ad Message',
+                        name: 'message',
+                        type: 'string',
+                        typeOptions: { rows: 3 },
+                        default: '',
+                        description: 'Primary text for the ad post',
+                    },
+                    {
+                        displayName: 'Headline',
+                        name: 'headline',
+                        type: 'string',
+                        default: 'AI Agents That Actually Deliver',
+                        description: 'Ad headline',
+                    },
+                    {
+                        displayName: 'CTA Type',
+                        name: 'ctaType',
+                        type: 'options',
+                        options: [
+                            { name: 'Learn More', value: 'LEARN_MORE' },
+                            { name: 'Sign Up', value: 'SIGN_UP' },
+                            { name: 'Get Started', value: 'GET_STARTED' },
+                            { name: 'Try It Now', value: 'TRY_IT' },
+                        ],
+                        default: 'LEARN_MORE',
+                        description: 'Call-to-action button type',
+                    },
+                ],
+            },
+
+            // ------ Facebook Check Video field ------
+            {
+                displayName: 'Facebook Video ID',
+                name: 'facebookVideoId',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['checkVideo'] } },
+                description: 'Facebook video ID to check processing status',
+            },
+
+            // ------ Facebook Aspect Ratio ------
+            {
+                displayName: 'Aspect Ratio',
+                name: 'fbAspectRatio',
+                type: 'options',
+                displayOptions: { show: { resource: ['facebookVideoAd'], operation: ['generateAndLaunch'], fbVideoSource: ['script', 'url'] } },
+                options: [
+                    { name: '1:1 (Square / Feed)', value: '1:1' },
+                    { name: '9:16 (Stories / Reels)', value: '9:16' },
+                    { name: '16:9 (Horizontal)', value: '16:9' },
+                ],
+                default: '1:1',
+                description: 'Video aspect ratio (1:1 recommended for Facebook)',
             },
         ],
     };
@@ -659,6 +847,98 @@ export class Codetether implements INodeType {
                             },
                         );
 
+                        returnData.push({ json: response as IDataObject });
+                    }
+                }
+
+                if (resource === 'facebookVideoAd') {
+                    const fbPipelineUrl = `${baseUrl.replace(/\/v1\/.*$/, '')}/api/facebook/video-pipeline`;
+
+                    if (operation === 'generateAndLaunch') {
+                        const videoSource = this.getNodeParameter('fbVideoSource', i) as string;
+                        const fbBody: Record<string, unknown> = { action: 'generate_and_launch' };
+
+                        if (videoSource === 'script') {
+                            fbBody.scriptStyle = this.getNodeParameter('fbScriptStyle', i, 'problem_focused') as string;
+                            fbBody.aspectRatio = this.getNodeParameter('fbAspectRatio', i, '1:1') as string;
+                        } else if (videoSource === 'url') {
+                            fbBody.url = this.getNodeParameter('fbUrl', i) as string;
+                            fbBody.aspectRatio = this.getNodeParameter('fbAspectRatio', i, '1:1') as string;
+                        } else {
+                            fbBody.creatifyVideoUrl = this.getNodeParameter('fbExistingVideoUrl', i) as string;
+                        }
+
+                        const campaignOptions = this.getNodeParameter('fbCampaignOptions', i, {}) as Record<string, unknown>;
+                        Object.assign(fbBody, campaignOptions);
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            { method: 'POST', url: fbPipelineUrl, body: fbBody, json: true },
+                        );
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'launch') {
+                        const videoUrl = this.getNodeParameter('fbVideoUrl', i) as string;
+                        const campaignOptions = this.getNodeParameter('fbCampaignOptions', i, {}) as Record<string, unknown>;
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: fbPipelineUrl,
+                                body: { action: 'launch', videoUrl, ...campaignOptions },
+                                json: true,
+                            },
+                        );
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'checkVideo') {
+                        const facebookVideoId = this.getNodeParameter('facebookVideoId', i) as string;
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: fbPipelineUrl,
+                                body: { action: 'check_video', facebookVideoId },
+                                json: true,
+                            },
+                        );
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'report') {
+                        const days = this.getNodeParameter('reportDays', i, 30) as number;
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: fbPipelineUrl,
+                                body: { action: 'report', days },
+                                json: true,
+                            },
+                        );
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'listCampaigns') {
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: fbPipelineUrl,
+                                body: { action: 'list' },
+                                json: true,
+                            },
+                        );
                         returnData.push({ json: response as IDataObject });
                     }
                 }
