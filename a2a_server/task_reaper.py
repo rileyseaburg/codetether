@@ -168,7 +168,7 @@ class TaskReaper:
 
                 stuck_tasks = await conn.fetch(
                     """
-                    SELECT id, codebase_id, title, prompt, agent_type, 
+                    SELECT id, codebase_id, title, prompt, agent_type,
                            status, priority, worker_id, started_at,
                            COALESCE((metadata->>'attempts')::int, 1) as attempts,
                            metadata
@@ -249,6 +249,9 @@ class TaskReaper:
             json.dumps(metadata),
         )
 
+        # Clear any stale in-memory claim so workers can re-claim
+        await self._clear_claim(task_id)
+
         # Notify via SSE that task is available again
         await self._notify_task_available(task_id)
 
@@ -284,8 +287,33 @@ class TaskReaper:
             json.dumps(metadata),
         )
 
+        # Clear any stale in-memory claim
+        await self._clear_claim(task_id)
+
         # Send failure notification
         await self._notify_task_failed(task, metadata)
+
+    async def _clear_claim(self, task_id: str) -> None:
+        """Remove a task from the in-memory claimed-tasks map."""
+        try:
+            from .worker_sse import get_worker_registry
+
+            registry = get_worker_registry()
+            if registry:
+                async with registry._lock:
+                    old_worker = registry._claimed_tasks.pop(task_id, None)
+                    if old_worker:
+                        logger.info(
+                            f'Cleared stale claim on task {task_id} '
+                            f'(was held by worker {old_worker})'
+                        )
+                        # Also reset the worker's busy flag if it's still connected
+                        worker = registry._workers.get(old_worker)
+                        if worker and worker.current_task_id == task_id:
+                            worker.is_busy = False
+                            worker.current_task_id = None
+        except Exception as e:
+            logger.debug(f'Failed to clear claim for task {task_id}: {e}')
 
     async def _notify_task_available(self, task_id: str) -> None:
         """Notify workers that a task is available for claiming."""

@@ -1,68 +1,164 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { listWorkersV1AgentWorkersGet } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { useTenantApi } from '@/hooks/useTenantApi'
 
 export interface Worker {
     worker_id: string
-    name: string
-    capabilities: string[]
+    name?: string
+    capabilities?: string[]
     hostname?: string
     status?: string
     codebases?: string[]
     last_seen?: string
+    worker_runtime?: 'rust' | 'opencode_python'
+    worker_runtime_label?: string
+    is_sse_connected?: boolean
 }
 
-export function useWorkers() {
+interface ConnectedWorker {
+    worker_id?: string
+    agent_name?: string
+    last_heartbeat?: string
+}
+
+export interface WorkerSelectorProps {
+    value: string
+    onChange: (workerId: string) => void
+    className?: string
+    workers?: Worker[]
+    onlyConnected?: boolean
+    disableDisconnected?: boolean
+    includeAutoOption?: boolean
+    autoOptionLabel?: string
+    disabled?: boolean
+    loading?: boolean
+    error?: string | null
+}
+
+function isConnected(worker: Worker): boolean {
+    if (typeof worker.is_sse_connected === 'boolean') {
+        return worker.is_sse_connected
+    }
+    if (!worker.last_seen) return false
+    const lastSeen = new Date(worker.last_seen).getTime()
+    if (Number.isNaN(lastSeen)) return false
+    return Date.now() - lastSeen < 120000
+}
+
+function formatWorkerLabel(worker: Worker): string {
+    const displayName = (worker.name || worker.worker_id).trim()
+    const effectiveRuntimeLabel = isConnected(worker) ? 'Rust Worker' : undefined
+    const runtimeLabel =
+        effectiveRuntimeLabel ||
+        worker.worker_runtime_label ||
+        (worker.worker_runtime === 'rust' ? 'Rust Worker' : 'OpenCode Python Worker')
+    const connectionLabel = isConnected(worker) ? 'connected' : 'not connected'
+    const statusValue = worker.status || connectionLabel
+    return `${displayName} - ${runtimeLabel} (${statusValue})`
+}
+
+function mergeWorkerSources(
+    workers: Worker[],
+    connectedWorkers: ConnectedWorker[]
+): Worker[] {
+    const connectedMap = new Map(
+        connectedWorkers
+            .filter((w) => w.worker_id)
+            .map((w) => [
+                String(w.worker_id),
+                {
+                    name: w.agent_name,
+                    last_seen: w.last_heartbeat,
+                },
+            ])
+    )
+
+    return workers.map((worker) => {
+        const connected = connectedMap.get(worker.worker_id)
+        return {
+            ...worker,
+            name: connected?.name || worker.name,
+            last_seen: connected?.last_seen || worker.last_seen,
+            is_sse_connected: Boolean(connected),
+        }
+    })
+}
+
+export function useWorkers(enabled: boolean = true) {
+    const { tenantFetch } = useTenantApi()
     const [workers, setWorkers] = useState<Worker[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        if (!enabled) {
+            setLoading(false)
+            return
+        }
+
+        let cancelled = false
+
         const fetchWorkers = async () => {
             try {
-                const result = await listWorkersV1AgentWorkersGet()
-                if (result.data) {
-                    const workersData = result.data as any
-                    setWorkers(workersData.map((w: any) => ({
-                        worker_id: w.worker_id,
-                        name: w.name,
-                        capabilities: w.capabilities,
-                        hostname: w.hostname,
-                        status: w.status,
-                        codebases: w.codebases,
-                        last_seen: w.last_seen,
-                    })))
+                const [workersResponse, connectedResponse] = await Promise.all([
+                    tenantFetch<Worker[]>('/v1/agent/workers'),
+                    tenantFetch<{ workers?: ConnectedWorker[] }>('/v1/worker/connected'),
+                ])
+
+                if (workersResponse.error) {
+                    throw new Error(workersResponse.error)
+                }
+
+                const baseWorkers = Array.isArray(workersResponse.data) ? workersResponse.data : []
+                const connectedWorkers = connectedResponse.data?.workers || []
+                const mergedWorkers = mergeWorkerSources(baseWorkers, connectedWorkers)
+
+                if (!cancelled) {
+                    setWorkers(mergedWorkers)
+                    setError(null)
                 }
             } catch (e) {
-                setError(e instanceof Error ? e.message : 'Failed to load workers')
+                if (!cancelled) {
+                    setError(e instanceof Error ? e.message : 'Failed to load workers')
+                    setWorkers([])
+                }
             } finally {
-                setLoading(false)
+                if (!cancelled) setLoading(false)
             }
         }
+
         fetchWorkers()
-    }, [])
+        return () => {
+            cancelled = true
+        }
+    }, [enabled, tenantFetch])
 
     return { workers, loading, error }
 }
 
-function isOnline(worker: Worker): boolean {
-    if (!worker.last_seen) return false
-    const now = Date.now()
-    const lastSeen = new Date(worker.last_seen).getTime()
-    return (now - lastSeen) < 120000 // Less than 2 minutes ago
-}
+export function WorkerSelector({
+    value,
+    onChange,
+    className = '',
+    workers: workersProp,
+    onlyConnected = true,
+    disableDisconnected = true,
+    includeAutoOption = true,
+    autoOptionLabel = 'Select a worker...',
+    disabled = false,
+    loading: loadingProp,
+    error: errorProp,
+}: WorkerSelectorProps) {
+    const fetched = useWorkers(workersProp === undefined)
+    const workers = workersProp ?? fetched.workers
+    const loading = loadingProp ?? (workersProp ? false : fetched.loading)
+    const error = errorProp ?? (workersProp ? null : fetched.error)
 
-export function WorkerSelector({ 
-    value, 
-    onChange, 
-    className 
-}: { 
-    value: string
-    onChange: (workerId: string) => void
-    className?: string
-}) {
-    const { workers, loading, error } = useWorkers()
+    const visibleWorkers = useMemo(() => {
+        if (onlyConnected) return workers.filter(isConnected)
+        return workers
+    }, [onlyConnected, workers])
 
     if (loading) {
         return (
@@ -80,8 +176,6 @@ export function WorkerSelector({
         )
     }
 
-    const onlineWorkers = workers.filter(isOnline)
-
     if (workers.length === 0) {
         return (
             <div className={`px-3 py-2 text-sm text-yellow-600 dark:text-yellow-400 ${className}`}>
@@ -90,10 +184,10 @@ export function WorkerSelector({
         )
     }
 
-    if (onlineWorkers.length === 0) {
+    if (visibleWorkers.length === 0) {
         return (
             <div className={`px-3 py-2 text-sm text-orange-600 dark:text-orange-400 ${className}`}>
-                No online workers - {workers.length} stale
+                No connected workers
             </div>
         )
     }
@@ -103,14 +197,22 @@ export function WorkerSelector({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             data-cy="worker-selector"
-            className={`px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 ${className}`}
+            disabled={disabled}
+            className={`px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 ${className}`}
         >
-            <option value="">Select a worker...</option>
-            {onlineWorkers.map((w) => (
-                <option key={w.worker_id} value={w.worker_id}>
-                    {w.name} ({w.worker_id})
-                </option>
-            ))}
+            {includeAutoOption ? <option value="">{autoOptionLabel}</option> : null}
+            {visibleWorkers.map((worker) => {
+                const connected = isConnected(worker)
+                return (
+                    <option
+                        key={worker.worker_id}
+                        value={worker.worker_id}
+                        disabled={disableDisconnected && !connected}
+                    >
+                        {formatWorkerLabel(worker)}
+                    </option>
+                )
+            })}
         </select>
     )
 }

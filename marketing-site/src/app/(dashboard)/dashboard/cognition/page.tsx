@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+// Cognition API is proxied through Next.js rewrites (next.config.js) to avoid
+// Mixed Content errors when the backend only speaks HTTP.
+const COGNITION_API_URL = ''
 
 interface CognitionStatus {
     enabled: boolean
@@ -26,6 +28,89 @@ interface MemorySnapshot {
     warm_fact_count: number
     cold_snapshot_count: number
     metadata: Record<string, unknown>
+}
+
+interface Belief {
+    id: string
+    belief_key: string
+    claim: string
+    confidence: number
+    evidence_refs: string[]
+    asserted_by: string
+    confirmed_by: string[]
+    contested_by: string[]
+    contradicts: string[]
+    created_at: string
+    updated_at: string
+    review_after: string
+    status: string
+}
+
+interface AttentionItem {
+    id: string
+    topic: string
+    topic_tags: string[]
+    priority: number
+    source_type: string
+    source_id: string
+    assigned_persona: string | null
+    created_at: string
+    resolved_at: string | null
+}
+
+interface Proposal {
+    id: string
+    persona_id: string
+    title: string
+    rationale: string
+    evidence_refs: string[]
+    risk: string
+    status: string
+    created_at: string
+    votes: Record<string, string>
+    vote_deadline: string | null
+    votes_requested: boolean
+}
+
+interface ToolInvocation {
+    tool_name: string
+    arguments: Record<string, unknown> | unknown
+    result: string | null
+    success: boolean
+    lease_id: string
+    invoked_at: string
+}
+
+interface DecisionSuccessOutcome {
+    type: 'success'
+    summary: string
+}
+
+interface DecisionFailureOutcome {
+    type: 'failure'
+    error: string
+    follow_up_attention?: string | null
+}
+
+type DecisionOutcome = DecisionSuccessOutcome | DecisionFailureOutcome
+
+interface DecisionReceipt {
+    id: string
+    proposal_id: string
+    inputs: string[]
+    governance_decision: string
+    capability_leases: string[]
+    tool_invocations: ToolInvocation[]
+    outcome: DecisionOutcome
+    created_at: string
+}
+
+interface GlobalWorkspace {
+    top_beliefs: string[]
+    top_uncertainties: string[]
+    top_attention: string[]
+    active_objectives: string[]
+    updated_at: string
 }
 
 interface LineageNode {
@@ -101,6 +186,36 @@ function statusBadgeClass(status: string) {
     }
 }
 
+function proposalRiskBadgeClass(risk: string) {
+    switch (risk) {
+        case 'critical':
+            return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+        case 'high':
+            return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+        case 'medium':
+            return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+        case 'low':
+            return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+        default:
+            return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+    }
+}
+
+function proposalStatusBadgeClass(status: string) {
+    switch (status) {
+        case 'executed':
+            return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+        case 'verified':
+            return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+        case 'created':
+            return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+        case 'rejected':
+            return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+        default:
+            return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+    }
+}
+
 async function readErrorMessage(response: Response): Promise<string> {
     const text = await response.text()
     if (!text) {
@@ -117,6 +232,21 @@ async function readErrorMessage(response: Response): Promise<string> {
     }
 
     return text
+}
+
+function withCognitionApiHint(message: string) {
+    const normalized = message.trim().toLowerCase()
+    if (
+        normalized === 'not found' ||
+        normalized.includes('404') ||
+        normalized.includes('failed to fetch')
+    ) {
+        return (
+            `Cognition API unavailable at ${COGNITION_API_URL}. ` +
+            'Set NEXT_PUBLIC_COGNITION_API_URL to your codetether-agent server (for example http://<host>:8010).'
+        )
+    }
+    return message
 }
 
 function getAuthHeaders(includeJson: boolean, extraHeaders?: HeadersInit): Headers {
@@ -140,6 +270,11 @@ export default function CognitionPage() {
     const [snapshot, setSnapshot] = useState<MemorySnapshot | null>(null)
     const [lineage, setLineage] = useState<LineageGraph | null>(null)
     const [events, setEvents] = useState<ThoughtEvent[]>([])
+    const [beliefs, setBeliefs] = useState<Belief[]>([])
+    const [attention, setAttention] = useState<AttentionItem[]>([])
+    const [proposals, setProposals] = useState<Proposal[]>([])
+    const [receipts, setReceipts] = useState<DecisionReceipt[]>([])
+    const [workspace, setWorkspace] = useState<GlobalWorkspace | null>(null)
 
     const [connected, setConnected] = useState(false)
     const [streamLagNotice, setStreamLagNotice] = useState<string | null>(null)
@@ -184,18 +319,28 @@ export default function CognitionPage() {
             init: RequestInit = {},
             allowNotFound = false
         ): Promise<T | null> => {
-            const response = await fetch(`${API_URL}${path}`, {
-                ...init,
-                headers: getAuthHeaders(Boolean(init.body), init.headers),
-                credentials: 'include',
-            })
+            let response: Response
+            try {
+                response = await fetch(`${COGNITION_API_URL}${path.replace('/v1/cognition/', '/api/cognition/').replace('/v1/swarm/', '/api/swarm/')}`, {
+                    ...init,
+                    headers: getAuthHeaders(Boolean(init.body), init.headers),
+                    credentials: 'omit',
+                })
+            } catch {
+                // Network error (backend unreachable)
+                throw new Error('Cognition backend is offline')
+            }
 
             if (allowNotFound && response.status === 404) {
                 return null
             }
 
+            if (response.status >= 500) {
+                throw new Error('Cognition backend is offline or returned a server error')
+            }
+
             if (!response.ok) {
-                throw new Error(await readErrorMessage(response))
+                throw new Error(withCognitionApiHint(await readErrorMessage(response)))
             }
 
             if (response.status === 204) {
@@ -227,12 +372,57 @@ export default function CognitionPage() {
         }
     }, [request])
 
+    const loadBeliefs = useCallback(async () => {
+        const data = await request<Belief[]>('/v1/cognition/beliefs')
+        setBeliefs(data ?? [])
+    }, [request])
+
+    const loadAttention = useCallback(async () => {
+        const data = await request<AttentionItem[]>('/v1/cognition/attention')
+        setAttention(data ?? [])
+    }, [request])
+
+    const loadProposals = useCallback(async () => {
+        const data = await request<Proposal[]>('/v1/cognition/proposals')
+        setProposals(data ?? [])
+    }, [request])
+
+    const loadReceipts = useCallback(async () => {
+        const data = await request<DecisionReceipt[]>('/v1/cognition/receipts')
+        setReceipts(data ?? [])
+    }, [request])
+
+    const loadWorkspace = useCallback(async () => {
+        const data = await request<GlobalWorkspace>('/v1/cognition/workspace')
+        setWorkspace(data)
+    }, [request])
+
     const refreshAll = useCallback(
         async (showSpinner: boolean) => {
             if (showSpinner) setRefreshing(true)
             try {
-                await Promise.all([loadStatus(), loadSnapshot(), loadLineage()])
-                setError(null)
+                const results = await Promise.allSettled([
+                    loadStatus(),
+                    loadSnapshot(),
+                    loadLineage(),
+                    loadBeliefs(),
+                    loadAttention(),
+                    loadProposals(),
+                    loadReceipts(),
+                    loadWorkspace(),
+                ])
+                const firstError = results.find(
+                    (r): r is PromiseRejectedResult => r.status === 'rejected'
+                )
+                if (firstError) {
+                    setError(
+                        firstError.reason instanceof Error
+                            ? firstError.reason.message
+                            : 'Failed to refresh cognition state'
+                    )
+                } else {
+                    setError(null)
+                }
             } catch (refreshError) {
                 setError(
                     refreshError instanceof Error
@@ -243,7 +433,16 @@ export default function CognitionPage() {
                 if (showSpinner) setRefreshing(false)
             }
         },
-        [loadLineage, loadSnapshot, loadStatus]
+        [
+            loadAttention,
+            loadBeliefs,
+            loadLineage,
+            loadProposals,
+            loadReceipts,
+            loadSnapshot,
+            loadStatus,
+            loadWorkspace,
+        ]
     )
 
     useEffect(() => {
@@ -269,12 +468,13 @@ export default function CognitionPage() {
     }, [refreshAll])
 
     useEffect(() => {
-        const source = new EventSource(`${API_URL}/v1/cognition/stream`)
+        const source = new EventSource(`/api/cognition/stream`)
 
         const handleCognitionEvent = (event: MessageEvent) => {
             try {
                 const parsed = JSON.parse(event.data as string) as ThoughtEvent
                 setEvents((current) => [parsed, ...current].slice(0, 120))
+
                 if (parsed.event_type === 'persona_spawned' || parsed.event_type === 'persona_reaped') {
                     void loadLineage()
                     void loadStatus()
@@ -282,6 +482,33 @@ export default function CognitionPage() {
                 if (parsed.event_type === 'snapshot_compressed') {
                     void loadSnapshot()
                     void loadStatus()
+                }
+                if (
+                    parsed.event_type === 'belief_extracted' ||
+                    parsed.event_type === 'belief_contested' ||
+                    parsed.event_type === 'belief_revalidated'
+                ) {
+                    void loadBeliefs()
+                }
+                if (parsed.event_type === 'attention_created') {
+                    void loadAttention()
+                    void loadWorkspace()
+                }
+                if (
+                    parsed.event_type === 'proposal_created' ||
+                    parsed.event_type === 'proposal_verified' ||
+                    parsed.event_type === 'proposal_rejected' ||
+                    parsed.event_type === 'vote_cast'
+                ) {
+                    void loadProposals()
+                }
+                if (parsed.event_type === 'action_executed') {
+                    void loadProposals()
+                    void loadReceipts()
+                    void loadStatus()
+                }
+                if (parsed.event_type === 'workspace_updated') {
+                    void loadWorkspace()
                 }
             } catch {
                 // Ignore parse failures from non-event payloads.
@@ -308,7 +535,16 @@ export default function CognitionPage() {
             source.removeEventListener('lag', handleLagEvent as EventListener)
             source.close()
         }
-    }, [loadLineage, loadSnapshot, loadStatus])
+    }, [
+        loadAttention,
+        loadBeliefs,
+        loadLineage,
+        loadProposals,
+        loadReceipts,
+        loadSnapshot,
+        loadStatus,
+        loadWorkspace,
+    ])
 
     const clearMessages = () => {
         setError(null)
@@ -484,11 +720,36 @@ export default function CognitionPage() {
         }
     }
 
+    const handleApproveProposal = async (proposalId: string) => {
+        clearMessages()
+        setSubmitting(`approve:${proposalId}`)
+
+        try {
+            await request(`/v1/cognition/proposals/${encodeURIComponent(proposalId)}/approve`, {
+                method: 'POST',
+            })
+
+            setSuccess(`Approved proposal ${proposalId}`)
+            await Promise.all([loadProposals(), loadReceipts(), loadWorkspace(), loadStatus()])
+        } catch (approveError) {
+            setError(
+                approveError instanceof Error ? approveError.message : 'Failed to approve proposal'
+            )
+        } finally {
+            setSubmitting(null)
+        }
+    }
+
     const sortedNodes = useMemo(() => {
         return [...(lineage?.nodes ?? [])].sort(
             (left, right) => left.depth - right.depth || left.persona_id.localeCompare(right.persona_id)
         )
     }, [lineage])
+
+    const openAttentionCount = useMemo(
+        () => attention.filter((item) => !item.resolved_at).length,
+        [attention]
+    )
 
     if (loading) {
         return (
@@ -505,6 +766,9 @@ export default function CognitionPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cognition</h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         Perpetual persona swarm control plane and live thought stream
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        API: {COGNITION_API_URL}
                     </p>
                 </div>
                 <button
@@ -532,9 +796,8 @@ export default function CognitionPage() {
                     <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Runtime</div>
                     <div className="mt-2 flex items-center gap-2">
                         <span
-                            className={`h-2.5 w-2.5 rounded-full ${
-                                status?.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                            }`}
+                            className={`h-2.5 w-2.5 rounded-full ${status?.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                                }`}
                         />
                         <span className="text-sm font-semibold text-gray-900 dark:text-white">
                             {status?.running ? 'Running' : 'Stopped'}
@@ -570,6 +833,9 @@ export default function CognitionPage() {
                         Snapshots: {status?.snapshots_buffered ?? 0}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Beliefs: {beliefs.length} | Open attention: {openAttentionCount}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                         Edges: {lineage?.total_edges ?? 0}
                     </div>
                 </div>
@@ -578,9 +844,8 @@ export default function CognitionPage() {
                     <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Stream</div>
                     <div className="mt-2 flex items-center gap-2 text-sm font-semibold">
                         <span
-                            className={`h-2.5 w-2.5 rounded-full ${
-                                connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                            }`}
+                            className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                                }`}
                         />
                         <span className="text-gray-900 dark:text-white">
                             {connected ? 'Connected' : 'Disconnected'}
@@ -978,6 +1243,258 @@ export default function CognitionPage() {
                         </div>
                     )}
                 </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-3">
+                <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Global Workspace</h2>
+                    {!workspace ? (
+                        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                            Workspace state unavailable.
+                        </p>
+                    ) : (
+                        <div className="mt-3 space-y-3 text-sm">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Updated: {formatDateTime(workspace.updated_at)}
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Top beliefs
+                                </p>
+                                {workspace.top_beliefs.length === 0 ? (
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">None</p>
+                                ) : (
+                                    <ul className="mt-1 space-y-1 text-xs text-gray-700 dark:text-gray-200">
+                                        {workspace.top_beliefs.map((belief, index) => (
+                                            <li key={`workspace-belief-${index}`}>• {belief}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Top uncertainties
+                                </p>
+                                {workspace.top_uncertainties.length === 0 ? (
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">None</p>
+                                ) : (
+                                    <ul className="mt-1 space-y-1 text-xs text-gray-700 dark:text-gray-200">
+                                        {workspace.top_uncertainties.map((uncertainty, index) => (
+                                            <li key={`workspace-uncertainty-${index}`}>• {uncertainty}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Active objectives
+                                </p>
+                                {workspace.active_objectives.length === 0 ? (
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">None</p>
+                                ) : (
+                                    <ul className="mt-1 space-y-1 text-xs text-gray-700 dark:text-gray-200">
+                                        {workspace.active_objectives.map((objective, index) => (
+                                            <li key={`workspace-objective-${index}`}>• {objective}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 xl:col-span-2">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Beliefs ({beliefs.length})
+                    </h2>
+                    {beliefs.length === 0 ? (
+                        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                            No beliefs extracted yet.
+                        </p>
+                    ) : (
+                        <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                            {beliefs.map((belief) => (
+                                <div
+                                    key={belief.id}
+                                    className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                            {belief.claim}
+                                        </div>
+                                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                            {(belief.confidence * 100).toFixed(0)}%
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        key: {belief.belief_key}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                        <span
+                                            className={`rounded-full px-2 py-0.5 ${proposalStatusBadgeClass(
+                                                belief.status
+                                            )}`}
+                                        >
+                                            {belief.status}
+                                        </span>
+                                        <span className="text-gray-500 dark:text-gray-400">
+                                            asserted by {belief.asserted_by}
+                                        </span>
+                                        <span className="text-gray-500 dark:text-gray-400">
+                                            review: {formatDateTime(belief.review_after)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Attention Queue ({openAttentionCount} open)
+                    </h2>
+                    {attention.length === 0 ? (
+                        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                            No attention items.
+                        </p>
+                    ) : (
+                        <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                            {attention.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                            {item.topic}
+                                        </div>
+                                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                            p={item.priority.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        source: {item.source_type} ({item.source_id})
+                                    </div>
+                                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        assigned: {item.assigned_persona || 'unassigned'} | created:{' '}
+                                        {formatDateTime(item.created_at)}
+                                    </div>
+                                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        state: {item.resolved_at ? `resolved ${formatDateTime(item.resolved_at)}` : 'open'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Governance Proposals ({proposals.length})
+                    </h2>
+                    {proposals.length === 0 ? (
+                        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                            No proposals available.
+                        </p>
+                    ) : (
+                        <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                            {proposals.map((proposal) => {
+                                const voteCount = Object.keys(proposal.votes || {}).length
+                                const canApprove =
+                                    proposal.status !== 'executed' && proposal.status !== 'rejected'
+                                const approving = submitting === `approve:${proposal.id}`
+
+                                return (
+                                    <div
+                                        key={proposal.id}
+                                        className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="font-medium text-gray-900 dark:text-white">
+                                                {proposal.title}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`rounded-full px-2 py-0.5 text-xs ${proposalRiskBadgeClass(
+                                                        proposal.risk
+                                                    )}`}
+                                                >
+                                                    {proposal.risk}
+                                                </span>
+                                                <span
+                                                    className={`rounded-full px-2 py-0.5 text-xs ${proposalStatusBadgeClass(
+                                                        proposal.status
+                                                    )}`}
+                                                >
+                                                    {proposal.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
+                                            {proposal.rationale}
+                                        </p>
+                                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            by {proposal.persona_id} | votes: {voteCount} | created:{' '}
+                                            {formatDateTime(proposal.created_at)}
+                                        </div>
+                                        {canApprove && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleApproveProposal(proposal.id)}
+                                                disabled={approving}
+                                                className="mt-2 rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                                            >
+                                                {approving ? 'Approving...' : 'Approve'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Decision Receipts ({receipts.length})
+                </h2>
+                {receipts.length === 0 ? (
+                    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No receipts recorded yet.</p>
+                ) : (
+                    <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                        {receipts.map((receipt) => (
+                            <div
+                                key={receipt.id}
+                                className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="font-mono text-xs text-gray-700 dark:text-gray-300">
+                                        {receipt.id}
+                                    </div>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {formatDateTime(receipt.created_at)}
+                                    </span>
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    proposal: {receipt.proposal_id} | decision: {receipt.governance_decision}
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    tool calls: {receipt.tool_invocations.length} | leases:{' '}
+                                    {receipt.capability_leases.length}
+                                </div>
+                                <div className="mt-2 rounded bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                    {receipt.outcome.type === 'success'
+                                        ? receipt.outcome.summary
+                                        : receipt.outcome.error}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     )

@@ -9,7 +9,8 @@ This document is the single source of truth for all agents working in this repos
 ```
 A2A-Server-MCP/
 ├── a2a_server/           # Python FastAPI server (the brain)
-├── agent_worker/         # Python worker that picks up tasks (PRODUCTION)
+├── agent_worker/         # DEPRECATED Python worker (replaced by codetether-agent)
+├── codetether-agent/     # Rust worker binary - PRODUCTION (codetether worker)
 ├── opencode/             # OpenCode fork (git submodule - DO NOT MODIFY HERE)
 ├── opencode-a2a-integration/  # TypeScript integration for OpenCode CLI
 ├── marketing-site/       # Next.js web dashboard
@@ -21,22 +22,31 @@ A2A-Server-MCP/
 
 ## The Two Workers - UNDERSTAND THIS
 
-### 1. Python Worker (`agent_worker/worker.py`) - PRODUCTION
+### 1. Rust Worker (`codetether-agent/`) - PRODUCTION
 
-- Runs as systemd service at `/opt/a2a-worker/`
-- Config at `/etc/a2a-worker/config.json`
+- Built from the `codetether-agent/` Rust crate
+- Run via: `codetether worker --server <URL> --codebases <PATH> --auto-approve safe`
+- Installed as systemd service via `agent_worker/install-codetether-worker.sh`
 - Connects to A2A server via SSE
-- Spawns OpenCode processes to execute tasks
+- Has built-in LLM provider support (no subprocess spawning)
 - THIS IS WHAT RUNS IN PRODUCTION
 
-### 2. TypeScript Worker (`opencode-a2a-integration/`) - CLI TOOL
+### 2. Python Worker (`agent_worker/worker.py`) - ⚠️ DEPRECATED
+
+- **DEPRECATED**: Will be removed in a future release
+- Was the original production worker that spawned OpenCode as a subprocess
+- Use `codetether worker` (Rust binary) instead
+- Legacy config at `/etc/a2a-worker/config.json` is still supported by the install script
+- Kept for reference during migration period
+
+### 3. TypeScript Worker (`opencode-a2a-integration/`) - CLI TOOL
 
 - For running `opencode a2a --server <url>` command
 - Integrated into OpenCode binary
 - Used for development/testing
 - NOT the production worker
 
-**THEY ARE NOT THE SAME. The Python worker calls the OpenCode binary as a subprocess.**
+**The Rust worker (`codetether worker`) is the production orchestrator. It replaces both the Python worker and the need to shell out to OpenCode.**
 
 ## Task Flow (How Work Gets Done)
 
@@ -268,7 +278,7 @@ Workers **must** register their codebases to receive tasks for them. The server 
 ## Common Mistakes - AVOID THESE
 
 1. **Modifying opencode/ directly** - It's a submodule. Changes go in `opencode-a2a-integration/`
-2. **Confusing the two workers** - Python worker is production, TypeScript is CLI tool
+2. **Using the deprecated Python worker** - Use `codetether worker` (Rust binary) instead
 3. **Not using MCP tools** - Always use spotless-ads/rustyroad tools, not manual file edits
 4. **Posting to wrong endpoint** - Use `/v1/monitor/intervene` for notifications, not `/v1/monitor/messages`
 5. **Missing timestamp** - The intervene endpoint requires `agent_id`, `message`, AND `timestamp`
@@ -289,11 +299,17 @@ python run_server.py run
 ### Start Worker (Development)
 
 ```bash
-# Using TypeScript CLI
+# Using Rust codetether worker (RECOMMENDED)
+codetether worker --server http://localhost:8000 --codebases . --auto-approve safe --name "local-worker"
+
+# Or via make
+make worker
+
+# Using TypeScript CLI (development/testing only)
 opencode a2a -s http://localhost:8000 -t secret123 -n dev-worker --auto-approve all
 
-# Or using Python worker
-python agent_worker/worker.py
+# DEPRECATED: Python worker (will be removed)
+# python agent_worker/worker.py
 ```
 
 ### Check Health
@@ -351,11 +367,12 @@ tail -f /tmp/a2a-worker.log  # If running manually
                                │
                                ▼ SSE
 ┌──────────────────────────────────────────────────────────────────────┐
-│                      PYTHON WORKER (agent_worker/)                    │
+│                      RUST WORKER (codetether-agent/)                  │
 │  - Receives tasks via SSE                                            │
-│  - Spawns OpenCode processes                                         │
+│  - Has built-in LLM provider support                                 │
 │  - Reports results back to server                                    │
 │  - Sends notifications                                               │
+│  - Replaces deprecated Python worker (agent_worker/)                 │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │
                                ▼ subprocess
@@ -376,4 +393,4 @@ If you're still confused:
 3. Look at `/v1/opencode/tasks` to see actual task data
 4. Check `/v1/monitor/messages` for recent activity
 
-**Remember: The Python worker is the orchestrator. OpenCode is the executor.**
+**Remember: The Rust worker (`codetether worker`) is the production orchestrator.**

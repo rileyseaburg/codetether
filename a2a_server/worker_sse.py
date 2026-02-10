@@ -159,31 +159,84 @@ class WorkerRegistry:
                 codebase_id = task.codebase_id
                 # Check if this is a restricted codebase (not global/__pending__)
                 if codebase_id and codebase_id not in ('global', '__pending__'):
-                    # Worker must own this codebase to claim it
-                    worker = self._workers.get(worker_id)
-                    if worker:
+                    worker = await self.get_worker(worker_id)
+                    if not worker:
+                        # Worker not SSE-connected; allow claim anyway so
+                        # polling-only / reconnecting workers aren't locked out.
+                        logger.debug(
+                            f'Worker {worker_id} not in SSE registry, '
+                            f'allowing claim attempt for task {task_id}'
+                        )
+                    else:
                         can_handle = codebase_id in worker.codebases
                         if not can_handle:
-                            logger.warning(
-                                f'Worker {worker_id} ({worker.agent_name}) tried to claim task {task_id} '
-                                f'for codebase {codebase_id} it does not own (worker codebases: {worker.codebases})'
+                            can_handle = await self._worker_owns_codebase(
+                                worker_id, codebase_id
                             )
-                            return False
+                        if not can_handle:
+                            # Check if ANY connected worker owns this codebase;
+                            # if not, the codebase has a stale worker_id and we
+                            # should let any worker pick it up rather than
+                            # leaving the task stuck forever.
+                            owner_connected = False
+                            async with self._lock:
+                                for w in self._workers.values():
+                                    if codebase_id in w.codebases:
+                                        owner_connected = True
+                                        break
+                            if not owner_connected:
+                                owner_connected = await self._any_connected_worker_owns_codebase(codebase_id)
+
+                            if owner_connected:
+                                logger.debug(
+                                    f'Worker {worker_id} ({worker.agent_name}) skipped task {task_id} '
+                                    f'for codebase {codebase_id} (worker codebases: {worker.codebases})'
+                                )
+                                return False
+                            else:
+                                logger.warning(
+                                    f'No connected worker owns codebase {codebase_id} — '
+                                    f'allowing worker {worker_id} ({worker.agent_name}) '
+                                    f'to claim orphaned task {task_id}'
+                                )
 
         async with self._lock:
             if task_id in self._claimed_tasks:
                 existing_worker = self._claimed_tasks[task_id]
                 if existing_worker == worker_id:
                     return True  # Already claimed by this worker
-                return False  # Claimed by another worker
 
-            worker = self._workers.get(worker_id)
-            if not worker:
-                return False
+                # If the claiming worker is no longer connected, auto-release
+                # the stale claim so another worker can pick up the task.
+                if existing_worker not in self._workers:
+                    logger.warning(
+                        f'Task {task_id} was claimed by disconnected worker '
+                        f'{existing_worker} — auto-releasing stale claim'
+                    )
+                    del self._claimed_tasks[task_id]
+                    # Also reset the task status in the DB back to pending
+                    try:
+                        from . import database as db
+                        pool = await db.get_pool()
+                        if pool:
+                            async with pool.acquire() as conn:
+                                await conn.execute(
+                                    "UPDATE tasks SET status = 'pending', "
+                                    'worker_id = NULL, started_at = NULL '
+                                    "WHERE id = $1 AND status = 'running'",
+                                    task_id,
+                                )
+                    except Exception as e:
+                        logger.debug(f'Failed to reset task {task_id} in DB: {e}')
+                    # Fall through to let the requesting worker claim it
+                else:
+                    return False  # Claimed by a connected worker
 
             self._claimed_tasks[task_id] = worker_id
-            worker.is_busy = True
-            worker.current_task_id = task_id
+            worker = self._workers.get(worker_id)
+            if worker:
+                worker.is_busy = True
+                worker.current_task_id = task_id
             logger.info(f'Task {task_id} claimed by worker {worker_id}')
             return True
 
@@ -367,6 +420,28 @@ class WorkerRegistry:
                 return True
         except Exception as e:
             logger.debug(f'Error checking codebase ownership: {e}')
+        return False
+
+    async def _any_connected_worker_owns_codebase(
+        self, codebase_id: str
+    ) -> bool:
+        """Check if any currently connected SSE worker owns this codebase in the DB."""
+        try:
+            from .opencode_bridge import get_bridge
+
+            bridge = get_bridge()
+            codebase = bridge.get_codebase(codebase_id)
+            if codebase and codebase.worker_id:
+                async with self._lock:
+                    return codebase.worker_id in self._workers
+
+            from . import database as db
+            codebase_data = await db.db_get_codebase(codebase_id)
+            if codebase_data and codebase_data.get('worker_id'):
+                async with self._lock:
+                    return codebase_data['worker_id'] in self._workers
+        except Exception as e:
+            logger.debug(f'Error checking connected codebase owners: {e}')
         return False
 
     async def get_worker(self, worker_id: str) -> Optional[ConnectedWorker]:
@@ -908,7 +983,10 @@ async def claim_task(
     else:
         raise HTTPException(
             status_code=409,
-            detail=f'Task {claim.task_id} already claimed by another worker',
+            detail=(
+                f'Task {claim.task_id} cannot be claimed by worker {resolved_worker_id} '
+                '(already claimed, worker not connected, or worker not eligible for this task)'
+            ),
         )
 
 

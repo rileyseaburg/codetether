@@ -357,6 +357,8 @@ format: ## Format code
 
 # Python executable (use venv if available)
 PYTHON ?= $(shell if [ -f venv/bin/python3 ]; then echo venv/bin/python3; else echo python3; fi)
+CODETETHER_RUST_BIN ?= ./codetether-agent/target/debug/codetether
+WORKER_NAME ?= local-worker
 
 .PHONY: run
 run: ## Run the server locally
@@ -372,12 +374,12 @@ run-dev: ## Run the server in development mode (starts Python and Next.js)
 	$(MAKE) run-all RELOAD=1
 
 .PHONY: dev
-dev: ## Alias for run-all (starts Python and Next.js)
+dev: ## Alias for run-all (starts Python, Next.js, and Rust codetether-agent worker)
 	$(MAKE) run-all RELOAD=1
 
 .PHONY: run-all
-run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev server, and a local worker
-	@echo "🚀 Starting Python server, React dev server, and local worker..."
+run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev server, and Rust codetether-agent worker
+	@echo "🚀 Starting Python server, React dev server, and Rust codetether-agent worker..."
 	@echo "   (MCP is now integrated on port $(PORT) at /mcp/*)"
 	@trap 'kill 0' EXIT; \
 	(if [ "$(RELOAD)" = "1" ]; then \
@@ -402,7 +404,7 @@ run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev
 	(if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
 		sleep 10; \
-		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --directory=./a2a_server --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"'; \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"' ./a2a_server; \
 	fi) & \
 	(echo "⏳ Waiting for MCP endpoint to be ready..."; \
 		for i in $$(seq 1 30); do \
@@ -412,8 +414,33 @@ run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev
 			fi; \
 			sleep 1; \
 		done; \
-		echo "🚀 Starting codetether A2A worker..."; \
-		codetether worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "local-worker"; \
+		echo "🧹 Stopping existing local dev worker processes for http://localhost:$(PORT) (if any)..."; \
+		for pid in $$(pgrep -x codetether 2>/dev/null || true); do \
+			args=$$(ps -o args= -p $$pid 2>/dev/null || true); \
+			if printf '%s\n' "$$args" | grep -Fq -- " worker " \
+				&& printf '%s\n' "$$args" | grep -Fq -- "--server http://localhost:$(PORT)" \
+				&& printf '%s\n' "$$args" | grep -Fq -- "--name $(WORKER_NAME)"; then \
+				echo "   stopping worker pid=$$pid"; \
+				kill $$pid >/dev/null 2>&1 || true; \
+			fi; \
+		done; \
+		if [ -x "$(CODETETHER_RUST_BIN)" ]; then \
+			CODETETHER_CMD="$(CODETETHER_RUST_BIN)"; \
+			echo "✅ Using Rust codetether binary: $$CODETETHER_CMD"; \
+		elif command -v codetether > /dev/null 2>&1; then \
+			CODETETHER_CMD="$$(command -v codetether)"; \
+			echo "✅ Using codetether from PATH: $$CODETETHER_CMD"; \
+		elif command -v cargo > /dev/null 2>&1; then \
+			echo "🔧 Rust codetether binary not found. Building debug binary via cargo..."; \
+			cargo build --manifest-path codetether-agent/Cargo.toml; \
+			CODETETHER_CMD="$(CODETETHER_RUST_BIN)"; \
+		else \
+			echo "❌ Rust codetether binary not found and cargo is unavailable."; \
+			echo "   Install/start codetether-agent (Rust) and re-run make dev."; \
+			exit 1; \
+		fi; \
+		echo "🚀 Starting Rust codetether A2A worker ($(WORKER_NAME))..."; \
+		"$$CODETETHER_CMD" worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "$(WORKER_NAME)"; \
 	) & \
 	wait
 
@@ -442,16 +469,35 @@ dev-no-worker: ## Run Python server and React dev server (no worker)
 	) & \
 	(echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
 		sleep 10; \
-		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --directory=./a2a_server --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"' \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"' ./a2a_server \
 	) & \
 	wait
 
 .PHONY: worker
-worker: ## Run a local codetether A2A worker
-	codetether worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "local-worker"
+worker: ## Run a local Rust codetether A2A worker
+	@if [ -x "$(CODETETHER_RUST_BIN)" ]; then \
+		CODETETHER_CMD="$(CODETETHER_RUST_BIN)"; \
+	elif command -v codetether > /dev/null 2>&1; then \
+		CODETETHER_CMD="$$(command -v codetether)"; \
+	elif command -v cargo > /dev/null 2>&1; then \
+		echo "🔧 Rust codetether binary not found. Building debug binary via cargo..."; \
+		cargo build --manifest-path codetether-agent/Cargo.toml; \
+		CODETETHER_CMD="$(CODETETHER_RUST_BIN)"; \
+	else \
+		echo "❌ Rust codetether binary not found and cargo is unavailable."; \
+		exit 1; \
+	fi; \
+	echo "🚀 Starting Rust codetether worker ($(WORKER_NAME)): $$CODETETHER_CMD"; \
+	"$$CODETETHER_CMD" worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "$(WORKER_NAME)"
 
 .PHONY: worker-legacy
-worker-legacy: ## Run the DEPRECATED Python worker (will be removed)
+worker-legacy: ## [DEPRECATED] Run legacy Python worker only when ALLOW_LEGACY_PY_WORKER=1
+	@if [ "$(ALLOW_LEGACY_PY_WORKER)" != "1" ]; then \
+		echo "❌ Python worker is deprecated and disabled by default."; \
+		echo "   Use Rust codetether-agent via: make worker"; \
+		echo "   To force legacy worker once: make worker-legacy ALLOW_LEGACY_PY_WORKER=1"; \
+		exit 1; \
+	fi
 	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
 
 # Keycloak utilities

@@ -89,7 +89,21 @@ types/
 chart/
 
 # NOTE: Do not exclude marketing-site/, opencode/, codetether-docs/, or ui/
-# because Dockerfile.unified builds images that require those directories.
+# when building with Dockerfile.unified. For the standard Dockerfile (API server
+# only), these large dirs are excluded below for fast builds.
+
+# Large directories not needed by API server Dockerfile
+opencode/
+marketing-site/
+codetether/
+codetether-docs/
+codetether-agent/
+models.dev/
+ui/
+agents/
+assets/
+docs/
+scripts/
 
 # Helm packages
 *.tgz

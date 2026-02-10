@@ -16,13 +16,26 @@ const nextConfig = {
                 destination: 'https://docs.codetether.run',
                 permanent: true
             },
-            {
-                source: '/api',
-                destination: 'https://api.codetether.run',
-                permanent: true
-            }
         ]
-    }
+    },
+    async rewrites() {
+        const cognitionApi = process.env.COGNITION_API_BACKEND || 'http://192.168.50.101:8010'
+        const a2aApi = process.env.A2A_API_BACKEND || 'http://192.168.50.101:8001'
+        return [
+            {
+                source: '/api/cognition/:path*',
+                destination: `${cognitionApi}/v1/cognition/:path*`,
+            },
+            {
+                source: '/api/swarm/:path*',
+                destination: `${cognitionApi}/v1/swarm/:path*`,
+            },
+            {
+                source: '/api/v1/:path*',
+                destination: `${a2aApi}/v1/:path*`,
+            },
+        ]
+    },
 }
 
 module.exports = nextConfig

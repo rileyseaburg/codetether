@@ -124,6 +124,11 @@ export default function VoiceChatButton({
 
   const handleClick = async () => {
     if (mode === 'chat') {
+      // Check for secure context (mediaDevices requires HTTPS or localhost)
+      if (typeof navigator !== 'undefined' && !navigator.mediaDevices) {
+        alert('Voice chat requires a secure connection (HTTPS). Please access this page via HTTPS or localhost.');
+        return;
+      }
       if (!selectedVoice) {
         setShowVoiceSelector(true);
       } else {
