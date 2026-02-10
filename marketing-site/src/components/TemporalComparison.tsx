@@ -20,9 +20,14 @@ const gaps = [
         codetether: '10M+ tokens with RLM processing.',
     },
     {
-        need: 'Get real files, not just text',
-        zapier: 'Text only. Copy/paste needed.',
-        codetether: 'CSV, PDF, code files delivered.',
+        need: 'Audit trail for compliance',
+        zapier: 'Basic run history.',
+        codetether: 'Every action append-only logged with timestamps.',
+    },
+    {
+        need: 'Plugin security and isolation',
+        zapier: 'Shared runtime, trust-based.',
+        codetether: 'Sandboxed with Ed25519 code signing.',
     },
     {
         need: 'Refine the output after seeing it',

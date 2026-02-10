@@ -86,9 +86,9 @@ export function Hero() {
       <Container>
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-20">
           <div className="relative z-10 mx-auto max-w-2xl lg:col-span-7 lg:max-w-none lg:pt-6 xl:col-span-6">
-            <div className="inline-flex items-center gap-2 rounded-full bg-red-950/40 border border-red-900/50 px-3 py-1 mb-4">
-              <span className="text-xs font-medium text-red-400">Security Advisory</span>
-              <span className="text-xs text-gray-400">The most popular AI agent shipped with auth: none</span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-950/40 border border-cyan-900/50 px-3 py-1 mb-4">
+              <span className="text-xs font-medium text-cyan-400">v1.1.0 Shipped</span>
+              <span className="text-xs text-gray-400">Mandatory auth · Audit trail · Ed25519 plugin signing · K8s self-deploy</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight leading-tight text-white sm:text-4xl lg:text-5xl">
               The AI agent your infrastructure<br />
@@ -118,19 +118,19 @@ export function Hero() {
 
             {/* What makes it different */}
             <div className="mt-12 pt-8 border-t border-gray-800">
-              <p className="text-xs text-gray-400 font-medium mb-4">What you get that OpenClaw doesn&apos;t:</p>
+              <p className="text-xs text-gray-400 font-medium mb-4">Shipped in v1.1.0 — not a roadmap, it&apos;s in the binary:</p>
               <div className="grid sm:grid-cols-3 gap-4">
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">🔒 Mandatory Auth</p>
-                  <p className="text-xs text-gray-400 mt-1">Cannot be disabled. Every action audit-logged.</p>
+                  <p className="text-sm text-white font-medium">Mandatory Auth</p>
+                  <p className="text-xs text-gray-400 mt-1">HMAC-SHA256 tokens. Cannot be disabled. Every endpoint.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">🧠 Persona Swarms</p>
-                  <p className="text-xs text-gray-400 mt-1">Coordinated agents with scoped permissions.</p>
+                  <p className="text-sm text-white font-medium">Plugin Signing</p>
+                  <p className="text-xs text-gray-400 mt-1">Ed25519 signatures + SHA-256 integrity on every tool.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">⚡ Rust Runtime</p>
-                  <p className="text-xs text-gray-400 mt-1">Memory-safe. Not Node.js. Not Python.</p>
+                  <p className="text-sm text-white font-medium">Audit Trail</p>
+                  <p className="text-xs text-gray-400 mt-1">Append-only JSON Lines. Every action. Queryable.</p>
                 </div>
               </div>
             </div>

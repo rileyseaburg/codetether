@@ -36,9 +36,14 @@ const comparisonData = [
         codetether: 'Webhook trigger + callback',
     },
     {
-        feature: 'Batch Processing',
-        chatgpt: 'One request at a time',
-        codetether: '100+ concurrent tasks',
+        feature: 'Plugin Security',
+        chatgpt: 'Shared process, no isolation',
+        codetether: 'Sandboxed + Ed25519 signed',
+    },
+    {
+        feature: 'Audit Trail',
+        chatgpt: 'None',
+        codetether: 'Every action logged (append-only)',
     },
     {
         feature: 'Context Handling',

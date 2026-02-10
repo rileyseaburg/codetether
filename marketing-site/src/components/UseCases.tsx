@@ -26,6 +26,14 @@ const useCases = [
         workflow: 'CSV upload → Agent writes listings → Export to platforms'
     },
     {
+        title: 'DevOps & Infrastructure',
+        description:
+            'Agents that monitor your systems, manage deployments, and self-heal on Kubernetes. Ed25519-signed plugins ensure only trusted tools touch production. Every action audit-logged for compliance.',
+        icon: '⚙️',
+        features: ['K8s management', 'Incident response', 'Audit compliance'],
+        workflow: 'Alert fires → Agent diagnoses → Auto-remediation + audit log'
+    },
+    {
         title: 'SaaS Founders',
         description:
             'Your codebase is growing. RLM agents can analyze your entire repo, find bugs, write tests, and generate documentation. Finally, an AI that understands context beyond a single file.',

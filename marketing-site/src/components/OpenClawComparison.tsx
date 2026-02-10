@@ -60,14 +60,14 @@ function XIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 }
 
 const comparisonRows = [
-    { feature: 'Language', openclaw: 'Node.js', codetether: 'Rust' },
-    { feature: 'Auth default', openclaw: 'auth: none', codetether: 'Mandatory — cannot disable' },
-    { feature: 'Plugin isolation', openclaw: 'None — shared process', codetether: 'Sandboxed + signed' },
+    { feature: 'Language', openclaw: 'Node.js', codetether: 'Rust (memory-safe)' },
+    { feature: 'Auth default', openclaw: 'auth: none', codetether: 'Mandatory HMAC-SHA256 — cannot disable' },
+    { feature: 'Plugin isolation', openclaw: 'None — shared process', codetether: 'Sandboxed + Ed25519 code-signed' },
+    { feature: 'Audit trail', openclaw: 'None', codetether: 'Append-only JSON Lines — every action' },
     { feature: 'Cognition model', openclaw: 'Request/response', codetether: 'Perpetual thought loops' },
     { feature: 'Agent coordination', openclaw: 'Single bot', codetether: 'Persona swarms w/ scoped permissions' },
     { feature: 'Self-modification', openclaw: 'Not supported', codetether: 'Auditable gates + logged decisions' },
     { feature: 'Deployment', openclaw: 'Manual setup', codetether: 'Self-deploys on Kubernetes' },
-    { feature: 'Audit trail', openclaw: 'None', codetether: 'Every action logged' },
 ]
 
 export function OpenClawComparison() {
