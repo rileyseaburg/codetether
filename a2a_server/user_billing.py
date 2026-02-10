@@ -319,6 +319,26 @@ async def handle_user_subscription_event(
         f'tier synced, status={status}'
     )
 
+    # Track conversion for marketing feedback loop
+    if success and event_type in (
+        'customer.subscription.created',
+        'customer.subscription.updated',
+    ):
+        try:
+            from .conversion_tracker import track_conversion
+
+            conv_type = 'subscription'
+            if event_type == 'customer.subscription.created':
+                conv_type = 'subscription'
+            await track_conversion(
+                event_type=conv_type,
+                email=user.get('email'),
+                user_id=user['id'],
+                order_id=subscription_id,
+            )
+        except Exception:
+            pass  # Never break billing for conversion tracking
+
     return success
 
 
@@ -437,6 +457,19 @@ async def handle_checkout_completed_for_user(
         user['id'],
     )
 
+    # Track conversion for marketing feedback loop
+    if success:
+        try:
+            from .conversion_tracker import track_conversion
+            await track_conversion(
+                event_type='subscription',
+                email=user.get('email') or customer_email,
+                user_id=user['id'],
+                order_id=subscription_id,
+            )
+        except Exception:
+            pass  # Never break billing for conversion tracking
+
     return success
 
 
@@ -478,8 +511,8 @@ async def create_user_checkout_session(
     async with pool.acquire() as conn:
         price_row = await conn.fetchrow(
             """
-            SELECT price_id FROM stripe_price_map 
-            WHERE tier_id = $1 AND is_active = TRUE 
+            SELECT price_id FROM stripe_price_map
+            WHERE tier_id = $1 AND is_active = TRUE
             LIMIT 1
             """,
             tier_id,

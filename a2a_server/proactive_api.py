@@ -756,6 +756,22 @@ async def get_proactive_status():
     except Exception:
         result['marketing_automation'] = {'running': False}
 
+    # Conversion tracker status
+    try:
+        from .conversion_tracker import get_conversion_tracker
+        tracker = get_conversion_tracker()
+        result['conversion_tracker'] = tracker.get_health() if tracker else {'running': False}
+    except Exception:
+        result['conversion_tracker'] = {'running': False}
+
+    # Marketing orchestrator status
+    try:
+        from .marketing_orchestrator import get_orchestrator
+        orch = get_orchestrator()
+        result['marketing_orchestrator'] = orch.get_health() if orch else {'running': False}
+    except Exception:
+        result['marketing_orchestrator'] = {'running': False}
+
     # Summary counts
     try:
         pool = await db.get_pool()
@@ -784,7 +800,7 @@ async def get_proactive_status():
                     ),
                     'marketing_decisions_today': await conn.fetchval(
                         """SELECT count(*) FROM autonomous_decisions
-                           WHERE source = 'marketing_automation'
+                           WHERE source IN ('marketing_automation', 'marketing_orchestrator')
                              AND created_at >= CURRENT_DATE"""
                     ),
                 }
@@ -829,12 +845,116 @@ async def list_marketing_decisions(
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT * FROM autonomous_decisions
-               WHERE source = 'marketing_automation'
+               WHERE source IN ('marketing_automation', 'marketing_orchestrator', 'marketing_loop')
                ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
             limit, offset,
         )
 
     return [dict(r) for r in rows]
+
+
+# ============================================================================
+# Conversion Tracking Status
+# ============================================================================
+
+
+@router.get('/conversions/stats')
+async def get_conversion_stats(
+    days: int = Query(30, ge=1, le=365),
+):
+    """Get conversion tracking statistics."""
+    try:
+        from .conversion_tracker import get_conversion_tracker
+        tracker = get_conversion_tracker()
+        if not tracker:
+            return {'enabled': False, 'stats': {}}
+        stats = await tracker.get_conversion_stats(days=days)
+        return {
+            'enabled': True,
+            **tracker.get_health(),
+            'stats': stats,
+        }
+    except Exception:
+        return {'enabled': False, 'stats': {}}
+
+
+@router.get('/conversions/funnel-state')
+async def get_funnel_state():
+    """Get the latest FunnelBrain state snapshot."""
+    try:
+        from .conversion_tracker import get_conversion_tracker
+        tracker = get_conversion_tracker()
+        if not tracker:
+            raise HTTPException(503, 'Conversion tracker not running')
+        state = await tracker.restore_funnel_state()
+        if not state:
+            return {'snapshot': None, 'message': 'No snapshots available'}
+        return {'snapshot': state}
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, 'Failed to retrieve funnel state')
+
+
+@router.post('/conversions/retry')
+async def retry_failed_conversions():
+    """Retry forwarding for conversion events that failed to reach marketing-site."""
+    try:
+        from .conversion_tracker import get_conversion_tracker
+        tracker = get_conversion_tracker()
+        if not tracker:
+            raise HTTPException(503, 'Conversion tracker not running')
+        retried = await tracker.retry_failed_forwards()
+        return {'retried': retried}
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, 'Retry failed')
+
+
+# ============================================================================
+# Orchestrator Endpoints
+# ============================================================================
+
+
+@router.get('/orchestrator/status')
+async def get_orchestrator_status():
+    """Get marketing orchestrator status."""
+    try:
+        from .marketing_orchestrator import get_orchestrator
+        orch = get_orchestrator()
+        if not orch:
+            return {'running': False, 'enabled': False}
+        return orch.get_health()
+    except Exception:
+        return {'running': False, 'enabled': False}
+
+
+@router.post('/orchestrator/run/{playbook_name}')
+async def run_playbook(playbook_name: str):
+    """Manually trigger a marketing orchestration playbook."""
+    from .marketing_orchestrator import get_orchestrator, PLAYBOOKS
+    orch = get_orchestrator()
+    if not orch:
+        raise HTTPException(503, 'Orchestrator not running')
+    if playbook_name not in PLAYBOOKS:
+        raise HTTPException(404, f'Unknown playbook: {playbook_name}')
+
+    result = await orch.run_playbook(playbook_name, trigger_data={'source': 'manual'})
+    return result.to_dict()
+
+
+@router.get('/orchestrator/playbooks')
+async def list_playbooks():
+    """List available orchestration playbooks."""
+    from .marketing_orchestrator import PLAYBOOKS
+    return {
+        name: [
+            {'name': s.name, 'description': s.description, 'action': s.action, 'condition': s.condition}
+            for s in steps
+        ]
+        for name, steps in PLAYBOOKS.items()
+    }
 
 
 # ============================================================================
