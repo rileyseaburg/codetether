@@ -748,6 +748,14 @@ async def get_proactive_status():
     except Exception:
         result['perpetual_loops'] = {'running': False}
 
+    # Marketing automation status
+    try:
+        from .marketing_automation import get_marketing_automation
+        marketing = get_marketing_automation()
+        result['marketing_automation'] = marketing.get_health() if marketing else {'running': False}
+    except Exception:
+        result['marketing_automation'] = {'running': False}
+
     # Summary counts
     try:
         pool = await db.get_pool()
@@ -774,11 +782,59 @@ async def get_proactive_status():
                     'loop_iterations_today': await conn.fetchval(
                         "SELECT count(*) FROM perpetual_loop_iterations WHERE started_at >= CURRENT_DATE"
                     ),
+                    'marketing_decisions_today': await conn.fetchval(
+                        """SELECT count(*) FROM autonomous_decisions
+                           WHERE source = 'marketing_automation'
+                             AND created_at >= CURRENT_DATE"""
+                    ),
                 }
     except Exception:
         result['counts'] = {}
 
     return result
+
+
+# ============================================================================
+# Marketing Automation Status
+# ============================================================================
+
+
+@router.get('/marketing/status')
+async def get_marketing_status():
+    """Get marketing automation status and last performance report."""
+    try:
+        from .marketing_automation import get_marketing_automation
+        service = get_marketing_automation()
+        if not service:
+            return {'running': False, 'enabled': False, 'last_report': None}
+
+        return {
+            **service.get_health(),
+            'last_report': service.get_last_report(),
+        }
+    except Exception:
+        return {'running': False, 'enabled': False, 'last_report': None}
+
+
+@router.get('/marketing/decisions')
+async def list_marketing_decisions(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """List marketing automation decisions from the audit trail."""
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(503, 'Database not available')
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT * FROM autonomous_decisions
+               WHERE source = 'marketing_automation'
+               ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
+            limit, offset,
+        )
+
+    return [dict(r) for r in rows]
 
 
 # ============================================================================
