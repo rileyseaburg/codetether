@@ -23,6 +23,10 @@ const faqs = [
             answer: 'Most AI agents are request-response: you ask, they answer. CodeTether runs continuous thought loops that persist across restarts, survive node failures, and scale horizontally. Your agents reason, plan, and act autonomously — not just when you type something.',
         },
         {
+            question: 'What is Open Policy Agent (OPA)?',
+            answer: 'OPA is a CNCF-graduated policy engine that CodeTether uses for fine-grained authorization. We ship Rego policies for API authorization, tenant isolation, and API key scoping — all declarative, testable, and auditable. You can write custom Rego rules to control exactly what each agent, user, or API key is allowed to do.',
+        },
+        {
             question: 'Can agents modify their own code?',
             answer: 'Yes. CodeTether agents can write code, open PRs, and evolve their capabilities. But every modification goes through an auditable gate you define. Every decision is logged, every action is traceable. The agents get smarter while you stay in control.',
         },

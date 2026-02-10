@@ -55,8 +55,8 @@ const plans = [
             '30 min max runtime',
             'Mandatory auth + audit trail',
             'Ed25519 plugin signing',
+            'OPA Rego authorization policies',
             'RLM unlimited context',
-            'Webhook + email delivery',
             'Reply-to-continue',
         ],
         limits: {
