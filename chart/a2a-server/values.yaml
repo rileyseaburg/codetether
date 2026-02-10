@@ -563,6 +563,21 @@ stripe:
   apiKey: "" # Set via --set stripe.apiKey=sk_live_...
   webhookSecret: "" # Set via --set stripe.webhookSecret=whsec_...
 
+# ── Worker Authentication ──────────────────────────────────────
+# Shared secret token for worker API endpoints (register, heartbeat, task poll).
+# When set, workers must pass --token <value> to authenticate.
+# When empty, worker endpoints remain open (for internal/trusted networks).
+workerAuthToken: ""  # Set via --set workerAuthToken=<secret>
+
+# ── Sandbox Execution ─────────────────────────────────────────
+# Run agent tasks inside ephemeral Docker containers for isolation.
+sandbox:
+  enabled: false
+  image: "ghcr.io/rileyseaburg/codetether-worker:latest"
+  memoryLimit: "2g"
+  cpuLimit: "2.0"
+  timeout: 600  # seconds
+
 # ── OPA Policy Engine Sidecar ──────────────────────────────────
 # Runs Open Policy Agent alongside the A2A server for centralized
 # authorization decisions. Policies are loaded from the opa-policies

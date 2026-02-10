@@ -46,7 +46,8 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # Configuration from environment
-RLS_ENABLED = os.environ.get('RLS_ENABLED', 'false').lower() == 'true'
+# RLS is enabled by default for multi-tenant isolation.
+RLS_ENABLED = os.environ.get('RLS_ENABLED', 'true').lower() == 'true'
 RLS_STRICT_MODE = os.environ.get('RLS_STRICT_MODE', 'false').lower() == 'true'
 RLS_AUDIT_ENABLED = os.environ.get('RLS_AUDIT_ENABLED', 'true').lower() == 'true'
 

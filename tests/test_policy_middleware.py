@@ -149,7 +149,8 @@ class TestAgentRouterTasks:
         assert _match_permission("/v1/agent/tasks", "POST") == "tasks:write"
 
     def test_list(self):
-        assert _match_permission("/v1/agent/tasks", "GET") == "tasks:read"
+        # Worker task polling — auth handled by WORKER_AUTH_TOKEN, not OPA
+        assert _match_permission("/v1/agent/tasks", "GET") == ""
 
     def test_get_one(self):
         assert _match_permission("/v1/agent/tasks/task-123", "GET") == "tasks:read"
