@@ -51,6 +51,8 @@ https://api.codetether.io/v1/automation
 | `/tasks` | POST | Create a new task |
 | `/tasks/{id}` | GET | Get task status |
 | `/tasks` | GET | List tasks with filters |
+| `/tasks/{id}` | DELETE | Cancel a queued/running task |
+| `/me` | GET | Get current user info (auth test) |
 
 ## Supported Platforms
 
@@ -62,6 +64,8 @@ https://api.codetether.io/v1/automation
 
 ### n8n
 - Quick Start: [Guide](./n8n-quickstart.md)
+- Community Node: [`n8n-nodes-codetether`](../../integrations/n8n-nodes-codetether/) — install in n8n for native CodeTether nodes
+- Workflow Templates: [Ready-to-import JSON](../../integrations/n8n-nodes-codetether/workflows/)
 - Webhooks support: ✅
 - Polling support: ✅
 

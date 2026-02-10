@@ -535,7 +535,7 @@ async def get_task(
 
         row = await conn.fetchrow(
             """
-            SELECT 
+            SELECT
                 t.id as task_id,
                 t.title,
                 t.prompt as description,
@@ -665,7 +665,7 @@ async def list_tasks(
         # Get tasks
         rows = await conn.fetch(
             f"""
-            SELECT 
+            SELECT
                 t.id as task_id,
                 t.title,
                 t.prompt as description,
@@ -738,6 +738,91 @@ async def list_tasks(
     )
 
 
+@router.delete(
+    '/tasks/{task_id}',
+    responses={404: {'model': ErrorResponse}},
+)
+async def cancel_task(
+    task_id: str,
+    http_request: Request,
+    user: UserSession = Depends(require_auth),
+):
+    """Cancel a queued or running task.
+
+    Only tasks in `queued` or `running` status can be cancelled.
+    Completed, failed, or already-cancelled tasks return 409.
+    """
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    tenant_id = user.tenant_id
+
+    async with pool.acquire() as conn:
+        if tenant_id:
+            await conn.execute(
+                f"SET LOCAL app.current_tenant_id = '{tenant_id}'"
+            )
+
+        # Find the task and its latest run
+        row = await conn.fetchrow(
+            """
+            SELECT t.id, t.status AS task_status, tr.id AS run_id, tr.status AS run_status
+            FROM tasks t
+            LEFT JOIN task_runs tr ON tr.task_id = t.id
+            WHERE t.id = $1
+              AND (t.tenant_id = $2 OR t.tenant_id IS NULL)
+            ORDER BY tr.created_at DESC
+            LIMIT 1
+            """,
+            task_id,
+            tenant_id,
+        )
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={'error': 'not_found', 'message': 'Task not found'},
+        )
+
+    current_status = row['run_status'] or row['task_status']
+    if current_status not in ('queued', 'running', 'pending'):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                'error': 'conflict',
+                'message': f'Task is already {current_status} and cannot be cancelled',
+            },
+        )
+
+    # Update task and run status
+    async with pool.acquire() as conn:
+        if tenant_id:
+            await conn.execute(
+                f"SET LOCAL app.current_tenant_id = '{tenant_id}'"
+            )
+
+        await conn.execute(
+            "UPDATE tasks SET status = 'cancelled', updated_at = NOW() WHERE id = $1",
+            task_id,
+        )
+        if row['run_id']:
+            await conn.execute(
+                "UPDATE task_runs SET status = 'cancelled', completed_at = NOW() WHERE id = $1",
+                row['run_id'],
+            )
+
+    logger.info(f'Task {task_id} cancelled by user {user.user_id}')
+
+    return JSONResponse(
+        content={
+            'task_id': task_id,
+            'status': 'cancelled',
+            'message': 'Task has been cancelled',
+        }
+    )
+
+
 @router.get('/')
 async def api_info():
     """Get API information and capabilities.
@@ -754,6 +839,7 @@ async def api_info():
             'POST /tasks': 'Create a new automation task',
             'GET /tasks/{task_id}': 'Get task status by ID',
             'GET /tasks': 'List tasks with filtering',
+            'DELETE /tasks/{task_id}': 'Cancel a queued or running task',
         },
         'rate_limits': {
             'default': f'{DEFAULT_RATE_LIMIT} requests per minute',

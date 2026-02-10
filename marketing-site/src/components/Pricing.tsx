@@ -449,34 +449,46 @@ export function Pricing() {
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                                 <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Opus 4.5</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$5.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$25.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.50</td>
+                                </tr>
+                                <tr>
                                     <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Sonnet 4</td>
                                     <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$3.00</td>
                                     <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$15.00</td>
                                     <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.30</td>
                                 </tr>
                                 <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Opus 4</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$15.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$75.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.50</td>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4.1</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$2.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$8.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
                                 </tr>
                                 <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4o</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$2.50</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$10.00</td>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4.1 Mini</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.40</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.60</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">o3</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$2.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$8.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Gemini 2.5 Pro</td>
                                     <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.25</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$10.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
                                 </tr>
                                 <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4o Mini</td>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Gemini 2.5 Flash</td>
                                     <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.15</td>
                                     <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.60</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.075</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">DeepSeek Chat</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.27</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.10</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.07</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
                                 </tr>
                             </tbody>
                         </table>

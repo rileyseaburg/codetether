@@ -172,19 +172,20 @@ class TestAgentRouterTasks:
 
 class TestAgentRouterWorkers:
     def test_register(self):
-        assert _match_permission("/v1/agent/workers/register", "POST") == "workers:write"
+        # Worker registration is internal infrastructure — skipped
+        assert _match_permission("/v1/agent/workers/register", "POST") == ""
 
     def test_unregister(self):
-        assert _match_permission("/v1/agent/workers/w1/unregister", "POST") == "workers:write"
+        assert _match_permission("/v1/agent/workers/w1/unregister", "POST") == ""
 
     def test_list(self):
-        assert _match_permission("/v1/agent/workers", "GET") == "workers:read"
+        assert _match_permission("/v1/agent/workers", "GET") == ""
 
     def test_get_one(self):
-        assert _match_permission("/v1/agent/workers/w1", "GET") == "workers:read"
+        assert _match_permission("/v1/agent/workers/w1", "GET") == ""
 
     def test_heartbeat(self):
-        assert _match_permission("/v1/agent/workers/w1/heartbeat", "POST") == "workers:write"
+        assert _match_permission("/v1/agent/workers/w1/heartbeat", "POST") == ""
 
 
 class TestAgentRouterSessions:
@@ -310,61 +311,61 @@ class TestProactiveRouter:
     """Proactive rule engine endpoints."""
 
     def test_create_rule(self):
-        assert _match_permission("/v1/proactive/rules", "POST") == "automation:write"
+        assert _match_permission("/v1/proactive/rules", "POST") == "proactive:write"
 
     def test_list_rules(self):
-        assert _match_permission("/v1/proactive/rules", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/rules", "GET") == "proactive:read"
 
     def test_get_rule(self):
-        assert _match_permission("/v1/proactive/rules/r1", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/rules/r1", "GET") == "proactive:read"
 
     def test_update_rule(self):
-        assert _match_permission("/v1/proactive/rules/r1", "PUT") == "automation:write"
+        assert _match_permission("/v1/proactive/rules/r1", "PUT") == "proactive:write"
 
     def test_delete_rule(self):
-        assert _match_permission("/v1/proactive/rules/r1", "DELETE") == "automation:delete"
+        assert _match_permission("/v1/proactive/rules/r1", "DELETE") == "proactive:delete"
 
     def test_rule_runs(self):
-        assert _match_permission("/v1/proactive/rules/r1/runs", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/rules/r1/runs", "GET") == "proactive:read"
 
     def test_create_health_check(self):
-        assert _match_permission("/v1/proactive/health-checks", "POST") == "automation:write"
+        assert _match_permission("/v1/proactive/health-checks", "POST") == "proactive:write"
 
     def test_list_health_checks(self):
-        assert _match_permission("/v1/proactive/health-checks", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/health-checks", "GET") == "proactive:read"
 
     def test_get_health_check(self):
-        assert _match_permission("/v1/proactive/health-checks/hc1", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/health-checks/hc1", "GET") == "proactive:read"
 
     def test_update_health_check(self):
-        assert _match_permission("/v1/proactive/health-checks/hc1", "PUT") == "automation:write"
+        assert _match_permission("/v1/proactive/health-checks/hc1", "PUT") == "proactive:write"
 
     def test_delete_health_check(self):
-        assert _match_permission("/v1/proactive/health-checks/hc1", "DELETE") == "automation:delete"
+        assert _match_permission("/v1/proactive/health-checks/hc1", "DELETE") == "proactive:delete"
 
     def test_create_loop(self):
-        assert _match_permission("/v1/proactive/loops", "POST") == "automation:write"
+        assert _match_permission("/v1/proactive/loops", "POST") == "proactive:write"
 
     def test_list_loops(self):
-        assert _match_permission("/v1/proactive/loops", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/loops", "GET") == "proactive:read"
 
     def test_get_loop(self):
-        assert _match_permission("/v1/proactive/loops/l1", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/loops/l1", "GET") == "proactive:read"
 
     def test_update_loop(self):
-        assert _match_permission("/v1/proactive/loops/l1", "PUT") == "automation:write"
+        assert _match_permission("/v1/proactive/loops/l1", "PUT") == "proactive:write"
 
     def test_delete_loop(self):
-        assert _match_permission("/v1/proactive/loops/l1", "DELETE") == "automation:delete"
+        assert _match_permission("/v1/proactive/loops/l1", "DELETE") == "proactive:delete"
 
     def test_loop_iterations(self):
-        assert _match_permission("/v1/proactive/loops/l1/iterations", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/loops/l1/iterations", "GET") == "proactive:read"
 
     def test_decisions(self):
-        assert _match_permission("/v1/proactive/decisions", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/decisions", "GET") == "decisions:read"
 
     def test_status(self):
-        assert _match_permission("/v1/proactive/status", "GET") == "automation:read"
+        assert _match_permission("/v1/proactive/status", "GET") == "proactive:read"
 
 
 class TestTokenBillingRouter:
