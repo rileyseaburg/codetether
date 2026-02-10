@@ -17,9 +17,7 @@ class ServerConfig(BaseModel):
     host: str = '0.0.0.0'
     port: int = 8000
     redis_url: str = 'redis://localhost:6379'
-    database_url: str = (
-        'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server'
-    )
+    database_url: str = ''
     auth_enabled: bool = False
     auth_tokens: Optional[Dict[str, str]] = None
     log_level: str = 'INFO'
@@ -47,10 +45,7 @@ def load_config() -> ServerConfig:
         host=os.getenv('A2A_HOST', '0.0.0.0'),
         port=int(os.getenv('A2A_PORT', '8000')),
         redis_url=os.getenv('A2A_REDIS_URL', 'redis://localhost:6379'),
-        database_url=os.getenv(
-            'DATABASE_URL',
-            'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server',
-        ),
+        database_url=os.getenv('DATABASE_URL', os.getenv('A2A_DATABASE_URL', '')),
         auth_enabled=os.getenv('A2A_AUTH_ENABLED', 'false').lower() == 'true',
         auth_tokens=_parse_auth_tokens(os.getenv('A2A_AUTH_TOKENS')),
         log_level=os.getenv('A2A_LOG_LEVEL', 'INFO'),

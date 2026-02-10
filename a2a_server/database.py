@@ -31,14 +31,14 @@ from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
-# Database URL from environment
-# Use config default if no environment variable set
-DEFAULT_DATABASE_URL = (
-    'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server'
-)
-DATABASE_URL = os.environ.get(
-    'DATABASE_URL', os.environ.get('A2A_DATABASE_URL', DEFAULT_DATABASE_URL)
-)
+# Database URL from environment — no hardcoded fallback.
+# One of DATABASE_URL or A2A_DATABASE_URL MUST be set.
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('A2A_DATABASE_URL')
+if not DATABASE_URL:
+    raise RuntimeError(
+        'DATABASE_URL (or A2A_DATABASE_URL) environment variable is required. '
+        'Example: postgresql://user:pass@host:5432/dbname'
+    )
 
 # Module-level state
 _pool = None
@@ -46,7 +46,8 @@ _pool_lock = asyncio.Lock()
 _initialized = False
 
 # RLS Configuration (can be overridden by environment)
-RLS_ENABLED = os.environ.get('RLS_ENABLED', 'false').lower() == 'true'
+# RLS is enabled by default for multi-tenant isolation.
+RLS_ENABLED = os.environ.get('RLS_ENABLED', 'true').lower() == 'true'
 RLS_STRICT_MODE = os.environ.get('RLS_STRICT_MODE', 'false').lower() == 'true'
 
 
@@ -227,6 +228,18 @@ async def _init_schema():
             )
         except Exception:
             pass
+
+        # Migration: Add Git repo columns to codebases
+        for col_def in [
+            'git_url TEXT',
+            'git_branch TEXT DEFAULT \'main\'',
+        ]:
+            try:
+                await conn.execute(
+                    f'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS {col_def}'
+                )
+            except Exception:
+                pass
 
         # Tasks table
         await conn.execute("""
@@ -714,8 +727,8 @@ async def db_upsert_codebase(
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO codebases (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, opencode_port, tenant_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                INSERT INTO codebases (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, opencode_port, tenant_id, git_url, git_branch)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 ON CONFLICT (id)
                 DO UPDATE SET
                     name = EXCLUDED.name,
@@ -727,7 +740,9 @@ async def db_upsert_codebase(
                     status = EXCLUDED.status,
                     session_id = EXCLUDED.session_id,
                     opencode_port = EXCLUDED.opencode_port,
-                    tenant_id = COALESCE(EXCLUDED.tenant_id, codebases.tenant_id)
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, codebases.tenant_id),
+                    git_url = COALESCE(EXCLUDED.git_url, codebases.git_url),
+                    git_branch = COALESCE(EXCLUDED.git_branch, codebases.git_branch)
             """,
                 codebase.get('id'),
                 codebase.get('name'),
@@ -742,6 +757,8 @@ async def db_upsert_codebase(
                 codebase.get('session_id'),
                 codebase.get('opencode_port'),
                 effective_tenant_id,
+                codebase.get('git_url'),
+                codebase.get('git_branch', 'main'),
             )
         return True
     except Exception as e:

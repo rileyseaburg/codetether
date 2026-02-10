@@ -9,7 +9,9 @@ Endpoints that are intentionally public or already protected by existing
 auth dependencies are skipped.
 """
 
+import os
 import re
+import hmac
 import logging
 from typing import Optional, List, Tuple
 
@@ -18,6 +20,15 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
+
+# ── Worker Authentication ────────────────────────────────────────
+# When WORKER_AUTH_TOKEN is set, worker infrastructure endpoints require
+# this token as Bearer auth. When unset, worker endpoints remain open
+# for backward compatibility with internal deployments.
+WORKER_AUTH_TOKEN: Optional[str] = os.environ.get('WORKER_AUTH_TOKEN')
+_WORKER_PATH = re.compile(
+    r'^/v1/agent/(workers/|tasks$)'
+)
 
 
 # ── Path → Permission Mapping ────────────────────────────────────
@@ -273,6 +284,13 @@ class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
 
         # No rule matched or explicitly skipped → pass through.
         if permission is None or permission == "":
+            # Even on skip-auth routes, enforce worker token if configured.
+            if WORKER_AUTH_TOKEN and _WORKER_PATH.search(path):
+                if not self._check_worker_token(request):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Worker authentication required (set --token on worker)"},
+                    )
             return await call_next(request)
 
         # Resolve user from Authorization header.
@@ -308,3 +326,12 @@ class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
         """Resolve authenticated user from the request."""
         from .policy import _resolve_user as _shared_resolve_user
         return await _shared_resolve_user(request)
+
+    @staticmethod
+    def _check_worker_token(request: Request) -> bool:
+        """Validate Bearer token on worker endpoints against WORKER_AUTH_TOKEN."""
+        auth = request.headers.get("authorization", "")
+        if not auth.startswith("Bearer "):
+            return False
+        token = auth[7:]
+        return hmac.compare_digest(token, WORKER_AUTH_TOKEN)

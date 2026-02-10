@@ -35,6 +35,23 @@ data:
   KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
   KEYCLOAK_CLIENT_ID: {{ .Values.keycloak.clientId | quote }}
 
+  # Worker authentication token (when set, workers must pass --token to connect)
+  {{- if .Values.workerAuthToken }}
+  WORKER_AUTH_TOKEN: {{ .Values.workerAuthToken | quote }}
+  {{- end }}
+
+  # Sandbox execution
+  {{- if .Values.sandbox.enabled }}
+  SANDBOX_ENABLED: "true"
+  SANDBOX_IMAGE: {{ .Values.sandbox.image | quote }}
+  SANDBOX_MEMORY_LIMIT: {{ .Values.sandbox.memoryLimit | quote }}
+  SANDBOX_CPU_LIMIT: {{ .Values.sandbox.cpuLimit | quote }}
+  SANDBOX_TIMEOUT: {{ .Values.sandbox.timeout | quote }}
+  {{- end }}
+
+  # RLS is enabled by default for multi-tenant isolation
+  RLS_ENABLED: "true"
+
   # Database persistence paths (use mounted volume for persistence across restarts)
   {{- if .Values.persistence.enabled }}
   MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"

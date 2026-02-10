@@ -483,31 +483,45 @@ class HostedWorker:
 
         # Execute agent as subprocess
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                cwd=str(Path.home()),  # Run in home directory for global tasks
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env={
-                    **os.environ,
-                    'NO_COLOR': '1',  # Disable color codes in output
-                },
-            )
+            # Use sandboxed execution if available
+            from .sandbox import is_sandbox_available, execute_sandboxed
+            if is_sandbox_available():
+                returncode, stdout_str, stderr_str = await execute_sandboxed(
+                    cmd=cmd,
+                    cwd=str(Path.home()),
+                    env={**os.environ, 'NO_COLOR': '1'},
+                    task_id=task_id,
+                    timeout=self._lease_duration - 60,
+                )
+                if returncode != 0:
+                    logger.error(f'Agent failed for task {task_id}: {stderr_str}')
+                    raise Exception(f'Agent execution failed: {stderr_str}')
+                output = stdout_str.strip()
+            else:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    cwd=str(Path.home()),  # Run in home directory for global tasks
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env={
+                        **os.environ,
+                        'NO_COLOR': '1',  # Disable color codes in output
+                    },
+                )
 
-            # Wait for completion with timeout
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=self._lease_duration - 60,  # Leave margin for cleanup
-            )
+                # Wait for completion with timeout
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=self._lease_duration - 60,  # Leave margin for cleanup
+                )
 
-            if process.returncode != 0:
-                error_msg = stderr.decode('utf-8', errors='replace').strip()
-                logger.error(f'Agent failed for task {task_id}: {error_msg}')
-                raise Exception(f'Agent execution failed: {error_msg}')
+                if process.returncode != 0:
+                    error_msg = stderr.decode('utf-8', errors='replace').strip()
+                    logger.error(f'Agent failed for task {task_id}: {error_msg}')
+                    raise Exception(f'Agent execution failed: {error_msg}')
 
-            # Parse agent streaming JSON output (NDJSON format)
-            output = stdout.decode('utf-8', errors='replace').strip()
+                output = stdout.decode('utf-8', errors='replace').strip()
             content = self._parse_agent_output(output)
 
             # Truncate for summary
@@ -1288,11 +1302,8 @@ async def main():
     )
     parser.add_argument(
         '--db-url',
-        default=os.environ.get(
-            'DATABASE_URL',
-            'postgresql://postgres:spike2@192.168.50.70:5432/a2a_server',
-        ),
-        help='PostgreSQL connection URL',
+        default=os.environ.get('DATABASE_URL', os.environ.get('A2A_DATABASE_URL', '')),
+        help='PostgreSQL connection URL (required via DATABASE_URL env or --db-url flag)',
     )
     parser.add_argument(
         '--api-url',

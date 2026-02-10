@@ -1645,10 +1645,13 @@ class CodebaseRegistration(BaseModel):
     """Request model for registering a codebase."""
 
     name: str
-    path: str
+    path: str = ''  # Can be empty when git_url is provided
     description: str = ''
     agent_config: Dict[str, Any] = {}
     worker_id: Optional[str] = None  # Associate with a specific worker
+    git_url: Optional[str] = None  # HTTPS Git URL to clone
+    git_branch: str = 'main'
+    git_token: Optional[str] = None  # Access token (stored in Vault, not DB)
 
 
 class AgentTrigger(BaseModel):
@@ -2648,6 +2651,60 @@ async def register_codebase(registration: CodebaseRegistration):
         raise HTTPException(
             status_code=503, detail='OpenCode bridge not available'
         )
+
+    # ── Git URL registration ─────────────────────────────────────
+    # If a git_url is provided, validate it, store credentials in Vault,
+    # and create a clone task for workers. The path is resolved after cloning.
+    if registration.git_url:
+        from .git_service import validate_git_url, store_git_credentials
+        if not validate_git_url(registration.git_url):
+            raise HTTPException(
+                status_code=400,
+                detail='Invalid Git URL. Only HTTPS URLs from GitHub, GitLab, Bitbucket, and Azure DevOps are allowed.',
+            )
+
+        import hashlib
+        codebase_id = hashlib.sha256(
+            registration.git_url.encode()
+        ).hexdigest()[:16]
+
+        # Store Git token in Vault if provided (never persisted in DB)
+        if registration.git_token:
+            await store_git_credentials(codebase_id, registration.git_token)
+
+        # Register codebase with git_url (path TBD after clone)
+        codebase_data = {
+            'id': codebase_id,
+            'name': registration.name,
+            'path': registration.path or f'/var/lib/codetether/repos/{codebase_id}',
+            'description': registration.description,
+            'agent_config': registration.agent_config,
+            'git_url': registration.git_url,
+            'git_branch': registration.git_branch,
+            'status': 'cloning',
+        }
+        await db.db_upsert_codebase(codebase_data)
+
+        # Create a clone task for workers to pick up
+        task = await bridge.create_task(
+            codebase_id=codebase_id,
+            title=f'Clone repository: {registration.name}',
+            prompt=f'Clone Git repo {registration.git_url} (branch: {registration.git_branch})',
+            agent_type='clone_repo',
+            metadata={
+                'git_url': registration.git_url,
+                'git_branch': registration.git_branch,
+                'codebase_id': codebase_id,
+            },
+        )
+
+        return {
+            'success': True,
+            'codebase_id': codebase_id,
+            'pending': True,
+            'task_id': task.id if task else None,
+            'message': f'Repository registration created. A worker will clone {registration.git_url}.',
+        }
 
     # If worker_id provided, this is a confirmed registration from a worker
     # The worker has already validated the path exists on its machine
