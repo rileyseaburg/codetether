@@ -159,10 +159,11 @@ class LiveKitBridge:
         """
         try:
             # Use LiveKit SDK to list rooms
-            rooms = await self.livekit_api.room.list_rooms(
+            resp = await self.livekit_api.room.list_rooms(
                 api.ListRoomsRequest(names=[room_name])
             )
 
+            rooms = resp.rooms if hasattr(resp, 'rooms') else resp
             if rooms and len(rooms) > 0:
                 room = rooms[0]
                 return {

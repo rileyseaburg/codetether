@@ -2385,6 +2385,57 @@ async def list_models():
     return {'models': [], 'default': None}
 
 
+@opencode_router.get('/providers')
+async def list_providers():
+    """List available AI providers from HashiCorp Vault (source of truth).
+
+    Reads the configured providers from Vault at secret/codetether/providers/,
+    cross-references with worker model data for model counts, and returns
+    a structured list of providers with metadata.
+    """
+    from .vault_client import get_vault_client
+
+    vault = get_vault_client()
+
+    # 1. List providers from Vault (source of truth)
+    vault_providers = await vault.list_secrets('codetether/providers')
+    # Remove trailing slashes and filter out 'test'
+    vault_provider_ids = [
+        p.rstrip('/') for p in vault_providers if p.rstrip('/') != 'test'
+    ]
+
+    # 2. Get unique model counts per provider from workers (deduplicate by model ID)
+    workers = await list_workers()
+    provider_model_ids: Dict[str, set] = {}
+    for worker in workers:
+        for m in worker.get('models', []):
+            pid = m.get('provider_id', '')
+            mid = m.get('id', '')
+            if pid in vault_provider_ids and mid:
+                if pid not in provider_model_ids:
+                    provider_model_ids[pid] = set()
+                provider_model_ids[pid].add(mid)
+
+    # 3. Read provider metadata from Vault (has api_key, base_url, etc.)
+    provider_details = []
+    for pid in sorted(vault_provider_ids):
+        secret = await vault.read_secret(f'codetether/providers/{pid}')
+        has_api_key = bool(secret and secret.get('api_key'))
+        has_base_url = bool(secret and secret.get('base_url'))
+        provider_details.append({
+            'provider_id': pid,
+            'configured': has_api_key,
+            'has_base_url': has_base_url,
+            'model_count': len(provider_model_ids.get(pid, set())),
+        })
+
+    return {
+        'providers': provider_details,
+        'total': len(provider_details),
+        'source': 'vault',
+    }
+
+
 def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
     if not path or not isinstance(path, str):
         return None
@@ -3732,6 +3783,77 @@ async def get_session_messages(codebase_id: str, limit: int = 50):
 # ========================================
 
 
+def _is_recent_heartbeat(
+    heartbeat_value: Optional[str], max_age_seconds: int = 120
+) -> bool:
+    """Return True when heartbeat timestamp is within max_age_seconds."""
+    if not heartbeat_value:
+        return False
+    try:
+        normalized = heartbeat_value.replace('Z', '+00:00')
+        last = datetime.fromisoformat(normalized)
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - last).total_seconds()
+        return age <= max_age_seconds
+    except Exception:
+        return False
+
+
+async def _validate_target_worker_is_available(
+    metadata: Dict[str, Any],
+) -> None:
+    """Validate target worker availability; fall back to auto-select if unavailable.
+
+    Instead of rejecting with 409, this removes the target_worker_id from
+    metadata so the task gets routed to any available worker.  A warning is
+    stored in metadata['_routing_warning'] for the caller to surface.
+    """
+    target_worker_id = metadata.get('target_worker_id')
+    if not target_worker_id:
+        return
+
+    target_worker_id = str(target_worker_id).strip()
+    if not target_worker_id:
+        return
+
+    try:
+        from .worker_sse import get_worker_registry
+
+        registry = get_worker_registry()
+        sse_workers = await registry.list_workers()
+    except Exception as e:
+        # Cannot validate — fall back to auto-select rather than 503
+        logger.warning(f'Cannot validate target worker availability: {e}; falling back to auto-select')
+        metadata.pop('target_worker_id', None)
+        metadata['_routing_warning'] = f'Could not validate target worker; auto-selecting.'
+        return
+
+    target_worker = next(
+        (w for w in sse_workers if str(w.get('worker_id') or '') == target_worker_id),
+        None,
+    )
+    if not target_worker:
+        logger.info(
+            f'Target worker "{target_worker_id}" is not connected via SSE; falling back to auto-select'
+        )
+        metadata.pop('target_worker_id', None)
+        metadata['_routing_warning'] = (
+            f'Target worker "{target_worker_id}" is not connected; task auto-routed to available worker.'
+        )
+        return
+
+    last_heartbeat = target_worker.get('last_heartbeat')
+    if not _is_recent_heartbeat(str(last_heartbeat) if last_heartbeat else None):
+        logger.info(
+            f'Target worker "{target_worker_id}" has stale heartbeat ({last_heartbeat}); falling back to auto-select'
+        )
+        metadata.pop('target_worker_id', None)
+        metadata['_routing_warning'] = (
+            f'Target worker "{target_worker_id}" is stale (last heartbeat: {last_heartbeat}); task auto-routed.'
+        )
+
+
 @opencode_router.get('/tasks')
 async def list_all_tasks(
     codebase_id: Optional[str] = None,
@@ -3779,6 +3901,7 @@ async def create_global_task(task_data: AgentTaskCreate):
         model_ref=task_data.model_ref,
         worker_personality=task_data.worker_personality,
     )
+    await _validate_target_worker_is_available(routed_metadata)
 
     # Create task with the specified codebase context
     task = await bridge.create_task(
@@ -3833,6 +3956,7 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
         model_ref=task_data.model_ref,
         worker_personality=task_data.worker_personality,
     )
+    await _validate_target_worker_is_available(routed_metadata)
 
     task = await bridge.create_task(
         codebase_id=codebase_id,
@@ -5406,6 +5530,79 @@ async def unregister_worker(worker_id: str):
 @opencode_router.get('/workers')
 async def list_workers(search: Optional[str] = None):
     """List all registered workers with optional model search filter."""
+    def _classify_worker_runtime(
+        worker: Dict[str, Any],
+        sse_worker: Optional[Dict[str, Any]],
+    ) -> str:
+        source = str(worker.get('_registry_source') or '')
+        worker_id = str(worker.get('worker_id') or '').lower()
+        name = str(worker.get('name') or '').lower()
+        capabilities = [
+            str(cap).lower() for cap in (worker.get('capabilities') or [])
+        ]
+        sse_agent_name = (
+            str(sse_worker.get('agent_name') or '').lower()
+            if sse_worker
+            else ''
+        )
+
+        rust_markers = [
+            'rust',
+            'codetether-agent',
+            'a2a-rs',
+            'worker-rs',
+        ]
+        python_markers = [
+            'python',
+            'opencode',
+            'hosted-worker',
+            'hosted_worker',
+        ]
+
+        rust_hint = any(
+            marker in worker_id
+            or marker in name
+            or marker in sse_agent_name
+            or any(marker in cap for cap in capabilities)
+            for marker in rust_markers
+        )
+        python_hint = any(
+            marker in worker_id
+            or marker in name
+            or any(marker in cap for cap in capabilities)
+            for marker in python_markers
+        )
+
+        # SSE-connected workers are Rust workers.
+        # This must take precedence over storage source, since Rust workers
+        # also register into the in-memory/Redis/Postgres registries.
+        if sse_worker:
+            return 'rust'
+
+        # Local in-memory registrations are legacy OpenCode Python workers (deprecated),
+        # unless clear Rust hints are present.
+        if source == 'memory':
+            if rust_hint and not python_hint:
+                return 'rust'
+            return 'opencode_python'
+
+        # Durable remote entries are typically Rust workers unless explicitly marked python.
+        if source in ('redis', 'database'):
+            if python_hint and not rust_hint:
+                return 'opencode_python'
+            return 'rust'
+
+        if python_hint and not rust_hint:
+            return 'opencode_python'
+        if rust_hint:
+            return 'rust'
+        return 'opencode_python'
+
+    def _runtime_label(runtime: str) -> str:
+        if runtime == 'rust':
+            return 'Rust Worker'
+        return 'OpenCode Python Worker (deprecated)'
+
     # Priority: PostgreSQL > Redis > in-memory
     db_workers = await db.db_list_workers()
     redis_workers = await _redis_list_workers()
@@ -5416,21 +5613,53 @@ async def list_workers(search: Optional[str] = None):
     for w in _registered_workers.values():
         wid = w.get('worker_id')
         if wid:
-            merged[wid] = w
+            worker = dict(w)
+            worker['_registry_source'] = 'memory'
+            merged[wid] = worker
 
     # Redis (may have workers from other instances)
     for w in redis_workers:
         wid = w.get('worker_id')
         if wid and wid not in merged:
-            merged[wid] = w
+            worker = dict(w)
+            worker['_registry_source'] = 'redis'
+            merged[wid] = worker
 
     # PostgreSQL (durable, survives restarts)
     for w in db_workers:
         wid = w.get('worker_id')
         if wid and wid not in merged:
-            merged[wid] = w
+            worker = dict(w)
+            worker['_registry_source'] = 'database'
+            merged[wid] = worker
 
     workers = list(merged.values())
+
+    # Include connected SSE worker metadata to improve runtime classification.
+    sse_workers_by_id: Dict[str, Dict[str, Any]] = {}
+    try:
+        from .worker_sse import get_worker_registry
+
+        sse_registry = get_worker_registry()
+        sse_workers = await sse_registry.list_workers()
+        for sse_worker in sse_workers:
+            wid = sse_worker.get('worker_id')
+            if wid:
+                sse_workers_by_id[str(wid)] = sse_worker
+    except Exception as e:
+        logger.debug(f'Unable to load SSE worker registry for classification: {e}')
+
+    annotated_workers: List[Dict[str, Any]] = []
+    for worker in workers:
+        wid = str(worker.get('worker_id') or '')
+        sse_worker = sse_workers_by_id.get(wid)
+        runtime = _classify_worker_runtime(worker, sse_worker)
+        annotated = dict(worker)
+        annotated['worker_runtime'] = runtime
+        annotated['worker_runtime_label'] = _runtime_label(runtime)
+        annotated.pop('_registry_source', None)
+        annotated_workers.append(annotated)
+    workers = annotated_workers
 
     if search:
         search_lower = search.lower()
@@ -7125,14 +7354,21 @@ class VoiceSessionResponse(BaseModel):
 voice_router = APIRouter(prefix='/v1/voice', tags=['voice'])
 
 
+_livekit_bridge_instance = None
+
+
 def get_livekit_bridge():
-    """Get or create the LiveKit bridge instance."""
+    """Get or create the cached LiveKit bridge singleton."""
+    global _livekit_bridge_instance
+    if _livekit_bridge_instance is not None:
+        return _livekit_bridge_instance
     try:
         from .livekit_bridge import create_livekit_bridge
 
         bridge = create_livekit_bridge()
         if bridge:
             logger.info('LiveKit bridge initialized for voice API')
+            _livekit_bridge_instance = bridge
         else:
             logger.info(
                 'LiveKit bridge not configured - voice features disabled'
@@ -7141,6 +7377,15 @@ def get_livekit_bridge():
     except Exception as e:
         logger.warning(f'Failed to initialize LiveKit bridge: {e}')
         return None
+
+
+@voice_router.on_event('shutdown')
+async def voice_shutdown():
+    """Close LiveKit bridge resources on shutdown."""
+    global _livekit_bridge_instance
+    if _livekit_bridge_instance is not None:
+        await _livekit_bridge_instance.close()
+        _livekit_bridge_instance = None
 
 
 @voice_router.get('/voices')

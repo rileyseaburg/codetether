@@ -795,6 +795,24 @@ class MCPHTTPServer:
                     },
                 },
             },
+            # Model discovery tool
+            {
+                'name': 'list_models',
+                'description': 'List all available AI models from registered workers. Returns models grouped by provider with worker availability info. Use this to discover which models you can select for tasks and runs. Each model includes its provider, friendly name, and which workers support it.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'provider': {
+                            'type': 'string',
+                            'description': 'Filter models by provider (e.g., "openrouter", "google", "anthropic"). Omit to list all providers.',
+                        },
+                        'search': {
+                            'type': 'string',
+                            'description': 'Search/filter models by name (case-insensitive substring match)',
+                        },
+                    },
+                },
+            },
         ]
 
         # Add marketing tools if available
@@ -1300,6 +1318,9 @@ class MCPHTTPServer:
             elif tool_name == 'prd_list_sessions':
                 return await self._prd_list_sessions(arguments)
 
+            elif tool_name == 'list_models':
+                return await self._list_models(arguments)
+
             # Check if it's a marketing tool
             elif (
                 MARKETING_TOOLS_AVAILABLE
@@ -1532,6 +1553,84 @@ class MCPHTTPServer:
             'suggestions': suggestions[:5] if suggestions else [],
             'hint': 'Use format provider/model (e.g., "google/gemini-2.5-flash", "zai-coding-plan/glm-4.7")',
             'total_models_available': len(available_models),
+        }
+
+    async def _list_models(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """List all available models from registered workers."""
+        from . import database as db
+
+        provider_filter = (args.get('provider') or '').strip().lower()
+        search_filter = (args.get('search') or '').strip().lower()
+
+        workers = await db.db_list_workers()
+        # Build model details with provider grouping
+        providers: Dict[str, List[Dict[str, Any]]] = {}
+        model_ids_seen: set = set()
+
+        for worker in workers:
+            worker_id = worker.get('worker_id', 'unknown')
+            worker_name = worker.get('name', worker_id)
+            models = worker.get('models', [])
+
+            for model in models:
+                if isinstance(model, dict):
+                    model_id = model.get('id', '')
+                    model_name = model.get('name', model_id)
+                    provider = model.get('provider', '')
+                    provider_id = model.get('provider_id', provider)
+                else:
+                    model_id = str(model)
+                    model_name = model_id
+                    provider = ''
+                    provider_id = ''
+
+                if not model_id:
+                    continue
+
+                # Apply provider filter
+                if provider_filter and provider_filter not in provider.lower() and provider_filter not in provider_id.lower():
+                    continue
+
+                # Apply search filter
+                if search_filter and search_filter not in model_id.lower() and search_filter not in model_name.lower():
+                    continue
+
+                # Determine display provider
+                display_provider = provider or provider_id or 'unknown'
+
+                if display_provider not in providers:
+                    providers[display_provider] = []
+
+                # Avoid duplicate model entries, but track multiple workers
+                if model_id not in model_ids_seen:
+                    model_ids_seen.add(model_id)
+                    providers[display_provider].append({
+                        'id': model_id,
+                        'name': model_name,
+                        'provider': display_provider,
+                        'workers': [worker_name],
+                    })
+                else:
+                    # Add this worker to existing model entry
+                    for p_models in providers.values():
+                        for m in p_models:
+                            if m['id'] == model_id and worker_name not in m['workers']:
+                                m['workers'].append(worker_name)
+
+        # Sort models within each provider
+        for p in providers:
+            providers[p].sort(key=lambda m: m['name'])
+
+        # Build flat list for convenience
+        all_models = []
+        for p_models in providers.values():
+            all_models.extend(p_models)
+
+        return {
+            'models': all_models,
+            'providers': sorted(providers.keys()),
+            'total': len(all_models),
+            'by_provider': {p: [m['id'] for m in ms] for p, ms in sorted(providers.items())},
         }
 
     async def _validate_codebase_worker(

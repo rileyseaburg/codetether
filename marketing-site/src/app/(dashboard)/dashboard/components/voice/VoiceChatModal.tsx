@@ -75,11 +75,11 @@ const PhoneOffIcon = ({ className }: { className?: string }) => (
 );
 
 const ChevronIcon = ({ className, isExpanded }: { className?: string; isExpanded?: boolean }) => (
-  <svg 
-    className={`${className} transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
-    fill="none" 
-    viewBox="0 0 24 24" 
-    stroke="currentColor" 
+  <svg
+    className={`${className} transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
     strokeWidth={2}
   >
     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -138,7 +138,7 @@ export default function VoiceChatModal({
   // Reconnect to an existing session
   const reconnectToSession = useCallback(async (room: string) => {
     if (!userId) return;
-    
+
     try {
       const { data } = await getVoiceSessionV1VoiceSessionsRoomNameGet({
         path: { room_name: room },
@@ -162,7 +162,7 @@ export default function VoiceChatModal({
   const handleDisconnected = useCallback(() => {
     console.log('Disconnected from room');
     setIsConnected(false);
-    
+
     // Auto-reconnect after brief delay if not intentional
     if (roomName && !intentionalDisconnect.current) {
       setTimeout(() => reconnectToSession(roomName), 2000);
@@ -178,7 +178,7 @@ export default function VoiceChatModal({
   const handleDataMessage = useCallback((message: DataMessage) => {
     if (message.type === 'agent_state') {
       setAgentState(message.state);
-      
+
       if (message.state === 'tool_calling' && message.tool_name) {
         setCurrentToolName(message.tool_name);
         // Add tool call entry to transcript
@@ -230,7 +230,7 @@ export default function VoiceChatModal({
           path: { room_name: roomName },
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         });
-        
+
         if (data) {
           const state = typeof data === 'string' ? data.replace(/"/g, '') : 'idle';
           if (agentState !== 'tool_calling') {
@@ -248,7 +248,7 @@ export default function VoiceChatModal({
 
   // Toggle tool result expansion
   const toggleToolExpansion = useCallback((id: string) => {
-    setTranscript(prev => prev.map(entry => 
+    setTranscript(prev => prev.map(entry =>
       entry.id === id ? { ...entry, isExpanded: !entry.isExpanded } : entry
     ));
   }, []);
@@ -289,11 +289,42 @@ export default function VoiceChatModal({
     );
   }
 
+  // Check if mediaDevices is available (requires HTTPS or localhost)
+  const mediaDevicesAvailable = typeof navigator !== 'undefined' && !!navigator.mediaDevices;
+
   // Handle intentional close
   const handleClose = () => {
     intentionalDisconnect.current = true;
     onClose();
   };
+
+  if (!mediaDevicesAvailable) {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+          <ModalHeader voice={voice} onClose={onClose} />
+          <div className="p-6">
+            <div className="text-center py-8">
+              <div className="text-red-500 mb-4">Microphone Unavailable</div>
+              <p className="text-gray-500">
+                Voice chat requires a secure connection (HTTPS). Your browser blocks microphone access on plain HTTP pages.
+              </p>
+              <p className="text-gray-400 text-sm mt-2">
+                Please access this page via HTTPS or localhost to use voice features.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <ModalFooterSimple sessionId={sessionId} roomName={roomName} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <LiveKitRoom
@@ -308,16 +339,16 @@ export default function VoiceChatModal({
     >
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
-          <ModalHeader 
-            voice={voice} 
-            onClose={handleClose} 
-            agentState={agentState} 
+          <ModalHeader
+            voice={voice}
+            onClose={handleClose}
+            agentState={agentState}
             currentToolName={currentToolName}
           />
           <div className="flex-1 overflow-hidden flex flex-col">
-            <VoiceUI 
-              voice={voice} 
-              onClose={handleClose} 
+            <VoiceUI
+              voice={voice}
+              onClose={handleClose}
               agentState={agentState}
               currentToolName={currentToolName}
               transcript={transcript}
@@ -325,9 +356,9 @@ export default function VoiceChatModal({
               onDataMessage={handleDataMessage}
             />
           </div>
-          <ModalFooter 
-            sessionId={sessionId} 
-            roomName={roomName} 
+          <ModalFooter
+            sessionId={sessionId}
+            roomName={roomName}
             agentState={agentState}
             currentToolName={currentToolName}
           />
@@ -338,14 +369,14 @@ export default function VoiceChatModal({
   );
 }
 
-function ModalHeader({ 
-  voice, 
-  onClose, 
+function ModalHeader({
+  voice,
+  onClose,
   agentState,
-  currentToolName 
-}: { 
-  voice: { name: string }; 
-  onClose: () => void; 
+  currentToolName
+}: {
+  voice: { name: string };
+  onClose: () => void;
   agentState?: AgentState;
   currentToolName?: string | null;
 }) {
@@ -420,14 +451,14 @@ function ModalFooterSimple({ sessionId, roomName }: { sessionId?: string; roomNa
   );
 }
 
-function ModalFooter({ 
-  sessionId, 
-  roomName, 
+function ModalFooter({
+  sessionId,
+  roomName,
   agentState,
-  currentToolName 
-}: { 
-  sessionId?: string; 
-  roomName: string; 
+  currentToolName
+}: {
+  sessionId?: string;
+  roomName: string;
   agentState?: AgentState;
   currentToolName?: string | null;
 }) {
@@ -460,10 +491,10 @@ function ConnectionStatus({ agentState, currentToolName }: { agentState?: AgentS
     error: 'bg-red-500',
   };
 
-  const dotColor = agentState && isConnected 
-    ? agentStateColors[agentState] 
-    : isConnected 
-      ? 'bg-green-500' 
+  const dotColor = agentState && isConnected
+    ? agentStateColors[agentState]
+    : isConnected
+      ? 'bg-green-500'
       : 'bg-yellow-500 animate-pulse';
 
   const getStatusText = () => {
@@ -488,10 +519,10 @@ function ConnectionStatus({ agentState, currentToolName }: { agentState?: AgentS
 }
 
 // Transcript Panel Component
-function TranscriptPanel({ 
-  transcript, 
-  onToggleToolExpansion 
-}: { 
+function TranscriptPanel({
+  transcript,
+  onToggleToolExpansion
+}: {
   transcript: TranscriptEntry[];
   onToggleToolExpansion: (id: string) => void;
 }) {
@@ -513,14 +544,14 @@ function TranscriptPanel({
   }
 
   return (
-    <div 
+    <div
       ref={scrollRef}
       className="h-48 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
     >
       {transcript.map((entry) => (
-        <TranscriptEntry 
-          key={entry.id} 
-          entry={entry} 
+        <TranscriptEntry
+          key={entry.id}
+          entry={entry}
           onToggle={() => onToggleToolExpansion(entry.id)}
         />
       ))}
@@ -528,10 +559,10 @@ function TranscriptPanel({
   );
 }
 
-function TranscriptEntry({ 
-  entry, 
-  onToggle 
-}: { 
+function TranscriptEntry({
+  entry,
+  onToggle
+}: {
   entry: TranscriptEntry;
   onToggle: () => void;
 }) {
@@ -596,17 +627,17 @@ function TranscriptEntry({
   );
 }
 
-function VoiceUI({ 
-  voice, 
-  onClose, 
+function VoiceUI({
+  voice,
+  onClose,
   agentState,
   currentToolName,
   transcript,
   onToggleToolExpansion,
   onDataMessage,
-}: { 
-  voice: { name: string; description: string }; 
-  onClose: () => void; 
+}: {
+  voice: { name: string; description: string };
+  onClose: () => void;
   agentState?: AgentState;
   currentToolName?: string | null;
   transcript: TranscriptEntry[];
@@ -634,7 +665,7 @@ function VoiceUI({
         const decoder = new TextDecoder();
         const jsonStr = decoder.decode(payload);
         const message = JSON.parse(jsonStr) as DataMessage;
-        
+
         if (message.type === 'agent_state' || message.type === 'transcript') {
           onDataMessage(message);
         }
@@ -644,7 +675,7 @@ function VoiceUI({
     };
 
     room.on(RoomEvent.DataReceived, handleDataReceived);
-    
+
     return () => {
       room.off(RoomEvent.DataReceived, handleDataReceived);
     };
@@ -702,16 +733,15 @@ function VoiceUI({
           </div>
 
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-md">
-            <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${
-              agentState === 'speaking' ? 'text-green-600 bg-green-100' :
-              agentState === 'listening' ? 'text-blue-600 bg-blue-100' :
-              agentState === 'thinking' ? 'text-yellow-600 bg-yellow-100' :
-              agentState === 'tool_calling' ? 'text-purple-600 bg-purple-100' :
-              agentState === 'error' ? 'text-red-600 bg-red-100' :
-              hasAgent ? 'text-green-600 bg-green-100' : 
-              isConnected ? 'text-blue-600 bg-blue-100' : 
-              'text-gray-600 bg-gray-100'
-            }`}>
+            <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${agentState === 'speaking' ? 'text-green-600 bg-green-100' :
+                agentState === 'listening' ? 'text-blue-600 bg-blue-100' :
+                  agentState === 'thinking' ? 'text-yellow-600 bg-yellow-100' :
+                    agentState === 'tool_calling' ? 'text-purple-600 bg-purple-100' :
+                      agentState === 'error' ? 'text-red-600 bg-red-100' :
+                        hasAgent ? 'text-green-600 bg-green-100' :
+                          isConnected ? 'text-blue-600 bg-blue-100' :
+                            'text-gray-600 bg-gray-100'
+              }`}>
               {agentState === 'tool_calling' && <SpinnerIcon className="w-3 h-3" />}
               {currentStateConfig?.label || (hasAgent ? 'Agent Connected' : isConnected ? 'Waiting for Agent...' : 'Connecting...')}
             </span>
@@ -724,18 +754,18 @@ function VoiceUI({
             {[...Array(20)].map((_, i) => {
               const isActive = agentState === 'speaking' || agentState === 'listening' || hasAgent;
               const baseHeight = isActive ? 20 + Math.sin(Date.now() / 200 + i) * 15 : 4;
-              
-              const barGradient = agentState === 'speaking' 
+
+              const barGradient = agentState === 'speaking'
                 ? 'bg-gradient-to-t from-green-500 to-emerald-400'
                 : agentState === 'listening'
-                ? 'bg-gradient-to-t from-blue-500 to-blue-400'
-                : agentState === 'thinking'
-                ? 'bg-gradient-to-t from-yellow-500 to-orange-400'
-                : agentState === 'tool_calling'
-                ? 'bg-gradient-to-t from-purple-500 to-violet-400'
-                : hasAgent 
-                ? 'bg-gradient-to-t from-green-500 to-emerald-400' 
-                : 'bg-gradient-to-t from-blue-500 to-indigo-500';
+                  ? 'bg-gradient-to-t from-blue-500 to-blue-400'
+                  : agentState === 'thinking'
+                    ? 'bg-gradient-to-t from-yellow-500 to-orange-400'
+                    : agentState === 'tool_calling'
+                      ? 'bg-gradient-to-t from-purple-500 to-violet-400'
+                      : hasAgent
+                        ? 'bg-gradient-to-t from-green-500 to-emerald-400'
+                        : 'bg-gradient-to-t from-blue-500 to-indigo-500';
 
               return (
                 <div
@@ -759,11 +789,10 @@ function VoiceUI({
           <button
             onClick={toggleMute}
             disabled={!isConnected}
-            className={`p-3 rounded-full transition-all ${
-              isMuted
+            className={`p-3 rounded-full transition-all ${isMuted
                 ? 'bg-red-100 text-red-600 hover:bg-red-200'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            } disabled:opacity-50`}
+              } disabled:opacity-50`}
           >
             {isMuted ? <MicOffIcon className="w-5 h-5" /> : <MicIcon className="w-5 h-5" />}
           </button>
@@ -793,8 +822,8 @@ function VoiceUI({
             </span>
           )}
         </h3>
-        <TranscriptPanel 
-          transcript={transcript} 
+        <TranscriptPanel
+          transcript={transcript}
           onToggleToolExpansion={onToggleToolExpansion}
         />
       </div>

@@ -218,15 +218,57 @@ except ImportError:
             super().__init__(message)
 
 
+# When A2A SDK is available, its error types are Pydantic BaseModel subclasses,
+# NOT Exception subclasses. Python's except clause requires BaseException subclasses.
+# Create proper Exception wrappers for use in try/except blocks.
+class _InvalidParamsException(Exception):
+    """Exception wrapper for A2A InvalidParamsError."""
+    def __init__(self, message: str, data: Any = None):
+        self.message = message
+        self.data = data
+        super().__init__(message)
+
+class _InternalException(Exception):
+    """Exception wrapper for A2A InternalError."""
+    def __init__(self, message: str, data: Any = None):
+        self.message = message
+        self.data = data
+        super().__init__(message)
+
+class _UnsupportedOperationException(Exception):
+    """Exception wrapper for A2A UnsupportedOperationError."""
+    def __init__(self, message: str, data: Any = None):
+        self.message = message
+        self.data = data
+        super().__init__(message)
+
+
 # Internal imports
-from .task_queue import TaskQueue, TaskRun, TaskRunStatus, TaskLimitExceeded
+from .task_queue import TaskQueue, TaskRun, TaskRunStatus, TaskLimitExceeded, get_task_queue
+from .database import get_pool as get_db_pool
 from .models import TaskStatus as InternalTaskStatus
+from .worker_sse import notify_workers_of_new_task
 
 logger = logging.getLogger(__name__)
 
 # Polling configuration
-DEFAULT_POLL_INTERVAL = 0.5  # seconds
-MAX_POLL_DURATION = 300  # 5 minutes max wait
+DEFAULT_POLL_INTERVAL = 1.0  # seconds
+MAX_POLL_DURATION = 120  # 2 minutes max wait
+
+
+# A2A Task status constants as plain strings.
+# The A2A SDK's TaskStatus is a Pydantic model (not an Enum),
+# and the router uses its own TaskState enum. Use raw strings
+# to stay compatible with both.
+class A2AStatus:
+    """A2A task status string constants."""
+    SUBMITTED = 'submitted'
+    PENDING = 'pending'
+    WORKING = 'working'
+    INPUT_REQUIRED = 'input-required'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    CANCELED = 'cancelled'
 
 
 class CodetetherExecutionError(Exception):
@@ -275,13 +317,32 @@ class CodetetherExecutor(AgentExecutor):
             poll_interval: How often to poll for task updates (seconds)
             max_poll_duration: Maximum time to wait for task completion (seconds)
         """
-        self.task_queue = task_queue
+        self._task_queue = task_queue
         self.worker_manager = worker_manager
         self.database = database
         self.default_user_id = default_user_id
         self.default_priority = default_priority
         self.poll_interval = poll_interval
         self.max_poll_duration = max_poll_duration
+
+    @property
+    def task_queue(self) -> TaskQueue:
+        """Lazily resolve the task queue from global state if not set directly."""
+        if self._task_queue is None:
+            self._task_queue = get_task_queue()
+        if self._task_queue is None:
+            raise RuntimeError('Task queue is not initialized. Database may not be connected.')
+        return self._task_queue
+
+    @task_queue.setter
+    def task_queue(self, value):
+        self._task_queue = value
+
+    async def _get_database(self):
+        """Lazily resolve the database pool."""
+        if self.database is None:
+            self.database = await get_db_pool()
+        return self.database
 
     async def execute(
         self, context: RequestContext, event_queue: EventQueue
@@ -308,7 +369,7 @@ class CodetetherExecutor(AgentExecutor):
             # Extract text content from the A2A message
             prompt = self._extract_text_from_message(message)
             if not prompt:
-                raise InvalidParamsError(
+                raise _InvalidParamsException(
                     message='Message must contain at least one text part'
                 )
 
@@ -318,6 +379,7 @@ class CodetetherExecutor(AgentExecutor):
             priority = metadata.get('priority', self.default_priority)
             target_agent = metadata.get('target_agent_name')
             required_capabilities = metadata.get('required_capabilities')
+            model_ref = metadata.get('model_ref')
 
             # Create the internal task record
             internal_task_id = await self._create_internal_task(
@@ -325,6 +387,7 @@ class CodetetherExecutor(AgentExecutor):
                 prompt=prompt,
                 user_id=user_id,
                 metadata=metadata,
+                model_ref=model_ref,
             )
 
             # Enqueue the task run
@@ -334,6 +397,8 @@ class CodetetherExecutor(AgentExecutor):
                 priority=priority,
                 target_agent_name=target_agent,
                 required_capabilities=required_capabilities,
+                model_ref=model_ref,
+                prompt=prompt,
             )
 
             logger.info(
@@ -344,7 +409,7 @@ class CodetetherExecutor(AgentExecutor):
             await self._send_status_update(
                 event_queue=event_queue,
                 task_id=task_id,
-                status=TaskStatus.working,
+                status=A2AStatus.WORKING,
                 message='Task queued for processing',
             )
 
@@ -365,8 +430,14 @@ class CodetetherExecutor(AgentExecutor):
                 error_data=e.to_dict(),
             )
 
-        except InvalidParamsError:
-            raise  # Re-raise A2A SDK errors as-is
+        except _InvalidParamsException as e:
+            logger.warning(f'Invalid params for task {task_id}: {e}')
+            await self._send_error(
+                event_queue=event_queue,
+                task_id=task_id,
+                error_message=str(e),
+                error_code=-32602,
+            )
 
         except Exception as e:
             logger.exception(f'Error executing task {task_id}: {e}')
@@ -401,7 +472,7 @@ class CodetetherExecutor(AgentExecutor):
             task_run = await self._find_task_run_by_external_id(task_id)
 
             if not task_run:
-                raise InvalidParamsError(
+                raise _InvalidParamsException(
                     message=f'No task found with ID {task_id}'
                 )
 
@@ -431,7 +502,7 @@ class CodetetherExecutor(AgentExecutor):
                 await self._send_status_update(
                     event_queue=event_queue,
                     task_id=task_id,
-                    status=TaskStatus.canceled,
+                    status=A2AStatus.CANCELED,
                     message='Task cancelled successfully',
                     is_final=True,
                 )
@@ -443,16 +514,16 @@ class CodetetherExecutor(AgentExecutor):
                 await self._send_status_update(
                     event_queue=event_queue,
                     task_id=task_id,
-                    status=TaskStatus.working,
+                    status=A2AStatus.WORKING,
                     message='Task is currently running and cannot be cancelled',
                 )
 
-        except InvalidParamsError:
+        except _InvalidParamsException:
             raise
 
         except Exception as e:
             logger.exception(f'Error cancelling task {task_id}: {e}')
-            raise InternalError(message=f'Failed to cancel task: {str(e)}')
+            raise _InternalException(message=f'Failed to cancel task: {str(e)}')
 
     # -------------------------------------------------------------------------
     # Helper Methods - Message Extraction
@@ -463,6 +534,7 @@ class CodetetherExecutor(AgentExecutor):
         Extract text content from an A2A Message.
 
         Concatenates all text parts in the message, preserving order.
+        Handles both SDK TextPart objects and plain dict parts from the router.
 
         Args:
             message: The A2A Message to extract text from
@@ -473,10 +545,14 @@ class CodetetherExecutor(AgentExecutor):
         text_parts = []
 
         for part in message.parts:
-            if isinstance(part, TextPart):
+            # Handle plain dict parts (from the router's A2AMessage)
+            if isinstance(part, dict):
+                text = part.get('text')
+                if text:
+                    text_parts.append(str(text))
+            elif isinstance(part, TextPart):
                 text_parts.append(part.text)
             elif hasattr(part, 'text'):
-                # Handle dict-like parts that may have text
                 text_parts.append(str(part.text))
 
         return '\n'.join(text_parts)
@@ -517,6 +593,7 @@ class CodetetherExecutor(AgentExecutor):
         prompt: str,
         user_id: Optional[str],
         metadata: Dict[str, Any],
+        model_ref: Optional[str] = None,
     ) -> str:
         """
         Create an internal task record in the database.
@@ -526,16 +603,27 @@ class CodetetherExecutor(AgentExecutor):
             prompt: The task prompt/description
             user_id: Optional user ID
             metadata: Additional task metadata
+            model_ref: Optional model reference (provider:model format)
 
         Returns:
             The internal task ID
         """
-        if self.database is None:
+        # Resolve model_ref to use
+        import os
+        if not model_ref:
+            model_ref = os.environ.get(
+                'A2A_RLM_DEFAULT_SUBCALL_MODEL_REF',
+                'zhipuai:glm-4.7',
+            )
+
+        db = await self._get_database()
+        if db is None:
             # If no database, use the A2A task_id directly
             return task_id
 
         try:
-            async with self.database.acquire() as conn:
+            import json as _json
+            async with db.acquire() as conn:
                 # Check if task already exists (idempotency)
                 existing = await conn.fetchrow(
                     "SELECT id FROM tasks WHERE id = $1 OR metadata->>'a2a_task_id' = $1",
@@ -554,18 +642,19 @@ class CodetetherExecutor(AgentExecutor):
 
                 await conn.execute(
                     """
-                    INSERT INTO tasks (id, title, description, status, user_id, metadata, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+                    INSERT INTO tasks (id, title, prompt, status, model, metadata, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $7)
                     """,
                     internal_id,
                     f'A2A Task: {task_id[:8]}',
-                    prompt[:500] if len(prompt) > 500 else prompt,
+                    prompt,
                     'pending',
-                    user_id,
-                    task_metadata,
+                    model_ref,
+                    _json.dumps(task_metadata),
                     datetime.now(timezone.utc),
                 )
 
+                logger.info(f'Created internal task {internal_id} with model={model_ref}')
                 return internal_id
 
         except Exception as e:
@@ -580,6 +669,8 @@ class CodetetherExecutor(AgentExecutor):
         priority: int,
         target_agent_name: Optional[str] = None,
         required_capabilities: Optional[List[str]] = None,
+        model_ref: Optional[str] = None,
+        prompt: Optional[str] = None,
     ) -> TaskRun:
         """
         Enqueue a task run for worker processing.
@@ -590,17 +681,56 @@ class CodetetherExecutor(AgentExecutor):
             priority: Task priority (higher = more urgent)
             target_agent_name: Optional specific agent to route to
             required_capabilities: Optional required worker capabilities
+            model_ref: Optional model reference (provider:model format)
+            prompt: Optional prompt text to include in worker notification
 
         Returns:
             The created TaskRun
         """
-        return await self.task_queue.enqueue(
+        # Use default model ref from env if not specified
+        import os
+        if not model_ref:
+            model_ref = os.environ.get(
+                'A2A_RLM_DEFAULT_SUBCALL_MODEL_REF',
+                'zhipuai:glm-4.7',
+            )
+
+        task_run = await self.task_queue.enqueue(
             task_id=task_id,
             user_id=user_id,
             priority=priority,
             target_agent_name=target_agent_name,
             required_capabilities=required_capabilities,
+            model_ref=model_ref,
         )
+
+        # Store prompt on the task_run for re-notification use
+        self._last_prompt = prompt
+        self._last_model_ref = model_ref
+
+        # Notify connected workers via SSE so they claim the task
+        try:
+            task_title = f'A2A Task: {task_id[:8]}'
+            task_data = {
+                'id': task_id,
+                'title': task_title,
+                'prompt': prompt or task_title,
+                'model': model_ref,
+                'model_ref': model_ref,
+                'priority': priority,
+                'status': 'pending',
+                'agent_type': 'a2a',
+            }
+            if target_agent_name:
+                task_data['target_agent_name'] = target_agent_name
+            if required_capabilities:
+                task_data['required_capabilities'] = required_capabilities
+            notified = await notify_workers_of_new_task(task_data)
+            logger.info(f'Notified {len(notified)} workers of new task {task_run.id} with model={model_ref}')
+        except Exception as e:
+            logger.warning(f'Failed to notify workers of new task: {e}')
+
+        return task_run
 
     async def _find_task_run_by_external_id(
         self, a2a_task_id: str
@@ -620,9 +750,10 @@ class CodetetherExecutor(AgentExecutor):
             return task_run
 
         # If we have a database, look up via metadata
-        if self.database:
+        db = await self._get_database()
+        if db:
             try:
-                async with self.database.acquire() as conn:
+                async with db.acquire() as conn:
                     row = await conn.fetchrow(
                         """
                         SELECT tr.* FROM task_runs tr
@@ -664,6 +795,8 @@ class CodetetherExecutor(AgentExecutor):
         """
         start_time = asyncio.get_event_loop().time()
         last_status = None
+        last_renotify_time = start_time
+        renotify_interval = 5.0  # Re-notify workers every 5s if still queued
 
         while True:
             # Check timeout
@@ -673,7 +806,7 @@ class CodetetherExecutor(AgentExecutor):
                 await self._send_status_update(
                     event_queue=event_queue,
                     task_id=task_id,
-                    status=TaskStatus.failed,
+                    status=A2AStatus.FAILED,
                     message=f'Task timed out after {self.max_poll_duration}s',
                     is_final=True,
                 )
@@ -726,6 +859,29 @@ class CodetetherExecutor(AgentExecutor):
                 if is_final:
                     return
 
+            # Re-notify workers if task is still queued (handles claim-release cycles)
+            if task_run and task_run.status == TaskRunStatus.QUEUED:
+                now = asyncio.get_event_loop().time()
+                if now - last_renotify_time >= renotify_interval:
+                    last_renotify_time = now
+                    try:
+                        _model = getattr(self, '_last_model_ref', None) or getattr(task_run, 'model_ref', None)
+                        _prompt = getattr(self, '_last_prompt', None) or f'A2A Task: {task_run.task_id[:8]}'
+                        task_data = {
+                            'id': task_run.task_id,
+                            'title': f'A2A Task: {task_run.task_id[:8]}',
+                            'prompt': _prompt,
+                            'model': _model,
+                            'model_ref': _model,
+                            'priority': getattr(task_run, 'priority', 0),
+                            'status': 'pending',
+                            'agent_type': 'a2a',
+                        }
+                        notified = await notify_workers_of_new_task(task_data)
+                        logger.info(f'Re-notified {len(notified)} workers of queued task {task_run_id} with model={_model}')
+                    except Exception as e:
+                        logger.debug(f'Re-notification failed: {e}')
+
             # Wait before next poll
             await asyncio.sleep(self.poll_interval)
 
@@ -751,7 +907,7 @@ class CodetetherExecutor(AgentExecutor):
         self,
         event_queue: EventQueue,
         task_id: str,
-        status: TaskStatus,
+        status: str,
         message: str,
         is_final: bool = False,
     ) -> None:
@@ -765,18 +921,25 @@ class CodetetherExecutor(AgentExecutor):
             message: Human-readable status message
             is_final: Whether this is the final update
         """
-        # Create the status update event
-        event = TaskStatusUpdateEvent(
-            taskId=task_id,
-            status=TaskState(state=status),
-            message=Message(
-                role='agent',
-                parts=[TextPart(text=message)],
-            ),
-            final=is_final,
-        )
+        # Build event as a plain dict compatible with the router's EventQueue
+        status_value = status.value if hasattr(status, 'value') else str(status)
+        event = {
+            'type': 'status',
+            'taskId': task_id,
+            'status': {
+                'state': status_value,
+                'message': message,
+            },
+            'final': is_final,
+        }
 
-        await event_queue.enqueue_event(event)
+        # Support both router EventQueue (put) and SDK EventQueue (enqueue_event)
+        if hasattr(event_queue, 'put'):
+            await event_queue.put(event)
+        elif hasattr(event_queue, 'enqueue_event'):
+            await event_queue.enqueue_event(event)
+        else:
+            logger.error('EventQueue has no put() or enqueue_event() method')
 
     async def _send_result_artifact(
         self,
@@ -794,30 +957,33 @@ class CodetetherExecutor(AgentExecutor):
             result: The result summary text
             full_result: Optional full result data
         """
-        # Build artifact parts
-        parts: List[Part] = [TextPart(text=result)]
+        # Build artifact parts as plain dicts for router compatibility
+        parts = [{'type': 'text', 'text': result}]
 
-        # If we have structured data, add it as a DataPart
         if full_result:
-            parts.append(
-                DataPart(
-                    data=full_result,
-                    mimeType='application/json',
-                )
-            )
+            parts.append({
+                'type': 'data',
+                'data': full_result,
+                'mimeType': 'application/json',
+            })
 
-        artifact = Artifact(
-            artifactId=str(uuid.uuid4()),
-            name='result',
-            parts=parts,
-        )
+        event = {
+            'type': 'artifact',
+            'taskId': task_id,
+            'artifact': {
+                'artifactId': str(uuid.uuid4()),
+                'name': 'result',
+                'parts': parts,
+            },
+        }
 
-        event = TaskArtifactUpdateEvent(
-            taskId=task_id,
-            artifact=artifact,
-        )
-
-        await event_queue.enqueue_event(event)
+        # Support both router EventQueue (put) and SDK EventQueue (enqueue_event)
+        if hasattr(event_queue, 'put'):
+            await event_queue.put(event)
+        elif hasattr(event_queue, 'enqueue_event'):
+            await event_queue.enqueue_event(event)
+        else:
+            logger.error('EventQueue has no put() or enqueue_event() method')
 
     async def _send_error(
         self,
@@ -842,13 +1008,16 @@ class CodetetherExecutor(AgentExecutor):
         if error_data:
             full_message = f'{error_message}\nDetails: {error_data}'
 
-        await self._send_status_update(
-            event_queue=event_queue,
-            task_id=task_id,
-            status=TaskStatus.failed,
-            message=full_message,
-            is_final=True,
-        )
+        try:
+            await self._send_status_update(
+                event_queue=event_queue,
+                task_id=task_id,
+                status=A2AStatus.FAILED,
+                message=full_message,
+                is_final=True,
+            )
+        except Exception as e:
+            logger.error(f'Failed to send error status for task {task_id}: {e}')
 
     # -------------------------------------------------------------------------
     # Helper Methods - Status Mapping
@@ -856,45 +1025,45 @@ class CodetetherExecutor(AgentExecutor):
 
     def _map_internal_to_a2a_status(
         self, internal_status: TaskRunStatus
-    ) -> TaskStatus:
+    ) -> str:
         """
-        Map internal TaskRunStatus to A2A TaskStatus.
+        Map internal TaskRunStatus to A2A status string.
 
         Args:
             internal_status: Our internal status enum
 
         Returns:
-            The corresponding A2A TaskStatus
+            The corresponding A2A status string
         """
         status_map = {
-            TaskRunStatus.QUEUED: TaskStatus.submitted,
-            TaskRunStatus.RUNNING: TaskStatus.working,
-            TaskRunStatus.NEEDS_INPUT: TaskStatus.input_required,
-            TaskRunStatus.COMPLETED: TaskStatus.completed,
-            TaskRunStatus.FAILED: TaskStatus.failed,
-            TaskRunStatus.CANCELLED: TaskStatus.canceled,
+            TaskRunStatus.QUEUED: A2AStatus.SUBMITTED,
+            TaskRunStatus.RUNNING: A2AStatus.WORKING,
+            TaskRunStatus.NEEDS_INPUT: A2AStatus.INPUT_REQUIRED,
+            TaskRunStatus.COMPLETED: A2AStatus.COMPLETED,
+            TaskRunStatus.FAILED: A2AStatus.FAILED,
+            TaskRunStatus.CANCELLED: A2AStatus.CANCELED,
         }
-        return status_map.get(internal_status, TaskStatus.working)
+        return status_map.get(internal_status, A2AStatus.WORKING)
 
     def _map_a2a_to_internal_status(
-        self, a2a_status: TaskStatus
+        self, a2a_status: str
     ) -> TaskRunStatus:
         """
-        Map A2A TaskStatus to internal TaskRunStatus.
+        Map A2A status string to internal TaskRunStatus.
 
         Args:
-            a2a_status: The A2A status enum
+            a2a_status: The A2A status string
 
         Returns:
             The corresponding internal TaskRunStatus
         """
         status_map = {
-            TaskStatus.submitted: TaskRunStatus.QUEUED,
-            TaskStatus.working: TaskRunStatus.RUNNING,
-            TaskStatus.input_required: TaskRunStatus.NEEDS_INPUT,
-            TaskStatus.completed: TaskRunStatus.COMPLETED,
-            TaskStatus.failed: TaskRunStatus.FAILED,
-            TaskStatus.canceled: TaskRunStatus.CANCELLED,
+            A2AStatus.SUBMITTED: TaskRunStatus.QUEUED,
+            A2AStatus.WORKING: TaskRunStatus.RUNNING,
+            A2AStatus.INPUT_REQUIRED: TaskRunStatus.NEEDS_INPUT,
+            A2AStatus.COMPLETED: TaskRunStatus.COMPLETED,
+            A2AStatus.FAILED: TaskRunStatus.FAILED,
+            A2AStatus.CANCELED: TaskRunStatus.CANCELLED,
         }
         return status_map.get(a2a_status, TaskRunStatus.QUEUED)
 

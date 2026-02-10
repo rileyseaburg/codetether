@@ -241,7 +241,7 @@ class TaskQueue:
             if user_id:
                 await conn.execute(
                     """
-                    UPDATE users 
+                    UPDATE users
                     SET tasks_used_this_month = tasks_used_this_month + 1,
                         updated_at = NOW()
                     WHERE id = $1
@@ -294,9 +294,9 @@ class TaskQueue:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT * FROM task_runs 
-                WHERE task_id = $1 
-                ORDER BY created_at DESC 
+                SELECT * FROM task_runs
+                WHERE task_id = $1
+                ORDER BY created_at DESC
                 LIMIT 1
                 """,
                 task_id,
@@ -331,7 +331,7 @@ class TaskQueue:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 f"""
-                SELECT * FROM task_runs 
+                SELECT * FROM task_runs
                 WHERE {where_clause}
                 ORDER BY created_at DESC
                 LIMIT ${param_idx}
@@ -347,13 +347,13 @@ class TaskQueue:
             # Overall stats
             stats = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     COUNT(*) FILTER (WHERE status = 'queued') as queued,
                     COUNT(*) FILTER (WHERE status = 'running') as running,
                     COUNT(*) FILTER (WHERE status = 'completed') as completed_24h,
                     COUNT(*) FILTER (WHERE status = 'failed') as failed_24h,
                     AVG(runtime_seconds) FILTER (WHERE status = 'completed') as avg_runtime,
-                    AVG(EXTRACT(EPOCH FROM (NOW() - created_at))) 
+                    AVG(EXTRACT(EPOCH FROM (NOW() - created_at)))
                         FILTER (WHERE status = 'queued') as avg_wait_seconds
                 FROM task_runs
                 WHERE created_at > NOW() - INTERVAL '24 hours'
@@ -390,15 +390,15 @@ class TaskQueue:
             # Queue counts by status
             queue_stats = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     COUNT(*) FILTER (WHERE status = 'queued') as queued,
                     COUNT(*) FILTER (WHERE status = 'running') as running,
                     COUNT(*) FILTER (WHERE status = 'needs_input') as needs_input,
                     COUNT(*) FILTER (WHERE status = 'completed' AND created_at > NOW() - INTERVAL '24 hours') as completed_24h,
                     COUNT(*) FILTER (WHERE status = 'failed' AND created_at > NOW() - INTERVAL '24 hours') as failed_24h,
-                    AVG(EXTRACT(EPOCH FROM (NOW() - created_at))) 
+                    AVG(EXTRACT(EPOCH FROM (NOW() - created_at)))
                         FILTER (WHERE status = 'queued') as avg_queue_wait_seconds,
-                    MAX(EXTRACT(EPOCH FROM (NOW() - created_at))) 
+                    MAX(EXTRACT(EPOCH FROM (NOW() - created_at)))
                         FILTER (WHERE status = 'queued') as max_queue_wait_seconds
                 FROM task_runs
                 """
@@ -407,7 +407,7 @@ class TaskQueue:
             # Notification stats
             notification_stats = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     COUNT(*) FILTER (WHERE notification_status = 'failed' AND notification_next_retry_at <= NOW()) as email_failed_ready,
                     COUNT(*) FILTER (WHERE notification_status = 'pending' AND updated_at < NOW() - INTERVAL '5 minutes') as email_pending_stuck,
                     COUNT(*) FILTER (WHERE webhook_status = 'failed' AND webhook_next_retry_at <= NOW()) as webhook_failed_ready,
@@ -422,7 +422,7 @@ class TaskQueue:
             # Worker stats
             worker_stats = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     COUNT(*) FILTER (WHERE status = 'active') as active_pools,
                     SUM(max_concurrent_tasks) FILTER (WHERE status = 'active') as total_capacity,
                     SUM(current_tasks) FILTER (WHERE status = 'active') as current_load,
@@ -490,7 +490,7 @@ class TaskQueue:
             # User's queue counts
             queue_stats = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     COUNT(*) FILTER (WHERE status = 'queued') as queued,
                     COUNT(*) FILTER (WHERE status = 'running') as running,
                     COUNT(*) FILTER (WHERE status = 'needs_input') as needs_input,
@@ -506,7 +506,7 @@ class TaskQueue:
             # User's active runs (queued or running)
             active_runs = await conn.fetch(
                 """
-                SELECT 
+                SELECT
                     tr.id,
                     tr.task_id,
                     tr.status,
@@ -519,9 +519,9 @@ class TaskQueue:
                     t.title
                 FROM task_runs tr
                 LEFT JOIN tasks t ON tr.task_id = t.id
-                WHERE tr.user_id = $1 
+                WHERE tr.user_id = $1
                   AND tr.status IN ('queued', 'running', 'needs_input')
-                ORDER BY 
+                ORDER BY
                     CASE tr.status WHEN 'running' THEN 0 WHEN 'needs_input' THEN 1 ELSE 2 END,
                     tr.priority DESC,
                     tr.created_at ASC
@@ -533,7 +533,7 @@ class TaskQueue:
             # User's recent completed/failed runs
             recent_runs = await conn.fetch(
                 """
-                SELECT 
+                SELECT
                     tr.id,
                     tr.task_id,
                     tr.status,
@@ -544,7 +544,7 @@ class TaskQueue:
                     t.title
                 FROM task_runs tr
                 LEFT JOIN tasks t ON tr.task_id = t.id
-                WHERE tr.user_id = $1 
+                WHERE tr.user_id = $1
                   AND tr.status IN ('completed', 'failed')
                   AND tr.created_at > NOW() - INTERVAL '24 hours'
                 ORDER BY tr.completed_at DESC
@@ -556,7 +556,7 @@ class TaskQueue:
             # User's limits (from users table)
             user_limits = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     concurrency_limit,
                     tasks_limit,
                     tasks_used_this_month,
@@ -690,7 +690,7 @@ class TaskQueue:
             result_full=row['result_full'],
             notify_email=row['notify_email'],
             notify_webhook_url=row['notify_webhook_url'],
-            notification_sent=row['notification_sent'],
+            notification_sent=row.get('notification_sent', row.get('notification_status', False)),
             # Routing fields
             target_agent_name=row.get('target_agent_name'),
             required_capabilities=required_capabilities,

@@ -4652,7 +4652,23 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
 
 async def main():
-    parser = argparse.ArgumentParser(description='A2A Agent Worker')
+    import warnings
+    warnings.warn(
+        "The Python worker (agent_worker/worker.py) is DEPRECATED and will be "
+        "removed in a future release. Use the codetether Rust binary instead:\n"
+        "  codetether worker --server <URL> --codebases <PATH> --auto-approve safe\n"
+        "See: agent_worker/install-codetether-worker.sh",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    logger.warning(
+        '⚠️  DEPRECATION: This Python worker is deprecated. '
+        'Use `codetether worker` (Rust binary) instead. '
+        'See: agent_worker/install-codetether-worker.sh'
+    )
+    parser = argparse.ArgumentParser(
+        description='A2A Agent Worker (DEPRECATED - use `codetether worker` instead)'
+    )
     parser.add_argument('--server', '-s', default=None, help='A2A server URL')
     parser.add_argument(
         '--mcp-url',

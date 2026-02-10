@@ -7,6 +7,10 @@ import { Hero } from '@/components/Hero'
 import { ChatWidget } from '@/components/ChatWidget'
 
 // Below-the-fold components - lazy load
+const OpenClawComparison = dynamic(
+    () => import('@/components/OpenClawComparison').then((m) => m.OpenClawComparison),
+    { ssr: true }
+)
 const RLMExplainer = dynamic(
     () => import('@/components/RLMExplainer').then((m) => m.RLMExplainer),
     { ssr: true }
@@ -80,6 +84,11 @@ export default function Home() {
             {/* Above the fold */}
             <CISOBanner />
             <Hero />
+            
+            {/* OpenClaw Comparison - direct response sales letter */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <OpenClawComparison />
+            </Suspense>
             
             {/* RLM Explainer - the tech behind CodeTether */}
             <Suspense fallback={<SectionSkeleton />}>

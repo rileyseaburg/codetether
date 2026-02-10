@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import VoiceChatButton from './components/voice/VoiceChatButton'
 import TenantStatusBanner from '@/components/TenantStatusBanner'
 import { ModelSelector } from '@/components/ModelSelector'
+import { WorkerSelector } from '@/components/WorkerSelector'
 import { useRalphStore } from './ralph/store'
 import { useTenantApi } from '@/hooks/useTenantApi'
 import {
@@ -32,6 +33,7 @@ interface Worker {
     status: string
     global_codebase_id?: string
     last_seen?: string
+    is_sse_connected?: boolean
 }
 
 type SwarmSubtaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timed_out' | 'cancelled' | 'unknown'
@@ -325,11 +327,12 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export default function DashboardPage() {
     const { data: session } = useSession()
-    const { apiUrl, tenantId, tenantSlug, isAuthenticated } = useTenantApi()
+    const { apiUrl, tenantId, tenantSlug, isAuthenticated, tenantFetch } = useTenantApi()
     const { selectedModel, setSelectedModel, selectedCodebase, setSelectedCodebase, setAgents, setLoadingAgents } = useRalphStore()
     const [codebases, setCodebases] = useState<Codebase[]>([])
     const [workers, setWorkers] = useState<Worker[]>([])
     const [selectedAgent, setSelectedAgent] = useState('build')
+    const [selectedWorkerId, setSelectedWorkerId] = useState('')
     const [prompt, setPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [workerPersonality, setWorkerPersonality] = useState('')
@@ -519,12 +522,38 @@ export default function DashboardPage() {
     const loadWorkers = useCallback(async () => {
         try {
             setLoadingAgents(true)
-            const { data, error } = await listWorkersV1AgentWorkersGet()
+            const [{ data, error }, connectedResponse] = await Promise.all([
+                listWorkersV1AgentWorkersGet(),
+                tenantFetch<{ workers?: Array<{ worker_id?: string, agent_name?: string, last_heartbeat?: string }> }>('/v1/worker/connected'),
+            ])
             if (!error && data) {
                 const workerList = Array.isArray(data) ? data : (data as any)?.workers ?? []
-                setWorkers(workerList)
+                const connectedWorkers = connectedResponse.data?.workers || []
+                const connectedMap = new Map(
+                    connectedWorkers
+                        .filter((w) => w.worker_id)
+                        .map((w) => [
+                            String(w.worker_id),
+                            {
+                                name: w.agent_name,
+                                last_seen: w.last_heartbeat,
+                            },
+                        ])
+                )
+
+                const mergedWorkers = workerList.map((w: any) => {
+                    const connected = connectedMap.get(String(w.worker_id || ''))
+                    return {
+                        ...w,
+                        name: connected?.name || w.name,
+                        last_seen: connected?.last_seen || w.last_seen,
+                        is_sse_connected: Boolean(connected),
+                    }
+                })
+
+                setWorkers(mergedWorkers)
                 // Sync into ralph store so ModelSelector can read models
-                setAgents(workerList.map((w: any) => ({
+                setAgents(mergedWorkers.map((w: any) => ({
                     name: w.name || '',
                     role: 'worker',
                     instance_id: w.worker_id || '',
@@ -541,7 +570,7 @@ export default function DashboardPage() {
         } finally {
             setLoadingAgents(false)
         }
-    }, [setAgents, setLoadingAgents])
+    }, [setAgents, setLoadingAgents, tenantFetch])
 
     const loadRoutingFromTasks = useCallback(async () => {
         if (!selectedCodebase) return
@@ -586,11 +615,31 @@ export default function DashboardPage() {
         return () => clearInterval(interval)
     }, [loadCodebases, loadWorkers, loadRoutingFromTasks])
 
+    useEffect(() => {
+        const triggerWorkers = workers.filter((w) => w.is_sse_connected)
+        if (triggerWorkers.length === 0) {
+            if (selectedWorkerId) setSelectedWorkerId('')
+            return
+        }
+
+        const selectedStillValid = triggerWorkers.some((w) => w.worker_id === selectedWorkerId)
+        if (selectedStillValid) return
+
+        const selectedCodebaseWorkerId = codebases.find((cb) => cb.id === selectedCodebase)?.worker_id
+        const preferredWorker = triggerWorkers.find((w) => w.worker_id === selectedCodebaseWorkerId)
+        setSelectedWorkerId(preferredWorker?.worker_id || triggerWorkers[0]?.worker_id || '')
+    }, [codebases, selectedCodebase, selectedWorkerId, workers])
+
     const triggerAgent = async () => {
         if (!selectedCodebase || !prompt.trim()) return
+        if (!selectedWorkerId) {
+            alert('Select a connected worker before triggering an agent.')
+            return
+        }
         setLoading(true)
         try {
             const metadata: Record<string, unknown> = {}
+            metadata.target_worker_id = selectedWorkerId
             if (selectedAgent === 'swarm') {
                 metadata.decomposition_strategy = swarmStrategy
                 metadata.swarm = {
@@ -789,6 +838,23 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Worker
+                                </label>
+                                <WorkerSelector
+                                    value={selectedWorkerId}
+                                    onChange={setSelectedWorkerId}
+                                    workers={workers}
+                                    onlyConnected
+                                    includeAutoOption
+                                    autoOptionLabel="Select a connected worker..."
+                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Required. Tasks from this form are routed to the selected connected worker.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Agent Type
                                 </label>
                                 <select
@@ -906,7 +972,7 @@ export default function DashboardPage() {
                             </div>
                             <button
                                 onClick={triggerAgent}
-                                disabled={loading || !selectedCodebase || !prompt.trim()}
+                                disabled={loading || !selectedCodebase || !selectedWorkerId || !prompt.trim()}
                                 className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? '⏳ Running...' : '🚀 Run Agent'}
@@ -1141,18 +1207,15 @@ export default function DashboardPage() {
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Worker (optional)</label>
-                                                <select
+                                                <WorkerSelector
                                                     value={registerForm.worker_id}
-                                                    onChange={(e) => setRegisterForm({ ...registerForm, worker_id: e.target.value })}
+                                                    onChange={(worker_id) => setRegisterForm({ ...registerForm, worker_id })}
+                                                    workers={workers}
+                                                    onlyConnected
+                                                    includeAutoOption
+                                                    autoOptionLabel="Auto-assign (default)"
                                                     className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                >
-                                                    <option value="">Auto-assign (default)</option>
-                                                    {workers.filter(isWorkerOnline).map((w) => (
-                                                        <option key={w.worker_id} value={w.worker_id}>
-                                                            {w.name} ({w.hostname || w.worker_id})
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                />
                                             </div>
                                         </div>
                                         <div className="mt-6 flex gap-3 justify-end">

@@ -12,6 +12,10 @@ export interface ModelSelectorProps {
     label?: string
     className?: string
     disabled?: boolean
+    selectedModel?: string
+    onSelectedModelChange?: (value: string) => void
+    availableModels?: string[]
+    loading?: boolean
 }
 
 export function ModelSelector({
@@ -22,10 +26,19 @@ export function ModelSelector({
     hasCountBadge,
     label = 'Model',
     className = '',
-    disabled = false
+    disabled = false,
+    selectedModel: selectedModelProp,
+    onSelectedModelChange,
+    availableModels: availableModelsProp,
+    loading: loadingProp,
 }: ModelSelectorProps) {
-    const { selectedModel, setSelectedModel, loadingAgents } = useRalphStore()
-    const availableModels = useAvailableModels()
+    const { selectedModel: selectedModelStore, setSelectedModel: setSelectedModelStore, loadingAgents: loadingAgentsStore } = useRalphStore()
+    const availableModelsStore = useAvailableModels()
+
+    const selectedModel = selectedModelProp ?? selectedModelStore
+    const availableModels = availableModelsProp ?? availableModelsStore
+    const loadingAgents = loadingProp ?? loadingAgentsStore
+    const setSelectedModel = onSelectedModelChange ?? setSelectedModelStore
 
     const Comp = (() => {
         switch (visualVariant) {
