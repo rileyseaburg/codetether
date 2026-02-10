@@ -6,6 +6,7 @@ import { formatCost, formatTokens } from '../utils'
 import { parseJsonPayload } from './JsonHelpers'
 import { MarkdownMessage } from './MarkdownMessage'
 import { ToolDetails } from './ToolDetails'
+import { ReadAloudButton } from './ReadAloudButton'
 
 interface Props { message: ChatItem; isUser: boolean; isNew?: boolean }
 
@@ -28,14 +29,14 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
         if (hasStructuredPayload) {
             return { shouldTruncate: false, truncatedText: m.text, stats: null }
         }
-        
+
         const text = m.text
         const lines = text.split('\n')
         const charCount = text.length
         const lineCount = lines.length
-        
+
         const needsTruncation = charCount > TRUNCATE_CHARS || lineCount > TRUNCATE_LINES
-        
+
         if (!needsTruncation) {
             return { shouldTruncate: false, truncatedText: text, stats: null }
         }
@@ -47,7 +48,7 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
             text.lastIndexOf('. ', TRUNCATE_CHARS),
             text.lastIndexOf('.\n', TRUNCATE_CHARS)
         )
-        
+
         if (lineEndIndex > TRUNCATE_CHARS * 0.7) {
             truncateAt = lineEndIndex
         } else if (sentenceEnd > TRUNCATE_CHARS * 0.7) {
@@ -108,14 +109,14 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
                 {m.text ? (
                     <div aria-label="Message content">
                         <MarkdownMessage text={displayText || ''} />
-                        
+
                         {/* Truncation controls */}
                         {shouldTruncate && (
                             <div className="mt-3 flex items-center gap-2">
                                 {!isExpanded && (
                                     <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent" />
                                 )}
-                                 <button
+                                <button
                                     onClick={() => setIsExpanded(!isExpanded)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 rounded-full transition-colors"
                                     aria-expanded={isExpanded}
@@ -151,23 +152,30 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
 
                 {/* Reasoning section - collapsed by default */}
                 {m.reasoning && <Reasoning text={m.reasoning} isUser={isUser} />}
-                
+
                 {/* Tools section - collapsed by default */}
                 {m.tools?.length ? <ToolDetails tools={m.tools} isUser={isUser} /> : null}
-                
+
+                {/* Actions row for assistant messages */}
+                {!isUser && m.text && (
+                    <div className="mt-3 flex items-center gap-2">
+                        <ReadAloudButton text={m.text} />
+                    </div>
+                )}
+
                 {/* Usage stats */}
                 {(tokenInfo || costText) && <Usage tokenInfo={tokenInfo} costText={costText} isUser={isUser} />}
-                
+
 
             </div>
         </div>
     )
 }
 
-    const Reasoning = ({ text, isUser }: { text: string; isUser: boolean }) => {
+const Reasoning = ({ text, isUser }: { text: string; isUser: boolean }) => {
     const [isOpen, setIsOpen] = useState(false)
     const id = useId()
-    
+
     const lines = text.split('\n').length
     const preview = text.slice(0, 100).replace(/\n/g, ' ')
 
@@ -190,10 +198,10 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
                         ({lines} lines)
                     </span>
                 </div>
-                <svg 
-                    className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
+                <svg
+                    className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                 >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -213,7 +221,7 @@ function MessageBubbleInner({ message: m, isUser, isNew = false }: Props) {
     )
 }
 
- const Usage = ({ tokenInfo, costText, isUser }: { tokenInfo: { summary: string; detail?: string } | null; costText: string; isUser: boolean }) => (
+const Usage = ({ tokenInfo, costText, isUser }: { tokenInfo: { summary: string; detail?: string } | null; costText: string; isUser: boolean }) => (
     <div
         className={`mt-3 flex flex-wrap gap-x-3 text-[11px] ${isUser ? 'text-cyan-100/90' : 'text-gray-500 dark:text-gray-400'}`}
         aria-label="Token usage and cost information"

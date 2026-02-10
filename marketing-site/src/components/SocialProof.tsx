@@ -7,15 +7,17 @@ export function SocialProof() {
         <section className="border-y border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 py-8">
             <Container>
                 <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500 dark:text-gray-400">
-                    <span>Webhook trigger</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">Mandatory Auth</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">RLM processing</span>
+                    <span>Append-Only Audit Trail</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>10M+ token context</span>
+                    <span>Ed25519 Plugin Signing</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>Email delivery</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">RLM Processing</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>Real file output</span>
+                    <span>K8s Self-Deployment</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span>10M+ Token Context</span>
                 </div>
             </Container>
         </section>

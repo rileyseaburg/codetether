@@ -8,10 +8,10 @@ export function CISOBanner() {
             <Container className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 text-sm">
                     <div className="flex items-center gap-4">
-                        {['Open Source', 'Written in Rust', 'Self-Hosted', 'Auth Mandatory'].map((item, i) => (
+                        {['v1.1.0 Shipped', 'Written in Rust', 'Ed25519 Plugin Signing', 'Auth Mandatory', 'Full Audit Trail'].map((item, i) => (
                             <span key={item} className="flex items-center gap-2">
                                 {i > 0 && <span className="text-gray-700">·</span>}
-                                <span className="text-gray-400 text-xs font-medium">{item}</span>
+                                <span className={`text-xs font-medium ${i === 0 ? 'text-cyan-400' : 'text-gray-400'}`}>{item}</span>
                             </span>
                         ))}
                     </div>
