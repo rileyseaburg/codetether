@@ -38,7 +38,7 @@ export async function uploadYouTubeAsset(params: {
         },
     ]);
 
-    const resourceName = response.results[0].resource_name;
+    const resourceName = response.results[0].resource_name ?? '';
     const assetId = resourceName.split('/').pop() ?? '';
 
     return { assetId, resourceName };
@@ -408,7 +408,7 @@ export async function launchVideoAdFromYouTube(params: {
     });
 
     // Extract campaign ID from resource name
-    const campaignId = campaign.campaignResourceName.split('/').pop()!;
+    const campaignId = (campaign.campaignResourceName ?? '').split('/').pop()!;
 
     // 2. Create video ad group
     const adGroup = await createVideoAdGroup({
@@ -418,7 +418,7 @@ export async function launchVideoAdFromYouTube(params: {
         customerId: params.customerId,
     });
 
-    const adGroupId = adGroup.results[0].resource_name.split('/').pop()!;
+    const adGroupId = (adGroup.results[0].resource_name ?? '').split('/').pop()!;
 
     // 3. Create video ad
     let ad;
