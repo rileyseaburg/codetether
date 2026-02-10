@@ -546,6 +546,23 @@ docs:
       cpu: 50m
       memory: 64Mi
 
+# ── Keycloak SSO ───────────────────────────────────────────────
+# Keycloak connection for OAuth2/OIDC authentication.
+# Client secret should be set via --set or a sealed secret.
+keycloak:
+  url: "https://auth.quantum-forge.io"
+  realm: "quantum-forge"
+  clientId: "a2a-monitor"
+  # clientSecret: ""  # Set via --set keycloak.clientSecret=<value>
+
+# ── Stripe Billing ────────────────────────────────────────────
+# Stripe keys for subscription billing. Set via --set or sealed secret.
+# Alternatively, store at Vault path kv/codetether/stripe with keys:
+#   api_key, webhook_secret
+stripe:
+  apiKey: ""             # Set via --set stripe.apiKey=sk_live_...
+  webhookSecret: ""      # Set via --set stripe.webhookSecret=whsec_...
+
 # ── OPA Policy Engine Sidecar ──────────────────────────────────
 # Runs Open Policy Agent alongside the A2A server for centralized
 # authorization decisions. Policies are loaded from the opa-policies

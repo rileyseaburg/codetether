@@ -82,12 +82,25 @@ spec:
             - secretRef:
                 name: {{ include "a2a-server.fullname" . }}-auth
             {{- end }}
+            {{- if .Values.keycloak.clientSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-keycloak
+            {{- end }}
+            {{- if or .Values.stripe.apiKey .Values.stripe.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-stripe
+            {{- end }}
           env:
             {{- if .Values.opa.enabled }}
             - name: OPA_URL
               value: "http://localhost:8181"
             - name: OPA_LOCAL_MODE
               value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- else }}
+            - name: OPA_LOCAL_MODE
+              value: "true"
             - name: OPA_ENABLED
               value: "true"
             {{- end }}
@@ -315,12 +328,25 @@ spec:
             - secretRef:
                 name: {{ include "a2a-server.fullname" . }}-auth
             {{- end }}
+            {{- if .Values.keycloak.clientSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-keycloak
+            {{- end }}
+            {{- if or .Values.stripe.apiKey .Values.stripe.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-stripe
+            {{- end }}
           env:
             {{- if .Values.opa.enabled }}
             - name: OPA_URL
               value: "http://localhost:8181"
             - name: OPA_LOCAL_MODE
               value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- else }}
+            - name: OPA_LOCAL_MODE
+              value: "true"
             - name: OPA_ENABLED
               value: "true"
             {{- end }}
@@ -524,12 +550,25 @@ spec:
             - secretRef:
                 name: {{ include "a2a-server.fullname" $ }}-auth
             {{- end }}
+            {{- if $.Values.keycloak.clientSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" $ }}-keycloak
+            {{- end }}
+            {{- if or $.Values.stripe.apiKey $.Values.stripe.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" $ }}-stripe
+            {{- end }}
           env:
             {{- if $.Values.opa.enabled }}
             - name: OPA_URL
               value: "http://localhost:8181"
             - name: OPA_LOCAL_MODE
               value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- else }}
+            - name: OPA_LOCAL_MODE
+              value: "true"
             - name: OPA_ENABLED
               value: "true"
             {{- end }}

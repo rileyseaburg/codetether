@@ -28,21 +28,27 @@ from fastapi.security import (
     OAuth2AuthorizationCodeBearer,
 )
 
+try:
+    import redis.asyncio as aioredis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Keycloak Configuration from environment
 KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL', 'https://auth.quantum-forge.io')
 KEYCLOAK_REALM = os.environ.get('KEYCLOAK_REALM', 'quantum-forge')
 KEYCLOAK_CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID', 'a2a-monitor')
-KEYCLOAK_CLIENT_SECRET = os.environ.get(
-    'KEYCLOAK_CLIENT_SECRET', 'Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1'
-)
-KEYCLOAK_ADMIN_USERNAME = os.environ.get(
-    'KEYCLOAK_ADMIN_USERNAME', 'info@evolvingsoftware.io'
-)
-KEYCLOAK_ADMIN_PASSWORD = os.environ.get(
-    'KEYCLOAK_ADMIN_PASSWORD', 'Spr!ng20@4'
-)
+KEYCLOAK_CLIENT_SECRET = os.environ.get('KEYCLOAK_CLIENT_SECRET', '')
+KEYCLOAK_ADMIN_USERNAME = os.environ.get('KEYCLOAK_ADMIN_USERNAME', '')
+KEYCLOAK_ADMIN_PASSWORD = os.environ.get('KEYCLOAK_ADMIN_PASSWORD', '')
+
+if not KEYCLOAK_CLIENT_SECRET:
+    logger.warning(
+        'KEYCLOAK_CLIENT_SECRET is not set. '
+        'Keycloak authentication will fail until it is configured.'
+    )
 
 # JWT Configuration
 JWT_ALGORITHM = 'RS256'
@@ -155,6 +161,9 @@ class UserAgentSession:
 class KeycloakAuthService:
     """Manages Keycloak authentication and user sessions."""
 
+    SESSION_PREFIX = 'kc:session:'
+    SESSION_TTL = 86400  # 24 hours
+
     def __init__(self):
         self.keycloak_url = KEYCLOAK_URL
         self.realm = KEYCLOAK_REALM
@@ -172,13 +181,121 @@ class KeycloakAuthService:
         self._jwks_cache: Dict[str, Dict[str, Any]] = {}
         self._jwks_cache_time: Dict[str, datetime] = {}
 
-        # Session storage (in-memory, can be backed by Redis/SQLite)
+        # In-memory fallback when Redis is unavailable
         self._sessions: Dict[str, UserSession] = {}
         self._user_codebases: Dict[str, List[UserCodebaseAssociation]] = {}
         self._agent_sessions: Dict[str, UserAgentSession] = {}
 
+        # Redis connection (lazy-initialized)
+        self._redis: Optional[Any] = None
+        self._redis_url = os.environ.get(
+            'A2A_REDIS_URL',
+            os.environ.get('REDIS_URL', 'redis://localhost:6379'),
+        )
+
         logger.info(
             f'KeycloakAuthService initialized for {self.keycloak_url}/realms/{self.realm}'
+        )
+
+    async def _get_redis(self):
+        """Get or create Redis connection. Returns None if unavailable."""
+        if not REDIS_AVAILABLE:
+            return None
+        if self._redis is not None:
+            try:
+                await self._redis.ping()
+                return self._redis
+            except Exception:
+                self._redis = None
+        try:
+            self._redis = aioredis.from_url(
+                self._redis_url, decode_responses=True
+            )
+            await self._redis.ping()
+            logger.info('Redis session store connected')
+            return self._redis
+        except Exception as e:
+            logger.debug(f'Redis not available for sessions, using in-memory: {e}')
+            self._redis = None
+            return None
+
+    async def _store_session(self, session: UserSession) -> None:
+        """Store session in Redis (with in-memory fallback)."""
+        r = await self._get_redis()
+        if r:
+            data = session.to_dict()
+            data['access_token'] = session.access_token
+            data['refresh_token'] = session.refresh_token
+            await r.set(
+                f'{self.SESSION_PREFIX}{session.session_id}',
+                json.dumps(data),
+                ex=self.SESSION_TTL,
+            )
+            # Index by token for fast lookup
+            await r.set(
+                f'{self.SESSION_PREFIX}token:{session.access_token}',
+                session.session_id,
+                ex=self.SESSION_TTL,
+            )
+        else:
+            self._sessions[session.session_id] = session
+
+    async def _load_session(self, session_id: str) -> Optional[UserSession]:
+        """Load session from Redis (with in-memory fallback)."""
+        r = await self._get_redis()
+        if r:
+            data = await r.get(f'{self.SESSION_PREFIX}{session_id}')
+            if not data:
+                return None
+            return self._deserialize_session(json.loads(data))
+        return self._sessions.get(session_id)
+
+    async def _load_session_by_token(self, token: str) -> Optional[UserSession]:
+        """Look up session by access token."""
+        r = await self._get_redis()
+        if r:
+            sid = await r.get(f'{self.SESSION_PREFIX}token:{token}')
+            if sid:
+                return await self._load_session(sid)
+            return None
+        for session in self._sessions.values():
+            if session.access_token == token and session.is_valid():
+                return session
+        return None
+
+    async def _delete_session(self, session_id: str) -> Optional[UserSession]:
+        """Remove session from storage."""
+        r = await self._get_redis()
+        if r:
+            data = await r.get(f'{self.SESSION_PREFIX}{session_id}')
+            await r.delete(f'{self.SESSION_PREFIX}{session_id}')
+            if data:
+                parsed = json.loads(data)
+                token = parsed.get('access_token')
+                if token:
+                    await r.delete(f'{self.SESSION_PREFIX}token:{token}')
+                return self._deserialize_session(parsed)
+            return None
+        return self._sessions.pop(session_id, None)
+
+    @staticmethod
+    def _deserialize_session(data: Dict[str, Any]) -> UserSession:
+        """Reconstruct a UserSession from its dict representation."""
+        return UserSession(
+            user_id=data['user_id'],
+            email=data['email'],
+            username=data['username'],
+            name=data['name'],
+            session_id=data['session_id'],
+            access_token=data.get('access_token', ''),
+            refresh_token=data.get('refresh_token'),
+            expires_at=datetime.fromisoformat(data['expires_at']),
+            created_at=datetime.fromisoformat(data.get('created_at', datetime.utcnow().isoformat())),
+            last_activity=datetime.fromisoformat(data.get('last_activity', datetime.utcnow().isoformat())),
+            device_info=data.get('device_info', {}),
+            roles=data.get('roles', []),
+            tenant_id=data.get('tenant_id'),
+            realm_name=data.get('realm_name'),
         )
 
     def get_realm_from_token(self, token: str) -> str:
@@ -360,7 +477,7 @@ class KeycloakAuthService:
         )
 
         # Store session
-        self._sessions[session.session_id] = session
+        await self._store_session(session)
 
         logger.info(
             f'User authenticated: {session.username} (session: {session.session_id})'
@@ -431,13 +548,13 @@ class KeycloakAuthService:
             roles=payload.get('realm_access', {}).get('roles', []),
         )
 
-        self._sessions[new_session.session_id] = new_session
+        await self._store_session(new_session)
 
         return new_session
 
     async def get_session(self, session_id: str) -> Optional[UserSession]:
         """Get a session by ID."""
-        session = self._sessions.get(session_id)
+        session = await self._load_session(session_id)
         if session and session.is_valid():
             session.last_activity = datetime.utcnow()
             return session
@@ -445,15 +562,15 @@ class KeycloakAuthService:
 
     async def get_session_by_token(self, token: str) -> Optional[UserSession]:
         """Get a session by access token."""
-        for session in self._sessions.values():
-            if session.access_token == token and session.is_valid():
-                session.last_activity = datetime.utcnow()
-                return session
+        session = await self._load_session_by_token(token)
+        if session and session.is_valid():
+            session.last_activity = datetime.utcnow()
+            return session
         return None
 
     async def logout(self, session_id: str):
         """Logout and invalidate session."""
-        session = self._sessions.pop(session_id, None)
+        session = await self._delete_session(session_id)
         if session and session.refresh_token:
             try:
                 async with httpx.AsyncClient() as client:
