@@ -427,6 +427,41 @@ async def _init_schema():
             )
         """)
 
+        # Cronjobs table
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS cronjobs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id TEXT REFERENCES tenants(id),
+                user_id TEXT,
+                name TEXT NOT NULL,
+                description TEXT,
+                cron_expression TEXT NOT NULL,
+                task_template JSONB DEFAULT '{}'::jsonb,
+                timezone TEXT DEFAULT 'UTC',
+                enabled BOOLEAN DEFAULT true,
+                run_count INTEGER DEFAULT 0,
+                last_run_at TIMESTAMPTZ,
+                next_run_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        # Cronjob runs table
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS cronjob_runs (
+                id TEXT PRIMARY KEY,
+                cronjob_id UUID REFERENCES cronjobs(id) ON DELETE CASCADE,
+                tenant_id TEXT REFERENCES tenants(id),
+                status TEXT DEFAULT 'pending',
+                task_id TEXT,
+                error TEXT,
+                duration_ms DOUBLE PRECISION,
+                started_at TIMESTAMPTZ DEFAULT NOW(),
+                completed_at TIMESTAMPTZ
+            )
+        """)
+
         # Create indexes
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status)'
@@ -460,6 +495,17 @@ async def _init_schema():
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)'
+        )
+
+        # Cronjob indexes
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_cronjobs_tenant ON cronjobs(tenant_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_cronjobs_next_run ON cronjobs(next_run_at) WHERE enabled = true'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_cronjob_runs_job ON cronjob_runs(cronjob_id)'
         )
 
         # Tenant indexes
