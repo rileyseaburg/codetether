@@ -46,8 +46,16 @@ pip install "git+https://github.com/rileyseaburg/codetether.git@main"
 This installs CodeTether into a local virtual environment under `~/.codetether/venv`
 and links the CLI into `~/.local/bin`.
 
+**Linux/macOS (Bash):**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rileyseaburg/codetether/main/scripts/install-codetether.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-codetether.ps1" -UseBasicParsing).Content
 ```
 
 ## Docker

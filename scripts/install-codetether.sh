@@ -5,6 +5,9 @@ set -euo pipefail
 # - Creates a venv under ~/.codetether/venv
 # - Installs CodeTether (from PyPI if available, else from GitHub)
 # - Symlinks `codetether` and `codetether-worker` into ~/.local/bin
+#
+# For Windows PowerShell, use install-codetether.ps1 instead:
+#   Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-codetether.ps1" -UseBasicParsing).Content
 
 APP=codetether
 DEFAULT_PREFIX="$HOME/.codetether"
