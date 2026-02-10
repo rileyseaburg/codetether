@@ -180,6 +180,8 @@ export async function createCampaign(params: {
     if (params.dailyBudgetCents) {
         body.set('daily_budget', params.dailyBudgetCents.toString());
     }
+    // Facebook requires this field when not using campaign budget optimization
+    body.set('is_adset_budget_sharing_enabled', 'false');
 
     return fbFetch<{ id: string }>(`/${id}/campaigns`, {
         method: 'POST',
