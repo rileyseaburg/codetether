@@ -30,13 +30,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
-
 logger = logging.getLogger(__name__)
 
-# Configuration — reuses marketing automation env vars
-MARKETING_SITE_URL = os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000')
-MARKETING_API_KEY = os.environ.get('MARKETING_API_KEY', '')
+# Configuration
 CONVERSION_TRACKING_ENABLED = os.environ.get(
     'CONVERSION_TRACKING_ENABLED', 'true'
 ).lower() == 'true'
@@ -78,8 +74,8 @@ class ConversionTracker:
         self._running = True
         self._persist_task = asyncio.create_task(self._persist_loop())
         logger.info(
-            'ConversionTracker started (persist_interval=%ds, site=%s)',
-            self.persist_interval, MARKETING_SITE_URL,
+            'ConversionTracker started (persist_interval=%ds)',
+            self.persist_interval,
         )
 
     async def stop(self) -> None:
@@ -267,17 +263,18 @@ class ConversionTracker:
     ) -> bool:
         """POST conversion to FunnelBrain via /api/optimization/assemble."""
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    f'{MARKETING_SITE_URL}/api/optimization/assemble',
-                    headers=self._headers(),
-                    json={
-                        'sessionId': session_id,
-                        'eventType': event_type,
-                        'variantIds': variant_ids or {},
-                        'valueCents': value_cents,
-                    },
-                )
+            from .http_client import http_request, CircuitBreakerOpenError
+
+            resp = await http_request(
+                'POST', '/api/optimization/assemble',
+                json={
+                    'sessionId': session_id,
+                    'eventType': event_type,
+                    'variantIds': variant_ids or {},
+                    'valueCents': value_cents,
+                },
+                timeout=15.0,
+            )
             if resp.status_code == 200:
                 logger.debug('FunnelBrain conversion recorded: %s', event_type)
                 return True
@@ -287,7 +284,10 @@ class ConversionTracker:
                     resp.status_code, resp.text[:200],
                 )
                 return False
-        except httpx.RequestError as e:
+        except CircuitBreakerOpenError:
+            logger.warning('FunnelBrain forward skipped: circuit breaker open')
+            return False
+        except Exception as e:
             logger.warning('FunnelBrain forward error: %s', e)
             return False
 
@@ -301,19 +301,20 @@ class ConversionTracker:
     ) -> bool:
         """POST conversion to Google Ads via /api/google/conversions?action=track."""
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    f'{MARKETING_SITE_URL}/api/google/conversions',
-                    headers=self._headers(),
-                    params={'action': 'track'},
-                    json={
-                        'eventType': event_type,
-                        'email': email,
-                        'gclid': gclid,
-                        'valueDollars': value_dollars,
-                        'orderId': order_id,
-                    },
-                )
+            from .http_client import http_request, CircuitBreakerOpenError
+
+            resp = await http_request(
+                'POST', '/api/google/conversions',
+                params={'action': 'track'},
+                json={
+                    'eventType': event_type,
+                    'email': email,
+                    'gclid': gclid,
+                    'valueDollars': value_dollars,
+                    'orderId': order_id,
+                },
+                timeout=15.0,
+            )
             if resp.status_code == 200:
                 logger.debug('Google Ads conversion tracked: %s', event_type)
                 return True
@@ -323,7 +324,10 @@ class ConversionTracker:
                     resp.status_code, resp.text[:200],
                 )
                 return False
-        except httpx.RequestError as e:
+        except CircuitBreakerOpenError:
+            logger.warning('Google Ads forward skipped: circuit breaker open')
+            return False
+        except Exception as e:
             logger.warning('Google Ads forward error: %s', e)
             return False
 
@@ -390,11 +394,9 @@ class ConversionTracker:
     async def _snapshot_funnel_state(self) -> None:
         """Export FunnelBrain state from marketing-site and save to DB."""
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(
-                    f'{MARKETING_SITE_URL}/api/optimization/report',
-                    headers=self._headers(),
-                )
+            from .http_client import http_request, CircuitBreakerOpenError
+
+            resp = await http_request('GET', '/api/optimization/report', timeout=15.0)
 
             if resp.status_code != 200:
                 return
@@ -431,7 +433,7 @@ class ConversionTracker:
 
             logger.debug('FunnelBrain state snapshot saved: %s', snapshot_id)
 
-        except httpx.RequestError as e:
+        except Exception as e:
             logger.warning('FunnelBrain snapshot fetch error: %s', e)
 
     async def restore_funnel_state(self) -> Optional[Dict[str, Any]]:
@@ -564,16 +566,6 @@ class ConversionTracker:
             logger.error('Conversion retry failed: %s', e)
             return 0
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _headers(self) -> Dict[str, str]:
-        headers: Dict[str, str] = {'Content-Type': 'application/json'}
-        if MARKETING_API_KEY:
-            headers['x-api-key'] = MARKETING_API_KEY
-        return headers
-
     def get_health(self) -> Dict[str, Any]:
         return {
             'running': self._running,
@@ -587,7 +579,6 @@ class ConversionTracker:
                 self._last_persist.isoformat() if self._last_persist else None
             ),
             'persist_interval_seconds': self.persist_interval,
-            'marketing_site_url': MARKETING_SITE_URL,
         }
 
 

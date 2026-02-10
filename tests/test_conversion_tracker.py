@@ -135,12 +135,8 @@ class TestFunnelBrainForwarding:
         tracker = ConversionTracker()
 
         resp = _mock_httpx_response(200, {'recorded': True})
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp) as mock_req:
             result = await tracker._forward_to_funnel_brain(
                 session_id='sess-1',
                 event_type='signup',
@@ -149,10 +145,11 @@ class TestFunnelBrainForwarding:
             )
 
         assert result is True
-        mock_client.post.assert_called_once()
-        call_args = mock_client.post.call_args
-        assert '/api/optimization/assemble' in call_args[0][0]
-        body = call_args[1]['json']
+        mock_req.assert_called_once()
+        call_kwargs = mock_req.call_args
+        assert call_kwargs[0][0] == 'POST'
+        assert call_kwargs[0][1] == '/api/optimization/assemble'
+        body = call_kwargs[1]['json']
         assert body['sessionId'] == 'sess-1'
         assert body['eventType'] == 'signup'
 
@@ -161,12 +158,8 @@ class TestFunnelBrainForwarding:
         tracker = ConversionTracker()
 
         resp = _mock_httpx_response(500, {'error': 'Internal'})
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp):
             result = await tracker._forward_to_funnel_brain(
                 session_id='sess-1',
                 event_type='signup',
@@ -185,12 +178,8 @@ class TestGoogleAdsForwarding:
         tracker = ConversionTracker()
 
         resp = _mock_httpx_response(200, {'tracked': True})
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp) as mock_req:
             result = await tracker._forward_to_google_ads(
                 event_type='subscription',
                 email='user@test.com',
@@ -200,20 +189,14 @@ class TestGoogleAdsForwarding:
             )
 
         assert result is True
-        call_args = mock_client.post.call_args
-        assert '/api/google/conversions' in call_args[0][0]
+        call_kwargs = mock_req.call_args
+        assert call_kwargs[0][1] == '/api/google/conversions'
 
     @pytest.mark.asyncio
     async def test_forward_to_google_ads_network_error(self):
         tracker = ConversionTracker()
 
-        import httpx
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(side_effect=httpx.RequestError('timeout'))
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, side_effect=Exception('timeout')):
             result = await tracker._forward_to_google_ads(
                 event_type='subscription',
                 email='user@test.com',
@@ -341,12 +324,8 @@ class TestFunnelStatePersistence:
             'adBrain': {'overallRoas': 2.5},
         }
         resp = _mock_httpx_response(200, report)
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=resp)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client), \
+        with patch('a2a_server.http_client.http_request', new_callable=AsyncMock, return_value=resp), \
              patch('a2a_server.database.get_pool', new_callable=AsyncMock, return_value=mock_pool):
             await tracker._snapshot_funnel_state()
 
