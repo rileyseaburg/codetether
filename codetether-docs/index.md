@@ -7,8 +7,8 @@ description: Production-ready A2A Protocol implementation for AI agent coordinat
 
 **Turn AI Agents Into Production Systems.**
 
-!!! success "v1.4.1 Production Release"
-    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). Now with **MCP-to-Ralph E2E integration** - AI assistants can autonomously create and execute PRDs via 29 MCP tools.
+!!! success "v1.4.1 Production Release — Agent v1.1.0"
+    CodeTether is battle-tested and running in production at [api.codetether.run](https://api.codetether.run). The Rust agent now ships with **mandatory auth, system-wide audit logging, plugin sandboxing with Ed25519 signing, and Kubernetes self-deployment**. See [Security Features](features/security.md).
 
 CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Agent) Protocol](https://a2a-protocol.org/), the open standard from the Linux Foundation that enables AI agents to communicate, collaborate, and solve complex problems together.
 
@@ -30,13 +30,13 @@ CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Age
 
     [:octicons-arrow-right-24: A2A Protocol](concepts/a2a-protocol.md)
 
--   :material-kubernetes:{ .lg .middle } __Deploy Anywhere__
+-   :material-shield-check:{ .lg .middle } __Security-First Agent__
 
     ---
 
-    Docker, Kubernetes, or bare metal with Helm charts included
+    Mandatory auth, audit trail, sandboxed plugins, K8s self-deployment
 
-    [:octicons-arrow-right-24: Deployment](deployment/docker.md)
+    [:octicons-arrow-right-24: Security](features/security.md)
 
 -   :material-code-braces:{ .lg .middle } __OpenCode Integration__
 
@@ -61,7 +61,8 @@ CodeTether Server provides the infrastructure layer for running AI agents in pro
 - **[Distributed Workers](features/distributed-workers.md)** — Run agents across multiple machines with automatic task routing
 - **Real-time Streaming** — SSE-based live output streaming for long-running agent tasks
 - **Session Management** — Resume conversations, sync across devices, maintain context
-- **Enterprise Security** — Keycloak OIDC, API tokens, audit logging
+- **[Security Features](features/security.md)** — Mandatory auth, audit trail, plugin sandboxing, K8s self-deployment
+- **Enterprise Auth** — Keycloak OIDC, API tokens
 - **OpenCode Bridge** — Native integration with OpenCode AI coding agents
 - **[Deploy Anywhere](deployment/docker.md)** — Run on Docker, Kubernetes, or bare metal with ease
 - **[Email Reply Continuation](features/agent-worker.md#email-notifications)** — Reply to task notification emails to continue conversations with agents

@@ -31,6 +31,7 @@ nav:
       - Message Broker: concepts/message-broker.md
       - Task Management: concepts/task-management.md
   - Features:
+      - Security Features: features/security.md
       - Ralph (Autonomous Dev): features/ralph.md
       - OpenCode Integration: features/opencode.md
       - Zapier Integration: features/zapier.md
@@ -72,7 +73,7 @@ repo_name: rileyseaburg/codetether
 repo_url: https://github.com/rileyseaburg/codetether
 
 # Copyright
-copyright: Copyright 2025-2026 CodeTether. Apache License 2.0.
+copyright: Copyright 2025-2026 CodeTether. MIT License.
 
 # Custom CSS
 extra_css:

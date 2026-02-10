@@ -268,11 +268,20 @@ Full production deployment:
 
 ## Security Model
 
-### Authentication Layers
+### CodeTether Agent (Rust) Security Layers
+
+The Rust agent (v1.1.0+) enforces security at the runtime level:
+
+1. **Mandatory Auth** — Bearer token middleware on every endpoint (cannot be disabled). See [Security Features](../features/security.md).
+2. **Audit Trail** — Every action logged to append-only JSON Lines file.
+3. **Plugin Sandbox** — Ed25519-signed tool manifests with SHA-256 integrity checks and resource limits.
+4. **K8s Self-Deployment** — Agent manages its own pods, scales replicas, and self-heals.
+
+### Server-Side Security Layers
 
 1. **Ingress** - TLS termination, rate limiting
 2. **API Gateway** - Token validation, OIDC
-3. **Service** - Role-based access control
+3. **Service** - Role-based access control (OPA Rego policies)
 4. **Data** - Encryption at rest
 
 ### Network Security
@@ -280,7 +289,7 @@ Full production deployment:
 - Internal services communicate via ClusterIP
 - External access only through Ingress
 - Redis protected by NetworkPolicy
-- Secrets managed via Kubernetes Secrets or Vault
+- Secrets managed via HashiCorp Vault (agent) or Kubernetes Secrets (server)
 
 ## Next Steps
 
