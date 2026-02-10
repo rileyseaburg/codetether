@@ -82,12 +82,12 @@ export async function POST(request: NextRequest) {
                         nextSteps:
                             video.status === 'done'
                                 ? [
-                                      'Video ready! Use action: "generate_and_launch" or upload to YouTube manually.',
-                                      'Or re-call with action: "launch" and a youtubeVideoId.',
-                                  ]
+                                    'Video ready! Use action: "generate_and_launch" or upload to YouTube manually.',
+                                    'Or re-call with action: "launch" and a youtubeVideoId.',
+                                ]
                                 : [
-                                      `Video is ${video.status}. Poll with action: "check_status" and creatifyVideoId.`,
-                                  ],
+                                    `Video is ${video.status}. Poll with action: "check_status" and creatifyVideoId.`,
+                                ],
                     },
                     { status: 201 },
                 );
