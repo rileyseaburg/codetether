@@ -682,20 +682,32 @@ def create_quantumhead_router():
         return {"path": dest, "size_mb": len(content) / 1e6}
 
     @router.post("/pull-weights")
-    async def pull_weights(url: str = Form(...)):
-        """Pull weights from a URL (Google Drive, etc)."""
+    async def pull_weights(
+        bucket: str = Form("veo-spotless"),
+        prefix: str = Form("quantumhead/weights"),
+        project: str = Form("spotlessbinco"),
+    ):
+        """Pull weights from GCS bucket."""
         os.makedirs(WEIGHTS_DIR, exist_ok=True)
-        import requests as http_requests
-        resp = http_requests.get(url, timeout=300, stream=True)
-        resp.raise_for_status()
-        filename = url.split("/")[-1].split("?")[0] or "weights.pt"
-        safe_name = os.path.basename(filename)
-        dest = os.path.join(WEIGHTS_DIR, safe_name)
-        with open(dest, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
+        from google.cloud import storage as gcs_storage
+
+        client = gcs_storage.Client(project=project)
+        gcs_bucket = client.bucket(bucket)
+        blobs = list(gcs_bucket.list_blobs(prefix=prefix))
+        weight_blobs = [b for b in blobs if b.name.endswith((".pt", ".pkl", ".json"))]
+
+        if not weight_blobs:
+            return {"error": f"No weights found at gs://{bucket}/{prefix}/"}
+
+        downloaded = []
+        for blob in weight_blobs:
+            fname = os.path.basename(blob.name)
+            dest = os.path.join(WEIGHTS_DIR, fname)
+            blob.download_to_filename(dest)
+            downloaded.append({"file": fname, "size_mb": os.path.getsize(dest) / 1e6})
+
         engine.loaded = False
-        return {"path": dest, "size_mb": os.path.getsize(dest) / 1e6}
+        return {"downloaded": downloaded, "source": f"gs://{bucket}/{prefix}/"}
 
     @router.post("/reload")
     async def reload():

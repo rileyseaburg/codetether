@@ -28,6 +28,9 @@ plyfile>=1.0.0
 # Gaussian splatting (optional - for full rendering)
 # pytorch3d  # build from source if needed
 
+# GCS (pull weights from Colab training)
+google-cloud-storage>=2.14.0
+
 # Math & utils
 numpy>=1.24.0
 einops>=0.7.0
