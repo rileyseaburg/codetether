@@ -12,7 +12,7 @@ Endpoints:
 
 Usage:
   python quantumhead_server.py --port 8100
-  
+
 Or integrate into existing server.py via:
   from quantumhead_server import create_quantumhead_router
   app.include_router(create_quantumhead_router())
