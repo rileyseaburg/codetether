@@ -32,6 +32,10 @@ For self-hosted CodeTether, update the **API Domain** field to your instance URL
 
 ### CodeTether (Action)
 
+This node supports two resources: **Task** and **Video Ad**.
+
+#### Task Operations
+
 | Operation | Description |
 |-----------|-------------|
 | **Create Task** | Submit a prompt for AI execution. Returns `task_id` immediately. |
@@ -39,6 +43,25 @@ For self-hosted CodeTether, update the **API Domain** field to your instance URL
 | **Get Many Tasks** | List tasks with optional status filter. |
 | **Wait for Completion** | Poll a task — returns empty when still running (use with Loop node). |
 | **Cancel Task** | Cancel a queued or running task. |
+
+**Supported models:** Default, Claude Opus 4.6, Claude Opus 4.5, Claude Sonnet 4, Claude Haiku, GPT-5.2, GPT-4.1, GPT-4.1 Mini, Gemini 3 Pro, Gemini 2.5 Pro, Gemini 2.5 Flash, Grok 3, MiniMax M2.1, o3, o3-mini
+
+#### Video Ad Operations
+
+| Operation | Description |
+|-----------|-------------|
+| **Generate** | Generate a video ad with Creatify AI from a pre-built script or custom URL. |
+| **Generate and Launch** | Generate video → upload to YouTube → create Google Ads campaign (full pipeline). |
+| **Check Status** | Check Creatify video generation status by video ID. |
+| **Launch** | Launch a Google Ads campaign from an existing YouTube video. |
+| **Report** | Get video campaign performance metrics for a given date range. |
+| **Credits** | Check remaining Creatify video generation credits. |
+
+**Video Ad options:**
+
+- **Video Source**: Pre-built CodeTether script (problem-focused, result-focused, comparison) or custom URL
+- **Aspect Ratio**: 16:9 (YouTube), 9:16 (Stories), 1:1 (Square)
+- **Campaign Options**: Campaign name, daily budget, ad type (in-stream / bumper), final URL, headline, CTA
 
 ### CodeTether Trigger
 
@@ -82,6 +105,26 @@ Trigger → CodeTether (Create Task) → Loop → Wait 10s → CodeTether (Wait 
 ```
 Read Spreadsheet → Split In Batches → CodeTether (Create Task) → collect task_ids → poll all
 ```
+
+### Pattern 4: Video Ad Pipeline
+
+```
+Schedule Trigger → CodeTether (Video Ad: Generate and Launch) → Slack notification with YouTube link
+```
+
+1. Use the **Generate and Launch** operation to create a video ad and launch a Google Ads campaign in one step
+2. Configure campaign options (budget, ad type, CTA) directly in the node
+3. The response includes the YouTube video ID and campaign details
+
+### Pattern 5: Video Ad with Review
+
+```
+Trigger → CodeTether (Video Ad: Generate) → Wait → CodeTether (Video Ad: Check Status) → IF done → approval → CodeTether (Video Ad: Launch)
+```
+
+1. **Generate** creates the video and returns a Creatify video ID
+2. Poll with **Check Status** until the video is ready
+3. After manual review / approval, use **Launch** with the YouTube video ID
 
 ## Resources
 
