@@ -62,6 +62,7 @@ from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
 from .user_auth import router as user_auth_router
 from .token_billing_api import router as token_billing_router
+from .finops_api import router as finops_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
 
@@ -200,6 +201,14 @@ class A2AServer:
 
         # Add tenant context middleware (extracts tenant from JWT)
         self.app.add_middleware(TenantContextMiddleware)
+
+        # Add budget enforcement middleware (checks token budgets before AI ops)
+        # Registered before policy middleware so it runs after tenant extraction.
+        try:
+            from .budget_middleware import BudgetEnforcementMiddleware
+            self.app.add_middleware(BudgetEnforcementMiddleware)
+        except Exception as e:
+            logger.warning(f'Budget enforcement middleware not loaded: {e}')
 
         # Add policy authorization middleware (OPA enforcement)
         # Registered after tenant middleware so it runs before tenant
@@ -347,6 +356,25 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start marketing automation service
+        @self.app.on_event('startup')
+        async def start_marketing():
+            try:
+                from .marketing_automation import start_marketing_automation
+
+                await start_marketing_automation()
+            except Exception as e:
+                logger.warning(f'Failed to start marketing automation: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_marketing():
+            try:
+                from .marketing_automation import stop_marketing_automation
+
+                await stop_marketing_automation()
+            except Exception:
+                pass
+
         # Shutdown policy engine HTTP client
         if POLICY_ENGINE_AVAILABLE and close_policy_client:
 
@@ -473,6 +501,10 @@ class A2AServer:
         # Include token billing API routes for per-token usage tracking
         self.app.include_router(token_billing_router)
         logger.info('Token billing API router mounted at /v1/token-billing')
+
+        # Include FinOps API routes for cost analytics, anomalies, and optimization
+        self.app.include_router(finops_router)
+        logger.info('FinOps API router mounted at /v1/finops')
 
         # Include user authentication and billing routes (mid-market individual users)
         self.app.include_router(user_auth_router)
