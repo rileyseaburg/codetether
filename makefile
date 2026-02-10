@@ -29,10 +29,10 @@ MARKETING_IMAGE_NAME = codetether-marketing
 DOCS_IMAGE_NAME = codetether-docs
 VOICE_AGENT_IMAGE_NAME = codetether-voice-agent
 
-# Knative-first deployment overrides (optional)
-KNATIVE_ENABLED ?=
+# Knative-first deployment overrides
+KNATIVE_ENABLED ?= true
 KNATIVE_BROKER ?=
-KNATIVE_WORKER_IMAGE ?=
+KNATIVE_WORKER_IMAGE ?= $(OCI_REGISTRY)/codetether-worker:$(DOCKER_TAG)
 CRON_DRIVER ?=
 CRON_INTERNAL_TOKEN ?=
 CRON_INTERNAL_TOKEN_SECRET ?=
@@ -188,7 +188,7 @@ docker-build-voice-agent: ## Build voice agent Docker image
 	docker build -t $(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG) ./codetether_voice_agent --network=host
 
 .PHONY: docker-build-all
-docker-build-all: docker-build docker-build-marketing docker-build-docs docker-build-voice-agent ## Build all Docker images (server, marketing, docs, voice-agent)
+docker-build-all: docker-build docker-build-marketing docker-build-docs docker-build-voice-agent docker-build-worker ## Build all Docker images (server, marketing, docs, voice-agent, worker)
 
 .PHONY: docker-build-no-cache
 docker-build-no-cache: ## Build Docker image without cache
@@ -242,7 +242,7 @@ docker-push-voice-agent: ## Push voice agent Docker image to OCI registry
 	docker push $(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG)
 
 .PHONY: docker-push-all
-docker-push-all: docker-push docker-push-marketing docker-push-docs docker-push-voice-agent ## Push all Docker images to OCI registry
+docker-push-all: docker-push docker-push-marketing docker-push-docs docker-push-voice-agent docker-push-worker ## Push all Docker images to OCI registry
 
 .PHONY: docker-push-custom
 docker-push-custom: ## Push Docker image to custom registry
@@ -712,11 +712,11 @@ validate-knative-cron-config: ## Validate required Knative cron config for produ
 	fi
 
 .PHONY: k8s-prod
-k8s-prod: validate-knative-cron-config docker-build-all docker-push-all helm-package helm-push helm-package-voice-agent helm-push-voice-agent ## Build and deploy ALL containers to production (server, marketing, docs, voice-agent)
+k8s-prod: validate-knative-cron-config docker-build-all docker-push-all helm-package helm-push helm-package-voice-agent helm-push-voice-agent ## Build and deploy ALL containers to production (server, marketing, docs, voice-agent, worker)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting PRODUCTION environment blue-green deployment"
 	@echo "⚠️  WARNING: This deploys to PRODUCTION!"
-	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site, Voice Agent"
+	@echo "📦 Deploying: API Server, Marketing Site, Documentation Site, Voice Agent, Knative Worker"
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=$(if $(CHART_SOURCE),$(CHART_SOURCE),local) CHART_VERSION=$(CHART_VERSION) \
