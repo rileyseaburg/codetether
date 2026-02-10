@@ -375,6 +375,38 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start conversion tracker + orchestrator + marketing loop
+        @self.app.on_event('startup')
+        async def start_conversion_and_orchestration():
+            try:
+                from .conversion_tracker import start_conversion_tracker
+                await start_conversion_tracker()
+            except Exception as e:
+                logger.warning(f'Failed to start conversion tracker: {e}')
+            try:
+                from .marketing_orchestrator import start_orchestrator
+                await start_orchestrator()
+            except Exception as e:
+                logger.warning(f'Failed to start marketing orchestrator: {e}')
+            try:
+                from .marketing_loop import ensure_marketing_loop
+                await ensure_marketing_loop()
+            except Exception as e:
+                logger.warning(f'Failed to ensure marketing loop: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_conversion_and_orchestration():
+            try:
+                from .conversion_tracker import stop_conversion_tracker
+                await stop_conversion_tracker()
+            except Exception:
+                pass
+            try:
+                from .marketing_orchestrator import stop_orchestrator
+                await stop_orchestrator()
+            except Exception:
+                pass
+
         # Shutdown policy engine HTTP client
         if POLICY_ENGINE_AVAILABLE and close_policy_client:
 
