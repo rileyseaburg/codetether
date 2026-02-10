@@ -73,6 +73,28 @@ export type ActiveRun = {
 }
 
 /**
+ * AddCreditsRequest
+ */
+export type AddCreditsRequest = {
+  /**
+   * Amount Cents
+   *
+   * Amount in cents to add (min $1.00)
+   */
+  amount_cents: number
+}
+
+/**
+ * AddCreditsResponse
+ */
+export type AddCreditsResponse = {
+  /**
+   * New Balance Dollars
+   */
+  new_balance_dollars: number
+}
+
+/**
  * AdminDashboard
  *
  * Complete admin dashboard response.
@@ -311,6 +333,80 @@ export type AlertItem = {
 }
 
 /**
+ * AlertResponse
+ */
+export type AlertResponse = {
+  /**
+   * Id
+   */
+  id: number
+  /**
+   * Alert Type
+   */
+  alert_type: string
+  /**
+   * Severity
+   */
+  severity: string
+  /**
+   * Title
+   */
+  title: string
+  /**
+   * Message
+   */
+  message: string
+  /**
+   * Threshold Value
+   */
+  threshold_value?: number | null
+  /**
+   * Actual Value
+   */
+  actual_value?: number | null
+  /**
+   * Metadata
+   */
+  metadata?: {
+    [key: string]: unknown
+  } | null
+  /**
+   * Acknowledged
+   */
+  acknowledged: boolean
+  /**
+   * Notified
+   */
+  notified: boolean
+  /**
+   * Created At
+   */
+  created_at?: string | null
+}
+
+/**
+ * AlertSummaryResponse
+ */
+export type AlertSummaryResponse = {
+  /**
+   * Total
+   */
+  total?: number
+  /**
+   * Critical
+   */
+  critical?: number
+  /**
+   * Warning
+   */
+  warning?: number
+  /**
+   * Info
+   */
+  info?: number
+}
+
+/**
  * ApiKeyResponse
  *
  * API key response (key only shown once!).
@@ -519,6 +615,150 @@ export type BodyTestExtractReplyV1EmailInboundExtractReplyPost = {
 }
 
 /**
+ * BudgetCheckResponse
+ */
+export type BudgetCheckResponse = {
+  /**
+   * Allowed
+   */
+  allowed: boolean
+  /**
+   * Reason
+   */
+  reason: string
+  /**
+   * Balance Dollars
+   */
+  balance_dollars: number
+  /**
+   * Monthly Spend Dollars
+   */
+  monthly_spend_dollars: number
+  /**
+   * Monthly Limit Dollars
+   */
+  monthly_limit_dollars: number | null
+  /**
+   * Billing Model
+   */
+  billing_model: string
+}
+
+/**
+ * BudgetPolicyRequest
+ */
+export type BudgetPolicyRequest = {
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Soft Limit Cents
+   *
+   * Warning threshold in cents
+   */
+  soft_limit_cents?: number | null
+  /**
+   * Hard Limit Cents
+   *
+   * Block threshold in cents
+   */
+  hard_limit_cents?: number | null
+  /**
+   * Scope
+   *
+   * tenant, user, model, or project
+   */
+  scope?: string
+  /**
+   * Scope Filter
+   *
+   * Filter value for scope (e.g., user_id)
+   */
+  scope_filter?: string | null
+  /**
+   * Period
+   *
+   * daily, weekly, or monthly
+   */
+  period?: string
+  /**
+   * Action On Soft
+   *
+   * alert or alert+webhook
+   */
+  action_on_soft?: string
+  /**
+   * Action On Hard
+   *
+   * alert, block, alert+block, or throttle
+   */
+  action_on_hard?: string
+  /**
+   * Webhook Url
+   */
+  webhook_url?: string | null
+}
+
+/**
+ * BudgetPolicyResponse
+ */
+export type BudgetPolicyResponse = {
+  /**
+   * Id
+   */
+  id: number
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Scope
+   */
+  scope: string
+  /**
+   * Scope Filter
+   */
+  scope_filter?: string | null
+  /**
+   * Period
+   */
+  period: string
+  /**
+   * Soft Limit Cents
+   */
+  soft_limit_cents?: number | null
+  /**
+   * Hard Limit Cents
+   */
+  hard_limit_cents?: number | null
+  /**
+   * Action On Soft
+   */
+  action_on_soft: string
+  /**
+   * Action On Hard
+   */
+  action_on_hard: string
+  /**
+   * Webhook Url
+   */
+  webhook_url?: string | null
+  /**
+   * Is Active
+   */
+  is_active: boolean
+  /**
+   * Last Evaluated At
+   */
+  last_evaluated_at?: string | null
+  /**
+   * Created At
+   */
+  created_at?: string | null
+}
+
+/**
  * CancelSubscriptionRequest
  *
  * Request model for subscription cancellation.
@@ -575,7 +815,7 @@ export type CodebaseRegistration = {
   /**
    * Path
    */
-  path: string
+  path?: string
   /**
    * Description
    */
@@ -590,6 +830,18 @@ export type CodebaseRegistration = {
    * Worker Id
    */
   worker_id?: string | null
+  /**
+   * Git Url
+   */
+  git_url?: string | null
+  /**
+   * Git Branch
+   */
+  git_branch?: string
+  /**
+   * Git Token
+   */
+  git_token?: string | null
 }
 
 /**
@@ -638,6 +890,142 @@ export type CodebaseUpdateRequest = {
    * Capabilities
    */
   capabilities?: Array<string> | null
+}
+
+/**
+ * CostAnomalyResponse
+ */
+export type CostAnomalyResponse = {
+  /**
+   * Anomaly Type
+   */
+  anomaly_type: string
+  /**
+   * Severity
+   */
+  severity: string
+  /**
+   * Model
+   */
+  model?: string | null
+  /**
+   * Provider
+   */
+  provider?: string | null
+  /**
+   * Description
+   */
+  description: string
+  /**
+   * Expected Value
+   */
+  expected_value: number
+  /**
+   * Actual Value
+   */
+  actual_value: number
+  /**
+   * Deviation Factor
+   */
+  deviation_factor: number
+}
+
+/**
+ * CostBreakdownResponse
+ */
+export type CostBreakdownResponse = {
+  /**
+   * Dimension
+   */
+  dimension: string
+  /**
+   * Request Count
+   */
+  request_count: number
+  /**
+   * Input Tokens
+   */
+  input_tokens: number
+  /**
+   * Output Tokens
+   */
+  output_tokens: number
+  /**
+   * Cost Micro Cents
+   */
+  cost_micro_cents: number
+  /**
+   * Cost Dollars
+   */
+  cost_dollars: number
+}
+
+/**
+ * CostForecastResponse
+ */
+export type CostForecastResponse = {
+  /**
+   * Tenant Id
+   */
+  tenant_id: string
+  /**
+   * Period
+   */
+  period: string
+  /**
+   * Projected Cost Dollars
+   */
+  projected_cost_dollars: number
+  /**
+   * Daily Average Dollars
+   */
+  daily_average_dollars: number
+  /**
+   * Days In Period
+   */
+  days_in_period: number
+  /**
+   * Days Elapsed
+   */
+  days_elapsed: number
+  /**
+   * Confidence
+   */
+  confidence: string
+  /**
+   * Trend
+   */
+  trend: string
+  /**
+   * Pct Change Vs Last Period
+   */
+  pct_change_vs_last_period?: number | null
+}
+
+/**
+ * CostTrendResponse
+ */
+export type CostTrendResponse = {
+  /**
+   * Date
+   */
+  date: string
+  /**
+   * Requests
+   */
+  requests: number
+  /**
+   * Cost Micro Cents
+   */
+  cost_micro_cents: number
+  /**
+   * Cost Dollars
+   */
+  cost_dollars: number
+  /**
+   * Tokens
+   */
+  tokens: number
 }
 
 /**
@@ -963,6 +1351,16 @@ export type CronjobUpdate = {
 }
 
 /**
+ * DismissRecommendationRequest
+ */
+export type DismissRecommendationRequest = {
+  /**
+   * Reason
+   */
+  reason?: string
+}
+
+/**
  * EmailConfigResponse
  *
  * Response for email configuration validation.
@@ -1125,6 +1523,20 @@ export type EmailPreviewResponse = {
 }
 
 /**
+ * EnforceBudgetResponse
+ */
+export type EnforceBudgetResponse = {
+  /**
+   * Allowed
+   */
+  allowed: boolean
+  /**
+   * Reason
+   */
+  reason?: string | null
+}
+
+/**
  * ErrorResponse
  *
  * Error response.
@@ -1263,6 +1675,136 @@ export type HttpValidationError = {
    * Detail
    */
   detail?: Array<ValidationError>
+}
+
+/**
+ * HealthCheckCreate
+ */
+export type HealthCheckCreate = {
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Description
+   */
+  description?: string | null
+  /**
+   * Check Type
+   */
+  check_type: string
+  /**
+   * Check Config
+   */
+  check_config?: {
+    [key: string]: unknown
+  }
+  /**
+   * Interval Seconds
+   */
+  interval_seconds?: number
+  /**
+   * Enabled
+   */
+  enabled?: boolean
+}
+
+/**
+ * HealthCheckResponse
+ */
+export type HealthCheckResponse = {
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Description
+   */
+  description?: string | null
+  /**
+   * Check Type
+   */
+  check_type: string
+  /**
+   * Check Config
+   */
+  check_config?: {
+    [key: string]: unknown
+  }
+  /**
+   * Interval Seconds
+   */
+  interval_seconds?: number
+  /**
+   * Enabled
+   */
+  enabled?: boolean
+  /**
+   * Id
+   */
+  id: string
+  /**
+   * Tenant Id
+   */
+  tenant_id?: string | null
+  /**
+   * Last Checked At
+   */
+  last_checked_at?: string | null
+  /**
+   * Next Check At
+   */
+  next_check_at?: string | null
+  /**
+   * Last Status
+   */
+  last_status?: string
+  /**
+   * Last Result
+   */
+  last_result?: {
+    [key: string]: unknown
+  }
+  /**
+   * Consecutive Failures
+   */
+  consecutive_failures?: number
+  /**
+   * Created At
+   */
+  created_at?: string | null
+  /**
+   * Updated At
+   */
+  updated_at?: string | null
+}
+
+/**
+ * HealthCheckUpdate
+ */
+export type HealthCheckUpdate = {
+  /**
+   * Name
+   */
+  name?: string | null
+  /**
+   * Description
+   */
+  description?: string | null
+  /**
+   * Check Config
+   */
+  check_config?: {
+    [key: string]: unknown
+  } | null
+  /**
+   * Interval Seconds
+   */
+  interval_seconds?: number | null
+  /**
+   * Enabled
+   */
+  enabled?: boolean | null
 }
 
 /**
@@ -1678,6 +2220,196 @@ export type LoginResponse = {
 }
 
 /**
+ * LoopCreate
+ */
+export type LoopCreate = {
+  /**
+   * Persona Slug
+   */
+  persona_slug: string
+  /**
+   * Codebase Id
+   */
+  codebase_id?: string | null
+  /**
+   * Iteration Interval Seconds
+   */
+  iteration_interval_seconds?: number
+  /**
+   * Max Iterations Per Day
+   */
+  max_iterations_per_day?: number
+  /**
+   * Daily Cost Ceiling Cents
+   */
+  daily_cost_ceiling_cents?: number
+  /**
+   * State
+   */
+  state?: {
+    [key: string]: unknown
+  }
+}
+
+/**
+ * LoopIterationResponse
+ */
+export type LoopIterationResponse = {
+  /**
+   * Id
+   */
+  id: string
+  /**
+   * Loop Id
+   */
+  loop_id: string
+  /**
+   * Iteration Number
+   */
+  iteration_number: number
+  /**
+   * Task Id
+   */
+  task_id?: string | null
+  /**
+   * Input State
+   */
+  input_state?: {
+    [key: string]: unknown
+  }
+  /**
+   * Output State
+   */
+  output_state?: {
+    [key: string]: unknown
+  }
+  /**
+   * Cost Cents
+   */
+  cost_cents?: number
+  /**
+   * Duration Seconds
+   */
+  duration_seconds?: number
+  /**
+   * Started At
+   */
+  started_at?: string | null
+  /**
+   * Completed At
+   */
+  completed_at?: string | null
+}
+
+/**
+ * LoopResponse
+ */
+export type LoopResponse = {
+  /**
+   * Id
+   */
+  id: string
+  /**
+   * Tenant Id
+   */
+  tenant_id?: string | null
+  /**
+   * User Id
+   */
+  user_id?: string | null
+  /**
+   * Persona Slug
+   */
+  persona_slug: string
+  /**
+   * Codebase Id
+   */
+  codebase_id?: string | null
+  /**
+   * Status
+   */
+  status: string
+  /**
+   * State
+   */
+  state?: {
+    [key: string]: unknown
+  }
+  /**
+   * Iteration Count
+   */
+  iteration_count?: number
+  /**
+   * Iterations Today
+   */
+  iterations_today?: number
+  /**
+   * Iteration Interval Seconds
+   */
+  iteration_interval_seconds?: number
+  /**
+   * Max Iterations Per Day
+   */
+  max_iterations_per_day?: number
+  /**
+   * Daily Cost Ceiling Cents
+   */
+  daily_cost_ceiling_cents?: number
+  /**
+   * Cost Today Cents
+   */
+  cost_today_cents?: number
+  /**
+   * Cost Total Cents
+   */
+  cost_total_cents?: number
+  /**
+   * Last Iteration At
+   */
+  last_iteration_at?: string | null
+  /**
+   * Last Heartbeat
+   */
+  last_heartbeat?: string | null
+  /**
+   * Created At
+   */
+  created_at?: string | null
+  /**
+   * Updated At
+   */
+  updated_at?: string | null
+}
+
+/**
+ * LoopUpdate
+ */
+export type LoopUpdate = {
+  /**
+   * Status
+   */
+  status?: string | null
+  /**
+   * Iteration Interval Seconds
+   */
+  iteration_interval_seconds?: number | null
+  /**
+   * Max Iterations Per Day
+   */
+  max_iterations_per_day?: number | null
+  /**
+   * Daily Cost Ceiling Cents
+   */
+  daily_cost_ceiling_cents?: number | null
+  /**
+   * State
+   */
+  state?: {
+    [key: string]: unknown
+  } | null
+}
+
+/**
  * MessageSyncRequest
  *
  * Request model for syncing messages from a worker.
@@ -1693,6 +2425,44 @@ export type MessageSyncRequest = {
   messages: Array<{
     [key: string]: unknown
   }>
+}
+
+/**
+ * ModelPricingResponse
+ */
+export type ModelPricingResponse = {
+  /**
+   * Id
+   */
+  id: number
+  /**
+   * Provider
+   */
+  provider: string
+  /**
+   * Model
+   */
+  model: string
+  /**
+   * Input Cost Per M
+   */
+  input_cost_per_m: number
+  /**
+   * Output Cost Per M
+   */
+  output_cost_per_m: number
+  /**
+   * Cache Read Cost Per M
+   */
+  cache_read_cost_per_m: number
+  /**
+   * Cache Write Cost Per M
+   */
+  cache_write_cost_per_m: number
+  /**
+   * Reasoning Cost Per M
+   */
+  reasoning_cost_per_m: number | null
 }
 
 /**
@@ -2129,6 +2899,62 @@ export type RecentRun = {
 }
 
 /**
+ * RecommendationResponse
+ */
+export type RecommendationResponse = {
+  /**
+   * Id
+   */
+  id: number
+  /**
+   * Recommendation Type
+   */
+  recommendation_type: string
+  /**
+   * Title
+   */
+  title: string
+  /**
+   * Description
+   */
+  description: string
+  /**
+   * Estimated Savings Percent
+   */
+  estimated_savings_percent: number
+  /**
+   * Estimated Savings Dollars
+   */
+  estimated_savings_dollars: number
+  /**
+   * Estimated Savings Cents
+   */
+  estimated_savings_cents: number
+  /**
+   * Current Model
+   */
+  current_model?: string | null
+  /**
+   * Suggested Model
+   */
+  suggested_model?: string | null
+  /**
+   * Evidence
+   */
+  evidence?: {
+    [key: string]: unknown
+  } | null
+  /**
+   * Status
+   */
+  status: string
+  /**
+   * Created At
+   */
+  created_at?: string | null
+}
+
+/**
  * RefreshRequest
  *
  * Token refresh request model.
@@ -2209,6 +3035,148 @@ export type RegisterResponse = {
 }
 
 /**
+ * RuleCreate
+ */
+export type RuleCreate = {
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Description
+   */
+  description?: string | null
+  /**
+   * Trigger Type
+   */
+  trigger_type: string
+  /**
+   * Trigger Config
+   */
+  trigger_config?: {
+    [key: string]: unknown
+  }
+  /**
+   * Action
+   */
+  action?: {
+    [key: string]: unknown
+  }
+  /**
+   * Enabled
+   */
+  enabled?: boolean
+  /**
+   * Cooldown Seconds
+   */
+  cooldown_seconds?: number
+}
+
+/**
+ * RuleResponse
+ */
+export type RuleResponse = {
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Description
+   */
+  description?: string | null
+  /**
+   * Trigger Type
+   */
+  trigger_type: string
+  /**
+   * Trigger Config
+   */
+  trigger_config?: {
+    [key: string]: unknown
+  }
+  /**
+   * Action
+   */
+  action?: {
+    [key: string]: unknown
+  }
+  /**
+   * Enabled
+   */
+  enabled?: boolean
+  /**
+   * Cooldown Seconds
+   */
+  cooldown_seconds?: number
+  /**
+   * Id
+   */
+  id: string
+  /**
+   * Tenant Id
+   */
+  tenant_id?: string | null
+  /**
+   * User Id
+   */
+  user_id?: string | null
+  /**
+   * Last Triggered At
+   */
+  last_triggered_at?: string | null
+  /**
+   * Trigger Count
+   */
+  trigger_count?: number
+  /**
+   * Next Run At
+   */
+  next_run_at?: string | null
+  /**
+   * Created At
+   */
+  created_at?: string | null
+  /**
+   * Updated At
+   */
+  updated_at?: string | null
+}
+
+/**
+ * RuleUpdate
+ */
+export type RuleUpdate = {
+  /**
+   * Name
+   */
+  name?: string | null
+  /**
+   * Description
+   */
+  description?: string | null
+  /**
+   * Trigger Config
+   */
+  trigger_config?: {
+    [key: string]: unknown
+  } | null
+  /**
+   * Action
+   */
+  action?: {
+    [key: string]: unknown
+  } | null
+  /**
+   * Enabled
+   */
+  enabled?: boolean | null
+  /**
+   * Cooldown Seconds
+   */
+  cooldown_seconds?: number | null
+}
+
+/**
  * RunStatus
  */
 export type RunStatus =
@@ -2262,6 +3230,54 @@ export type SessionSyncRequest = {
   sessions: Array<{
     [key: string]: unknown
   }>
+}
+
+/**
+ * SetBillingModelRequest
+ */
+export type SetBillingModelRequest = {
+  /**
+   * Billing Model
+   *
+   * One of: subscription, prepaid, metered
+   */
+  billing_model: string
+  /**
+   * Monthly Limit Cents
+   *
+   * Monthly spending limit in cents
+   */
+  monthly_limit_cents?: number | null
+  /**
+   * Monthly Alert Cents
+   *
+   * Alert threshold in cents
+   */
+  monthly_alert_cents?: number | null
+  /**
+   * Markup Percent
+   *
+   * Markup percentage (0-100)
+   */
+  markup_percent?: number
+}
+
+/**
+ * SetSpendingLimitRequest
+ */
+export type SetSpendingLimitRequest = {
+  /**
+   * Monthly Limit Cents
+   *
+   * Monthly limit in cents (null = unlimited)
+   */
+  monthly_limit_cents?: number | null
+  /**
+   * Monthly Alert Cents
+   *
+   * Alert threshold in cents
+   */
+  monthly_alert_cents?: number | null
 }
 
 /**
@@ -3163,6 +4179,98 @@ export type TrackEventResponse = {
 }
 
 /**
+ * UpsertModelPricingRequest
+ */
+export type UpsertModelPricingRequest = {
+  /**
+   * Provider
+   */
+  provider: string
+  /**
+   * Model
+   */
+  model: string
+  /**
+   * Input Cost Per M
+   */
+  input_cost_per_m: number
+  /**
+   * Output Cost Per M
+   */
+  output_cost_per_m: number
+  /**
+   * Cache Read Cost Per M
+   */
+  cache_read_cost_per_m?: number
+  /**
+   * Cache Write Cost Per M
+   */
+  cache_write_cost_per_m?: number
+  /**
+   * Reasoning Cost Per M
+   */
+  reasoning_cost_per_m?: number | null
+}
+
+/**
+ * UsageRecordResponse
+ */
+export type UsageRecordResponse = {
+  /**
+   * Id
+   */
+  id: number
+  /**
+   * User Id
+   */
+  user_id: string | null
+  /**
+   * Provider
+   */
+  provider: string
+  /**
+   * Model
+   */
+  model: string
+  /**
+   * Input Tokens
+   */
+  input_tokens: number
+  /**
+   * Output Tokens
+   */
+  output_tokens: number
+  /**
+   * Reasoning Tokens
+   */
+  reasoning_tokens: number | null
+  /**
+   * Cache Read Tokens
+   */
+  cache_read_tokens: number | null
+  /**
+   * Cache Write Tokens
+   */
+  cache_write_tokens: number | null
+  /**
+   * Cost Dollars
+   */
+  cost_dollars: number
+  /**
+   * Session Id
+   */
+  session_id: string | null
+  /**
+   * Task Id
+   */
+  task_id: string | null
+  /**
+   * Created At
+   */
+  created_at: string | null
+}
+
+/**
  * UsageResponse
  *
  * Response model for usage metrics.
@@ -3204,6 +4312,44 @@ export type UsageResponse = {
    * Codebase limit for plan (-1 = unlimited)
    */
   codebases_limit: number
+}
+
+/**
+ * UsageSummaryResponse
+ */
+export type UsageSummaryResponse = {
+  /**
+   * Tenant Id
+   */
+  tenant_id: string
+  /**
+   * Month
+   */
+  month: string
+  /**
+   * Billing Model
+   */
+  billing_model: string
+  /**
+   * Balance Dollars
+   */
+  balance_dollars: number
+  /**
+   * Monthly Limit Dollars
+   */
+  monthly_limit_dollars: number | null
+  /**
+   * Totals
+   */
+  totals: {
+    [key: string]: unknown
+  }
+  /**
+   * By Model
+   */
+  by_model: Array<{
+    [key: string]: unknown
+  }>
 }
 
 /**
@@ -4565,6 +5711,20 @@ export type ListModelsV1AgentModelsGetData = {
 }
 
 export type ListModelsV1AgentModelsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type ListProvidersV1AgentProvidersGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/agent/providers'
+}
+
+export type ListProvidersV1AgentProvidersGetResponses = {
   /**
    * Successful Response
    */
@@ -5985,20 +7145,6 @@ export type GetReaperHealthV1AgentReaperHealthGetResponses = {
   200: unknown
 }
 
-export type ListProvidersV1AgentProvidersGetData = {
-  body?: never
-  path?: never
-  query?: never
-  url: '/v1/agent/providers'
-}
-
-export type ListProvidersV1AgentProvidersGetResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
-
 export type VaultStatusV1AgentVaultStatusGetData = {
   body?: never
   path?: never
@@ -6265,7 +7411,7 @@ export type GetSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGetRespons
     200: unknown
   }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatchData = {
+export type OpencodeToAgentRedirectV1OpencodePathPostData = {
   body?: never
   path: {
     /**
@@ -6277,24 +7423,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPatchData = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatchErrors = {
+export type OpencodeToAgentRedirectV1OpencodePathPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatchError =
-  OpencodeToAgentRedirectV1OpencodePathPatchErrors[keyof OpencodeToAgentRedirectV1OpencodePathPatchErrors]
+export type OpencodeToAgentRedirectV1OpencodePathPostError =
+  OpencodeToAgentRedirectV1OpencodePathPostErrors[keyof OpencodeToAgentRedirectV1OpencodePathPostErrors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPatchResponses = {
+export type OpencodeToAgentRedirectV1OpencodePathPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch2Data = {
+export type OpencodeToAgentRedirectV1OpencodePathPost2Data = {
   body?: never
   path: {
     /**
@@ -6306,24 +7452,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPatch2Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch2Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathPost2Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch2Error =
-  OpencodeToAgentRedirectV1OpencodePathPatch2Errors[keyof OpencodeToAgentRedirectV1OpencodePathPatch2Errors]
+export type OpencodeToAgentRedirectV1OpencodePathPost2Error =
+  OpencodeToAgentRedirectV1OpencodePathPost2Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost2Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch2Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathPost2Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch3Data = {
+export type OpencodeToAgentRedirectV1OpencodePathPost3Data = {
   body?: never
   path: {
     /**
@@ -6335,24 +7481,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPatch3Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch3Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathPost3Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch3Error =
-  OpencodeToAgentRedirectV1OpencodePathPatch3Errors[keyof OpencodeToAgentRedirectV1OpencodePathPatch3Errors]
+export type OpencodeToAgentRedirectV1OpencodePathPost3Error =
+  OpencodeToAgentRedirectV1OpencodePathPost3Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost3Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch3Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathPost3Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch4Data = {
+export type OpencodeToAgentRedirectV1OpencodePathPost4Data = {
   body?: never
   path: {
     /**
@@ -6364,24 +7510,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPatch4Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch4Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathPost4Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch4Error =
-  OpencodeToAgentRedirectV1OpencodePathPatch4Errors[keyof OpencodeToAgentRedirectV1OpencodePathPatch4Errors]
+export type OpencodeToAgentRedirectV1OpencodePathPost4Error =
+  OpencodeToAgentRedirectV1OpencodePathPost4Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost4Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch4Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathPost4Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch5Data = {
+export type OpencodeToAgentRedirectV1OpencodePathPost5Data = {
   body?: never
   path: {
     /**
@@ -6393,17 +7539,17 @@ export type OpencodeToAgentRedirectV1OpencodePathPatch5Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch5Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathPost5Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch5Error =
-  OpencodeToAgentRedirectV1OpencodePathPatch5Errors[keyof OpencodeToAgentRedirectV1OpencodePathPatch5Errors]
+export type OpencodeToAgentRedirectV1OpencodePathPost5Error =
+  OpencodeToAgentRedirectV1OpencodePathPost5Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost5Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPatch5Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathPost5Responses = {
   /**
    * Successful Response
    */
@@ -8179,6 +9325,638 @@ export type StripeWebhookV1WebhooksStripePostResponses = {
   200: unknown
 }
 
+export type GetUsageSummaryV1TokenBillingUsageSummaryGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Month
+     *
+     * Month as YYYY-MM (default: current)
+     */
+    month?: string | null
+  }
+  url: '/v1/token-billing/usage/summary'
+}
+
+export type GetUsageSummaryV1TokenBillingUsageSummaryGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetUsageSummaryV1TokenBillingUsageSummaryGetError =
+  GetUsageSummaryV1TokenBillingUsageSummaryGetErrors[keyof GetUsageSummaryV1TokenBillingUsageSummaryGetErrors]
+
+export type GetUsageSummaryV1TokenBillingUsageSummaryGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: UsageSummaryResponse
+}
+
+export type GetUsageSummaryV1TokenBillingUsageSummaryGetResponse =
+  GetUsageSummaryV1TokenBillingUsageSummaryGetResponses[keyof GetUsageSummaryV1TokenBillingUsageSummaryGetResponses]
+
+export type GetRecentUsageV1TokenBillingUsageRecentGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number
+  }
+  url: '/v1/token-billing/usage/recent'
+}
+
+export type GetRecentUsageV1TokenBillingUsageRecentGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetRecentUsageV1TokenBillingUsageRecentGetError =
+  GetRecentUsageV1TokenBillingUsageRecentGetErrors[keyof GetRecentUsageV1TokenBillingUsageRecentGetErrors]
+
+export type GetRecentUsageV1TokenBillingUsageRecentGetResponses = {
+  /**
+   * Response Get Recent Usage V1 Token Billing Usage Recent Get
+   *
+   * Successful Response
+   */
+  200: Array<UsageRecordResponse>
+}
+
+export type GetRecentUsageV1TokenBillingUsageRecentGetResponse =
+  GetRecentUsageV1TokenBillingUsageRecentGetResponses[keyof GetRecentUsageV1TokenBillingUsageRecentGetResponses]
+
+export type CheckBudgetV1TokenBillingBudgetGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/token-billing/budget'
+}
+
+export type CheckBudgetV1TokenBillingBudgetGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: BudgetCheckResponse
+}
+
+export type CheckBudgetV1TokenBillingBudgetGetResponse =
+  CheckBudgetV1TokenBillingBudgetGetResponses[keyof CheckBudgetV1TokenBillingBudgetGetResponses]
+
+export type AddCreditsV1TokenBillingCreditsPostData = {
+  body: AddCreditsRequest
+  path?: never
+  query?: never
+  url: '/v1/token-billing/credits'
+}
+
+export type AddCreditsV1TokenBillingCreditsPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type AddCreditsV1TokenBillingCreditsPostError =
+  AddCreditsV1TokenBillingCreditsPostErrors[keyof AddCreditsV1TokenBillingCreditsPostErrors]
+
+export type AddCreditsV1TokenBillingCreditsPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: AddCreditsResponse
+}
+
+export type AddCreditsV1TokenBillingCreditsPostResponse =
+  AddCreditsV1TokenBillingCreditsPostResponses[keyof AddCreditsV1TokenBillingCreditsPostResponses]
+
+export type SetBillingModelV1TokenBillingConfigBillingModelPutData = {
+  body: SetBillingModelRequest
+  path?: never
+  query?: never
+  url: '/v1/token-billing/config/billing-model'
+}
+
+export type SetBillingModelV1TokenBillingConfigBillingModelPutErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type SetBillingModelV1TokenBillingConfigBillingModelPutError =
+  SetBillingModelV1TokenBillingConfigBillingModelPutErrors[keyof SetBillingModelV1TokenBillingConfigBillingModelPutErrors]
+
+export type SetBillingModelV1TokenBillingConfigBillingModelPutResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type SetSpendingLimitV1TokenBillingConfigSpendingLimitPutData = {
+  body: SetSpendingLimitRequest
+  path?: never
+  query?: never
+  url: '/v1/token-billing/config/spending-limit'
+}
+
+export type SetSpendingLimitV1TokenBillingConfigSpendingLimitPutErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type SetSpendingLimitV1TokenBillingConfigSpendingLimitPutError =
+  SetSpendingLimitV1TokenBillingConfigSpendingLimitPutErrors[keyof SetSpendingLimitV1TokenBillingConfigSpendingLimitPutErrors]
+
+export type SetSpendingLimitV1TokenBillingConfigSpendingLimitPutResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type ListModelPricingV1TokenBillingPricingGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Provider
+     *
+     * Filter by provider
+     */
+    provider?: string | null
+  }
+  url: '/v1/token-billing/pricing'
+}
+
+export type ListModelPricingV1TokenBillingPricingGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListModelPricingV1TokenBillingPricingGetError =
+  ListModelPricingV1TokenBillingPricingGetErrors[keyof ListModelPricingV1TokenBillingPricingGetErrors]
+
+export type ListModelPricingV1TokenBillingPricingGetResponses = {
+  /**
+   * Response List Model Pricing V1 Token Billing Pricing Get
+   *
+   * Successful Response
+   */
+  200: Array<ModelPricingResponse>
+}
+
+export type ListModelPricingV1TokenBillingPricingGetResponse =
+  ListModelPricingV1TokenBillingPricingGetResponses[keyof ListModelPricingV1TokenBillingPricingGetResponses]
+
+export type UpsertModelPricingV1TokenBillingPricingPutData = {
+  body: UpsertModelPricingRequest
+  path?: never
+  query?: never
+  url: '/v1/token-billing/pricing'
+}
+
+export type UpsertModelPricingV1TokenBillingPricingPutErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type UpsertModelPricingV1TokenBillingPricingPutError =
+  UpsertModelPricingV1TokenBillingPricingPutErrors[keyof UpsertModelPricingV1TokenBillingPricingPutErrors]
+
+export type UpsertModelPricingV1TokenBillingPricingPutResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetCostForecastV1FinopsForecastGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/finops/forecast'
+}
+
+export type GetCostForecastV1FinopsForecastGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: CostForecastResponse
+}
+
+export type GetCostForecastV1FinopsForecastGetResponse =
+  GetCostForecastV1FinopsForecastGetResponses[keyof GetCostForecastV1FinopsForecastGetResponses]
+
+export type GetCostBreakdownV1FinopsCostBreakdownGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Group By
+     *
+     * model, user, project, environment, or day
+     */
+    group_by?: string
+    /**
+     * Days
+     */
+    days?: number
+  }
+  url: '/v1/finops/cost-breakdown'
+}
+
+export type GetCostBreakdownV1FinopsCostBreakdownGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetCostBreakdownV1FinopsCostBreakdownGetError =
+  GetCostBreakdownV1FinopsCostBreakdownGetErrors[keyof GetCostBreakdownV1FinopsCostBreakdownGetErrors]
+
+export type GetCostBreakdownV1FinopsCostBreakdownGetResponses = {
+  /**
+   * Response Get Cost Breakdown V1 Finops Cost Breakdown Get
+   *
+   * Successful Response
+   */
+  200: Array<CostBreakdownResponse>
+}
+
+export type GetCostBreakdownV1FinopsCostBreakdownGetResponse =
+  GetCostBreakdownV1FinopsCostBreakdownGetResponses[keyof GetCostBreakdownV1FinopsCostBreakdownGetResponses]
+
+export type GetCostTrendV1FinopsCostTrendGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Days
+     */
+    days?: number
+  }
+  url: '/v1/finops/cost-trend'
+}
+
+export type GetCostTrendV1FinopsCostTrendGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetCostTrendV1FinopsCostTrendGetError =
+  GetCostTrendV1FinopsCostTrendGetErrors[keyof GetCostTrendV1FinopsCostTrendGetErrors]
+
+export type GetCostTrendV1FinopsCostTrendGetResponses = {
+  /**
+   * Response Get Cost Trend V1 Finops Cost Trend Get
+   *
+   * Successful Response
+   */
+  200: Array<CostTrendResponse>
+}
+
+export type GetCostTrendV1FinopsCostTrendGetResponse =
+  GetCostTrendV1FinopsCostTrendGetResponses[keyof GetCostTrendV1FinopsCostTrendGetResponses]
+
+export type DetectAnomaliesV1FinopsAnomaliesGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Lookback Days
+     */
+    lookback_days?: number
+  }
+  url: '/v1/finops/anomalies'
+}
+
+export type DetectAnomaliesV1FinopsAnomaliesGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type DetectAnomaliesV1FinopsAnomaliesGetError =
+  DetectAnomaliesV1FinopsAnomaliesGetErrors[keyof DetectAnomaliesV1FinopsAnomaliesGetErrors]
+
+export type DetectAnomaliesV1FinopsAnomaliesGetResponses = {
+  /**
+   * Response Detect Anomalies V1 Finops Anomalies Get
+   *
+   * Successful Response
+   */
+  200: Array<CostAnomalyResponse>
+}
+
+export type DetectAnomaliesV1FinopsAnomaliesGetResponse =
+  DetectAnomaliesV1FinopsAnomaliesGetResponses[keyof DetectAnomaliesV1FinopsAnomaliesGetResponses]
+
+export type ListBudgetPoliciesV1FinopsPoliciesGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/finops/policies'
+}
+
+export type ListBudgetPoliciesV1FinopsPoliciesGetResponses = {
+  /**
+   * Response List Budget Policies V1 Finops Policies Get
+   *
+   * Successful Response
+   */
+  200: Array<BudgetPolicyResponse>
+}
+
+export type ListBudgetPoliciesV1FinopsPoliciesGetResponse =
+  ListBudgetPoliciesV1FinopsPoliciesGetResponses[keyof ListBudgetPoliciesV1FinopsPoliciesGetResponses]
+
+export type CreateBudgetPolicyV1FinopsPoliciesPostData = {
+  body: BudgetPolicyRequest
+  path?: never
+  query?: never
+  url: '/v1/finops/policies'
+}
+
+export type CreateBudgetPolicyV1FinopsPoliciesPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type CreateBudgetPolicyV1FinopsPoliciesPostError =
+  CreateBudgetPolicyV1FinopsPoliciesPostErrors[keyof CreateBudgetPolicyV1FinopsPoliciesPostErrors]
+
+export type CreateBudgetPolicyV1FinopsPoliciesPostResponses = {
+  /**
+   * Successful Response
+   */
+  201: unknown
+}
+
+export type EvaluatePoliciesV1FinopsPoliciesEvaluatePostData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/finops/policies/evaluate'
+}
+
+export type EvaluatePoliciesV1FinopsPoliciesEvaluatePostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetAlertsV1FinopsAlertsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Unacknowledged Only
+     */
+    unacknowledged_only?: boolean
+    /**
+     * Limit
+     */
+    limit?: number
+  }
+  url: '/v1/finops/alerts'
+}
+
+export type GetAlertsV1FinopsAlertsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetAlertsV1FinopsAlertsGetError =
+  GetAlertsV1FinopsAlertsGetErrors[keyof GetAlertsV1FinopsAlertsGetErrors]
+
+export type GetAlertsV1FinopsAlertsGetResponses = {
+  /**
+   * Response Get Alerts V1 Finops Alerts Get
+   *
+   * Successful Response
+   */
+  200: Array<AlertResponse>
+}
+
+export type GetAlertsV1FinopsAlertsGetResponse =
+  GetAlertsV1FinopsAlertsGetResponses[keyof GetAlertsV1FinopsAlertsGetResponses]
+
+export type GetAlertSummaryV1FinopsAlertsSummaryGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/finops/alerts/summary'
+}
+
+export type GetAlertSummaryV1FinopsAlertsSummaryGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: AlertSummaryResponse
+}
+
+export type GetAlertSummaryV1FinopsAlertsSummaryGetResponse =
+  GetAlertSummaryV1FinopsAlertsSummaryGetResponses[keyof GetAlertSummaryV1FinopsAlertsSummaryGetResponses]
+
+export type AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostData = {
+  body?: never
+  path: {
+    /**
+     * Alert Id
+     */
+    alert_id: number
+  }
+  query?: never
+  url: '/v1/finops/alerts/{alert_id}/acknowledge'
+}
+
+export type AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostError =
+  AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostErrors[keyof AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostErrors]
+
+export type AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetRecommendationsV1FinopsRecommendationsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Status
+     *
+     * open, accepted, dismissed, implemented
+     */
+    status?: string
+  }
+  url: '/v1/finops/recommendations'
+}
+
+export type GetRecommendationsV1FinopsRecommendationsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetRecommendationsV1FinopsRecommendationsGetError =
+  GetRecommendationsV1FinopsRecommendationsGetErrors[keyof GetRecommendationsV1FinopsRecommendationsGetErrors]
+
+export type GetRecommendationsV1FinopsRecommendationsGetResponses = {
+  /**
+   * Response Get Recommendations V1 Finops Recommendations Get
+   *
+   * Successful Response
+   */
+  200: Array<RecommendationResponse>
+}
+
+export type GetRecommendationsV1FinopsRecommendationsGetResponse =
+  GetRecommendationsV1FinopsRecommendationsGetResponses[keyof GetRecommendationsV1FinopsRecommendationsGetResponses]
+
+export type DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostData =
+  {
+    body: DismissRecommendationRequest
+    path: {
+      /**
+       * Recommendation Id
+       */
+      recommendation_id: number
+    }
+    query?: never
+    url: '/v1/finops/recommendations/{recommendation_id}/dismiss'
+  }
+
+export type DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostError =
+  DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostErrors[keyof DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostErrors]
+
+export type DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type GenerateRecommendationsV1FinopsRecommendationsGeneratePostData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Lookback Days
+     */
+    lookback_days?: number
+  }
+  url: '/v1/finops/recommendations/generate'
+}
+
+export type GenerateRecommendationsV1FinopsRecommendationsGeneratePostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GenerateRecommendationsV1FinopsRecommendationsGeneratePostError =
+  GenerateRecommendationsV1FinopsRecommendationsGeneratePostErrors[keyof GenerateRecommendationsV1FinopsRecommendationsGeneratePostErrors]
+
+export type GenerateRecommendationsV1FinopsRecommendationsGeneratePostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type CheckBudgetV1FinopsBudgetCheckGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/finops/budget-check'
+}
+
+export type CheckBudgetV1FinopsBudgetCheckGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: EnforceBudgetResponse
+}
+
+export type CheckBudgetV1FinopsBudgetCheckGetResponse =
+  CheckBudgetV1FinopsBudgetCheckGetResponses[keyof CheckBudgetV1FinopsBudgetCheckGetResponses]
+
+export type BuildSnapshotsV1FinopsSnapshotsBuildPostData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Snapshot Date
+     *
+     * Date as YYYY-MM-DD (default: yesterday)
+     */
+    snapshot_date?: string | null
+  }
+  url: '/v1/finops/snapshots/build'
+}
+
+export type BuildSnapshotsV1FinopsSnapshotsBuildPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type BuildSnapshotsV1FinopsSnapshotsBuildPostError =
+  BuildSnapshotsV1FinopsSnapshotsBuildPostErrors[keyof BuildSnapshotsV1FinopsSnapshotsBuildPostErrors]
+
+export type BuildSnapshotsV1FinopsSnapshotsBuildPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
 export type RegisterV1UsersRegisterPostData = {
   body: RegisterRequest
   path?: never
@@ -8989,6 +10767,39 @@ export type CreateTaskV1AutomationTasksPostResponses = {
 export type CreateTaskV1AutomationTasksPostResponse =
   CreateTaskV1AutomationTasksPostResponses[keyof CreateTaskV1AutomationTasksPostResponses]
 
+export type CancelTaskV1AutomationTasksTaskIdDeleteData = {
+  body?: never
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string
+  }
+  query?: never
+  url: '/v1/automation/tasks/{task_id}'
+}
+
+export type CancelTaskV1AutomationTasksTaskIdDeleteErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type CancelTaskV1AutomationTasksTaskIdDeleteError =
+  CancelTaskV1AutomationTasksTaskIdDeleteErrors[keyof CancelTaskV1AutomationTasksTaskIdDeleteErrors]
+
+export type CancelTaskV1AutomationTasksTaskIdDeleteResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
 export type GetTaskV1AutomationTasksTaskIdGetData = {
   body?: never
   path: {
@@ -9639,6 +11450,818 @@ export type ValidateCronExpressionV1CronjobsValidateCronPostError =
   ValidateCronExpressionV1CronjobsValidateCronPostErrors[keyof ValidateCronExpressionV1CronjobsValidateCronPostErrors]
 
 export type ValidateCronExpressionV1CronjobsValidateCronPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type ListRulesV1ProactiveRulesGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Trigger Type
+     */
+    trigger_type?: string | null
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/rules'
+}
+
+export type ListRulesV1ProactiveRulesGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListRulesV1ProactiveRulesGetError =
+  ListRulesV1ProactiveRulesGetErrors[keyof ListRulesV1ProactiveRulesGetErrors]
+
+export type ListRulesV1ProactiveRulesGetResponses = {
+  /**
+   * Response List Rules V1 Proactive Rules Get
+   *
+   * Successful Response
+   */
+  200: Array<RuleResponse>
+}
+
+export type ListRulesV1ProactiveRulesGetResponse =
+  ListRulesV1ProactiveRulesGetResponses[keyof ListRulesV1ProactiveRulesGetResponses]
+
+export type CreateRuleV1ProactiveRulesPostData = {
+  body: RuleCreate
+  path?: never
+  query?: never
+  url: '/v1/proactive/rules'
+}
+
+export type CreateRuleV1ProactiveRulesPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type CreateRuleV1ProactiveRulesPostError =
+  CreateRuleV1ProactiveRulesPostErrors[keyof CreateRuleV1ProactiveRulesPostErrors]
+
+export type CreateRuleV1ProactiveRulesPostResponses = {
+  /**
+   * Successful Response
+   */
+  201: RuleResponse
+}
+
+export type CreateRuleV1ProactiveRulesPostResponse =
+  CreateRuleV1ProactiveRulesPostResponses[keyof CreateRuleV1ProactiveRulesPostResponses]
+
+export type DeleteRuleV1ProactiveRulesRuleIdDeleteData = {
+  body?: never
+  path: {
+    /**
+     * Rule Id
+     */
+    rule_id: string
+  }
+  query?: never
+  url: '/v1/proactive/rules/{rule_id}'
+}
+
+export type DeleteRuleV1ProactiveRulesRuleIdDeleteErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type DeleteRuleV1ProactiveRulesRuleIdDeleteError =
+  DeleteRuleV1ProactiveRulesRuleIdDeleteErrors[keyof DeleteRuleV1ProactiveRulesRuleIdDeleteErrors]
+
+export type DeleteRuleV1ProactiveRulesRuleIdDeleteResponses = {
+  /**
+   * Successful Response
+   */
+  204: void
+}
+
+export type DeleteRuleV1ProactiveRulesRuleIdDeleteResponse =
+  DeleteRuleV1ProactiveRulesRuleIdDeleteResponses[keyof DeleteRuleV1ProactiveRulesRuleIdDeleteResponses]
+
+export type GetRuleV1ProactiveRulesRuleIdGetData = {
+  body?: never
+  path: {
+    /**
+     * Rule Id
+     */
+    rule_id: string
+  }
+  query?: never
+  url: '/v1/proactive/rules/{rule_id}'
+}
+
+export type GetRuleV1ProactiveRulesRuleIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetRuleV1ProactiveRulesRuleIdGetError =
+  GetRuleV1ProactiveRulesRuleIdGetErrors[keyof GetRuleV1ProactiveRulesRuleIdGetErrors]
+
+export type GetRuleV1ProactiveRulesRuleIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: RuleResponse
+}
+
+export type GetRuleV1ProactiveRulesRuleIdGetResponse =
+  GetRuleV1ProactiveRulesRuleIdGetResponses[keyof GetRuleV1ProactiveRulesRuleIdGetResponses]
+
+export type UpdateRuleV1ProactiveRulesRuleIdPutData = {
+  body: RuleUpdate
+  path: {
+    /**
+     * Rule Id
+     */
+    rule_id: string
+  }
+  query?: never
+  url: '/v1/proactive/rules/{rule_id}'
+}
+
+export type UpdateRuleV1ProactiveRulesRuleIdPutErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type UpdateRuleV1ProactiveRulesRuleIdPutError =
+  UpdateRuleV1ProactiveRulesRuleIdPutErrors[keyof UpdateRuleV1ProactiveRulesRuleIdPutErrors]
+
+export type UpdateRuleV1ProactiveRulesRuleIdPutResponses = {
+  /**
+   * Successful Response
+   */
+  200: RuleResponse
+}
+
+export type UpdateRuleV1ProactiveRulesRuleIdPutResponse =
+  UpdateRuleV1ProactiveRulesRuleIdPutResponses[keyof UpdateRuleV1ProactiveRulesRuleIdPutResponses]
+
+export type ListRuleRunsV1ProactiveRulesRuleIdRunsGetData = {
+  body?: never
+  path: {
+    /**
+     * Rule Id
+     */
+    rule_id: string
+  }
+  query?: {
+    /**
+     * Status
+     */
+    status?: string | null
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/rules/{rule_id}/runs'
+}
+
+export type ListRuleRunsV1ProactiveRulesRuleIdRunsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListRuleRunsV1ProactiveRulesRuleIdRunsGetError =
+  ListRuleRunsV1ProactiveRulesRuleIdRunsGetErrors[keyof ListRuleRunsV1ProactiveRulesRuleIdRunsGetErrors]
+
+export type ListRuleRunsV1ProactiveRulesRuleIdRunsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type ListHealthChecksV1ProactiveHealthChecksGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Check Type
+     */
+    check_type?: string | null
+    /**
+     * Last Status
+     */
+    last_status?: string | null
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/health-checks'
+}
+
+export type ListHealthChecksV1ProactiveHealthChecksGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListHealthChecksV1ProactiveHealthChecksGetError =
+  ListHealthChecksV1ProactiveHealthChecksGetErrors[keyof ListHealthChecksV1ProactiveHealthChecksGetErrors]
+
+export type ListHealthChecksV1ProactiveHealthChecksGetResponses = {
+  /**
+   * Response List Health Checks V1 Proactive Health Checks Get
+   *
+   * Successful Response
+   */
+  200: Array<HealthCheckResponse>
+}
+
+export type ListHealthChecksV1ProactiveHealthChecksGetResponse =
+  ListHealthChecksV1ProactiveHealthChecksGetResponses[keyof ListHealthChecksV1ProactiveHealthChecksGetResponses]
+
+export type CreateHealthCheckV1ProactiveHealthChecksPostData = {
+  body: HealthCheckCreate
+  path?: never
+  query?: never
+  url: '/v1/proactive/health-checks'
+}
+
+export type CreateHealthCheckV1ProactiveHealthChecksPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type CreateHealthCheckV1ProactiveHealthChecksPostError =
+  CreateHealthCheckV1ProactiveHealthChecksPostErrors[keyof CreateHealthCheckV1ProactiveHealthChecksPostErrors]
+
+export type CreateHealthCheckV1ProactiveHealthChecksPostResponses = {
+  /**
+   * Successful Response
+   */
+  201: HealthCheckResponse
+}
+
+export type CreateHealthCheckV1ProactiveHealthChecksPostResponse =
+  CreateHealthCheckV1ProactiveHealthChecksPostResponses[keyof CreateHealthCheckV1ProactiveHealthChecksPostResponses]
+
+export type DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteData = {
+  body?: never
+  path: {
+    /**
+     * Check Id
+     */
+    check_id: string
+  }
+  query?: never
+  url: '/v1/proactive/health-checks/{check_id}'
+}
+
+export type DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteError =
+  DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteErrors[keyof DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteErrors]
+
+export type DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteResponses = {
+  /**
+   * Successful Response
+   */
+  204: void
+}
+
+export type DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteResponse =
+  DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteResponses[keyof DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteResponses]
+
+export type GetHealthCheckV1ProactiveHealthChecksCheckIdGetData = {
+  body?: never
+  path: {
+    /**
+     * Check Id
+     */
+    check_id: string
+  }
+  query?: never
+  url: '/v1/proactive/health-checks/{check_id}'
+}
+
+export type GetHealthCheckV1ProactiveHealthChecksCheckIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetHealthCheckV1ProactiveHealthChecksCheckIdGetError =
+  GetHealthCheckV1ProactiveHealthChecksCheckIdGetErrors[keyof GetHealthCheckV1ProactiveHealthChecksCheckIdGetErrors]
+
+export type GetHealthCheckV1ProactiveHealthChecksCheckIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: HealthCheckResponse
+}
+
+export type GetHealthCheckV1ProactiveHealthChecksCheckIdGetResponse =
+  GetHealthCheckV1ProactiveHealthChecksCheckIdGetResponses[keyof GetHealthCheckV1ProactiveHealthChecksCheckIdGetResponses]
+
+export type UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutData = {
+  body: HealthCheckUpdate
+  path: {
+    /**
+     * Check Id
+     */
+    check_id: string
+  }
+  query?: never
+  url: '/v1/proactive/health-checks/{check_id}'
+}
+
+export type UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutError =
+  UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutErrors[keyof UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutErrors]
+
+export type UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutResponses = {
+  /**
+   * Successful Response
+   */
+  200: HealthCheckResponse
+}
+
+export type UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutResponse =
+  UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutResponses[keyof UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutResponses]
+
+export type ListLoopsV1ProactiveLoopsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Status
+     */
+    status?: string | null
+    /**
+     * Persona Slug
+     */
+    persona_slug?: string | null
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/loops'
+}
+
+export type ListLoopsV1ProactiveLoopsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListLoopsV1ProactiveLoopsGetError =
+  ListLoopsV1ProactiveLoopsGetErrors[keyof ListLoopsV1ProactiveLoopsGetErrors]
+
+export type ListLoopsV1ProactiveLoopsGetResponses = {
+  /**
+   * Response List Loops V1 Proactive Loops Get
+   *
+   * Successful Response
+   */
+  200: Array<LoopResponse>
+}
+
+export type ListLoopsV1ProactiveLoopsGetResponse =
+  ListLoopsV1ProactiveLoopsGetResponses[keyof ListLoopsV1ProactiveLoopsGetResponses]
+
+export type CreateLoopV1ProactiveLoopsPostData = {
+  body: LoopCreate
+  path?: never
+  query?: never
+  url: '/v1/proactive/loops'
+}
+
+export type CreateLoopV1ProactiveLoopsPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type CreateLoopV1ProactiveLoopsPostError =
+  CreateLoopV1ProactiveLoopsPostErrors[keyof CreateLoopV1ProactiveLoopsPostErrors]
+
+export type CreateLoopV1ProactiveLoopsPostResponses = {
+  /**
+   * Successful Response
+   */
+  201: LoopResponse
+}
+
+export type CreateLoopV1ProactiveLoopsPostResponse =
+  CreateLoopV1ProactiveLoopsPostResponses[keyof CreateLoopV1ProactiveLoopsPostResponses]
+
+export type DeleteLoopV1ProactiveLoopsLoopIdDeleteData = {
+  body?: never
+  path: {
+    /**
+     * Loop Id
+     */
+    loop_id: string
+  }
+  query?: never
+  url: '/v1/proactive/loops/{loop_id}'
+}
+
+export type DeleteLoopV1ProactiveLoopsLoopIdDeleteErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type DeleteLoopV1ProactiveLoopsLoopIdDeleteError =
+  DeleteLoopV1ProactiveLoopsLoopIdDeleteErrors[keyof DeleteLoopV1ProactiveLoopsLoopIdDeleteErrors]
+
+export type DeleteLoopV1ProactiveLoopsLoopIdDeleteResponses = {
+  /**
+   * Successful Response
+   */
+  204: void
+}
+
+export type DeleteLoopV1ProactiveLoopsLoopIdDeleteResponse =
+  DeleteLoopV1ProactiveLoopsLoopIdDeleteResponses[keyof DeleteLoopV1ProactiveLoopsLoopIdDeleteResponses]
+
+export type GetLoopV1ProactiveLoopsLoopIdGetData = {
+  body?: never
+  path: {
+    /**
+     * Loop Id
+     */
+    loop_id: string
+  }
+  query?: never
+  url: '/v1/proactive/loops/{loop_id}'
+}
+
+export type GetLoopV1ProactiveLoopsLoopIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetLoopV1ProactiveLoopsLoopIdGetError =
+  GetLoopV1ProactiveLoopsLoopIdGetErrors[keyof GetLoopV1ProactiveLoopsLoopIdGetErrors]
+
+export type GetLoopV1ProactiveLoopsLoopIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: LoopResponse
+}
+
+export type GetLoopV1ProactiveLoopsLoopIdGetResponse =
+  GetLoopV1ProactiveLoopsLoopIdGetResponses[keyof GetLoopV1ProactiveLoopsLoopIdGetResponses]
+
+export type UpdateLoopV1ProactiveLoopsLoopIdPutData = {
+  body: LoopUpdate
+  path: {
+    /**
+     * Loop Id
+     */
+    loop_id: string
+  }
+  query?: never
+  url: '/v1/proactive/loops/{loop_id}'
+}
+
+export type UpdateLoopV1ProactiveLoopsLoopIdPutErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type UpdateLoopV1ProactiveLoopsLoopIdPutError =
+  UpdateLoopV1ProactiveLoopsLoopIdPutErrors[keyof UpdateLoopV1ProactiveLoopsLoopIdPutErrors]
+
+export type UpdateLoopV1ProactiveLoopsLoopIdPutResponses = {
+  /**
+   * Successful Response
+   */
+  200: LoopResponse
+}
+
+export type UpdateLoopV1ProactiveLoopsLoopIdPutResponse =
+  UpdateLoopV1ProactiveLoopsLoopIdPutResponses[keyof UpdateLoopV1ProactiveLoopsLoopIdPutResponses]
+
+export type ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetData = {
+  body?: never
+  path: {
+    /**
+     * Loop Id
+     */
+    loop_id: string
+  }
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/loops/{loop_id}/iterations'
+}
+
+export type ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetError =
+  ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetErrors[keyof ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetErrors]
+
+export type ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetResponses = {
+  /**
+   * Response List Loop Iterations V1 Proactive Loops  Loop Id  Iterations Get
+   *
+   * Successful Response
+   */
+  200: Array<LoopIterationResponse>
+}
+
+export type ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetResponse =
+  ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetResponses[keyof ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetResponses]
+
+export type ListDecisionsV1ProactiveDecisionsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Source
+     */
+    source?: string | null
+    /**
+     * Decision Type
+     */
+    decision_type?: string | null
+    /**
+     * Outcome
+     */
+    outcome?: string | null
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/decisions'
+}
+
+export type ListDecisionsV1ProactiveDecisionsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListDecisionsV1ProactiveDecisionsGetError =
+  ListDecisionsV1ProactiveDecisionsGetErrors[keyof ListDecisionsV1ProactiveDecisionsGetErrors]
+
+export type ListDecisionsV1ProactiveDecisionsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetProactiveStatusV1ProactiveStatusGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/proactive/status'
+}
+
+export type GetProactiveStatusV1ProactiveStatusGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetMarketingStatusV1ProactiveMarketingStatusGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/proactive/marketing/status'
+}
+
+export type GetMarketingStatusV1ProactiveMarketingStatusGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type ListMarketingDecisionsV1ProactiveMarketingDecisionsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number
+    /**
+     * Offset
+     */
+    offset?: number
+  }
+  url: '/v1/proactive/marketing/decisions'
+}
+
+export type ListMarketingDecisionsV1ProactiveMarketingDecisionsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListMarketingDecisionsV1ProactiveMarketingDecisionsGetError =
+  ListMarketingDecisionsV1ProactiveMarketingDecisionsGetErrors[keyof ListMarketingDecisionsV1ProactiveMarketingDecisionsGetErrors]
+
+export type ListMarketingDecisionsV1ProactiveMarketingDecisionsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetConversionStatsV1ProactiveConversionsStatsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Days
+     */
+    days?: number
+  }
+  url: '/v1/proactive/conversions/stats'
+}
+
+export type GetConversionStatsV1ProactiveConversionsStatsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetConversionStatsV1ProactiveConversionsStatsGetError =
+  GetConversionStatsV1ProactiveConversionsStatsGetErrors[keyof GetConversionStatsV1ProactiveConversionsStatsGetErrors]
+
+export type GetConversionStatsV1ProactiveConversionsStatsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetFunnelStateV1ProactiveConversionsFunnelStateGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/proactive/conversions/funnel-state'
+}
+
+export type GetFunnelStateV1ProactiveConversionsFunnelStateGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type RetryFailedConversionsV1ProactiveConversionsRetryPostData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/proactive/conversions/retry'
+}
+
+export type RetryFailedConversionsV1ProactiveConversionsRetryPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type GetOrchestratorStatusV1ProactiveOrchestratorStatusGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/proactive/orchestrator/status'
+}
+
+export type GetOrchestratorStatusV1ProactiveOrchestratorStatusGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostData = {
+  body?: never
+  path: {
+    /**
+     * Playbook Name
+     */
+    playbook_name: string
+  }
+  query?: never
+  url: '/v1/proactive/orchestrator/run/{playbook_name}'
+}
+
+export type RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostError =
+  RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostErrors[keyof RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostErrors]
+
+export type RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type ListPlaybooksV1ProactiveOrchestratorPlaybooksGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/v1/proactive/orchestrator/playbooks'
+}
+
+export type ListPlaybooksV1ProactiveOrchestratorPlaybooksGetResponses = {
   /**
    * Successful Response
    */

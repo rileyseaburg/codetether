@@ -8,6 +8,12 @@ import {
 } from './client'
 import { client } from './client.gen'
 import type {
+  AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostData,
+  AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostErrors,
+  AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostResponses,
+  AddCreditsV1TokenBillingCreditsPostData,
+  AddCreditsV1TokenBillingCreditsPostErrors,
+  AddCreditsV1TokenBillingCreditsPostResponses,
   AgentRuntimeStatusV1AgentRuntimeStatusGetData,
   AgentRuntimeStatusV1AgentRuntimeStatusGetResponses,
   AgentStatusV1AgentStatusGetData,
@@ -22,6 +28,9 @@ import type {
   AssociateUserCodebaseV1AuthUserUserIdCodebasesPostResponses,
   AuthStatusV1AuthStatusGetData,
   AuthStatusV1AuthStatusGetResponses,
+  BuildSnapshotsV1FinopsSnapshotsBuildPostData,
+  BuildSnapshotsV1FinopsSnapshotsBuildPostErrors,
+  BuildSnapshotsV1FinopsSnapshotsBuildPostResponses,
   CancelRalphRunV1RalphRunsRunIdCancelPostData,
   CancelRalphRunV1RalphRunsRunIdCancelPostErrors,
   CancelRalphRunV1RalphRunsRunIdCancelPostResponses,
@@ -31,9 +40,16 @@ import type {
   CancelTaskV1AgentTasksTaskIdCancelPostData,
   CancelTaskV1AgentTasksTaskIdCancelPostErrors,
   CancelTaskV1AgentTasksTaskIdCancelPostResponses,
+  CancelTaskV1AutomationTasksTaskIdDeleteData,
+  CancelTaskV1AutomationTasksTaskIdDeleteErrors,
+  CancelTaskV1AutomationTasksTaskIdDeleteResponses,
   ChangeSubscriptionV1BillingSubscriptionChangePostData,
   ChangeSubscriptionV1BillingSubscriptionChangePostErrors,
   ChangeSubscriptionV1BillingSubscriptionChangePostResponses,
+  CheckBudgetV1FinopsBudgetCheckGetData,
+  CheckBudgetV1FinopsBudgetCheckGetResponses,
+  CheckBudgetV1TokenBillingBudgetGetData,
+  CheckBudgetV1TokenBillingBudgetGetResponses,
   ClaimTaskV1WorkerTasksClaimPostData,
   ClaimTaskV1WorkerTasksClaimPostErrors,
   ClaimTaskV1WorkerTasksClaimPostResponses,
@@ -57,6 +73,9 @@ import type {
   CreateBillingPortalV1UsersBillingPortalPostData,
   CreateBillingPortalV1UsersBillingPortalPostErrors,
   CreateBillingPortalV1UsersBillingPortalPostResponses,
+  CreateBudgetPolicyV1FinopsPoliciesPostData,
+  CreateBudgetPolicyV1FinopsPoliciesPostErrors,
+  CreateBudgetPolicyV1FinopsPoliciesPostResponses,
   CreateCheckoutV1BillingCheckoutPostData,
   CreateCheckoutV1BillingCheckoutPostErrors,
   CreateCheckoutV1BillingCheckoutPostResponses,
@@ -69,6 +88,12 @@ import type {
   CreateGlobalTaskV1AgentTasksPostData,
   CreateGlobalTaskV1AgentTasksPostErrors,
   CreateGlobalTaskV1AgentTasksPostResponses,
+  CreateHealthCheckV1ProactiveHealthChecksPostData,
+  CreateHealthCheckV1ProactiveHealthChecksPostErrors,
+  CreateHealthCheckV1ProactiveHealthChecksPostResponses,
+  CreateLoopV1ProactiveLoopsPostData,
+  CreateLoopV1ProactiveLoopsPostErrors,
+  CreateLoopV1ProactiveLoopsPostResponses,
   CreateOrUpdateApiKeyV1AgentApiKeysPostData,
   CreateOrUpdateApiKeyV1AgentApiKeysPostErrors,
   CreateOrUpdateApiKeyV1AgentApiKeysPostResponses,
@@ -78,6 +103,9 @@ import type {
   CreateRalphRunV1RalphRunsPostData,
   CreateRalphRunV1RalphRunsPostErrors,
   CreateRalphRunV1RalphRunsPostResponses,
+  CreateRuleV1ProactiveRulesPostData,
+  CreateRuleV1ProactiveRulesPostErrors,
+  CreateRuleV1ProactiveRulesPostResponses,
   CreateTaskRestMcpV1TasksPostData,
   CreateTaskRestMcpV1TasksPostResponses,
   CreateTaskV1AutomationTasksPostData,
@@ -106,29 +134,49 @@ import type {
   DeleteCronjobV1CronjobsJobIdDeleteData,
   DeleteCronjobV1CronjobsJobIdDeleteErrors,
   DeleteCronjobV1CronjobsJobIdDeleteResponses,
+  DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteData,
+  DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteErrors,
+  DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteResponses,
   DeleteInstanceV1AdminInstancesNamespaceDeleteData,
   DeleteInstanceV1AdminInstancesNamespaceDeleteErrors,
   DeleteInstanceV1AdminInstancesNamespaceDeleteResponses,
+  DeleteLoopV1ProactiveLoopsLoopIdDeleteData,
+  DeleteLoopV1ProactiveLoopsLoopIdDeleteErrors,
+  DeleteLoopV1ProactiveLoopsLoopIdDeleteResponses,
   DeleteRalphRunV1RalphRunsRunIdDeleteData,
   DeleteRalphRunV1RalphRunsRunIdDeleteErrors,
   DeleteRalphRunV1RalphRunsRunIdDeleteResponses,
+  DeleteRuleV1ProactiveRulesRuleIdDeleteData,
+  DeleteRuleV1ProactiveRulesRuleIdDeleteErrors,
+  DeleteRuleV1ProactiveRulesRuleIdDeleteResponses,
   DeleteVoiceSessionV1VoiceSessionsRoomNameDeleteData,
   DeleteVoiceSessionV1VoiceSessionsRoomNameDeleteErrors,
   DeleteVoiceSessionV1VoiceSessionsRoomNameDeleteResponses,
   DeleteWorkerProfileV1AgentWorkerProfilesProfileIdDeleteData,
   DeleteWorkerProfileV1AgentWorkerProfilesProfileIdDeleteErrors,
   DeleteWorkerProfileV1AgentWorkerProfilesProfileIdDeleteResponses,
+  DetectAnomaliesV1FinopsAnomaliesGetData,
+  DetectAnomaliesV1FinopsAnomaliesGetErrors,
+  DetectAnomaliesV1FinopsAnomaliesGetResponses,
   DiscoverAgentsAgentsGetData,
   DiscoverAgentsAgentsGetResponses,
+  DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostData,
+  DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostErrors,
+  DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostResponses,
   DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetData,
   DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors,
   DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetResponses,
+  EvaluatePoliciesV1FinopsPoliciesEvaluatePostData,
+  EvaluatePoliciesV1FinopsPoliciesEvaluatePostResponses,
   ExportCsvV1MonitorExportCsvGetData,
   ExportCsvV1MonitorExportCsvGetErrors,
   ExportCsvV1MonitorExportCsvGetResponses,
   ExportJsonV1MonitorExportJsonGetData,
   ExportJsonV1MonitorExportJsonGetErrors,
   ExportJsonV1MonitorExportJsonGetResponses,
+  GenerateRecommendationsV1FinopsRecommendationsGeneratePostData,
+  GenerateRecommendationsV1FinopsRecommendationsGeneratePostErrors,
+  GenerateRecommendationsV1FinopsRecommendationsGeneratePostResponses,
   GetA2aAgentCardWellKnownAgentCardJsonGetData,
   GetA2aAgentCardWellKnownAgentCardJsonGetResponses,
   GetActiveAgentsV1MonitorAgentsGetData,
@@ -141,6 +189,11 @@ import type {
   GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetData,
   GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetErrors,
   GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetResponses,
+  GetAlertSummaryV1FinopsAlertsSummaryGetData,
+  GetAlertSummaryV1FinopsAlertsSummaryGetResponses,
+  GetAlertsV1FinopsAlertsGetData,
+  GetAlertsV1FinopsAlertsGetErrors,
+  GetAlertsV1FinopsAlertsGetResponses,
   GetApiKeysForSyncV1AgentApiKeysSyncGetData,
   GetApiKeysForSyncV1AgentApiKeysSyncGetErrors,
   GetApiKeysForSyncV1AgentApiKeysSyncGetResponses,
@@ -158,6 +211,17 @@ import type {
   GetConnectedWorkerV1WorkerConnectedWorkerIdGetData,
   GetConnectedWorkerV1WorkerConnectedWorkerIdGetErrors,
   GetConnectedWorkerV1WorkerConnectedWorkerIdGetResponses,
+  GetConversionStatsV1ProactiveConversionsStatsGetData,
+  GetConversionStatsV1ProactiveConversionsStatsGetErrors,
+  GetConversionStatsV1ProactiveConversionsStatsGetResponses,
+  GetCostBreakdownV1FinopsCostBreakdownGetData,
+  GetCostBreakdownV1FinopsCostBreakdownGetErrors,
+  GetCostBreakdownV1FinopsCostBreakdownGetResponses,
+  GetCostForecastV1FinopsForecastGetData,
+  GetCostForecastV1FinopsForecastGetResponses,
+  GetCostTrendV1FinopsCostTrendGetData,
+  GetCostTrendV1FinopsCostTrendGetErrors,
+  GetCostTrendV1FinopsCostTrendGetResponses,
   GetCronjobRunsV1CronjobsJobIdRunsGetData,
   GetCronjobRunsV1CronjobsJobIdRunsGetErrors,
   GetCronjobRunsV1CronjobsJobIdRunsGetResponses,
@@ -172,6 +236,11 @@ import type {
   GetFunnelMetricsV1AnalyticsFunnelGetData,
   GetFunnelMetricsV1AnalyticsFunnelGetErrors,
   GetFunnelMetricsV1AnalyticsFunnelGetResponses,
+  GetFunnelStateV1ProactiveConversionsFunnelStateGetData,
+  GetFunnelStateV1ProactiveConversionsFunnelStateGetResponses,
+  GetHealthCheckV1ProactiveHealthChecksCheckIdGetData,
+  GetHealthCheckV1ProactiveHealthChecksCheckIdGetErrors,
+  GetHealthCheckV1ProactiveHealthChecksCheckIdGetResponses,
   GetHealthV1AdminHealthGetData,
   GetHealthV1AdminHealthGetResponses,
   GetInvoicesV1BillingInvoicesGetData,
@@ -180,6 +249,11 @@ import type {
   GetLivekitTokenV1LivekitTokenPostData,
   GetLivekitTokenV1LivekitTokenPostErrors,
   GetLivekitTokenV1LivekitTokenPostResponses,
+  GetLoopV1ProactiveLoopsLoopIdGetData,
+  GetLoopV1ProactiveLoopsLoopIdGetErrors,
+  GetLoopV1ProactiveLoopsLoopIdGetResponses,
+  GetMarketingStatusV1ProactiveMarketingStatusGetData,
+  GetMarketingStatusV1ProactiveMarketingStatusGetResponses,
   GetMessageCountV1MonitorMessagesCountGetData,
   GetMessageCountV1MonitorMessagesCountGetErrors,
   GetMessageCountV1MonitorMessagesCountGetResponses,
@@ -194,9 +268,13 @@ import type {
   GetMyTenantV1TenantsMeGetResponses,
   GetNextauthSessionApiAuthSessionGetData,
   GetNextauthSessionApiAuthSessionGetResponses,
+  GetOrchestratorStatusV1ProactiveOrchestratorStatusGetData,
+  GetOrchestratorStatusV1ProactiveOrchestratorStatusGetResponses,
   GetPendingConversionsV1AnalyticsPendingConversionsGetData,
   GetPendingConversionsV1AnalyticsPendingConversionsGetErrors,
   GetPendingConversionsV1AnalyticsPendingConversionsGetResponses,
+  GetProactiveStatusV1ProactiveStatusGetData,
+  GetProactiveStatusV1ProactiveStatusGetResponses,
   GetQueueStatusV1QueueStatusGetData,
   GetQueueStatusV1QueueStatusGetResponses,
   GetRalphRunLogsV1RalphRunsRunIdLogsGetData,
@@ -207,6 +285,15 @@ import type {
   GetRalphRunV1RalphRunsRunIdGetResponses,
   GetReaperHealthV1AgentReaperHealthGetData,
   GetReaperHealthV1AgentReaperHealthGetResponses,
+  GetRecentUsageV1TokenBillingUsageRecentGetData,
+  GetRecentUsageV1TokenBillingUsageRecentGetErrors,
+  GetRecentUsageV1TokenBillingUsageRecentGetResponses,
+  GetRecommendationsV1FinopsRecommendationsGetData,
+  GetRecommendationsV1FinopsRecommendationsGetErrors,
+  GetRecommendationsV1FinopsRecommendationsGetResponses,
+  GetRuleV1ProactiveRulesRuleIdGetData,
+  GetRuleV1ProactiveRulesRuleIdGetErrors,
+  GetRuleV1ProactiveRulesRuleIdGetResponses,
   GetRuntimeSessionMessagesV1AgentRuntimeSessionsSessionIdMessagesGetData,
   GetRuntimeSessionMessagesV1AgentRuntimeSessionsSessionIdMessagesGetErrors,
   GetRuntimeSessionMessagesV1AgentRuntimeSessionsSessionIdMessagesGetResponses,
@@ -267,6 +354,9 @@ import type {
   GetTestEmailV1EmailTestEmailsEmailIdGetData,
   GetTestEmailV1EmailTestEmailsEmailIdGetErrors,
   GetTestEmailV1EmailTestEmailsEmailIdGetResponses,
+  GetUsageSummaryV1TokenBillingUsageSummaryGetData,
+  GetUsageSummaryV1TokenBillingUsageSummaryGetErrors,
+  GetUsageSummaryV1TokenBillingUsageSummaryGetResponses,
   GetUsageV1BillingUsageGetData,
   GetUsageV1BillingUsageGetResponses,
   GetUserAgentSessionsV1AuthUserUserIdAgentSessionsGetData,
@@ -331,6 +421,8 @@ import type {
   ListApiKeysV1AgentApiKeysGetResponses,
   ListApiKeysV1UsersApiKeysGetData,
   ListApiKeysV1UsersApiKeysGetResponses,
+  ListBudgetPoliciesV1FinopsPoliciesGetData,
+  ListBudgetPoliciesV1FinopsPoliciesGetResponses,
   ListCodebasesV1AgentCodebasesListGetData,
   ListCodebasesV1AgentCodebasesListGetErrors,
   ListCodebasesV1AgentCodebasesListGetResponses,
@@ -342,13 +434,33 @@ import type {
   ListCronjobsV1CronjobsGetData,
   ListCronjobsV1CronjobsGetErrors,
   ListCronjobsV1CronjobsGetResponses,
+  ListDecisionsV1ProactiveDecisionsGetData,
+  ListDecisionsV1ProactiveDecisionsGetErrors,
+  ListDecisionsV1ProactiveDecisionsGetResponses,
+  ListHealthChecksV1ProactiveHealthChecksGetData,
+  ListHealthChecksV1ProactiveHealthChecksGetErrors,
+  ListHealthChecksV1ProactiveHealthChecksGetResponses,
   ListK8sInstancesV1AdminInstancesGetData,
   ListK8sInstancesV1AdminInstancesGetResponses,
+  ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetData,
+  ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetErrors,
+  ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetResponses,
+  ListLoopsV1ProactiveLoopsGetData,
+  ListLoopsV1ProactiveLoopsGetErrors,
+  ListLoopsV1ProactiveLoopsGetResponses,
+  ListMarketingDecisionsV1ProactiveMarketingDecisionsGetData,
+  ListMarketingDecisionsV1ProactiveMarketingDecisionsGetErrors,
+  ListMarketingDecisionsV1ProactiveMarketingDecisionsGetResponses,
+  ListModelPricingV1TokenBillingPricingGetData,
+  ListModelPricingV1TokenBillingPricingGetErrors,
+  ListModelPricingV1TokenBillingPricingGetResponses,
   ListModelsV1AgentModelsGetData,
   ListModelsV1AgentModelsGetResponses,
   ListMyRunsV1QueueRunsGetData,
   ListMyRunsV1QueueRunsGetErrors,
   ListMyRunsV1QueueRunsGetResponses,
+  ListPlaybooksV1ProactiveOrchestratorPlaybooksGetData,
+  ListPlaybooksV1ProactiveOrchestratorPlaybooksGetResponses,
   ListPrdChatSessionsV1RalphChatSessionsCodebaseIdGetData,
   ListPrdChatSessionsV1RalphChatSessionsCodebaseIdGetErrors,
   ListPrdChatSessionsV1RalphChatSessionsCodebaseIdGetResponses,
@@ -357,6 +469,12 @@ import type {
   ListRalphRunsV1RalphRunsGetData,
   ListRalphRunsV1RalphRunsGetErrors,
   ListRalphRunsV1RalphRunsGetResponses,
+  ListRuleRunsV1ProactiveRulesRuleIdRunsGetData,
+  ListRuleRunsV1ProactiveRulesRuleIdRunsGetErrors,
+  ListRuleRunsV1ProactiveRulesRuleIdRunsGetResponses,
+  ListRulesV1ProactiveRulesGetData,
+  ListRulesV1ProactiveRulesGetErrors,
+  ListRulesV1ProactiveRulesGetResponses,
   ListSessionsV1AgentCodebasesCodebaseIdSessionsGetData,
   ListSessionsV1AgentCodebasesCodebaseIdSessionsGetErrors,
   ListSessionsV1AgentCodebasesCodebaseIdSessionsGetResponses,
@@ -411,21 +529,21 @@ import type {
   NextauthCallbackApiAuthCallbackKeycloakGetData,
   NextauthCallbackApiAuthCallbackKeycloakGetErrors,
   NextauthCallbackApiAuthCallbackKeycloakGetResponses,
-  OpencodeToAgentRedirectV1OpencodePathPatch2Data,
-  OpencodeToAgentRedirectV1OpencodePathPatch2Errors,
-  OpencodeToAgentRedirectV1OpencodePathPatch2Responses,
-  OpencodeToAgentRedirectV1OpencodePathPatch3Data,
-  OpencodeToAgentRedirectV1OpencodePathPatch3Errors,
-  OpencodeToAgentRedirectV1OpencodePathPatch3Responses,
-  OpencodeToAgentRedirectV1OpencodePathPatch4Data,
-  OpencodeToAgentRedirectV1OpencodePathPatch4Errors,
-  OpencodeToAgentRedirectV1OpencodePathPatch4Responses,
-  OpencodeToAgentRedirectV1OpencodePathPatch5Data,
-  OpencodeToAgentRedirectV1OpencodePathPatch5Errors,
-  OpencodeToAgentRedirectV1OpencodePathPatch5Responses,
-  OpencodeToAgentRedirectV1OpencodePathPatchData,
-  OpencodeToAgentRedirectV1OpencodePathPatchErrors,
-  OpencodeToAgentRedirectV1OpencodePathPatchResponses,
+  OpencodeToAgentRedirectV1OpencodePathPost2Data,
+  OpencodeToAgentRedirectV1OpencodePathPost2Errors,
+  OpencodeToAgentRedirectV1OpencodePathPost2Responses,
+  OpencodeToAgentRedirectV1OpencodePathPost3Data,
+  OpencodeToAgentRedirectV1OpencodePathPost3Errors,
+  OpencodeToAgentRedirectV1OpencodePathPost3Responses,
+  OpencodeToAgentRedirectV1OpencodePathPost4Data,
+  OpencodeToAgentRedirectV1OpencodePathPost4Errors,
+  OpencodeToAgentRedirectV1OpencodePathPost4Responses,
+  OpencodeToAgentRedirectV1OpencodePathPost5Data,
+  OpencodeToAgentRedirectV1OpencodePathPost5Errors,
+  OpencodeToAgentRedirectV1OpencodePathPost5Responses,
+  OpencodeToAgentRedirectV1OpencodePathPostData,
+  OpencodeToAgentRedirectV1OpencodePathPostErrors,
+  OpencodeToAgentRedirectV1OpencodePathPostResponses,
   PrdChatV1RalphChatPostData,
   PrdChatV1RalphChatPostErrors,
   PrdChatV1RalphChatPostResponses,
@@ -474,9 +592,14 @@ import type {
   ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostData,
   ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostErrors,
   ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostResponses,
+  RetryFailedConversionsV1ProactiveConversionsRetryPostData,
+  RetryFailedConversionsV1ProactiveConversionsRetryPostResponses,
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteData,
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteErrors,
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteResponses,
+  RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostData,
+  RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostErrors,
+  RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostResponses,
   ScaleInstanceV1AdminInstancesNamespaceScalePostData,
   ScaleInstanceV1AdminInstancesNamespaceScalePostErrors,
   ScaleInstanceV1AdminInstancesNamespaceScalePostResponses,
@@ -498,6 +621,12 @@ import type {
   ServeMonitorJsV1MonitorMonitorJsGetResponses,
   ServeMonitorUiV1MonitorGetData,
   ServeMonitorUiV1MonitorGetResponses,
+  SetBillingModelV1TokenBillingConfigBillingModelPutData,
+  SetBillingModelV1TokenBillingConfigBillingModelPutErrors,
+  SetBillingModelV1TokenBillingConfigBillingModelPutResponses,
+  SetSpendingLimitV1TokenBillingConfigSpendingLimitPutData,
+  SetSpendingLimitV1TokenBillingConfigSpendingLimitPutErrors,
+  SetSpendingLimitV1TokenBillingConfigSpendingLimitPutResponses,
   SetupBillingV1BillingSetupPostData,
   SetupBillingV1BillingSetupPostResponses,
   SigninKeycloakApiAuthSigninKeycloakPostData,
@@ -594,6 +723,15 @@ import type {
   UpdateCronjobV1CronjobsJobIdPutData,
   UpdateCronjobV1CronjobsJobIdPutErrors,
   UpdateCronjobV1CronjobsJobIdPutResponses,
+  UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutData,
+  UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutErrors,
+  UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutResponses,
+  UpdateLoopV1ProactiveLoopsLoopIdPutData,
+  UpdateLoopV1ProactiveLoopsLoopIdPutErrors,
+  UpdateLoopV1ProactiveLoopsLoopIdPutResponses,
+  UpdateRuleV1ProactiveRulesRuleIdPutData,
+  UpdateRuleV1ProactiveRulesRuleIdPutErrors,
+  UpdateRuleV1ProactiveRulesRuleIdPutResponses,
   UpdateTaskStatusV1AgentTasksTaskIdStatusPutData,
   UpdateTaskStatusV1AgentTasksTaskIdStatusPutErrors,
   UpdateTaskStatusV1AgentTasksTaskIdStatusPutResponses,
@@ -612,6 +750,9 @@ import type {
   UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostData,
   UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostErrors,
   UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostResponses,
+  UpsertModelPricingV1TokenBillingPricingPutData,
+  UpsertModelPricingV1TokenBillingPricingPutErrors,
+  UpsertModelPricingV1TokenBillingPricingPutResponses,
   ValidateCronExpressionV1CronjobsValidateCronPostData,
   ValidateCronExpressionV1CronjobsValidateCronPostErrors,
   ValidateCronExpressionV1CronjobsValidateCronPostResponses,
@@ -1233,6 +1374,22 @@ export const listModelsV1AgentModelsGet = <
     unknown,
     ThrowOnError
   >({ url: '/v1/agent/models', ...options })
+
+/**
+ * List Providers
+ *
+ * List all known LLM providers with their configuration.
+ */
+export const listProvidersV1AgentProvidersGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListProvidersV1AgentProvidersGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListProvidersV1AgentProvidersGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/agent/providers', ...options })
 
 /**
  * Get Codebases
@@ -2261,22 +2418,6 @@ export const getReaperHealthV1AgentReaperHealthGet = <
   >({ url: '/v1/agent/reaper/health', ...options })
 
 /**
- * List Providers
- *
- * List all known LLM providers with their configuration.
- */
-export const listProvidersV1AgentProvidersGet = <
-  ThrowOnError extends boolean = false,
->(
-  options?: Options<ListProvidersV1AgentProvidersGetData, ThrowOnError>,
-) =>
-  (options?.client ?? client).get<
-    ListProvidersV1AgentProvidersGetResponses,
-    unknown,
-    ThrowOnError
-  >({ url: '/v1/agent/providers', ...options })
-
-/**
  * Vault Status
  *
  * Check Vault connectivity status.
@@ -2552,17 +2693,14 @@ export const getSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGet = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPatch = <
+export const opencodeToAgentRedirectV1OpencodePathPost = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPatchData,
-    ThrowOnError
-  >,
+  options: Options<OpencodeToAgentRedirectV1OpencodePathPostData, ThrowOnError>,
 ) =>
   (options.client ?? client).delete<
-    OpencodeToAgentRedirectV1OpencodePathPatchResponses,
-    OpencodeToAgentRedirectV1OpencodePathPatchErrors,
+    OpencodeToAgentRedirectV1OpencodePathPostResponses,
+    OpencodeToAgentRedirectV1OpencodePathPostErrors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2571,17 +2709,17 @@ export const opencodeToAgentRedirectV1OpencodePathPatch = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPatch2 = <
+export const opencodeToAgentRedirectV1OpencodePathPost2 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPatch2Data,
+    OpencodeToAgentRedirectV1OpencodePathPost2Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    OpencodeToAgentRedirectV1OpencodePathPatch2Responses,
-    OpencodeToAgentRedirectV1OpencodePathPatch2Errors,
+    OpencodeToAgentRedirectV1OpencodePathPost2Responses,
+    OpencodeToAgentRedirectV1OpencodePathPost2Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2590,17 +2728,17 @@ export const opencodeToAgentRedirectV1OpencodePathPatch2 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPatch3 = <
+export const opencodeToAgentRedirectV1OpencodePathPost3 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPatch3Data,
+    OpencodeToAgentRedirectV1OpencodePathPost3Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).patch<
-    OpencodeToAgentRedirectV1OpencodePathPatch3Responses,
-    OpencodeToAgentRedirectV1OpencodePathPatch3Errors,
+    OpencodeToAgentRedirectV1OpencodePathPost3Responses,
+    OpencodeToAgentRedirectV1OpencodePathPost3Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2609,17 +2747,17 @@ export const opencodeToAgentRedirectV1OpencodePathPatch3 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPatch4 = <
+export const opencodeToAgentRedirectV1OpencodePathPost4 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPatch4Data,
+    OpencodeToAgentRedirectV1OpencodePathPost4Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    OpencodeToAgentRedirectV1OpencodePathPatch4Responses,
-    OpencodeToAgentRedirectV1OpencodePathPatch4Errors,
+    OpencodeToAgentRedirectV1OpencodePathPost4Responses,
+    OpencodeToAgentRedirectV1OpencodePathPost4Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2628,17 +2766,17 @@ export const opencodeToAgentRedirectV1OpencodePathPatch4 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPatch5 = <
+export const opencodeToAgentRedirectV1OpencodePathPost5 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPatch5Data,
+    OpencodeToAgentRedirectV1OpencodePathPost5Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).put<
-    OpencodeToAgentRedirectV1OpencodePathPatch5Responses,
-    OpencodeToAgentRedirectV1OpencodePathPatch5Errors,
+    OpencodeToAgentRedirectV1OpencodePathPost5Responses,
+    OpencodeToAgentRedirectV1OpencodePathPost5Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -4099,6 +4237,515 @@ export const stripeWebhookV1WebhooksStripePost = <
   >({ url: '/v1/webhooks/stripe', ...options })
 
 /**
+ * Get Usage Summary
+ *
+ * Get aggregated token usage summary for the current tenant.
+ */
+export const getUsageSummaryV1TokenBillingUsageSummaryGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetUsageSummaryV1TokenBillingUsageSummaryGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetUsageSummaryV1TokenBillingUsageSummaryGetResponses,
+    GetUsageSummaryV1TokenBillingUsageSummaryGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/usage/summary',
+    ...options,
+  })
+
+/**
+ * Get Recent Usage
+ *
+ * Get recent individual token usage records.
+ */
+export const getRecentUsageV1TokenBillingUsageRecentGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetRecentUsageV1TokenBillingUsageRecentGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetRecentUsageV1TokenBillingUsageRecentGetResponses,
+    GetRecentUsageV1TokenBillingUsageRecentGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/usage/recent',
+    ...options,
+  })
+
+/**
+ * Check Budget
+ *
+ * Check current budget status for the tenant.
+ */
+export const checkBudgetV1TokenBillingBudgetGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<CheckBudgetV1TokenBillingBudgetGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    CheckBudgetV1TokenBillingBudgetGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/budget',
+    ...options,
+  })
+
+/**
+ * Add Credits
+ *
+ * Add prepaid credits to the tenant's token balance.
+ */
+export const addCreditsV1TokenBillingCreditsPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AddCreditsV1TokenBillingCreditsPostData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    AddCreditsV1TokenBillingCreditsPostResponses,
+    AddCreditsV1TokenBillingCreditsPostErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/credits',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Set Billing Model
+ *
+ * Configure the billing model for the tenant.
+ */
+export const setBillingModelV1TokenBillingConfigBillingModelPut = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    SetBillingModelV1TokenBillingConfigBillingModelPutData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).put<
+    SetBillingModelV1TokenBillingConfigBillingModelPutResponses,
+    SetBillingModelV1TokenBillingConfigBillingModelPutErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/config/billing-model',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Set Spending Limit
+ *
+ * Set monthly spending limit for the tenant.
+ */
+export const setSpendingLimitV1TokenBillingConfigSpendingLimitPut = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    SetSpendingLimitV1TokenBillingConfigSpendingLimitPutData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).put<
+    SetSpendingLimitV1TokenBillingConfigSpendingLimitPutResponses,
+    SetSpendingLimitV1TokenBillingConfigSpendingLimitPutErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/config/spending-limit',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * List Model Pricing
+ *
+ * List all active model pricing. Public endpoint for transparency.
+ */
+export const listModelPricingV1TokenBillingPricingGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListModelPricingV1TokenBillingPricingGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListModelPricingV1TokenBillingPricingGetResponses,
+    ListModelPricingV1TokenBillingPricingGetErrors,
+    ThrowOnError
+  >({ url: '/v1/token-billing/pricing', ...options })
+
+/**
+ * Upsert Model Pricing
+ *
+ * Add or update model pricing (admin only).
+ */
+export const upsertModelPricingV1TokenBillingPricingPut = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    UpsertModelPricingV1TokenBillingPricingPutData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).put<
+    UpsertModelPricingV1TokenBillingPricingPutResponses,
+    UpsertModelPricingV1TokenBillingPricingPutErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/token-billing/pricing',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Get Cost Forecast
+ *
+ * Get projected end-of-month cost based on usage trends.
+ */
+export const getCostForecastV1FinopsForecastGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetCostForecastV1FinopsForecastGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetCostForecastV1FinopsForecastGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/forecast',
+    ...options,
+  })
+
+/**
+ * Get Cost Breakdown
+ *
+ * Get cost breakdown grouped by dimension (model, user, project, etc.).
+ */
+export const getCostBreakdownV1FinopsCostBreakdownGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetCostBreakdownV1FinopsCostBreakdownGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetCostBreakdownV1FinopsCostBreakdownGetResponses,
+    GetCostBreakdownV1FinopsCostBreakdownGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/cost-breakdown',
+    ...options,
+  })
+
+/**
+ * Get Cost Trend
+ *
+ * Get daily cost trend for charting.
+ */
+export const getCostTrendV1FinopsCostTrendGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetCostTrendV1FinopsCostTrendGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetCostTrendV1FinopsCostTrendGetResponses,
+    GetCostTrendV1FinopsCostTrendGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/cost-trend',
+    ...options,
+  })
+
+/**
+ * Detect Anomalies
+ *
+ * Detect cost anomalies by comparing today's usage against historical baseline.
+ */
+export const detectAnomaliesV1FinopsAnomaliesGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<DetectAnomaliesV1FinopsAnomaliesGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    DetectAnomaliesV1FinopsAnomaliesGetResponses,
+    DetectAnomaliesV1FinopsAnomaliesGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/anomalies',
+    ...options,
+  })
+
+/**
+ * List Budget Policies
+ *
+ * List all budget policies for the tenant.
+ */
+export const listBudgetPoliciesV1FinopsPoliciesGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBudgetPoliciesV1FinopsPoliciesGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListBudgetPoliciesV1FinopsPoliciesGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/policies',
+    ...options,
+  })
+
+/**
+ * Create Budget Policy
+ *
+ * Create or update a budget policy.
+ */
+export const createBudgetPolicyV1FinopsPoliciesPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBudgetPolicyV1FinopsPoliciesPostData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    CreateBudgetPolicyV1FinopsPoliciesPostResponses,
+    CreateBudgetPolicyV1FinopsPoliciesPostErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/policies',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Evaluate Policies
+ *
+ * Evaluate all active budget policies and return any breached ones.
+ */
+export const evaluatePoliciesV1FinopsPoliciesEvaluatePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    EvaluatePoliciesV1FinopsPoliciesEvaluatePostData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).post<
+    EvaluatePoliciesV1FinopsPoliciesEvaluatePostResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/policies/evaluate',
+    ...options,
+  })
+
+/**
+ * Get Alerts
+ *
+ * Get cost alerts for the tenant.
+ */
+export const getAlertsV1FinopsAlertsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetAlertsV1FinopsAlertsGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetAlertsV1FinopsAlertsGetResponses,
+    GetAlertsV1FinopsAlertsGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/alerts',
+    ...options,
+  })
+
+/**
+ * Get Alert Summary
+ *
+ * Get unacknowledged alert counts by severity.
+ */
+export const getAlertSummaryV1FinopsAlertsSummaryGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetAlertSummaryV1FinopsAlertsSummaryGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetAlertSummaryV1FinopsAlertsSummaryGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/alerts/summary',
+    ...options,
+  })
+
+/**
+ * Acknowledge Alert
+ *
+ * Acknowledge a cost alert.
+ */
+export const acknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).post<
+    AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostResponses,
+    AcknowledgeAlertV1FinopsAlertsAlertIdAcknowledgePostErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/alerts/{alert_id}/acknowledge',
+    ...options,
+  })
+
+/**
+ * Get Recommendations
+ *
+ * Get cost optimization recommendations.
+ */
+export const getRecommendationsV1FinopsRecommendationsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetRecommendationsV1FinopsRecommendationsGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetRecommendationsV1FinopsRecommendationsGetResponses,
+    GetRecommendationsV1FinopsRecommendationsGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/recommendations',
+    ...options,
+  })
+
+/**
+ * Dismiss Recommendation
+ *
+ * Dismiss a cost optimization recommendation.
+ */
+export const dismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPost =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostData,
+      ThrowOnError
+    >,
+  ) =>
+    (options.client ?? client).post<
+      DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostResponses,
+      DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostErrors,
+      ThrowOnError
+    >({
+      security: [{ scheme: 'bearer', type: 'http' }],
+      url: '/v1/finops/recommendations/{recommendation_id}/dismiss',
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+/**
+ * Generate Recommendations
+ *
+ * Generate fresh cost optimization recommendations based on usage patterns.
+ */
+export const generateRecommendationsV1FinopsRecommendationsGeneratePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GenerateRecommendationsV1FinopsRecommendationsGeneratePostData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).post<
+    GenerateRecommendationsV1FinopsRecommendationsGeneratePostResponses,
+    GenerateRecommendationsV1FinopsRecommendationsGeneratePostErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/recommendations/generate',
+    ...options,
+  })
+
+/**
+ * Check Budget
+ *
+ * Check if the tenant's budget allows new AI operations.
+ */
+export const checkBudgetV1FinopsBudgetCheckGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<CheckBudgetV1FinopsBudgetCheckGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    CheckBudgetV1FinopsBudgetCheckGetResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/budget-check',
+    ...options,
+  })
+
+/**
+ * Build Snapshots
+ *
+ * Build daily cost snapshots (admin/cron operation).
+ */
+export const buildSnapshotsV1FinopsSnapshotsBuildPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<BuildSnapshotsV1FinopsSnapshotsBuildPostData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    BuildSnapshotsV1FinopsSnapshotsBuildPostResponses,
+    BuildSnapshotsV1FinopsSnapshotsBuildPostErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/finops/snapshots/build',
+    ...options,
+  })
+
+/**
  * Register
  *
  * Register a new user account and provision their instance.
@@ -4819,6 +5466,29 @@ export const createTaskV1AutomationTasksPost = <
   })
 
 /**
+ * Cancel Task
+ *
+ * Cancel a queued or running task.
+ *
+ * Only tasks in `queued` or `running` status can be cancelled.
+ * Completed, failed, or already-cancelled tasks return 409.
+ */
+export const cancelTaskV1AutomationTasksTaskIdDelete = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CancelTaskV1AutomationTasksTaskIdDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    CancelTaskV1AutomationTasksTaskIdDeleteResponses,
+    CancelTaskV1AutomationTasksTaskIdDeleteErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/automation/tasks/{task_id}',
+    ...options,
+  })
+
+/**
  * Get Task
  *
  * Get the current status of a task.
@@ -5248,6 +5918,522 @@ export const validateCronExpressionV1CronjobsValidateCronPost = <
     ValidateCronExpressionV1CronjobsValidateCronPostErrors,
     ThrowOnError
   >({ url: '/v1/cronjobs/validate-cron', ...options })
+
+/**
+ * List Rules
+ *
+ * List proactive rules.
+ */
+export const listRulesV1ProactiveRulesGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListRulesV1ProactiveRulesGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListRulesV1ProactiveRulesGetResponses,
+    ListRulesV1ProactiveRulesGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/rules', ...options })
+
+/**
+ * Create Rule
+ *
+ * Create a new proactive rule.
+ */
+export const createRuleV1ProactiveRulesPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRuleV1ProactiveRulesPostData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    CreateRuleV1ProactiveRulesPostResponses,
+    CreateRuleV1ProactiveRulesPostErrors,
+    ThrowOnError
+  >({
+    url: '/v1/proactive/rules',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Delete Rule
+ *
+ * Delete a proactive rule.
+ */
+export const deleteRuleV1ProactiveRulesRuleIdDelete = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteRuleV1ProactiveRulesRuleIdDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeleteRuleV1ProactiveRulesRuleIdDeleteResponses,
+    DeleteRuleV1ProactiveRulesRuleIdDeleteErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/rules/{rule_id}', ...options })
+
+/**
+ * Get Rule
+ *
+ * Get a proactive rule by ID.
+ */
+export const getRuleV1ProactiveRulesRuleIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRuleV1ProactiveRulesRuleIdGetData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetRuleV1ProactiveRulesRuleIdGetResponses,
+    GetRuleV1ProactiveRulesRuleIdGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/rules/{rule_id}', ...options })
+
+/**
+ * Update Rule
+ *
+ * Update a proactive rule.
+ */
+export const updateRuleV1ProactiveRulesRuleIdPut = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateRuleV1ProactiveRulesRuleIdPutData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    UpdateRuleV1ProactiveRulesRuleIdPutResponses,
+    UpdateRuleV1ProactiveRulesRuleIdPutErrors,
+    ThrowOnError
+  >({
+    url: '/v1/proactive/rules/{rule_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * List Rule Runs
+ *
+ * Get execution history for a proactive rule.
+ */
+export const listRuleRunsV1ProactiveRulesRuleIdRunsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListRuleRunsV1ProactiveRulesRuleIdRunsGetData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    ListRuleRunsV1ProactiveRulesRuleIdRunsGetResponses,
+    ListRuleRunsV1ProactiveRulesRuleIdRunsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/rules/{rule_id}/runs', ...options })
+
+/**
+ * List Health Checks
+ *
+ * List health checks.
+ */
+export const listHealthChecksV1ProactiveHealthChecksGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    ListHealthChecksV1ProactiveHealthChecksGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    ListHealthChecksV1ProactiveHealthChecksGetResponses,
+    ListHealthChecksV1ProactiveHealthChecksGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/health-checks', ...options })
+
+/**
+ * Create Health Check
+ *
+ * Create a new health check.
+ */
+export const createHealthCheckV1ProactiveHealthChecksPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CreateHealthCheckV1ProactiveHealthChecksPostData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).post<
+    CreateHealthCheckV1ProactiveHealthChecksPostResponses,
+    CreateHealthCheckV1ProactiveHealthChecksPostErrors,
+    ThrowOnError
+  >({
+    url: '/v1/proactive/health-checks',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Delete Health Check
+ *
+ * Delete a health check.
+ */
+export const deleteHealthCheckV1ProactiveHealthChecksCheckIdDelete = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).delete<
+    DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteResponses,
+    DeleteHealthCheckV1ProactiveHealthChecksCheckIdDeleteErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/health-checks/{check_id}', ...options })
+
+/**
+ * Get Health Check
+ *
+ * Get a health check by ID.
+ */
+export const getHealthCheckV1ProactiveHealthChecksCheckIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    GetHealthCheckV1ProactiveHealthChecksCheckIdGetData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).get<
+    GetHealthCheckV1ProactiveHealthChecksCheckIdGetResponses,
+    GetHealthCheckV1ProactiveHealthChecksCheckIdGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/health-checks/{check_id}', ...options })
+
+/**
+ * Update Health Check
+ *
+ * Update a health check.
+ */
+export const updateHealthCheckV1ProactiveHealthChecksCheckIdPut = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).put<
+    UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutResponses,
+    UpdateHealthCheckV1ProactiveHealthChecksCheckIdPutErrors,
+    ThrowOnError
+  >({
+    url: '/v1/proactive/health-checks/{check_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * List Loops
+ *
+ * List perpetual cognition loops.
+ */
+export const listLoopsV1ProactiveLoopsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListLoopsV1ProactiveLoopsGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListLoopsV1ProactiveLoopsGetResponses,
+    ListLoopsV1ProactiveLoopsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/loops', ...options })
+
+/**
+ * Create Loop
+ *
+ * Create and start a new perpetual cognition loop.
+ */
+export const createLoopV1ProactiveLoopsPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateLoopV1ProactiveLoopsPostData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    CreateLoopV1ProactiveLoopsPostResponses,
+    CreateLoopV1ProactiveLoopsPostErrors,
+    ThrowOnError
+  >({
+    url: '/v1/proactive/loops',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Delete Loop
+ *
+ * Delete a perpetual loop and all its iterations.
+ */
+export const deleteLoopV1ProactiveLoopsLoopIdDelete = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteLoopV1ProactiveLoopsLoopIdDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    DeleteLoopV1ProactiveLoopsLoopIdDeleteResponses,
+    DeleteLoopV1ProactiveLoopsLoopIdDeleteErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/loops/{loop_id}', ...options })
+
+/**
+ * Get Loop
+ *
+ * Get a perpetual loop by ID.
+ */
+export const getLoopV1ProactiveLoopsLoopIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetLoopV1ProactiveLoopsLoopIdGetData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetLoopV1ProactiveLoopsLoopIdGetResponses,
+    GetLoopV1ProactiveLoopsLoopIdGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/loops/{loop_id}', ...options })
+
+/**
+ * Update Loop
+ *
+ * Update a perpetual loop. Use status='paused' to pause, 'running' to resume.
+ */
+export const updateLoopV1ProactiveLoopsLoopIdPut = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateLoopV1ProactiveLoopsLoopIdPutData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    UpdateLoopV1ProactiveLoopsLoopIdPutResponses,
+    UpdateLoopV1ProactiveLoopsLoopIdPutErrors,
+    ThrowOnError
+  >({
+    url: '/v1/proactive/loops/{loop_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * List Loop Iterations
+ *
+ * Get iteration history for a perpetual loop.
+ */
+export const listLoopIterationsV1ProactiveLoopsLoopIdIterationsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).get<
+    ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetResponses,
+    ListLoopIterationsV1ProactiveLoopsLoopIdIterationsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/loops/{loop_id}/iterations', ...options })
+
+/**
+ * List Decisions
+ *
+ * List autonomous decisions across all proactive systems.
+ */
+export const listDecisionsV1ProactiveDecisionsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListDecisionsV1ProactiveDecisionsGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListDecisionsV1ProactiveDecisionsGetResponses,
+    ListDecisionsV1ProactiveDecisionsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/decisions', ...options })
+
+/**
+ * Get Proactive Status
+ *
+ * Get overall proactive layer status: rule engine, health monitor, perpetual loops.
+ */
+export const getProactiveStatusV1ProactiveStatusGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetProactiveStatusV1ProactiveStatusGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetProactiveStatusV1ProactiveStatusGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/proactive/status', ...options })
+
+/**
+ * Get Marketing Status
+ *
+ * Get marketing automation status and last performance report.
+ */
+export const getMarketingStatusV1ProactiveMarketingStatusGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetMarketingStatusV1ProactiveMarketingStatusGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetMarketingStatusV1ProactiveMarketingStatusGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/proactive/marketing/status', ...options })
+
+/**
+ * List Marketing Decisions
+ *
+ * List marketing automation decisions from the audit trail.
+ */
+export const listMarketingDecisionsV1ProactiveMarketingDecisionsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    ListMarketingDecisionsV1ProactiveMarketingDecisionsGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    ListMarketingDecisionsV1ProactiveMarketingDecisionsGetResponses,
+    ListMarketingDecisionsV1ProactiveMarketingDecisionsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/marketing/decisions', ...options })
+
+/**
+ * Get Conversion Stats
+ *
+ * Get conversion tracking statistics.
+ */
+export const getConversionStatsV1ProactiveConversionsStatsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetConversionStatsV1ProactiveConversionsStatsGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetConversionStatsV1ProactiveConversionsStatsGetResponses,
+    GetConversionStatsV1ProactiveConversionsStatsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/conversions/stats', ...options })
+
+/**
+ * Get Funnel State
+ *
+ * Get the latest FunnelBrain state snapshot.
+ */
+export const getFunnelStateV1ProactiveConversionsFunnelStateGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetFunnelStateV1ProactiveConversionsFunnelStateGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetFunnelStateV1ProactiveConversionsFunnelStateGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/proactive/conversions/funnel-state', ...options })
+
+/**
+ * Retry Failed Conversions
+ *
+ * Retry forwarding for conversion events that failed to reach marketing-site.
+ */
+export const retryFailedConversionsV1ProactiveConversionsRetryPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    RetryFailedConversionsV1ProactiveConversionsRetryPostData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).post<
+    RetryFailedConversionsV1ProactiveConversionsRetryPostResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/proactive/conversions/retry', ...options })
+
+/**
+ * Get Orchestrator Status
+ *
+ * Get marketing orchestrator status.
+ */
+export const getOrchestratorStatusV1ProactiveOrchestratorStatusGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetOrchestratorStatusV1ProactiveOrchestratorStatusGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    GetOrchestratorStatusV1ProactiveOrchestratorStatusGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/proactive/orchestrator/status', ...options })
+
+/**
+ * Run Playbook
+ *
+ * Manually trigger a marketing orchestration playbook.
+ */
+export const runPlaybookV1ProactiveOrchestratorRunPlaybookNamePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).post<
+    RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostResponses,
+    RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostErrors,
+    ThrowOnError
+  >({ url: '/v1/proactive/orchestrator/run/{playbook_name}', ...options })
+
+/**
+ * List Playbooks
+ *
+ * List available orchestration playbooks.
+ */
+export const listPlaybooksV1ProactiveOrchestratorPlaybooksGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    ListPlaybooksV1ProactiveOrchestratorPlaybooksGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    ListPlaybooksV1ProactiveOrchestratorPlaybooksGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/v1/proactive/orchestrator/playbooks', ...options })
 
 /**
  * Handle Jsonrpc

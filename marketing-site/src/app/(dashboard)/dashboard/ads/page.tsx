@@ -151,12 +151,12 @@ function MetricCard({
     color?: 'cyan' | 'purple' | 'amber' | 'green' | 'red' | 'blue'
 }) {
     const colorMap = {
-        cyan:   'bg-cyan-500/10 text-cyan-400',
+        cyan: 'bg-cyan-500/10 text-cyan-400',
         purple: 'bg-purple-500/10 text-purple-400',
-        amber:  'bg-amber-500/10 text-amber-400',
-        green:  'bg-green-500/10 text-green-400',
-        red:    'bg-red-500/10 text-red-400',
-        blue:   'bg-blue-500/10 text-blue-400',
+        amber: 'bg-amber-500/10 text-amber-400',
+        green: 'bg-green-500/10 text-green-400',
+        red: 'bg-red-500/10 text-red-400',
+        blue: 'bg-blue-500/10 text-blue-400',
     }
 
     return (
@@ -186,10 +186,9 @@ function StatusBadge({ status }: { status: string }) {
     }
     return (
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${map[status] ?? 'bg-gray-500/20 text-gray-400'}`}>
-            <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
-                status === 'ACTIVE' ? 'bg-green-400 animate-pulse' :
-                status === 'PAUSED' ? 'bg-yellow-400' : 'bg-gray-400'
-            }`} />
+            <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${status === 'ACTIVE' ? 'bg-green-400 animate-pulse' :
+                    status === 'PAUSED' ? 'bg-yellow-400' : 'bg-gray-400'
+                }`} />
             {status}
         </span>
     )
@@ -431,7 +430,7 @@ function LaunchVideoAdForm({
             {/* Info Box */}
             <div className="mt-5 rounded-lg bg-blue-500/5 border border-blue-500/20 px-4 py-3">
                 <p className="text-xs text-blue-300">
-                    <strong>Note:</strong> Campaign will be created as <strong>PAUSED</strong>. Review it in Facebook Ads Manager before activating. 
+                    <strong>Note:</strong> Campaign will be created as <strong>PAUSED</strong>. Review it in Facebook Ads Manager before activating.
                     Budget: ${form.dailyBudget}/day. Targeting: US, ages 25-55, tech/developer interests.
                 </p>
             </div>
@@ -671,9 +670,8 @@ export default function AdsPage() {
             <div className="max-w-7xl mx-auto">
                 {/* Toast */}
                 {toast && (
-                    <div className={`fixed top-4 right-4 z-50 rounded-lg px-4 py-3 text-sm font-medium shadow-lg transition-all ${
-                        toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                    }`}>
+                    <div className={`fixed top-4 right-4 z-50 rounded-lg px-4 py-3 text-sm font-medium shadow-lg transition-all ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                        }`}>
                         {toast.message}
                     </div>
                 )}
@@ -707,11 +705,10 @@ export default function AdsPage() {
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
-                            className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                                tab === t.id
+                            className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === t.id
                                     ? 'bg-blue-600 text-white'
                                     : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                            }`}
+                                }`}
                         >
                             {t.label}
                         </button>

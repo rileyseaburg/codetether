@@ -1,4 +1,3 @@
-
 ---
 
 ## OPA Policy Engine
@@ -84,9 +83,14 @@ make release-opencode-local
 
 ### Installation for End Users
 
-**One-line install script:**
+**Linux/macOS (Bash):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.ps1" -UseBasicParsing).Content
 ```
 
 **Manual download:**
@@ -97,9 +101,10 @@ curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/sc
 ### Release File Locations
 
 - **Workflow:** `.github/workflows/release-opencode.yml`
-- **Install Script:** `scripts/install-opencode.sh`
+- **Install Scripts:** 
+  - `scripts/install-opencode.sh` (Linux/macOS)
+  - `scripts/install-opencode.ps1` (Windows)
 - **Makefile Targets:**
   - `build-opencode` - Build local binaries
   - `release-opencode` - Trigger GitHub Actions release
   - `release-opencode-local` - Build and upload locally
-
