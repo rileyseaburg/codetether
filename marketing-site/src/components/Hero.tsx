@@ -119,18 +119,22 @@ export function Hero() {
             {/* What makes it different */}
             <div className="mt-12 pt-8 border-t border-gray-800">
               <p className="text-xs text-gray-400 font-medium mb-4">Shipped in v1.1.0 — not a roadmap, it&apos;s in the binary:</p>
-              <div className="grid sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
                   <p className="text-sm text-white font-medium">Mandatory Auth</p>
-                  <p className="text-xs text-gray-400 mt-1">HMAC-SHA256 tokens. Cannot be disabled. Every endpoint.</p>
+                  <p className="text-xs text-gray-400 mt-1">HMAC-SHA256 tokens. Cannot be disabled.</p>
+                </div>
+                <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
+                  <p className="text-sm text-white font-medium">OPA Policies</p>
+                  <p className="text-xs text-gray-400 mt-1">Rego authz, tenant isolation, API key scoping.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
                   <p className="text-sm text-white font-medium">Plugin Signing</p>
-                  <p className="text-xs text-gray-400 mt-1">Ed25519 signatures + SHA-256 integrity on every tool.</p>
+                  <p className="text-xs text-gray-400 mt-1">Ed25519 signatures + SHA-256 integrity.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
                   <p className="text-sm text-white font-medium">Audit Trail</p>
-                  <p className="text-xs text-gray-400 mt-1">Append-only JSON Lines. Every action. Queryable.</p>
+                  <p className="text-xs text-gray-400 mt-1">Append-only JSON Lines. Queryable.</p>
                 </div>
               </div>
             </div>

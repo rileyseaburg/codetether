@@ -9,6 +9,8 @@ export function SocialProof() {
                 <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500 dark:text-gray-400">
                     <span className="text-cyan-600 dark:text-cyan-400 font-medium">Mandatory Auth</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span>OPA Rego Policies</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
                     <span>Append-Only Audit Trail</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
                     <span>Ed25519 Plugin Signing</span>
@@ -16,8 +18,6 @@ export function SocialProof() {
                     <span className="text-cyan-600 dark:text-cyan-400 font-medium">RLM Processing</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
                     <span>K8s Self-Deployment</span>
-                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>10M+ Token Context</span>
                 </div>
             </Container>
         </section>
@@ -69,19 +69,19 @@ export function Testimonials() {
                         <div
                             key={feature.title}
                             className={`rounded-2xl p-8 ${feature.highlight
-                                    ? 'bg-gradient-to-b from-cyan-950/40 to-gray-900 dark:bg-gray-800 border border-cyan-500/40'
-                                    : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800'
+                                ? 'bg-gradient-to-b from-cyan-950/40 to-gray-900 dark:bg-gray-800 border border-cyan-500/40'
+                                : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800'
                                 }`}
                         >
                             <h3 className={`font-bold text-lg ${feature.highlight
-                                    ? 'text-cyan-400'
-                                    : 'text-gray-900 dark:text-white'
+                                ? 'text-cyan-400'
+                                : 'text-gray-900 dark:text-white'
                                 }`}>
                                 {feature.title}
                             </h3>
                             <p className={`mt-2 text-sm ${feature.highlight
-                                    ? 'text-gray-300'
-                                    : 'text-gray-600 dark:text-gray-400'
+                                ? 'text-gray-300'
+                                : 'text-gray-600 dark:text-gray-400'
                                 }`}>
                                 {feature.description}
                             </p>

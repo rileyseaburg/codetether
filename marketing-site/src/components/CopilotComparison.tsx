@@ -36,6 +36,11 @@ const comparisonData = [
         codetether: 'Webhook trigger + callback',
     },
     {
+        feature: 'Authorization',
+        chatgpt: 'All-or-nothing access',
+        codetether: 'OPA Rego fine-grained policies',
+    },
+    {
         feature: 'Plugin Security',
         chatgpt: 'Shared process, no isolation',
         codetether: 'Sandboxed + Ed25519 signed',

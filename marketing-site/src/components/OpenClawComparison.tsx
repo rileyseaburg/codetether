@@ -63,6 +63,7 @@ const comparisonRows = [
     { feature: 'Language', openclaw: 'Node.js', codetether: 'Rust (memory-safe)' },
     { feature: 'Auth default', openclaw: 'auth: none', codetether: 'Mandatory HMAC-SHA256 — cannot disable' },
     { feature: 'Plugin isolation', openclaw: 'None — shared process', codetether: 'Sandboxed + Ed25519 code-signed' },
+    { feature: 'Authorization', openclaw: 'None — ambient authority', codetether: 'Open Policy Agent (OPA) Rego policies' },
     { feature: 'Audit trail', openclaw: 'None', codetether: 'Append-only JSON Lines — every action' },
     { feature: 'Cognition model', openclaw: 'Request/response', codetether: 'Perpetual thought loops' },
     { feature: 'Agent coordination', openclaw: 'Single bot', codetether: 'Persona swarms w/ scoped permissions' },
@@ -182,14 +183,14 @@ export function OpenClawComparison() {
                             </p>
                         </div>
 
-                        <div className="mt-12 grid gap-6 sm:grid-cols-3">
+                        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="rounded-2xl bg-gray-900 border border-gray-800 p-6">
                                 <div className="h-10 w-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4">
                                     <CogIcon className="h-5 w-5 text-cyan-400" />
                                 </div>
                                 <h4 className="text-lg font-semibold text-white mb-2">Written in Rust</h4>
                                 <p className="text-sm text-gray-400">
-                                    Not Node.js, not Python. When your agent has elevated privileges on your system, memory safety isn&apos;t a nice-to-have. It&apos;s the bare minimum. You wouldn&apos;t write a database in JavaScript. You shouldn&apos;t write an autonomous agent in it either.
+                                    Not Node.js, not Python. When your agent has elevated privileges on your system, memory safety isn&apos;t a nice-to-have. It&apos;s the bare minimum.
                                 </p>
                             </div>
 
@@ -199,7 +200,7 @@ export function OpenClawComparison() {
                                 </div>
                                 <h4 className="text-lg font-semibold text-white mb-2">Self-Deploys on K8s</h4>
                                 <p className="text-sm text-gray-400">
-                                    CodeTether manages its own pods and recovers from failures automatically. Because if your &quot;AI assistant&quot; crashes and takes your workflow with it, you don&apos;t have an assistant — you have a liability.
+                                    CodeTether manages its own pods and recovers from failures automatically. Because if your &quot;AI assistant&quot; crashes, you have a liability.
                                 </p>
                             </div>
 
@@ -209,7 +210,17 @@ export function OpenClawComparison() {
                                 </div>
                                 <h4 className="text-lg font-semibold text-white mb-2">Auth Is Mandatory</h4>
                                 <p className="text-sm text-gray-400">
-                                    It&apos;s not a flag you set. You cannot turn it off. Because when you let developers opt out of security, they opt out. Every single time. And then they write a postmortem.
+                                    It&apos;s not a flag you set. You cannot turn it off. Because when you let developers opt out of security, they opt out. Every single time.
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-gray-900 border border-gray-800 p-6">
+                                <div className="h-10 w-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4">
+                                    <ShieldIcon className="h-5 w-5 text-cyan-400" />
+                                </div>
+                                <h4 className="text-lg font-semibold text-white mb-2">OPA Policy Engine</h4>
+                                <p className="text-sm text-gray-400">
+                                    Open Policy Agent with Rego policies for authz, tenant isolation, and API key scoping. Fine-grained access control — not just &quot;allow all.&quot;
                                 </p>
                             </div>
                         </div>
@@ -311,6 +322,7 @@ export function OpenClawComparison() {
                                 'No isolation between plugins',
                                 'No audit trail',
                                 'No way to scope agent permissions',
+                                'No policy engine — no authz, no tenant isolation',
                                 'One bad npm package = compromised agent',
                             ].map((issue) => (
                                 <div key={issue} className="flex items-center gap-3 rounded-lg bg-red-950/20 border border-red-900/30 px-4 py-3">
