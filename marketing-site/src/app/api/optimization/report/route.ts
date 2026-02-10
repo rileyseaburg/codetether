@@ -17,23 +17,23 @@ let funnelBrain: MarketingFunnelBrain | null = null;
 let adBrain: AdBrain | null = null;
 
 function getFunnelBrain(): MarketingFunnelBrain {
-  if (!funnelBrain) {
-    funnelBrain = new MarketingFunnelBrain();
-    if (typeof globalThis !== 'undefined' && (globalThis as any).__funnelBrainState) {
-      funnelBrain.importState((globalThis as any).__funnelBrainState);
+    if (!funnelBrain) {
+        funnelBrain = new MarketingFunnelBrain();
+        if (typeof globalThis !== 'undefined' && (globalThis as any).__funnelBrainState) {
+            funnelBrain.importState((globalThis as any).__funnelBrainState);
+        }
     }
-  }
-  return funnelBrain;
+    return funnelBrain;
 }
 
 function getAdBrain(): AdBrain {
-  if (!adBrain) {
-    adBrain = new AdBrain({ campaigns: createSeedCampaigns() });
-    if (typeof globalThis !== 'undefined' && (globalThis as any).__adBrainState) {
-      adBrain.importState((globalThis as any).__adBrainState);
+    if (!adBrain) {
+        adBrain = new AdBrain({ campaigns: createSeedCampaigns() });
+        if (typeof globalThis !== 'undefined' && (globalThis as any).__adBrainState) {
+            adBrain.importState((globalThis as any).__adBrainState);
+        }
     }
-  }
-  return adBrain;
+    return adBrain;
 }
 
 /**
@@ -42,24 +42,24 @@ function getAdBrain(): AdBrain {
  * Returns the self-selling performance report.
  */
 export async function GET(_request: NextRequest) {
-  const brain = getFunnelBrain();
-  const ad = getAdBrain();
+    const brain = getFunnelBrain();
+    const ad = getAdBrain();
 
-  const variantPerformance = brain.getPerformanceReport();
-  const adReport = await ad.generateReport(30);
-  const bids = ad.calculateBids();
+    const variantPerformance = brain.getPerformanceReport();
+    const adReport = await ad.generateReport(30);
+    const bids = ad.calculateBids();
 
-  return NextResponse.json({
-    generatedAt: new Date().toISOString(),
-    funnelBrain: {
-      totalVariants: variantPerformance.length,
-      activeTests: variantPerformance.filter(v => v.impressions > 0).length,
-      winningVariants: variantPerformance.filter(v => v.isWinning),
-      allVariants: variantPerformance,
-    },
-    adBrain: {
-      ...adReport,
-      optimizedBids: bids,
-    },
-  });
+    return NextResponse.json({
+        generatedAt: new Date().toISOString(),
+        funnelBrain: {
+            totalVariants: variantPerformance.length,
+            activeTests: variantPerformance.filter(v => v.impressions > 0).length,
+            winningVariants: variantPerformance.filter(v => v.isWinning),
+            allVariants: variantPerformance,
+        },
+        adBrain: {
+            ...adReport,
+            optimizedBids: bids,
+        },
+    });
 }

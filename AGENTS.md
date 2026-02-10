@@ -1,6 +1,45 @@
 
 ---
 
+## OPA Policy Engine
+
+The project uses **Open Policy Agent (OPA)** as a centralized authorization engine across both the Python A2A server and the Rust CodeTether agent.
+
+### Key Files
+
+| Layer | File | Purpose |
+|-------|------|---------|
+| Rego policies | `policies/authz.rego` | RBAC permission checks |
+| Rego policies | `policies/api_keys.rego` | API key scope enforcement |
+| Rego policies | `policies/tenants.rego` | Tenant isolation |
+| Static data | `policies/data.json` | Role→permission mappings |
+| Python client | `a2a_server/policy.py` | OPA HTTP client + `require_permission()` dependency |
+| Python middleware | `a2a_server/policy_middleware.py` | Centralized auth middleware (~160 route rules) |
+| Rust client | `codetether-agent/src/server/policy.rs` | OPA HTTP client + local eval fallback |
+| Rust middleware | `codetether-agent/src/server/mod.rs` | `POLICY_ROUTES` + `policy_middleware()` |
+| Helm | `chart/a2a-server/templates/opa-configmap.yaml` | OPA sidecar ConfigMap |
+
+### Testing
+
+```bash
+# Run all policy tests (Rego + Python + Rust)
+make policy-test
+
+# Individual test suites
+opa test policies/ -v                    # 41 Rego tests
+python -m pytest tests/test_policy.py     # 23 Python tests
+python -m pytest tests/test_policy_middleware.py  # 83 middleware tests
+cargo test policy                         # 9 Rust tests
+```
+
+### RBAC Roles
+
+`admin` > `a2a-admin` > `operator` > `editor` > `viewer`
+
+Permissions follow `resource:action` format (e.g., `task:read`, `agent:admin`). See `policies/data.json` for the full mapping.
+
+---
+
 ## OpenCode Releases
 
 OpenCode binaries are automatically built and published to **GitHub Releases** when you create a tag matching `opencode-v*` or `v*`.

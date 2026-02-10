@@ -162,6 +162,10 @@ rls:
   strictMode: false # When true, requires tenant context for ALL queries
   auditEnabled: true # Log RLS policy violations
 
+# OPA Policy Engine - centralized authorization
+opa:
+  enabled: true
+
 # Disable local persistence (using MinIO instead)
 persistence:
   enabled: false

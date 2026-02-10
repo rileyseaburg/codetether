@@ -1,14 +1,15 @@
 ---
-title: Authentication Overview
-description: Authentication options in CodeTether
+title: Authentication & Authorization Overview
+description: Authentication and authorization options in CodeTether
 ---
 
-# Authentication
+# Authentication & Authorization
 
-CodeTether has two layers of authentication:
+CodeTether has three security layers:
 
-1. **Agent-level** (Rust, mandatory) — Bearer token auth built into the agent runtime. Cannot be disabled.
-2. **Server-level** (Python, configurable) — API tokens or Keycloak OIDC for the A2A server.
+1. **Authentication (Agent)** — Mandatory Bearer token auth in the Rust agent runtime. Cannot be disabled.
+2. **Authentication (Server)** — API tokens or Keycloak OIDC for the Python A2A server.
+3. **Authorization (OPA Policy Engine)** — Centralized RBAC + scope enforcement via Open Policy Agent. Applies to both Python and Rust.
 
 ## Agent Authentication (Mandatory)
 
@@ -51,3 +52,23 @@ export KEYCLOAK_CLIENT_ID=codetether
 ```
 
 See [Keycloak Setup](keycloak.md) for full configuration.
+
+## Authorization (OPA Policy Engine)
+
+Beyond authentication, CodeTether enforces fine-grained authorization using [Open Policy Agent (OPA)](https://www.openpolicyagent.org/):
+
+- **5 RBAC roles**: admin, a2a-admin, operator, editor, viewer
+- **Resource-level permissions**: `tasks:read`, `codebases:write`, `admin:access`, etc.
+- **API key scope enforcement**: Keys are restricted to their granted scopes
+- **Tenant isolation**: Users can only access resources in their own tenant
+- **Centralized middleware**: ~120 endpoints secured by path→permission mapping
+
+```bash
+# Enable local policy evaluation (no OPA sidecar needed)
+export OPA_LOCAL_MODE=true
+
+# Or connect to OPA sidecar (production)
+export OPA_URL=http://localhost:8181
+```
+
+See [Policy Engine (OPA)](policy-engine.md) for full configuration and role details.

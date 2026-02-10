@@ -10,6 +10,8 @@ import {
     getUsageV1BillingUsageGet
 } from '@/lib/api'
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+
 interface BillingStatus {
     tier: string
     tier_name: string
@@ -19,6 +21,37 @@ interface BillingStatus {
     tasks_limit: number
     concurrency_limit: number
     max_runtime_seconds: number
+}
+
+interface TokenUsageSummary {
+    tenant_id: string
+    month: string
+    billing_model: string
+    balance_dollars: number
+    monthly_limit_dollars: number | null
+    totals: {
+        total_requests: number
+        total_input_tokens: number
+        total_output_tokens: number
+        total_cost_dollars: number
+    }
+    by_model: Array<{
+        provider: string
+        model: string
+        request_count: number
+        input_tokens: number
+        output_tokens: number
+        cost_dollars: number
+    }>
+}
+
+interface BudgetStatus {
+    allowed: boolean
+    reason: string
+    balance_dollars: number
+    monthly_spend_dollars: number
+    monthly_limit_dollars: number | null
+    billing_model: string
 }
 
 
@@ -49,6 +82,9 @@ function BillingContent() {
     const [error, setError] = useState<string | null>(null)
     const [upgrading, setUpgrading] = useState<string | null>(null)
     const [portalLoading, setPortalLoading] = useState(false)
+    const [tokenUsage, setTokenUsage] = useState<TokenUsageSummary | null>(null)
+    const [budgetStatus, setBudgetStatus] = useState<BudgetStatus | null>(null)
+    const [tokenLoading, setTokenLoading] = useState(false)
 
     const upgraded = searchParams.get('upgraded') === 'true'
 
@@ -81,8 +117,34 @@ function BillingContent() {
     useEffect(() => {
         if (authStatus === 'authenticated') {
             loadBillingStatus()
+            loadTokenUsage()
         }
     }, [authStatus])
+
+    const loadTokenUsage = async () => {
+        setTokenLoading(true)
+        try {
+            const token = getAuthToken()
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (token) headers['Authorization'] = `Bearer ${token}`
+
+            const [usageRes, budgetRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/v1/token-billing/usage/summary`, { headers }),
+                fetch(`${API_BASE_URL}/v1/token-billing/budget`, { headers }),
+            ])
+
+            if (usageRes.ok) {
+                setTokenUsage(await usageRes.json())
+            }
+            if (budgetRes.ok) {
+                setBudgetStatus(await budgetRes.json())
+            }
+        } catch (err) {
+            console.error('Failed to load token usage:', err)
+        } finally {
+            setTokenLoading(false)
+        }
+    }
 
     const loadBillingStatus = async () => {
         setLoading(true)
@@ -280,10 +342,10 @@ function BillingContent() {
                                     {billingStatus?.tier_name || 'Free'}
                                 </span>
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${billingStatus?.stripe_subscription_status === 'active'
-                                        ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                                        : billingStatus?.stripe_subscription_status === 'past_due'
-                                            ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                                    ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                                    : billingStatus?.stripe_subscription_status === 'past_due'
+                                        ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                                     }`}>
                                     {billingStatus?.stripe_subscription_status === 'active'
                                         ? 'Active'
@@ -338,10 +400,10 @@ function BillingContent() {
                         <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all ${usagePercent >= 90
-                                        ? 'bg-red-500'
-                                        : usagePercent >= 75
-                                            ? 'bg-yellow-500'
-                                            : 'bg-cyan-500'
+                                    ? 'bg-red-500'
+                                    : usagePercent >= 75
+                                        ? 'bg-yellow-500'
+                                        : 'bg-cyan-500'
                                     }`}
                                 style={{ width: `${usagePercent}%` }}
                             />
@@ -380,6 +442,162 @@ function BillingContent() {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Token Usage */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                        Token Usage
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        AI model token consumption this billing period
+                    </p>
+                </div>
+                <div className="p-6">
+                    {tokenLoading ? (
+                        <div className="flex justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600" />
+                        </div>
+                    ) : budgetStatus || tokenUsage ? (
+                        <div className="space-y-6">
+                            {/* Balance & Spend overview */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        ${budgetStatus?.balance_dollars?.toFixed(2) ?? '0.00'}
+                                    </div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                        credit balance
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        ${budgetStatus?.monthly_spend_dollars?.toFixed(2) ?? '0.00'}
+                                    </div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                        spent this month
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        {budgetStatus?.monthly_limit_dollars
+                                            ? `$${budgetStatus.monthly_limit_dollars.toFixed(2)}`
+                                            : 'Unlimited'}
+                                    </div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                        monthly limit
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Spending progress bar */}
+                            {budgetStatus?.monthly_limit_dollars && budgetStatus.monthly_limit_dollars > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-600 dark:text-gray-400">Token spending</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            ${budgetStatus.monthly_spend_dollars.toFixed(2)} / ${budgetStatus.monthly_limit_dollars.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${(budgetStatus.monthly_spend_dollars / budgetStatus.monthly_limit_dollars) >= 0.9
+                                                    ? 'bg-red-500'
+                                                    : (budgetStatus.monthly_spend_dollars / budgetStatus.monthly_limit_dollars) >= 0.75
+                                                        ? 'bg-yellow-500'
+                                                        : 'bg-cyan-500'
+                                                }`}
+                                            style={{ width: `${Math.min(100, (budgetStatus.monthly_spend_dollars / budgetStatus.monthly_limit_dollars) * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Budget warning */}
+                            {budgetStatus && !budgetStatus.allowed && (
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                                    <p className="text-sm text-red-800 dark:text-red-200">
+                                        {budgetStatus.reason}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Token totals */}
+                            {tokenUsage?.totals && (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div className="text-center">
+                                        <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                                            {(tokenUsage.totals.total_requests ?? 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">requests</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                                            {(tokenUsage.totals.total_input_tokens ?? 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">input tokens</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                                            {(tokenUsage.totals.total_output_tokens ?? 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">output tokens</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+                                            ${(tokenUsage.totals.total_cost_dollars ?? 0).toFixed(4)}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">total cost</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Per-model breakdown */}
+                            {tokenUsage?.by_model && tokenUsage.by_model.length > 0 && (
+                                <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Model</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Requests</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Input</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Output</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Cost</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                            {tokenUsage.by_model.map((row, i) => (
+                                                <tr key={i}>
+                                                    <td className="px-4 py-2 text-gray-900 dark:text-white">
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">{row.provider}/</span>
+                                                        {row.model}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">
+                                                        {row.request_count.toLocaleString()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">
+                                                        {row.input_tokens.toLocaleString()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">
+                                                        {row.output_tokens.toLocaleString()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right font-medium text-gray-900 dark:text-white">
+                                                        ${row.cost_dollars.toFixed(4)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                            No token usage data available yet. Usage will appear here once your agents start processing tasks.
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -444,8 +662,8 @@ function BillingContent() {
                                     onClick={() => handleUpgrade('agency')}
                                     disabled={upgrading === 'agency'}
                                     className={`mt-4 w-full px-4 py-2 rounded-md transition-colors disabled:opacity-50 ${billingStatus?.tier === 'pro'
-                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                                         }`}
                                 >
                                     {upgrading === 'agency' ? 'Redirecting...' : 'Upgrade to Agency'}
@@ -486,6 +704,22 @@ function BillingContent() {
                         </h4>
                         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                             Yes, use &quot;Manage billing&quot; to change or cancel your plan. Changes take effect at your next billing date.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                            How does token billing work?
+                        </h4>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            Every AI request consumes tokens. We track input, output, reasoning, and cache tokens per request and deduct from your prepaid credit balance. Each model has transparent per-million-token pricing. You can set monthly spending limits and add credits anytime.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                            What happens if my token credit runs out?
+                        </h4>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            New AI requests will be paused until you add more credits. Running tasks won&apos;t be interrupted mid-stream. You can add credits at any time from this page.
                         </p>
                     </div>
                 </div>

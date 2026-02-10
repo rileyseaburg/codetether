@@ -7,7 +7,7 @@ const ZAPIER_INVITE_LINK = 'https://zapier.com/developer/public-invite/235522/dc
 function ZapierIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 14.036h-3.43l2.426 2.426a.5.5 0 010 .707l-.707.707a.5.5 0 01-.707 0l-2.426-2.426v3.43a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-3.43l-2.426 2.426a.5.5 0 01-.707 0l-.707-.707a.5.5 0 010-.707l2.426-2.426h-3.43a.5.5 0 01-.5-.5v-1a.5.5 0 01.5-.5h3.43L7.21 9.61a.5.5 0 010-.707l.707-.707a.5.5 0 01.707 0l2.426 2.426v-3.43a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v3.43l2.426-2.426a.5.5 0 01.707 0l.707.707a.5.5 0 010 .707l-2.426 2.426h3.43a.5.5 0 01.5.5v1a.5.5 0 01-.5.5z"/>
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 14.036h-3.43l2.426 2.426a.5.5 0 010 .707l-.707.707a.5.5 0 01-.707 0l-2.426-2.426v3.43a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-3.43l-2.426 2.426a.5.5 0 01-.707 0l-.707-.707a.5.5 0 010-.707l2.426-2.426h-3.43a.5.5 0 01-.5-.5v-1a.5.5 0 01.5-.5h3.43L7.21 9.61a.5.5 0 010-.707l.707-.707a.5.5 0 01.707 0l2.426 2.426v-3.43a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v3.43l2.426-2.426a.5.5 0 01.707 0l.707.707a.5.5 0 010 .707l-2.426 2.426h3.43a.5.5 0 01.5.5v1a.5.5 0 01-.5.5z" />
         </svg>
     )
 }
@@ -47,17 +47,17 @@ function WebhookIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 const integrationMethods = [
     {
         name: 'Zapier',
-        description: 'Connect CodeTether to 6,000+ apps with no code. Create tasks from emails, Slack messages, form submissions, and more.',
+        description: 'Connect CodeTether to 6,000+ apps with no code. 18 components: triggers, actions, searches for tasks, agents, codebases, cron jobs, billing, and more.',
         icon: ZapierIcon,
         color: 'bg-orange-500',
         href: ZAPIER_INVITE_LINK,
         external: true,
         featured: true,
         features: [
-            'Trigger tasks from any Zapier-connected app',
-            'Send messages to AI agents automatically',
-            'Search and monitor task status',
-            'No coding required'
+            '3 triggers: task created, completed, and failed',
+            '9 actions: tasks, messages, agents, Ralph, cron jobs, PRDs',
+            '7 searches: agents, codebases, models, usage, Ralph runs',
+            'No coding required — OAuth2 authentication'
         ],
         cta: 'Connect with Zapier',
     },
@@ -124,7 +124,7 @@ const zapierUseCases = [
     },
     {
         trigger: 'New Slack message',
-        action: 'Send to AI agent for code review',
+        action: 'Send to specific AI agent for code review',
         icon: '💬',
     },
     {
@@ -133,18 +133,28 @@ const zapierUseCases = [
         icon: '🐛',
     },
     {
-        trigger: 'New Typeform submission',
-        action: 'Process form data with AI',
+        trigger: 'New Notion page',
+        action: 'Generate PRD → start Ralph run automatically',
         icon: '📝',
     },
     {
-        trigger: 'Scheduled (daily/weekly)',
-        action: 'Run automated code analysis',
+        trigger: 'Create a cron job',
+        action: 'Schedule daily code reviews at 9am',
         icon: '🕐',
     },
     {
+        trigger: 'Task failed (trigger)',
+        action: 'Auto-retry with different model or alert team',
+        icon: '🔄',
+    },
+    {
+        trigger: 'Weekly budget check',
+        action: 'Get usage summary → alert if over budget',
+        icon: '💰',
+    },
+    {
         trigger: 'New Trello card',
-        action: 'Create implementation task',
+        action: 'Send async message to builder agent',
         icon: '📋',
     },
 ]
@@ -160,7 +170,7 @@ export default function GettingStartedPage() {
                 </div>
                 <h1 className="text-3xl font-bold mb-2">Get Started with Zapier</h1>
                 <p className="text-lg text-orange-100 mb-6 max-w-2xl">
-                    The fastest way to automate CodeTether. Connect to 6,000+ apps and start 
+                    The fastest way to automate CodeTether. Connect to 6,000+ apps and start
                     triggering AI tasks from emails, Slack, forms, and more — no code required.
                 </p>
                 <a
@@ -238,11 +248,10 @@ export default function GettingStartedPage() {
                     {integrationMethods.map((method) => (
                         <div
                             key={method.name}
-                            className={`rounded-xl bg-white dark:bg-gray-800 shadow-sm ring-1 p-6 ${
-                                method.featured 
-                                    ? 'ring-orange-500 ring-2' 
+                            className={`rounded-xl bg-white dark:bg-gray-800 shadow-sm ring-1 p-6 ${method.featured
+                                    ? 'ring-orange-500 ring-2'
                                     : 'ring-gray-200 dark:ring-gray-700'
-                            }`}
+                                }`}
                         >
                             {method.featured && (
                                 <span className="inline-block mb-3 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-full">
@@ -269,11 +278,10 @@ export default function GettingStartedPage() {
                                     href={method.href}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        method.featured
+                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${method.featured
                                             ? 'bg-orange-500 text-white hover:bg-orange-600'
                                             : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
-                                    }`}
+                                        }`}
                                 >
                                     {method.cta}
                                     <ArrowRightIcon className="h-4 w-4" />

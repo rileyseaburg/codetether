@@ -25,6 +25,16 @@ import {
     addNegativeKeywords,
     dollarsToMicros,
 } from '@/lib/google/client';
+import {
+    uploadYouTubeAsset,
+    createVideoCampaign,
+    createVideoAdGroup,
+    createInStreamVideoAd,
+    createBumperVideoAd,
+    listVideoAds,
+    getVideoReport,
+    launchVideoAdFromYouTube,
+} from '@/lib/google/videoAds';
 
 function errorResponse(message: string, status = 400) {
     return NextResponse.json({ error: message }, { status });
@@ -171,9 +181,112 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json(result, { status: 201 });
             }
 
+            // ---- Video Ads ----
+            case 'upload_youtube_asset': {
+                if (!params.youtubeVideoId)
+                    return errorResponse('youtubeVideoId required');
+                const result = await uploadYouTubeAsset({
+                    youtubeVideoId: params.youtubeVideoId,
+                    assetName: params.assetName,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json(result, { status: 201 });
+            }
+
+            case 'create_video_campaign': {
+                if (!params.name) return errorResponse('name required');
+                if (!params.dailyBudgetDollars && !params.dailyBudgetMicros)
+                    return errorResponse('dailyBudgetDollars or dailyBudgetMicros required');
+                const result = await createVideoCampaign({
+                    name: params.name,
+                    dailyBudgetMicros:
+                        params.dailyBudgetMicros ?? dollarsToMicros(params.dailyBudgetDollars),
+                    biddingStrategy: params.biddingStrategy,
+                    targetCpaMicros: params.targetCpaMicros,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json(result, { status: 201 });
+            }
+
+            case 'create_video_ad_group': {
+                if (!params.campaignId || !params.name)
+                    return errorResponse('campaignId and name required');
+                const result = await createVideoAdGroup({
+                    campaignId: params.campaignId,
+                    name: params.name,
+                    cpmBidMicros: params.cpmBidMicros,
+                    type: params.type,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json(result, { status: 201 });
+            }
+
+            case 'create_video_ad': {
+                if (!params.adGroupId || !params.youtubeVideoId || !params.finalUrl)
+                    return errorResponse('adGroupId, youtubeVideoId, finalUrl required');
+                const adType = params.adType ?? 'IN_STREAM';
+                if (adType === 'BUMPER') {
+                    const result = await createBumperVideoAd({
+                        adGroupId: params.adGroupId,
+                        youtubeVideoId: params.youtubeVideoId,
+                        finalUrl: params.finalUrl,
+                        displayUrl: params.displayUrl ?? 'codetether.run',
+                        customerId: params.customerId,
+                    });
+                    return NextResponse.json(result, { status: 201 });
+                }
+                const result = await createInStreamVideoAd({
+                    adGroupId: params.adGroupId,
+                    youtubeVideoId: params.youtubeVideoId,
+                    finalUrl: params.finalUrl,
+                    displayUrl: params.displayUrl ?? 'codetether.run',
+                    headline: params.headline,
+                    callToAction: params.callToAction,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json(result, { status: 201 });
+            }
+
+            case 'list_video_ads': {
+                const result = await listVideoAds({
+                    adGroupId: params.adGroupId,
+                    campaignId: params.campaignId,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json({ videoAds: result });
+            }
+
+            case 'video_report': {
+                if (!params.startDate || !params.endDate)
+                    return errorResponse('startDate and endDate required');
+                const result = await getVideoReport({
+                    startDate: params.startDate,
+                    endDate: params.endDate,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json({ report: result });
+            }
+
+            case 'launch_video_ad': {
+                if (!params.youtubeVideoId || !params.campaignName)
+                    return errorResponse('youtubeVideoId and campaignName required');
+                const result = await launchVideoAdFromYouTube({
+                    youtubeVideoId: params.youtubeVideoId,
+                    campaignName: params.campaignName,
+                    dailyBudgetDollars: params.dailyBudgetDollars ?? 25,
+                    finalUrl: params.finalUrl,
+                    displayUrl: params.displayUrl,
+                    headline: params.headline,
+                    callToAction: params.callToAction,
+                    adType: params.adType,
+                    customerId: params.customerId,
+                });
+                return NextResponse.json(result, { status: 201 });
+            }
+
             default:
                 return errorResponse(
-                    `Unknown action: ${action}. Valid: list_campaigns, get_campaign, create_campaign, update_status, update_budget, list_ad_groups, create_ad_group, update_ad_group_bid, create_ad, list_ads, add_keywords, add_negative_keywords`,
+                    `Unknown action: ${action}. Valid: list_campaigns, get_campaign, create_campaign, update_status, update_budget, list_ad_groups, create_ad_group, update_ad_group_bid, create_ad, list_ads, add_keywords, add_negative_keywords, upload_youtube_asset, create_video_campaign, create_video_ad_group, create_video_ad, list_video_ads, video_report, launch_video_ad`,
                     400
                 );
         }

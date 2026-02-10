@@ -56,12 +56,25 @@ from .worker_sse import worker_sse_router
 from .email_inbound import email_router
 from .email_api import email_api_router
 from .tenant_middleware import TenantContextMiddleware
+from .policy_middleware import PolicyAuthorizationMiddleware
 from .tenant_api import router as tenant_router
 from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
 from .user_auth import router as user_auth_router
+from .token_billing_api import router as token_billing_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
+
+# Import policy engine for centralized authorization
+try:
+    from .policy import close_policy_client, opa_health, require_permission
+
+    POLICY_ENGINE_AVAILABLE = True
+except ImportError:
+    POLICY_ENGINE_AVAILABLE = False
+    close_policy_client = None
+    opa_health = None
+    require_permission = None
 
 # Import MCP router for unified MCP protocol support on same port
 try:
@@ -188,6 +201,11 @@ class A2AServer:
         # Add tenant context middleware (extracts tenant from JWT)
         self.app.add_middleware(TenantContextMiddleware)
 
+        # Add policy authorization middleware (OPA enforcement)
+        # Registered after tenant middleware so it runs before tenant
+        # extraction in the Starlette middleware stack.
+        self.app.add_middleware(PolicyAuthorizationMiddleware)
+
         # Method handlers
         self._method_handlers: Dict[str, Callable] = {
             'message/send': self._handle_send_message,
@@ -272,6 +290,73 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start proactive rule engine for event-driven/scheduled agent triggers
+        @self.app.on_event('startup')
+        async def start_rule_engine():
+            try:
+                from .rule_engine import start_rule_engine
+
+                await start_rule_engine()
+            except Exception as e:
+                logger.warning(f'Failed to start proactive rule engine: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_rule_engine():
+            try:
+                from .rule_engine import stop_rule_engine
+
+                await stop_rule_engine()
+            except Exception:
+                pass
+
+        # Start health monitor for proactive health checks
+        @self.app.on_event('startup')
+        async def start_health_monitor():
+            try:
+                from .health_monitor import start_health_monitor
+
+                await start_health_monitor()
+            except Exception as e:
+                logger.warning(f'Failed to start health monitor: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_health_monitor():
+            try:
+                from .health_monitor import stop_health_monitor
+
+                await stop_health_monitor()
+            except Exception:
+                pass
+
+        # Start perpetual cognition manager for persistent thought loops
+        @self.app.on_event('startup')
+        async def start_perpetual_manager():
+            try:
+                from .perpetual_loop import start_perpetual_loop_manager
+
+                await start_perpetual_loop_manager()
+            except Exception as e:
+                logger.warning(f'Failed to start perpetual cognition manager: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_perpetual_manager():
+            try:
+                from .perpetual_loop import stop_perpetual_loop_manager
+
+                await stop_perpetual_loop_manager()
+            except Exception:
+                pass
+
+        # Shutdown policy engine HTTP client
+        if POLICY_ENGINE_AVAILABLE and close_policy_client:
+
+            @self.app.on_event('shutdown')
+            async def shutdown_policy_client():
+                try:
+                    await close_policy_client()
+                except Exception:
+                    pass
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
@@ -305,10 +390,13 @@ class A2AServer:
         @self.app.get('/health')
         async def health_check():
             """Health check endpoint."""
-            return {
+            result = {
                 'status': 'healthy',
                 'timestamp': datetime.utcnow().isoformat(),
             }
+            if POLICY_ENGINE_AVAILABLE and opa_health:
+                result['policy_engine'] = await opa_health()
+            return result
 
         @self.app.get('/agents')
         async def discover_agents():
@@ -382,6 +470,10 @@ class A2AServer:
         # Include billing webhook routes for Stripe
         self.app.include_router(billing_webhook_router)
 
+        # Include token billing API routes for per-token usage tracking
+        self.app.include_router(token_billing_router)
+        logger.info('Token billing API router mounted at /v1/token-billing')
+
         # Include user authentication and billing routes (mid-market individual users)
         self.app.include_router(user_auth_router)
         logger.info('User auth API router mounted at /v1/users')
@@ -417,6 +509,15 @@ class A2AServer:
             logger.info('Cronjobs API router mounted at /v1/cronjobs')
         except Exception as e:
             logger.warning(f'Failed to mount cronjobs router: {e}')
+
+        # Include proactive API for rules, health checks, and perpetual loops
+        try:
+            from .proactive_api import router as proactive_router
+
+            self.app.include_router(proactive_router)
+            logger.info('Proactive API router mounted at /v1/proactive')
+        except Exception as e:
+            logger.warning(f'Failed to mount proactive router: {e}')
 
         # Mount static files for analytics.js and other assets
         import os

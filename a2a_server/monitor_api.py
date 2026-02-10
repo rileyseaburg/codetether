@@ -2337,26 +2337,30 @@ async def get_runtime_session_parts(
 @opencode_router.get('/models')
 async def list_models():
     """List available AI models from registered workers in the database."""
-    all_models = []
-    model_ids = set()
+    models_by_id = {}  # id -> (model_dict, has_pricing)
 
     # Get models from registered workers (reads from PostgreSQL/Redis/In-memory)
     workers = await list_workers()
     for worker in workers:
         worker_models = worker.get('models', [])
         for m in worker_models:
-            if m.get('id') and m['id'] not in model_ids:
-                # Copy to avoid mutating the stored model dict in-place
-                model = dict(m)
-                # Mark as coming from a worker if not already present
-                if 'provider' in model:
-                    provider_base = model['provider']
-                    # Don't double-append the suffix
-                    via_suffix = f' (via {worker.get("name", "worker")})'
-                    if via_suffix not in provider_base:
-                        model['provider'] = provider_base + via_suffix
-                all_models.append(model)
-                model_ids.add(model['id'])
+            mid = m.get('id')
+            if not mid:
+                continue
+            # Copy to avoid mutating the stored model dict in-place
+            model = dict(m)
+            if 'provider' in model:
+                provider_base = model['provider']
+                via_suffix = f' (via {worker.get("name", "worker")})'
+                if via_suffix not in provider_base:
+                    model['provider'] = provider_base + via_suffix
+            has_pricing = model.get('input_cost_per_million') is not None
+            existing = models_by_id.get(mid)
+            # Keep this version if: no existing, or this one has pricing and existing doesn't
+            if existing is None or (has_pricing and not existing[1]):
+                models_by_id[mid] = (model, has_pricing)
+
+    all_models = [entry[0] for entry in models_by_id.values()]
 
     if all_models:
         # Sort models: Gemini 3 Flash first, then by provider
@@ -4750,6 +4754,44 @@ async def sync_session_messages(
             )
         except Exception as e:
             logger.debug(f'Failed to persist message to PostgreSQL: {e}')
+
+    # Best-effort token billing: record token usage for assistant messages
+    try:
+        from .token_billing import TokenCounts, get_token_billing_service
+
+        # Resolve tenant_id from codebase
+        tenant_id = None
+        try:
+            codebase_record = await db.db_get_codebase(codebase_id)
+            if codebase_record:
+                tenant_id = codebase_record.get('tenant_id')
+        except Exception:
+            pass
+
+        if tenant_id:
+            token_billing = get_token_billing_service()
+            for msg_data in request.messages:
+                role = _extract_role(msg_data)
+                tokens_raw = msg_data.get('tokens')
+                model = _extract_model(msg_data)
+                if role == 'assistant' and tokens_raw and model:
+                    tokens = TokenCounts.from_dict(tokens_raw if isinstance(tokens_raw, dict) else {})
+                    if tokens.total > 0 or tokens.cache_read_tokens > 0:
+                        # Extract provider from model string (e.g., "anthropic/claude-opus-4-5")
+                        if '/' in model:
+                            provider, model_name = model.split('/', 1)
+                        else:
+                            provider, model_name = 'unknown', model
+                        await token_billing.record_usage(
+                            tenant_id=tenant_id,
+                            provider=provider,
+                            model=model_name,
+                            tokens=tokens,
+                            session_id=session_id,
+                            message_id=msg_data.get('id'),
+                        )
+    except Exception as e:
+        logger.debug(f'Token billing recording failed (non-fatal): {e}')
 
     # Best-effort persist to Redis (if configured) so messages are available across replicas.
     redis_client = await _get_redis_client()

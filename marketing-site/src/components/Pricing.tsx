@@ -17,6 +17,7 @@ const plans = [
         price: { monthly: '$0', annually: '$0' },
         description: 'Try before you buy. Perfect for testing workflows.',
         bestFor: 'Testing & experimentation',
+        tokenInfo: '$5 token credit included',
         button: {
             label: 'Start Free',
             href: '/register',
@@ -26,6 +27,8 @@ const plans = [
             '10 tasks / month',
             '1 concurrent task',
             '10 min max runtime',
+            '$5 prepaid token credit',
+            'Per-token usage tracking',
             'Mandatory auth (HMAC-SHA256)',
             'Full audit trail',
             'Community Discord',
@@ -44,6 +47,7 @@ const plans = [
         price: { monthly: '$297', annually: '$297' },
         description: 'For automation builders replacing Zapier + VAs.',
         bestFor: 'Solopreneurs & automation builders',
+        tokenInfo: '$50 token credit / month included',
         button: {
             label: 'Upgrade to Pro',
             href: '/register',
@@ -53,6 +57,9 @@ const plans = [
             '300 tasks / month',
             '3 concurrent tasks',
             '30 min max runtime',
+            '$50/mo prepaid token credit',
+            'Per-model cost breakdown',
+            'Monthly spending limits',
             'Mandatory auth + audit trail',
             'Ed25519 plugin signing',
             'OPA Rego authorization policies',
@@ -73,6 +80,7 @@ const plans = [
         price: { monthly: '$497', annually: '$497' },
         description: 'For teams running client automations at scale.',
         bestFor: 'Agencies & teams',
+        tokenInfo: '$150 token credit / month included',
         button: {
             label: 'Upgrade to Agency',
             href: '/register',
@@ -82,6 +90,9 @@ const plans = [
             '2,000 tasks / month',
             '10 concurrent tasks',
             '60 min max runtime',
+            '$150/mo prepaid token credit',
+            'Per-tenant token isolation',
+            'Custom spending limits & alerts',
             'Everything in Pro',
             'K8s self-deployment',
             'Team workspaces',
@@ -114,6 +125,7 @@ function Plan({
     price,
     description,
     bestFor,
+    tokenInfo,
     button,
     features,
     limits,
@@ -130,6 +142,7 @@ function Plan({
     }
     description: string
     bestFor: string
+    tokenInfo: string
     button: {
         label: string
         href: string
@@ -197,6 +210,12 @@ function Plan({
             </p>
             <p className="mt-2 text-xs font-medium text-cyan-500 dark:text-cyan-400">
                 Best for: {bestFor}
+            </p>
+            <p className={clsx(
+                'mt-1 text-xs font-medium',
+                featured ? 'text-green-400' : 'text-green-600 dark:text-green-400',
+            )}>
+                {tokenInfo}
             </p>
 
             {/* Limits highlight */}
@@ -376,6 +395,92 @@ export function Pricing() {
                             upgrading={upgrading}
                         />
                     ))}
+                </div>
+
+                {/* Token Billing */}
+                <div className="mx-auto mt-16 max-w-3xl">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white text-center">
+                        Transparent Token-Based Billing
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 text-center">
+                        Every plan includes prepaid token credits. You only pay for what your agents actually use,
+                        tracked per-request with full model-level cost breakdowns.
+                    </p>
+                    <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
+                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Per-Token</div>
+                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                Billed by actual input, output, cache &amp; reasoning tokens
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
+                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Per-Model</div>
+                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                Each AI model priced at cost. No hidden markup.
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
+                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Prepaid</div>
+                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                Credits included with your plan. Add more anytime.
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
+                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Limits</div>
+                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                Set monthly spending caps to stay in budget.
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Model pricing table */}
+                    <div className="mt-8 overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow">
+                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-white">Model Pricing (per 1M tokens)</h4>
+                        </div>
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Model</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Input</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Output</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Cache Read</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Sonnet 4</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$3.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$15.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.30</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Opus 4</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$15.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$75.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.50</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4o</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$2.50</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$10.00</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.25</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4o Mini</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.15</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.60</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.075</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-white">DeepSeek Chat</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.27</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.10</td>
+                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.07</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {/* How it works */}

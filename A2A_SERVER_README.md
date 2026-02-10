@@ -218,6 +218,32 @@ Use with CLI:
 python examples/a2a_cli.py http://localhost:8000 --auth secret123 --message "Hello"
 ```
 
+### Authorization (OPA Policy Engine)
+
+The server uses **Open Policy Agent (OPA)** for centralized, fine-grained authorization:
+
+- **RBAC model**: 5 roles — `admin`, `a2a-admin`, `operator`, `editor`, `viewer`
+- **Permissions**: `resource:action` format (e.g., `task:read`, `agent:admin`)
+- **Centralized middleware**: `PolicyAuthorizationMiddleware` maps all ~160 API routes to required permissions
+- **Rego policies**: `policies/` directory contains RBAC, API key scope, and tenant isolation rules
+- **OPA sidecar**: Kubernetes deployments run OPA as a sidecar; local dev uses a built-in fallback evaluator
+
+Enable OPA in your Helm values:
+
+```yaml
+opa:
+  enabled: true
+  image: openpolicyagent/opa:1.3.0-static
+```
+
+Test authorization policies:
+
+```bash
+make policy-test
+```
+
+See [Policy Engine Documentation](codetether-docs/auth/policy-engine.md) for the full RBAC matrix, Rego policy reference, and extension guide.
+
 ### HTTPS
 
 For production, use a reverse proxy (nginx, Apache) or configure uvicorn with SSL certificates.
@@ -234,7 +260,9 @@ a2a_server/
 ├── task_manager.py      # Task lifecycle management
 ├── message_broker.py    # Redis-based message broker
 ├── agent_card.py        # Agent card creation and management
-└── config.py            # Configuration management
+├── config.py            # Configuration management
+├── policy.py            # OPA policy client + require_permission()
+└── policy_middleware.py  # Centralized authorization middleware
 
 examples/
 ├── example_agents.py    # Sample agent implementations

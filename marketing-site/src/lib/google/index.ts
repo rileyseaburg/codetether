@@ -54,3 +54,16 @@ export {
     runFullSyncCycle,
 } from './sync';
 export type { SyncResult } from './sync';
+
+export {
+    uploadYouTubeAsset,
+    getAssetDetails,
+    createVideoCampaign,
+    createVideoAdGroup,
+    createInStreamVideoAd,
+    createBumperVideoAd,
+    listVideoAds,
+    getVideoReport,
+    attachAudienceToAdGroup,
+    launchVideoAdFromYouTube,
+} from './videoAds';

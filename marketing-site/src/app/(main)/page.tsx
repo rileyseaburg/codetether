@@ -23,6 +23,10 @@ const RalphDemo = dynamic(
     () => import('@/components/RalphDemo').then((m) => m.RalphDemo),
     { ssr: true }
 )
+const BenchmarkComparison = dynamic(
+    () => import('@/components/BenchmarkComparison').then((m) => m.BenchmarkComparison),
+    { ssr: true }
+)
 const CopilotComparison = dynamic(
     () => import('@/components/CopilotComparison').then((m) => m.CopilotComparison),
     { ssr: true }
@@ -111,6 +115,11 @@ export default function Home() {
             {/* Ralph Demo - autonomous agent loop (moved after ChatGPT comparison) */}
             <Suspense fallback={<SectionSkeleton />}>
                 <RalphDemo />
+            </Suspense>
+
+            {/* Benchmarks - real PRD performance data */}
+            <Suspense fallback={<SectionSkeleton />}>
+                <BenchmarkComparison />
             </Suspense>
 
             <Suspense fallback={<SectionSkeleton />}>

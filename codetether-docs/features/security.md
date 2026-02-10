@@ -8,11 +8,12 @@ description: Mandatory auth, audit trail, plugin sandboxing, and K8s self-deploy
 !!! info "v1.1.0"
     These features ship with CodeTether Agent v1.1.0. They are implemented in Rust and cannot be disabled.
 
-CodeTether treats security as non-optional infrastructure. Four security controls are built into the agent runtime:
+CodeTether treats security as non-optional infrastructure. Five security controls are built into the platform:
 
 | Control | Module | Description |
 |---------|--------|-------------|
 | **Mandatory Auth** | `src/server/auth.rs` | Bearer token on every endpoint. Cannot be disabled. |
+| **OPA Policy Engine** | `src/server/policy.rs`, `a2a_server/policy.py` | Centralized RBAC + scope + tenant authorization via OPA. |
 | **Audit Trail** | `src/audit/mod.rs` | Append-only log of every action. Queryable. |
 | **Plugin Sandboxing** | `src/tool/sandbox.rs` | Ed25519-signed manifests, resource limits. |
 | **K8s Self-Deployment** | `src/k8s/mod.rs` | Agent manages its own pods, scales, self-heals. |
@@ -50,6 +51,45 @@ curl -H "Authorization: Bearer my-secure-token" http://localhost:4096/v1/cogniti
 ### Exempt Endpoints
 
 Only `/health` is accessible without authentication, for use with Kubernetes liveness/readiness probes.
+
+---
+
+## OPA Policy Engine (Authorization)
+
+Beyond authentication, CodeTether enforces fine-grained authorization using [Open Policy Agent (OPA)](https://www.openpolicyagent.org/). Authorization policies are written in the Rego policy language and evaluated either by an OPA sidecar (production) or in-process (development).
+
+### What It Enforces
+
+| Layer | Description |
+|-------|-------------|
+| **RBAC** | 5 hierarchical roles (admin → operator → editor → viewer) |
+| **API Key Scopes** | Keys restricted to their granted `resource:action` scopes |
+| **Tenant Isolation** | Cross-tenant access blocked (admin bypass available) |
+| **Resource Ownership** | Write/delete operations verify resource ownership |
+
+### Middleware Coverage
+
+The policy middleware maps every HTTP path + method to a required permission. ~120 previously-unprotected endpoints are now secured:
+
+```
+GET  /v1/agent/tasks          → tasks:read
+POST /v1/agent/codebases      → codebases:write
+POST /v1/monitor/intervene    → monitor:write
+POST /mcp/v1/rpc              → mcp:write
+GET  /v1/analytics/funnel      → analytics:admin
+```
+
+### Configuration
+
+```bash
+# Development: evaluate policies in-process
+export OPA_LOCAL_MODE=true
+
+# Production: OPA sidecar (auto-configured by Helm chart)
+export OPA_URL=http://localhost:8181
+```
+
+See [Policy Engine (OPA)](../auth/policy-engine.md) for full documentation including role matrix, API key scopes, and adding new permissions.
 
 ---
 
@@ -226,6 +266,10 @@ When enabled, the agent runs a background reconciliation every 30 seconds:
 │                                                         │
 │  ┌──────────────┐  Every request passes through:        │
 │  │ Auth Layer   │  Bearer token validation (mandatory)  │
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  RBAC + scopes + tenant isolation:    │
+│  │ Policy (OPA) │  Rego policies, 5 roles, API key scopes│
 │  └──────┬───────┘                                       │
 │         │                                               │
 │  ┌──────▼───────┐  Every action recorded:               │

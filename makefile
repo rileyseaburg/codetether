@@ -1178,3 +1178,43 @@ release-opencode-local: build-opencode ## Build and upload binaries to existing 
 			--notes "OpenCode CLI binaries for all platforms"; \
 	fi; \
 	echo "✅ Release $$TAG updated with binaries!"
+
+# ── OPA Policy Engine ───────────────────────────────────────────
+.PHONY: policy-test policy-fmt policy-check policy-opa-start policy-opa-stop
+
+## Run OPA Rego unit tests
+policy-test:
+	@echo "🔒 Running OPA policy tests..."
+	opa test policies/ -v
+
+## Format Rego policy files
+policy-fmt:
+	@echo "🔒 Formatting Rego policies..."
+	opa fmt -w policies/
+
+## Check Rego policy syntax
+policy-check:
+	@echo "🔒 Checking Rego policy syntax..."
+	opa check policies/
+
+## Start local OPA server (for development)
+policy-opa-start:
+	@echo "🔒 Starting OPA server on port 8181..."
+	opa run --server --addr localhost:8181 --log-level info policies/ &
+	@echo "OPA running at http://localhost:8181"
+
+## Stop local OPA server
+policy-opa-stop:
+	@echo "🔒 Stopping OPA server..."
+	@pkill -f "opa run --server" || true
+
+## Run Rust policy module tests
+policy-test-rust:
+	@echo "🔒 Running Rust policy tests..."
+	cd codetether-agent && cargo test server::policy --lib -- --nocapture
+
+## Run all policy tests (Rego + Rust + Python integration)
+policy-test-all: policy-test policy-test-rust
+	@echo "🔒 Running Python policy integration tests..."
+	OPA_LOCAL_MODE=true python -m pytest tests/test_policy.py tests/test_policy_middleware.py -v
+	@echo "✅ All policy tests passed!"

@@ -1,0 +1,17 @@
+{{- if .Values.opa.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-opa-policies
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+data:
+  data.json: |-
+{{ .Values.opa.policies.dataJson | default "{}" | indent 4 }}
+  authz.rego: |-
+{{ .Values.opa.policies.authzRego | default "package authz\ndefault allow := false" | indent 4 }}
+  api_keys.rego: |-
+{{ .Values.opa.policies.apiKeysRego | default "package api_keys\ndefault allow := true" | indent 4 }}
+  tenants.rego: |-
+{{ .Values.opa.policies.tenantsRego | default "package tenants\ndefault allow := true" | indent 4 }}
+{{- end }}

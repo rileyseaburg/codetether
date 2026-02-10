@@ -110,11 +110,11 @@ Ralph is a fully autonomous development agent that implements entire PRDs:
 
 ### Zapier Integration (`/zapier-app`)
 
-Native Zapier integration for no-code automation:
+Native Zapier integration (v1.2.0) for no-code automation — 18 components:
 
-- **Trigger**: `new_task` - fires when tasks are created
-- **Actions**: `create_task`, `send_message`, `cancel_task`
-- **Search**: `find_task` - by ID or status
+- **Triggers**: `new_task`, `task_completed`, `task_failed`
+- **Actions**: `create_task`, `send_message`, `send_message_async`, `send_to_agent`, `start_ralph`, `cancel_task`, `cancel_ralph_run`, `create_cronjob`, `prd_chat`
+- **Searches**: `find_task`, `find_ralph_run`, `discover_agents`, `list_codebases`, `list_ralph_runs`, `list_models`, `get_usage_summary`
 - **Auth**: OAuth2 with Keycloak
 
 ### RLM (Recursive Language Models)

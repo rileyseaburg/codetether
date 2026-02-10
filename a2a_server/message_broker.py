@@ -425,6 +425,16 @@ class MessageBroker:
             f'events:{event_type}', json.dumps(event_data)
         )
 
+        # Evaluate proactive rules matching this event (fire-and-forget)
+        try:
+            from .rule_engine import get_rule_engine
+
+            engine = get_rule_engine()
+            if engine:
+                asyncio.create_task(engine.evaluate_event_rules(event_type, data))
+        except Exception:
+            pass  # Rule engine not available yet or import error
+
     async def publish(self, event_type: str, data: Any) -> None:
         """Alias for publish_event for compatibility."""
         await self.publish_event(event_type, data)
@@ -704,6 +714,16 @@ class InMemoryMessageBroker:
                     handler(event_type, data)
             except Exception as e:
                 logger.error(f'Error in event handler: {e}')
+
+        # Evaluate proactive rules matching this event (fire-and-forget)
+        try:
+            from .rule_engine import get_rule_engine
+
+            engine = get_rule_engine()
+            if engine:
+                asyncio.create_task(engine.evaluate_event_rules(event_type, data))
+        except Exception:
+            pass  # Rule engine not available yet or import error
 
     async def publish(self, event_type: str, data: Any) -> None:
         """Alias for publish_event for compatibility."""
