@@ -1,4 +1,9 @@
 # CodeTether Server Makefile
+
+# Load .env file if present (provides DATABASE_URL, etc.)
+-include .env
+export
+
 # Variables
 DOCKER_IMAGE_NAME = a2a-server-mcp
 DOCKER_TAG ?= latest
