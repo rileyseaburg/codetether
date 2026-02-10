@@ -175,9 +175,14 @@ docker run -p 8000:8000 registry.quantum-forge.net/library/a2a-server-mcp:latest
 
 Download pre-built binaries from [GitHub Releases](https://github.com/rileyseaburg/A2A-Server-MCP/releases):
 
-**One-line install:**
+**One-line install (Linux/macOS):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+```
+
+**One-line install (Windows PowerShell):**
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.ps1" -UseBasicParsing).Content
 ```
 
 **Or download manually:**

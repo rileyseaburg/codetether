@@ -1,6 +1,17 @@
 #!/bin/bash
 # OpenCode Installer Script
 # Downloads and installs the latest OpenCode binary from GitHub Releases
+#
+# Install with:
+#   curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+#
+# Or download and run:
+#   curl -o install-opencode.sh https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh
+#   chmod +x install-opencode.sh
+#   ./install-opencode.sh
+#
+# For Windows PowerShell, use install-opencode.ps1 instead:
+#   Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.ps1" -UseBasicParsing).Content
 
 set -e
 
