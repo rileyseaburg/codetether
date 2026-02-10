@@ -507,11 +507,18 @@ class WorkerRegistry:
         For targeted tasks (target_agent_name or target_worker_id set), only notifies the specific worker.
         This is notify-time filtering for efficiency; claim-time is the real enforcement.
 
+        If the task has a worker_personality, the matching worker_profile's permission
+        scoping (allowed_tools, allowed_paths, allowed_namespaces) is injected into
+        the task metadata so the agent binary can enforce least-privilege access.
+
         Returns list of worker_ids that received the notification.
         """
         # Check metadata for target_worker_id if not passed directly
         if not target_worker_id and task.get('metadata'):
             target_worker_id = task['metadata'].get('target_worker_id')
+
+        # Enrich task metadata with persona scoping from worker_profiles
+        task = await self._enrich_task_with_persona_scoping(task)
 
         available = await self.get_available_workers(
             codebase_id=codebase_id,
@@ -535,6 +542,60 @@ class WorkerRegistry:
             f'Task {task.get("id", "unknown")} broadcast to {len(notified)} workers{routing_info}'
         )
         return notified
+
+    async def _enrich_task_with_persona_scoping(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Enrich task metadata with permission scoping from the worker_profile
+        matching the task's worker_personality. This backs the marketing claim:
+        "each agent only has the permissions it needs."
+
+        Scoping fields injected: allowed_tools, allowed_paths, allowed_namespaces.
+        The Rust agent binary uses these to enforce least-privilege access.
+        """
+        metadata = task.get('metadata') or {}
+        personality = metadata.get('worker_personality')
+        if not personality:
+            return task
+
+        try:
+            from . import database as db
+            import json as _json
+
+            pool = await db.get_pool()
+            if not pool:
+                return task
+
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    'SELECT allowed_tools, allowed_paths, allowed_namespaces FROM worker_profiles WHERE slug = $1',
+                    personality,
+                )
+                if not row:
+                    return task
+
+                scoping = {}
+                for col in ('allowed_tools', 'allowed_paths', 'allowed_namespaces'):
+                    val = row[col]
+                    if val is not None:
+                        if isinstance(val, str):
+                            val = _json.loads(val)
+                        scoping[col] = val
+
+                if scoping:
+                    # Merge into a copy of the task to avoid mutating the original
+                    task = dict(task)
+                    task_metadata = dict(metadata)
+                    task_metadata['persona_scoping'] = scoping
+                    task['metadata'] = task_metadata
+                    logger.debug(
+                        'Enriched task %s with persona scoping for %s: %s',
+                        task.get('id', '?'), personality, list(scoping.keys()),
+                    )
+
+        except Exception as e:
+            logger.debug('Failed to enrich task with persona scoping: %s', e)
+
+        return task
 
     async def broadcast_task_available(
         self,
@@ -1051,6 +1112,17 @@ async def release_task(
             logger.error(
                 f'Failed to update task {release.task_id} status: {e}'
             )
+
+        # Record result for perpetual loop iterations (if applicable)
+        try:
+            from .perpetual_loop import handle_task_completion_for_loops
+            await handle_task_completion_for_loops(
+                task_id=release.task_id,
+                status=release.status,
+                result=release.result,
+            )
+        except Exception as e:
+            logger.debug(f'Loop completion check for {release.task_id}: {e}')
 
         return {
             'success': True,

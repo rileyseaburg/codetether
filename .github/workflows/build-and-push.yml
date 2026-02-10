@@ -52,6 +52,12 @@ jobs:
               run: |
                   python -m pytest tests/ -v
 
+            - name: Run OPA policy tests
+              run: |
+                  curl -L -o /tmp/opa https://openpolicyagent.org/downloads/v1.3.0/opa_linux_amd64_static
+                  chmod +x /tmp/opa
+                  /tmp/opa test policies/ -v
+
     build-and-push:
         name: Build and Push Docker Image
         runs-on: ubuntu-latest

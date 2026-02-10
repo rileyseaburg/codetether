@@ -86,7 +86,7 @@ Workers send email notifications when tasks complete. **Reply directly to the em
 
 ### ⚡ **Zapier Integration**
 
-Connect CodeTether to 5,000+ apps with our native Zapier integration. OAuth2 authentication, triggers, actions, and searches—no code required.
+Connect CodeTether to 6,000+ apps with our native Zapier integration. 18 components: 3 triggers, 9 actions, 7 searches covering tasks, agents, codebases, cron jobs, billing, and PRD generation—no code required.
 
  </td>
 <td width="50%">

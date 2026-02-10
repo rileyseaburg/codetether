@@ -1,0 +1,206 @@
+{
+    "project": "benchmark-microservice",
+    "feature": "Event-Driven Microservice with Persistence",
+    "branch_name": "bench/t3-microservice",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Define domain models and error types",
+            "description": "Create domain models for an order processing system: Order (id, customer_id, items, status, total, created_at, updated_at), OrderItem (product_id, quantity, unit_price), OrderStatus enum (Created, Confirmed, Processing, Shipped, Delivered, Cancelled). Define domain errors with thiserror.",
+            "acceptance_criteria": [
+                "All domain structs are defined with serde Serialize/Deserialize",
+                "OrderStatus enum has all states",
+                "Domain error types cover validation, not-found, and state transition errors",
+                "Unit tests verify serialization roundtrip"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 2
+        },
+        {
+            "id": "US-002",
+            "title": "Implement order state machine",
+            "description": "Implement valid state transitions for orders: Created->Confirmed, Confirmed->Processing, Processing->Shipped, Shipped->Delivered, any->Cancelled (except Delivered). Invalid transitions return errors.",
+            "acceptance_criteria": [
+                "All valid transitions succeed",
+                "Invalid transitions return DomainError::InvalidTransition",
+                "Cancelled orders cannot transition further",
+                "Delivered orders cannot be cancelled",
+                "Comprehensive unit tests for the state machine"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-003",
+            "title": "Build in-memory repository with trait abstraction",
+            "description": "Define an OrderRepository trait with async methods: save, find_by_id, find_by_customer, list_all, delete. Implement InMemoryOrderRepository using DashMap for thread safety.",
+            "acceptance_criteria": [
+                "OrderRepository trait is defined with async methods",
+                "InMemoryOrderRepository implements all trait methods",
+                "Thread-safe concurrent access verified",
+                "Unit tests cover all repository operations"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-004",
+            "title": "Implement order service with business logic",
+            "description": "Create OrderService that encapsulates business logic: create_order (validates items, calculates total), confirm_order, cancel_order, advance_status. Uses OrderRepository trait for persistence.",
+            "acceptance_criteria": [
+                "create_order validates non-empty items and positive quantities",
+                "Total is calculated as sum of (quantity * unit_price)",
+                "confirm_order and cancel_order enforce state machine rules",
+                "Service is generic over repository implementation",
+                "Unit tests with InMemoryOrderRepository verify all operations"
+            ],
+            "passes": false,
+            "priority": 3,
+            "depends_on": [
+                "US-002",
+                "US-003"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-005",
+            "title": "Build REST API layer",
+            "description": "Create axum REST endpoints: POST /orders, GET /orders, GET /orders/:id, PUT /orders/:id/confirm, PUT /orders/:id/cancel, PUT /orders/:id/advance. Wire up with OrderService and shared state.",
+            "acceptance_criteria": [
+                "All endpoints return proper HTTP status codes",
+                "POST /orders returns 201 with created order",
+                "GET /orders/:id returns 404 for missing orders",
+                "State transition endpoints return 409 for invalid transitions",
+                "Error responses use consistent JSON format"
+            ],
+            "passes": false,
+            "priority": 4,
+            "depends_on": [
+                "US-004"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-006",
+            "title": "Add event system for order changes",
+            "description": "Implement an event bus using tokio broadcast channels. Emit OrderEvent (OrderCreated, OrderConfirmed, OrderCancelled, StatusAdvanced) when order state changes. Add an event log that stores the last 100 events.",
+            "acceptance_criteria": [
+                "Events are emitted on every state change",
+                "Multiple subscribers can receive events",
+                "Event log stores last 100 events with timestamps",
+                "GET /events returns recent events",
+                "Unit tests verify event emission and subscription"
+            ],
+            "passes": false,
+            "priority": 5,
+            "depends_on": [
+                "US-005"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-007",
+            "title": "Add order search and filtering",
+            "description": "Extend GET /orders with query parameters: status (filter by OrderStatus), customer_id, min_total, max_total, sort_by (created_at, total), order (asc, desc), limit, offset.",
+            "acceptance_criteria": [
+                "Filtering by status works correctly",
+                "Filtering by customer_id returns only their orders",
+                "Price range filtering (min_total, max_total) works",
+                "Sorting by created_at and total in both directions works",
+                "Pagination with limit/offset works",
+                "Integration tests verify combined filters"
+            ],
+            "passes": false,
+            "priority": 5,
+            "depends_on": [
+                "US-005"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-008",
+            "title": "Add request validation middleware",
+            "description": "Create axum middleware for request validation: body size limits, content-type checking, request ID generation (X-Request-Id header), and request logging with timing.",
+            "acceptance_criteria": [
+                "Requests over 1MB are rejected with 413",
+                "Non-JSON content types on POST/PUT are rejected with 415",
+                "Each request gets a unique X-Request-Id header in response",
+                "Request duration is logged",
+                "Unit tests verify all middleware behavior"
+            ],
+            "passes": false,
+            "priority": 6,
+            "depends_on": [
+                "US-005"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-009",
+            "title": "Add health check and metrics endpoint",
+            "description": "Add GET /health (basic liveness), GET /ready (checks dependencies), and GET /metrics (order count by status, total orders, event count, uptime).",
+            "acceptance_criteria": [
+                "GET /health returns 200 with { \"status\": \"ok\" }",
+                "GET /ready returns 200 when service is ready, 503 when not",
+                "GET /metrics returns order counts by status and uptime",
+                "Metrics update in real-time",
+                "Unit tests verify all observability endpoints"
+            ],
+            "passes": false,
+            "priority": 7,
+            "depends_on": [
+                "US-005",
+                "US-006"
+            ],
+            "complexity": 2
+        },
+        {
+            "id": "US-010",
+            "title": "Integration test suite",
+            "description": "Write comprehensive integration tests that exercise the full API lifecycle: create orders, confirm, advance through statuses, cancel, search with filters, verify events, and check metrics.",
+            "acceptance_criteria": [
+                "Full order lifecycle test (create -> confirm -> process -> ship -> deliver)",
+                "Cancellation test at various stages",
+                "Concurrent order creation test",
+                "Search and filter combination test",
+                "Event emission verification across lifecycle",
+                "All tests pass with cargo test"
+            ],
+            "passes": false,
+            "priority": 8,
+            "depends_on": [
+                "US-006",
+                "US-007",
+                "US-008",
+                "US-009"
+            ],
+            "complexity": 4
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with axum, tokio, serde, uuid, chrono, dashmap, thiserror",
+        "Clean architecture: separate domain, service, and API layers",
+        "Thread-safe state management throughout",
+        "Proper error handling with domain-specific error types",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

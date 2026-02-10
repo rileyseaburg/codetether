@@ -151,18 +151,22 @@ export async function createCampaign(params: {
     const budgetResourceName = budgets.results[0].resource_name;
 
     // Build campaign config
+    const channelType = params.channelType ?? 'SEARCH';
     const campaignConfig: Record<string, unknown> = {
         name: params.name,
         campaign_budget: budgetResourceName,
-        advertising_channel_type:
-            enums.AdvertisingChannelType[params.channelType ?? 'SEARCH'],
+        advertising_channel_type: enums.AdvertisingChannelType[channelType],
         status: enums.CampaignStatus.PAUSED, // Start paused for review
-        network_settings: {
+    };
+
+    // Network settings only apply to SEARCH campaigns
+    if (channelType === 'SEARCH') {
+        campaignConfig.network_settings = {
             target_google_search: true,
             target_search_network: true,
             target_content_network: false,
-        },
-    };
+        };
+    }
 
     // Set bidding strategy
     switch (params.biddingStrategy ?? 'MAXIMIZE_CONVERSIONS') {

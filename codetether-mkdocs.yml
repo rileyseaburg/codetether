@@ -52,8 +52,9 @@ nav:
       - REST Endpoints: api/rest.md
       - OpenCode API: api/opencode.md
       - SSE Events: api/sse.md
-  - Authentication:
+  - Authentication & Authorization:
       - Overview: auth/overview.md
+      - Policy Engine (OPA): auth/policy-engine.md
       - Keycloak Setup: auth/keycloak.md
       - API Tokens: auth/tokens.md
   - Deployment:

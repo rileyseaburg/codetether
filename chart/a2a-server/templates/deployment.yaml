@@ -83,6 +83,14 @@ spec:
                 name: {{ include "a2a-server.fullname" . }}-auth
             {{- end }}
           env:
+            {{- if .Values.opa.enabled }}
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: OPA_LOCAL_MODE
+              value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- end }}
             {{- range $key, $value := .Values.envFromSecret }}
             - name: {{ $key }}
               valueFrom:
@@ -171,28 +179,54 @@ spec:
             {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+        {{- if .Values.opa.enabled }}
+        - name: opa
+          image: {{ .Values.opa.image.repository }}:{{ .Values.opa.image.tag }}
+          imagePullPolicy: {{ .Values.opa.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--log-level={{ .Values.opa.logLevel | default "info" }}"
+            - "--set=decision_logs.console=true"
+            - "/policies"
+          ports:
+            - name: opa
+              containerPort: 8181
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.opa.resources | nindent 12 }}
+          volumeMounts:
+            - name: opa-policies
+              mountPath: /policies
+              readOnly: true
+        {{- end }}
       volumes:
         {{- if .Values.persistence.enabled }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "a2a-server.fullname" .)) }}
         {{- end }}
+        {{- if .Values.opa.enabled }}
+        - name: opa-policies
+          configMap:
+            name: {{ include "a2a-server.fullname" . }}-opa-policies
+        {{- end }}
         {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-{{- else }}
 
 {{- $legacyReplicas := (.Values.blueGreen.legacyReplicaCount | int) -}}
 {{- if gt $legacyReplicas 0 }}
@@ -282,6 +316,14 @@ spec:
                 name: {{ include "a2a-server.fullname" . }}-auth
             {{- end }}
           env:
+            {{- if .Values.opa.enabled }}
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: OPA_LOCAL_MODE
+              value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- end }}
             {{- range $key, $value := .Values.envFromSecret }}
             - name: {{ $key }}
               valueFrom:
@@ -483,6 +525,14 @@ spec:
                 name: {{ include "a2a-server.fullname" $ }}-auth
             {{- end }}
           env:
+            {{- if $.Values.opa.enabled }}
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: OPA_LOCAL_MODE
+              value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- end }}
             {{- range $key, $value := $.Values.envFromSecret }}
             - name: {{ $key }}
               valueFrom:

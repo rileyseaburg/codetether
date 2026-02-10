@@ -710,9 +710,25 @@ async def require_auth(
 async def require_admin(
     user: UserSession = Depends(require_auth),
 ) -> UserSession:
-    """Dependency that requires admin role."""
-    if 'admin' not in user.roles and 'a2a-admin' not in user.roles:
-        raise HTTPException(status_code=403, detail='Admin access required')
+    """Dependency that requires admin role.
+
+    Delegates to OPA policy engine when available, falls back to
+    inline role check for backward compatibility.
+    """
+    try:
+        from .policy import enforce_policy
+
+        user_dict = {
+            'user_id': user.user_id,
+            'roles': user.roles,
+            'tenant_id': user.tenant_id,
+            'realm_name': user.realm_name,
+        }
+        await enforce_policy(user_dict, 'admin:access')
+    except ImportError:
+        # Fallback: policy module not available.
+        if 'admin' not in user.roles and 'a2a-admin' not in user.roles:
+            raise HTTPException(status_code=403, detail='Admin access required')
     return user
 
 

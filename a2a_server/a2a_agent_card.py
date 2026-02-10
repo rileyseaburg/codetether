@@ -296,6 +296,59 @@ def create_a2a_agent_card(
                     "Search messages containing 'error'",
                 ],
             ),
+            AgentSkill(
+                id='proactive-monitoring',
+                name='Proactive Monitoring',
+                description='Event-driven rule engine that triggers autonomous agent actions '
+                'based on events, cron schedules, or health-check thresholds. '
+                'Rules are cooldown-protected and all triggers are audit-logged.',
+                tags=['proactive', 'monitoring', 'rules', 'events', 'health-checks', 'autonomous'],
+                examples=[
+                    'Create a rule to deploy when tests pass on main',
+                    'Set up a health check that pings /healthz every 60 seconds',
+                    'List all rules that triggered today',
+                ],
+            ),
+            AgentSkill(
+                id='persona-swarms',
+                name='Persona Swarms',
+                description='Route tasks to specialized agent personas (monitor, deployer, reviewer) '
+                'with scoped permissions. Each persona has a distinct system prompt, '
+                'model tier, and allowed tools/paths/namespaces.',
+                tags=['personas', 'swarms', 'specialization', 'permissions', 'routing'],
+                examples=[
+                    'Assign the monitor persona to watch health endpoints',
+                    'Use the deployer persona for CI/CD tasks',
+                    'List available persona profiles',
+                ],
+            ),
+            AgentSkill(
+                id='perpetual-cognition',
+                name='Perpetual Cognition Loops',
+                description='Persistent thought loops that survive server restarts. '
+                'An agent persona iterates on a codebase with state carried between '
+                'iterations, subject to daily cost ceilings and iteration limits. '
+                'Model tier auto-downgrades at 80% budget to stretch spend.',
+                tags=['perpetual', 'cognition', 'loops', 'autonomous', 'continuous', 'cost-control'],
+                examples=[
+                    'Start a monitoring loop on the production codebase',
+                    'Pause the review loop until tomorrow',
+                    'Show iteration history for loop abc-123',
+                ],
+            ),
+            AgentSkill(
+                id='autonomous-audit',
+                name='Autonomous Decision Audit',
+                description='Every autonomous decision — rule triggers, loop iterations, '
+                'budget gates, model downgrades — is logged in a queryable audit trail. '
+                'Provides full transparency into what agents did and why.',
+                tags=['audit', 'decisions', 'transparency', 'compliance', 'logging'],
+                examples=[
+                    'List all autonomous decisions from the last hour',
+                    'Show decisions made by the rule engine today',
+                    'Filter audit trail by outcome=failed',
+                ],
+            ),
         ],
         defaultInputModes=['text/plain', 'application/json'],
         defaultOutputModes=['text/plain', 'application/json'],

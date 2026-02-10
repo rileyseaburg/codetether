@@ -46,7 +46,11 @@ const faqs = [
         },
         {
             question: 'Is there a managed/hosted option?',
-            answer: 'Yes. Self-host for free, or use our managed platform with tiered pricing: Free (10 tasks/mo), Pro ($297/mo, 300 tasks), and Agency ($497/mo, 2000 tasks). All plans include the same security guarantees.',
+            answer: 'Yes. Self-host for free, or use our managed platform with tiered pricing: Free (10 tasks/mo + $5 token credit), Pro ($297/mo, 300 tasks + $50/mo token credit), and Agency ($497/mo, 2000 tasks + $150/mo token credit). All plans include the same security guarantees.',
+        },
+        {
+            question: 'How does token billing work?',
+            answer: 'Every AI request consumes tokens — input tokens (your prompt), output tokens (the response), and sometimes cache or reasoning tokens. We track usage per-request at the model level and deduct from your prepaid credit balance. You can see exactly what each model costs per million tokens, set monthly spending limits, and add credits any time. No surprises.',
         },
     ],
 ]

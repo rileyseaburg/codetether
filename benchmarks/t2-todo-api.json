@@ -1,0 +1,89 @@
+{
+    "project": "benchmark-todo-api",
+    "feature": "Todo CRUD API with Persistence",
+    "branch_name": "bench/t2-todo-api",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Define Todo data model and in-memory store",
+            "description": "Create a Todo struct with id (Uuid), title (String), completed (bool), created_at (DateTime). Implement an in-memory store using Arc<RwLock<HashMap>> that supports CRUD operations.",
+            "acceptance_criteria": [
+                "Todo struct is defined with all required fields",
+                "TodoStore provides create, read, list, update, delete operations",
+                "Store is thread-safe (Arc<RwLock<HashMap>>)",
+                "Unit tests verify all CRUD operations on the store"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 2
+        },
+        {
+            "id": "US-002",
+            "title": "Implement REST endpoints for CRUD",
+            "description": "Create axum REST endpoints: POST /todos (create), GET /todos (list all), GET /todos/:id (get one), PUT /todos/:id (update), DELETE /todos/:id (delete). Use proper HTTP status codes.",
+            "acceptance_criteria": [
+                "POST /todos creates a todo and returns 201 with the created todo",
+                "GET /todos returns 200 with array of all todos",
+                "GET /todos/:id returns 200 with the todo or 404 if not found",
+                "PUT /todos/:id returns 200 with updated todo or 404",
+                "DELETE /todos/:id returns 204 on success or 404"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-003",
+            "title": "Add input validation and error handling",
+            "description": "Validate that todo title is non-empty and under 256 characters. Return structured error responses with consistent JSON format { \"error\": \"message\" }. Add request body size limits.",
+            "acceptance_criteria": [
+                "Empty title returns 400 with descriptive error",
+                "Title over 256 chars returns 400",
+                "All error responses use { \"error\": \"message\" } format",
+                "Unit tests cover validation edge cases"
+            ],
+            "passes": false,
+            "priority": 3,
+            "depends_on": [
+                "US-002"
+            ],
+            "complexity": 2
+        },
+        {
+            "id": "US-004",
+            "title": "Add filtering and pagination",
+            "description": "Extend GET /todos to support query parameters: completed (bool filter), limit (default 20, max 100), offset (default 0). Return pagination metadata in response.",
+            "acceptance_criteria": [
+                "GET /todos?completed=true returns only completed todos",
+                "GET /todos?limit=5&offset=10 returns paginated results",
+                "Response includes { \"items\": [...], \"total\": N, \"limit\": 5, \"offset\": 10 }",
+                "Integration tests verify filtering and pagination"
+            ],
+            "passes": false,
+            "priority": 4,
+            "depends_on": [
+                "US-002"
+            ],
+            "complexity": 3
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with axum, tokio, serde, uuid, chrono",
+        "Use proper HTTP status codes throughout",
+        "Thread-safe state management with Arc<RwLock>",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

@@ -1,0 +1,36 @@
+{
+    "project": "benchmark-cli-tool",
+    "feature": "Simple CLI Calculator",
+    "branch_name": "bench/t1-cli-tool",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Build a CLI calculator",
+            "description": "Create a command-line calculator using clap that accepts two numbers and an operator (+, -, *, /) as arguments and prints the result. Handle division by zero with a proper error message.",
+            "acceptance_criteria": [
+                "calc 2 + 3 outputs 5",
+                "calc 10 / 0 outputs an error message instead of panicking",
+                "calc 7 * 6 outputs 42",
+                "Unit tests cover all four operations and division by zero"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 1
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with clap for argument parsing",
+        "Handle all arithmetic edge cases gracefully",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

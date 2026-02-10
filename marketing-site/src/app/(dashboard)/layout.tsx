@@ -16,7 +16,7 @@ function useAuth() {
         // Check for custom token in localStorage
         const token = localStorage.getItem('a2a_token')
         const userStr = localStorage.getItem('a2a_user')
-        
+
         if (token && userStr) {
             try {
                 const user = JSON.parse(userStr)
@@ -87,6 +87,22 @@ function CogIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function ChartIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+    )
+}
+
+function AnalyticsIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+    )
+}
+
 function CreditCardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
@@ -149,6 +165,8 @@ const navigation = [
     { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
     { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
     { name: 'Cognition', href: '/dashboard/cognition', icon: BrainIcon },
+    { name: 'Benchmarks', href: '/dashboard/benchmarks', icon: ChartIcon },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: AnalyticsIcon, highlight: true },
     { name: 'Cronjobs', href: '/cronjobs', icon: ClockIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
@@ -210,9 +228,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }, [loading, isAuthenticated, router, pathname])
 
     // Check if user has admin role
-    const isAdmin = (user as any)?.roles?.includes('admin') || 
-                    (user as any)?.roles?.includes('a2a-admin') ||
-                    (user as any)?.role === 'admin'
+    const isAdmin = (user as any)?.roles?.includes('admin') ||
+        (user as any)?.roles?.includes('a2a-admin') ||
+        (user as any)?.role === 'admin'
 
     // Build navigation with admin item if user is admin
     const navItems = isAdmin ? [...navigation, adminNavItem] : navigation
@@ -234,10 +252,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         localStorage.removeItem('a2a_refresh_token')
         localStorage.removeItem('a2a_session')
         localStorage.removeItem('access_token')
-        
+
         // Clear cookie
         document.cookie = 'a2a_token=; path=/; max-age=0'
-        
+
         // Sign out from NextAuth if using that
         if (session) {
             signOut({ callbackUrl: '/' })
@@ -333,10 +351,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         href={item.href}
                                         className={clsx(
                                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-                                             pathname === item.href
-                                                 ? 'bg-white/10 text-white'
-                                                 : 'text-cyan-100 hover:bg-white/10',
-                                             item.name === 'Admin' && 'border-t border-cyan-600 dark:border-gray-700 mt-2 pt-2',
+                                            pathname === item.href
+                                                ? 'bg-white/10 text-white'
+                                                : 'text-cyan-100 hover:bg-white/10',
+                                            item.name === 'Admin' && 'border-t border-cyan-600 dark:border-gray-700 mt-2 pt-2',
                                             (item as any).highlight && 'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30'
                                         )}
                                     >
@@ -348,7 +366,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </Link>
                                 </li>
                             ))}
-                         </ul>
+                        </ul>
                         {/* Stats in sidebar */}
                         <div className="mt-auto pt-4 border-t border-cyan-600 dark:border-gray-700">
                             <div className="grid grid-cols-2 gap-2 text-center">
@@ -415,7 +433,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                                 alt={user.name || user.first_name || 'User'}
                                                 className="h-8 w-8 rounded-full"
                                             />
-                                         ) : (
+                                        ) : (
                                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-white text-sm font-medium">
                                                 {user.name?.charAt(0) || user.first_name?.charAt(0) || user.email?.charAt(0) || 'U'}
                                             </div>
@@ -462,11 +480,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         </>
                                     )}
                                 </div>
-                             ) : (
-                                 <Link
-                                     href="/login"
-                                     className="text-sm font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
-                                 >
+                            ) : (
+                                <Link
+                                    href="/login"
+                                    className="text-sm font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
+                                >
                                     Sign in
                                 </Link>
                             )}

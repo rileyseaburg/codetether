@@ -1,0 +1,118 @@
+{
+  "name": "CodeTether – Gmail to AI Analysis to Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{ "mode": "everyMinute" }]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$credentials.domain}}/v1/automation/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Analyze email from {{ $json.from }}\",\n  \"description\": \"Analyze the following email and provide a summary with action items:\\n\\nFrom: {{ $json.from }}\\nSubject: {{ $json.subject }}\\nBody:\\n{{ $json.text }}\",\n  \"agent_type\": \"general\",\n  \"model\": \"claude-sonnet-4\"\n}"
+      },
+      "id": "create-task",
+      "name": "Analyze with CodeTether",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "credentials": {
+        "httpHeaderAuth": { "id": "", "name": "CodeTether API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait",
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$credentials.domain}}/v1/automation/tasks/{{ $('Analyze with CodeTether').item.json.task_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "poll",
+      "name": "Get Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "credentials": {
+        "httpHeaderAuth": { "id": "", "name": "CodeTether API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "done",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "if-done",
+      "name": "Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "channel": "#ai-summaries",
+        "text": "=📧 *Email Analysis Complete*\n\n*Task:* {{ $json.title }}\n*Status:* {{ $json.status }}\n\n{{ $json.result_summary }}",
+        "otherOptions": {}
+      },
+      "id": "slack",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1100, -100]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": { "main": [[{ "node": "Analyze with CodeTether", "type": "main", "index": 0 }]] },
+    "Analyze with CodeTether": { "main": [[{ "node": "Wait 30s", "type": "main", "index": 0 }]] },
+    "Wait 30s": { "main": [[{ "node": "Get Result", "type": "main", "index": 0 }]] },
+    "Get Result": { "main": [[{ "node": "Done?", "type": "main", "index": 0 }]] },
+    "Done?": {
+      "main": [
+        [{ "node": "Post to Slack", "type": "main", "index": 0 }],
+        [{ "node": "Wait 30s", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "CodeTether" },
+    { "name": "Gmail" },
+    { "name": "Slack" },
+    { "name": "AI Analysis" }
+  ]
+}

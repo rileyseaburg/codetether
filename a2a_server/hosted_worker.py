@@ -258,6 +258,17 @@ class HostedWorker:
                 result_full=result,
             )
 
+            # Record result for perpetual loop iterations (if applicable)
+            try:
+                from .perpetual_loop import handle_task_completion_for_loops
+                await handle_task_completion_for_loops(
+                    task_id=task_id,
+                    status='completed',
+                    result=result.get('summary') or result.get('response', ''),
+                )
+            except Exception:
+                pass
+
             self.tasks_completed += 1
             self.total_runtime_seconds += runtime
             logger.info(
@@ -275,6 +286,17 @@ class HostedWorker:
                 status='failed',
                 error=str(e),
             )
+
+            # Record failure for perpetual loop iterations (if applicable)
+            try:
+                from .perpetual_loop import handle_task_completion_for_loops
+                await handle_task_completion_for_loops(
+                    task_id=task_id,
+                    status='failed',
+                    result=str(e),
+                )
+            except Exception:
+                pass
 
             self.tasks_failed += 1
 

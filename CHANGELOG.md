@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.4.2] - 2026-02-10
+
+### Added - Zapier Integration v1.2.0 (12 new components)
+
+Expanded the Zapier integration from 6 to 18 components, covering agents, codebases, cron jobs, PRD generation, billing, and more.
+
+#### New Actions
+| Action | Description |
+|--------|-------------|
+| `send_message_async` | Fire-and-forget async messages with task tracking |
+| `send_to_agent` | Target specific named agents with deadline support |
+| `cancel_ralph_run` | Cancel autonomous Ralph development runs |
+| `create_cronjob` | Schedule recurring tasks with cron expressions |
+| `prd_chat` | AI-assisted PRD generation with user stories |
+
+#### New Searches
+| Search | Description |
+|--------|-------------|
+| `discover_agents` | Find registered worker agents in the network |
+| `list_codebases` | Find codebases for targeting tasks and runs |
+| `list_ralph_runs` | List/filter Ralph runs by status |
+| `list_models` | Discover available AI models by provider |
+| `get_usage_summary` | Token usage and billing summary |
+
+#### New Triggers
+| Trigger | Description |
+|---------|-------------|
+| `task_completed` | Fires when a task finishes successfully |
+| `task_failed` | Fires when a task fails (for alerts/retry logic) |
+
+#### Documentation Updates
+- Comprehensive Zapier docs at `codetether-docs/features/zapier.md` (all 18 components)
+- Updated marketing site getting-started page with new use cases
+- Updated README.md and ALIGNMENT.md
+
 ## [1.4.1] - 2026-01-25
 
 ### Added - MCP-to-Ralph Integration (E2E Validated)

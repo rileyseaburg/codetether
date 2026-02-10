@@ -20,21 +20,21 @@ import type { ConversionEventType } from '@/lib/optimization';
 let funnelBrain: MarketingFunnelBrain | null = null;
 
 function getFunnelBrain(): MarketingFunnelBrain {
-  if (!funnelBrain) {
-    funnelBrain = new MarketingFunnelBrain({ explorationRate: 0.05 });
+    if (!funnelBrain) {
+        funnelBrain = new MarketingFunnelBrain({ explorationRate: 0.05 });
 
-    // Restore state from storage if available
-    if (typeof globalThis !== 'undefined' && (globalThis as any).__funnelBrainState) {
-      funnelBrain.importState((globalThis as any).__funnelBrainState);
+        // Restore state from storage if available
+        if (typeof globalThis !== 'undefined' && (globalThis as any).__funnelBrainState) {
+            funnelBrain.importState((globalThis as any).__funnelBrainState);
+        }
     }
-  }
-  return funnelBrain;
+    return funnelBrain;
 }
 
 function persistState(): void {
-  if (funnelBrain && typeof globalThis !== 'undefined') {
-    (globalThis as any).__funnelBrainState = funnelBrain.exportState();
-  }
+    if (funnelBrain && typeof globalThis !== 'undefined') {
+        (globalThis as any).__funnelBrainState = funnelBrain.exportState();
+    }
 }
 
 /**
@@ -43,34 +43,34 @@ function persistState(): void {
  * Assembles an optimized page for the visitor.
  */
 export async function GET(request: NextRequest) {
-  const searchParams = Object.fromEntries(request.nextUrl.searchParams);
-  const headers: Record<string, string | undefined> = {
-    referer: request.headers.get('referer') ?? undefined,
-    referrer: request.headers.get('referrer') ?? undefined,
-    'user-agent': request.headers.get('user-agent') ?? undefined,
-  };
+    const searchParams = Object.fromEntries(request.nextUrl.searchParams);
+    const headers: Record<string, string | undefined> = {
+        referer: request.headers.get('referer') ?? undefined,
+        referrer: request.headers.get('referrer') ?? undefined,
+        'user-agent': request.headers.get('user-agent') ?? undefined,
+    };
 
-  const adContext = extractAdContext(searchParams, headers);
+    const adContext = extractAdContext(searchParams, headers);
 
-  // Generate session ID
-  const sessionId = `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Generate session ID
+    const sessionId = `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-  const brain = getFunnelBrain();
-  const assembly = brain.assemblePage(sessionId, adContext);
+    const brain = getFunnelBrain();
+    const assembly = brain.assemblePage(sessionId, adContext);
 
-  // Record impressions for all selected variants
-  for (const selection of Object.values(assembly.slots)) {
-    brain.recordImpression(selection.variantId);
-  }
+    // Record impressions for all selected variants
+    for (const selection of Object.values(assembly.slots)) {
+        brain.recordImpression(selection.variantId);
+    }
 
-  persistState();
+    persistState();
 
-  return NextResponse.json({
-    sessionId: assembly.sessionId,
-    slots: assembly.slots,
-    renderTimeMs: assembly.renderTimeMs,
-    timestamp: assembly.timestamp,
-  });
+    return NextResponse.json({
+        sessionId: assembly.sessionId,
+        slots: assembly.slots,
+        renderTimeMs: assembly.renderTimeMs,
+        timestamp: assembly.timestamp,
+    });
 }
 
 /**
@@ -86,33 +86,33 @@ export async function GET(request: NextRequest) {
  * }
  */
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+    const body = await request.json();
 
-  const { sessionId, eventType, variantIds, valueCents = 0 } = body as {
-    sessionId: string;
-    eventType: 'cta_click' | 'signup_complete' | 'subscription_start';
-    variantIds: string[];
-    valueCents?: number;
-  };
+    const { sessionId, eventType, variantIds, valueCents = 0 } = body as {
+        sessionId: string;
+        eventType: 'cta_click' | 'signup_complete' | 'subscription_start';
+        variantIds: string[];
+        valueCents?: number;
+    };
 
-  if (!sessionId || !eventType || !Array.isArray(variantIds)) {
-    return NextResponse.json(
-      { error: 'sessionId, eventType, and variantIds[] are required' },
-      { status: 400 }
-    );
-  }
+    if (!sessionId || !eventType || !Array.isArray(variantIds)) {
+        return NextResponse.json(
+            { error: 'sessionId, eventType, and variantIds[] are required' },
+            { status: 400 }
+        );
+    }
 
-  const validEvents: ConversionEventType[] = ['cta_click', 'signup_complete', 'subscription_start'];
-  if (!validEvents.includes(eventType)) {
-    return NextResponse.json(
-      { error: `eventType must be one of: ${validEvents.join(', ')}` },
-      { status: 400 }
-    );
-  }
+    const validEvents: ConversionEventType[] = ['cta_click', 'signup_complete', 'subscription_start'];
+    if (!validEvents.includes(eventType)) {
+        return NextResponse.json(
+            { error: `eventType must be one of: ${validEvents.join(', ')}` },
+            { status: 400 }
+        );
+    }
 
-  const brain = getFunnelBrain();
-  brain.recordConversion(variantIds, eventType, valueCents);
-  persistState();
+    const brain = getFunnelBrain();
+    brain.recordConversion(variantIds, eventType, valueCents);
+    persistState();
 
-  return NextResponse.json({ success: true, sessionId, eventType });
+    return NextResponse.json({ success: true, sessionId, eventType });
 }

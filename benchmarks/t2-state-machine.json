@@ -1,0 +1,89 @@
+{
+    "project": "benchmark-state-machine",
+    "feature": "Async Task Queue with State Machine",
+    "branch_name": "bench/t2-state-machine",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Define task state machine",
+            "description": "Create a Task struct with states: Pending, Running, Completed, Failed. Define valid transitions (Pending->Running, Running->Completed, Running->Failed). Invalid transitions should return errors.",
+            "acceptance_criteria": [
+                "Task enum has all four states",
+                "transition() method enforces valid state transitions",
+                "Invalid transitions return TaskError::InvalidTransition",
+                "Unit tests verify all valid and invalid transitions"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 2
+        },
+        {
+            "id": "US-002",
+            "title": "Build async task queue",
+            "description": "Implement an async task queue using tokio channels. Tasks are submitted with a closure, executed concurrently up to a configurable concurrency limit, and results are collected.",
+            "acceptance_criteria": [
+                "TaskQueue::new(concurrency) creates a queue with bounded parallelism",
+                "submit() accepts an async closure and returns a task ID",
+                "Tasks execute concurrently up to the limit",
+                "Results are retrievable by task ID",
+                "Unit tests verify concurrent execution and result retrieval"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-003",
+            "title": "Add task cancellation and timeout",
+            "description": "Add ability to cancel running tasks and set per-task timeouts. Cancelled tasks transition to Failed state. Timed-out tasks are automatically cancelled.",
+            "acceptance_criteria": [
+                "cancel(task_id) stops a running task",
+                "Cancelled tasks transition to Failed with reason",
+                "Tasks exceeding timeout are auto-cancelled",
+                "Unit tests verify cancellation and timeout behavior"
+            ],
+            "passes": false,
+            "priority": 3,
+            "depends_on": [
+                "US-002"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-004",
+            "title": "Add queue statistics and monitoring",
+            "description": "Track and expose queue statistics: total submitted, running, completed, failed, average duration. Provide a stats() method that returns a QueueStats struct.",
+            "acceptance_criteria": [
+                "stats() returns current queue statistics",
+                "Statistics update in real-time as tasks complete",
+                "Average duration is calculated correctly",
+                "Unit tests verify statistics accuracy"
+            ],
+            "passes": false,
+            "priority": 4,
+            "depends_on": [
+                "US-002"
+            ],
+            "complexity": 2
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with tokio for async runtime",
+        "Use tokio::sync channels for task communication",
+        "Thread-safe with Arc and proper synchronization",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}
