@@ -15,7 +15,7 @@ export class Codetether implements INodeType {
         group: ['transform'],
         version: 1,
         subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-        description: 'Create, monitor, and manage AI automation tasks with CodeTether',
+        description: 'Create AI tasks, generate video ads, and run campaigns with CodeTether',
         defaults: {
             name: 'CodeTether',
         },
@@ -36,6 +36,7 @@ export class Codetether implements INodeType {
                 noDataExpression: true,
                 options: [
                     { name: 'Task', value: 'task' },
+                    { name: 'Video Ad', value: 'videoAd' },
                 ],
                 default: 'task',
             },
@@ -137,11 +138,14 @@ export class Codetether implements INodeType {
                         type: 'options',
                         options: [
                             { name: 'Default', value: 'default' },
+                            { name: 'Claude Opus 4.6', value: 'claude-opus-4-6' },
+                            { name: 'Claude Opus 4.5', value: 'claude-opus-4-5' },
                             { name: 'Claude Sonnet 4', value: 'claude-sonnet-4' },
-                            { name: 'Claude Opus', value: 'claude-opus' },
                             { name: 'Claude Haiku', value: 'claude-haiku' },
-                            { name: 'GPT-4o', value: 'gpt-4o' },
+                            { name: 'GPT-5.2', value: 'gpt-5.2' },
                             { name: 'GPT-4.1', value: 'gpt-4.1' },
+                            { name: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+                            { name: 'Gemini 3 Pro', value: 'gemini-3-pro' },
                             { name: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro' },
                             { name: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash' },
                             { name: 'Grok 3', value: 'grok-3' },
@@ -226,6 +230,205 @@ export class Codetether implements INodeType {
                 default: 50,
                 displayOptions: { show: { resource: ['task'], operation: ['getAll'] } },
                 description: 'Max number of results to return',
+            },
+
+            // ====== Video Ad Operations ======
+            {
+                displayName: 'Operation',
+                name: 'operation',
+                type: 'options',
+                noDataExpression: true,
+                displayOptions: { show: { resource: ['videoAd'] } },
+                options: [
+                    {
+                        name: 'Generate',
+                        value: 'generate',
+                        description: 'Generate a video ad with Creatify AI',
+                        action: 'Generate a video ad',
+                    },
+                    {
+                        name: 'Generate and Launch',
+                        value: 'generateAndLaunch',
+                        description: 'Generate video → upload to YouTube → create Google Ads campaign',
+                        action: 'Generate and launch a video ad',
+                    },
+                    {
+                        name: 'Check Status',
+                        value: 'checkStatus',
+                        description: 'Check Creatify video generation status',
+                        action: 'Check video generation status',
+                    },
+                    {
+                        name: 'Launch',
+                        value: 'launch',
+                        description: 'Launch a Google Ads campaign from an existing YouTube video',
+                        action: 'Launch video ad campaign',
+                    },
+                    {
+                        name: 'Report',
+                        value: 'report',
+                        description: 'Get video campaign performance metrics',
+                        action: 'Get video ad report',
+                    },
+                    {
+                        name: 'Credits',
+                        value: 'credits',
+                        description: 'Check remaining Creatify credits',
+                        action: 'Check video credits',
+                    },
+                ],
+                default: 'generate',
+            },
+
+            // ------ Generate / GenerateAndLaunch fields ------
+            {
+                displayName: 'Video Source',
+                name: 'videoSource',
+                type: 'options',
+                displayOptions: { show: { resource: ['videoAd'], operation: ['generate', 'generateAndLaunch'] } },
+                options: [
+                    { name: 'CodeTether Pre-built Script', value: 'script' },
+                    { name: 'Custom URL', value: 'url' },
+                ],
+                default: 'script',
+                description: 'Generate from a pre-built CodeTether script or a custom URL',
+            },
+            {
+                displayName: 'Script Style',
+                name: 'scriptStyle',
+                type: 'options',
+                displayOptions: { show: { resource: ['videoAd'], operation: ['generate', 'generateAndLaunch'], videoSource: ['script'] } },
+                options: [
+                    { name: 'Problem Focused', value: 'problem_focused' },
+                    { name: 'Result Focused', value: 'result_focused' },
+                    { name: 'Comparison', value: 'comparison' },
+                ],
+                default: 'problem_focused',
+                description: 'Pre-written ad script style',
+            },
+            {
+                displayName: 'URL',
+                name: 'videoUrl',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['videoAd'], operation: ['generate', 'generateAndLaunch'], videoSource: ['url'] } },
+                description: 'Product or landing page URL to generate video from',
+                placeholder: 'https://codetether.io',
+            },
+            {
+                displayName: 'Custom Script',
+                name: 'videoScript',
+                type: 'string',
+                typeOptions: { rows: 4 },
+                default: '',
+                displayOptions: { show: { resource: ['videoAd'], operation: ['generate', 'generateAndLaunch'], videoSource: ['url'] } },
+                description: 'Optional custom script for the video narration',
+            },
+            {
+                displayName: 'Aspect Ratio',
+                name: 'aspectRatio',
+                type: 'options',
+                displayOptions: { show: { resource: ['videoAd'], operation: ['generate', 'generateAndLaunch'] } },
+                options: [
+                    { name: '16:9 (YouTube / Horizontal)', value: '16:9' },
+                    { name: '9:16 (Stories / Vertical)', value: '9:16' },
+                    { name: '1:1 (Square)', value: '1:1' },
+                ],
+                default: '16:9',
+                description: 'Video aspect ratio',
+            },
+
+            // ------ Launch-specific fields ------
+            {
+                displayName: 'YouTube Video ID',
+                name: 'youtubeVideoId',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['videoAd'], operation: ['launch'] } },
+                description: 'YouTube video ID (e.g., dQw4w9WgXcQ)',
+            },
+
+            // ------ Campaign fields (launch + generateAndLaunch) ------
+            {
+                displayName: 'Campaign Options',
+                name: 'campaignOptions',
+                type: 'collection',
+                placeholder: 'Add Option',
+                default: {},
+                displayOptions: { show: { resource: ['videoAd'], operation: ['launch', 'generateAndLaunch'] } },
+                options: [
+                    {
+                        displayName: 'Campaign Name',
+                        name: 'campaignName',
+                        type: 'string',
+                        default: '',
+                        description: 'Name for the Google Ads campaign',
+                    },
+                    {
+                        displayName: 'Daily Budget ($)',
+                        name: 'dailyBudgetDollars',
+                        type: 'number',
+                        typeOptions: { minValue: 1 },
+                        default: 25,
+                        description: 'Daily budget in dollars',
+                    },
+                    {
+                        displayName: 'Ad Type',
+                        name: 'adType',
+                        type: 'options',
+                        options: [
+                            { name: 'In-Stream (Skippable)', value: 'IN_STREAM' },
+                            { name: 'Bumper (6s Non-Skippable)', value: 'BUMPER' },
+                        ],
+                        default: 'IN_STREAM',
+                        description: 'Video ad format',
+                    },
+                    {
+                        displayName: 'Final URL',
+                        name: 'finalUrl',
+                        type: 'string',
+                        default: 'https://codetether.run',
+                        description: 'Landing page URL when viewer clicks',
+                    },
+                    {
+                        displayName: 'Headline',
+                        name: 'headline',
+                        type: 'string',
+                        default: 'AI Agents That Actually Deliver',
+                        description: 'Ad headline text',
+                    },
+                    {
+                        displayName: 'Call to Action',
+                        name: 'callToAction',
+                        type: 'string',
+                        default: 'Start Free',
+                        description: 'CTA button text',
+                    },
+                ],
+            },
+
+            // ------ Check Status field ------
+            {
+                displayName: 'Creatify Video ID',
+                name: 'creatifyVideoId',
+                type: 'string',
+                default: '',
+                required: true,
+                displayOptions: { show: { resource: ['videoAd'], operation: ['checkStatus'] } },
+                description: 'The Creatify video ID returned from the Generate operation',
+            },
+
+            // ------ Report fields ------
+            {
+                displayName: 'Report Days',
+                name: 'reportDays',
+                type: 'number',
+                typeOptions: { minValue: 1, maxValue: 365 },
+                default: 30,
+                displayOptions: { show: { resource: ['videoAd'], operation: ['report'] } },
+                description: 'Number of days to include in the report',
             },
         ],
     };
@@ -349,6 +552,114 @@ export class Codetether implements INodeType {
                         );
 
                         returnData.push({ json: { task_id: taskId, status: 'cancelled' } });
+                    }
+                }
+
+                if (resource === 'videoAd') {
+                    // Video pipeline endpoint
+                    const pipelineUrl = `${baseUrl.replace(/\/v1\/.*$/, '')}/api/google/video-pipeline`;
+
+                    if (operation === 'generate' || operation === 'generateAndLaunch') {
+                        const videoSource = this.getNodeParameter('videoSource', i) as string;
+                        const aspectRatio = this.getNodeParameter('aspectRatio', i, '16:9') as string;
+
+                        const pipelineBody: Record<string, unknown> = {
+                            action: operation === 'generateAndLaunch' ? 'generate_and_launch' : 'generate',
+                            aspectRatio,
+                        };
+
+                        if (videoSource === 'script') {
+                            pipelineBody.scriptStyle = this.getNodeParameter('scriptStyle', i, 'problem_focused') as string;
+                        } else {
+                            pipelineBody.url = this.getNodeParameter('videoUrl', i) as string;
+                            const script = this.getNodeParameter('videoScript', i, '') as string;
+                            if (script) pipelineBody.script = script;
+                        }
+
+                        if (operation === 'generateAndLaunch') {
+                            const campaignOptions = this.getNodeParameter('campaignOptions', i, {}) as Record<string, unknown>;
+                            Object.assign(pipelineBody, campaignOptions);
+                        }
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: pipelineUrl,
+                                body: pipelineBody,
+                                json: true,
+                            },
+                        );
+
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'checkStatus') {
+                        const creatifyVideoId = this.getNodeParameter('creatifyVideoId', i) as string;
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: pipelineUrl,
+                                body: { action: 'check_status', creatifyVideoId },
+                                json: true,
+                            },
+                        );
+
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'launch') {
+                        const youtubeVideoId = this.getNodeParameter('youtubeVideoId', i) as string;
+                        const campaignOptions = this.getNodeParameter('campaignOptions', i, {}) as Record<string, unknown>;
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: pipelineUrl,
+                                body: { action: 'launch', youtubeVideoId, ...campaignOptions },
+                                json: true,
+                            },
+                        );
+
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'report') {
+                        const days = this.getNodeParameter('reportDays', i, 30) as number;
+
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: pipelineUrl,
+                                body: { action: 'report', days },
+                                json: true,
+                            },
+                        );
+
+                        returnData.push({ json: response as IDataObject });
+                    }
+
+                    if (operation === 'credits') {
+                        const response = await this.helpers.httpRequestWithAuthentication.call(
+                            this,
+                            'codetetherApi',
+                            {
+                                method: 'POST',
+                                url: pipelineUrl,
+                                body: { action: 'credits' },
+                                json: true,
+                            },
+                        );
+
+                        returnData.push({ json: response as IDataObject });
                     }
                 }
             } catch (error) {
