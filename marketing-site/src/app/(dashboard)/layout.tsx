@@ -143,10 +143,27 @@ function BrainIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function AvatarIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11l5-3m0 6l-5-3" />
+        </svg>
+    )
+}
+
 function ServerIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+        </svg>
+    )
+}
+
+function MegaphoneIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
         </svg>
     )
 }
@@ -165,6 +182,8 @@ const navigation = [
     { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
     { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
     { name: 'Cognition', href: '/dashboard/cognition', icon: BrainIcon },
+    { name: 'Avatar', href: '/dashboard/avatar', icon: AvatarIcon, highlight: true },
+    { name: 'Ads', href: '/dashboard/ads', icon: MegaphoneIcon, highlight: true },
     { name: 'Benchmarks', href: '/dashboard/benchmarks', icon: ChartIcon },
     { name: 'Analytics', href: '/dashboard/analytics', icon: AnalyticsIcon, highlight: true },
     { name: 'Cronjobs', href: '/cronjobs', icon: ClockIcon },
