@@ -29,6 +29,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.26",
     "google-ads-api": "^23.0.0",
+    "googleapis": "^171.4.0",
     "livekit-client": "^2.16.1",
     "lucide-react": "^0.563.0",
     "next": "^16.1.0",

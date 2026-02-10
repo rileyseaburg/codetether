@@ -30,14 +30,17 @@ CREATE INDEX IF NOT EXISTS idx_model_pricing_active ON model_pricing(is_active);
 -- Seed with common model pricing (USD per 1M tokens, as of 2026)
 INSERT INTO model_pricing (provider, model, input_cost_per_m, output_cost_per_m, cache_read_cost_per_m, cache_write_cost_per_m, reasoning_cost_per_m) VALUES
     -- Anthropic
+    ('anthropic', 'claude-opus-4-6',     15.00,  75.00,  1.50,  18.75,  NULL),
     ('anthropic', 'claude-opus-4-5',      5.00,  25.00,  0.50,  6.25,  NULL),
     ('anthropic', 'claude-sonnet-4',      3.00,  15.00,  0.30,  3.75,  NULL),
     ('anthropic', 'claude-haiku-3-5',     0.80,   4.00,  0.08,  1.00,  NULL),
     ('anthropic', 'claude-sonnet-3-5',    3.00,  15.00,  0.30,  3.75,  NULL),
     -- Azure-hosted Anthropic
+    ('azure-anthropic', 'claude-opus-4-6',  15.00, 75.00, 1.50, 18.75, NULL),
     ('azure-anthropic', 'claude-opus-4-5',   5.00, 25.00, 0.50, 6.25, NULL),
     ('azure-anthropic', 'claude-sonnet-4',   3.00, 15.00, 0.30, 3.75, NULL),
     -- OpenAI
+    ('openai', 'gpt-5.2',               3.00,  12.00,  NULL,  NULL,  NULL),
     ('openai', 'gpt-4o',                 2.50,  10.00,  NULL,  NULL,  NULL),
     ('openai', 'gpt-4o-mini',            0.15,   0.60,  NULL,  NULL,  NULL),
     ('openai', 'gpt-4.1',               2.00,   8.00,  NULL,  NULL,  NULL),
@@ -45,6 +48,7 @@ INSERT INTO model_pricing (provider, model, input_cost_per_m, output_cost_per_m,
     ('openai', 'o3',                    2.00,   8.00,  NULL,  NULL,  8.00),
     ('openai', 'o3-mini',              1.10,   4.40,  NULL,  NULL,  4.40),
     -- Google
+    ('google', 'gemini-3-pro',          1.50,  12.00,  NULL,  NULL,  NULL),
     ('google', 'gemini-2.5-pro',        1.25,  10.00,  NULL,  NULL,  NULL),
     ('google', 'gemini-2.5-flash',      0.15,   0.60,  NULL,  NULL,  NULL)
 ON CONFLICT (provider, model) DO UPDATE SET
