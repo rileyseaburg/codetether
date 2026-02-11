@@ -55,330 +55,166 @@ logger = logging.getLogger("quantumhead")
 # MODEL DEFINITIONS (must match training notebook)
 # ============================================================
 
-class ConvBlock(torch.nn.Module):
-    def __init__(self, in_ch, out_ch, upsample=False):
+import math
+import torch.nn as nn
+
+
+class ConvBlock(nn.Module):
+    def __init__(self, in_ch, out_ch):
         super().__init__()
-        self.conv = torch.nn.Conv2d(in_ch, out_ch, 3, padding=1)
-        self.norm = torch.nn.InstanceNorm2d(out_ch)
-        self.act = torch.nn.LeakyReLU(0.2)
-        self.upsample = upsample
+        self.conv = nn.Conv2d(in_ch, out_ch, 3, padding=1)
+        self.norm = nn.InstanceNorm2d(out_ch)
+        self.act = nn.LeakyReLU(0.2, inplace=True)
 
     def forward(self, x):
-        if self.upsample:
-            x = F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=False)
         return self.act(self.norm(self.conv(x)))
 
 
-class NeutralDecoder(torch.nn.Module):
-    def __init__(self, z_dim=512, num_scales=8):
+class UVDecoder(nn.Module):
+    """Decodes latent -> UV-space Gaussian attribute maps.
+    Output channels: position_offset(3) + rotation(4) + scale(3) + opacity(1) + color(3) = 14
+    """
+    def __init__(self, z_dim, uv_size=256, out_channels=14):
         super().__init__()
-        self.fc = torch.nn.Linear(z_dim, 256 * 4 * 4)
-        channels = [256, 256, 128, 128, 64, 64, 32, 16]
-        self.blocks = torch.nn.ModuleList()
-        for i in range(num_scales):
-            in_ch = 256 if i == 0 else channels[i - 1]
-            self.blocks.append(
-                torch.nn.Sequential(
-                    torch.nn.ConvTranspose2d(in_ch, channels[i], 4, 2, 1),
-                    torch.nn.LeakyReLU(0.2),
-                )
-            )
+        self.uv_size = uv_size
+        self.init_size = 4
+        self.fc = nn.Linear(z_dim, 256 * self.init_size * self.init_size)
+        channels = [256, 256, 128, 128, 64, 64]
+        self.blocks = nn.ModuleList()
+        in_ch = 256
+        for out_ch in channels:
+            self.blocks.append(nn.Sequential(
+                nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+                ConvBlock(in_ch, out_ch),
+                ConvBlock(out_ch, out_ch),
+            ))
+            in_ch = out_ch
+        self.head = nn.Conv2d(channels[-1], out_channels, 1)
 
-    def forward(self, z_id):
-        x = self.fc(z_id).view(-1, 256, 4, 4)
-        bias_maps = []
+    def forward(self, z):
+        x = self.fc(z).view(-1, 256, self.init_size, self.init_size)
         for block in self.blocks:
             x = block(x)
-            bias_maps.append(x)
-        return bias_maps
+        return self.head(x)
 
 
-class GuideMeshDecoder(torch.nn.Module):
-    def __init__(self, z_id_dim=512, z_exp_dim=256, n_vertices=7306):
+class ExpressionEncoder(nn.Module):
+    """Encodes UV attribute difference maps -> expression latent Z_exp."""
+    def __init__(self, in_channels=14, z_dim=256, uv_size=256):
         super().__init__()
-        self.net = torch.nn.Sequential(
-            torch.nn.Linear(z_id_dim + z_exp_dim, 1024),
-            torch.nn.LeakyReLU(0.2),
-            torch.nn.Linear(1024, 2048),
-            torch.nn.LeakyReLU(0.2),
-            torch.nn.Linear(2048, n_vertices * 3),
+        channels = [32, 64, 64, 128, 128, 256]
+        layers = []
+        in_ch = in_channels
+        for out_ch in channels:
+            layers.extend([
+                nn.Conv2d(in_ch, out_ch, 4, 2, 1),
+                nn.InstanceNorm2d(out_ch),
+                nn.LeakyReLU(0.2, inplace=True),
+            ])
+            in_ch = out_ch
+        self.encoder = nn.Sequential(*layers)
+        self.fc_mu = nn.Linear(256 * 4 * 4, z_dim)
+        self.fc_logvar = nn.Linear(256 * 4 * 4, z_dim)
+
+    def forward(self, uv_diff):
+        h = self.encoder(uv_diff).flatten(1)
+        mu = self.fc_mu(h)
+        logvar = self.fc_logvar(h)
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            z = mu + std * torch.randn_like(std)
+        else:
+            z = mu
+        return z, mu, logvar
+
+
+class QuantumHeadModel(nn.Module):
+    """Full model: Z_id + Z_exp -> UV Gaussian maps + guide mesh offsets."""
+    def __init__(self, z_id_dim=512, z_exp_dim=256, uv_size=256, n_vertices=5023, config=None):
+        super().__init__()
+        if config:
+            z_id_dim = config.get("z_id_dim", z_id_dim)
+            z_exp_dim = config.get("z_exp_dim", z_exp_dim)
+            uv_size = config.get("uv_size", uv_size)
+            n_vertices = config.get("n_vertices", config.get("guide_vertices", n_vertices))
+        self.z_id_dim = z_id_dim
+        self.z_exp_dim = z_exp_dim
+        self.neutral_decoder = UVDecoder(z_id_dim, uv_size, out_channels=14)
+        self.expr_decoder = UVDecoder(z_id_dim + z_exp_dim, uv_size, out_channels=14)
+        self.expr_encoder = ExpressionEncoder(14, z_exp_dim, uv_size)
+        self.mesh_decoder = nn.Sequential(
+            nn.Linear(z_id_dim + z_exp_dim, 1024),
+            nn.ReLU(inplace=True),
+            nn.Linear(1024, 2048),
+            nn.ReLU(inplace=True),
+            nn.Linear(2048, n_vertices * 3),
         )
         self.n_vertices = n_vertices
 
     def forward(self, z_id, z_exp):
-        z = torch.cat([z_id, z_exp], dim=-1)
-        offsets = self.net(z).view(-1, self.n_vertices, 3)
-        return offsets
+        uv_neutral = self.neutral_decoder(z_id)
+        z_combined = torch.cat([z_id, z_exp], dim=-1)
+        uv_delta = self.expr_decoder(z_combined)
+        uv_maps = uv_neutral + uv_delta
+        mesh_offsets = self.mesh_decoder(z_combined).view(-1, self.n_vertices, 3)
+        return uv_maps, mesh_offsets
+
+    def encode_expression(self, uv_target, uv_neutral):
+        diff = uv_target - uv_neutral
+        z_exp, mu, logvar = self.expr_encoder(diff)
+        return z_exp, mu, logvar
 
 
-class GaussianAvatarDecoder(torch.nn.Module):
-    def __init__(self, z_id_dim=512, z_exp_dim=256, uv_size=256):
-        super().__init__()
-        self.uv_size = uv_size
-
-        self.fc_vi = torch.nn.Linear(z_id_dim + z_exp_dim, 256 * 8 * 8)
-        vi_channels = [256, 128, 128, 64, 64, 32, 16, 11]
-        self.vi_blocks = torch.nn.ModuleList()
-        for i, out_ch in enumerate(vi_channels):
-            in_ch = 256 if i == 0 else vi_channels[i - 1]
-            self.vi_blocks.append(
-                torch.nn.Sequential(
-                    torch.nn.ConvTranspose2d(in_ch, out_ch, 4, 2, 1),
-                    torch.nn.LeakyReLU(0.2)
-                    if i < len(vi_channels) - 1
-                    else torch.nn.Identity(),
-                )
-            )
-
-        self.fc_rgb = torch.nn.Linear(z_id_dim + z_exp_dim + 3, 256 * 8 * 8)
-        rgb_channels = [256, 128, 128, 64, 64, 32, 16, 3]
-        self.rgb_blocks = torch.nn.ModuleList()
-        for i, out_ch in enumerate(rgb_channels):
-            in_ch = 256 if i == 0 else rgb_channels[i - 1]
-            self.rgb_blocks.append(
-                torch.nn.Sequential(
-                    torch.nn.ConvTranspose2d(in_ch, out_ch, 4, 2, 1),
-                    torch.nn.LeakyReLU(0.2)
-                    if i < len(rgb_channels) - 1
-                    else torch.nn.Sigmoid(),
-                )
-            )
-
-    def forward(self, z_id, z_exp, view_dir=None, bias_maps=None):
-        B = z_id.shape[0]
-        z = torch.cat([z_id, z_exp], dim=-1)
-
-        x_vi = self.fc_vi(z).view(B, 256, 8, 8)
-        for i, block in enumerate(self.vi_blocks):
-            x_vi = block(x_vi)
-            if bias_maps is not None and i < len(bias_maps):
-                bm = bias_maps[i]
-                if bm.shape[2:] == x_vi.shape[2:] and bm.shape[1] == x_vi.shape[1]:
-                    x_vi = x_vi + bm
-
-        x_vi = F.interpolate(
-            x_vi, size=(self.uv_size, self.uv_size), mode="bilinear", align_corners=False
-        )
-
-        if view_dir is None:
-            view_dir = torch.zeros(B, 3, device=z.device)
-        z_rgb = torch.cat([z, view_dir], dim=-1)
-        x_rgb = self.fc_rgb(z_rgb).view(B, 256, 8, 8)
-        for i, block in enumerate(self.rgb_blocks):
-            x_rgb = block(x_rgb)
-            if bias_maps is not None and i < len(bias_maps):
-                bm = bias_maps[i]
-                if bm.shape[2:] == x_rgb.shape[2:] and bm.shape[1] == x_rgb.shape[1]:
-                    x_rgb = x_rgb + bm
-
-        x_rgb = F.interpolate(
-            x_rgb, size=(self.uv_size, self.uv_size), mode="bilinear", align_corners=False
-        )
-
-        return torch.cat([x_vi, x_rgb], dim=1)
-
-
-class ExpressionEncoder(torch.nn.Module):
-    def __init__(self, z_dim=256):
-        super().__init__()
-        channels = [32, 32, 64, 64, 128, 128, 256, 256]
-        layers = []
-        in_ch = 6
-        for out_ch in channels:
-            layers.extend(
-                [
-                    torch.nn.Conv2d(in_ch, out_ch, 3, padding=1),
-                    torch.nn.LeakyReLU(0.2),
-                    torch.nn.AvgPool2d(2),
-                ]
-            )
-            in_ch = out_ch
-        self.encoder = torch.nn.Sequential(*layers)
-        self.fc_mu = torch.nn.Linear(256 * 2 * 2, z_dim)
-        self.fc_logvar = torch.nn.Linear(256 * 2 * 2, z_dim)
-
-    def forward(self, delta_tex, delta_geo):
-        x = torch.cat([delta_tex, delta_geo], dim=1)
-        h = self.encoder(x).flatten(1)
-        mu = self.fc_mu(h)
-        logvar = self.fc_logvar(h)
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return mu + eps * std, mu, logvar
-
-
-class QuantumHeadModel(torch.nn.Module):
-    def __init__(self, config=None):
-        super().__init__()
-        z_id = config.get("z_id_dim", 512) if config else 512
-        z_exp = config.get("z_exp_dim", 256) if config else 256
-        uv = config.get("uv_size", 256) if config else 256
-        n_verts = config.get("guide_vertices", 7306) if config else 7306
-
-        self.expression_encoder = ExpressionEncoder(z_dim=z_exp)
-        self.neutral_decoder = NeutralDecoder(z_dim=z_id)
-        self.guide_mesh_decoder = GuideMeshDecoder(z_id, z_exp, n_verts)
-        self.gaussian_decoder = GaussianAvatarDecoder(z_id, z_exp, uv)
-
-    def forward(self, z_id, z_exp, view_dir=None):
-        bias_maps = self.neutral_decoder(z_id)
-        guide_offsets = self.guide_mesh_decoder(z_id, z_exp)
-        uv_maps = self.gaussian_decoder(z_id, z_exp, view_dir, bias_maps)
-        return uv_maps, guide_offsets
-
-    def encode_expression(self, delta_tex, delta_geo):
-        return self.expression_encoder(delta_tex, delta_geo)
-
-
-# Audio2FLAME Transformer
-import math
-
-
-class PeriodicPositionalEncoding(torch.nn.Module):
-    def __init__(self, d_model, max_len=5000, period=25):
-        super().__init__()
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe[:, 0::2] += torch.sin(position * 2 * math.pi / period)
-        pe[:, 1::2] += torch.cos(position * 2 * math.pi / period)
-        self.register_buffer("pe", pe.unsqueeze(0))
-
-    def forward(self, x):
-        return x + self.pe[:, : x.size(1)]
-
-
-class StyleEncoder(torch.nn.Module):
-    def __init__(self, n_vertices=5023, d_model=512):
-        super().__init__()
-        self.net = torch.nn.Sequential(
-            torch.nn.Linear(n_vertices * 3, 1024),
-            torch.nn.ReLU(),
-            torch.nn.Linear(1024, d_model),
-        )
-
-    def forward(self, template_mesh):
-        return self.net(template_mesh.flatten(1))
-
-
-class Audio2FLAMETransformer(torch.nn.Module):
+class Audio2FLAMETransformer(nn.Module):
+    """Predicts FLAME expression+jaw params from Wav2Vec2 audio features."""
     def __init__(self, d_model=512, nhead=8, num_layers=6, n_flame_params=53):
         super().__init__()
         self.d_model = d_model
-        self.audio_proj = torch.nn.Linear(1024, d_model)
-        self.pos_enc = PeriodicPositionalEncoding(d_model, period=25)
-        decoder_layer = torch.nn.TransformerDecoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=2048,
-            dropout=0.1,
-            batch_first=True,
+        self.n_flame_params = n_flame_params
+        self.audio_proj = nn.Linear(1024, d_model)
+        pe = torch.zeros(5000, d_model)
+        position = torch.arange(0, 5000, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe.unsqueeze(0))
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=d_model, nhead=nhead, dim_feedforward=2048,
+            dropout=0.1, batch_first=True
         )
-        self.transformer_decoder = torch.nn.TransformerDecoder(
-            decoder_layer, num_layers=num_layers
-        )
-        self.style_encoder = StyleEncoder(d_model=d_model)
-        self.flame_head = torch.nn.Sequential(
-            torch.nn.Linear(d_model, 256),
-            torch.nn.ReLU(),
-            torch.nn.Linear(256, n_flame_params),
+        self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
+        self.head = nn.Sequential(
+            nn.Linear(d_model, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, n_flame_params),
         )
 
-    def forward(self, audio_features, style_embedding, causal_mask=None):
+    def forward(self, audio_features):
         B, T, _ = audio_features.shape
-        audio = self.audio_proj(audio_features)
-        audio = self.pos_enc(audio)
-        style = style_embedding.unsqueeze(1).expand(-1, T, -1)
-        if causal_mask is None:
-            causal_mask = torch.nn.Transformer.generate_square_subsequent_mask(
-                T, device=audio.device
-            )
-        output = self.transformer_decoder(tgt=style, memory=audio, tgt_mask=causal_mask)
-        return self.flame_head(output)
+        x = self.audio_proj(audio_features) + self.pe[:, :T]
+        mask = nn.Transformer.generate_square_subsequent_mask(T, device=x.device)
+        out = self.decoder(x, x, tgt_mask=mask)
+        return self.head(out)
 
 
-# ============================================================
-# GAUSSIAN RENDERER (simplified for inference)
-# ============================================================
-
-
-class GaussianRenderer(torch.nn.Module):
+class GaussianRenderer(nn.Module):
+    """Differentiable renderer: UV Gaussian maps -> 2D image."""
     def __init__(self, uv_size=256, image_size=512):
         super().__init__()
         self.uv_size = uv_size
         self.image_size = image_size
-        self.register_buffer(
-            "uv_mask", torch.ones(uv_size, uv_size, dtype=torch.bool)
+        self.renderer = nn.Sequential(
+            ConvBlock(14, 64),
+            ConvBlock(64, 128),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            ConvBlock(128, 64),
+            ConvBlock(64, 32),
+            nn.Conv2d(32, 3, 1),
+            nn.Sigmoid(),
         )
 
-    def uv_to_gaussians(self, uv_maps, position_map):
-        pos_offset = uv_maps[:, 0:3]
-        rotation = uv_maps[:, 3:7]
-        scale = uv_maps[:, 7:10]
-        opacity = uv_maps[:, 10:11]
-        color = uv_maps[:, 11:14]
-        positions = position_map + pos_offset
-        mask = self.uv_mask.flatten()
-
-        def flatten_uv(t):
-            B, C, H, W = t.shape
-            return t.reshape(B, C, H * W).permute(0, 2, 1)[:, mask]
-
-        return {
-            "positions": flatten_uv(positions),
-            "rotations": F.normalize(flatten_uv(rotation), dim=-1),
-            "scales": torch.exp(flatten_uv(scale)),
-            "opacities": torch.sigmoid(flatten_uv(opacity)),
-            "colors": flatten_uv(color),
-        }
-
-    def render(self, gaussians):
-        try:
-            import gsplat
-
-            rendered = gsplat.rasterization(
-                means=gaussians["positions"][0],
-                quats=gaussians["rotations"][0],
-                scales=gaussians["scales"][0],
-                opacities=gaussians["opacities"][0].squeeze(-1),
-                colors=gaussians["colors"][0],
-                viewmats=torch.eye(4, device=gaussians["positions"].device).unsqueeze(0),
-                Ks=torch.tensor(
-                    [
-                        [self.image_size, 0, self.image_size / 2],
-                        [0, self.image_size, self.image_size / 2],
-                        [0, 0, 1],
-                    ],
-                    device=gaussians["positions"].device,
-                ).unsqueeze(0),
-                width=self.image_size,
-                height=self.image_size,
-            )
-            return rendered[0]
-        except (ImportError, Exception):
-            return self._neural_render(gaussians)
-
-    def _neural_render(self, gaussians):
-        B = gaussians["positions"].shape[0]
-        pos_2d = gaussians["positions"][:, :, :2]
-        colors = gaussians["colors"]
-        opacities = gaussians["opacities"]
-        H = W = self.image_size
-        img = torch.zeros(B, 3, H, W, device=pos_2d.device)
-        px = ((pos_2d[:, :, 0] + 1) * 0.5 * W).long().clamp(0, W - 1)
-        py = ((pos_2d[:, :, 1] + 1) * 0.5 * H).long().clamp(0, H - 1)
-        for b in range(B):
-            for c in range(3):
-                img[b, c].index_put_(
-                    (py[b], px[b]),
-                    colors[b, :, c] * opacities[b, :, 0],
-                    accumulate=True,
-                )
-        return img.clamp(0, 1)
+    def forward(self, uv_maps):
+        return self.renderer(uv_maps)
 
 
 # ============================================================
@@ -414,30 +250,48 @@ class QuantumHeadInference:
                 "guide_vertices": 7306,
             }
 
-        # Load QuantumHead model
-        self.model = QuantumHeadModel(self.config).to(self.device)
-        qh_path = os.path.join(self.weights_dir, "quantumhead.pt")
-        if os.path.exists(qh_path):
-            state_dict = torch.load(qh_path, map_location=self.device, weights_only=True)
-            self.model.load_state_dict(state_dict)
-            logger.info("Loaded QuantumHead weights: %s", qh_path)
+        # Map config keys
+        if "n_vertices" in self.config and "guide_vertices" not in self.config:
+            self.config["guide_vertices"] = self.config["n_vertices"]
+
+        # Load QuantumHead model (keep in fp16 to save VRAM)
+        self.model = QuantumHeadModel(config=self.config).half().to(self.device)
+        for qh_name in ["quantumhead_fp16.pt", "quantumhead.pt"]:
+            qh_path = os.path.join(self.weights_dir, qh_name)
+            if os.path.exists(qh_path):
+                state_dict = torch.load(qh_path, map_location=self.device, weights_only=True)
+                state_dict = {k: v.half() for k, v in state_dict.items()}
+                self.model.load_state_dict(state_dict)
+                logger.info("Loaded QuantumHead weights: %s", qh_path)
+                break
         else:
-            logger.warning("No QuantumHead weights at %s — using random init", qh_path)
+            logger.warning("No QuantumHead weights found — using random init")
         self.model.eval()
 
-        # Load Audio2FLAME model
-        self.audio_model = Audio2FLAMETransformer().to(self.device)
-        a2f_path = os.path.join(self.weights_dir, "audio2flame.pt")
-        if os.path.exists(a2f_path):
-            state_dict = torch.load(a2f_path, map_location=self.device, weights_only=True)
-            self.audio_model.load_state_dict(state_dict)
-            logger.info("Loaded Audio2FLAME weights: %s", a2f_path)
+        # Load Audio2FLAME model (fp16)
+        self.audio_model = Audio2FLAMETransformer().half().to(self.device)
+        for a2f_name in ["audio2flame_fp16.pt", "audio2flame.pt"]:
+            a2f_path = os.path.join(self.weights_dir, a2f_name)
+            if os.path.exists(a2f_path):
+                state_dict = torch.load(a2f_path, map_location=self.device, weights_only=True)
+                state_dict = {k: v.half() for k, v in state_dict.items()}
+                self.audio_model.load_state_dict(state_dict)
+                logger.info("Loaded Audio2FLAME weights: %s", a2f_path)
+                break
         self.audio_model.eval()
 
-        # Gaussian renderer
+        # Gaussian renderer (fp16)
         self.renderer = GaussianRenderer(
             uv_size=self.config.get("uv_size", 256), image_size=IMAGE_SIZE
-        ).to(self.device)
+        ).half().to(self.device)
+        for r_name in ["renderer_fp16.pt", "renderer.pt"]:
+            r_path = os.path.join(self.weights_dir, r_name)
+            if os.path.exists(r_path):
+                state_dict = torch.load(r_path, map_location=self.device, weights_only=True)
+                state_dict = {k: v.half() for k, v in state_dict.items()}
+                self.renderer.load_state_dict(state_dict, strict=False)
+                logger.info("Loaded renderer weights: %s", r_path)
+                break
 
         # Wav2Vec2
         try:
@@ -448,7 +302,7 @@ class QuantumHeadInference:
             )
             self.wav2vec = Wav2Vec2Model.from_pretrained(
                 "facebook/wav2vec2-large-960h"
-            ).to(self.device)
+            ).half().to(self.device)
             self.wav2vec.eval()
             logger.info("Wav2Vec2 loaded")
         except ImportError:
@@ -466,14 +320,14 @@ class QuantumHeadInference:
             waveform, sampling_rate=16000, return_tensors="pt"
         )
         with torch.no_grad():
-            outputs = self.wav2vec(inputs.input_values.to(self.device))
-        features = outputs.last_hidden_state  # (1, T, 1024)
+            outputs = self.wav2vec(inputs.input_values.half().to(self.device))
+        features = outputs.last_hidden_state  # (1, T, 1024) fp16
 
         # Resample to 25fps
         num_frames = int(len(waveform) / 16000 * FPS)
         features = F.interpolate(
-            features.permute(0, 2, 1), size=num_frames, mode="linear", align_corners=False
-        ).permute(0, 2, 1)
+            features.float().permute(0, 2, 1), size=num_frames, mode="linear", align_corners=False
+        ).permute(0, 2, 1).half()
         return features, num_frames
 
     @torch.no_grad()
@@ -491,19 +345,18 @@ class QuantumHeadInference:
         if not self.loaded:
             self.load()
 
+        torch.cuda.empty_cache()
+
         # Extract audio features
         audio_features, num_frames = self.extract_audio_features(audio_path)
         logger.info("Audio: %d frames at %dfps", num_frames, FPS)
 
-        # Identity code
+        # Identity code (fp16)
         if z_id is None:
-            z_id = torch.randn(1, self.config["z_id_dim"], device=self.device)
-
-        # Style embedding (from template mesh — simplified)
-        style = torch.randn(1, 512, device=self.device)
+            z_id = torch.randn(1, self.config["z_id_dim"], device=self.device, dtype=torch.float16)
 
         # Audio → FLAME params
-        flame_params = self.audio_model(audio_features, style)  # (1, T, 53)
+        flame_params = self.audio_model(audio_features)  # (1, T, 53)
         logger.info("FLAME params: %s", flame_params.shape)
 
         # Generate frames
@@ -516,15 +369,14 @@ class QuantumHeadInference:
             # Decode to UV maps
             uv_maps, guide = self.model(z_id, z_exp.unsqueeze(0) if z_exp.dim() == 1 else z_exp)
 
-            # Render
-            pos_map = torch.zeros_like(uv_maps[:, :3])
-            gaussians = self.renderer.uv_to_gaussians(uv_maps, pos_map)
-            rendered = self.renderer._neural_render(gaussians)
+            # Render UV maps → RGB image
+            rendered = self.renderer(uv_maps)
 
-            # To numpy
-            frame = (rendered[0].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
+            # To numpy (cast to float32 for numpy conversion)
+            frame = (rendered[0].float().permute(1, 2, 0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
             frames.append(frame)
 
+        torch.cuda.empty_cache()
         return frames
 
     def generate_video(self, audio_path, output_path, source_image=None):
@@ -577,7 +429,10 @@ def create_quantumhead_router():
 
     @router.get("/status")
     async def status():
-        weights_exist = os.path.exists(os.path.join(WEIGHTS_DIR, "quantumhead.pt"))
+        weights_exist = any(
+            os.path.exists(os.path.join(WEIGHTS_DIR, n))
+            for n in ["quantumhead_fp16.pt", "quantumhead.pt"]
+        )
         return {
             "loaded": engine.loaded,
             "device": DEVICE,
@@ -585,7 +440,7 @@ def create_quantumhead_router():
             "weights_exist": weights_exist,
             "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
             "vram_gb": (
-                torch.cuda.get_device_properties(0).total_mem / 1e9
+                torch.cuda.get_device_properties(0).total_memory / 1e9
                 if torch.cuda.is_available()
                 else 0
             ),
@@ -616,21 +471,17 @@ def create_quantumhead_router():
             with open(audio_path, "wb") as f:
                 f.write(resp.content)
         elif text:
-            # Generate via local TTS
+            # Generate via local TTS (Qwen voice clone API — returns raw WAV)
             import requests as http_requests
+            voice_id = "960f89fc"
             tts_resp = http_requests.post(
-                "http://localhost:8000/speak",
-                json={"text": text, "voice_id": "960f89fc"},
-                timeout=60,
+                f"http://localhost:8000/voices/{voice_id}/speak",
+                data={"text": text},
+                timeout=120,
             )
             tts_resp.raise_for_status()
-            tts_data = tts_resp.json()
-            tts_url = tts_data.get("audio_url", tts_data.get("url", ""))
-            if tts_url.startswith("/"):
-                tts_url = f"http://localhost:8000{tts_url}"
-            audio_resp = http_requests.get(tts_url, timeout=30)
             with open(audio_path, "wb") as f:
-                f.write(audio_resp.content)
+                f.write(tts_resp.content)
         else:
             raise HTTPException(400, "Provide audio, audio_url, or text")
 
@@ -730,7 +581,10 @@ app.include_router(create_quantumhead_router())
 @app.on_event("startup")
 async def startup():
     """Load model on startup if weights exist."""
-    if os.path.exists(os.path.join(WEIGHTS_DIR, "quantumhead.pt")):
+    if any(
+        os.path.exists(os.path.join(WEIGHTS_DIR, n))
+        for n in ["quantumhead_fp16.pt", "quantumhead.pt"]
+    ):
         engine.load()
     else:
         logger.info("No weights found at %s — waiting for upload", WEIGHTS_DIR)
