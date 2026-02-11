@@ -1,6 +1,60 @@
 import NextAuth from 'next-auth'
 import Keycloak from 'next-auth/providers/keycloak'
 
+type KeycloakTokenEndpointAuthMethod = 'none' | 'client_secret_post' | 'client_secret_basic'
+
+function getFirstNonEmptyEnv(...names: string[]): string | undefined {
+    for (const name of names) {
+        const value = process.env[name]
+        if (value && value.trim().length > 0) {
+            return value.trim()
+        }
+    }
+    return undefined
+}
+
+const keycloakUrl = getFirstNonEmptyEnv('KEYCLOAK_URL', 'AUTH_KEYCLOAK_URL') || 'https://auth.quantum-forge.io'
+const keycloakRealm = getFirstNonEmptyEnv('KEYCLOAK_REALM', 'AUTH_KEYCLOAK_REALM') || 'quantum-forge'
+const keycloakIssuer = getFirstNonEmptyEnv('KEYCLOAK_ISSUER', 'AUTH_KEYCLOAK_ISSUER') || `${keycloakUrl}/realms/${keycloakRealm}`
+const keycloakClientId = getFirstNonEmptyEnv('KEYCLOAK_CLIENT_ID', 'AUTH_KEYCLOAK_ID') || 'a2a-monitor'
+const keycloakClientSecret = getFirstNonEmptyEnv('KEYCLOAK_CLIENT_SECRET', 'AUTH_KEYCLOAK_SECRET')
+const explicitPublicClient = getFirstNonEmptyEnv('KEYCLOAK_PUBLIC_CLIENT')
+const keycloakPublicClient =
+    explicitPublicClient === 'true' ||
+    (!keycloakClientSecret && explicitPublicClient !== 'false')
+const keycloakTokenEndpointAuthMethod = (getFirstNonEmptyEnv(
+    'KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD'
+) as KeycloakTokenEndpointAuthMethod | undefined) || (keycloakPublicClient ? 'none' : 'client_secret_post')
+
+if (explicitPublicClient === 'false' && !keycloakClientSecret) {
+    throw new Error(
+        'KEYCLOAK_CLIENT_SECRET is required when KEYCLOAK_PUBLIC_CLIENT=false. ' +
+        'Set a valid client secret or set KEYCLOAK_PUBLIC_CLIENT=true for public clients.'
+    )
+}
+
+if (!keycloakClientSecret && explicitPublicClient !== 'true') {
+    console.warn(
+        'No KEYCLOAK_CLIENT_SECRET found; treating Keycloak client as public. ' +
+        'If your client is confidential, set KEYCLOAK_CLIENT_SECRET and KEYCLOAK_PUBLIC_CLIENT=false.'
+    )
+}
+
+const keycloakProviderConfig: any = {
+    clientId: keycloakClientId,
+    issuer: keycloakIssuer,
+    client: {
+        token_endpoint_auth_method: keycloakTokenEndpointAuthMethod,
+    },
+    // Disable PKCE and state checks for Cypress E2E testing (cookies don't persist across cy.origin)
+    // WARNING: Only use in dev/test - re-enable for production
+    checks: process.env.NODE_ENV === 'development' ? [] : ['pkce'],
+}
+
+if (!keycloakPublicClient && keycloakClientSecret) {
+    keycloakProviderConfig.clientSecret = keycloakClientSecret
+}
+
 // Helper to decode JWT payload (without verification - just for reading claims)
 function decodeJwtPayload(token: string): Record<string, any> | null {
     try {
@@ -86,10 +140,16 @@ async function fetchTenantInfo(accessToken: string): Promise<{
         // Extract subdomain from realm_name (e.g., "riley-041b27.codetether.run" -> "riley-041b27")
         const tenantSlug = tenant.realm_name?.split('.')[0] || tenant.subdomain
 
+        // Ensure HTTPS — k8s_external_url may be stored with http:// which causes mixed content errors
+        let tenantApiUrl = tenant.k8s_external_url || getTenantApiUrl(tenantSlug)
+        if (tenantApiUrl.startsWith('http://')) {
+            tenantApiUrl = tenantApiUrl.replace('http://', 'https://')
+        }
+
         return {
             tenantId: tenant.id,
             tenantSlug: tenantSlug,
-            tenantApiUrl: tenant.k8s_external_url || getTenantApiUrl(tenantSlug),
+            tenantApiUrl,
         }
     } catch (error) {
         console.error('Failed to fetch tenant info:', error)
@@ -100,20 +160,23 @@ async function fetchTenantInfo(accessToken: string): Promise<{
 // Refresh the access token using Keycloak's token endpoint
 async function refreshAccessToken(token: any): Promise<any> {
     try {
-        const issuer = process.env.KEYCLOAK_ISSUER || 'https://auth.quantum-forge.io/realms/quantum-forge'
-        const tokenEndpoint = `${issuer}/protocol/openid-connect/token`
+        const tokenEndpoint = `${keycloakIssuer}/protocol/openid-connect/token`
+        const requestBody = new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: keycloakClientId,
+            refresh_token: token.refreshToken as string,
+        })
+
+        if (!keycloakPublicClient && keycloakClientSecret) {
+            requestBody.set('client_secret', keycloakClientSecret)
+        }
 
         const response = await fetch(tokenEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: new URLSearchParams({
-                grant_type: 'refresh_token',
-                client_id: process.env.KEYCLOAK_CLIENT_ID || 'a2a-monitor',
-                client_secret: process.env.KEYCLOAK_CLIENT_SECRET || '',
-                refresh_token: token.refreshToken as string,
-            }),
+            body: requestBody,
         })
 
         const refreshedTokens = await response.json()
@@ -155,15 +218,11 @@ async function refreshAccessToken(token: any): Promise<any> {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
-        Keycloak({
-            clientId: process.env.KEYCLOAK_CLIENT_ID || 'a2a-monitor',
-            clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || '',
-            issuer: process.env.KEYCLOAK_ISSUER || 'https://auth.quantum-forge.io/realms/quantum-forge',
-            // Disable PKCE and state checks for Cypress E2E testing (cookies don't persist across cy.origin)
-            // WARNING: Only use in dev/test - re-enable for production
-            checks: process.env.NODE_ENV === 'development' ? [] : ['pkce'],
-        }),
+        Keycloak(keycloakProviderConfig),
     ],
+    pages: {
+        error: '/login',
+    },
     callbacks: {
         async jwt({ token, account, profile }) {
             // Initial sign in - persist OAuth tokens

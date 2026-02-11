@@ -5,15 +5,15 @@ import { useMemo, useCallback } from 'react'
 
 /**
  * Hook to get tenant-aware API configuration.
- * 
+ *
  * Returns the correct API URL based on the user's tenant:
  * - If user has a dedicated tenant instance: https://{slug}.codetether.run
  * - Otherwise: https://api.codetether.run (shared API)
- * 
+ *
  * Usage:
  * ```tsx
  * const { apiUrl, tenantId, tenantSlug, tenantFetch } = useTenantApi()
- * 
+ *
  * // Make API calls to the correct endpoint
  * const data = await tenantFetch('/v1/tasks')
  * ```
@@ -33,9 +33,13 @@ export function useTenantApi() {
       }
     }
 
-    const tenantApiUrl = session.tenantApiUrl || defaultApiUrl
+    // Ensure HTTPS to prevent mixed content errors
+    let tenantApiUrl = session.tenantApiUrl || defaultApiUrl
+    if (tenantApiUrl.startsWith('http://')) {
+      tenantApiUrl = tenantApiUrl.replace('http://', 'https://')
+    }
     const hasDedicatedInstance = !!(
-      session.tenantSlug && 
+      session.tenantSlug &&
       tenantApiUrl.includes(session.tenantSlug)
     )
 

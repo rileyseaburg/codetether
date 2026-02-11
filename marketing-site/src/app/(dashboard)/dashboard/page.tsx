@@ -15,6 +15,7 @@ import {
     triggerAgentV1AgentCodebasesCodebaseIdTriggerPost,
     registerCodebaseV1AgentCodebasesPost,
     unregisterCodebaseV1AgentCodebasesCodebaseIdDelete,
+    hasApiAuthToken,
 } from '@/lib/api'
 
 interface Codebase {
@@ -449,14 +450,16 @@ export default function DashboardPage() {
 
         setSwarmMonitor(INITIAL_SWARM_MONITOR)
 
-        if (!selectedCodebase) {
+        if (!selectedCodebase || selectedCodebase === 'global') {
             return
         }
 
         const baseUrl = apiUrl.replace(/\/+$/, '')
-        const eventSource = new EventSource(
-            `${baseUrl}/v1/agent/codebases/${encodeURIComponent(selectedCodebase)}/events`
-        )
+        const sseUrl = new URL(`${baseUrl}/v1/agent/codebases/${encodeURIComponent(selectedCodebase)}/events`)
+        if (session?.accessToken) {
+            sseUrl.searchParams.set('access_token', session.accessToken)
+        }
+        const eventSource = new EventSource(sseUrl.toString())
         swarmEventSourceRef.current = eventSource
 
         eventSource.onopen = () => {
@@ -493,7 +496,7 @@ export default function DashboardPage() {
                 swarmEventSourceRef.current = null
             }
         }
-    }, [apiUrl, selectedCodebase, ingestSwarmPayload])
+    }, [apiUrl, selectedCodebase, ingestSwarmPayload, session?.accessToken])
 
     const loadCodebases = useCallback(async () => {
         try {
@@ -604,6 +607,9 @@ export default function DashboardPage() {
     }, [selectedCodebase, upsertRoutingSnapshot])
 
     useEffect(() => {
+        // Wait until we have an auth token before making SDK calls
+        if (!session?.accessToken && !hasApiAuthToken()) return
+
         loadCodebases()
         loadWorkers()
         loadRoutingFromTasks()
@@ -613,7 +619,7 @@ export default function DashboardPage() {
             loadRoutingFromTasks()
         }, 10000)
         return () => clearInterval(interval)
-    }, [loadCodebases, loadWorkers, loadRoutingFromTasks])
+    }, [loadCodebases, loadWorkers, loadRoutingFromTasks, session?.accessToken])
 
     useEffect(() => {
         const triggerWorkers = workers.filter((w) => w.is_sse_connected)
