@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # for backward compatibility with internal deployments.
 WORKER_AUTH_TOKEN: Optional[str] = os.environ.get('WORKER_AUTH_TOKEN')
 _WORKER_PATH = re.compile(
-    r'^/v1/agent/(workers/|tasks$)'
+    r'^/v1/agent/(workers/|tasks$|codebases$)'
 )
 
 
@@ -64,6 +64,9 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
 
     # Tenant signup — public
     (r"^/v1/tenants/signup$", {"POST"}, ""),
+
+    # Crash reports — agents submit without user auth
+    (r"^/v1/crash-reports$", {"POST"}, ""),
 
     # A2A protocol discovery
     (r"^/a2a/\.well-known/", None, ""),
@@ -292,6 +295,19 @@ class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
                         content={"detail": "Worker authentication required (set --token on worker)"},
                     )
             return await call_next(request)
+
+        # Worker infrastructure bypass: internal workers (codebases, tasks,
+        # heartbeats) that arrive via /v1/opencode → 307 redirect lose any
+        # auth context.  When WORKER_AUTH_TOKEN is configured, require it;
+        # otherwise trust cluster-internal traffic (backward-compatible).
+        if _WORKER_PATH.search(path):
+            if WORKER_AUTH_TOKEN:
+                if self._check_worker_token(request):
+                    return await call_next(request)
+                # Token configured but invalid — fall through to user auth
+            else:
+                # No worker token configured — allow worker infrastructure
+                return await call_next(request)
 
         # Resolve user from Authorization header.
         user = await self._resolve_user(request)

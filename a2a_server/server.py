@@ -37,6 +37,12 @@ from .models import (
     Part,
     LiveKitTokenRequest,
     LiveKitTokenResponse,
+    PushNotificationConfig,
+    TaskPushNotificationConfig,
+    SetPushNotificationConfigRequest,
+    GetPushNotificationConfigRequest,
+    ListPushNotificationConfigsRequest,
+    DeletePushNotificationConfigRequest,
 )
 from .task_manager import TaskManager, PersistentTaskManager
 from .database import DATABASE_URL
@@ -190,30 +196,40 @@ class A2AServer:
             version=agent_card.card.version,
         )
 
-        # Add CORS middleware
-        self.app.add_middleware(
-            CORSMiddleware,
-            allow_origins=['*'],
-            allow_credentials=True,
-            allow_methods=['*'],
-            allow_headers=['*'],
-        )
+        # Middleware execution order is reverse of registration order in
+        # Starlette.  Register inner middleware first, outermost last.
 
-        # Add tenant context middleware (extracts tenant from JWT)
-        self.app.add_middleware(TenantContextMiddleware)
+        # Add policy authorization middleware (OPA enforcement)
+        # Runs after tenant extraction in the request lifecycle.
+        self.app.add_middleware(PolicyAuthorizationMiddleware)
 
         # Add budget enforcement middleware (checks token budgets before AI ops)
-        # Registered before policy middleware so it runs after tenant extraction.
+        # Runs after tenant extraction.
         try:
             from .budget_middleware import BudgetEnforcementMiddleware
             self.app.add_middleware(BudgetEnforcementMiddleware)
         except Exception as e:
             logger.warning(f'Budget enforcement middleware not loaded: {e}')
 
-        # Add policy authorization middleware (OPA enforcement)
-        # Registered after tenant middleware so it runs before tenant
-        # extraction in the Starlette middleware stack.
-        self.app.add_middleware(PolicyAuthorizationMiddleware)
+        # Add tenant context middleware (extracts tenant from JWT)
+        self.app.add_middleware(TenantContextMiddleware)
+
+        # Add CORS middleware — registered last so it is the outermost layer.
+        # This ensures CORS headers are present on ALL responses, including
+        # 401/403 errors from auth middleware.
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                'https://codetether.run',
+                'https://api.codetether.run',
+                'https://docs.codetether.run',
+                'http://localhost:3000',
+                'http://localhost:8000',
+            ],
+            allow_credentials=True,
+            allow_methods=['*'],
+            allow_headers=['*'],
+        )
 
         # Method handlers
         self._method_handlers: Dict[str, Callable] = {
@@ -222,6 +238,10 @@ class A2AServer:
             'tasks/get': self._handle_get_task,
             'tasks/cancel': self._handle_cancel_task,
             'tasks/resubscribe': self._handle_resubscribe_task,
+            'tasks/pushNotificationConfig/set': self._handle_set_push_notification_config,
+            'tasks/pushNotificationConfig/get': self._handle_get_push_notification_config,
+            'tasks/pushNotificationConfig/list': self._handle_list_push_notification_configs,
+            'tasks/pushNotificationConfig/delete': self._handle_delete_push_notification_config,
         }
 
         # Active streaming connections
@@ -513,7 +533,11 @@ class A2AServer:
 
         @_legacy_router.api_route('/{path:path}', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
         async def _opencode_to_agent_redirect(path: str, request: Request):
-            new_url = str(request.url).replace('/v1/opencode/', '/v1/agent/', 1)
+            # Build redirect preserving the original scheme (handles TLS termination)
+            scheme = request.headers.get('x-forwarded-proto', request.url.scheme)
+            new_path = request.url.path.replace('/v1/opencode/', '/v1/agent/', 1)
+            query = f'?{request.url.query}' if request.url.query else ''
+            new_url = f'{scheme}://{request.url.netloc}{new_path}{query}'
             return _Redirect(url=new_url, status_code=307)
 
         self.app.include_router(_legacy_router)
@@ -583,6 +607,15 @@ class A2AServer:
         if ANALYTICS_API_AVAILABLE and analytics_api_router:
             self.app.include_router(analytics_api_router)
             logger.info('Analytics API router mounted at /v1/analytics')
+
+        # Include crash report ingestion API
+        try:
+            from .crash_reports_api import router as crash_reports_router
+
+            self.app.include_router(crash_reports_router)
+            logger.info('Crash reports API router mounted at /v1/crash-reports')
+        except Exception as e:
+            logger.warning(f'Failed to mount crash reports router: {e}')
 
         # Include cronjobs API for scheduled task management
         try:
@@ -730,7 +763,7 @@ class A2AServer:
 
         # Log incoming message to monitoring
         message_text = ' '.join(
-            [p.content for p in request.message.parts if p.type == 'text']
+            [p.text for p in request.message.parts if p.kind == 'text' and p.text]
         )
         await log_agent_message(
             agent_name='External Client',
@@ -765,7 +798,7 @@ class A2AServer:
 
         # Log agent response to monitoring
         response_text = ' '.join(
-            [p.content for p in response_message.parts if p.type == 'text']
+            [p.text for p in response_message.parts if p.kind == 'text' and p.text]
         )
         await log_agent_message(
             agent_name=self.agent_card.card.name,
@@ -924,6 +957,66 @@ class A2AServer:
         # need to handle reconnection to existing streams
         return await self._handle_stream_message(params)
 
+    # ─── Push Notification Config CRUD handlers ──────────────────────────
+
+    async def _handle_set_push_notification_config(
+        self, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/set method."""
+        request = SetPushNotificationConfigRequest.model_validate(params)
+        if not hasattr(self.task_manager, 'set_push_notification_config'):
+            raise ValueError('Push notifications not supported by this task manager')
+
+        task = await self.task_manager.get_task(request.task_id)
+        if not task:
+            raise ValueError(f'Task not found: {request.task_id}')
+
+        result = await self.task_manager.set_push_notification_config(
+            request.task_id, request.push_notification_config
+        )
+        return result.model_dump(by_alias=True, exclude_none=True)
+
+    async def _handle_get_push_notification_config(
+        self, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/get method."""
+        request = GetPushNotificationConfigRequest.model_validate(params)
+        if not hasattr(self.task_manager, 'get_push_notification_config'):
+            raise ValueError('Push notifications not supported by this task manager')
+
+        result = await self.task_manager.get_push_notification_config(
+            request.task_id, request.config_id
+        )
+        if not result:
+            raise ValueError(f'Push notification config not found for task: {request.task_id}')
+        return result.model_dump(by_alias=True, exclude_none=True)
+
+    async def _handle_list_push_notification_configs(
+        self, params: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Handle tasks/pushNotificationConfig/list method."""
+        request = ListPushNotificationConfigsRequest.model_validate(params)
+        if not hasattr(self.task_manager, 'list_push_notification_configs'):
+            raise ValueError('Push notifications not supported by this task manager')
+
+        results = await self.task_manager.list_push_notification_configs(
+            request.task_id
+        )
+        return [r.model_dump(by_alias=True, exclude_none=True) for r in results]
+
+    async def _handle_delete_push_notification_config(
+        self, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/delete method."""
+        request = DeletePushNotificationConfigRequest.model_validate(params)
+        if not hasattr(self.task_manager, 'delete_push_notification_config'):
+            raise ValueError('Push notifications not supported by this task manager')
+
+        deleted = await self.task_manager.delete_push_notification_config(
+            request.task_id, request.config_id
+        )
+        return {'success': deleted}
+
     async def _process_message(
         self, message: Message, skill_id: Optional[str] = None
     ) -> Message:
@@ -931,9 +1024,9 @@ class A2AServer:
         # Default implementation - echo the message back
         response_parts = []
         for part in message.parts:
-            if part.type == 'text':
+            if part.kind == 'text':
                 response_parts.append(
-                    Part(type='text', content=f'Received: {part.content}')
+                    Part(kind='text', text=f'Received: {part.text}')
                 )
             else:
                 response_parts.append(part)
@@ -1055,7 +1148,8 @@ class A2AServer:
 
         # Start the server
         config = uvicorn.Config(
-            self.app, host=host, port=port, log_level='info'
+            self.app, host=host, port=port, log_level='info',
+            proxy_headers=True, forwarded_allow_ips='*',
         )
         server = uvicorn.Server(config)
         await server.serve()
