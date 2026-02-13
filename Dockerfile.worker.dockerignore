@@ -6,4 +6,6 @@
 !codetether-agent/Cargo.lock
 !codetether-agent/vendor/
 !codetether-agent/src/
+!codetether-agent/build.rs
+!codetether-agent/proto/
 !policies/

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from 'next-auth/react'
 import { useCodebases } from '../sessions/hooks/useCodebases'
-import { getTaskOutputV1AgentTasksTaskIdOutputGet, listAllTasksV1AgentTasksGet } from '@/lib/api'
+import { getTaskOutputV1AgentTasksTaskIdOutputGet, listAllTasksV1AgentTasksGet, hasApiAuthToken } from '@/lib/api'
 import { useTenantApi } from '@/hooks/useTenantApi'
 
 interface Task {
@@ -211,6 +212,7 @@ export default function TasksPage() {
     const [filter, setFilter] = useState('all')
     const [selectedTask, setSelectedTask] = useState<Task | null>(null)
     const { codebases } = useCodebases()
+    const { data: session } = useSession()
     const { apiUrl } = useTenantApi()
     const [selectedCodebase, setSelectedCodebase] = useState<string>('all')
     const [taskSwarmMonitors, setTaskSwarmMonitors] = useState<Record<string, SwarmMonitorState>>({})
@@ -275,10 +277,11 @@ export default function TasksPage() {
     }, [])
 
     useEffect(() => {
+        if (!session?.accessToken && !hasApiAuthToken()) return
         loadTasks()
         const interval = setInterval(loadTasks, 5000)
         return () => clearInterval(interval)
-    }, [loadTasks])
+    }, [loadTasks, session?.accessToken])
 
     const selectedTaskId = selectedTask?.id ?? null
     const selectedTaskStatus = selectedTask?.status ?? null
@@ -331,9 +334,11 @@ export default function TasksPage() {
         }
 
         const baseUrl = apiUrl.replace(/\/+$/, '')
-        const eventSource = new EventSource(
-            `${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`
-        )
+        const sseUrl = new URL(`${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`)
+        if (session?.accessToken) {
+            sseUrl.searchParams.set('access_token', session.accessToken)
+        }
+        const eventSource = new EventSource(sseUrl.toString())
         taskStreamRef.current = eventSource
 
         eventSource.onopen = () => {

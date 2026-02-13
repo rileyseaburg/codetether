@@ -87,15 +87,15 @@ export function Hero() {
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-20">
           <div className="relative z-10 mx-auto max-w-2xl lg:col-span-7 lg:max-w-none lg:pt-6 xl:col-span-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-cyan-950/40 border border-cyan-900/50 px-3 py-1 mb-4">
-              <span className="text-xs font-medium text-cyan-400">v1.1.0 Shipped</span>
-              <span className="text-xs text-gray-400">Mandatory auth · Audit trail · Ed25519 plugin signing · K8s self-deploy</span>
+              <span className="text-xs font-medium text-cyan-400">v1.4.2 Shipped</span>
+              <span className="text-xs text-gray-400">Zapier · Ralph · RLM · A2A Protocol · Agent Discovery</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight leading-tight text-white sm:text-4xl lg:text-5xl">
-              The AI agent your infrastructure<br />
-              <span className="text-cyan-400">actually deserves.</span>
+              Autonomous AI Development<br />
+              <span className="text-cyan-400">with Infinite Context.</span>
             </h1>
             <p className="mt-6 text-lg text-gray-300">
-              A perpetual cognition runtime written in <span className="font-semibold text-white">Rust</span>, self-deploying on <span className="font-semibold text-white">Kubernetes</span>, with mandatory auth and sandboxed plugins. Not a chatbot — <span className="text-cyan-300">infrastructure.</span>
+              <span className="text-pink-400 font-semibold">RLM</span> breaks the context window barrier. <span className="text-cyan-300 font-semibold">Ralph</span> implements entire PRDs autonomously. A2A Protocol compliant. Zapier integrated.
             </p>
             <p className="mt-4 text-base text-gray-400">
               Open source. Free to self-host. Built by someone who runs production systems for a living.
@@ -118,23 +118,23 @@ export function Hero() {
 
             {/* What makes it different */}
             <div className="mt-12 pt-8 border-t border-gray-800">
-              <p className="text-xs text-gray-400 font-medium mb-4">Shipped in v1.1.0 — not a roadmap, it&apos;s in the binary:</p>
+              <p className="text-xs text-gray-400 font-medium mb-4">Shipped in v1.4.x — new capabilities now live:</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">Mandatory Auth</p>
-                  <p className="text-xs text-gray-400 mt-1">HMAC-SHA256 tokens. Cannot be disabled.</p>
+                <div className="rounded-lg bg-gradient-to-b from-pink-950/30 to-gray-900/50 p-3 border border-pink-500/20">
+                  <p className="text-sm text-white font-medium">RLM</p>
+                  <p className="text-xs text-gray-400 mt-1">10M+ token context. 91% accuracy.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">OPA Policies</p>
-                  <p className="text-xs text-gray-400 mt-1">Rego authz, tenant isolation, API key scoping.</p>
+                  <p className="text-sm text-white font-medium">Ralph</p>
+                  <p className="text-xs text-gray-400 mt-1">PRD → code, autonomous. MCP-driven.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">Plugin Signing</p>
-                  <p className="text-xs text-gray-400 mt-1">Ed25519 signatures + SHA-256 integrity.</p>
+                  <p className="text-sm text-white font-medium">Zapier</p>
+                  <p className="text-xs text-gray-400 mt-1">18 components. Triggers, actions, searches.</p>
                 </div>
                 <div className="rounded-lg bg-gray-900/50 p-3 border border-gray-800">
-                  <p className="text-sm text-white font-medium">Audit Trail</p>
-                  <p className="text-xs text-gray-400 mt-1">Append-only JSON Lines. Queryable.</p>
+                  <p className="text-sm text-white font-medium">A2A Protocol</p>
+                  <p className="text-xs text-gray-400 mt-1">v0.3 compliant. Agent discovery.</p>
                 </div>
               </div>
             </div>
@@ -145,65 +145,52 @@ export function Hero() {
               <div className="mx-auto max-w-[500px] rounded-2xl bg-gray-900 p-4 shadow-2xl ring-1 ring-gray-800">
                 {/* Architecture overview */}
                 <div className="space-y-3">
-                  {/* Perpetual Cognition */}
+                  {/* RLM - Highlight as the key differentiator */}
+                  <div className="rounded-xl bg-gradient-to-r from-pink-950/50 to-gray-800 p-4 border border-pink-500/20">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                        <span className="text-pink-400 text-lg">♾️</span>
+                      </div>
+                      <span className="font-medium text-white text-sm">RLM — Infinite Context</span>
+                    </div>
+                    <p className="text-xs text-gray-400">10M+ tokens. 91% accuracy. MIT CSAIL research-backed.</p>
+                  </div>
+
+                  {/* Ralph - Autonomous dev loop */}
                   <div className="rounded-xl bg-gray-800 p-4">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                        <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077l1.41-.513m14.095-5.13l1.41-.513M5.106 17.785l1.15-.964m11.49-9.642l1.149-.964M7.501 19.795l.75-1.3m7.5-12.99l.75-1.3m-6.063 16.658l.26-1.477m2.605-14.772l.26-1.477m0 17.726l-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.299M7.5 4.205L12 12m6.894 5.785l-1.149-.964M6.256 7.178l-1.15-.964m15.352 8.864l-1.41-.513M4.954 9.435l-1.41-.514M12.002 12l-3.75 6.495" />
-                        </svg>
+                        <span className="text-cyan-400 text-lg">🔄</span>
                       </div>
-                      <span className="font-medium text-white text-sm">Perpetual Cognition</span>
+                      <span className="font-medium text-white text-sm">Ralph — Autonomous Dev</span>
                     </div>
-                    <p className="text-xs text-gray-400">Continuous thought loops that persist across restarts. Not request-response.</p>
+                    <p className="text-xs text-gray-400">PRD → implement → test → commit → repeat. Zero human intervention.</p>
                   </div>
 
-                  {/* Security Comparison */}
+                  {/* Integration capabilities */}
                   <div className="rounded-xl bg-gray-800 p-4">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
                         <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                         </svg>
                       </div>
-                      <span className="font-medium text-white text-sm">Security-First Architecture</span>
+                      <span className="font-medium text-white text-sm">Integration Ready</span>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">Authentication</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-red-400 line-through">auth: none</span>
-                          <span className="text-cyan-400 font-medium">Mandatory</span>
-                        </div>
+                        <span className="text-gray-400">Zapier</span>
+                        <span className="text-cyan-400 font-medium">18 components</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">Plugin isolation</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-red-400 line-through">Shared process</span>
-                          <span className="text-cyan-400 font-medium">Sandboxed</span>
-                        </div>
+                        <span className="text-gray-400">MCP Tools</span>
+                        <span className="text-cyan-400 font-medium">29 tools</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">Audit trail</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-red-400 line-through">None</span>
-                          <span className="text-cyan-400 font-medium">Every action</span>
-                        </div>
+                        <span className="text-gray-400">A2A Protocol</span>
+                        <span className="text-cyan-400 font-medium">v0.3 compliant</span>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Self-Deploying */}
-                  <div className="rounded-xl bg-gray-800 p-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="h-8 w-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                        <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z" />
-                        </svg>
-                      </div>
-                      <span className="font-medium text-white text-sm">Self-Deploys on Kubernetes</span>
-                    </div>
-                    <p className="text-xs text-gray-400">Manages its own pods, recovers from failures, scales horizontally. Ran 48 hours autonomously.</p>
                   </div>
                 </div>
 
@@ -212,25 +199,25 @@ export function Hero() {
                   <svg className="h-3 w-3 text-cyan-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Built in Rust · Memory safe · Production grade</span>
+                  <span>Built in Rust · A2A Protocol · Production Ready</span>
                 </div>
               </div>
             </div>
           </div>
           <div className="relative -mt-4 lg:col-span-7 lg:mt-0 xl:col-span-6">
             <p className="text-center text-sm font-semibold text-gray-400 lg:text-left">
-              Built for developers who think about what happens after the demo
+              Built for developers who ship, not just demo
             </p>
             <ul
               role="list"
               className="mx-auto mt-8 flex max-w-xl flex-wrap justify-center gap-x-8 gap-y-4 lg:mx-0 lg:justify-start"
             >
               {[
-                ['Rust', 'Memory safe'],
-                ['Kubernetes', 'Self-deploying'],
-                ['Persona Swarms', 'Scoped access'],
-                ['Audit Logs', 'Every action'],
-                ['MIT License', 'Your terms'],
+                ['RLM', '10M+ tokens'],
+                ['Ralph', 'Autonomous dev'],
+                ['Zapier', '18 components'],
+                ['A2A', 'Protocol v0.3'],
+                ['MIT License', 'Open source'],
               ].map(([name, desc]) => (
                 <li key={name} className="text-center">
                   <span className="block text-sm font-medium text-gray-300">{name}</span>

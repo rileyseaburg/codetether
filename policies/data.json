@@ -64,6 +64,29 @@
             "description": "Alias for admin (Keycloak realm role)",
             "inherits": "admin"
         },
+        "a2a-agent": {
+            "description": "Service account role for internal agents (voice, workers)",
+            "permissions": [
+                "tasks:read",
+                "tasks:write",
+                "tasks:execute",
+                "codebases:read",
+                "workers:read",
+                "sessions:read",
+                "sessions:write",
+                "monitor:read",
+                "agent:read",
+                "agent:execute",
+                "voice:read",
+                "voice:write",
+                "mcp:read",
+                "mcp:write"
+            ]
+        },
+        "a2a-user": {
+            "description": "Standard user role (Keycloak realm role)",
+            "inherits": "editor"
+        },
         "operator": {
             "description": "Operations management — deploy, monitor, manage workers",
             "permissions": [

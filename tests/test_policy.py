@@ -80,12 +80,14 @@ def viewer_user():
 
 
 def no_role_user():
+    """Keycloak user with no roles assigned (should be denied)."""
     return {
         "id": "user-norole",
         "user_id": "user-norole",
         "email": "norole@test.com",
         "roles": [],
         "tenant_id": "tenant-1",
+        "keycloak_sub": "kc-norole",  # Keycloak user, so no default role
     }
 
 
@@ -165,6 +167,20 @@ class TestRoleBasedAccess:
     @pytest.mark.asyncio
     async def test_no_roles_denied(self):
         assert not await check_policy(no_role_user(), "tasks:read")
+
+    @pytest.mark.asyncio
+    async def test_self_service_user_gets_default_editor_role(self):
+        """Self-service users (no keycloak_sub) get default editor role."""
+        self_service = {
+            "id": "user-selfserv",
+            "user_id": "user-selfserv",
+            "email": "self@test.com",
+            "roles": [],
+            "tenant_id": "tenant-1",
+        }
+        assert await check_policy(self_service, "tasks:read")
+        assert await check_policy(self_service, "mcp:write")
+        assert not await check_policy(self_service, "admin:access")
 
     @pytest.mark.asyncio
     async def test_public_endpoints_always_allowed(self):

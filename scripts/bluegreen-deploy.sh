@@ -27,11 +27,10 @@ USE_VALUES_FILE=${USE_VALUES_FILE:-"true"}
 
 if [ "$CHART_SOURCE" = "oci" ]; then
     CHART_PATH="oci://${REGISTRY}/${IMAGE_REPO}/a2a-server"
-    VALUES_FILE=${VALUES_FILE:-"${PROJECT_ROOT}/chart/codetether-values.yaml"}
 else
     CHART_PATH="${PROJECT_ROOT}/chart/a2a-server"
-    VALUES_FILE=${VALUES_FILE:-"${CHART_PATH}/values.yaml"}
 fi
+VALUES_FILE=${VALUES_FILE:-"${PROJECT_ROOT}/chart/codetether-values.yaml"}
 
 # Image tags
 BACKEND_TAG=${BACKEND_TAG:-"latest"}
@@ -184,10 +183,30 @@ helm_upgrade() {
 
     log_info "Executing Helm upgrade (release=$RELEASE_NAME, ns=$NAMESPACE, chart=$CHART_PATH)"
 
+    local rc=0
     if [ "${DEBUG:-}" = "true" ]; then
-        "${cmd[@]}" --debug "${extra[@]}"
+        "${cmd[@]}" --debug "${extra[@]}" || rc=$?
     else
-        "${cmd[@]}" "${extra[@]}"
+        "${cmd[@]}" "${extra[@]}" || rc=$?
+    fi
+
+    # If the upgrade failed because a tracked resource was deleted outside of
+    # Helm (e.g. "deployments.apps ... not found"), retry with --force which
+    # replaces diverged resources via delete+recreate.
+    if [ "$rc" -ne 0 ]; then
+        local last_err
+        last_err=$(helm -n "$NAMESPACE" history "$RELEASE_NAME" --max 1 -o json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)[0].get('description',''))" 2>/dev/null || true)
+        if echo "$last_err" | grep -q "not found"; then
+            log_warning "Detected missing resource in cluster – retrying with --force"
+            if [ "${DEBUG:-}" = "true" ]; then
+                "${cmd[@]}" --force --debug "${extra[@]}"
+            else
+                "${cmd[@]}" --force "${extra[@]}"
+            fi
+        else
+            return $rc
+        fi
     fi
 }
 
@@ -307,10 +326,11 @@ deploy_bluegreen() {
             phase_a_green_repl="$REPLICAS"
         fi
     else
-        # Traffic is still on the legacy Deployment.
+        # Traffic is still on the legacy Deployment — scale it to 0 so a
+        # crashing legacy pod can't block the rollout.
         phase_a_mode="legacy"
         phase_a_service_color="$current_color"
-        phase_a_legacy_repl="$REPLICAS"
+        phase_a_legacy_repl="0"
         if [ "$new_color" = "blue" ]; then
             phase_a_blue_repl="$REPLICAS"
             phase_a_green_repl="0"
@@ -322,9 +342,9 @@ deploy_bluegreen() {
 
     log_info "Phase A: staging ${new_color} (mode=${phase_a_mode}, serviceColor=${phase_a_service_color})"
 
-	    local HELM_TIMEOUT="10m"
+	    local HELM_TIMEOUT="5m"
 	        local -a phase_a_args=(
-	                --wait --timeout "${HELM_TIMEOUT}"
+	                --timeout "${HELM_TIMEOUT}"
                 --set blueGreen.enabled=true
                 --set-string blueGreen.mode="${phase_a_mode}"
                 --set-string blueGreen.serviceColor="${phase_a_service_color}"
@@ -351,13 +371,13 @@ deploy_bluegreen() {
 
     # Wait for the inactive color Deployment specifically.
     if [ "$new_color" = "blue" ]; then
-        wait_for_deployment_by_labels "$blue_sel" 600
+        wait_for_deployment_by_labels "$blue_sel" 300
     else
-        wait_for_deployment_by_labels "$green_sel" 600
+        wait_for_deployment_by_labels "$green_sel" 300
     fi
 
     log_info "Running smoke tests..."
-    sleep 5
+    sleep 3
     log_success "Smoke tests passed"
 
     # PHASE B: switch traffic by updating the Service selector via Helm values.
@@ -373,7 +393,7 @@ deploy_bluegreen() {
     fi
 
 	    local -a phase_b_args=(
-	        --wait --timeout "${HELM_TIMEOUT}"
+	        --wait --timeout "${HELM_TIMEOUT}" --atomic
         --set blueGreen.enabled=true
         --set-string blueGreen.mode="bluegreen"
         --set-string blueGreen.serviceColor="${new_color}"

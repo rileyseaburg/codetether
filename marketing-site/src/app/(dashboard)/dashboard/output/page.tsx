@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from 'next-auth/react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
@@ -26,6 +27,7 @@ function TerminalIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 }
 
 export default function OutputPage() {
+    const { data: session } = useSession()
     const [codebases, setCodebases] = useState<Codebase[]>([])
     const [selectedCodebase, setSelectedCodebase] = useState('')
     const [output, setOutput] = useState<OutputLine[]>([])
@@ -76,7 +78,11 @@ export default function OutputPage() {
 
         setOutput([{ type: 'status', content: 'Connecting to event stream...', timestamp: new Date() }])
 
-        const eventSource = new EventSource(`${API_URL}/v1/opencode/codebases/${codebaseId}/events`)
+        const sseUrl = new URL(`${API_URL}/v1/opencode/codebases/${codebaseId}/events`)
+        if (session?.accessToken) {
+            sseUrl.searchParams.set('access_token', session.accessToken)
+        }
+        const eventSource = new EventSource(sseUrl.toString())
         eventSourceRef.current = eventSource
 
         eventSource.onopen = () => {

@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-02-10 - CodeTether v1.4.2 Release
+
+- **Zapier Integration v1.2.0** - Expanded from 6 to 18 components
+  - New Actions: `send_message_async`, `send_to_agent`, `cancel_ralph_run`, `create_cronjob`, `prd_chat`
+  - New Searches: `discover_agents`, `list_codebases`, `list_ralph_runs`, `list_models`, `get_usage_summary`
+  - New Triggers: `task_completed`, `task_failed`
+- **Hero Updated** - Now highlights RLM, Ralph, Zapier, and A2A Protocol
+
+## 2026-01-25 - CodeTether v1.4.1 Release
+
+- **MCP-to-Ralph Integration** - E2E validated autonomous development via MCP tools
+- **New MCP Tools** - `ralph_create_run`, `ralph_get_run`, `ralph_list_runs`, `ralph_cancel_run`, `prd_chat`, `prd_list_sessions`
+
+## 2026-01-22 - CodeTether v1.4.0 Release
+
+- **Ralph: Autonomous Development Loop** - PRD-driven development with zero human intervention
+- **Ralph Dashboard** - `/dashboard/ralph` with PRD builder, live execution monitoring
+- **Chat Widget** - Interactive chat widget for marketing site
+- **Zapier Integration** - Initial 6 components (OAuth2, triggers, actions, searches)
+- **Task Reaper** - Automatic stuck task recovery
+
+## 2026-01-18 - CodeTether v1.3.0 Release
+
+- **RLM (Recursive Language Models)** - Infinite context processing (10M+ tokens, 91% accuracy)
+- **RLM Demo** - Interactive demonstration on marketing site
+- **Marketing Site** - RLM feature section with MIT research backing
+
 ## 2026-01-15 - CodeTether v1.2.0 Release
 
 - **A2A Protocol v0.3 Compliance** - Full support for Google and Microsoft's Agent-to-Agent Protocol specification

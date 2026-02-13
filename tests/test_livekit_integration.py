@@ -81,7 +81,7 @@ class TestMediaAgent:
         response = await agent.process_message(message)
 
         assert len(response.parts) == 1
-        assert "Media functionality is not available" in response.parts[0].content
+        assert "Media functionality is not available" in response.parts[0].text
 
     @pytest.mark.asyncio
     async def test_media_agent_with_mock_bridge(self):
@@ -106,9 +106,9 @@ class TestMediaAgent:
 
         # Should have both text and data parts
         assert len(response.parts) == 2
-        assert response.parts[0].type == "text"
-        assert "successfully" in response.parts[0].content.lower()
-        assert response.parts[1].type == "data"
+        assert response.parts[0].kind == "text"
+        assert "successfully" in response.parts[0].text.lower()
+        assert response.parts[1].kind == "data"
 
         # Verify bridge was called
         mock_bridge.get_room_info.assert_called_once_with("test-room")
@@ -142,7 +142,7 @@ class TestMediaAgent:
 async def test_integration_with_mock_server():
     """Integration test with mocked LiveKit SDK."""
     from unittest.mock import MagicMock
-    
+
     # Create mock room object
     mock_room = MagicMock()
     mock_room.name = "test-room"
@@ -153,33 +153,33 @@ async def test_integration_with_mock_server():
     mock_room.creation_time = 0
     mock_room.num_participants = 0
     mock_room.metadata = ""
-    
+
     # Mock the LiveKit API
     with patch('livekit.api.LiveKitAPI') as mock_api_class:
         mock_api = MagicMock()
         mock_api_class.return_value = mock_api
-        
+
         # Mock room service methods
         async def mock_create_room(request):
             return mock_room
-        
+
         async def mock_list_rooms(request):
             return []
-        
+
         mock_api.room.create_room = mock_create_room
         mock_api.room.list_rooms = mock_list_rooms
-        
+
         bridge = LiveKitBridge(
             api_key="test_key",
             api_secret="test_secret",
             livekit_url="https://live.quantum-forge.net"
         )
-        
+
         # Test room creation
         room_info = await bridge.create_room("test-room")
         assert room_info["name"] == "test-room"
         assert room_info["sid"] == "room-123"
-        
+
         # Test room info retrieval (empty list)
         room_info = await bridge.get_room_info("nonexistent-room")
         assert room_info is None

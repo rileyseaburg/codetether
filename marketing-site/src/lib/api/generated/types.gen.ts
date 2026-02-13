@@ -7411,7 +7411,7 @@ export type GetSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGetRespons
     200: unknown
   }
 
-export type OpencodeToAgentRedirectV1OpencodePathPostData = {
+export type OpencodeToAgentRedirectV1OpencodePathDeleteData = {
   body?: never
   path: {
     /**
@@ -7423,24 +7423,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPostData = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPostErrors = {
+export type OpencodeToAgentRedirectV1OpencodePathDeleteErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPostError =
-  OpencodeToAgentRedirectV1OpencodePathPostErrors[keyof OpencodeToAgentRedirectV1OpencodePathPostErrors]
+export type OpencodeToAgentRedirectV1OpencodePathDeleteError =
+  OpencodeToAgentRedirectV1OpencodePathDeleteErrors[keyof OpencodeToAgentRedirectV1OpencodePathDeleteErrors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPostResponses = {
+export type OpencodeToAgentRedirectV1OpencodePathDeleteResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost2Data = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete2Data = {
   body?: never
   path: {
     /**
@@ -7452,24 +7452,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPost2Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost2Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete2Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost2Error =
-  OpencodeToAgentRedirectV1OpencodePathPost2Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost2Errors]
+export type OpencodeToAgentRedirectV1OpencodePathDelete2Error =
+  OpencodeToAgentRedirectV1OpencodePathDelete2Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete2Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPost2Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete2Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost3Data = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete3Data = {
   body?: never
   path: {
     /**
@@ -7481,24 +7481,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPost3Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost3Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete3Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost3Error =
-  OpencodeToAgentRedirectV1OpencodePathPost3Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost3Errors]
+export type OpencodeToAgentRedirectV1OpencodePathDelete3Error =
+  OpencodeToAgentRedirectV1OpencodePathDelete3Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete3Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPost3Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete3Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost4Data = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete4Data = {
   body?: never
   path: {
     /**
@@ -7510,24 +7510,24 @@ export type OpencodeToAgentRedirectV1OpencodePathPost4Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost4Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete4Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost4Error =
-  OpencodeToAgentRedirectV1OpencodePathPost4Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost4Errors]
+export type OpencodeToAgentRedirectV1OpencodePathDelete4Error =
+  OpencodeToAgentRedirectV1OpencodePathDelete4Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete4Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPost4Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete4Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost5Data = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete5Data = {
   body?: never
   path: {
     /**
@@ -7539,17 +7539,17 @@ export type OpencodeToAgentRedirectV1OpencodePathPost5Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost5Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete5Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathPost5Error =
-  OpencodeToAgentRedirectV1OpencodePathPost5Errors[keyof OpencodeToAgentRedirectV1OpencodePathPost5Errors]
+export type OpencodeToAgentRedirectV1OpencodePathDelete5Error =
+  OpencodeToAgentRedirectV1OpencodePathDelete5Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete5Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathPost5Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathDelete5Responses = {
   /**
    * Successful Response
    */

@@ -22,7 +22,7 @@ env:
   A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
   A2A_AGENT_ORG: "CodeTether"
   A2A_AGENT_ORG_URL: "https://codetether.run"
-  A2A_AGENT_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
 
   # Model Configuration
@@ -35,6 +35,12 @@ env:
 
   # Allow controller to execute tasks if no model available
   A2A_RLM_ALLOW_CONTROLLER_FALLBACK: "1"
+
+  # LiveKit configuration for voice sessions
+  LIVEKIT_URL: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+  LIVEKIT_PUBLIC_URL: "wss://live.quantum-forge.net"
+  LIVEKIT_API_KEY: "devkey"
+  LIVEKIT_API_SECRET: "KoBMhgeMMR5LrI/wE9skEczGkHJaUZfOn1ppM/qc6/4="
 
 # Marketing site
 marketing:
@@ -70,11 +76,11 @@ marketing:
     KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
   resources:
     limits:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 500m
+      memory: 512Mi
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 100m
+      memory: 256Mi
 
 # Documentation site
 docs:
@@ -131,6 +137,21 @@ ingress:
         - api.codetether.run
 
 # Redis configuration (simple deployment, not bitnami)
+# LiveKit configuration for voice features
+livekit:
+  enabled: true
+  url: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+  publicUrl: "wss://live.quantum-forge.net"
+  apiKey: "devkey"
+  apiSecret: "KoBMhgeMMR5LrI/wE9skEczGkHJaUZfOn1ppM/qc6/4="
+  existingSecret:
+    apiKey:
+      name: ""
+      key: ""
+    apiSecret:
+      name: ""
+      key: ""
+
 redis:
   enabled: true
   image:

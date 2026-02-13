@@ -4,6 +4,7 @@ Enhanced A2A Server with MCP tool integration.
 
 import asyncio
 import logging
+import os
 from typing import Optional
 
 from .server import A2AServer
@@ -57,10 +58,10 @@ class EnhancedA2AServer(A2AServer):
             # Fallback to echo behavior
             response_parts = []
             for part in message.parts:
-                if part.type == "text":
+                if part.kind == "text":
                     response_parts.append(Part(
-                        type="text",
-                        content=f"Echo: {part.content}"
+                        kind="text",
+                        text=f"Echo: {part.text}"
                     ))
                 else:
                     response_parts.append(part)
@@ -98,7 +99,7 @@ def create_enhanced_agent_card() -> AgentCard:
     card = AgentCard(
         name="A2A Coordination Hub",
         description="Agent-to-Agent communication and task coordination server enabling distributed agent collaboration",
-        url="http://localhost:8000",
+        url=os.environ.get("A2A_AGENT_URL", "http://localhost:8000"),
         provider=provider
     )
 

@@ -167,8 +167,8 @@ class EnhancedAgent:
         """Extract text content from message parts."""
         text_parts = []
         for part in message.parts:
-            if part.type == "text":
-                text_parts.append(part.content)
+            if part.kind == "text" and part.text:
+                text_parts.append(part.text)
         return " ".join(text_parts)
 
 
@@ -885,7 +885,7 @@ async def route_message_to_agent(message: Message, message_broker=None) -> Messa
     For agent-to-agent communication, we simply acknowledge receipt and store the message.
     Agents can retrieve messages using get_messages MCP tool.
     """
-    text = " ".join(part.content for part in message.parts if part.type == "text")
+    text = " ".join(part.text for part in message.parts if part.kind == "text" and part.text)
 
     # Simple acknowledgment response for agent communication
     response_text = f"Message received and logged. Agents can retrieve it using get_messages."

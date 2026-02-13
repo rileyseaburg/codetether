@@ -50,13 +50,14 @@ class TestModels:
 
     def test_message_model(self):
         """Test message model."""
+        # Legacy format still accepted via validator
         message = Message(parts=[
             Part(type="text", content="Hello world")
         ])
 
         assert len(message.parts) == 1
-        assert message.parts[0].type == "text"
-        assert message.parts[0].content == "Hello world"
+        assert message.parts[0].kind == "text"
+        assert message.parts[0].text == "Hello world"
 
 
 class TestTaskManager:
@@ -156,7 +157,7 @@ class TestMessageBroker:
         # Check if agent was registered
         agents = await message_broker.discover_agents()
         assert len(agents) == 1
-        assert agents[0].name == "Test Agent"
+        assert agents[0]['name'] == "Test Agent"
 
     @pytest.mark.asyncio
     async def test_discover_agents(self, message_broker):

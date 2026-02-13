@@ -1,5 +1,105 @@
 ---
 
+## CodeTether Avatar Pipeline
+
+Proprietary AI avatar system targeting Synthesia-quality talking-head video from audio input. Runs on **spike2** (`192.168.50.119`), RTX 2080 SUPER 8GB.
+
+### Architecture
+
+```
+TTS Audio → LatentSync (lip-sync @ 512×512) → LivePortrait (reenact @ 1080×1080) → FFmpeg (1920×1080) → YouTube
+```
+
+### Current Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| LatentSync 1.6 | **WORKING** (static photo) | ByteDance, Apache 2.0, 512×512, ~1.9GB VRAM w/ CPU offload |
+| LivePortrait | **WORKING** | Kuaishou, 1080×1080, video-driven reenactment |
+| TTS (Qwen3-TTS) | **RUNNING** | `qwen-tts-api.service`, port 8000, voice_id `960f89fc` |
+| YouTube Upload | **WORKING** | `POST http://localhost:8000/youtube/upload` |
+| Motion-video input | **BLOCKED** | Face detector crashes on head turns — **one patch needed** |
+
+### The One Bug (BLOCKER)
+
+**File:** `/root/LatentSync/latentsync/utils/image_processor.py` → `affine_transform()`
+**Problem:** `raise RuntimeError("Face not detected")` when InsightFace can't find a face (e.g., head turns in motion video)
+**Fix:** Cache the last successful face detection result and reuse it when detection fails, instead of crashing.
+**Impact:** This is the ONLY thing preventing motion-video-based avatars from working end-to-end.
+
+### Key Files on spike2
+
+| File | Purpose |
+|------|---------|
+| `/root/LatentSync/` | Core lip-sync engine (installed, deps working, checkpoints present) |
+| `/root/LatentSync/scripts/inference_lowvram.py` | Custom low-VRAM inference with CPU offloading, VAE slicing/tiling |
+| `/root/LatentSync/latentsync/utils/image_processor.py` | Contains the face detector bug to fix |
+| `/root/LatentSync/latentsync/pipelines/lipsync_pipeline.py` | Main pipeline (477 lines, audited) |
+| `/root/LivePortrait/` | Photorealistic 2D portrait reenactment |
+| `/root/qwen-tts-api/youtube_publisher.py` | YouTube OAuth upload (~11.6KB) |
+| `/root/MuseTalk/data/video/riley.png` | Riley selfie (1080×1080) |
+| `/tmp/lam_demo_audio.wav` | TTS audio (41.2s, 24kHz mono) |
+| `/root/duix_avatar_data/face2face/riley_model_hd2.mp4` | Real Riley motion video (45s) — target driving video |
+
+### Checkpoints
+
+- `checkpoints/latentsync_unet.pt` — 4.8GB UNet (AnimateDiff-based, 13-channel input)
+- `checkpoints/whisper/tiny.pt` — Whisper audio encoder
+- `checkpoints/auxiliary/` — InsightFace buffalo_l (auto-downloaded)
+
+### Environments
+
+| Env | Python | Torch | Used By |
+|-----|--------|-------|---------|
+| `latentsync-env` | 3.10 | 2.5.1+cu121 | LatentSync |
+| `lam-env` | 3.10 | 2.3.0+cu121 | LivePortrait |
+
+### Inference Command
+
+```bash
+# LatentSync (low-VRAM)
+conda activate latentsync-env
+cd /root/LatentSync
+python scripts/inference_lowvram.py \
+  --unet_config_path configs/unet/stage2_512.yaml \
+  --inference_ckpt_path checkpoints/latentsync_unet.pt \
+  --inference_steps 20 --guidance_scale 1.5 \
+  --video_path <input_video> \
+  --audio_path <audio> \
+  --video_out_path <output>
+
+# LivePortrait
+conda activate lam-env
+cd /root/LivePortrait
+python inference.py -s riley.png -d <driving_video> -o <output_dir>
+```
+
+### Published YouTube Videos
+
+| # | URL | Result |
+|---|-----|--------|
+| v6 | `https://www.youtube.com/watch?v=-nsQUCNPIZM` | LatentSync+LivePortrait static photo — **REJECTED** ("so 2014") |
+| v7 | Not yet | Blocked by face detector crash on motion video |
+
+### Next Steps
+
+1. **Patch `affine_transform()`** — cache last good face crop, skip crash on detection failure
+2. **Re-run LatentSync** with `riley_model_hd2.mp4` (45s motion video) as input
+3. **Chain through LivePortrait** → FFmpeg composite → YouTube upload
+4. **Deliver YouTube URL** (only accepted deliverable)
+
+### SSH Access
+
+```bash
+ssh -o BatchMode=yes root@192.168.50.119 'bash --norc --noprofile -c "COMMAND"'
+```
+
+### GPU State
+
+RTX 2080 SUPER: ~4.1GB used / ~3.9GB free (TTS service running). LatentSync needs ~1.9GB with CPU offload — fits alongside TTS.
+
+---
+
 ## OPA Policy Engine
 
 The project uses **Open Policy Agent (OPA)** as a centralized authorization engine across both the Python A2A server and the Rust CodeTether agent.
@@ -101,7 +201,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ril
 ### Release File Locations
 
 - **Workflow:** `.github/workflows/release-opencode.yml`
-- **Install Scripts:** 
+- **Install Scripts:**
   - `scripts/install-opencode.sh` (Linux/macOS)
   - `scripts/install-opencode.ps1` (Windows)
 - **Makefile Targets:**

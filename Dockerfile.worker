@@ -18,17 +18,21 @@ RUN apt-get update && \
         pkg-config \
         libssl-dev \
         g++ \
+        protobuf-compiler \
+        libprotobuf-dev \
         && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# Copy policies (needed at compile time via include_str!)
-COPY policies /policies
+# Copy policies (needed at compile time via include_str! — path relative to src/server/)
+COPY policies ./policies
 
 # Copy the Cargo workspace
 COPY codetether-agent/Cargo.toml codetether-agent/Cargo.lock ./
 COPY codetether-agent/vendor ./vendor
 COPY codetether-agent/src ./src
+COPY codetether-agent/build.rs ./build.rs
+COPY codetether-agent/proto ./proto
 
 # Build release binary
 RUN cargo build --release && \

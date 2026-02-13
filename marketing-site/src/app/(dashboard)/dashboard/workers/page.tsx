@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useSession } from 'next-auth/react'
 import { useTenantApi } from '@/hooks/useTenantApi'
 import { ModelSelector } from '@/components/ModelSelector'
 
@@ -294,6 +295,7 @@ function WorkerCard({
 }
 
 export default function WorkersPage() {
+    const { data: session } = useSession()
     const { apiUrl, tenantFetch } = useTenantApi()
     const resolvedApiUrl = apiUrl || FALLBACK_API_URL
 
@@ -363,7 +365,11 @@ export default function WorkersPage() {
         closeActiveStream()
 
         const baseUrl = resolvedApiUrl.replace(/\/+$/, '')
-        const source = new EventSource(`${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`)
+        const sseUrl = new URL(`${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`)
+        if (session?.accessToken) {
+            sseUrl.searchParams.set('access_token', session.accessToken)
+        }
+        const source = new EventSource(sseUrl.toString())
         let closedByClient = false
 
         streamRef.current = { workerId, taskId, source, assistantMessageId }

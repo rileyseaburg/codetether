@@ -12,7 +12,7 @@ from typing import Dict, Optional, List, Callable, Any
 from asyncio import Lock
 import asyncio
 
-from .models import Task, TaskStatus, TaskStatusUpdateEvent, Message
+from .models import Task, TaskStatus, TaskStatusUpdateEvent, Message, PushNotificationConfig, TaskPushNotificationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +314,7 @@ class PersistentTaskManager(TaskManager):
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS a2a_tasks (
                     id TEXT PRIMARY KEY,
+                    context_id TEXT,
                     status TEXT NOT NULL,
                     title TEXT,
                     description TEXT,
@@ -321,6 +322,9 @@ class PersistentTaskManager(TaskManager):
                     updated_at TIMESTAMPTZ NOT NULL,
                     progress REAL,
                     messages JSONB DEFAULT '[]'::jsonb,
+                    artifacts JSONB DEFAULT '[]'::jsonb,
+                    history JSONB DEFAULT '[]'::jsonb,
+                    task_metadata JSONB DEFAULT '{}'::jsonb,
                     worker_id TEXT,
                     claimed_at TIMESTAMPTZ
                 )
@@ -335,6 +339,22 @@ class PersistentTaskManager(TaskManager):
             await conn.execute(
                 'CREATE INDEX IF NOT EXISTS idx_a2a_tasks_worker_id ON a2a_tasks(worker_id)'
             )
+            await conn.execute(
+                'CREATE INDEX IF NOT EXISTS idx_a2a_tasks_context_id ON a2a_tasks(context_id)'
+            )
+
+            # Push notification configs table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS a2a_push_notification_configs (
+                    id TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+                    task_id TEXT NOT NULL REFERENCES a2a_tasks(id) ON DELETE CASCADE,
+                    url TEXT NOT NULL,
+                    token TEXT,
+                    authentication JSONB,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    PRIMARY KEY (task_id, id)
+                )
+            """)
 
             # Add columns if they don't exist (for existing databases)
             await conn.execute("""
@@ -347,6 +367,22 @@ class PersistentTaskManager(TaskManager):
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                                    WHERE table_name = 'a2a_tasks' AND column_name = 'claimed_at') THEN
                         ALTER TABLE a2a_tasks ADD COLUMN claimed_at TIMESTAMPTZ;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                   WHERE table_name = 'a2a_tasks' AND column_name = 'context_id') THEN
+                        ALTER TABLE a2a_tasks ADD COLUMN context_id TEXT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                   WHERE table_name = 'a2a_tasks' AND column_name = 'artifacts') THEN
+                        ALTER TABLE a2a_tasks ADD COLUMN artifacts JSONB DEFAULT '[]'::jsonb;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                   WHERE table_name = 'a2a_tasks' AND column_name = 'history') THEN
+                        ALTER TABLE a2a_tasks ADD COLUMN history JSONB DEFAULT '[]'::jsonb;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                   WHERE table_name = 'a2a_tasks' AND column_name = 'task_metadata') THEN
+                        ALTER TABLE a2a_tasks ADD COLUMN task_metadata JSONB DEFAULT '{}'::jsonb;
                     END IF;
                 END $$;
             """)
@@ -371,8 +407,10 @@ class PersistentTaskManager(TaskManager):
         return messages or None
 
     def _row_to_task(self, row) -> Task:
+        from .models import Artifact
         return Task(
             id=row['id'],
+            context_id=row.get('context_id'),
             status=TaskStatus(row['status']),
             title=row['title'],
             description=row['description'],
@@ -380,9 +418,42 @@ class PersistentTaskManager(TaskManager):
             updated_at=row['updated_at'],
             progress=row['progress'],
             messages=self._deserialize_messages(row['messages']),
+            artifacts=self._deserialize_list(row.get('artifacts'), Artifact),
+            history=self._deserialize_list(row.get('history'), Message),
+            task_metadata=self._deserialize_dict(row.get('task_metadata')),
             worker_id=row.get('worker_id'),
             claimed_at=row.get('claimed_at'),
         )
+
+    def _deserialize_list(self, value: Any, model_class) -> list:
+        if not value:
+            return []
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+        if isinstance(value, list):
+            items = []
+            for item in value:
+                try:
+                    items.append(model_class.model_validate(item))
+                except Exception as exc:
+                    logger.warning('Failed to parse %s: %s', model_class.__name__, exc)
+            return items
+        return []
+
+    def _deserialize_dict(self, value: Any) -> dict:
+        if not value:
+            return {}
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+        if isinstance(value, dict):
+            return value
+        return {}
 
     async def create_task(
         self,
@@ -666,3 +737,108 @@ class PersistentTaskManager(TaskManager):
         if self._pool:
             await self._pool.close()
             self._pool = None
+
+    # ─── Push Notification Config CRUD ────────────────────────────────────
+
+    async def set_push_notification_config(
+        self, task_id: str, config: PushNotificationConfig
+    ) -> TaskPushNotificationConfig:
+        """Create or update a push notification config for a task."""
+        pool = await self._get_pool()
+        config_id = config.id or str(uuid.uuid4())
+        auth_json = (
+            json.dumps(config.authentication.model_dump())
+            if config.authentication
+            else None
+        )
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO a2a_push_notification_configs (id, task_id, url, token, authentication)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (task_id, id)
+                DO UPDATE SET url = EXCLUDED.url, token = EXCLUDED.token, authentication = EXCLUDED.authentication
+                """,
+                config_id,
+                task_id,
+                config.url,
+                config.token,
+                auth_json,
+            )
+        return TaskPushNotificationConfig(
+            id=task_id,
+            push_notification_config=PushNotificationConfig(
+                url=config.url, token=config.token, id=config_id,
+                authentication=config.authentication,
+            ),
+        )
+
+    async def get_push_notification_config(
+        self, task_id: str, config_id: Optional[str] = None
+    ) -> Optional[TaskPushNotificationConfig]:
+        """Get a push notification config for a task."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            if config_id:
+                row = await conn.fetchrow(
+                    'SELECT * FROM a2a_push_notification_configs WHERE task_id = $1 AND id = $2',
+                    task_id,
+                    config_id,
+                )
+            else:
+                row = await conn.fetchrow(
+                    'SELECT * FROM a2a_push_notification_configs WHERE task_id = $1 LIMIT 1',
+                    task_id,
+                )
+        if not row:
+            return None
+        return self._row_to_push_config(task_id, row)
+
+    async def list_push_notification_configs(
+        self, task_id: str
+    ) -> List[TaskPushNotificationConfig]:
+        """List all push notification configs for a task."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                'SELECT * FROM a2a_push_notification_configs WHERE task_id = $1',
+                task_id,
+            )
+        return [self._row_to_push_config(task_id, row) for row in rows]
+
+    async def delete_push_notification_config(
+        self, task_id: str, config_id: Optional[str] = None
+    ) -> bool:
+        """Delete push notification config(s) for a task."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            if config_id:
+                result = await conn.execute(
+                    'DELETE FROM a2a_push_notification_configs WHERE task_id = $1 AND id = $2',
+                    task_id,
+                    config_id,
+                )
+            else:
+                result = await conn.execute(
+                    'DELETE FROM a2a_push_notification_configs WHERE task_id = $1',
+                    task_id,
+                )
+        return 'DELETE' in result and 'DELETE 0' not in result
+
+    def _row_to_push_config(self, task_id: str, row) -> TaskPushNotificationConfig:
+        from .models import AuthenticationInfo
+        auth = None
+        if row.get('authentication'):
+            auth_data = row['authentication']
+            if isinstance(auth_data, str):
+                auth_data = json.loads(auth_data)
+            auth = AuthenticationInfo.model_validate(auth_data)
+        return TaskPushNotificationConfig(
+            id=task_id,
+            push_notification_config=PushNotificationConfig(
+                url=row['url'],
+                token=row.get('token'),
+                id=row['id'],
+                authentication=auth,
+            ),
+        )

@@ -60,6 +60,18 @@ spec:
                   name: {{ .Values.secrets.livekitApiSecret.secretName }}
                   key: {{ .Values.secrets.livekitApiSecret.key }}
                   optional: false
+            - name: KEYCLOAK_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.keycloakClientId.secretName }}
+                  key: {{ .Values.secrets.keycloakClientId.key }}
+                  optional: false
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.keycloakClientSecret.secretName }}
+                  key: {{ .Values.secrets.keycloakClientSecret.key }}
+                  optional: false
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:

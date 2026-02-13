@@ -11,164 +11,27 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-
-# A2A Protocol v0.3 Compliant Models
-# Based on specification/json/a2a.json
-
-
-class AgentProvider(BaseModel):
-    """Represents the service provider of an agent."""
-
-    organization: str = Field(
-        ..., description="The name of the agent provider's organization"
-    )
-    url: str = Field(
-        ...,
-        description="A URL for the agent provider's website or documentation",
-    )
+from .models import (
+    AgentCapabilities,
+    AgentCard as AgentCardModel,
+    AgentExtension,
+    AgentInterface,
+    AgentProvider,
+    AgentSkill,
+    HTTPAuthSecurityScheme,
+    SecurityScheme,
+)
 
 
-class AgentExtension(BaseModel):
-    """A declaration of a protocol extension supported by an Agent."""
-
-    uri: str = Field(
-        ..., description='The unique URI identifying the extension'
-    )
-    description: Optional[str] = Field(
-        default=None,
-        description='A human-readable description of the extension',
-    )
-    required: Optional[bool] = Field(
-        default=False,
-        description='If true, the client must comply with the extension',
-    )
-    params: Optional[Dict[str, Any]] = Field(
-        default=None, description='Extension-specific configuration parameters'
-    )
-
-
-class AgentCapabilities(BaseModel):
-    """Defines optional capabilities supported by an agent."""
-
-    streaming: Optional[bool] = Field(
-        None,
-        description='Indicates if the agent supports SSE for streaming responses',
-    )
-    pushNotifications: Optional[bool] = Field(
-        None, description='Indicates if the agent supports push notifications'
-    )
-    stateTransitionHistory: Optional[bool] = Field(
-        None,
-        description='Indicates if the agent provides state transition history',
-    )
-    extensions: Optional[List[AgentExtension]] = Field(
-        None, description='Protocol extensions supported by the agent'
-    )
-
-
-class AgentSkill(BaseModel):
-    """Represents a distinct capability or function that an agent can perform."""
-
-    id: str = Field(..., description='A unique identifier for the skill')
-    name: str = Field(..., description='A human-readable name for the skill')
-    description: str = Field(
-        ..., description='A detailed description of the skill'
-    )
-    tags: List[str] = Field(
-        default_factory=list, description='Keywords describing the skill'
-    )
-    examples: Optional[List[str]] = Field(
-        default=None, description='Example prompts for the skill'
-    )
-    inputModes: Optional[List[str]] = Field(
-        default=None,
-        description='Supported input MIME types, overriding defaults',
-    )
-    outputModes: Optional[List[str]] = Field(
-        default=None,
-        description='Supported output MIME types, overriding defaults',
-    )
-
-
-class AgentInterface(BaseModel):
-    """Declares a URL and transport protocol combination for interacting with the agent."""
-
-    url: str = Field(
-        ..., description='The URL where this interface is available'
-    )
-    transport: str = Field(
-        ..., description='The transport protocol (JSONRPC, HTTP+JSON, GRPC)'
-    )
-
-
-class HTTPAuthSecurityScheme(BaseModel):
-    """Defines a security scheme using HTTP authentication."""
-
-    type: str = Field(default='http', description='Security scheme type')
-    scheme: str = Field(..., description='HTTP auth scheme (e.g., Bearer)')
-    bearerFormat: Optional[str] = Field(
-        default=None, description='Format hint for bearer token (e.g., JWT)'
-    )
-    description: Optional[str] = Field(
-        default=None, description='Description of the security scheme'
-    )
-
-
-class A2AAgentCard(BaseModel):
+class A2AAgentCard(AgentCardModel):
     """
     A2A Protocol v0.3 compliant AgentCard.
 
-    The AgentCard is a self-describing manifest for an agent that provides
-    essential metadata including identity, capabilities, skills, supported
-    communication methods, and security requirements.
+    Extends the canonical AgentCard from models.py with legacy field aliases
+    for backwards compatibility with existing serialization consumers.
     """
 
-    name: str = Field(..., description='A human-readable name for the agent')
-    description: str = Field(
-        ..., description="A description of the agent's purpose and capabilities"
-    )
-    url: str = Field(
-        ...,
-        description='The preferred endpoint URL for interacting with the agent',
-    )
-    version: str = Field(..., description="The agent's version number")
-    protocolVersion: str = Field(
-        '0.3', description='The A2A protocol version supported'
-    )
-    preferredTransport: str = Field(
-        'JSONRPC',
-        description='The transport protocol for the preferred endpoint',
-    )
-    additionalInterfaces: Optional[List[AgentInterface]] = Field(
-        None, description='Additional supported interfaces'
-    )
-    capabilities: AgentCapabilities = Field(
-        ..., description='Capabilities supported by the agent'
-    )
-    skills: List[AgentSkill] = Field(
-        default_factory=list, description='Skills the agent can perform'
-    )
-    defaultInputModes: List[str] = Field(
-        default_factory=list, description='Default supported input MIME types'
-    )
-    defaultOutputModes: List[str] = Field(
-        default_factory=list, description='Default supported output MIME types'
-    )
-    provider: Optional[AgentProvider] = Field(
-        None, description="Information about the agent's provider"
-    )
-    securitySchemes: Optional[Dict[str, HTTPAuthSecurityScheme]] = Field(
-        None, description='Security schemes available for authorization'
-    )
-    security: Optional[List[Dict[str, List[str]]]] = Field(
-        None, description='Security requirements for agent interactions'
-    )
-    documentationUrl: Optional[str] = Field(
-        default=None, description="URL to the agent's documentation"
-    )
-    iconUrl: Optional[str] = Field(
-        default=None, description='URL to an icon for the agent'
-    )
+    pass
 
 
 def get_package_version() -> str:
@@ -210,17 +73,17 @@ def create_a2a_agent_card(
         'and seamless communication between AI agents using the A2A protocol.',
         url=base_url,
         version=get_package_version(),
-        protocolVersion='0.3',
-        preferredTransport='JSONRPC',
-        additionalInterfaces=[
+        protocol_version='0.3',
+        preferred_transport='JSONRPC',
+        additional_interfaces=[
             AgentInterface(url=base_url, transport='JSONRPC'),
             AgentInterface(url=f'{base_url}/v1/a2a', transport='JSONRPC'),
             AgentInterface(url=f'{base_url}/api', transport='HTTP+JSON'),
         ],
         capabilities=AgentCapabilities(
             streaming=True,
-            pushNotifications=True,
-            stateTransitionHistory=True,
+            push_notifications=True,
+            state_transition_history=True,
             extensions=[
                 AgentExtension(
                     uri='https://codetether.io/extensions/mcp',
@@ -350,8 +213,8 @@ def create_a2a_agent_card(
                 ],
             ),
         ],
-        defaultInputModes=['text/plain', 'application/json'],
-        defaultOutputModes=['text/plain', 'application/json'],
+        default_input_modes=['text/plain', 'application/json'],
+        default_output_modes=['text/plain', 'application/json'],
         provider=AgentProvider(
             organization='CodeTether',
             url='https://codetether.io',
@@ -360,12 +223,12 @@ def create_a2a_agent_card(
             'bearer': HTTPAuthSecurityScheme(
                 type='http',
                 scheme='Bearer',
-                bearerFormat='JWT',
+                bearer_format='JWT',
                 description='JWT Bearer token authentication',
             )
         },
         security=[{'bearer': []}],
-        documentationUrl='https://codetether.io/docs',
+        documentation_url='https://codetether.io/docs',
     )
 
 

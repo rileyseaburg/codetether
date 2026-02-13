@@ -529,21 +529,21 @@ import type {
   NextauthCallbackApiAuthCallbackKeycloakGetData,
   NextauthCallbackApiAuthCallbackKeycloakGetErrors,
   NextauthCallbackApiAuthCallbackKeycloakGetResponses,
-  OpencodeToAgentRedirectV1OpencodePathPost2Data,
-  OpencodeToAgentRedirectV1OpencodePathPost2Errors,
-  OpencodeToAgentRedirectV1OpencodePathPost2Responses,
-  OpencodeToAgentRedirectV1OpencodePathPost3Data,
-  OpencodeToAgentRedirectV1OpencodePathPost3Errors,
-  OpencodeToAgentRedirectV1OpencodePathPost3Responses,
-  OpencodeToAgentRedirectV1OpencodePathPost4Data,
-  OpencodeToAgentRedirectV1OpencodePathPost4Errors,
-  OpencodeToAgentRedirectV1OpencodePathPost4Responses,
-  OpencodeToAgentRedirectV1OpencodePathPost5Data,
-  OpencodeToAgentRedirectV1OpencodePathPost5Errors,
-  OpencodeToAgentRedirectV1OpencodePathPost5Responses,
-  OpencodeToAgentRedirectV1OpencodePathPostData,
-  OpencodeToAgentRedirectV1OpencodePathPostErrors,
-  OpencodeToAgentRedirectV1OpencodePathPostResponses,
+  OpencodeToAgentRedirectV1OpencodePathDelete2Data,
+  OpencodeToAgentRedirectV1OpencodePathDelete2Errors,
+  OpencodeToAgentRedirectV1OpencodePathDelete2Responses,
+  OpencodeToAgentRedirectV1OpencodePathDelete3Data,
+  OpencodeToAgentRedirectV1OpencodePathDelete3Errors,
+  OpencodeToAgentRedirectV1OpencodePathDelete3Responses,
+  OpencodeToAgentRedirectV1OpencodePathDelete4Data,
+  OpencodeToAgentRedirectV1OpencodePathDelete4Errors,
+  OpencodeToAgentRedirectV1OpencodePathDelete4Responses,
+  OpencodeToAgentRedirectV1OpencodePathDelete5Data,
+  OpencodeToAgentRedirectV1OpencodePathDelete5Errors,
+  OpencodeToAgentRedirectV1OpencodePathDelete5Responses,
+  OpencodeToAgentRedirectV1OpencodePathDeleteData,
+  OpencodeToAgentRedirectV1OpencodePathDeleteErrors,
+  OpencodeToAgentRedirectV1OpencodePathDeleteResponses,
   PrdChatV1RalphChatPostData,
   PrdChatV1RalphChatPostErrors,
   PrdChatV1RalphChatPostResponses,
@@ -2693,14 +2693,17 @@ export const getSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGet = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPost = <
+export const opencodeToAgentRedirectV1OpencodePathDelete = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<OpencodeToAgentRedirectV1OpencodePathPostData, ThrowOnError>,
+  options: Options<
+    OpencodeToAgentRedirectV1OpencodePathDeleteData,
+    ThrowOnError
+  >,
 ) =>
   (options.client ?? client).delete<
-    OpencodeToAgentRedirectV1OpencodePathPostResponses,
-    OpencodeToAgentRedirectV1OpencodePathPostErrors,
+    OpencodeToAgentRedirectV1OpencodePathDeleteResponses,
+    OpencodeToAgentRedirectV1OpencodePathDeleteErrors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2709,17 +2712,17 @@ export const opencodeToAgentRedirectV1OpencodePathPost = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPost2 = <
+export const opencodeToAgentRedirectV1OpencodePathDelete2 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPost2Data,
+    OpencodeToAgentRedirectV1OpencodePathDelete2Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    OpencodeToAgentRedirectV1OpencodePathPost2Responses,
-    OpencodeToAgentRedirectV1OpencodePathPost2Errors,
+    OpencodeToAgentRedirectV1OpencodePathDelete2Responses,
+    OpencodeToAgentRedirectV1OpencodePathDelete2Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2728,17 +2731,17 @@ export const opencodeToAgentRedirectV1OpencodePathPost2 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPost3 = <
+export const opencodeToAgentRedirectV1OpencodePathDelete3 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPost3Data,
+    OpencodeToAgentRedirectV1OpencodePathDelete3Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).patch<
-    OpencodeToAgentRedirectV1OpencodePathPost3Responses,
-    OpencodeToAgentRedirectV1OpencodePathPost3Errors,
+    OpencodeToAgentRedirectV1OpencodePathDelete3Responses,
+    OpencodeToAgentRedirectV1OpencodePathDelete3Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2747,17 +2750,17 @@ export const opencodeToAgentRedirectV1OpencodePathPost3 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPost4 = <
+export const opencodeToAgentRedirectV1OpencodePathDelete4 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPost4Data,
+    OpencodeToAgentRedirectV1OpencodePathDelete4Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    OpencodeToAgentRedirectV1OpencodePathPost4Responses,
-    OpencodeToAgentRedirectV1OpencodePathPost4Errors,
+    OpencodeToAgentRedirectV1OpencodePathDelete4Responses,
+    OpencodeToAgentRedirectV1OpencodePathDelete4Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2766,17 +2769,17 @@ export const opencodeToAgentRedirectV1OpencodePathPost4 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathPost5 = <
+export const opencodeToAgentRedirectV1OpencodePathDelete5 = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    OpencodeToAgentRedirectV1OpencodePathPost5Data,
+    OpencodeToAgentRedirectV1OpencodePathDelete5Data,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).put<
-    OpencodeToAgentRedirectV1OpencodePathPost5Responses,
-    OpencodeToAgentRedirectV1OpencodePathPost5Errors,
+    OpencodeToAgentRedirectV1OpencodePathDelete5Responses,
+    OpencodeToAgentRedirectV1OpencodePathDelete5Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 

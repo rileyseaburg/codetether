@@ -6,7 +6,9 @@ export
 
 # Variables
 DOCKER_IMAGE_NAME = a2a-server-mcp
-DOCKER_TAG ?= latest
+# Extract version from codetether-agent Cargo.toml (e.g. "1.1.6-alpha-2" -> "v1.1.6-alpha-2")
+CODETETHER_VERSION := $(shell grep '^version' codetether-agent/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+DOCKER_TAG ?= v$(CODETETHER_VERSION)
 DOCKER_REGISTRY ?= us-central1-docker.pkg.dev/spotlessbinco/codetether
 OCI_REGISTRY = us-central1-docker.pkg.dev/spotlessbinco/codetether
 PORT ?= 8001

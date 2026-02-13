@@ -72,6 +72,15 @@ from .finops_api import router as finops_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
 
+# Import OAuth 2.1 provider for MCP protocol compliance
+try:
+    from .oauth_provider import router as oauth_router
+
+    OAUTH_AVAILABLE = True
+except ImportError:
+    OAUTH_AVAILABLE = False
+    oauth_router = None
+
 # Import policy engine for centralized authorization
 try:
     from .policy import close_policy_client, opa_health, require_permission
@@ -584,6 +593,11 @@ class A2AServer:
         # Include user authentication and billing routes (mid-market individual users)
         self.app.include_router(user_auth_router)
         logger.info('User auth API router mounted at /v1/users')
+
+        # Include OAuth 2.1 provider for MCP protocol compliance
+        if OAUTH_AVAILABLE and oauth_router:
+            self.app.include_router(oauth_router)
+            logger.info('OAuth 2.1 provider mounted (/.well-known/oauth-*, /oauth/*)')
 
         # Include queue API routes for operational visibility (mid-market)
         if QUEUE_API_AVAILABLE and queue_api_router:

@@ -128,7 +128,7 @@ def _evaluate_local(
 
     # Resolve effective roles (with inheritance).
     effective_roles = set()
-    user_roles = user.get("roles", [])
+    user_roles = _effective_roles(user)
     for role in user_roles:
         role_def = data.get("roles", {}).get(role)
         if not role_def:
@@ -195,6 +195,23 @@ async def _get_client() -> httpx.AsyncClient:
     return _http_client
 
 
+# Authenticated users with no explicit role assignment get "editor" by default.
+# This covers self-service registrations and API key users who sign up via
+# /v1/users/register.  Keycloak users get roles from the IdP token.
+_DEFAULT_SELF_SERVICE_ROLE = os.environ.get("DEFAULT_USER_ROLE", "editor")
+
+
+def _effective_roles(user: Dict[str, Any]) -> list:
+    """Return the user's roles, falling back to the default for self-service users."""
+    roles = user.get("roles", [])
+    if roles:
+        return roles
+    auth_source = _detect_auth_source(user)
+    if auth_source in ("self-service", "api_key"):
+        return [_DEFAULT_SELF_SERVICE_ROLE]
+    return roles
+
+
 def _build_input(
     user: Dict[str, Any],
     action: str,
@@ -205,7 +222,7 @@ def _build_input(
         "input": {
             "user": {
                 "user_id": user.get("user_id") or user.get("id") or user.get("sub", ""),
-                "roles": user.get("roles", []),
+                "roles": _effective_roles(user),
                 "tenant_id": user.get("tenant_id"),
                 "scopes": user.get("api_key_scopes") or user.get("scopes", []),
                 "auth_source": _detect_auth_source(user),
@@ -411,12 +428,19 @@ async def _resolve_user(request: Request) -> Optional[Dict[str, Any]]:
     """Resolve authenticated user from request using existing auth systems.
 
     Tries Keycloak auth first, then self-service auth.
+    Supports Bearer token from Authorization header, with query param
+    fallback (access_token) for SSE/EventSource connections that cannot
+    set custom headers.
     """
     auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return None
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    else:
+        # Fallback: check query param for SSE/EventSource connections
+        token = request.query_params.get("access_token")
 
-    token = auth_header[7:]
+    if not token:
+        return None
 
     # Try self-service / API key auth (handles all token types)
     try:

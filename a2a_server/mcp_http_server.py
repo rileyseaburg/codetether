@@ -75,6 +75,15 @@ except ImportError:
     USER_AUTH_AVAILABLE = False
     user_auth_router = None
 
+# Import OAuth 2.1 provider for MCP protocol compliance
+try:
+    from .oauth_provider import router as oauth_router
+
+    OAUTH_AVAILABLE = True
+except ImportError:
+    OAUTH_AVAILABLE = False
+    oauth_router = None
+
 # Import queue status API router
 try:
     from .queue_api import router as queue_api_router
@@ -164,6 +173,10 @@ class MCPHTTPServer:
         # Include User Auth router for self-service registration (mid-market)
         if USER_AUTH_AVAILABLE and user_auth_router:
             self.app.include_router(user_auth_router)
+
+        # Include OAuth 2.1 provider for MCP protocol compliance
+        if OAUTH_AVAILABLE and oauth_router:
+            self.app.include_router(oauth_router)
 
         # Include Queue API router for operational visibility
         if QUEUE_API_AVAILABLE and queue_api_router:
@@ -1416,7 +1429,7 @@ class MCPHTTPServer:
         response = await self.a2a_server._process_message(message)
 
         response_text = ' '.join(
-            [part.content for part in response.parts if part.type == 'text']
+            [part.text for part in response.parts if part.kind == 'text' and part.text]
         )
 
         # Log response to monitoring UI
@@ -2827,7 +2840,7 @@ class MCPHTTPServer:
             return {'error': f'Message broker error: {str(e)}'}
 
         # Handle both old (AgentCard) and new (dict) return formats
-        agent_list = []
+        agent_list: List[Dict[str, Any]] = []
         for agent in agents:
             if isinstance(agent, dict):
                 # New enriched format with role/instance_id
@@ -2842,6 +2855,7 @@ class MCPHTTPServer:
                         'url': agent.get('url'),
                         'capabilities': agent.get('capabilities'),
                         'last_seen': agent.get('last_seen'),
+                        'source': agent.get('source', 'agent_registry'),
                     }
                 )
             else:
@@ -2854,8 +2868,154 @@ class MCPHTTPServer:
                         else agent.name,
                         'description': agent.description,
                         'url': agent.url,
+                        'source': 'agent_registry',
                     }
                 )
+
+        # Also include SSE-connected workers, even if they haven't registered
+        # as discoverable agents via register_agent/refresh_agent_heartbeat.
+        #
+        # This fixes a common UX issue where tasks are being processed (workers
+        # are online) but discover_agents appears empty.
+        try:
+            sse_registry = get_worker_registry()
+            connected_workers = await sse_registry.list_workers()
+        except Exception as e:
+            logger.debug(f'Failed to list SSE workers for discovery: {e}')
+            connected_workers = []
+
+        # Deduplicate by (role, instance_id) where possible
+        seen_pairs = {
+            (a.get('role'), a.get('instance_id'))
+            for a in agent_list
+            if a.get('role') and a.get('instance_id')
+        }
+
+        for w in connected_workers:
+            role = w.get('agent_name') or 'worker'
+            instance_id = w.get('worker_id')
+            if role and instance_id and (role, instance_id) in seen_pairs:
+                continue
+
+            # Represent workers using the role:instance pattern so routing can
+            # use role (send_to_agent) while still keeping unique identities.
+            name = f'{role}:{instance_id}' if instance_id else role
+
+            worker_capabilities = w.get('capabilities') or []
+            worker_codebases = w.get('codebases') or []
+
+            agent_list.append(
+                {
+                    'name': name,
+                    'role': role,
+                    'instance_id': instance_id,
+                    'description': (
+                        f"SSE worker connected (busy={bool(w.get('is_busy'))}, "
+                        f"codebases={len(worker_codebases)}, "
+                        f"capabilities={len(worker_capabilities)})"
+                    ),
+                    # Workers do not expose a direct A2A URL; they connect
+                    # outbound to the server via SSE.
+                    'url': None,
+                    'capabilities': {
+                        'streaming': False,
+                        'push_notifications': False,
+                        'worker_capabilities': worker_capabilities,
+                        'codebases': worker_codebases,
+                        'is_busy': bool(w.get('is_busy')),
+                        'current_task_id': w.get('current_task_id'),
+                    },
+                    'last_seen': w.get('last_heartbeat') or w.get('connected_at'),
+                    'source': 'sse_worker_registry',
+                }
+            )
+            if role and instance_id:
+                seen_pairs.add((role, instance_id))
+
+        # Also include DB-registered workers ("hosted workers") from the
+        # workers table. These are real worker pools that can claim/execute
+        # tasks, but they are NOT necessarily routable via send_to_agent.
+        #
+        # Without this, users can have active workers processing tasks while
+        # discover_agents appears empty (common confusion).
+        try:
+            from . import database as db
+
+            db_workers = await db.db_list_workers(status='active')
+        except Exception as e:
+            logger.debug(f'Failed to list DB workers for discovery: {e}')
+            db_workers = []
+
+        # Deduplicate by worker_id vs any previously-added instance_ids.
+        seen_worker_ids = {
+            a.get('instance_id')
+            for a in agent_list
+            if isinstance(a, dict) and a.get('instance_id')
+        }
+
+        for w in db_workers:
+            worker_id = w.get('worker_id')
+            if not worker_id or worker_id in seen_worker_ids:
+                continue
+
+            # Filter out stale workers when last_seen is available.
+            last_seen = w.get('last_seen')
+            if last_seen:
+                try:
+                    from datetime import timezone
+
+                    # last_seen may be naive (no tz). Handle both.
+                    parsed = datetime.fromisoformat(
+                        str(last_seen).replace('Z', '+00:00')
+                    )
+                    now = (
+                        datetime.now(timezone.utc)
+                        if parsed.tzinfo
+                        else datetime.now()
+                    )
+                    age_seconds = (now - parsed).total_seconds()
+                    if age_seconds > max_age_seconds:
+                        continue
+                except Exception:
+                    # If parsing fails, keep the entry (better UX than hiding).
+                    pass
+
+            worker_name = w.get('name') or worker_id
+            hostname = w.get('hostname') or ''
+            models = w.get('models') or []
+            capabilities = w.get('capabilities') or {}
+
+            agent_list.append(
+                {
+                    'name': f'worker:{worker_id}',
+                    # Intentionally omit/None role to avoid implying these are
+                    # routable via send_to_agent (they are execution pools).
+                    'role': None,
+                    'instance_id': worker_id,
+                    'description': (
+                        f"Hosted worker pool (name={worker_name}"
+                        + (f", host={hostname}" if hostname else '')
+                        + f", models={len(models)})"
+                    ),
+                    'url': None,
+                    'capabilities': {
+                        'streaming': False,
+                        'push_notifications': False,
+                        'worker_name': worker_name,
+                        'hostname': hostname,
+                        'status': w.get('status'),
+                        'models_count': len(models),
+                        'models_sample': models[:10],
+                        'worker_capabilities': capabilities,
+                        # Explicitly communicate that this entry is not a
+                        # routable A2A agent identity.
+                        'routing_supported': False,
+                    },
+                    'last_seen': last_seen,
+                    'source': 'workers_table',
+                }
+            )
+            seen_worker_ids.add(worker_id)
 
         return {
             'agents': agent_list,
@@ -2863,7 +3023,8 @@ class MCPHTTPServer:
             'routing_note': (
                 "IMPORTANT: Use 'role' with send_to_agent for routing. "
                 "'name' is a unique instance identity and will NOT route tasks. "
-                "Example: send_to_agent(agent_name='code-reviewer') routes by role."
+                "Example: send_to_agent(agent_name='code-reviewer') routes by role. "
+                "Entries with source=workers_table are execution pools (not routable via send_to_agent)."
             ),
         }
 

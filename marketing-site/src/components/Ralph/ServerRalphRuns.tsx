@@ -1,15 +1,18 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { RalphRefreshIcon } from '../ui/RalphIcons'
-import { listRalphRunsV1RalphRunsGet, cancelRalphRunV1RalphRunsRunIdCancelPost, deleteRalphRunV1RalphRunsRunIdDelete } from '@/lib/api'
+import { listRalphRunsV1RalphRunsGet, cancelRalphRunV1RalphRunsRunIdCancelPost, deleteRalphRunV1RalphRunsRunIdDelete, hasApiAuthToken } from '@/lib/api'
 
 export function ServerRalphRuns() {
+    const { data: session } = useSession()
     const [runs, setRuns] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [expanded, setExpanded] = useState<string | null>(null)
 
     const loadRuns = useCallback(async () => {
+        if (!hasApiAuthToken()) return
         setLoading(true)
         try { const { data } = await listRalphRunsV1RalphRunsGet({ query: { limit: 20 } }); if (data) setRuns(data) } finally { setLoading(false) }
     }, [])
@@ -18,7 +21,10 @@ export function ServerRalphRuns() {
 
     const handleDelete = useCallback(async (id: string) => { if (!confirm('Delete this Ralph run?')) return; await deleteRalphRunV1RalphRunsRunIdDelete({ path: { run_id: id } }); loadRuns() }, [loadRuns])
 
-    useEffect(() => { loadRuns() }, [loadRuns])
+    useEffect(() => {
+        if (!session?.accessToken && !hasApiAuthToken()) return
+        loadRuns()
+    }, [loadRuns, session?.accessToken])
 
     return (
         <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10" data-cy="ralph-runs-panel">

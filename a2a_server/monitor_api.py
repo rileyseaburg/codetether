@@ -3241,6 +3241,30 @@ async def stream_agent_events(codebase_id: str, request: Request):
     """
     import aiohttp
 
+    # "global" is a virtual codebase used by the dashboard when no specific
+    # codebase is selected.  Return a keep-alive SSE stream so the browser
+    # EventSource stays connected instead of retrying on 404.
+    if codebase_id == 'global':
+        import asyncio as _asyncio
+
+        async def _global_keepalive():
+            yield 'event: status\ndata: {"status": "idle", "codebase": "global"}\n\n'
+            while True:
+                if await request.is_disconnected():
+                    break
+                yield ': keepalive\n\n'
+                await _asyncio.sleep(30)
+
+        return StreamingResponse(
+            _global_keepalive(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
+            },
+        )
+
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(

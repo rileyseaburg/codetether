@@ -2,6 +2,14 @@ import { Container } from '@/components/Container'
 
 const useCases = [
     {
+        title: 'Engineering Teams',
+        description:
+            'Write a PRD, run Ralph. Wake up to implemented features with tests passing and commits pushed. RLM ensures infinite context—your entire codebase is understood, not just single files.',
+        icon: '🔄',
+        features: ['Autonomous dev', 'PRD → Code', 'RLM context'],
+        workflow: 'PRD → Ralph implements → Review PR in morning'
+    },
+    {
         title: 'Course Creators',
         description:
             'Stop spending hours on landing pages. Tell the agent "build me a sales page for my new course" and get production-ready HTML in minutes. It reads your existing content, matches your brand, and writes converting copy.',
@@ -24,6 +32,14 @@ const useCases = [
         icon: '🛒',
         features: ['Product descriptions', 'Listing optimization', 'Bulk processing'],
         workflow: 'CSV upload → Agent writes listings → Export to platforms'
+    },
+    {
+        title: 'No-Code Automators',
+        description:
+            '18 Zapier components connect CodeTether to 6,000+ apps. Trigger autonomous tasks from Airtable, Slack, or Gmail. No code required—just connect and configure.',
+        icon: '⚡',
+        features: ['Zapier triggers', '18 components', 'No-code setup'],
+        workflow: 'Zap trigger → Agent runs task → Result to destination'
     },
     {
         title: 'DevOps & Infrastructure',

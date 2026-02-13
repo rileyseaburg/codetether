@@ -34,7 +34,14 @@ from .keycloak_auth import (
     keycloak_auth,
     require_auth,
 )
-from .models import Message, Part, Task, TaskStatus
+from .models import (
+    Message,
+    Part,
+    PushNotificationConfig,
+    Task,
+    TaskPushNotificationConfig,
+    TaskStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -501,6 +508,7 @@ class DefaultRequestHandler:
         self.executor = executor
         self.task_store = task_store
         self._active_tasks: Dict[str, asyncio.Task] = {}
+        self._push_configs: Dict[str, Dict[str, PushNotificationConfig]] = {}
 
     async def handle_send_message(
         self,
@@ -703,6 +711,91 @@ class DefaultRequestHandler:
 
         return {'task': task.model_dump()}
 
+    # ─── Push Notification Config handlers ────────────────────────────
+
+    async def handle_create_push_config(
+        self,
+        params: Dict[str, Any],
+        user: Optional[UserSession] = None,
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/set method."""
+        task_id = params.get('id') or params.get('taskId')
+        if not task_id:
+            raise ValueError('Task ID is required')
+
+        config_data = params.get('pushNotificationConfig') or params.get('config', {})
+        config = PushNotificationConfig.model_validate(config_data)
+
+        task = await self.task_store.get_task(task_id)
+        if not task:
+            raise ValueError(f'Task not found: {task_id}')
+
+        config_id = config_data.get('id', str(uuid.uuid4()))
+        if task_id not in self._push_configs:
+            self._push_configs[task_id] = {}
+        self._push_configs[task_id][config_id] = config
+
+        return TaskPushNotificationConfig(
+            task_id=task_id,
+            push_notification_config=config,
+        ).model_dump(by_alias=True, exclude_none=True)
+
+    async def handle_get_push_config(
+        self,
+        params: Dict[str, Any],
+        user: Optional[UserSession] = None,
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/get method."""
+        task_id = params.get('id') or params.get('taskId')
+        config_id = params.get('configId')
+        if not task_id or not config_id:
+            raise ValueError('Task ID and config ID are required')
+
+        configs = self._push_configs.get(task_id, {})
+        config = configs.get(config_id)
+        if not config:
+            raise ValueError(f'Push notification config not found: {config_id}')
+
+        return TaskPushNotificationConfig(
+            task_id=task_id,
+            push_notification_config=config,
+        ).model_dump(by_alias=True, exclude_none=True)
+
+    async def handle_list_push_configs(
+        self,
+        params: Dict[str, Any],
+        user: Optional[UserSession] = None,
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/list method."""
+        task_id = params.get('id') or params.get('taskId')
+        if not task_id:
+            raise ValueError('Task ID is required')
+
+        configs = self._push_configs.get(task_id, {})
+        items = [
+            TaskPushNotificationConfig(
+                task_id=task_id,
+                push_notification_config=c,
+            ).model_dump(by_alias=True, exclude_none=True)
+            for c in configs.values()
+        ]
+        return {'configs': items}
+
+    async def handle_delete_push_config(
+        self,
+        params: Dict[str, Any],
+        user: Optional[UserSession] = None,
+    ) -> Dict[str, Any]:
+        """Handle tasks/pushNotificationConfig/delete method."""
+        task_id = params.get('id') or params.get('taskId')
+        config_id = params.get('configId')
+        if not task_id or not config_id:
+            raise ValueError('Task ID and config ID are required')
+
+        configs = self._push_configs.get(task_id, {})
+        deleted = configs.pop(config_id, None) is not None
+        return {'success': deleted}
+
 
 # =============================================================================
 # Router Factory
@@ -838,6 +931,14 @@ def create_a2a_router(
                     result = await handler.handle_get_task(params, user)
                 elif method == 'tasks/cancel':
                     result = await handler.handle_cancel_task(params, user)
+                elif method == 'tasks/pushNotificationConfig/set':
+                    result = await handler.handle_create_push_config(params, user)
+                elif method == 'tasks/pushNotificationConfig/get':
+                    result = await handler.handle_get_push_config(params, user)
+                elif method == 'tasks/pushNotificationConfig/list':
+                    result = await handler.handle_list_push_configs(params, user)
+                elif method == 'tasks/pushNotificationConfig/delete':
+                    result = await handler.handle_delete_push_config(params, user)
                 else:
                     return JSONResponse(
                         content=JSONRPCResponse(
@@ -961,12 +1062,89 @@ def create_a2a_router(
             logger.error(f'Error in REST cancel task: {e}')
             raise HTTPException(status_code=500, detail='Internal server error')
 
+    # REST binding: Push Notification Config CRUD
+    @router.post('/rest/tasks/{task_id}/pushNotificationConfigs')
+    async def rest_create_push_config(
+        task_id: str,
+        request: Request,
+        user: Optional[UserSession] = Depends(get_authenticated_user),
+    ) -> JSONResponse:
+        """REST binding for creating a push notification config."""
+        try:
+            body = await request.json()
+            body['taskId'] = task_id
+            result = await handler.handle_create_push_config(body, user)
+            return JSONResponse(content=result)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f'Error in REST create push config: {e}')
+            raise HTTPException(status_code=500, detail='Internal server error')
+
+    @router.get('/rest/tasks/{task_id}/pushNotificationConfigs/{config_id}')
+    async def rest_get_push_config(
+        task_id: str,
+        config_id: str,
+        user: Optional[UserSession] = Depends(get_authenticated_user),
+    ) -> JSONResponse:
+        """REST binding for getting a push notification config."""
+        try:
+            result = await handler.handle_get_push_config(
+                {'taskId': task_id, 'configId': config_id}, user
+            )
+            return JSONResponse(content=result)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except Exception as e:
+            logger.error(f'Error in REST get push config: {e}')
+            raise HTTPException(status_code=500, detail='Internal server error')
+
+    @router.get('/rest/tasks/{task_id}/pushNotificationConfigs')
+    async def rest_list_push_configs(
+        task_id: str,
+        user: Optional[UserSession] = Depends(get_authenticated_user),
+    ) -> JSONResponse:
+        """REST binding for listing push notification configs."""
+        try:
+            result = await handler.handle_list_push_configs(
+                {'taskId': task_id}, user
+            )
+            return JSONResponse(content=result)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f'Error in REST list push configs: {e}')
+            raise HTTPException(status_code=500, detail='Internal server error')
+
+    @router.delete('/rest/tasks/{task_id}/pushNotificationConfigs/{config_id}')
+    async def rest_delete_push_config(
+        task_id: str,
+        config_id: str,
+        user: Optional[UserSession] = Depends(get_authenticated_user),
+    ) -> JSONResponse:
+        """REST binding for deleting a push notification config."""
+        try:
+            result = await handler.handle_delete_push_config(
+                {'taskId': task_id, 'configId': config_id}, user
+            )
+            return JSONResponse(content=result)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except Exception as e:
+            logger.error(f'Error in REST delete push config: {e}')
+            raise HTTPException(status_code=500, detail='Internal server error')
+
     # Agent card discovery endpoint
     if agent_card:
 
         @router.get('/.well-known/agent.json')
         async def get_agent_card_endpoint() -> JSONResponse:
             """Get the agent card for discovery."""
+            return JSONResponse(content=agent_card.to_dict())
+
+        @router.get('/card')
+        async def get_agent_card_v1() -> JSONResponse:
+            """GET /v1/card - spec-compliant agent card endpoint."""
             return JSONResponse(content=agent_card.to_dict())
 
     return router
@@ -1027,6 +1205,9 @@ __all__ = [
     'EventQueue',
     # Request handler
     'DefaultRequestHandler',
+    # Push notification
+    'PushNotificationConfig',
+    'TaskPushNotificationConfig',
     # Router factory
     'create_a2a_router',
     'setup_a2a_routes',
