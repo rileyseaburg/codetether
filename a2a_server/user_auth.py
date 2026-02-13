@@ -201,7 +201,12 @@ def decode_access_token(token: str) -> Dict[str, Any]:
     """Decode and validate a JWT access token (HS256 self-issued or RS256 Keycloak)."""
     try:
         # First try HS256 (self-issued tokens)
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        # Skip audience verification — OAuth 2.1 tokens include an 'aud' claim
+        # but we validate auth at the middleware layer, not via JWT audience.
+        payload = jwt.decode(
+            token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+            options={"verify_aud": False},
+        )
         if payload.get('type') != 'access':
             raise HTTPException(status_code=401, detail='Invalid token type')
         return payload
@@ -493,6 +498,19 @@ async def get_current_user(
             # For Keycloak users, create a virtual user object from token claims
             # or look them up / create them in our database
             return await _get_or_create_keycloak_user(payload, request=request)
+
+        # Handle OAuth 2.1 tokens (issued by /oauth/token)
+        if payload.get('auth_source') == 'oauth':
+            scope_str = payload.get('scope', '')
+            return {
+                'id': payload['sub'],
+                'user_id': payload['sub'],
+                'email': payload.get('email', f"{payload['sub']}@oauth"),
+                'auth_source': 'oauth',
+                'roles': ['editor'],
+                'status': 'active',
+                'scopes': scope_str.split() if scope_str else [],
+            }
 
         # Handle self-issued tokens (user must exist in DB)
         user = await get_user_by_id(payload['sub'])

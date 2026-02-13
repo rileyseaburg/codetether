@@ -77,10 +77,9 @@ def create_agent_config(
     port: Optional[int] = None,
 ) -> AgentConfig:
     """Create an agent configuration."""
-    if port and not port == 8000:
+    base_url = os.getenv('A2A_AGENT_URL')
+    if not base_url and port and port != 8000:
         base_url = f'http://localhost:{port}'
-    else:
-        base_url = None
 
     return AgentConfig(
         name=name,

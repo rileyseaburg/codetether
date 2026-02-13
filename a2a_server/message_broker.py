@@ -447,10 +447,10 @@ class MessageBroker:
             'task.updated',
             {
                 'agent_name': agent_name,
-                'task_id': event.task.id,
-                'status': event.task.status.value,
+                'task_id': event.id,
+                'status': event.status.state.value,
                 'final': event.final,
-                'timestamp': event.task.updated_at.isoformat(),
+                'timestamp': event.status.timestamp or '',
             },
         )
 
@@ -737,10 +737,10 @@ class InMemoryMessageBroker:
             'task.updated',
             {
                 'agent_name': agent_name,
-                'task_id': event.task.id,
-                'status': event.task.status.value,
+                'task_id': event.id,
+                'status': event.status.state.value,
                 'final': event.final,
-                'timestamp': event.task.updated_at.isoformat(),
+                'timestamp': event.status.timestamp or '',
             },
         )
 

@@ -48,6 +48,25 @@ Optionally also add the matching **Web Origins** entries:
 - `http://localhost:3001`
 - `http://127.0.0.1:3001`
 
+### 3) If you see `unauthorized_client` / `Invalid client credentials`
+
+This error comes from Keycloak's token endpoint and usually means the client auth mode does not match your app config.
+
+- For a **confidential** Keycloak client:
+  - Set `KEYCLOAK_CLIENT_ID`
+  - Set `KEYCLOAK_CLIENT_SECRET`
+  - Ensure `KEYCLOAK_PUBLIC_CLIENT=false` (or unset)
+- For a **public** Keycloak client:
+  - Set `KEYCLOAK_CLIENT_ID`
+  - Set `KEYCLOAK_PUBLIC_CLIENT=true`
+  - Do not set `KEYCLOAK_CLIENT_SECRET`
+
+If needed, re-sync client settings and rotate the secret:
+
+```bash
+scripts/keycloak_upsert_client.sh
+```
+
 ## Customizing
 
 You can start editing this template by modifying the files in the `/src` folder. The site will auto-update as you edit these files.

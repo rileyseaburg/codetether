@@ -26,6 +26,12 @@ data:
   A2A_AGENT_DESCRIPTION: {{ .Values.env.A2A_AGENT_DESCRIPTION | quote }}
   A2A_AGENT_ORG: {{ .Values.env.A2A_AGENT_ORG | quote }}
   A2A_AGENT_ORG_URL: {{ .Values.env.A2A_AGENT_ORG_URL | quote }}
+  {{- if .Values.env.A2A_AGENT_URL }}
+  A2A_AGENT_URL: {{ .Values.env.A2A_AGENT_URL | quote }}
+  {{- end }}
+  {{- if .Values.env.A2A_AGENT_DOCS_URL }}
+  A2A_AGENT_DOCS_URL: {{ .Values.env.A2A_AGENT_DOCS_URL | quote }}
+  {{- end }}
 
   # Authentication enabled flag
   A2A_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}

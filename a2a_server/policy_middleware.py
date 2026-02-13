@@ -57,6 +57,9 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/auth/status$", None, ""),
     (r"^/api/auth/", None, ""),  # NextAuth compat — all public
 
+    # OAuth 2.1 endpoints — public by spec
+    (r"^/oauth/", None, ""),
+
     # User auth — public endpoints
     (r"^/v1/users/register$", {"POST"}, ""),
     (r"^/v1/users/login$", {"POST"}, ""),
@@ -312,9 +315,16 @@ class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
         # Resolve user from Authorization header.
         user = await self._resolve_user(request)
         if user is None:
+            # Include WWW-Authenticate per RFC 9728 / MCP spec
+            try:
+                from .oauth_provider import www_authenticate_header
+                www_auth = www_authenticate_header(scope=permission)
+            except ImportError:
+                www_auth = 'Bearer'
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Authentication required"},
+                headers={"WWW-Authenticate": www_auth},
             )
 
         # Enforce policy.
@@ -327,11 +337,23 @@ class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
                 extra={"user_id": user.get("user_id") or user.get("id"),
                        "action": permission, "path": path, "method": method}
             )
+            # Include WWW-Authenticate with insufficient_scope per RFC 6750
+            try:
+                from .oauth_provider import _SERVER_URL
+                resource_metadata = f"{_SERVER_URL}/.well-known/oauth-protected-resource"
+                www_auth = (
+                    f'Bearer error="insufficient_scope", '
+                    f'scope="{permission}", '
+                    f'resource_metadata="{resource_metadata}"'
+                )
+            except ImportError:
+                www_auth = f'Bearer error="insufficient_scope", scope="{permission}"'
             return JSONResponse(
                 status_code=403,
                 content={
                     "detail": f"Access denied: insufficient permissions for '{permission}'"
                 },
+                headers={"WWW-Authenticate": www_auth},
             )
 
         # Store resolved user on request state for downstream handlers.

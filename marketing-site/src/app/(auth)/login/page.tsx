@@ -32,6 +32,8 @@ function LoginForm() {
           ? 'Error connecting to Keycloak'
           : authError === 'OAuthCallback'
             ? 'Authentication callback failed'
+            : authError === 'Configuration'
+              ? 'Authentication is misconfigured (check Keycloak client ID/secret and issuer settings).'
             : authError === 'OAuthAccountNotLinked'
               ? 'Account not linked'
               : 'Authentication failed'

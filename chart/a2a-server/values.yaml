@@ -214,7 +214,7 @@ env:
   A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
   A2A_AGENT_ORG: "CodeTether"
   A2A_AGENT_ORG_URL: "https://codetether.run"
-  A2A_AGENT_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
 
 # Environment variables from secrets
@@ -293,7 +293,7 @@ externalRedis:
 livekit:
   enabled: true
   # LiveKit server URL (internal k8s service for API calls)
-  url: "http://livekit-server.quantum-forge.svc.cluster.local:7880"
+  url: "http://livekit-server.quantum-forge.svc.cluster.local:80"
   # Public LiveKit URL (WebSocket URL for client connections)
   publicUrl: "wss://live.quantum-forge.net"
   # Credentials - use existing secrets for production
@@ -424,7 +424,9 @@ knative:
     failureHistoryLimit: 3
     jobTtlSeconds: 600
   worker:
-    image: ""
+    # Default uses Quantum Forge registry with versioned tag.
+    # Override with --set-string knative.worker.image=<registry>/<image>:<tag>
+    image: "registry.quantum-forge.net/library/codetether-worker:latest"
     # Scale to 0 after 5 minutes of no activity
     idleTimeoutSeconds: 300
     # Maximum time for a single task (Knative max is 600 seconds)

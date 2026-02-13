@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import clsx from 'clsx'
+import { ApiAuthSync } from '@/components/ApiAuthSync'
 
 // Custom hook to get user from either NextAuth or localStorage
 function useAuth() {
@@ -299,6 +300,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     return (
         <div className={clsx('h-screen overflow-hidden relative', darkMode && 'dark')}>
+            <ApiAuthSync />
             {/* Mobile sidebar backdrop */}
             {sidebarOpen && (
                 <div

@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-voice-agent
-  tag: "latest"
+  tag: "v1.1.6-alpha-7.3"
   pullPolicy: Always
 
 imagePullSecrets:
@@ -57,12 +57,20 @@ secrets:
   livekitApiSecret:
     secretName: "livekit-api-secret"
     key: "LIVEKIT_API_SECRET"
+  keycloakClientId:
+    secretName: "voice-agent-keycloak"
+    key: "KEYCLOAK_CLIENT_ID"
+  keycloakClientSecret:
+    secretName: "voice-agent-keycloak"
+    key: "KEYCLOAK_CLIENT_SECRET"
 
 env:
   - name: LIVEKIT_URL
-    value: "wss://live.quantum-forge.net"
+    value: "ws://livekit-server.quantum-forge.svc.cluster.local:80"
   - name: CODETETHER_API_URL
     value: "https://api.codetether.run"
+  - name: KEYCLOAK_TOKEN_URL
+    value: "https://auth.quantum-forge.io/realms/quantum-forge/protocol/openid-connect/token"
   - name: VOICE_AGENT_NAME
     value: "codetether-voice-agent"
   - name: VOICE_WORKER_INIT_TIMEOUT_SEC

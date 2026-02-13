@@ -1,0 +1,131 @@
+# Knative Service for codetether-worker
+# This deploys the codetether-agent as a Knative Service that:
+# 1. Registers with the A2A server on startup
+# 2. Processes tasks via SSE polling (existing behavior)
+# 3. Scales to zero when idle
+#
+# Future: Add HTTP endpoint at /task to receive CloudEvents directly
+# from Knative Eventing instead of SSE polling.
+#
+# Apply: kubectl apply -f knative-codetether-worker.yaml -n a2a-server
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    component: ai-worker
+    codetether.run/component: worker
+  annotations:
+    # Prevent scale to zero during initial registration
+    serving.knative.dev/rollout-duration: "30s"
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero after 5 minutes of inactivity
+        autoscaling.knative.dev/min-scale: "0"
+        autoscaling.knative.dev/max-scale: "3"
+        autoscaling.knative.dev/scale-to-zero-pod-retention-period: "300s"
+        # Target 1 concurrent task per pod (AI workload)
+        autoscaling.knative.dev/target: "1"
+        # Initial scale of 1 to ensure worker registers on deploy
+        autoscaling.knative.dev/initial-scale: "1"
+    spec:
+      # ServiceAccount with RBAC for secrets and pod access
+      serviceAccountName: codetether-worker
+      # Single concurrent task per pod (CPU/GPU bound)
+      containerConcurrency: 1
+      # Maximum request timeout (10 minutes for long-running tasks)
+      timeoutSeconds: 600
+      containers:
+        - name: worker
+          image: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http1
+          # Run the worker subcommand with SSE polling
+          command: ["codetether"]
+          args:
+            - "worker"
+            - "--server"
+            - "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
+            - "--name"
+            - "knative-worker"
+            - "/workspace"
+          env:
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_ADDR
+                  optional: true
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_TOKEN
+                  optional: true
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            - name: RUST_LOG
+              value: "info"
+            # Worker runs HTTP server on port 8080 for health probes (/health, /ready) and CloudEvents (/task)
+            - name: KNATIVE_SERVICE
+              value: "true"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          # Liveness probe - just check if HTTP server is running
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # Readiness probe - check if worker is connected to A2A server
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          emptyDir: {}
+      # Image pull secret is attached to ServiceAccount
+---
+# Trigger to route task events to the worker
+# Note: This requires the worker to have an HTTP server at /task
+# Currently the worker uses SSE polling, so this trigger is dormant
+# until Phase 2 implements the HTTP endpoint.
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: codetether-worker-trigger
+  namespace: a2a-server
+  labels:
+    codetether.run/component: worker
+spec:
+  broker: task-broker
+  filter:
+    attributes:
+      type: codetether.task.created
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: codetether-worker
+    # This endpoint doesn't exist yet - will be added in Phase 2
+    uri: /task

@@ -372,9 +372,11 @@ export default function DashboardPage() {
     )
 
     // Auto sign out when token refresh fails
+    const signingOut = useRef(false)
     useEffect(() => {
-        if (session?.error === 'RefreshAccessTokenError') {
-            signOut({ callbackUrl: '/' })
+        if (session?.error === 'RefreshAccessTokenError' && !signingOut.current) {
+            signingOut.current = true
+            signOut({ callbackUrl: '/login?error=session_expired' })
         }
     }, [session])
 
@@ -1162,7 +1164,7 @@ export default function DashboardPage() {
                                 <RefreshIcon className="h-4 w-4" /> Refresh All
                             </button>
                             <button
-                                onClick={() => signOut({ callbackUrl: '/' })}
+                                onClick={() => signOut({ callbackUrl: '/login' })}
                                 className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                             >
                                 <span>🚪</span> Sign Out

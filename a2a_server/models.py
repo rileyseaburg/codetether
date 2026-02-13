@@ -1,161 +1,69 @@
 """
 Pydantic models for A2A protocol data structures.
 
-These models are based on the A2A specification and provide validation
-and serialization for all protocol objects.
+These models provide full parity with the A2A gRPC specification (a2a.proto)
+and the Rust codetether-agent types.rs canonical wire format.  All spec-facing
+types use camelCase JSON serialization via Pydantic aliases to match the Rust
+agent's ``#[serde(rename_all = "camelCase")]`` output.
+
+Backwards compatibility: existing code that imports TaskStatus, Task, Message,
+Part, etc. continues to work.  Internal-only fields on Task (created_at,
+worker_id, …) are preserved but excluded from spec JSON via ``a2a_dict()``.
 """
 
-from typing import Any, Dict, List, Optional, Union, Literal
-from pydantic import BaseModel, Field
+from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Union
+
+from pydantic import BaseModel, Field, model_validator
 
 
-class AgentProvider(BaseModel):
-    """Represents the service provider of an agent."""
-
-    organization: str = Field(
-        ..., description="The name of the agent provider's organization"
-    )
-    url: str = Field(
-        ...,
-        description="A URL for the agent provider's website or relevant documentation",
-    )
+# ═══════════════════════════════════════════════════════════════════════════
+# Enums
+# ═══════════════════════════════════════════════════════════════════════════
 
 
-class AgentExtension(BaseModel):
-    """A declaration of a protocol extension supported by an Agent."""
+class TaskState(str, Enum):
+    """A2A task states — kebab-case to match Rust ``#[serde(rename_all = "kebab-case")]``."""
 
-    uri: str = Field(
-        ..., description='The unique URI identifying the extension'
-    )
-    description: Optional[str] = Field(
-        None,
-        description='A human-readable description of how this agent uses the extension',
-    )
-    required: bool = Field(
-        False,
-        description="If true, the client must understand and comply with the extension's requirements",
-    )
+    SUBMITTED = 'submitted'
+    WORKING = 'working'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    CANCELLED = 'cancelled'
+    INPUT_REQUIRED = 'input-required'
+    REJECTED = 'rejected'
+    AUTH_REQUIRED = 'auth-required'
 
+    def is_terminal(self) -> bool:
+        return self in _TERMINAL_STATES
 
-class LiveKitInterface(BaseModel):
-    """Configuration for LiveKit media interface."""
-
-    token_endpoint: str = Field(
-        ..., description='Endpoint for obtaining LiveKit access tokens'
-    )
-    join_url_template: Optional[str] = Field(
-        None, description='Template for generating join URLs'
-    )
-    server_managed: bool = Field(
-        True, description='Whether the server manages LiveKit resources'
-    )
+    def is_active(self) -> bool:
+        return not self.is_terminal()
 
 
-class AdditionalInterfaces(BaseModel):
-    """Additional interfaces supported by the agent beyond core A2A."""
-
-    model_config = {'extra': 'allow'}
-
-    livekit: Optional[LiveKitInterface] = Field(
-        None, description='LiveKit real-time media interface configuration'
-    )
+_TERMINAL_STATES = {
+    TaskState.COMPLETED,
+    TaskState.FAILED,
+    TaskState.CANCELLED,
+    TaskState.REJECTED,
+}
 
 
-class AgentCapabilities(BaseModel):
-    """Defines optional capabilities supported by an agent."""
+class Role(str, Enum):
+    """Message role — lowercase to match Rust ``MessageRole``."""
 
-    streaming: Optional[bool] = Field(
-        None,
-        description='Indicates if the agent supports Server-Sent Events (SSE) for streaming responses',
-    )
-    push_notifications: Optional[bool] = Field(
-        None,
-        description='Indicates if the agent supports sending push notifications for asynchronous task updates',
-    )
-    state_transition_history: Optional[bool] = Field(
-        None,
-        description='Indicates if the agent provides a history of state transitions for a task',
-    )
-    media: Optional[bool] = Field(
-        None,
-        description='Indicates if the agent supports real-time media sessions',
-    )
-    extensions: Optional[List[AgentExtension]] = Field(
-        None, description='A list of protocol extensions supported by the agent'
-    )
-
-
-class AgentSkill(BaseModel):
-    """Describes a specific skill or capability that an agent can perform."""
-
-    id: str = Field(
-        ..., description='A unique identifier for the skill within the agent'
-    )
-    name: str = Field(..., description='A human-readable name for the skill')
-    description: str = Field(
-        ..., description='A detailed description of what the skill does'
-    )
-    input_modes: List[str] = Field(
-        default_factory=list,
-        description='List of supported input content types',
-    )
-    output_modes: List[str] = Field(
-        default_factory=list,
-        description='List of supported output content types',
-    )
-    examples: Optional[List[Dict[str, Any]]] = Field(
-        None, description='Example inputs and outputs for the skill'
-    )
-
-
-class AuthenticationScheme(BaseModel):
-    """Describes an authentication scheme required by the agent."""
-
-    scheme: str = Field(
-        ...,
-        description="The authentication scheme (e.g., 'Bearer', 'Basic', 'OAuth2')",
-    )
-    description: Optional[str] = Field(
-        None,
-        description='Human-readable description of the authentication requirements',
-    )
-
-
-class AgentCard(BaseModel):
-    """The Agent Card is the core discovery document for an A2A agent."""
-
-    name: str = Field(..., description='A human-readable name for the agent')
-    description: str = Field(
-        ..., description="A description of the agent's purpose and capabilities"
-    )
-    url: str = Field(
-        ..., description='The base URL where the A2A server can be reached'
-    )
-    provider: AgentProvider = Field(
-        ...,
-        description='Information about the organization providing this agent',
-    )
-    capabilities: Optional[AgentCapabilities] = Field(
-        None, description='Optional capabilities supported by the agent'
-    )
-    authentication: List[AuthenticationScheme] = Field(
-        default_factory=list,
-        description='Authentication schemes required to interact with the agent',
-    )
-    skills: List[AgentSkill] = Field(
-        default_factory=list, description='List of skills the agent can perform'
-    )
-    additional_interfaces: Optional[AdditionalInterfaces] = Field(
-        None, description='Additional interfaces supported beyond core A2A'
-    )
-    version: str = Field('1.0', description='Version of the agent card format')
+    USER = 'user'
+    AGENT = 'agent'
 
 
 class TaskStatus(str, Enum):
     """
-    Enumeration of possible task statuses.
+    Task status values — kept for backwards compatibility.
+
+    Prefer ``TaskState`` for new code.
 
     Aligned with the A2A protocol specification:
     - submitted: Task created and acknowledged
@@ -185,25 +93,10 @@ class TaskStatus(str, Enum):
 
     @classmethod
     def from_string(cls, value: str) -> 'TaskStatus':
-        """
-        Convert a string to TaskStatus, handling legacy 'pending' value.
-
-        Args:
-            value: String representation of the status
-
-        Returns:
-            TaskStatus enum value
-
-        Raises:
-            ValueError: If the value is not a valid status
-        """
-        # Normalize to lowercase
+        """Convert a string to TaskStatus, handling legacy 'pending' value."""
         normalized = value.lower().strip()
-
-        # Handle legacy 'pending' -> 'submitted' mapping
         if normalized == 'pending':
             return cls.SUBMITTED
-
         try:
             return cls(normalized)
         except ValueError:
@@ -220,6 +113,13 @@ class TaskStatus(str, Enum):
         """Check if this status is an active (non-terminal) state."""
         return self not in _TERMINAL_STATUSES
 
+    def to_task_state(self) -> TaskState:
+        """Convert to the canonical TaskState enum."""
+        val = self.value
+        if val == 'pending':
+            val = 'submitted'
+        return TaskState(val)
+
 
 # Terminal states - tasks in these states cannot transition further
 _TERMINAL_STATUSES = {
@@ -230,17 +130,150 @@ _TERMINAL_STATUSES = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Part types — tagged union on ``kind`` matching Rust types.rs
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class FileContent(BaseModel):
+    """File payload — bytes (base64) or URI."""
+
+    model_config = {'populate_by_name': True}
+
+    bytes: Optional[str] = Field(None, description='Base64 encoded file bytes')
+    uri: Optional[str] = Field(None, description='URI to the file')
+    mime_type: Optional[str] = Field(None, alias='mimeType')
+    name: Optional[str] = None
+
+
+class Part(BaseModel):
+    """
+    A section of communication content.
+
+    Spec wire format: ``{"kind": "text", "text": "..."}``
+    Legacy format:    ``{"type": "text", "content": "..."}``
+
+    Both formats are accepted on input; spec format is always emitted.
+    """
+
+    model_config = {'populate_by_name': True}
+
+    kind: str = Field('text', description='Discriminator: text | file | data')
+    text: Optional[str] = None
+    file: Optional[FileContent] = None
+    data: Optional[Any] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    # Legacy compat fields — not serialized in spec output
+    type: Optional[str] = Field(None, exclude=True)
+    content: Optional[Any] = Field(None, exclude=True)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _accept_legacy_format(cls, values: Any) -> Any:
+        """Accept legacy ``{"type": "text", "content": "hello"}`` and convert."""
+        if isinstance(values, dict):
+            if 'kind' in values:
+                return values
+            t = values.get('type')
+            c = values.get('content')
+            if t and c is not None and 'kind' not in values:
+                if t == 'text':
+                    return {'kind': 'text', 'text': str(c), 'metadata': values.get('metadata')}
+                elif t == 'file':
+                    if isinstance(c, dict):
+                        return {'kind': 'file', 'file': c, 'metadata': values.get('metadata')}
+                    return {'kind': 'file', 'file': {'uri': str(c)}, 'metadata': values.get('metadata')}
+                elif t == 'data':
+                    return {'kind': 'data', 'data': c, 'metadata': values.get('metadata')}
+                else:
+                    return {'kind': t, 'text': str(c), 'metadata': values.get('metadata')}
+        return values
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Message — full spec fields
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class Message(BaseModel):
+    """An A2A protocol message."""
+
+    model_config = {'populate_by_name': True}
+
+    message_id: str = Field(default='', alias='messageId')
+    role: Role = Field(default=Role.USER)
+    parts: List[Part] = Field(default_factory=list)
+    context_id: Optional[str] = Field(None, alias='contextId')
+    task_id: Optional[str] = Field(None, alias='taskId')
+    metadata: Optional[Dict[str, Any]] = None
+    extensions: List[str] = Field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Artifact
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class Artifact(BaseModel):
+    """Output artifact produced by a task."""
+
+    model_config = {'populate_by_name': True}
+
+    artifact_id: str = Field(..., alias='artifactId')
+    parts: List[Part] = Field(default_factory=list)
+    name: Optional[str] = None
+    description: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    extensions: List[str] = Field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TaskStatusInfo — the proto ``TaskStatus`` message (state + message + ts)
+# Named TaskStatusInfo to avoid collision with the TaskStatus enum.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TaskStatusInfo(BaseModel):
+    """Structured task status (state + optional message + timestamp)."""
+
+    state: TaskState = Field(...)
+    message: Optional[Message] = None
+    timestamp: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Task — spec-aligned fields + internal operational fields
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 class Task(BaseModel):
-    """Represents a stateful unit of work being processed by an A2A Server for an A2A Client."""
+    """
+    A2A Task — the core unit of work.
+
+    Spec fields:  id, context_id, status, artifacts, history, metadata
+    Internal fields: created_at, updated_at, title, description, progress,
+                     messages, worker_id, claimed_at, model_ref, …
+    """
+
+    model_config = {'populate_by_name': True}
 
     id: str = Field(..., description='A unique identifier for the task')
+    context_id: Optional[str] = Field(None, alias='contextId')
     status: TaskStatus = Field(
         ..., description='The current status of the task'
     )
-    created_at: datetime = Field(..., description='When the task was created')
-    updated_at: datetime = Field(
-        ..., description='When the task was last updated'
-    )
+
+    # Spec fields
+    artifacts: List[Artifact] = Field(default_factory=list)
+    history: List[Message] = Field(default_factory=list)
+    task_metadata: Dict[str, Any] = Field(default_factory=dict, alias='metadata')
+
+    # Internal operational fields (not in proto spec)
+    created_at: datetime = Field(default_factory=datetime.utcnow,
+                                 description='When the task was created')
+    updated_at: datetime = Field(default_factory=datetime.utcnow,
+                                 description='When the task was last updated')
     title: Optional[str] = Field(
         None, description='A human-readable title for the task'
     )
@@ -250,8 +283,8 @@ class Task(BaseModel):
     progress: Optional[float] = Field(
         None, ge=0.0, le=1.0, description='Progress percentage (0.0 to 1.0)'
     )
-    messages: Optional[List['Message']] = Field(
-        None, description='Messages exchanged during the task'
+    messages: Optional[List[Message]] = Field(
+        None, description='Messages exchanged during the task (legacy, prefer history)'
     )
     worker_id: Optional[str] = Field(
         None, description='ID of the worker that claimed this task'
@@ -284,235 +317,627 @@ class Task(BaseModel):
         description='Warning message if using controller fallback for subcalls',
     )
 
+    def a2a_dict(self) -> Dict[str, Any]:
+        """Serialize to spec-compatible JSON (camelCase, only spec fields)."""
+        return {
+            'id': self.id,
+            'contextId': self.context_id,
+            'status': {
+                'state': self.status.to_task_state().value
+                if isinstance(self.status, TaskStatus)
+                else self.status.value,
+                'timestamp': self.updated_at.isoformat() + 'Z' if self.updated_at else None,
+            },
+            'artifacts': [a.model_dump(by_alias=True, exclude_none=True) for a in self.artifacts],
+            'history': [m.model_dump(by_alias=True, exclude_none=True) for m in self.history],
+            'metadata': self.task_metadata,
+        }
 
-class Part(BaseModel):
-    """A component of a message that can contain text, files, or structured data."""
 
-    type: str = Field(
-        ..., description="The type of content (e.g., 'text', 'file', 'data')"
+# ═══════════════════════════════════════════════════════════════════════════
+# Push notification types
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class AuthenticationInfo(BaseModel):
+    """Authentication details for push notifications."""
+
+    schemes: List[str] = Field(default_factory=list)
+    credentials: Optional[str] = None
+
+
+class PushNotificationConfig(BaseModel):
+    """Configuration for push notifications."""
+
+    model_config = {'populate_by_name': True}
+
+    url: str = Field(...)
+    token: Optional[str] = None
+    id: Optional[str] = None
+    authentication: Optional[AuthenticationInfo] = None
+
+
+class TaskPushNotificationConfig(BaseModel):
+    """A push notification config bound to a task."""
+
+    model_config = {'populate_by_name': True}
+
+    id: str = Field(..., description='Task ID')
+    push_notification_config: PushNotificationConfig = Field(
+        ..., alias='pushNotificationConfig'
     )
-    content: Any = Field(..., description='The actual content of the part')
-    metadata: Optional[Dict[str, Any]] = Field(
-        None, description='Additional metadata for the part'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Send configuration
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class SendMessageConfiguration(BaseModel):
+    """Configuration for a message/send request."""
+
+    model_config = {'populate_by_name': True}
+
+    accepted_output_modes: List[str] = Field(
+        default_factory=list, alias='acceptedOutputModes'
+    )
+    blocking: Optional[bool] = None
+    history_length: Optional[int] = Field(None, alias='historyLength')
+    push_notification_config: Optional[PushNotificationConfig] = Field(
+        None, alias='pushNotificationConfig'
     )
 
 
-class Message(BaseModel):
-    """A message exchanged between agents."""
+# ═══════════════════════════════════════════════════════════════════════════
+# Streaming / event types
+# ═══════════════════════════════════════════════════════════════════════════
 
-    parts: List[Part] = Field(..., description='List of message parts')
-    metadata: Optional[Dict[str, Any]] = Field(
-        None, description='Additional message metadata'
+
+class TaskStatusUpdateEvent(BaseModel):
+    """SSE event: task status changed.
+
+    Spec format: ``{id, status: {state, message, timestamp}, final, metadata}``
+    Legacy format: ``{task: Task, message: Message, final: bool}``
+
+    Both are accepted; spec format is emitted.
+    """
+
+    model_config = {'populate_by_name': True}
+
+    id: str = Field(...)
+    status: TaskStatusInfo = Field(...)
+    final: bool = Field(False)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    # Legacy compat fields — accepted on input only
+    task: Optional[Any] = Field(None, exclude=True)
+    message: Optional[Any] = Field(None, exclude=True)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _accept_legacy(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            if 'task' in values and 'id' not in values:
+                t = values['task']
+                if hasattr(t, 'id'):
+                    state_val = (
+                        t.status.to_task_state().value
+                        if hasattr(t.status, 'to_task_state')
+                        else (t.status.value if hasattr(t.status, 'value') else str(t.status))
+                    )
+                    return {
+                        'id': t.id,
+                        'status': {'state': state_val},
+                        'final': values.get('final', False),
+                        'metadata': {},
+                    }
+                elif isinstance(t, dict):
+                    task_status = t.get('status', 'submitted')
+                    if isinstance(task_status, str):
+                        state_val = task_status
+                    elif hasattr(task_status, 'value'):
+                        state_val = task_status.value
+                    else:
+                        state_val = str(task_status)
+                    if state_val == 'pending':
+                        state_val = 'submitted'
+                    return {
+                        'id': t.get('id', ''),
+                        'status': {'state': state_val},
+                        'final': values.get('final', False),
+                        'metadata': {},
+                    }
+        return values
+
+
+class TaskArtifactUpdateEvent(BaseModel):
+    """SSE event: new artifact for a task."""
+
+    model_config = {'populate_by_name': True}
+
+    id: str = Field(...)
+    artifact: Artifact = Field(...)
+    append: bool = False
+    last_chunk: bool = Field(False, alias='lastChunk')
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Security types — matching Rust SecurityScheme tagged union
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class APIKeySecurityScheme(BaseModel):
+    """API key security scheme."""
+
+    model_config = {'populate_by_name': True}
+
+    type: Literal['apiKey'] = 'apiKey'
+    description: Optional[str] = None
+    name: str = Field(...)
+    location: str = Field(..., alias='in')
+
+
+class HTTPAuthSecurityScheme(BaseModel):
+    """HTTP authentication security scheme (Bearer, Basic, etc.)."""
+
+    model_config = {'populate_by_name': True}
+
+    type: Literal['http'] = 'http'
+    description: Optional[str] = None
+    scheme: str = Field(...)
+    bearer_format: Optional[str] = Field(None, alias='bearerFormat')
+
+
+class OAuthFlowImplicit(BaseModel):
+    """OAuth2 implicit flow."""
+
+    model_config = {'populate_by_name': True}
+
+    authorization_url: str = Field(..., alias='authorizationUrl')
+    refresh_url: Optional[str] = Field(None, alias='refreshUrl')
+    scopes: Dict[str, str] = Field(default_factory=dict)
+
+
+class OAuthFlowAuthorizationCode(BaseModel):
+    """OAuth2 authorization code flow."""
+
+    model_config = {'populate_by_name': True}
+
+    authorization_url: str = Field(..., alias='authorizationUrl')
+    token_url: str = Field(..., alias='tokenUrl')
+    refresh_url: Optional[str] = Field(None, alias='refreshUrl')
+    scopes: Dict[str, str] = Field(default_factory=dict)
+
+
+class OAuthFlowClientCredentials(BaseModel):
+    """OAuth2 client credentials flow."""
+
+    model_config = {'populate_by_name': True}
+
+    token_url: str = Field(..., alias='tokenUrl')
+    refresh_url: Optional[str] = Field(None, alias='refreshUrl')
+    scopes: Dict[str, str] = Field(default_factory=dict)
+
+
+class OAuthFlowDeviceCode(BaseModel):
+    """OAuth2 device code flow."""
+
+    model_config = {'populate_by_name': True}
+
+    device_authorization_url: str = Field(..., alias='deviceAuthorizationUrl')
+    token_url: str = Field(..., alias='tokenUrl')
+    refresh_url: Optional[str] = Field(None, alias='refreshUrl')
+    scopes: Dict[str, str] = Field(default_factory=dict)
+
+
+class OAuthFlows(BaseModel):
+    """Collection of OAuth2 flows."""
+
+    model_config = {'populate_by_name': True}
+
+    implicit: Optional[OAuthFlowImplicit] = None
+    authorization_code: Optional[OAuthFlowAuthorizationCode] = Field(
+        None, alias='authorizationCode'
     )
+    client_credentials: Optional[OAuthFlowClientCredentials] = Field(
+        None, alias='clientCredentials'
+    )
+    device_code: Optional[OAuthFlowDeviceCode] = Field(
+        None, alias='deviceCode'
+    )
+
+
+class OAuth2SecurityScheme(BaseModel):
+    """OAuth2 security scheme."""
+
+    model_config = {'populate_by_name': True}
+
+    type: Literal['oauth2'] = 'oauth2'
+    description: Optional[str] = None
+    flows: OAuthFlows = Field(default_factory=OAuthFlows)
+    oauth2_metadata_url: Optional[str] = Field(None, alias='oauth2MetadataUrl')
+
+
+class OpenIdConnectSecurityScheme(BaseModel):
+    """OpenID Connect security scheme."""
+
+    model_config = {'populate_by_name': True}
+
+    type: Literal['openIdConnect'] = 'openIdConnect'
+    description: Optional[str] = None
+    open_id_connect_url: str = Field(..., alias='openIdConnectUrl')
+
+
+class MutualTlsSecurityScheme(BaseModel):
+    """Mutual TLS security scheme."""
+
+    type: Literal['mutualTLS'] = 'mutualTLS'
+    description: Optional[str] = None
+
+
+# Discriminated union of all security schemes
+SecurityScheme = Union[
+    APIKeySecurityScheme,
+    HTTPAuthSecurityScheme,
+    OAuth2SecurityScheme,
+    OpenIdConnectSecurityScheme,
+    MutualTlsSecurityScheme,
+]
+
+# SecurityRequirement: name → list of required scope strings
+SecurityRequirement = Dict[str, List[str]]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Agent card extension types
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class AgentExtension(BaseModel):
+    """A protocol extension supported by an Agent."""
+
+    uri: str = Field(...)
+    description: Optional[str] = None
+    required: bool = False
+    params: Optional[Dict[str, Any]] = None
+
+
+class AgentCardSignature(BaseModel):
+    """JWS signature for an agent card."""
+
+    model_config = {'populate_by_name': True}
+
+    signature: str = Field(...)
+    algorithm: Optional[str] = None
+    key_id: Optional[str] = Field(None, alias='keyId')
+
+
+class AgentInterface(BaseModel):
+    """An additional transport interface."""
+
+    model_config = {'populate_by_name': True}
+
+    transport: str = Field(...)
+    url: str = Field(...)
+    content_types: List[str] = Field(default_factory=list, alias='contentTypes')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Agent card core types
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class AgentProvider(BaseModel):
+    """Service provider of an agent."""
+
+    organization: str = Field(...)
+    url: str = Field(...)
+
+
+class AgentCapabilities(BaseModel):
+    """Capabilities advertised by an agent."""
+
+    model_config = {'populate_by_name': True}
+
+    streaming: bool = False
+    push_notifications: bool = Field(False, alias='pushNotifications')
+    state_transition_history: bool = Field(False, alias='stateTransitionHistory')
+    extensions: Optional[List[AgentExtension]] = Field(default_factory=list)
+
+    # Legacy field kept for backwards compat (not in proto spec)
+    media: Optional[bool] = None
+
+
+class AgentSkill(BaseModel):
+    """A skill that an agent can perform."""
+
+    model_config = {'populate_by_name': True}
+
+    id: str = Field(...)
+    name: str = Field(...)
+    description: str = Field(...)
+    tags: List[str] = Field(default_factory=list)
+    examples: List[str] = Field(default_factory=list)
+    input_modes: List[str] = Field(default_factory=list, alias='inputModes')
+    output_modes: List[str] = Field(default_factory=list, alias='outputModes')
+
+
+class AuthenticationScheme(BaseModel):
+    """Legacy authentication scheme (kept for backwards compat)."""
+
+    scheme: str = Field(...)
+    description: Optional[str] = None
+
+
+class AgentCard(BaseModel):
+    """A2A Agent Card — full spec parity with proto + Rust types.rs."""
+
+    model_config = {'populate_by_name': True}
+
+    name: str = Field(...)
+    description: str = Field(...)
+    url: str = Field(...)
+    version: str = Field('1.0')
+    protocol_version: str = Field('0.3', alias='protocolVersion')
+    preferred_transport: Optional[str] = Field(None, alias='preferredTransport')
+    additional_interfaces: Optional[List[AgentInterface]] = Field(
+        default_factory=list, alias='additionalInterfaces'
+    )
+    provider: Optional[AgentProvider] = None
+    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
+    skills: List[AgentSkill] = Field(default_factory=list)
+    default_input_modes: List[str] = Field(
+        default_factory=list, alias='defaultInputModes'
+    )
+    default_output_modes: List[str] = Field(
+        default_factory=list, alias='defaultOutputModes'
+    )
+    icon_url: Optional[str] = Field(None, alias='iconUrl')
+    documentation_url: Optional[str] = Field(None, alias='documentationUrl')
+    security_schemes: Dict[str, SecurityScheme] = Field(
+        default_factory=dict, alias='securitySchemes'
+    )
+    security: List[SecurityRequirement] = Field(default_factory=list)
+    supports_authenticated_extended_card: bool = Field(
+        False, alias='supportsAuthenticatedExtendedCard'
+    )
+    signatures: List[AgentCardSignature] = Field(default_factory=list)
+
+    # Legacy field preserved for backwards compat
+    authentication: List[AuthenticationScheme] = Field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Legacy LiveKit interface types (kept for backwards compat)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class LiveKitInterface(BaseModel):
+    """Configuration for LiveKit media interface."""
+
+    token_endpoint: str = Field(...)
+    join_url_template: Optional[str] = None
+    server_managed: bool = True
+
+
+class AdditionalInterfaces(BaseModel):
+    """Legacy additional interfaces (use AgentCard.additional_interfaces)."""
+
+    model_config = {'extra': 'allow'}
+    livekit: Optional[LiveKitInterface] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# JSON-RPC types
+# ═══════════════════════════════════════════════════════════════════════════
 
 
 class JSONRPCRequest(BaseModel):
-    """JSON-RPC 2.0 request structure."""
+    """JSON-RPC 2.0 request."""
 
-    jsonrpc: Literal['2.0'] = Field('2.0', description='JSON-RPC version')
-    method: str = Field(..., description='The name of the method to be invoked')
-    params: Optional[Dict[str, Any]] = Field(
-        None, description='Parameters for the method'
-    )
-    id: Optional[Union[str, int]] = Field(
-        None, description='Unique identifier for the request'
-    )
+    jsonrpc: Literal['2.0'] = '2.0'
+    method: str = Field(...)
+    params: Optional[Dict[str, Any]] = None
+    id: Optional[Union[str, int]] = None
 
 
 class JSONRPCResponse(BaseModel):
-    """JSON-RPC 2.0 response structure."""
+    """JSON-RPC 2.0 response."""
 
-    jsonrpc: Literal['2.0'] = Field('2.0', description='JSON-RPC version')
-    id: Optional[Union[str, int]] = Field(
-        None, description='Identifier matching the request'
-    )
-    result: Optional[Any] = Field(
-        None, description='The result of the method call'
-    )
-    error: Optional[Dict[str, Any]] = Field(
-        None, description='Error information if the call failed'
-    )
+    jsonrpc: Literal['2.0'] = '2.0'
+    id: Optional[Union[str, int]] = None
+    result: Optional[Any] = None
+    error: Optional[Dict[str, Any]] = None
 
 
 class JSONRPCError(BaseModel):
-    """JSON-RPC 2.0 error structure."""
+    """JSON-RPC 2.0 error."""
 
-    code: int = Field(..., description='A number that indicates the error type')
-    message: str = Field(..., description='A short description of the error')
-    data: Optional[Any] = Field(
-        None, description='Additional information about the error'
-    )
+    code: int = Field(...)
+    message: str = Field(...)
+    data: Optional[Any] = None
 
 
-# Method-specific request/response models
+# ═══════════════════════════════════════════════════════════════════════════
+# Request / response models for JSON-RPC methods
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 class SendMessageRequest(BaseModel):
-    """Request to send a message to an agent."""
+    """Request for message/send — spec-aligned."""
 
-    message: Message = Field(..., description='The message to send')
-    task_id: Optional[str] = Field(
-        None, description='Optional task ID to associate with the message'
-    )
-    skill_id: Optional[str] = Field(
-        None, description='Optional skill ID to use for processing'
-    )
+    model_config = {'populate_by_name': True}
+
+    message: Message = Field(...)
+    configuration: Optional[SendMessageConfiguration] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    # Legacy fields — kept so old callers still work
+    task_id: Optional[str] = Field(None, alias='taskId')
+    skill_id: Optional[str] = Field(None, alias='skillId')
 
 
 class SendMessageResponse(BaseModel):
-    """Response from sending a message."""
+    """Response for message/send."""
 
-    task: Task = Field(
-        ..., description='The task created or updated by the message'
-    )
-    message: Optional[Message] = Field(
-        None, description='Optional response message'
-    )
+    task: Task = Field(...)
+    message: Optional[Message] = None
 
 
 class GetTaskRequest(BaseModel):
-    """Request to get information about a task."""
+    """Request for tasks/get."""
 
-    task_id: str = Field(..., description='The ID of the task to retrieve')
+    model_config = {'populate_by_name': True}
+
+    task_id: str = Field(..., alias='id')
+    history_length: Optional[int] = Field(None, alias='historyLength')
 
 
 class GetTaskResponse(BaseModel):
-    """Response containing task information."""
+    """Response for tasks/get."""
 
-    task: Task = Field(..., description='The requested task')
+    task: Task = Field(...)
 
 
 class CancelTaskRequest(BaseModel):
     """Request to cancel a task."""
 
-    task_id: str = Field(..., description='The ID of the task to cancel')
+    model_config = {'populate_by_name': True}
+
+    task_id: str = Field(..., alias='id')
 
 
 class CancelTaskResponse(BaseModel):
     """Response confirming task cancellation."""
 
-    task: Task = Field(..., description='The cancelled task')
+    task: Task = Field(...)
 
 
 class StreamMessageRequest(BaseModel):
-    """Request to stream a message with real-time updates."""
+    """Request for message/stream — spec-aligned."""
 
-    message: Message = Field(..., description='The message to send')
-    task_id: Optional[str] = Field(
-        None, description='Optional task ID to associate with the message'
-    )
-    skill_id: Optional[str] = Field(
-        None, description='Optional skill ID to use for processing'
-    )
+    model_config = {'populate_by_name': True}
 
+    message: Message = Field(...)
+    configuration: Optional[SendMessageConfiguration] = None
+    metadata: Optional[Dict[str, Any]] = None
 
-class TaskStatusUpdateEvent(BaseModel):
-    """Event indicating a change in task status."""
-
-    task: Task = Field(..., description='The updated task')
-    message: Optional[Message] = Field(
-        None, description='Optional message associated with the update'
-    )
-    final: bool = Field(
-        False, description='Whether this is the final update for the task'
-    )
+    # Legacy fields
+    task_id: Optional[str] = Field(None, alias='taskId')
+    skill_id: Optional[str] = Field(None, alias='skillId')
 
 
 class StreamingMessageResponse(BaseModel):
-    """Response for streaming message operations."""
+    """Wrapper for streaming events."""
 
-    event: TaskStatusUpdateEvent = Field(
-        ..., description='The task status update event'
+    event: TaskStatusUpdateEvent = Field(...)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Push notification config request / response types
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class SetPushNotificationConfigRequest(BaseModel):
+    """Request to create/set push notification config for a task."""
+
+    model_config = {'populate_by_name': True}
+
+    task_id: str = Field(..., alias='id')
+    push_notification_config: PushNotificationConfig = Field(
+        ..., alias='pushNotificationConfig'
     )
 
 
-# Media-specific request/response models
+class GetPushNotificationConfigRequest(BaseModel):
+    """Request to get push notification config for a task."""
+
+    model_config = {'populate_by_name': True}
+
+    task_id: str = Field(..., alias='id')
+    config_id: Optional[str] = Field(None, alias='configId')
+
+
+class ListPushNotificationConfigsRequest(BaseModel):
+    """Request to list push notification configs for a task."""
+
+    model_config = {'populate_by_name': True}
+
+    task_id: str = Field(..., alias='id')
+
+
+class DeletePushNotificationConfigRequest(BaseModel):
+    """Request to delete a push notification config."""
+
+    model_config = {'populate_by_name': True}
+
+    task_id: str = Field(..., alias='id')
+    config_id: Optional[str] = Field(None, alias='configId')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Media types (unchanged from original for backwards compat)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 class MediaRequestRequest(BaseModel):
     """Request to create or join a media session."""
 
-    room_name: Optional[str] = Field(
-        None,
-        description='Specific room name to create/join (auto-generated if not provided)',
-    )
-    participant_identity: str = Field(
-        ..., description='Identity of the participant'
-    )
-    role: str = Field(
-        'participant',
-        description='Role for the participant (admin, moderator, publisher, participant, viewer)',
-    )
-    metadata: Optional[Dict[str, Any]] = Field(
-        None, description='Optional metadata for the room or participant'
-    )
-    max_participants: int = Field(
-        50,
-        description='Maximum number of participants (only used when creating new rooms)',
-    )
+    room_name: Optional[str] = None
+    participant_identity: str = Field(...)
+    role: str = 'participant'
+    metadata: Optional[Dict[str, Any]] = None
+    max_participants: int = 50
 
 
 class MediaRequestResponse(BaseModel):
     """Response containing media session information."""
 
-    task: Task = Field(..., description='The task managing this media session')
-    room_name: str = Field(..., description='Name of the LiveKit room')
-    room_sid: Optional[str] = Field(None, description='LiveKit room SID')
-    join_url: str = Field(..., description='URL to join the media session')
-    access_token: str = Field(..., description='LiveKit access token')
-    participant_identity: str = Field(
-        ..., description='Identity of the participant'
-    )
-    expires_at: datetime = Field(
-        ..., description='When the access token expires'
-    )
+    task: Task = Field(...)
+    room_name: str = Field(...)
+    room_sid: Optional[str] = None
+    join_url: str = Field(...)
+    access_token: str = Field(...)
+    participant_identity: str = Field(...)
+    expires_at: datetime = Field(...)
 
 
 class MediaJoinRequest(BaseModel):
     """Request to join an existing media session."""
 
-    room_name: str = Field(..., description='Name of the room to join')
-    participant_identity: str = Field(
-        ..., description='Identity of the participant'
-    )
-    role: str = Field('participant', description='Role for the participant')
-    metadata: Optional[str] = Field(
-        None, description='Optional metadata for the participant'
-    )
+    room_name: str = Field(...)
+    participant_identity: str = Field(...)
+    role: str = 'participant'
+    metadata: Optional[str] = None
 
 
 class MediaJoinResponse(BaseModel):
     """Response for joining a media session."""
 
-    join_url: str = Field(..., description='URL to join the media session')
-    access_token: str = Field(..., description='LiveKit access token')
-    participant_identity: str = Field(
-        ..., description='Identity of the participant'
-    )
-    expires_at: datetime = Field(
-        ..., description='When the access token expires'
-    )
+    join_url: str = Field(...)
+    access_token: str = Field(...)
+    participant_identity: str = Field(...)
+    expires_at: datetime = Field(...)
 
 
 class LiveKitTokenRequest(BaseModel):
     """Request for a LiveKit access token."""
 
-    room_name: str = Field(..., description='Name of the room')
-    identity: str = Field(..., description='Identity of the participant')
-    role: str = Field('participant', description='Role for the participant')
-    metadata: Optional[str] = Field(
-        None, description='Optional metadata for the participant'
-    )
-    ttl_minutes: int = Field(
-        60, ge=1, le=1440, description='Token time-to-live in minutes (1-1440)'
-    )
+    room_name: str = Field(...)
+    identity: str = Field(...)
+    role: str = 'participant'
+    metadata: Optional[str] = None
+    ttl_minutes: int = Field(60, ge=1, le=1440)
 
 
 class LiveKitTokenResponse(BaseModel):
     """Response containing LiveKit access token."""
 
-    access_token: str = Field(..., description='LiveKit JWT access token')
-    join_url: str = Field(..., description='URL to join the media session')
-    expires_at: datetime = Field(
-        ..., description='When the access token expires'
-    )
+    access_token: str = Field(...)
+    join_url: str = Field(...)
+    expires_at: datetime = Field(...)
 
 
-# Rebuild Task model to resolve forward reference to Message
+# Rebuild Task to resolve forward references
 Task.model_rebuild()

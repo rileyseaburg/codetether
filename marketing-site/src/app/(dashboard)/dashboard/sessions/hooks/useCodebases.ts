@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { API_URL, Codebase } from '../types'
-import { listCodebasesV1AgentCodebasesListGet } from '@/lib/api'
+import { listCodebasesV1AgentCodebasesListGet, hasApiAuthToken } from '@/lib/api'
 
 export function useCodebases() {
+    const { data: session } = useSession()
     const [codebases, setCodebases] = useState<Codebase[]>([])
 
     const loadCodebases = useCallback(async () => {
+        if (!hasApiAuthToken()) return
         try {
             const result = await listCodebasesV1AgentCodebasesListGet()
             if (result.data) {
@@ -34,8 +37,9 @@ export function useCodebases() {
     }, [])
 
     useEffect(() => {
+        if (!session?.accessToken && !hasApiAuthToken()) return
         loadCodebases()
-    }, [loadCodebases])
+    }, [loadCodebases, session?.accessToken])
 
     return { codebases, loadCodebases }
 }

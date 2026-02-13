@@ -24,7 +24,7 @@ head() { echo -e "\n${BOLD}${CYAN}$1${NC}"; }
 
 # ─── Defaults ───────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVER_URL="${A2A_SERVER_URL:-http://192.168.50.101:8001}"
+SERVER_URL="${A2A_SERVER_URL:-https://api.codetether.run}"
 WORKER_NAME="${A2A_WORKER_NAME:-$(hostname)}"
 CODEBASES="${A2A_CODEBASES:-$SCRIPT_DIR}"
 AUTO_APPROVE="safe"

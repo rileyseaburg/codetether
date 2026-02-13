@@ -1,0 +1,119 @@
+# Deployment for codetether-worker (polling-based worker)
+# This is the working configuration that registers with the A2A server
+# and processes tasks via SSE polling.
+#
+# Apply: kubectl apply -f codetether-worker-deployment.yaml -n a2a-server
+#
+# Note: For full Knative Eventing integration (receiving CloudEvents via /task),
+# the worker needs an HTTP server added. See knative-codetether-worker.yaml
+# for the Knative Service template (currently requires HTTP endpoint).
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    component: ai-worker
+    codetether.run/component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: codetether-worker
+  template:
+    metadata:
+      labels:
+        app: codetether-worker
+        component: ai-worker
+        codetether.run/component: worker
+    spec:
+      imagePullSecrets:
+        - name: gcr-pull-secret
+      containers:
+        - name: worker
+          image: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest
+          imagePullPolicy: Always
+          command: ["codetether"]
+          args:
+            - "worker"
+            - "--server"
+            - "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
+            - "--name"
+            - "k8s-worker"
+            - "/workspace"
+          env:
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_ADDR
+                  optional: true
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_TOKEN
+                  optional: true
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            - name: RUST_LOG
+              value: "info"
+            # Knative-aware mode (future: enables HTTP server for CloudEvents)
+            - name: KNATIVE_SERVICE
+              value: "true"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          emptyDir: {}
+---
+# Knative Trigger (routes events to worker when HTTP endpoint is added)
+# Currently dormant - worker polls via SSE instead of receiving events
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: codetether-worker-trigger
+  namespace: a2a-server
+  labels:
+    codetether.run/component: worker
+spec:
+  broker: task-broker
+  filter:
+    attributes:
+      type: codetether.task.created
+  subscriber:
+    # When worker has HTTP endpoint, this will route events to /task
+    # For now, worker uses SSE polling to fetch tasks
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: codetether-worker-internal
+    uri: /task
+---
+# Internal Service for the Deployment (required for Trigger subscriber)
+# This will be the target for Knative Eventing when HTTP endpoint is added
+apiVersion: v1
+kind: Service
+metadata:
+  name: codetether-worker-internal
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+spec:
+  selector:
+    app: codetether-worker
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

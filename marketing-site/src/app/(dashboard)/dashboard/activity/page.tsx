@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
@@ -24,6 +25,7 @@ function BoltIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 }
 
 export default function ActivityPage() {
+    const { data: session } = useSession()
     const [messages, setMessages] = useState<Message[]>([])
     const [connected, setConnected] = useState(false)
 
@@ -43,7 +45,11 @@ export default function ActivityPage() {
         loadMessages()
 
         // Connect to SSE stream
-        const eventSource = new EventSource(`${API_URL}/v1/monitor/stream`)
+        const sseUrl = new URL(`${API_URL}/v1/monitor/stream`)
+        if (session?.accessToken) {
+            sseUrl.searchParams.set('access_token', session.accessToken)
+        }
+        const eventSource = new EventSource(sseUrl.toString())
 
         eventSource.onopen = () => setConnected(true)
         eventSource.onerror = () => setConnected(false)

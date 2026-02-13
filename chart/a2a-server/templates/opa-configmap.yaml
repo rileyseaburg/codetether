@@ -7,11 +7,11 @@ metadata:
     {{- include "a2a-server.labels" . | nindent 4 }}
 data:
   data.json: |-
-{{ dig "policies" "dataJson" "{}" .Values.opa | indent 4 }}
+{{ .Files.Get "policies/data.json" | indent 4 }}
   authz.rego: |-
-{{ dig "policies" "authzRego" "package authz\ndefault allow := false" .Values.opa | indent 4 }}
+{{ .Files.Get "policies/authz.rego" | indent 4 }}
   api_keys.rego: |-
-{{ dig "policies" "apiKeysRego" "package api_keys\ndefault allow := true" .Values.opa | indent 4 }}
+{{ .Files.Get "policies/api_keys.rego" | indent 4 }}
   tenants.rego: |-
-{{ dig "policies" "tenantsRego" "package tenants\ndefault allow := true" .Values.opa | indent 4 }}
+{{ .Files.Get "policies/tenants.rego" | indent 4 }}
 {{- end }}

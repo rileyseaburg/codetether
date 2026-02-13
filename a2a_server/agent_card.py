@@ -16,6 +16,7 @@ from .models import (
     AgentSkill,
     AuthenticationScheme,
     AgentExtension,
+    AgentInterface,
     AdditionalInterfaces,
     LiveKitInterface
 )
@@ -33,7 +34,7 @@ class AgentCard:
         capabilities: Optional[AgentCapabilities] = None,
         authentication: Optional[List[AuthenticationScheme]] = None,
         skills: Optional[List[AgentSkill]] = None,
-        additional_interfaces: Optional[AdditionalInterfaces] = None,
+        additional_interfaces: Optional[List[AgentInterface]] = None,
         version: str = "1.0"
     ):
         self.card = AgentCardModel(
@@ -44,7 +45,7 @@ class AgentCard:
             capabilities=capabilities or AgentCapabilities(),
             authentication=authentication or [],
             skills=skills or [],
-            additional_interfaces=additional_interfaces,
+            additional_interfaces=additional_interfaces or [],
             version=version
         )
 
@@ -55,7 +56,7 @@ class AgentCard:
         description: str,
         input_modes: Optional[List[str]] = None,
         output_modes: Optional[List[str]] = None,
-        examples: Optional[List[Dict[str, Any]]] = None
+        examples: Optional[List[str]] = None
     ) -> 'AgentCard':
         """Add a skill to the agent card."""
         skill = AgentSkill(
@@ -64,7 +65,7 @@ class AgentCard:
             description=description,
             input_modes=input_modes or ["text"],
             output_modes=output_modes or ["text"],
-            examples=examples
+            examples=examples or []
         )
         self.card.skills.append(skill)
         return self
@@ -123,13 +124,12 @@ class AgentCard:
             join_url_template: Template for generating join URLs
             server_managed: Whether the server manages LiveKit resources
         """
-        if not self.card.additional_interfaces:
-            self.card.additional_interfaces = AdditionalInterfaces()
-
-        self.card.additional_interfaces.livekit = LiveKitInterface(
-            token_endpoint=token_endpoint,
-            join_url_template=join_url_template,
-            server_managed=server_managed
+        self.card.additional_interfaces.append(
+            AgentInterface(
+                transport='livekit',
+                url=token_endpoint,
+                content_types=['audio/pcm', 'video/h264'],
+            )
         )
 
         # Also enable media capability
@@ -150,21 +150,13 @@ class AgentCard:
             protocol: Protocol type (http, stdio, sse)
             description: Optional description of available MCP tools
         """
-        if not self.card.additional_interfaces:
-            self.card.additional_interfaces = AdditionalInterfaces()
-
-        # Add MCP interface as custom field
-        if not hasattr(self.card.additional_interfaces, 'mcp'):
-            # Store as extra field in additional_interfaces
-            mcp_info = {
-                "endpoint": endpoint,
-                "protocol": protocol,
-                "description": description or "MCP tools for agent synchronization and coordination"
-            }
-            # Store as an extra field (allowed by model_config)
-            if not hasattr(self.card.additional_interfaces, '__pydantic_extra__'):
-                self.card.additional_interfaces.__pydantic_extra__ = {}
-            self.card.additional_interfaces.__pydantic_extra__["mcp"] = mcp_info
+        self.card.additional_interfaces.append(
+            AgentInterface(
+                transport=f'mcp-{protocol}',
+                url=endpoint,
+                content_types=['application/json'],
+            )
+        )
 
         return self
 
@@ -175,11 +167,6 @@ class AgentCard:
         required: bool = False
     ) -> 'AgentCard':
         """Add a protocol extension to the agent card."""
-        if not self.card.capabilities:
-            self.card.capabilities = AgentCapabilities()
-        if not self.card.capabilities.extensions:
-            self.card.capabilities.extensions = []
-
         extension = AgentExtension(
             uri=uri,
             description=description,
@@ -236,7 +223,7 @@ class AgentCardBuilder:
         self._capabilities: Optional[AgentCapabilities] = None
         self._authentication: List[AuthenticationScheme] = []
         self._skills: List[AgentSkill] = []
-        self._additional_interfaces: Optional[AdditionalInterfaces] = None
+        self._additional_interfaces: List[AgentInterface] = []
         self._version: str = "1.0"
 
     def name(self, name: str) -> 'AgentCardBuilder':
@@ -301,13 +288,12 @@ class AgentCardBuilder:
         server_managed: bool = True
     ) -> 'AgentCardBuilder':
         """Add LiveKit interface configuration."""
-        if not self._additional_interfaces:
-            self._additional_interfaces = AdditionalInterfaces()
-
-        self._additional_interfaces.livekit = LiveKitInterface(
-            token_endpoint=token_endpoint,
-            join_url_template=join_url_template,
-            server_managed=server_managed
+        self._additional_interfaces.append(
+            AgentInterface(
+                transport='livekit',
+                url=token_endpoint,
+                content_types=['audio/pcm', 'video/h264'],
+            )
         )
 
         # Also enable media capability
@@ -324,8 +310,6 @@ class AgentCardBuilder:
         """Add a protocol extension."""
         if not self._capabilities:
             self._capabilities = AgentCapabilities()
-        if not self._capabilities.extensions:
-            self._capabilities.extensions = []
 
         extension = AgentExtension(
             uri=uri,
@@ -355,7 +339,7 @@ class AgentCardBuilder:
         description: str,
         input_modes: Optional[List[str]] = None,
         output_modes: Optional[List[str]] = None,
-        examples: Optional[List[Dict[str, Any]]] = None
+        examples: Optional[List[str]] = None
     ) -> 'AgentCardBuilder':
         """Add a skill."""
         skill = AgentSkill(
@@ -364,7 +348,7 @@ class AgentCardBuilder:
             description=description,
             input_modes=input_modes or ["text"],
             output_modes=output_modes or ["text"],
-            examples=examples
+            examples=examples or []
         )
         self._skills.append(skill)
         return self

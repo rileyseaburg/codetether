@@ -201,7 +201,7 @@ class IntegratedAgentsServer(A2AServer):
         """
         try:
             # Extract text from message parts
-            text_parts = [part.content for part in message.parts if part.type == "text"]
+            text_parts = [part.text for part in message.parts if part.kind == "text" and part.text]
             input_text = " ".join(text_parts)
 
             # Get or create session for this conversation
@@ -303,7 +303,7 @@ def create_integrated_agent_card() -> AgentCard:
     card = AgentCard(
         name="A2A Coordination Server",
         description="Agent-to-Agent communication hub enabling distributed task delegation and inter-agent collaboration",
-        url="http://localhost:8000",
+        url=os.environ.get("A2A_AGENT_URL", "http://localhost:8000"),
         provider=provider
     )
 

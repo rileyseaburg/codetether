@@ -183,7 +183,7 @@ function DropdownMenu({ pos, filtered, search, value, onChange, setOpen, focused
     totalCount: number
 }, ref: React.Ref<HTMLDivElement>) {
     return (
-        <div ref={ref} className="fixed z-50 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-[28rem] flex flex-col" style={{ top: pos.top, left: pos.left, width: pos.width }}>
+        <div ref={ref} className="fixed z-[90] mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-[28rem] flex flex-col" style={{ top: pos.top, left: pos.left, width: pos.width }}>
             {/* Category filter pills */}
             <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b border-gray-200 dark:border-gray-600 shrink-0" onMouseDown={e => e.preventDefault()}>
                 {CATEGORY_PILLS.map(pill => (
@@ -205,8 +205,8 @@ function DropdownMenu({ pos, filtered, search, value, onChange, setOpen, focused
                     <button
                         onClick={() => onProviderChange(null)}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${providerFilter === null
-                                ? 'bg-cyan-200 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-200 ring-1 ring-cyan-400'
-                                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            ? 'bg-cyan-200 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-200 ring-1 ring-cyan-400'
+                            : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                             }`}
                     >
                         All providers
@@ -217,8 +217,8 @@ function DropdownMenu({ pos, filtered, search, value, onChange, setOpen, focused
                             onClick={() => onProviderChange(providerFilter === p.slug ? null : p.slug)}
                             title={`${p.label} (${p.count} models)`}
                             className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${providerFilter === p.slug
-                                    ? 'bg-cyan-200 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-200 ring-1 ring-cyan-400'
-                                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                ? 'bg-cyan-200 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-200 ring-1 ring-cyan-400'
+                                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                                 }`}
                         >
                             {p.label} <span className="opacity-60">{p.count}</span>
