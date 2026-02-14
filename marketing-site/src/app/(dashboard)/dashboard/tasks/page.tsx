@@ -19,6 +19,24 @@ interface Task {
     started_at?: string
     completed_at?: string
     error?: string
+    worker_id?: string
+    metadata?: Record<string, unknown>
+}
+
+interface DispatchTaskRequest {
+    title: string
+    description: string
+    agent_type?: string
+    model?: string
+    priority?: number
+    metadata?: Record<string, unknown>
+}
+
+interface DispatchTaskResponse {
+    task_id: string
+    status: string
+    event_id?: string
+    dispatched_via_knative: boolean
 }
 
 type SwarmSubtaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timed_out' | 'cancelled' | 'unknown'
@@ -207,6 +225,22 @@ function ClipboardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function PlusIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+    )
+}
+
+function XIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    )
+}
+
 export default function TasksPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [filter, setFilter] = useState('all')
@@ -217,6 +251,14 @@ export default function TasksPage() {
     const [selectedCodebase, setSelectedCodebase] = useState<string>('all')
     const [taskSwarmMonitors, setTaskSwarmMonitors] = useState<Record<string, SwarmMonitorState>>({})
     const taskStreamRef = useRef<EventSource | null>(null)
+    
+    // New task creation state
+    const [showCreateModal, setShowCreateModal] = useState(false)
+    const [newTaskTitle, setNewTaskTitle] = useState('')
+    const [newTaskDescription, setNewTaskDescription] = useState('')
+    const [newTaskAgentType, setNewTaskAgentType] = useState('build')
+    const [isDispatching, setIsDispatching] = useState(false)
+    const [dispatchError, setDispatchError] = useState<string | null>(null)
 
     const updateTaskSwarmMonitor = useCallback((taskId: string, updater: (prev: SwarmMonitorState) => SwarmMonitorState) => {
         setTaskSwarmMonitors((prev) => ({
@@ -275,6 +317,64 @@ export default function TasksPage() {
             console.error('Failed to load tasks:', error)
         }
     }, [])
+
+    const dispatchTask = useCallback(async (request: DispatchTaskRequest): Promise<DispatchTaskResponse | null> => {
+        setIsDispatching(true)
+        setDispatchError(null)
+        try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            }
+            if (session?.accessToken) {
+                headers['Authorization'] = `Bearer ${session.accessToken}`
+            }
+            
+            const response = await fetch(`${apiUrl}/v1/tasks/dispatch`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(request),
+            })
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(errorData?.detail || `Failed to dispatch task: ${response.status}`)
+            }
+            
+            const result: DispatchTaskResponse = await response.json()
+            
+            // Refresh task list after successful dispatch
+            await loadTasks()
+            
+            return result
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to dispatch task'
+            setDispatchError(message)
+            console.error('Failed to dispatch task:', error)
+            return null
+        } finally {
+            setIsDispatching(false)
+        }
+    }, [apiUrl, session?.accessToken, loadTasks])
+
+    const handleCreateTask = async () => {
+        if (!newTaskTitle.trim() || !newTaskDescription.trim()) {
+            setDispatchError('Title and description are required')
+            return
+        }
+        
+        const result = await dispatchTask({
+            title: newTaskTitle.trim(),
+            description: newTaskDescription.trim(),
+            agent_type: newTaskAgentType,
+        })
+        
+        if (result) {
+            setShowCreateModal(false)
+            setNewTaskTitle('')
+            setNewTaskDescription('')
+            setNewTaskAgentType('build')
+        }
+    }
 
     useEffect(() => {
         if (!session?.accessToken && !hasApiAuthToken()) return
@@ -461,10 +561,17 @@ export default function TasksPage() {
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Task Queue</h2>
                             <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowCreateModal(true)}
+                                    className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+                                >
+                                    <PlusIcon className="h-4 w-4" />
+                                    New Task
+                                </button>
                                 <select
                                     value={selectedCodebase}
                                     onChange={(e) => setSelectedCodebase(e.target.value)}
-                                    className="px-3 py-2 border rounded-lg text-sm"
+                                    className="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 >
                                     <option value="all">All Codebases</option>
                                     {codebases.map((cb: any) => (
@@ -677,6 +784,20 @@ export default function TasksPage() {
                                         </div>
                                     </div>
                                 )}
+                                {selectedTask.worker_id && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Worker ID</p>
+                                        <p className="text-sm font-mono text-gray-900 dark:text-white">{selectedTask.worker_id}</p>
+                                    </div>
+                                )}
+                                {selectedTask.metadata && typeof selectedTask.metadata === 'object' && 'dispatched_via_knative' in selectedTask.metadata && selectedTask.metadata.dispatched_via_knative === true && (
+                                    <div className="rounded bg-indigo-50 dark:bg-indigo-900/20 p-2 flex items-center gap-2">
+                                        <span className="inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-800 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-200">
+                                            Knative
+                                        </span>
+                                        <span className="text-xs text-gray-600 dark:text-gray-300">Dispatched via Knative Eventing</span>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
@@ -686,6 +807,111 @@ export default function TasksPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Create Task Modal */}
+            {showCreateModal && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowCreateModal(false)} />
+                        <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                            <div className="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Task</h3>
+                                    <button
+                                        onClick={() => setShowCreateModal(false)}
+                                        className="rounded-md text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                                    >
+                                        <XIcon className="h-6 w-6" />
+                                    </button>
+                                </div>
+                                
+                                {dispatchError && (
+                                    <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/20 p-3">
+                                        <p className="text-sm text-red-700 dark:text-red-300">{dispatchError}</p>
+                                    </div>
+                                )}
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="title"
+                                            value={newTaskTitle}
+                                            onChange={(e) => setNewTaskTitle(e.target.value)}
+                                            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            placeholder="Task title..."
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Description
+                                        </label>
+                                        <textarea
+                                            id="description"
+                                            value={newTaskDescription}
+                                            onChange={(e) => setNewTaskDescription(e.target.value)}
+                                            rows={4}
+                                            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            placeholder="Describe what you want the agent to do..."
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label htmlFor="agentType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Agent Type
+                                        </label>
+                                        <select
+                                            id="agentType"
+                                            value={newTaskAgentType}
+                                            onChange={(e) => setNewTaskAgentType(e.target.value)}
+                                            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        >
+                                            <option value="build">Build</option>
+                                            <option value="plan">Plan</option>
+                                            <option value="general">General</option>
+                                            <option value="swarm">Swarm (Parallel)</option>
+                                            <option value="review">Review</option>
+                                            <option value="test">Test</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                                <button
+                                    type="button"
+                                    onClick={handleCreateTask}
+                                    disabled={isDispatching || !newTaskTitle.trim() || !newTaskDescription.trim()}
+                                    className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isDispatching ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                            </svg>
+                                            Dispatching...
+                                        </>
+                                    ) : (
+                                        'Dispatch Task'
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateModal(false)}
+                                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-600 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
