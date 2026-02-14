@@ -25,8 +25,8 @@ spec:
   template:
     metadata:
       annotations:
-        # Scale to zero after 5 minutes of inactivity
-        autoscaling.knative.dev/min-scale: "0"
+        # Always keep 1 replica running (SSE polling worker needs continuous connection)
+        autoscaling.knative.dev/min-scale: "1"
         autoscaling.knative.dev/max-scale: "3"
         autoscaling.knative.dev/scale-to-zero-pod-retention-period: "300s"
         # Target 1 concurrent task per pod (AI workload)
@@ -48,7 +48,7 @@ spec:
             - containerPort: 8080
               name: http1
           # Run the worker subcommand with SSE polling
-          command: ["codetether"]
+          command: ["/app/codetether"]
           args:
             - "worker"
             - "--server"
