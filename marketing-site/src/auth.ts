@@ -40,6 +40,17 @@ if (!keycloakClientSecret && explicitPublicClient !== 'true') {
     )
 }
 
+// Debug logging for auth configuration
+console.log('[AUTH CONFIG] Keycloak configuration:', {
+    clientId: keycloakClientId,
+    issuer: keycloakIssuer,
+    hasSecret: !!keycloakClientSecret,
+    secretLength: keycloakClientSecret?.length,
+    publicClient: keycloakPublicClient,
+    tokenAuthMethod: keycloakTokenEndpointAuthMethod,
+    nodeEnv: process.env.NODE_ENV,
+})
+
 const keycloakProviderConfig: any = {
     clientId: keycloakClientId,
     issuer: keycloakIssuer,
@@ -121,7 +132,8 @@ async function fetchTenantInfo(accessToken: string): Promise<{
     tenantApiUrl?: string
 }> {
     try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+        // Server-side: use API_URL (full URL), fall back to NEXT_PUBLIC_API_URL or production
+        const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
         const response = await fetch(`${apiUrl}/v1/tenants/me`, {
             headers: {
                 'Authorization': `Bearer ${accessToken}`,

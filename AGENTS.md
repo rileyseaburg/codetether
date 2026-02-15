@@ -208,3 +208,15 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ril
   - `build-opencode` - Build local binaries
   - `release-opencode` - Trigger GitHub Actions release
   - `release-opencode-local` - Build and upload locally
+
+## Repository Structure
+
+This is a monorepo. `codetether-agent/` is a git submodule with its own `Cargo.toml`.
+
+- **Rust project root:** `codetether-agent/` (run all cargo commands from here)
+- **Python MCP server:** `a2a_server/`
+- **React dashboard:** `marketing-site/`
+- **Proto definitions:** `specification/grpc/`
+- **Buf config:** `specification/grpc/buf.gen.yaml`
+
+When working in a git worktree, `cd codetether-agent/` before running `cargo check`, `cargo clippy`, `cargo test`, or `cargo build`. The worktree root is `A2A-Server-MCP/`, not the crate root.

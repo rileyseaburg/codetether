@@ -57,7 +57,9 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
         if (!selectedCodebaseMeta.worker_id && !selectedCodebaseMeta.opencode_port) { setStreamStatus('Unavailable'); return }
 
         const connect = () => {
-            const es = new EventSource(`${API_URL}/v1/opencode/codebases/${selectedCodebase}/events`)
+            // Handle relative API URLs by resolving against window.location
+            const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
+            const es = new EventSource(`${baseApiUrl}/v1/opencode/codebases/${selectedCodebase}/events`)
             esRef.current = es
 
             es.onopen = () => {

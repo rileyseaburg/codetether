@@ -17,6 +17,9 @@
   },
   "browserslist": "defaults, not ie <= 11",
   "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
+    "@connectrpc/connect": "^2.1.1",
+    "@connectrpc/connect-web": "^2.1.1",
     "@headlessui/react": "^2.2.9",
     "@livekit/components-react": "^2.9.17",
     "@livekit/components-styles": "^1.2.0",

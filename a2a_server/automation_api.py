@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from .database import get_pool
 from .task_queue import enqueue_task, TaskRunStatus
 from .keycloak_auth import require_auth, UserSession
+from .knative_dispatcher import dispatch_task_to_knative, KNATIVE_ENABLED
 
 logger = logging.getLogger(__name__)
 
@@ -500,6 +501,193 @@ async def create_task(
     }
 
     return JSONResponse(status_code=201, headers=headers, content=response_data)
+
+
+# ========================================
+# Task Dispatch Endpoint (Knative)
+# ========================================
+
+# Separate router for task dispatch with Knative integration
+dispatch_router = APIRouter(prefix='/v1/tasks', tags=['Task Dispatch'])
+
+
+class DispatchTaskRequest(BaseModel):
+    """Request to create and dispatch a task to Knative worker."""
+
+    title: str = Field(..., description='Title of the task', min_length=1, max_length=200)
+    description: str = Field(
+        ...,
+        description='Task description/prompt',
+        min_length=10,
+        max_length=50000,
+    )
+    agent_type: str = Field(
+        default='build', description='Type of agent to use (build, plan, general, explore)'
+    )
+    model: Optional[str] = Field(default=None, description='Model to use for execution')
+    priority: int = Field(default=0, ge=0, le=100, description='Priority (higher = more urgent)')
+    webhook_url: Optional[HttpUrl] = Field(
+        default=None, description='Webhook URL to call on task completion'
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description='Additional metadata for the task'
+    )
+
+
+class DispatchTaskResponse(BaseModel):
+    """Response from dispatching a task."""
+
+    task_id: str = Field(..., description='Unique task identifier')
+    event_id: Optional[str] = Field(default=None, description='CloudEvent ID if dispatched to Knative')
+    status: str = Field(..., description='Task status')
+    title: str
+    description: str
+    created_at: str
+    dispatched_via_knative: bool = Field(
+        ..., description='Whether task was dispatched to Knative broker'
+    )
+
+
+@dispatch_router.post(
+    '/dispatch',
+    response_model=DispatchTaskResponse,
+    responses={
+        201: {'model': DispatchTaskResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+async def dispatch_task(
+    request: DispatchTaskRequest,
+    http_request: Request,
+    user: UserSession = Depends(require_auth),
+):
+    """
+    Create a task AND dispatch to Knative worker in a single call.
+
+    This endpoint combines task creation with Knative Eventing to
+    spawn a worker and process the task asynchronously.
+
+    The task is:
+    1. Created in the database
+    2. A CloudEvent is published to the Knative Broker
+    3. A Knative worker receives the event and processes the task
+    """
+    import uuid
+
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    task_id = f"task-{uuid.uuid4().hex[:12]}"
+    tenant_id = user.tenant_id
+    user_id = user.user_id
+    codebase_id = 'global'
+
+    # Create task in database
+    async with pool.acquire() as conn:
+        # Set tenant context for RLS
+        if tenant_id:
+            await conn.execute(f"SET LOCAL app.current_tenant_id = '{tenant_id}'")
+
+        await conn.execute(
+            """
+            INSERT INTO tasks (id, title, prompt, agent_type, status, codebase_id, metadata, tenant_id, model, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, 'pending', $5, $6::jsonb, $7, $8, NOW(), NOW())
+            """,
+            task_id,
+            request.title,
+            request.description,
+            request.agent_type,
+            codebase_id,
+            json.dumps(request.metadata or {}),
+            tenant_id,
+            request.model,
+        )
+
+    # Dispatch to Knative
+    dispatched_via_knative = False
+    event_id = None
+
+    if KNATIVE_ENABLED:
+        event_id = await dispatch_task_to_knative(
+            task_id=task_id,
+            title=request.title,
+            description=request.description,
+            agent_type=request.agent_type,
+            model=request.model,
+            priority=request.priority,
+            metadata={
+                **(request.metadata or {}),
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "webhook_url": str(request.webhook_url) if request.webhook_url else None,
+            },
+        )
+        dispatched_via_knative = event_id is not None
+
+    if not dispatched_via_knative:
+        # Fallback to local queue if Knative disabled or failed
+        logger.info(f"Knative dispatch failed/unavailable, falling back to local queue for {task_id}")
+        await enqueue_task(
+            task_id=task_id,
+            user_id=user_id,
+            tenant_id=tenant_id,
+            priority=request.priority,
+            notify_webhook_url=str(request.webhook_url) if request.webhook_url else None,
+        )
+
+    return DispatchTaskResponse(
+        task_id=task_id,
+        event_id=event_id,
+        status='pending',
+        title=request.title,
+        description=request.description,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        dispatched_via_knative=dispatched_via_knative,
+    )
+
+
+@dispatch_router.get(
+    '/dispatch/{task_id}',
+    response_model=DispatchTaskResponse,
+    responses={404: {'model': ErrorResponse}},
+)
+async def get_dispatched_task(
+    task_id: str,
+    user: UserSession = Depends(require_auth),
+):
+    """Get status of a dispatched task."""
+    pool = await get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    tenant_id = user.tenant_id
+    async with pool.acquire() as conn:
+        if tenant_id:
+            await conn.execute(f"SET LOCAL app.current_tenant_id = '{tenant_id}'")
+
+        row = await conn.fetchrow(
+            """
+            SELECT id, title, prompt, agent_type, status, model, created_at
+            FROM tasks
+            WHERE id = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
+            """,
+            task_id,
+            tenant_id,
+        )
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f'Task not found: {task_id}')
+
+    return DispatchTaskResponse(
+        task_id=row['id'],
+        event_id=None,
+        status=row['status'],
+        title=row['title'],
+        description=row['prompt'],
+        created_at=row['created_at'].isoformat(),
+        dispatched_via_knative=False,  # Would need to track this in DB
+    )
 
 
 @router.get(

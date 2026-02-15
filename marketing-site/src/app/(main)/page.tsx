@@ -2,7 +2,6 @@ import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
 // Above-the-fold components - load immediately
-import { CISOBanner } from '@/components/CISOBanner'
 import { Hero } from '@/components/Hero'
 import { ChatWidget } from '@/components/ChatWidget'
 
@@ -86,7 +85,6 @@ export default function Home() {
     return (
         <>
             {/* Above the fold */}
-            <CISOBanner />
             <Hero />
 
             {/* OpenClaw Comparison - direct response sales letter */}

@@ -1,29 +1,18 @@
 # buf generate
 # Configuration for the buf generate command
 # Uses remote plugins, no separate install required.
-# This config generates python, go and java (protobuf) source.
+# This config generates TypeScript (Connect-ES / Protobuf-ES v2) for the marketing site dashboard.
+# The protoc-gen-es v2 plugin generates both message types AND service descriptors
+# in a single _pb.ts file, so no separate connect-es plugin is needed.
+#
+# NOTE: We use the stripped proto (codetether-agent/proto/a2a/v1/a2a.proto) which
+# has no googleapis annotations, avoiding google/api/* TS import issues.
 version: v2
+inputs:
+  - directory: ../../codetether-agent/proto/a2a/v1
 plugins:
-  # Python
-  - remote: buf.build/protocolbuffers/python:v29.3
-    out: src/python
-  - remote: buf.build/grpc/python
-    out: src/python
-
-  # Go
-  - remote: buf.build/protocolbuffers/go
-    out: src/go
-
-  - remote: buf.build/grpc/go
-    out: src/go
-
-  # Java
-  - remote: buf.build/protocolbuffers/java
-    out: src/java
-
-  - remote: buf.build/grpc/java
-    out: src/java
-
-  # TypeScript
-  - remote: buf.build/community/stephenh-ts-proto:v1.165.0
-    out: src/typescript
+  # Protobuf-ES v2: generates message types + service descriptors (@bufbuild/protobuf v2)
+  - remote: buf.build/bufbuild/es:v2.2.3
+    out: ../../marketing-site/src/lib/grpc/gen
+    opt:
+      - target=ts
