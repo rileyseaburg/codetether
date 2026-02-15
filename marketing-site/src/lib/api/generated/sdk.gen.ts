@@ -26,6 +26,14 @@ import type {
   AssociateUserCodebaseV1AuthUserUserIdCodebasesPostData,
   AssociateUserCodebaseV1AuthUserUserIdCodebasesPostErrors,
   AssociateUserCodebaseV1AuthUserUserIdCodebasesPostResponses,
+  AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetData,
+  AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetResponses,
+  AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetData,
+  AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetResponses,
+  AuthorizationServerMetadataWellKnownOpenidConfigurationGetData,
+  AuthorizationServerMetadataWellKnownOpenidConfigurationGetResponses,
+  AuthorizeOauthAuthorizeGetData,
+  AuthorizeOauthAuthorizeGetResponses,
   AuthStatusV1AuthStatusGetData,
   AuthStatusV1AuthStatusGetResponses,
   BuildSnapshotsV1FinopsSnapshotsBuildPostData,
@@ -163,6 +171,9 @@ import type {
   DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostData,
   DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostErrors,
   DismissRecommendationV1FinopsRecommendationsRecommendationIdDismissPostResponses,
+  DispatchTaskV1TasksDispatchPostData,
+  DispatchTaskV1TasksDispatchPostErrors,
+  DispatchTaskV1TasksDispatchPostResponses,
   DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetData,
   DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors,
   DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetResponses,
@@ -233,6 +244,9 @@ import type {
   GetCurrentUserV1AutomationMeGetData,
   GetCurrentUserV1AutomationMeGetErrors,
   GetCurrentUserV1AutomationMeGetResponses,
+  GetDispatchedTaskV1TasksDispatchTaskIdGetData,
+  GetDispatchedTaskV1TasksDispatchTaskIdGetErrors,
+  GetDispatchedTaskV1TasksDispatchTaskIdGetResponses,
   GetFunnelMetricsV1AnalyticsFunnelGetData,
   GetFunnelMetricsV1AnalyticsFunnelGetErrors,
   GetFunnelMetricsV1AnalyticsFunnelGetResponses,
@@ -529,32 +543,39 @@ import type {
   NextauthCallbackApiAuthCallbackKeycloakGetData,
   NextauthCallbackApiAuthCallbackKeycloakGetErrors,
   NextauthCallbackApiAuthCallbackKeycloakGetResponses,
-  OpencodeToAgentRedirectV1OpencodePathDelete2Data,
-  OpencodeToAgentRedirectV1OpencodePathDelete2Errors,
-  OpencodeToAgentRedirectV1OpencodePathDelete2Responses,
-  OpencodeToAgentRedirectV1OpencodePathDelete3Data,
-  OpencodeToAgentRedirectV1OpencodePathDelete3Errors,
-  OpencodeToAgentRedirectV1OpencodePathDelete3Responses,
-  OpencodeToAgentRedirectV1OpencodePathDelete4Data,
-  OpencodeToAgentRedirectV1OpencodePathDelete4Errors,
-  OpencodeToAgentRedirectV1OpencodePathDelete4Responses,
-  OpencodeToAgentRedirectV1OpencodePathDelete5Data,
-  OpencodeToAgentRedirectV1OpencodePathDelete5Errors,
-  OpencodeToAgentRedirectV1OpencodePathDelete5Responses,
-  OpencodeToAgentRedirectV1OpencodePathDeleteData,
-  OpencodeToAgentRedirectV1OpencodePathDeleteErrors,
-  OpencodeToAgentRedirectV1OpencodePathDeleteResponses,
+  OpencodeToAgentRedirectV1OpencodePathGet2Data,
+  OpencodeToAgentRedirectV1OpencodePathGet2Errors,
+  OpencodeToAgentRedirectV1OpencodePathGet2Responses,
+  OpencodeToAgentRedirectV1OpencodePathGet3Data,
+  OpencodeToAgentRedirectV1OpencodePathGet3Errors,
+  OpencodeToAgentRedirectV1OpencodePathGet3Responses,
+  OpencodeToAgentRedirectV1OpencodePathGet4Data,
+  OpencodeToAgentRedirectV1OpencodePathGet4Errors,
+  OpencodeToAgentRedirectV1OpencodePathGet4Responses,
+  OpencodeToAgentRedirectV1OpencodePathGet5Data,
+  OpencodeToAgentRedirectV1OpencodePathGet5Errors,
+  OpencodeToAgentRedirectV1OpencodePathGet5Responses,
+  OpencodeToAgentRedirectV1OpencodePathGetData,
+  OpencodeToAgentRedirectV1OpencodePathGetErrors,
+  OpencodeToAgentRedirectV1OpencodePathGetResponses,
   PrdChatV1RalphChatPostData,
   PrdChatV1RalphChatPostErrors,
   PrdChatV1RalphChatPostResponses,
   PreviewEmailV1EmailPreviewPostData,
   PreviewEmailV1EmailPreviewPostErrors,
   PreviewEmailV1EmailPreviewPostResponses,
+  ProtectedResourceMetadataBaseWellKnownOauthProtectedResourceGetData,
+  ProtectedResourceMetadataBaseWellKnownOauthProtectedResourceGetResponses,
+  ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetData,
+  ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetErrors,
+  ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetResponses,
   RecoverStuckTasksV1AgentTasksStuckRecoverPostData,
   RecoverStuckTasksV1AgentTasksStuckRecoverPostResponses,
   RefreshTokenV1AuthRefreshPostData,
   RefreshTokenV1AuthRefreshPostErrors,
   RefreshTokenV1AuthRefreshPostResponses,
+  RegisterClientOauthRegisterPostData,
+  RegisterClientOauthRegisterPostResponses,
   RegisterCodebaseV1AgentCodebasesPostData,
   RegisterCodebaseV1AgentCodebasesPostErrors,
   RegisterCodebaseV1AgentCodebasesPostResponses,
@@ -579,9 +600,21 @@ import type {
   RestCancelTaskA2aRestTasksTaskIdCancelPostData,
   RestCancelTaskA2aRestTasksTaskIdCancelPostErrors,
   RestCancelTaskA2aRestTasksTaskIdCancelPostResponses,
+  RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostData,
+  RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostErrors,
+  RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostResponses,
+  RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteData,
+  RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteErrors,
+  RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteResponses,
+  RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetData,
+  RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetErrors,
+  RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetResponses,
   RestGetTaskA2aRestTasksTaskIdGetData,
   RestGetTaskA2aRestTasksTaskIdGetErrors,
   RestGetTaskA2aRestTasksTaskIdGetResponses,
+  RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetData,
+  RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetErrors,
+  RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetResponses,
   RestSendMessageA2aRestMessageSendPostData,
   RestSendMessageA2aRestMessageSendPostResponses,
   RestStreamMessageA2aRestMessageStreamPostData,
@@ -597,6 +630,8 @@ import type {
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteData,
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteErrors,
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteResponses,
+  RevokeTokenOauthRevokePostData,
+  RevokeTokenOauthRevokePostResponses,
   RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostData,
   RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostErrors,
   RunPlaybookV1ProactiveOrchestratorRunPlaybookNamePostResponses,
@@ -657,6 +692,9 @@ import type {
   StreamTaskOutputV1AgentTasksTaskIdOutputPostResponses,
   StripeWebhookV1WebhooksStripePostData,
   StripeWebhookV1WebhooksStripePostResponses,
+  SubmitCrashReportV1CrashReportsPostData,
+  SubmitCrashReportV1CrashReportsPostErrors,
+  SubmitCrashReportV1CrashReportsPostResponses,
   SuspendInstanceV1AdminInstancesNamespaceSuspendPostData,
   SuspendInstanceV1AdminInstancesNamespaceSuspendPostErrors,
   SuspendInstanceV1AdminInstancesNamespaceSuspendPostResponses,
@@ -697,6 +735,8 @@ import type {
   ToggleCronjobV1CronjobsJobIdTogglePostData,
   ToggleCronjobV1CronjobsJobIdTogglePostErrors,
   ToggleCronjobV1CronjobsJobIdTogglePostResponses,
+  TokenEndpointOauthTokenPostData,
+  TokenEndpointOauthTokenPostResponses,
   TrackEventV1AnalyticsTrackPostData,
   TrackEventV1AnalyticsTrackPostErrors,
   TrackEventV1AnalyticsTrackPostResponses,
@@ -2693,17 +2733,14 @@ export const getSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGet = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathDelete = <
+export const opencodeToAgentRedirectV1OpencodePathGet = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<
-    OpencodeToAgentRedirectV1OpencodePathDeleteData,
-    ThrowOnError
-  >,
+  options: Options<OpencodeToAgentRedirectV1OpencodePathGetData, ThrowOnError>,
 ) =>
   (options.client ?? client).delete<
-    OpencodeToAgentRedirectV1OpencodePathDeleteResponses,
-    OpencodeToAgentRedirectV1OpencodePathDeleteErrors,
+    OpencodeToAgentRedirectV1OpencodePathGetResponses,
+    OpencodeToAgentRedirectV1OpencodePathGetErrors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2712,17 +2749,14 @@ export const opencodeToAgentRedirectV1OpencodePathDelete = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathDelete2 = <
+export const opencodeToAgentRedirectV1OpencodePathGet2 = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<
-    OpencodeToAgentRedirectV1OpencodePathDelete2Data,
-    ThrowOnError
-  >,
+  options: Options<OpencodeToAgentRedirectV1OpencodePathGet2Data, ThrowOnError>,
 ) =>
   (options.client ?? client).get<
-    OpencodeToAgentRedirectV1OpencodePathDelete2Responses,
-    OpencodeToAgentRedirectV1OpencodePathDelete2Errors,
+    OpencodeToAgentRedirectV1OpencodePathGet2Responses,
+    OpencodeToAgentRedirectV1OpencodePathGet2Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2731,17 +2765,14 @@ export const opencodeToAgentRedirectV1OpencodePathDelete2 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathDelete3 = <
+export const opencodeToAgentRedirectV1OpencodePathGet3 = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<
-    OpencodeToAgentRedirectV1OpencodePathDelete3Data,
-    ThrowOnError
-  >,
+  options: Options<OpencodeToAgentRedirectV1OpencodePathGet3Data, ThrowOnError>,
 ) =>
   (options.client ?? client).patch<
-    OpencodeToAgentRedirectV1OpencodePathDelete3Responses,
-    OpencodeToAgentRedirectV1OpencodePathDelete3Errors,
+    OpencodeToAgentRedirectV1OpencodePathGet3Responses,
+    OpencodeToAgentRedirectV1OpencodePathGet3Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2750,17 +2781,14 @@ export const opencodeToAgentRedirectV1OpencodePathDelete3 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathDelete4 = <
+export const opencodeToAgentRedirectV1OpencodePathGet4 = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<
-    OpencodeToAgentRedirectV1OpencodePathDelete4Data,
-    ThrowOnError
-  >,
+  options: Options<OpencodeToAgentRedirectV1OpencodePathGet4Data, ThrowOnError>,
 ) =>
   (options.client ?? client).post<
-    OpencodeToAgentRedirectV1OpencodePathDelete4Responses,
-    OpencodeToAgentRedirectV1OpencodePathDelete4Errors,
+    OpencodeToAgentRedirectV1OpencodePathGet4Responses,
+    OpencodeToAgentRedirectV1OpencodePathGet4Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -2769,17 +2797,14 @@ export const opencodeToAgentRedirectV1OpencodePathDelete4 = <
  *
  * @deprecated
  */
-export const opencodeToAgentRedirectV1OpencodePathDelete5 = <
+export const opencodeToAgentRedirectV1OpencodePathGet5 = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<
-    OpencodeToAgentRedirectV1OpencodePathDelete5Data,
-    ThrowOnError
-  >,
+  options: Options<OpencodeToAgentRedirectV1OpencodePathGet5Data, ThrowOnError>,
 ) =>
   (options.client ?? client).put<
-    OpencodeToAgentRedirectV1OpencodePathDelete5Responses,
-    OpencodeToAgentRedirectV1OpencodePathDelete5Errors,
+    OpencodeToAgentRedirectV1OpencodePathGet5Responses,
+    OpencodeToAgentRedirectV1OpencodePathGet5Errors,
     ThrowOnError
   >({ url: '/v1/opencode/{path}', ...options })
 
@@ -5017,6 +5042,177 @@ export const createBillingPortalV1UsersBillingPortalPost = <
   })
 
 /**
+ * Protected Resource Metadata Base
+ *
+ * RFC 9728 — Protected Resource Metadata (origin-level fallback).
+ */
+export const protectedResourceMetadataBaseWellKnownOauthProtectedResourceGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    ProtectedResourceMetadataBaseWellKnownOauthProtectedResourceGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    ProtectedResourceMetadataBaseWellKnownOauthProtectedResourceGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/.well-known/oauth-protected-resource', ...options })
+
+/**
+ * Protected Resource Metadata Path
+ *
+ * RFC 9728 — Protected Resource Metadata (path-specific).
+ *
+ * Per RFC 9728, the 'resource' field MUST match the protected resource URL.
+ * For /.well-known/oauth-protected-resource/mcp, resource is {origin}/mcp.
+ */
+export const protectedResourceMetadataPathWellKnownOauthProtectedResourcePathGet =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetData,
+      ThrowOnError
+    >,
+  ) =>
+    (options.client ?? client).get<
+      ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetResponses,
+      ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetErrors,
+      ThrowOnError
+    >({ url: '/.well-known/oauth-protected-resource/{path}', ...options })
+
+/**
+ * Authorization Server Metadata
+ *
+ * RFC 8414 — OAuth 2.0 Authorization Server Metadata.
+ *
+ * VS Code and other MCP clients fetch this to discover endpoints.
+ */
+export const authorizationServerMetadataWellKnownOpenidConfigurationGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    AuthorizationServerMetadataWellKnownOpenidConfigurationGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    AuthorizationServerMetadataWellKnownOpenidConfigurationGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/.well-known/openid-configuration', ...options })
+
+/**
+ * Authorization Server Metadata
+ *
+ * RFC 8414 — OAuth 2.0 Authorization Server Metadata.
+ *
+ * VS Code and other MCP clients fetch this to discover endpoints.
+ */
+export const authorizationServerMetadataWellKnownOauthAuthorizationServerPathGet =
+  <ThrowOnError extends boolean = false>(
+    options?: Options<
+      AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetData,
+      ThrowOnError
+    >,
+  ) =>
+    (options?.client ?? client).get<
+      AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetResponses,
+      unknown,
+      ThrowOnError
+    >({ url: '/.well-known/oauth-authorization-server/{path}', ...options })
+
+/**
+ * Authorization Server Metadata
+ *
+ * RFC 8414 — OAuth 2.0 Authorization Server Metadata.
+ *
+ * VS Code and other MCP clients fetch this to discover endpoints.
+ */
+export const authorizationServerMetadataWellKnownOauthAuthorizationServerGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetData,
+    ThrowOnError
+  >,
+) =>
+  (options?.client ?? client).get<
+    AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/.well-known/oauth-authorization-server', ...options })
+
+/**
+ * Register Client
+ *
+ * RFC 7591 — Dynamic Client Registration.
+ *
+ * MCP clients (VS Code, Claude Desktop) call this to get a client_id.
+ */
+export const registerClientOauthRegisterPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<RegisterClientOauthRegisterPostData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    RegisterClientOauthRegisterPostResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/oauth/register', ...options })
+
+/**
+ * Authorize
+ *
+ * OAuth 2.1 Authorization Endpoint with PKCE.
+ *
+ * For MCP clients, this shows a simple consent page and issues an
+ * authorization code that can be exchanged for tokens.
+ */
+export const authorizeOauthAuthorizeGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<AuthorizeOauthAuthorizeGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    AuthorizeOauthAuthorizeGetResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/oauth/authorize', ...options })
+
+/**
+ * Token Endpoint
+ *
+ * OAuth 2.1 Token Endpoint — exchange code for tokens, or refresh.
+ */
+export const tokenEndpointOauthTokenPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<TokenEndpointOauthTokenPostData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    TokenEndpointOauthTokenPostResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/oauth/token', ...options })
+
+/**
+ * Revoke Token
+ *
+ * Revoke an access or refresh token.
+ */
+export const revokeTokenOauthRevokePost = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<RevokeTokenOauthRevokePostData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    RevokeTokenOauthRevokePostResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/oauth/revoke', ...options })
+
+/**
  * Get Queue Status
  *
  * Get full queue status (admin/internal).
@@ -5547,6 +5743,58 @@ export const getCurrentUserV1AutomationMeGet = <
   >({ url: '/v1/automation/me', ...options })
 
 /**
+ * Dispatch Task
+ *
+ * Create a task AND dispatch to Knative worker in a single call.
+ *
+ * This endpoint combines task creation with Knative Eventing to
+ * spawn a worker and process the task asynchronously.
+ *
+ * The task is:
+ * 1. Created in the database
+ * 2. A CloudEvent is published to the Knative Broker
+ * 3. A Knative worker receives the event and processes the task
+ */
+export const dispatchTaskV1TasksDispatchPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DispatchTaskV1TasksDispatchPostData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    DispatchTaskV1TasksDispatchPostResponses,
+    DispatchTaskV1TasksDispatchPostErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/tasks/dispatch',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Get Dispatched Task
+ *
+ * Get status of a dispatched task.
+ */
+export const getDispatchedTaskV1TasksDispatchTaskIdGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetDispatchedTaskV1TasksDispatchTaskIdGetData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetDispatchedTaskV1TasksDispatchTaskIdGetResponses,
+    GetDispatchedTaskV1TasksDispatchTaskIdGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/tasks/dispatch/{task_id}',
+    ...options,
+  })
+
+/**
  * Track Event
  *
  * Track an analytics event.
@@ -5709,6 +5957,29 @@ export const markConversionForwardedV1AnalyticsMarkForwardedConversionIdPost = <
     ThrowOnError
   >({
     url: '/v1/analytics/mark-forwarded/{conversion_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+/**
+ * Submit Crash Report
+ *
+ * Accept a crash report from the agent.
+ */
+export const submitCrashReportV1CrashReportsPost = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SubmitCrashReportV1CrashReportsPostData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    SubmitCrashReportV1CrashReportsPostResponses,
+    SubmitCrashReportV1CrashReportsPostErrors,
+    ThrowOnError
+  >({
+    url: '/v1/crash-reports',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -6543,6 +6814,95 @@ export const restCancelTaskA2aRestTasksTaskIdCancelPost = <
     url: '/a2a/rest/tasks/{task_id}:cancel',
     ...options,
   })
+
+/**
+ * Rest List Push Configs
+ *
+ * REST binding for listing push notification configs.
+ */
+export const restListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).get<
+    RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetResponses,
+    RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs',
+    ...options,
+  })
+
+/**
+ * Rest Create Push Config
+ *
+ * REST binding for creating a push notification config.
+ */
+export const restCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPost =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostData,
+      ThrowOnError
+    >,
+  ) =>
+    (options.client ?? client).post<
+      RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostResponses,
+      RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostErrors,
+      ThrowOnError
+    >({
+      security: [{ scheme: 'bearer', type: 'http' }],
+      url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs',
+      ...options,
+    })
+
+/**
+ * Rest Delete Push Config
+ *
+ * REST binding for deleting a push notification config.
+ */
+export const restDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDelete =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteData,
+      ThrowOnError
+    >,
+  ) =>
+    (options.client ?? client).delete<
+      RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteResponses,
+      RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteErrors,
+      ThrowOnError
+    >({
+      security: [{ scheme: 'bearer', type: 'http' }],
+      url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs/{config_id}',
+      ...options,
+    })
+
+/**
+ * Rest Get Push Config
+ *
+ * REST binding for getting a push notification config.
+ */
+export const restGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGet =
+  <ThrowOnError extends boolean = false>(
+    options: Options<
+      RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetData,
+      ThrowOnError
+    >,
+  ) =>
+    (options.client ?? client).get<
+      RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetResponses,
+      RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetErrors,
+      ThrowOnError
+    >({
+      security: [{ scheme: 'bearer', type: 'http' }],
+      url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs/{config_id}',
+      ...options,
+    })
 
 /**
  * Mcp Root

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import VoiceChatButton from './components/voice/VoiceChatButton'
+import VoiceAgentButton from './components/voice/VoiceAgentButton'
 import TenantStatusBanner from '@/components/TenantStatusBanner'
 import { ModelSelector } from '@/components/ModelSelector'
 import { WorkerSelector } from '@/components/WorkerSelector'
@@ -456,7 +456,9 @@ export default function DashboardPage() {
             return
         }
 
-        const baseUrl = apiUrl.replace(/\/+$/, '')
+        // Handle relative API URLs (e.g., "/api") by resolving against window.location
+        const baseApiUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl
+        const baseUrl = baseApiUrl.replace(/\/+$/, '')
         const sseUrl = new URL(`${baseUrl}/v1/agent/codebases/${encodeURIComponent(selectedCodebase)}/events`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
@@ -1146,9 +1148,10 @@ export default function DashboardPage() {
                         </div>
                         <div className="p-4 space-y-2">
                             <div className="mb-3">
-                                <VoiceChatButton
+                                <VoiceAgentButton
                                     codebaseId={selectedCodebase || undefined}
-                                    mode="chat"
+                                    workers={workers}
+                                    onWorkerDeployed={loadWorkers}
                                 />
                             </div>
                             <button

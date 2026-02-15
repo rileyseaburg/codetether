@@ -1,0 +1,186 @@
+# Knative Service for codetether-agent (binary deployment)
+# This deploys the codetether-agent as a Knative Service that:
+# 1. Receives CloudEvents at /task endpoint (implemented)
+# 2. Processes tasks via the cognition engine
+# 3. Scales to zero when idle
+#
+# Apply: kubectl apply -f knative-codetether-agent.yaml -n a2a-server
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: codetether-agent
+  namespace: a2a-server
+  labels:
+    app: codetether-agent
+    component: ai-agent
+    codetether.run/component: agent
+  annotations:
+    # Gradual rollout
+    serving.knative.dev/rollout-duration: "30s"
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero when idle (agent handles events directly, no polling)
+        autoscaling.knative.dev/min-scale: "0"
+        autoscaling.knative.dev/max-scale: "5"
+        autoscaling.knative.dev/scale-to-zero-pod-retention-period: "60s"
+        # Target 1 concurrent task per pod
+        autoscaling.knative.dev/target: "1"
+    spec:
+      serviceAccountName: codetether-agent
+      containerConcurrency: 1
+      timeoutSeconds: 600
+      containers:
+        - name: agent
+          # Use codetether-agent container (see codetether-agent/Dockerfile)
+          image: ghcr.io/rileyseaburg/codetether-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http1
+          # Run codetether serve command with port
+          command: ["/app/codetether"]
+          args:
+            - "serve"
+            - "--hostname"
+            - "0.0.0.0"
+            - "--port"
+            - "8080"
+          env:
+            - name: CODETETHER_SERVE_PORT
+              value: "8080"
+            - name: RUST_LOG
+              value: "info"
+            - name: CODETETHER_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-auth
+                  key: token
+                  optional: true
+            # Vault configuration for secrets
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_ADDR
+                  optional: true
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token
+                  key: VAULT_TOKEN
+                  optional: true
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            # K8s self-deployment enabled
+            - name: CODETETHER_K8S_SELF_DEPLOY
+              value: "true"
+          resources:
+            limits:
+              cpu: "4"
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+
+---
+# Knative Broker for task events
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: task-broker
+  namespace: a2a-server
+  labels:
+    codetether.run/component: broker
+
+---
+# Trigger to route task.created events to the codetether-agent service
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: codetether-agent-task-trigger
+  namespace: a2a-server
+  labels:
+    codetether.run/component: agent-trigger
+spec:
+  broker: task-broker
+  filter:
+    attributes:
+      type: codetether.task.created
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: codetether-agent
+    uri: /task
+
+---
+# Trigger for task cancellation events
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: codetether-agent-cancel-trigger
+  namespace: a2a-server
+  labels:
+    codetether.run/component: agent-trigger
+spec:
+  broker: task-broker
+  filter:
+    attributes:
+      type: codetether.task.cancelled
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: codetether-agent
+    uri: /task
+
+---
+# ServiceAccount for codetether-agent
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codetether-agent
+  namespace: a2a-server
+---
+# RBAC for codetether-agent
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: codetether-agent
+  namespace: a2a-server
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: codetether-agent
+  namespace: a2a-server
+subjects:
+  - kind: ServiceAccount
+    name: codetether-agent
+    namespace: a2a-server
+roleRef:
+  kind: Role
+  name: codetether-agent
+  apiGroup: rbac.authorization.k8s.io

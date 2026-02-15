@@ -135,7 +135,13 @@ export const api = {
             
             get: (id: string) => fetchJson<{ id: string; status: string }>(`${API_URL}/v1/ralph/runs/${id}`),
             
-            stream: (id: string) => new EventSource(`${API_URL}/v1/ralph/runs/${id}/stream`),
+            stream: (id: string) => {
+                // Handle relative API URLs by resolving against window.location (browser only)
+                const baseApiUrl = typeof window !== 'undefined' && API_URL.startsWith('/')
+                    ? `${window.location.origin}${API_URL}`
+                    : API_URL
+                return new EventSource(`${baseApiUrl}/v1/ralph/runs/${id}/stream`)
+            },
         },
     },
 }

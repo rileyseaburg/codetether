@@ -14,14 +14,18 @@ CLIENT_ID = "a2a-monitor"
 USERNAME = "info@evolvingsoftware.io"
 PASSWORD = "Spr!ng20@4"
 
-# New URIs to add
+# New URIs to add (includes HTTPS for development)
 NEW_REDIRECT_URIS = [
     "http://localhost:3001/api/auth/*",
     "http://127.0.0.1:3001/api/auth/*",
+    "https://192.168.50.101:3001/api/auth/*",
+    "https://a2a.quantum-forge.net/api/auth/*",
 ]
 NEW_WEB_ORIGINS = [
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "https://192.168.50.101:3001",
+    "https://a2a.quantum-forge.net",
 ]
 
 

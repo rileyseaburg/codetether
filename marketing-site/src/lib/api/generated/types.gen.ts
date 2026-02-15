@@ -1029,6 +1029,64 @@ export type CostTrendResponse = {
 }
 
 /**
+ * CrashReport
+ *
+ * Crash report payload sent by codetether-agent.
+ */
+export type CrashReport = {
+  /**
+   * Report Id
+   *
+   * Client-generated report ID
+   */
+  report_id?: string | null
+  /**
+   * Version
+   *
+   * Agent version
+   */
+  version?: string | null
+  /**
+   * Os
+   *
+   * Operating system
+   */
+  os?: string | null
+  /**
+   * Arch
+   *
+   * CPU architecture
+   */
+  arch?: string | null
+  /**
+   * Timestamp
+   *
+   * ISO-8601 timestamp
+   */
+  timestamp?: string | null
+  /**
+   * Error
+   *
+   * Error message / panic info
+   */
+  error?: string | null
+  /**
+   * Backtrace
+   *
+   * Stack backtrace
+   */
+  backtrace?: string | null
+  /**
+   * Context
+   *
+   * Additional context (command, provider, etc.)
+   */
+  context?: {
+    [key: string]: unknown
+  } | null
+}
+
+/**
  * CreateApiKeyRequest
  *
  * Create API key request.
@@ -1358,6 +1416,102 @@ export type DismissRecommendationRequest = {
    * Reason
    */
   reason?: string
+}
+
+/**
+ * DispatchTaskRequest
+ *
+ * Request to create and dispatch a task to Knative worker.
+ */
+export type DispatchTaskRequest = {
+  /**
+   * Title
+   *
+   * Title of the task
+   */
+  title: string
+  /**
+   * Description
+   *
+   * Task description/prompt
+   */
+  description: string
+  /**
+   * Agent Type
+   *
+   * Type of agent to use (build, plan, general, explore)
+   */
+  agent_type?: string
+  /**
+   * Model
+   *
+   * Model to use for execution
+   */
+  model?: string | null
+  /**
+   * Priority
+   *
+   * Priority (higher = more urgent)
+   */
+  priority?: number
+  /**
+   * Webhook Url
+   *
+   * Webhook URL to call on task completion
+   */
+  webhook_url?: string | null
+  /**
+   * Metadata
+   *
+   * Additional metadata for the task
+   */
+  metadata?: {
+    [key: string]: unknown
+  } | null
+}
+
+/**
+ * DispatchTaskResponse
+ *
+ * Response from dispatching a task.
+ */
+export type DispatchTaskResponse = {
+  /**
+   * Task Id
+   *
+   * Unique task identifier
+   */
+  task_id: string
+  /**
+   * Event Id
+   *
+   * CloudEvent ID if dispatched to Knative
+   */
+  event_id?: string | null
+  /**
+   * Status
+   *
+   * Task status
+   */
+  status: string
+  /**
+   * Title
+   */
+  title: string
+  /**
+   * Description
+   */
+  description: string
+  /**
+   * Created At
+   */
+  created_at: string
+  /**
+   * Dispatched Via Knative
+   *
+   * Whether task was dispatched to Knative broker
+   */
+  dispatched_via_knative: boolean
 }
 
 /**
@@ -2137,32 +2291,22 @@ export type K8sInstanceSummary = {
 export type LiveKitTokenRequest = {
   /**
    * Room Name
-   *
-   * Name of the room
    */
   room_name: string
   /**
    * Identity
-   *
-   * Identity of the participant
    */
   identity: string
   /**
    * Role
-   *
-   * Role for the participant
    */
   role?: string
   /**
    * Metadata
-   *
-   * Optional metadata for the participant
    */
   metadata?: string | null
   /**
    * Ttl Minutes
-   *
-   * Token time-to-live in minutes (1-1440)
    */
   ttl_minutes?: number
 }
@@ -2175,20 +2319,14 @@ export type LiveKitTokenRequest = {
 export type LiveKitTokenResponse = {
   /**
    * Access Token
-   *
-   * LiveKit JWT access token
    */
   access_token: string
   /**
    * Join Url
-   *
-   * URL to join the media session
    */
   join_url: string
   /**
    * Expires At
-   *
-   * When the access token expires
    */
   expires_at: string
 }
@@ -7411,7 +7549,7 @@ export type GetSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGetRespons
     200: unknown
   }
 
-export type OpencodeToAgentRedirectV1OpencodePathDeleteData = {
+export type OpencodeToAgentRedirectV1OpencodePathGetData = {
   body?: never
   path: {
     /**
@@ -7423,24 +7561,24 @@ export type OpencodeToAgentRedirectV1OpencodePathDeleteData = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDeleteErrors = {
+export type OpencodeToAgentRedirectV1OpencodePathGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDeleteError =
-  OpencodeToAgentRedirectV1OpencodePathDeleteErrors[keyof OpencodeToAgentRedirectV1OpencodePathDeleteErrors]
+export type OpencodeToAgentRedirectV1OpencodePathGetError =
+  OpencodeToAgentRedirectV1OpencodePathGetErrors[keyof OpencodeToAgentRedirectV1OpencodePathGetErrors]
 
-export type OpencodeToAgentRedirectV1OpencodePathDeleteResponses = {
+export type OpencodeToAgentRedirectV1OpencodePathGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete2Data = {
+export type OpencodeToAgentRedirectV1OpencodePathGet2Data = {
   body?: never
   path: {
     /**
@@ -7452,24 +7590,24 @@ export type OpencodeToAgentRedirectV1OpencodePathDelete2Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete2Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathGet2Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete2Error =
-  OpencodeToAgentRedirectV1OpencodePathDelete2Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete2Errors]
+export type OpencodeToAgentRedirectV1OpencodePathGet2Error =
+  OpencodeToAgentRedirectV1OpencodePathGet2Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet2Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete2Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathGet2Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete3Data = {
+export type OpencodeToAgentRedirectV1OpencodePathGet3Data = {
   body?: never
   path: {
     /**
@@ -7481,24 +7619,24 @@ export type OpencodeToAgentRedirectV1OpencodePathDelete3Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete3Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathGet3Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete3Error =
-  OpencodeToAgentRedirectV1OpencodePathDelete3Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete3Errors]
+export type OpencodeToAgentRedirectV1OpencodePathGet3Error =
+  OpencodeToAgentRedirectV1OpencodePathGet3Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet3Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete3Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathGet3Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete4Data = {
+export type OpencodeToAgentRedirectV1OpencodePathGet4Data = {
   body?: never
   path: {
     /**
@@ -7510,24 +7648,24 @@ export type OpencodeToAgentRedirectV1OpencodePathDelete4Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete4Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathGet4Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete4Error =
-  OpencodeToAgentRedirectV1OpencodePathDelete4Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete4Errors]
+export type OpencodeToAgentRedirectV1OpencodePathGet4Error =
+  OpencodeToAgentRedirectV1OpencodePathGet4Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet4Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete4Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathGet4Responses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete5Data = {
+export type OpencodeToAgentRedirectV1OpencodePathGet5Data = {
   body?: never
   path: {
     /**
@@ -7539,17 +7677,17 @@ export type OpencodeToAgentRedirectV1OpencodePathDelete5Data = {
   url: '/v1/opencode/{path}'
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete5Errors = {
+export type OpencodeToAgentRedirectV1OpencodePathGet5Errors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete5Error =
-  OpencodeToAgentRedirectV1OpencodePathDelete5Errors[keyof OpencodeToAgentRedirectV1OpencodePathDelete5Errors]
+export type OpencodeToAgentRedirectV1OpencodePathGet5Error =
+  OpencodeToAgentRedirectV1OpencodePathGet5Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet5Errors]
 
-export type OpencodeToAgentRedirectV1OpencodePathDelete5Responses = {
+export type OpencodeToAgentRedirectV1OpencodePathGet5Responses = {
   /**
    * Successful Response
    */
@@ -10217,6 +10355,157 @@ export type CreateBillingPortalV1UsersBillingPortalPostResponses = {
 export type CreateBillingPortalV1UsersBillingPortalPostResponse =
   CreateBillingPortalV1UsersBillingPortalPostResponses[keyof CreateBillingPortalV1UsersBillingPortalPostResponses]
 
+export type ProtectedResourceMetadataBaseWellKnownOauthProtectedResourceGetData =
+  {
+    body?: never
+    path?: never
+    query?: never
+    url: '/.well-known/oauth-protected-resource'
+  }
+
+export type ProtectedResourceMetadataBaseWellKnownOauthProtectedResourceGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetData =
+  {
+    body?: never
+    path: {
+      /**
+       * Path
+       */
+      path: string
+    }
+    query?: never
+    url: '/.well-known/oauth-protected-resource/{path}'
+  }
+
+export type ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetError =
+  ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetErrors[keyof ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetErrors]
+
+export type ProtectedResourceMetadataPathWellKnownOauthProtectedResourcePathGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type AuthorizationServerMetadataWellKnownOpenidConfigurationGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/.well-known/openid-configuration'
+}
+
+export type AuthorizationServerMetadataWellKnownOpenidConfigurationGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetData =
+  {
+    body?: never
+    path?: never
+    query?: never
+    url: '/.well-known/oauth-authorization-server/{path}'
+  }
+
+export type AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetData =
+  {
+    body?: never
+    path?: never
+    query?: never
+    url: '/.well-known/oauth-authorization-server'
+  }
+
+export type AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type RegisterClientOauthRegisterPostData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/oauth/register'
+}
+
+export type RegisterClientOauthRegisterPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type AuthorizeOauthAuthorizeGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/oauth/authorize'
+}
+
+export type AuthorizeOauthAuthorizeGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type TokenEndpointOauthTokenPostData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/oauth/token'
+}
+
+export type TokenEndpointOauthTokenPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type RevokeTokenOauthRevokePostData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/oauth/revoke'
+}
+
+export type RevokeTokenOauthRevokePostResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
 export type GetQueueStatusV1QueueStatusGetData = {
   body?: never
   path?: never
@@ -10887,6 +11176,77 @@ export type GetCurrentUserV1AutomationMeGetResponses = {
 export type GetCurrentUserV1AutomationMeGetResponse =
   GetCurrentUserV1AutomationMeGetResponses[keyof GetCurrentUserV1AutomationMeGetResponses]
 
+export type DispatchTaskV1TasksDispatchPostData = {
+  body: DispatchTaskRequest
+  path?: never
+  query?: never
+  url: '/v1/tasks/dispatch'
+}
+
+export type DispatchTaskV1TasksDispatchPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse
+}
+
+export type DispatchTaskV1TasksDispatchPostError =
+  DispatchTaskV1TasksDispatchPostErrors[keyof DispatchTaskV1TasksDispatchPostErrors]
+
+export type DispatchTaskV1TasksDispatchPostResponses = {
+  /**
+   * Successful Response
+   */
+  200: DispatchTaskResponse
+  /**
+   * Created
+   */
+  201: DispatchTaskResponse
+}
+
+export type DispatchTaskV1TasksDispatchPostResponse =
+  DispatchTaskV1TasksDispatchPostResponses[keyof DispatchTaskV1TasksDispatchPostResponses]
+
+export type GetDispatchedTaskV1TasksDispatchTaskIdGetData = {
+  body?: never
+  path: {
+    /**
+     * Task Id
+     */
+    task_id: string
+  }
+  query?: never
+  url: '/v1/tasks/dispatch/{task_id}'
+}
+
+export type GetDispatchedTaskV1TasksDispatchTaskIdGetErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetDispatchedTaskV1TasksDispatchTaskIdGetError =
+  GetDispatchedTaskV1TasksDispatchTaskIdGetErrors[keyof GetDispatchedTaskV1TasksDispatchTaskIdGetErrors]
+
+export type GetDispatchedTaskV1TasksDispatchTaskIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: DispatchTaskResponse
+}
+
+export type GetDispatchedTaskV1TasksDispatchTaskIdGetResponse =
+  GetDispatchedTaskV1TasksDispatchTaskIdGetResponses[keyof GetDispatchedTaskV1TasksDispatchTaskIdGetResponses]
+
 export type TrackEventV1AnalyticsTrackPostData = {
   body: TrackEventRequest
   path?: never
@@ -11124,6 +11484,30 @@ export type MarkConversionForwardedV1AnalyticsMarkForwardedConversionIdPostRespo
 
 export type MarkConversionForwardedV1AnalyticsMarkForwardedConversionIdPostResponse =
   MarkConversionForwardedV1AnalyticsMarkForwardedConversionIdPostResponses[keyof MarkConversionForwardedV1AnalyticsMarkForwardedConversionIdPostResponses]
+
+export type SubmitCrashReportV1CrashReportsPostData = {
+  body: CrashReport
+  path?: never
+  query?: never
+  url: '/v1/crash-reports'
+}
+
+export type SubmitCrashReportV1CrashReportsPostErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type SubmitCrashReportV1CrashReportsPostError =
+  SubmitCrashReportV1CrashReportsPostErrors[keyof SubmitCrashReportV1CrashReportsPostErrors]
+
+export type SubmitCrashReportV1CrashReportsPostResponses = {
+  /**
+   * Successful Response
+   */
+  202: unknown
+}
 
 export type ListCronjobsV1CronjobsGetData = {
   body?: never
@@ -12367,6 +12751,142 @@ export type RestCancelTaskA2aRestTasksTaskIdCancelPostResponses = {
    */
   200: unknown
 }
+
+export type RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetData =
+  {
+    body?: never
+    path: {
+      /**
+       * Task Id
+       */
+      task_id: string
+    }
+    query?: never
+    url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs'
+  }
+
+export type RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetError =
+  RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetErrors[keyof RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetErrors]
+
+export type RestListPushConfigsA2aRestTasksTaskIdPushNotificationConfigsGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostData =
+  {
+    body?: never
+    path: {
+      /**
+       * Task Id
+       */
+      task_id: string
+    }
+    query?: never
+    url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs'
+  }
+
+export type RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostError =
+  RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostErrors[keyof RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostErrors]
+
+export type RestCreatePushConfigA2aRestTasksTaskIdPushNotificationConfigsPostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteData =
+  {
+    body?: never
+    path: {
+      /**
+       * Task Id
+       */
+      task_id: string
+      /**
+       * Config Id
+       */
+      config_id: string
+    }
+    query?: never
+    url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs/{config_id}'
+  }
+
+export type RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteError =
+  RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteErrors[keyof RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteErrors]
+
+export type RestDeletePushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdDeleteResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetData =
+  {
+    body?: never
+    path: {
+      /**
+       * Task Id
+       */
+      task_id: string
+      /**
+       * Config Id
+       */
+      config_id: string
+    }
+    query?: never
+    url: '/a2a/rest/tasks/{task_id}/pushNotificationConfigs/{config_id}'
+  }
+
+export type RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetError =
+  RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetErrors[keyof RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetErrors]
+
+export type RestGetPushConfigA2aRestTasksTaskIdPushNotificationConfigsConfigIdGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
 
 export type McpRootMcpGetData = {
   body?: never

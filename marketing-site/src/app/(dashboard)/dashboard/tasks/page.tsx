@@ -433,7 +433,9 @@ export default function TasksPage() {
             }
         }
 
-        const baseUrl = apiUrl.replace(/\/+$/, '')
+        // Handle relative API URLs by resolving against window.location
+        const baseApiUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl
+        const baseUrl = baseApiUrl.replace(/\/+$/, '')
         const sseUrl = new URL(`${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)

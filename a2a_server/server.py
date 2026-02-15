@@ -120,6 +120,15 @@ except ImportError:
     AUTOMATION_API_AVAILABLE = False
     automation_api_router = None
 
+# Import task dispatch API for Knative integration
+try:
+    from .automation_api import dispatch_router as task_dispatch_router
+
+    TASK_DISPATCH_AVAILABLE = True
+except ImportError:
+    TASK_DISPATCH_AVAILABLE = False
+    task_dispatch_router = None
+
 # Import analytics API for first-party event tracking
 try:
     from .analytics_api import router as analytics_api_router
@@ -616,6 +625,11 @@ class A2AServer:
         if AUTOMATION_API_AVAILABLE and automation_api_router:
             self.app.include_router(automation_api_router)
             logger.info('Automation API router mounted at /v1/automation')
+
+        # Include task dispatch API for Knative Eventing
+        if TASK_DISPATCH_AVAILABLE and task_dispatch_router:
+            self.app.include_router(task_dispatch_router)
+            logger.info('Task dispatch API mounted at /v1/tasks')
 
         # Include analytics API for first-party event tracking
         if ANALYTICS_API_AVAILABLE and analytics_api_router:

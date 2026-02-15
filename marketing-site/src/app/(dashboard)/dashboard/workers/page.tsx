@@ -364,7 +364,9 @@ export default function WorkersPage() {
     ) => {
         closeActiveStream()
 
-        const baseUrl = resolvedApiUrl.replace(/\/+$/, '')
+        // Handle relative API URLs by resolving against window.location
+        const absoluteApiUrl = resolvedApiUrl.startsWith('/') ? `${window.location.origin}${resolvedApiUrl}` : resolvedApiUrl
+        const baseUrl = absoluteApiUrl.replace(/\/+$/, '')
         const sseUrl = new URL(`${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)

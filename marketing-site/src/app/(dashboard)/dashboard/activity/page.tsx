@@ -44,8 +44,9 @@ export default function ActivityPage() {
     useEffect(() => {
         loadMessages()
 
-        // Connect to SSE stream
-        const sseUrl = new URL(`${API_URL}/v1/monitor/stream`)
+        // Handle relative API URLs by resolving against window.location
+        const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
+        const sseUrl = new URL(`${baseApiUrl}/v1/monitor/stream`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
         }

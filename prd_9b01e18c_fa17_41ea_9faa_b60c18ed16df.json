@@ -1,0 +1,352 @@
+{
+  "project": "codetether",
+  "feature": "single-runtime-source-of-truth",
+  "branch_name": "feature/single-runtime-source-of-truth",
+  "version": "1.0",
+  "user_stories": [
+    {
+      "id": "US-001",
+      "title": "Fix handle_list_tools to use dynamic metadata",
+      "description": "Modify handle_list_tools() in src/mcp/server.rs:650 to iterate self.metadata HashMap instead of returning a hardcoded Vec, enabling dynamic tool registration",
+      "acceptance_criteria": [
+        "handle_list_tools iterates self.metadata HashMap",
+        "Tools registered via register_tool() appear in tools/list response",
+        "No hardcoded Vec returned"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [],
+      "complexity": 2
+    },
+    {
+      "id": "US-002",
+      "title": "Verify dynamic tool registration works",
+      "description": "Register a tool dynamically at runtime and verify tools/list API returns it",
+      "acceptance_criteria": [
+        "Call register_tool with new tool metadata",
+        "Call tools/list and verify new tool appears",
+        "Tool metadata matches registered data"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 2
+    },
+    {
+      "id": "US-003",
+      "title": "Enable gRPC-Web on Rust server",
+      "description": "Add tonic-web 0.14, enable gRPC-Web on tonic server in src/server/mod.rs with accept_http1 and CORS configuration",
+      "acceptance_criteria": [
+        "tonic-web 0.14 added to Cargo.toml",
+        "gRPC-Web endpoint accessible on server",
+        "CORS configured for browser requests"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-001",
+        "US-002"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-004",
+      "title": "Switch to Connect-ES for gRPC-Web",
+      "description": "Update buf.gen.yaml to use protoc-gen-connect-es + protoc-gen-es, generate client into marketing-site/src/lib/grpc/",
+      "acceptance_criteria": [
+        "buf.gen.yaml uses connect-es generators",
+        "Client code generated in marketing-site/src/lib/grpc/",
+        "@connectrpc/connect and @connectrpc/connect-web installed in marketing-site"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-003"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-005",
+      "title": "Replace dashboard REST calls with gRPC-Web",
+      "description": "Replace dashboard REST calls for sendMessage, getTask, cancelTask, taskSubscription with Connect-ES gRPC-Web calls",
+      "acceptance_criteria": [
+        "sendMessage uses gRPC-Web",
+        "getTask uses gRPC-Web",
+        "cancelTask uses gRPC-Web",
+        "taskSubscription uses gRPC-Web"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-004"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-006",
+      "title": "Verify browser uses gRPC-Web protocol",
+      "description": "Open browser network tab and verify requests use application/grpc-web content-type",
+      "acceptance_criteria": [
+        "Network tab shows application/grpc-web content-type",
+        "gRPC-Web requests succeed",
+        "No fallback to REST for replaced endpoints"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-005"
+      ],
+      "complexity": 2
+    },
+    {
+      "id": "US-007",
+      "title": "Implement POST /v1/bus/token endpoint",
+      "description": "Add POST /v1/bus/token that mints 5-minute agent-scoped JWTs, OPA-authorized via policies/bus.rego",
+      "acceptance_criteria": [
+        "POST /v1/bus/token returns valid JWT",
+        "JWT expires after 5 minutes",
+        "OPA policy validates token request"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-006"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-008",
+      "title": "Implement GET /v1/bus/stream SSE endpoint",
+      "description": "Add GET /v1/bus/stream SSE filtered by JWT topic claims",
+      "acceptance_criteria": [
+        "GET /v1/bus/stream returns SSE stream",
+        "Events filtered by JWT topic claims",
+        "Connection stays open for live updates"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-007"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-009",
+      "title": "Implement POST /v1/bus/publish endpoint",
+      "description": "Add POST /v1/bus/publish validated by JWT for publishing events to the bus",
+      "acceptance_criteria": [
+        "POST /v1/bus/publish accepts event payload",
+        "JWT validates publish authorization",
+        "Event broadcasted to subscribers"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-007"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-010",
+      "title": "Dashboard subscribes to bus via EventSource",
+      "description": "Dashboard subscribes via EventSource with auto-remint on expiry, replacing current per-codebase EventSource",
+      "acceptance_criteria": [
+        "Dashboard connects to /v1/bus/stream",
+        "Auto-remint on JWT expiry",
+        "Receives bus events in real-time"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-008",
+        "US-009"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-011",
+      "title": "Create Python bus client",
+      "description": "Create a2a_server/bus_client.py SSE client that connects to bus and publishes ToolRequest and ToolResponse",
+      "acceptance_criteria": [
+        "Python connects to /v1/bus/stream via SSE",
+        "Python publishes ToolRequest events",
+        "Python publishes ToolResponse events"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-008",
+        "US-009"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-012",
+      "title": "Verify cross-tab and cross-component bus events",
+      "description": "Trigger agent in one tab, verify bus events arrive in another tab. Kill Python, verify bus continues",
+      "acceptance_criteria": [
+        "Agent events visible in another tab",
+        "Python tool calls visible on dashboard",
+        "Bus continues when Python disconnected"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-010",
+        "US-011"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-013",
+      "title": "Implement GET /v1/tools unified endpoint",
+      "description": "Add GET /v1/tools returning merged Rust MCP plus remote registrations tagged by source",
+      "acceptance_criteria": [
+        "Returns all Rust MCP tools with source: rust",
+        "Returns all registered remote tools with source tag",
+        "Response includes tool name, description, params"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-012"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-014",
+      "title": "Implement POST /v1/tools/register with heartbeat",
+      "description": "Add POST /v1/tools/register with 30-second heartbeat, 90-second TTL, 15-second reaper",
+      "acceptance_criteria": [
+        "Tool registration accepts heartbeat interval",
+        "Tools expire after 90 seconds without heartbeat",
+        "Reaper removes expired tools every 15 seconds"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-013"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-015",
+      "title": "Python registers tools on startup and cleanup",
+      "description": "Python server registers tools on startup and calls DELETE on shutdown",
+      "acceptance_criteria": [
+        "Python registers tools on import/startup",
+        "Python sends heartbeat every 30 seconds",
+        "Python DELETE on shutdown"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-014"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-016",
+      "title": "Create dashboard ToolExplorer component",
+      "description": "Create ToolExplorer component grouped by source with name, description, params, and try-it button",
+      "acceptance_criteria": [
+        "Tools displayed grouped by source (rust/python)",
+        "Each tool shows name, description, params",
+        "Try-it button invokes tool"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-013",
+        "US-014"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-017",
+      "title": "Verify tool counts and expiry behavior",
+      "description": "Verify shows 35+ Rust tools and 4+ Python tools. Kill Python, Python tools disappear within 90 seconds",
+      "acceptance_criteria": [
+        "GET /v1/tools returns 35+ rust tools",
+        "GET /v1/tools returns 4+ python tools",
+        "Python tools removed within 90s of disconnection"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-015",
+        "US-016"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-018",
+      "title": "Relay completes all rounds end-to-end",
+      "description": "End-to-end test ensuring relay communication completes all rounds between components via gRPC-Web and bus",
+      "acceptance_criteria": [
+        "All gRPC-Web calls complete successfully",
+        "Bus events propagate across all components",
+        "100% relay completion rate"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-017"
+      ],
+      "complexity": 4
+    },
+    {
+      "id": "US-019",
+      "title": "Produce actionable handoff documentation",
+      "description": "Create documentation for team handoff including architecture, APIs, and runbooks",
+      "acceptance_criteria": [
+        "Architecture diagram provided",
+        "API documentation complete",
+        "Runbook for common scenarios included"
+      ],
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-018"
+      ],
+      "complexity": 2
+    },
+    {
+      "id": "US-020",
+      "title": "System runs with zero critical errors",
+      "description": "Run production-like load and ensure no critical errors in logs or monitoring",
+      "acceptance_criteria": [
+        "No panics in Rust server",
+        "No unhandled exceptions in dashboard",
+        "No errors in Python bus client"
+      ],
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-018"
+      ],
+      "complexity": 3
+    }
+  ],
+  "technical_requirements": [
+    "Rust server must expose gRPC-Web via tonic-web",
+    "Connect-ES must generate TypeScript client for browser",
+    "JWT tokens must use CODETETHER_BUS_JWT_SECRET for signing",
+    "Bus must support SSE for real-time updates",
+    "OPA policies must authorize bus token requests",
+    "Tool registry must implement TTL-based expiration with reaper",
+    "Dashboard must auto-remint expired JWT tokens",
+    "Python bus client must maintain persistent SSE connection",
+    "All phases must be shipped in order: Phase 0, 1, 2, 3"
+  ],
+  "quality_checks": {
+    "typecheck": "cargo check",
+    "test": "cargo test",
+    "lint": "cargo clippy --all-features",
+    "build": "cargo build"
+  },
+  "created_at": "2026-02-14T21:04:42.276891569+00:00",
+  "updated_at": "2026-02-14T21:04:42.276891569+00:00"
+}
