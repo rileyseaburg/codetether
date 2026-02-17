@@ -1,160 +1,272 @@
 {
   "project": "A2A-Server-MCP",
-  "branchName": "feature/multi-tenant-email",
-  "description": "Implement multi-tenant email support for Knative workers with per-tenant SendGrid configuration, database encryption, and RLS integration",
-  "userStories": [
+  "feature": "codebase-to-workspace-rename",
+  "branch_name": "feature/codebase-to-workspace-rename",
+  "version": "1.0",
+  "user_stories": [
     {
-      "id": "1",
-      "title": "Database Schema - Create tenant_email_settings table",
-      "description": "Create PostgreSQL table for per-tenant email configuration with encryption and RLS policies",
-      "acceptanceCriteria": [
-        "Table tenant_email_settings created with columns: tenant_id, provider, api_key_encrypted, from_email, from_name, reply_to_domain, provider_settings, enabled, daily_limit, created_at, updated_at",
-        "RLS policy tenant_email_settings_isolation created using tenant_id check",
-        "RLS enabled on the table",
-        "Foreign key constraint to tenants(id)",
-        "Migration script created to backfill existing tenants with global config"
+      "id": "US-001",
+      "title": "Database migration: rename codebases table to workspaces",
+      "description": "Create a SQL migration file at a2a_server/migrations/020_codebase_to_workspace.sql that renames the codebases table to workspaces, renames all codebase_id foreign key columns to workspace_id across sessions/tasks/ralph_runs/perpetual_loops/prd_chat_sessions tables, renames global_codebase_id to global_workspace_id in workers table, renames all indexes (idx_codebases_* to idx_workspaces_*, idx_tasks_codebase to idx_tasks_workspace, idx_sessions_codebase to idx_sessions_workspace, idx_ralph_runs_codebase to idx_ralph_runs_workspace, idx_prd_chat_sessions_codebase to idx_prd_chat_sessions_workspace), and creates a backward-compat view CREATE VIEW codebases AS SELECT * FROM workspaces. Also update RLS policies in enable_rls.sql and disable_rls.sql to reference the workspaces table instead of codebases.",
+      "acceptance_criteria": [
+        "Migration file a2a_server/migrations/020_codebase_to_workspace.sql exists with all ALTER TABLE RENAME and ALTER COLUMN RENAME statements",
+        "All foreign key columns renamed from codebase_id to workspace_id in sessions, tasks, ralph_runs, perpetual_loops, prd_chat_sessions tables",
+        "global_codebase_id renamed to global_workspace_id in workers table",
+        "All indexes renamed from idx_codebases_* to idx_workspaces_*",
+        "Backward-compat VIEW codebases created as SELECT * FROM workspaces",
+        "enable_rls.sql and disable_rls.sql updated to reference workspaces table"
       ],
-      "filesToModify": [
-        "a2a_server/database.py"
+      "verification_steps": [
+        "cat a2a_server/migrations/020_codebase_to_workspace.sql"
       ],
-      "estimatedHours": 2,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 1,
+      "depends_on": [],
+      "complexity": 3
     },
     {
-      "id": "2",
-      "title": "A2A Server - Pass tenant_id in CloudEvents",
-      "description": "Update publish_task_event to include tenant_id in CloudEvent headers and body for multi-tenant routing",
-      "acceptanceCriteria": [
-        "Add tenant_id parameter to publish_task_event function signature",
-        "Include ce-tenant header in CloudEvent headers via extensions parameter",
-        "Include tenant_id in event body JSON",
-        "Add notify_email parameter support to function",
-        "Update automation_api.py to pass tenant_id from authenticated user to publish_task_event",
-        "Update _build_cloudevent_headers to handle tenant extension attribute"
+      "id": "US-002",
+      "title": "Update database.py: rename all codebase refs to workspace",
+      "description": "In a2a_server/database.py, rename all functions from db_*_codebase*() to db_*_workspace*(), update all SQL table references from codebases to workspaces, update all column references from codebase_id to workspace_id (and codebase_name to workspace_name, codebase_path to workspace_path), rename _row_to_codebase() to _row_to_workspace(), update CREATE TABLE IF NOT EXISTS codebases to workspaces, update stats query from 'codebases' to 'workspaces'. Keep backward-compat aliases: codebase_router = workspace_router pattern where needed. The file has approximately 120 occurrences to update.",
+      "acceptance_criteria": [
+        "All db_*_codebase*() functions renamed to db_*_workspace*()",
+        "All SQL references to codebases table changed to workspaces",
+        "All codebase_id column references changed to workspace_id",
+        "CREATE TABLE statement uses workspaces not codebases",
+        "Stats query returns 'workspaces' key not 'codebases'",
+        "python -c 'from a2a_server.database import *' succeeds without import errors"
       ],
-      "filesToModify": [
-        "a2a_server/knative_events.py",
-        "a2a_server/automation_api.py"
+      "verification_steps": [
+        "cd /home/riley/A2A-Server-MCP && python -c 'from a2a_server.database import *; print(\"OK\")'"
       ],
-      "estimatedHours": 4,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-001"
+      ],
+      "complexity": 8
     },
     {
-      "id": "3",
-      "title": "Worker - Extract tenant_id and set DB context",
-      "description": "Update CloudEvent handler to extract tenant_id from headers and set PostgreSQL tenant context",
-      "acceptanceCriteria": [
-        "Extract tenant_id from ce-tenant header in CloudEvent",
-        "Execute 'SELECT set_config(\"app.current_tenant_id\", ${tenantId}, false)' before any DB operations",
-        "Handle missing tenant_id gracefully with fallback to global config",
-        "Ensure tenant context is set before email config query",
-        "Maintain backward compatibility for events without tenant_id"
+      "id": "US-003",
+      "title": "Update monitor_api.py: rename routes, models, Redis keys, functions",
+      "description": "In a2a_server/monitor_api.py (~150 occurrences), rename all API route paths from /codebases/ to /workspaces/ in endpoint decorators and path params, rename Pydantic models (CodebaseRegistration to WorkspaceRegistration etc), rename Redis key patterns from a2a:agent:codebases:* to a2a:agent:workspaces:*, rename JSON response keys from codebases/codebase_id to workspaces/workspace_id, rename all function names containing codebase to workspace. Keep the router variable as agent_router (already renamed from agent_router). Add backward-compat alias: workspace_router = agent_router.",
+      "acceptance_criteria": [
+        "All route paths use /workspaces/ instead of /codebases/",
+        "Path parameters renamed from codebase_id to workspace_id",
+        "Pydantic models renamed: CodebaseRegistration to WorkspaceRegistration",
+        "Redis keys use a2a:agent:workspaces:* pattern",
+        "JSON response keys use workspaces and workspace_id",
+        "All functions renamed from *codebase* to *workspace*",
+        "python -c 'from a2a_server.monitor_api import *' succeeds"
       ],
-      "filesToModify": [
-        "opencode/packages/opencode/src/server/routes/cloudevent.ts"
+      "verification_steps": [
+        "cd /home/riley/A2A-Server-MCP && python -c 'from a2a_server.monitor_api import agent_router; print(\"OK\")'"
       ],
-      "estimatedHours": 6,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 1,
+      "depends_on": [
+        "US-002"
+      ],
+      "complexity": 13
     },
     {
-      "id": "4",
-      "title": "Worker - Create tenant email configuration module",
-      "description": "Create TypeScript module to query and decrypt tenant email settings from database",
-      "acceptanceCriteria": [
-        "Create opencode/packages/opencode/src/util/tenant-email.ts",
-        "Define TenantEmailConfig interface with provider, apiKey, fromEmail, fromName, replyToDomain",
-        "Implement getTenantEmailConfig(tenantId) that queries DB and decrypts API key",
-        "Implement isEmailQuotaExceeded(tenantId) to check daily limits",
-        "Implement incrementEmailCount(tenantId) to track usage",
-        "Use pgp_sym_decrypt with DB_ENCRYPTION_KEY environment variable",
-        "Return null if no config found or tenant disabled"
+      "id": "US-004",
+      "title": "Update server.py with legacy redirect for codebases to workspaces",
+      "description": "In a2a_server/server.py, add a legacy redirect router that redirects all /v1/agent/codebases/* requests to /v1/agent/workspaces/* using 307 redirects, similar to the existing agent to agent redirects already in the file. This ensures old clients continue working during the transition.",
+      "acceptance_criteria": [
+        "Legacy redirect from /v1/agent/codebases/{path} to /v1/agent/workspaces/{path} with 307 status",
+        "All HTTP methods (GET, POST, PUT, DELETE, PATCH) redirected",
+        "Query parameters preserved in redirects"
       ],
-      "filesToModify": [
-        "opencode/packages/opencode/src/util/tenant-email.ts"
+      "verification_steps": [
+        "grep -n 'workspaces' a2a_server/server.py"
       ],
-      "estimatedHours": 8,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-003"
+      ],
+      "complexity": 3
     },
     {
-      "id": "5",
-      "title": "Worker - Update email module for multi-tenant",
-      "description": "Modify email.ts to accept and use tenant-specific configuration",
-      "acceptanceCriteria": [
-        "Update sendTaskCompletionEmail to accept optional tenantConfig parameter",
-        "Use tenantConfig if provided, otherwise fall back to global config from env vars",
-        "Extract From address and name from tenantConfig",
-        "Send email using tenant-specific SendGrid API key",
-        "Handle case where tenant has no email config (log warning)",
-        "Update imports to use tenant-email module"
+      "id": "US-005",
+      "title": "Update auth files: keycloak_auth.py, auth_api.py, policy_middleware.py",
+      "description": "Update three auth-related files: (1) a2a_server/keycloak_auth.py (~50 occurrences): rename UserCodebaseAssociation to UserWorkspaceAssociation, CodebaseAccessRequest to WorkspaceAccessRequest, rename methods associate_codebase/get_user_codebases/can_access_codebase/remove_codebase_association to workspace equivalents, rename _user_codebases dict to _user_workspaces. (2) a2a_server/auth_api.py (~36 occurrences): rename routes /user/{id}/codebases to /user/{id}/workspaces, models CodebaseAssociationRequest to WorkspaceAssociationRequest. (3) a2a_server/policy_middleware.py (~40 occurrences): update route regexes matching /codebases/ to /workspaces/, update permission strings codebases:read/write/delete to workspaces:read/write/delete.",
+      "acceptance_criteria": [
+        "keycloak_auth.py: all Codebase classes/methods renamed to Workspace equivalents",
+        "auth_api.py: routes use /workspaces/ instead of /codebases/",
+        "policy_middleware.py: route regexes match /workspaces/, permission strings use workspaces:*",
+        "python -c 'from a2a_server.keycloak_auth import *' succeeds",
+        "python -c 'from a2a_server.auth_api import *' succeeds"
       ],
-      "filesToModify": [
-        "opencode/packages/opencode/src/util/email.ts"
+      "verification_steps": [
+        "cd /home/riley/A2A-Server-MCP && python -c 'from a2a_server.keycloak_auth import *; from a2a_server.auth_api import *; print(\"OK\")'"
       ],
-      "estimatedHours": 4,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-002"
+      ],
+      "complexity": 8
     },
     {
-      "id": "6",
-      "title": "Admin API - Tenant email settings endpoints",
-      "description": "Create REST API endpoints for managing tenant email configuration",
-      "acceptanceCriteria": [
-        "Create POST /api/v1/admin/tenants/{tenant_id}/email-settings endpoint",
-        "Create GET /api/v1/admin/tenants/{tenant_id}/email-settings endpoint that masks API key",
-        "Create GET /api/v1/admin/tenants/{tenant_id}/email-stats endpoint for usage stats",
-        "Implement encryption of API keys using pgp_sym_encrypt before storage",
-        "Add authentication and authorization checks (admin only)",
-        "Validate email settings before saving"
+      "id": "US-006",
+      "title": "Update remaining backend files",
+      "description": "Update remaining backend Python files: (1) a2a_server/automation_api.py (~12 occurrences): rename codebase_id field to workspace_id in Pydantic models and SQL. (2) a2a_server/billing_api.py (~10): rename codebases_used to workspaces_used, codebases_limit to workspaces_limit. (3) a2a_server/billing_service.py (3): rename plan limit keys from codebases to workspaces. (4) a2a_server/email_api.py (~18): rename codebase_id field, update email format. (5) a2a_server/cron_dispatch.py (6): rename JSON keys and variables. (6) a2a_server/knative_gc.py (3): rename SQL join column. (7) a2a_server/agent_bridge.py (1): update import if needed.",
+      "acceptance_criteria": [
+        "All codebase references renamed to workspace in automation_api.py, billing_api.py, billing_service.py, email_api.py, cron_dispatch.py, knative_gc.py, agent_bridge.py",
+        "No remaining codebase references in these files except backward-compat comments",
+        "python -c 'from a2a_server.automation_api import *; from a2a_server.billing_api import *' succeeds"
       ],
-      "filesToModify": [
-        "a2a_server/admin_api.py"
+      "verification_steps": [
+        "cd /home/riley/A2A-Server-MCP && grep -rn 'codebase' a2a_server/automation_api.py a2a_server/billing_api.py a2a_server/billing_service.py a2a_server/email_api.py a2a_server/cron_dispatch.py a2a_server/knative_gc.py | head -5 || echo 'Clean'"
       ],
-      "estimatedHours": 6,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 2,
+      "depends_on": [
+        "US-002"
+      ],
+      "complexity": 5
     },
     {
-      "id": "7",
-      "title": "Helm - Add DB_ENCRYPTION_KEY configuration",
-      "description": "Update Helm templates and values to support database encryption key for API key encryption",
-      "acceptanceCriteria": [
-        "Add DB_ENCRYPTION_KEY env var to knative-worker-template.yaml container spec",
-        "Create secret reference in values.yaml under knative.worker.dbEncryptionSecret",
-        "Document encryption key generation in comments",
-        "Ensure key is mounted as environment variable in worker pods"
+      "id": "US-007",
+      "title": "Update OPA policies: permissions and tests",
+      "description": "Update OPA policy files: (1) policies/data.json: rename codebases:read to workspaces:read, codebases:write to workspaces:write, codebases:delete to workspaces:delete in all role permission mappings. (2) Update policies/authz_test.rego and policies/api_keys_test.rego test cases. (3) Mirror all changes to chart/a2a-server/policies/data.json (and test files) and codetether-agent/policies/data.json.",
+      "acceptance_criteria": [
+        "policies/data.json uses workspaces:read/write/delete instead of codebases:read/write/delete",
+        "Test rego files updated with workspace permission strings",
+        "chart/a2a-server/policies/ mirrored",
+        "codetether-agent/policies/ mirrored",
+        "opa test policies/ -v passes (if opa is installed)"
       ],
-      "filesToModify": [
-        "chart/a2a-server/templates/knative-worker-template.yaml",
-        "chart/a2a-server/values.yaml"
+      "verification_steps": [
+        "grep -rn 'codebases' policies/data.json || echo 'Clean'"
       ],
-      "estimatedHours": 2,
-      "priority": 0,
-      "passes": true
+      "passes": false,
+      "priority": 2,
+      "depends_on": [],
+      "complexity": 3
     },
     {
-      "id": "8",
-      "title": "Testing - Unit and integration tests",
-      "description": "Create comprehensive test suite for multi-tenant email functionality",
-      "acceptanceCriteria": [
-        "Test tenant context setting and RLS policies",
-        "Test email config encryption and decryption",
-        "Test CloudEvent parsing with tenant_id header",
-        "Integration test: full flow from task creation to email receipt",
-        "Test RLS isolation - verify Tenant A cannot access Tenant B settings",
-        "Test rate limiting enforcement",
-        "Test fallback to global config when tenant config missing"
+      "id": "US-008",
+      "title": "Update Rust worker: registration payload and CLI",
+      "description": "Update the Rust worker in codetether-agent/: (1) src/a2a/worker.rs (~22 occurrences): change JSON payload key from codebases to workspaces in registration, change HTTP header from X-Codebases to X-Workspaces, rename variables. (2) src/cli/mod.rs: rename --codebases CLI arg to --workspaces (keep --codebases as alias via clap alias attribute). (3) src/config/mod.rs: rename codebases field to workspaces. (4) src/server/policy.rs: update test permission strings from codebases:* to workspaces:*. (5) src/agent/builtin.rs and src/tool/rlm.rs: update display strings/descriptions that mention codebase.",
+      "acceptance_criteria": [
+        "JSON registration payload uses workspaces key instead of codebases",
+        "X-Workspaces header used instead of X-Codebases",
+        "CLI accepts both --workspaces and --codebases (alias)",
+        "cargo check succeeds from codetether-agent/ directory",
+        "No remaining codebase references except backward-compat aliases and comments"
       ],
-      "filesToModify": [
-        "tests/test_tenant_email.py",
-        "tests/test_cloudevent_handler.ts"
+      "verification_steps": [
+        "cd /home/riley/A2A-Server-MCP/codetether-agent && cargo check 2>&1 | tail -5"
       ],
-      "estimatedHours": 8,
-      "priority": 8,
-      "passes": false
+      "passes": false,
+      "priority": 2,
+      "depends_on": [],
+      "complexity": 5
+    },
+    {
+      "id": "US-009",
+      "title": "Update frontend API client and types",
+      "description": "Update marketing-site/src/lib/api/client.ts: rename Codebase interface to Workspace, rename codebases API namespace to workspaces, change all API route paths from /v1/agent/codebases/ to /v1/agent/workspaces/, rename codebase_id fields to workspace_id in Task interface. Also rename marketing-site/src/app/(dashboard)/dashboard/sessions/types/codebase.ts to workspace.ts and update the Codebase interface to Workspace, update types/index.ts re-export.",
+      "acceptance_criteria": [
+        "client.ts uses Workspace interface instead of Codebase",
+        "API client namespace is workspaces not codebases",
+        "All API routes use /v1/agent/workspaces/",
+        "Task interface uses workspace_id instead of codebase_id",
+        "Types file renamed and Workspace interface exported"
+      ],
+      "verification_steps": [
+        "grep -n 'codebase' marketing-site/src/lib/api/client.ts || echo 'Clean'"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-004"
+      ],
+      "complexity": 3
+    },
+    {
+      "id": "US-010",
+      "title": "Update sessions hooks and components",
+      "description": "In marketing-site/src/app/(dashboard)/dashboard/sessions/: (1) Rename hooks/useCodebases.ts to hooks/useWorkspaces.ts, rename hook from useCodebases to useWorkspaces, update API URL to /workspaces/. (2) Update hooks/useSessions.ts: API URLs from /codebases/ to /workspaces/. (3) Update hooks/useSessionStream.ts: SSE URL from /codebases/ to /workspaces/, rename selectedCodebase refs. (4) Update hooks/useSessionResume.ts: resume URL from /codebases/ to /workspaces/. (5) Update hooks/index.ts: export useWorkspaces. (6) Update components/SessionList.tsx: props codebases to workspaces, selectedCodebase to selectedWorkspace, display text 'Select workspace...'. (7) Update components/ChatHeader.tsx: display 'Workspace' not 'Codebase'. (8) Update components/SessionActions.tsx: prop codebaseId to workspaceId. (9) Update page.tsx: selectedCodebase state to selectedWorkspace, update all hook calls.",
+      "acceptance_criteria": [
+        "useCodebases.ts renamed to useWorkspaces.ts with useWorkspaces hook",
+        "All session hook API URLs use /workspaces/ instead of /codebases/",
+        "SessionList shows 'Select workspace...' in dropdown",
+        "ChatHeader shows 'Workspace' label",
+        "page.tsx uses selectedWorkspace state variable",
+        "No remaining codebase references in sessions/ directory except agent_port field"
+      ],
+      "verification_steps": [
+        "grep -rn 'codebase' marketing-site/src/app/\\(dashboard\\)/dashboard/sessions/ --include='*.ts' --include='*.tsx' | grep -v agent_port | grep -v node_modules | head -5 || echo 'Clean'"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-009"
+      ],
+      "complexity": 8
+    },
+    {
+      "id": "US-011",
+      "title": "Update remaining dashboard pages and shared components",
+      "description": "Update remaining frontend files: (1) marketing-site/src/app/(dashboard)/dashboard/workers/page.tsx: rename Codebase to Workspace, display 'Linked Workspaces', update API URLs. (2) output/page.tsx: API URLs, selectedCodebase to selectedWorkspace. (3) tasks/page.tsx: filter 'All Workspaces', codebase_id to workspace_id. (4) Main dashboard page.tsx (~60 refs): all codebase state/functions/display. (5) Ralph pages (store.ts, page.tsx, useAIPRDChat.ts, prd-api.ts, AIPRDBuilder.tsx, PRDChatHistory.tsx): selectedCodebase to selectedWorkspace, codebase_id to workspace_id. (6) Rename components/ui/CodebaseSelector.tsx to WorkspaceSelector.tsx, update component name and props. (7) Update components/Ralph/RalphSettingsPanel.tsx props and display. (8) Update layout.tsx nav: 'Codebases' to 'Workspaces'. (9) Update cronjobs pages: labels. (10) Update normalizeMessage.ts: global_codebase_id to global_workspace_id.",
+      "acceptance_criteria": [
+        "Workers page shows 'Linked Workspaces' not 'Linked Codebases'",
+        "Layout nav shows 'Workspaces' not 'Codebases'",
+        "CodebaseSelector renamed to WorkspaceSelector",
+        "Ralph pages use selectedWorkspace and workspace_id",
+        "Tasks page filter shows 'All Workspaces'"
+      ],
+      "verification_steps": [
+        "grep -rn 'Codebase\\|codebase' marketing-site/src/app/\\(dashboard\\)/dashboard/workers/page.tsx marketing-site/src/app/\\(dashboard\\)/dashboard/output/page.tsx marketing-site/src/app/\\(dashboard\\)/layout.tsx | grep -v node_modules | head -5 || echo 'Clean'"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-009"
+      ],
+      "complexity": 13
+    },
+    {
+      "id": "US-012",
+      "title": "Update Python test files",
+      "description": "Update all Python test files that reference codebase: (1) tests/test_worker_codebase_routing.py (~60 occurrences): rename to test_worker_workspace_routing.py, update all codebase refs to workspace. (2) tests/test_agent_session_fallback.py (~25): update endpoint URLs and error messages. (3) tests/test_policy_middleware.py (~25): update route patterns and permission strings. (4) tests/test_email_api.py (~15): update test names and assertions. (5) tests/test_external_session_ingest.py (~15): update URLs. (6) tests/test_task_session_id_update.py (~4): update bridge calls. (7) tests/test_finops.py (1): update route. (8) tests/test_codetether_task_queue_integration.py (~5): update env var and endpoint.",
+      "acceptance_criteria": [
+        "test_worker_codebase_routing.py renamed and updated",
+        "All test endpoint URLs use /workspaces/ instead of /codebases/",
+        "Permission strings in tests use workspaces:* instead of codebases:*",
+        "python -m pytest tests/ -x passes or has no new failures related to naming"
+      ],
+      "verification_steps": [
+        "cd /home/riley/A2A-Server-MCP && python -m pytest tests/test_policy.py -x 2>&1 | tail -5"
+      ],
+      "passes": false,
+      "priority": 3,
+      "depends_on": [
+        "US-003",
+        "US-005"
+      ],
+      "complexity": 8
     }
-  ]
+  ],
+  "technical_requirements": [
+    "Server must accept BOTH workspace_id and codebase_id in request body parsing during transition period",
+    "Add 307 redirects from old /codebases/ routes to new /workspaces/ routes",
+    "Keep --codebases CLI arg as deprecated alias alongside new --workspaces in Rust worker",
+    "Do NOT modify auto-generated files (types.gen.ts, sdk.gen.ts) - they will be regenerated from the OpenAPI spec",
+    "Do NOT modify marketing copy files (Hero.tsx, UseCases.tsx, etc.) - separate PR",
+    "The agent_port field in workspace type can stay as-is for now (separate concern)",
+    "Database migration must be safe for rolling deployment - use ALTER RENAME not DROP/CREATE"
+  ],
+  "quality_checks": {
+    "typecheck": "cd /home/riley/A2A-Server-MCP && python -c 'from a2a_server.database import *; from a2a_server.monitor_api import agent_router; print(\"Python imports OK\")'",
+    "test": "cd /home/riley/A2A-Server-MCP && python -m pytest tests/test_policy.py -x",
+    "lint": "cd /home/riley/A2A-Server-MCP/codetether-agent && cargo check 2>&1 | tail -3",
+    "build": "echo 'Build check deferred to deployment'"
+  },
+  "created_at": "2026-02-16T00:44:24.034871560+00:00",
+  "updated_at": "2026-02-16T00:44:24.034876301+00:00"
 }

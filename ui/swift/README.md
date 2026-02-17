@@ -5,7 +5,7 @@ A modern, fluid SwiftUI interface for monitoring A2A agent conversations with Ap
 ## Features
 
 - **Real-time Monitoring**: Watch agent conversations as they happen via Server-Sent Events (SSE)
-- **OpenCode Integration**: Register codebases, trigger AI agents, and manage watch mode
+- **CodeTether Integration**: Register codebases, trigger AI agents, and manage watch mode
 - **Task Queue**: Create and manage tasks that agents can pick up automatically
 - **Agent Output**: Stream real-time output including tool calls, reasoning, and responses
 - **Human Intervention**: Send messages directly to active agents
@@ -123,13 +123,13 @@ The app communicates with the following A2A server endpoints:
 - `GET /v1/monitor/messages` - Get message history
 - `POST /v1/monitor/intervene` - Send human intervention
 
-### OpenCode API
-- `GET /v1/opencode/status` - OpenCode integration status
-- `GET /v1/opencode/codebases` - List registered codebases
-- `POST /v1/opencode/codebases` - Register new codebase
-- `POST /v1/opencode/codebases/{id}/trigger` - Trigger agent
-- `POST /v1/opencode/codebases/{id}/watch/start` - Start watch mode
-- `GET /v1/opencode/tasks` - List tasks
+### CodeTether API
+- `GET /v1/agent/status` - CodeTether integration status
+- `GET /v1/agent/codebases` - List registered codebases
+- `POST /v1/agent/codebases` - Register new codebase
+- `POST /v1/agent/codebases/{id}/trigger` - Trigger agent
+- `POST /v1/agent/codebases/{id}/watch/start` - Start watch mode
+- `GET /v1/agent/tasks` - List tasks
 
 ## Keyboard Shortcuts (macOS)
 

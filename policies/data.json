@@ -6,6 +6,7 @@
                 "admin:access",
                 "admin:manage_users",
                 "admin:manage_tenants",
+                "admin:manage_policies",
                 "admin:view_dashboard",
                 "tasks:read",
                 "tasks:write",

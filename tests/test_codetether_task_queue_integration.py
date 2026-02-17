@@ -11,10 +11,10 @@ Optional configuration:
   CODETETHER_CODEBASE_ID=<codebase_id>
 
 If CODETETHER_CODEBASE_ID is not provided, the test will pick the first codebase
-returned by /v1/opencode/codebases/list.
+returned by /v1/agent/codebases/list.
 
 The tests use the worker's lightweight agent_type='echo'/'noop' so they do not
-require OpenCode/LLM credentials.
+require CodeTether/LLM credentials.
 """
 
 from __future__ import annotations
@@ -40,11 +40,11 @@ async def _pick_codebase_id(client: httpx.AsyncClient) -> str:
     if configured:
         return configured
 
-    resp = await client.get("/v1/opencode/codebases/list")
+    resp = await client.get("/v1/agent/codebases/list")
     resp.raise_for_status()
     codebases: List[Dict[str, Any]] = resp.json()
     if not codebases:
-        raise RuntimeError("No codebases returned by /v1/opencode/codebases/list")
+        raise RuntimeError("No codebases returned by /v1/agent/codebases/list")
     return str(codebases[0]["id"])
 
 
@@ -53,7 +53,7 @@ async def _poll_task(client: httpx.AsyncClient, task_id: str, timeout_s: float =
     last: Optional[Dict[str, Any]] = None
 
     while asyncio.get_event_loop().time() < deadline:
-        resp = await client.get(f"/v1/opencode/tasks/{task_id}")
+        resp = await client.get(f"/v1/agent/tasks/{task_id}")
         resp.raise_for_status()
         last = resp.json()
 
@@ -75,7 +75,7 @@ async def test_task_queue_echo_roundtrip():
         codebase_id = await _pick_codebase_id(client)
 
         create = await client.post(
-            f"/v1/opencode/codebases/{codebase_id}/tasks",
+            f"/v1/agent/codebases/{codebase_id}/tasks",
             json={
                 "title": "integration: echo",
                 "prompt": "worker ok",
@@ -100,7 +100,7 @@ async def test_task_queue_noop_roundtrip():
         codebase_id = await _pick_codebase_id(client)
 
         create = await client.post(
-            f"/v1/opencode/codebases/{codebase_id}/tasks",
+            f"/v1/agent/codebases/{codebase_id}/tasks",
             json={
                 "title": "integration: noop",
                 "prompt": "ignored",

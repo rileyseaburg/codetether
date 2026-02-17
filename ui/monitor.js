@@ -4,7 +4,7 @@ class AgentMonitor {
         this.messages = [];
         this.agents = new Map();
         this.tasks = [];
-        this.codebases = [];  // OpenCode registered codebases
+        this.codebases = [];  // CodeTether registered codebases
         this.models = [];     // Available AI models
         this.defaultModel = '';
         this.currentTaskFilter = 'all';
@@ -38,14 +38,14 @@ class AgentMonitor {
         this.pollTaskQueue();
         this.fetchTotalMessageCount();
         this.loadModels();       // Load available models
-        this.initOpenCode();     // Initialize OpenCode integration
+        this.initCodeTether();     // Initialize CodeTether integration
         this.initAgentOutput();  // Initialize agent output panel
     }
 
     async loadModels() {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/models`);
+            const response = await fetch(`${serverUrl}/v1/agent/models`);
             if (response.ok) {
                 const data = await response.json();
                 this.models = data.models || [];
@@ -182,7 +182,7 @@ class AgentMonitor {
 
     async connectAgentEventStream(codebaseId) {
         const serverUrl = this.getServerUrl();
-        const eventSource = new EventSource(`${serverUrl}/v1/opencode/codebases/${codebaseId}/events`);
+        const eventSource = new EventSource(`${serverUrl}/v1/agent/codebases/${codebaseId}/events`);
 
         this.agentOutputStreams.set(codebaseId, eventSource);
 
@@ -266,11 +266,11 @@ class AgentMonitor {
             // Parse nested JSON if content is a string containing JSON events
             if (data.type === 'text' && data.content) {
                 try {
-                    // Content may be newline-separated JSON events from OpenCode
+                    // Content may be newline-separated JSON events from CodeTether
                     const lines = data.content.split('\n').filter(l => l.trim());
                     for (const line of lines) {
                         const event = JSON.parse(line);
-                        this.processOpenCodeEvent(codebaseId, event);
+                        this.processCodeTetherEvent(codebaseId, event);
                     }
                 } catch {
                     // Not JSON, show as plain text
@@ -281,7 +281,7 @@ class AgentMonitor {
                     });
                 }
             } else if (data.type) {
-                this.processOpenCodeEvent(codebaseId, data);
+                this.processCodeTetherEvent(codebaseId, data);
             }
         });
 
@@ -352,8 +352,8 @@ class AgentMonitor {
         });
     }
 
-    processOpenCodeEvent(codebaseId, event) {
-        // Process OpenCode event format from task results
+    processCodeTetherEvent(codebaseId, event) {
+        // Process CodeTether event format from task results
         const type = event.type;
         const part = event.part || {};
 
@@ -708,7 +708,7 @@ class AgentMonitor {
     async loadAgentMessages(codebaseId) {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/messages?limit=50`);
+            const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/messages?limit=50`);
             if (response.ok) {
                 const data = await response.json();
                 // Process historical messages
@@ -812,35 +812,35 @@ class AgentMonitor {
     }
 
     // ========================================
-    // OpenCode Integration
+    // CodeTether Integration
     // ========================================
 
-    async initOpenCode() {
-        await this.checkOpenCodeStatus();
+    async initCodeTether() {
+        await this.checkCodeTetherStatus();
         await this.loadCodebases();
-        this.setupOpenCodeEventListeners();
+        this.setupCodeTetherEventListeners();
         // Poll codebases every 10 seconds
         setInterval(() => this.loadCodebases(), 10000);
     }
 
-    async checkOpenCodeStatus() {
+    async checkCodeTetherStatus() {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/status`);
+            const response = await fetch(`${serverUrl}/v1/agent/status`);
             const status = await response.json();
 
-            const statusEl = document.getElementById('opencodeStatus');
+            const statusEl = document.getElementById('agentStatus');
             if (status.available) {
-                statusEl.innerHTML = `✅ OpenCode ready | Binary: <code>${status.opencode_binary}</code>`;
+                statusEl.innerHTML = `✅ CodeTether ready | Binary: <code>${status.agent_binary}</code>`;
                 statusEl.style.background = '#d4edda';
             } else {
                 statusEl.innerHTML = `⚠️ ${status.message}`;
                 statusEl.style.background = '#fff3cd';
             }
         } catch (error) {
-            console.error('Failed to check OpenCode status:', error);
-            const statusEl = document.getElementById('opencodeStatus');
-            statusEl.innerHTML = '❌ OpenCode integration unavailable';
+            console.error('Failed to check CodeTether status:', error);
+            const statusEl = document.getElementById('agentStatus');
+            statusEl.innerHTML = '❌ CodeTether integration unavailable';
             statusEl.style.background = '#f8d7da';
         }
     }
@@ -848,7 +848,7 @@ class AgentMonitor {
     async loadCodebases() {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases`);
+            const response = await fetch(`${serverUrl}/v1/agent/codebases`);
             if (response.ok) {
                 this.codebases = await response.json();
                 this.displayCodebases();
@@ -1003,7 +1003,7 @@ class AgentMonitor {
             if (model) {
                 payload.model = model;
             }
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/trigger`, {
+            const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/trigger`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1028,7 +1028,7 @@ class AgentMonitor {
     async viewCodebaseStatus(codebaseId) {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/status`);
+            const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/status`);
             const status = await response.json();
 
             const modal = document.createElement('div');
@@ -1046,7 +1046,7 @@ class AgentMonitor {
                         <div><strong>Registered:</strong> ${new Date(status.registered_at).toLocaleString()}</div>
                         ${status.last_triggered ? `<div><strong>Last Triggered:</strong> ${new Date(status.last_triggered).toLocaleString()}</div>` : ''}
                         ${status.session_id ? `<div><strong>Session ID:</strong> <code>${status.session_id}</code></div>` : ''}
-                        ${status.opencode_port ? `<div><strong>OpenCode Port:</strong> ${status.opencode_port}</div>` : ''}
+                        ${status.agent_port ? `<div><strong>CodeTether Port:</strong> ${status.agent_port}</div>` : ''}
                     </div>
 
                     ${status.recent_messages ? `
@@ -1085,7 +1085,7 @@ class AgentMonitor {
     async interruptAgent(codebaseId) {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/interrupt`, {
+            const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/interrupt`, {
                 method: 'POST'
             });
             const result = await response.json();
@@ -1105,7 +1105,7 @@ class AgentMonitor {
     async stopAgent(codebaseId) {
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/stop`, {
+            const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/stop`, {
                 method: 'POST'
             });
             const result = await response.json();
@@ -1129,7 +1129,7 @@ class AgentMonitor {
 
         try {
             const serverUrl = this.getServerUrl();
-            const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}`, {
+            const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}`, {
                 method: 'DELETE'
             });
             const result = await response.json();
@@ -1146,7 +1146,7 @@ class AgentMonitor {
         }
     }
 
-    setupOpenCodeEventListeners() {
+    setupCodeTetherEventListeners() {
         // Register codebase modal
         window.openRegisterModal = () => {
             document.getElementById('registerCodebaseModal').classList.add('show');
@@ -1166,7 +1166,7 @@ class AgentMonitor {
 
             try {
                 const serverUrl = this.getServerUrl();
-                const response = await fetch(`${serverUrl}/v1/opencode/codebases`, {
+                const response = await fetch(`${serverUrl}/v1/agent/codebases`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, path, description })
@@ -1199,7 +1199,7 @@ class AgentMonitor {
     }
 
     // ========================================
-    // End OpenCode Integration
+    // End CodeTether Integration
     // ========================================
 
     async fetchTotalMessageCount() {
@@ -2292,7 +2292,7 @@ async function submitTask(event) {
 
     try {
         const serverUrl = monitor.getServerUrl();
-        const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/tasks`, {
+        const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2323,7 +2323,7 @@ async function submitTask(event) {
 async function refreshTasks() {
     try {
         const serverUrl = monitor.getServerUrl();
-        const response = await fetch(`${serverUrl}/v1/opencode/tasks`);
+        const response = await fetch(`${serverUrl}/v1/agent/tasks`);
 
         if (!response.ok) throw new Error('Failed to fetch tasks');
 
@@ -2434,7 +2434,7 @@ async function cancelTask(taskId) {
 
     try {
         const serverUrl = monitor.getServerUrl();
-        const response = await fetch(`${serverUrl}/v1/opencode/tasks/${taskId}/cancel`, {
+        const response = await fetch(`${serverUrl}/v1/agent/tasks/${taskId}/cancel`, {
             method: 'POST'
         });
 
@@ -2460,7 +2460,7 @@ async function startTask(taskId) {
         }
 
         // Find the codebase and trigger the agent
-        const response = await fetch(`${serverUrl}/v1/opencode/codebases/${task.codebase_id}/trigger`, {
+        const response = await fetch(`${serverUrl}/v1/agent/codebases/${task.codebase_id}/trigger`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2505,7 +2505,7 @@ function viewTaskResult(taskId) {
 async function startWatchMode(codebaseId) {
     try {
         const serverUrl = monitor.getServerUrl();
-        const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/watch/start`, {
+        const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/watch/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2530,7 +2530,7 @@ async function startWatchMode(codebaseId) {
 async function stopWatchMode(codebaseId) {
     try {
         const serverUrl = monitor.getServerUrl();
-        const response = await fetch(`${serverUrl}/v1/opencode/codebases/${codebaseId}/watch/stop`, {
+        const response = await fetch(`${serverUrl}/v1/agent/codebases/${codebaseId}/watch/stop`, {
             method: 'POST'
         });
 

@@ -1,13 +1,13 @@
-"""Regression tests for attaching OpenCode session IDs to running tasks.
+"""Regression tests for attaching CodeTether session IDs to running tasks.
 
-We want workers to be able to report the active OpenCode `session_id` while a
+We want workers to be able to report the active CodeTether `session_id` while a
 long-running task is executing, so UIs can deep-link into the live session and
 fetch messages.
 
 Two key requirements:
 1) Bridge task timestamps are idempotent: repeated RUNNING updates must not
    reset `started_at`.
-2) The API `PUT /v1/opencode/tasks/{task_id}/status` must accept `session_id`
+2) The API `PUT /v1/agent/tasks/{task_id}/status` must accept `session_id`
    and persist it onto the task.
 """
 
@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from a2a_server.agent_bridge import AgentBridge, AgentTaskStatus
-from a2a_server.monitor_api import opencode_router
+from a2a_server.monitor_api import agent_router
 import a2a_server.monitor_api as monitor_api
 
 
@@ -26,7 +26,7 @@ async def test_bridge_running_updates_preserve_started_at_and_set_session_id(
     tmp_path,
 ):
     bridge = AgentBridge(
-        auto_start=False, db_path=str(tmp_path / 'opencode.db')
+        auto_start=False, db_path=str(tmp_path / 'agent.db')
     )
 
     cb = await bridge.register_codebase(
@@ -58,7 +58,7 @@ async def test_bridge_running_updates_preserve_started_at_and_set_session_id(
 @pytest_asyncio.fixture
 async def client(monkeypatch):
     app = FastAPI()
-    app.include_router(opencode_router)
+    app.include_router(agent_router)
 
     # Avoid Redis in tests.
     monkeypatch.delenv('A2A_REDIS_URL', raising=False)
@@ -81,7 +81,7 @@ async def test_api_task_status_accepts_session_id_and_does_not_reset_started_at(
     tmp_path, monkeypatch, client
 ):
     bridge = AgentBridge(
-        auto_start=False, db_path=str(tmp_path / 'opencode.db')
+        auto_start=False, db_path=str(tmp_path / 'agent.db')
     )
     cb = await bridge.register_codebase(
         name='test',
@@ -108,19 +108,19 @@ async def test_api_task_status_accepts_session_id_and_does_not_reset_started_at(
 
     # First RUNNING update.
     resp1 = await client.put(
-        f'/v1/opencode/tasks/{task.id}/status',
+        f'/v1/agent/tasks/{task.id}/status',
         json={'status': 'running', 'worker_id': 'wrk_test'},
     )
     assert resp1.status_code == 200
 
     # Capture started_at after first update.
-    status1 = (await client.get(f'/v1/opencode/tasks/{task.id}')).json()
+    status1 = (await client.get(f'/v1/agent/tasks/{task.id}')).json()
     started_1 = status1.get('started_at')
     assert started_1 is not None
 
     # Second RUNNING update attaches session_id.
     resp2 = await client.put(
-        f'/v1/opencode/tasks/{task.id}/status',
+        f'/v1/agent/tasks/{task.id}/status',
         json={
             'status': 'running',
             'worker_id': 'wrk_test',
@@ -129,6 +129,6 @@ async def test_api_task_status_accepts_session_id_and_does_not_reset_started_at(
     )
     assert resp2.status_code == 200
 
-    status2 = (await client.get(f'/v1/opencode/tasks/{task.id}')).json()
+    status2 = (await client.get(f'/v1/agent/tasks/{task.id}')).json()
     assert status2.get('session_id') == 'ses_test_456'
     assert status2.get('started_at') == started_1
