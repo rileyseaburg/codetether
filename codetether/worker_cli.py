@@ -38,12 +38,12 @@ def _get_version() -> str:
 def _print_about() -> None:
     v = _get_version()
     print(f"CodeTether Worker {v}")
-    print("\nOpenCode integration")
-    print("- The worker executes tasks using an 'opencode'-compatible CLI on the worker machine.")
-    print("- This project maintains and tests against a fork of OpenCode (see the repo's 'opencode/' directory).")
+    print("\nCodeTether integration")
+    print("- The worker executes tasks using an 'agent'-compatible CLI on the worker machine.")
+    print("- This project maintains and tests against a fork of CodeTether (see the repo's 'agent/' directory).")
     print("\nUpstream credit")
-    print("- OpenCode: https://opencode.ai (by its upstream authors and contributors)")
-    print("- CodeTether is not affiliated with the upstream OpenCode project.")
+    print("- CodeTether: https://agent.ai (by its upstream authors and contributors)")
+    print("- CodeTether is not affiliated with the upstream CodeTether project.")
 
 
 def main() -> None:

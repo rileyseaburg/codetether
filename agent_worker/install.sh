@@ -46,7 +46,7 @@ fi
 LOCAL_OPENCODE_PATH=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --local-opencode) LOCAL_OPENCODE_PATH="$2"; shift ;;
+        --local-codetether) LOCAL_OPENCODE_PATH="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -80,27 +80,27 @@ log_info "Creating directories..."
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$CONFIG_DIR"
 mkdir -p "$INSTALL_DIR/.cache"
-ensure_dir "$INSTALL_DIR/.local/share/opencode"
-ensure_dir "$INSTALL_DIR/.config/opencode"
-ensure_dir "$INSTALL_DIR/.local/state/opencode"
+ensure_dir "$INSTALL_DIR/.local/share/codetether"
+ensure_dir "$INSTALL_DIR/.config/codetether"
+ensure_dir "$INSTALL_DIR/.local/state/codetether"
 
-# Install local OpenCode binary if provided
+# Install local CodeTether binary if provided
 if [[ -n "$LOCAL_OPENCODE_PATH" ]]; then
-    log_info "Installing local OpenCode binary from $LOCAL_OPENCODE_PATH..."
+    log_info "Installing local CodeTether binary from $LOCAL_OPENCODE_PATH..."
     if [[ -f "$LOCAL_OPENCODE_PATH" ]]; then
         # Install to the path expected by config.json
         ensure_dir "$INSTALL_DIR/bin"
-        cp "$LOCAL_OPENCODE_PATH" "$INSTALL_DIR/bin/opencode"
-        chmod +x "$INSTALL_DIR/bin/opencode"
+        cp "$LOCAL_OPENCODE_PATH" "$INSTALL_DIR/bin/codetether"
+        chmod +x "$INSTALL_DIR/bin/codetether"
         chown -R "$WORKER_USER:$WORKER_USER" "$INSTALL_DIR/bin"
-        log_info "Local OpenCode binary installed to $INSTALL_DIR/bin/opencode"
+        log_info "Local CodeTether binary installed to $INSTALL_DIR/bin/codetether"
     else
-        log_error "Local OpenCode binary not found at $LOCAL_OPENCODE_PATH"
+        log_error "Local CodeTether binary not found at $LOCAL_OPENCODE_PATH"
         exit 1
     fi
 else
-    # Auto-detect local opencode build from workspace
-    WORKSPACE_OPENCODE="$SCRIPT_DIR/../opencode/packages/opencode/dist"
+    # Auto-detect local codetether build from workspace
+    WORKSPACE_OPENCODE="$SCRIPT_DIR/../codetether/packages/codetether/dist"
 
     # Detect architecture
     arch=$(uname -m)
@@ -110,19 +110,19 @@ else
     os=$(uname -s | tr '[:upper:]' '[:lower:]')
     [[ "$os" == "darwin" ]] && os="darwin" || os="linux"
 
-    LOCAL_BUILD="$WORKSPACE_OPENCODE/opencode-$os-$arch/bin/opencode"
+    LOCAL_BUILD="$WORKSPACE_OPENCODE/codetether-$os-$arch/bin/codetether"
 
     if [[ -f "$LOCAL_BUILD" ]]; then
-        log_info "Found local OpenCode build at $LOCAL_BUILD"
+        log_info "Found local CodeTether build at $LOCAL_BUILD"
         ensure_dir "$INSTALL_DIR/bin"
-        cp "$LOCAL_BUILD" "$INSTALL_DIR/bin/opencode"
-        chmod +x "$INSTALL_DIR/bin/opencode"
+        cp "$LOCAL_BUILD" "$INSTALL_DIR/bin/codetether"
+        chmod +x "$INSTALL_DIR/bin/codetether"
         chown -R "$WORKER_USER:$WORKER_USER" "$INSTALL_DIR/bin"
-        log_info "Local OpenCode binary installed to $INSTALL_DIR/bin/opencode"
+        log_info "Local CodeTether binary installed to $INSTALL_DIR/bin/codetether"
     else
-        log_warn "No local OpenCode build found. You may need to install it manually or run:"
-        log_warn "  cd opencode/packages/opencode && bun run build --single"
-        log_warn "  sudo $0 --local-opencode <path-to-binary>"
+        log_warn "No local CodeTether build found. You may need to install it manually or run:"
+        log_warn "  cd codetether/packages/codetether && bun run build --single"
+        log_warn "  sudo $0 --local-codetether <path-to-binary>"
     fi
 fi
 
@@ -158,18 +158,18 @@ if [[ ! -f "$CONFIG_DIR/env" ]]; then
 # A2A_WORKER_NAME=my-worker
 # A2A_POLL_INTERVAL=5
 
-# OpenCode writes cache data; keep it in a service-owned path (avoids EACCES on /home/<user>/.cache)
+# CodeTether writes cache data; keep it in a service-owned path (avoids EACCES on /home/<user>/.cache)
 XDG_CACHE_HOME=/opt/a2a-worker/.cache
 
-# Keep OpenCode config/data/state under the service-owned home.
-# This lets the systemd worker use imported OpenCode auth (auth.json) without relying on env API keys.
+# Keep CodeTether config/data/state under the service-owned home.
+# This lets the systemd worker use imported CodeTether auth (auth.json) without relying on env API keys.
 HOME=/opt/a2a-worker
 XDG_DATA_HOME=/opt/a2a-worker/.local/share
 XDG_CONFIG_HOME=/opt/a2a-worker/.config
 XDG_STATE_HOME=/opt/a2a-worker/.local/state
 
-# LLM credentials (required for OpenCode agents). Provide via environment variables.
-# The default example OpenCode config often uses Anthropic (including Azure AI Foundry Anthropic endpoints).
+# LLM credentials (required for CodeTether agents). Provide via environment variables.
+# The default example CodeTether config often uses Anthropic (including Azure AI Foundry Anthropic endpoints).
 # ANTHROPIC_API_KEY=your_key_here
 
 # Email notifications (optional) - get SendGrid API key from https://app.sendgrid.com
@@ -192,7 +192,7 @@ ensure_env_kv "$CONFIG_DIR/env" "XDG_DATA_HOME" "$INSTALL_DIR/.local/share"
 ensure_env_kv "$CONFIG_DIR/env" "XDG_CONFIG_HOME" "$INSTALL_DIR/.config"
 ensure_env_kv "$CONFIG_DIR/env" "XDG_STATE_HOME" "$INSTALL_DIR/.local/state"
 
-# Best-effort import of the invoking user's OpenCode auth/config so the worker can run
+# Best-effort import of the invoking user's CodeTether auth/config so the worker can run
 # without requiring API keys to be injected into the systemd environment.
 REAL_HOME=""
 if [[ -n "$REAL_USER" ]] && id "$REAL_USER" &>/dev/null; then
@@ -200,38 +200,38 @@ if [[ -n "$REAL_USER" ]] && id "$REAL_USER" &>/dev/null; then
 fi
 
 if [[ -n "$REAL_HOME" ]] && [[ -d "$REAL_HOME" ]]; then
-    SRC_AUTH="$REAL_HOME/.local/share/opencode/auth.json"
-    DST_AUTH="$INSTALL_DIR/.local/share/opencode/auth.json"
+    SRC_AUTH="$REAL_HOME/.local/share/codetether/auth.json"
+    DST_AUTH="$INSTALL_DIR/.local/share/codetether/auth.json"
     if [[ -f "$SRC_AUTH" ]]; then
         if [[ -f "$DST_AUTH" ]] && [[ -z "${A2A_OVERWRITE_OPENCODE_AUTH:-}" ]]; then
-            log_info "OpenCode auth already exists for worker (leaving as-is): $DST_AUTH"
+            log_info "CodeTether auth already exists for worker (leaving as-is): $DST_AUTH"
             log_info "To overwrite from $SRC_AUTH, re-run with: A2A_OVERWRITE_OPENCODE_AUTH=1"
         else
-            log_info "Importing OpenCode auth for worker (auth.json)"
+            log_info "Importing CodeTether auth for worker (auth.json)"
             cp "$SRC_AUTH" "$DST_AUTH"
             chmod 600 "$DST_AUTH"
         fi
     else
-        log_warn "No OpenCode auth.json found at $SRC_AUTH (skipping import)"
-        log_warn "If OpenCode prompts for an API key, authenticate as '$WORKER_USER' or copy auth.json into $INSTALL_DIR/.local/share/opencode/"
+        log_warn "No CodeTether auth.json found at $SRC_AUTH (skipping import)"
+        log_warn "If CodeTether prompts for an API key, authenticate as '$WORKER_USER' or copy auth.json into $INSTALL_DIR/.local/share/codetether/"
     fi
 
-    SRC_CONFIG="$REAL_HOME/.config/opencode/opencode.json"
-    DST_CONFIG="$INSTALL_DIR/.config/opencode/opencode.json"
+    SRC_CONFIG="$REAL_HOME/.config/codetether/codetether.json"
+    DST_CONFIG="$INSTALL_DIR/.config/codetether/codetether.json"
     if [[ -f "$SRC_CONFIG" ]]; then
         if [[ -f "$DST_CONFIG" ]] && [[ -z "${A2A_OVERWRITE_OPENCODE_CONFIG:-}" ]]; then
-            log_info "OpenCode config already exists for worker (leaving as-is): $DST_CONFIG"
+            log_info "CodeTether config already exists for worker (leaving as-is): $DST_CONFIG"
             log_info "To overwrite from $SRC_CONFIG, re-run with: A2A_OVERWRITE_OPENCODE_CONFIG=1"
         else
-            log_info "Importing OpenCode config for worker (opencode.json)"
+            log_info "Importing CodeTether config for worker (codetether.json)"
             cp "$SRC_CONFIG" "$DST_CONFIG"
             chmod 600 "$DST_CONFIG" || true
         fi
     else
-        log_warn "No OpenCode opencode.json found at $SRC_CONFIG (skipping import)"
+        log_warn "No CodeTether codetether.json found at $SRC_CONFIG (skipping import)"
     fi
 else
-    log_warn "Could not determine home directory for REAL_USER='$REAL_USER' (skipping OpenCode auth/config import)"
+    log_warn "Could not determine home directory for REAL_USER='$REAL_USER' (skipping CodeTether auth/config import)"
 fi
 
 # Set ownership
