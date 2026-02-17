@@ -1,0 +1,16 @@
+{
+    "servers": {
+        "codetether": {
+            "command": "/home/riley/.cargo/bin/codetether-mcp-serve",
+            "args": [
+                "mcp",
+                "serve"
+            ],
+            "env": {
+                "RUST_LOG": "error",
+                "VAULT_ADDR": "https://vault.spotlessbinco.com",
+                "VAULT_TOKEN": "${VAULT_TOKEN}"
+            }
+        }
+    }
+}
