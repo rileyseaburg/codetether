@@ -58,7 +58,7 @@ Successfully validated the complete pipeline:
 1. **MCP Tool Call** → `ralph_create_run` with PRD and codebase_id
 2. **Task Creation** → Ralph creates tasks for each user story
 3. **Worker Execution** → Worker claims and executes tasks
-4. **AI Implementation** → OpenCode implements acceptance criteria
+4. **AI Implementation** → CodeTether implements acceptance criteria
 5. **Completion** → Run marked complete with story results
 
 #### Key Implementation Details
@@ -104,7 +104,7 @@ Ralph is a fully autonomous development agent that implements entire PRDs (Produ
 
 #### Ralph Architecture
 - **PRD-Driven Development**: Define user stories with acceptance criteria, Ralph implements them all
-- **Fresh Context Per Story**: Each user story spawns a new OpenCode instance for optimal context
+- **Fresh Context Per Story**: Each user story spawns a new CodeTether instance for optimal context
 - **Iterative Learning**: Failed stories trigger re-analysis using `progress.txt` context
 - **Self-Healing**: Automatic retry with accumulated learnings when acceptance criteria fail
 - **Git Integration**: Atomic commits per user story with meaningful commit messages
@@ -163,10 +163,10 @@ Automatic stuck task recovery system for improved reliability.
 - Email notification on permanent failure
 
 #### New API Endpoints
-- `GET /v1/opencode/tasks/stuck` - List stuck tasks
-- `POST /v1/opencode/tasks/stuck/recover` - Manual recovery trigger
-- `POST /v1/opencode/tasks/{id}/requeue` - Requeue specific task
-- `GET /v1/opencode/reaper/health` - Reaper health status
+- `GET /v1/agent/tasks/stuck` - List stuck tasks
+- `POST /v1/agent/tasks/stuck/recover` - Manual recovery trigger
+- `POST /v1/agent/tasks/{id}/requeue` - Requeue specific task
+- `GET /v1/agent/reaper/health` - Reaper health status
 
 #### Configuration
 - `TASK_STUCK_TIMEOUT_SECONDS` (default: 300)
@@ -211,7 +211,7 @@ Revolutionary infinite context processing that breaks the context window barrier
 
 #### Documentation
 - RLM architecture diagrams
-- Configuration guide in opencode-integration.md
+- Configuration guide in agent-integration.md
 - Flow diagrams in agent-messaging-architecture.md
 
 ---
@@ -377,9 +377,9 @@ CodeTether is now fully compliant with the official A2A Protocol v0.3 specificat
 
 * **Agent Worker God Object Refactor**: Major architectural improvement to `agent_worker/worker.py`
   - **`WorkerClient`** - HTTP/SSE communication with A2A server
-  - **`ConfigManager`** - OpenCode binary, storage paths, API keys, models
-  - **`SessionSyncService`** - Session reading and syncing from OpenCode storage
-  - **`TaskExecutor`** - Task execution, OpenCode subprocess, concurrency control
+  - **`ConfigManager`** - CodeTether binary, storage paths, API keys, models
+  - **`SessionSyncService`** - Session reading and syncing from CodeTether storage
+  - **`TaskExecutor`** - Task execution, CodeTether subprocess, concurrency control
   - **`AgentWorker`** - Thin orchestrator composing all services
 
 ### Marketing Site Voice Improvements
@@ -418,7 +418,7 @@ CodeTether is now fully compliant with the official A2A Protocol v0.3 specificat
   - Uses AI (Claude Opus 4.5 via Azure AI Foundry) for initiative planning and strategy
   - Initiative lifecycle management: draft → planning → executing → monitoring
   - Database-backed initiative persistence with PostgreSQL
-  - Task-based architecture: Coordinator creates tasks → Workers execute via OpenCode → MCP tools call spotlessbinco APIs
+  - Task-based architecture: Coordinator creates tasks → Workers execute via CodeTether → MCP tools call spotlessbinco APIs
 
 * **Spotless Bin Co MCP Tools**: 27 new MCP tools exposing marketing services:
   - **Creative**: `spotless_generate_creative`, `spotless_batch_generate_creatives`, `spotless_get_top_creatives`, `spotless_analyze_creative_performance`
@@ -434,7 +434,7 @@ CodeTether is now fully compliant with the official A2A Protocol v0.3 specificat
 
 * **Task-Based Orchestration**: Marketing Coordinator now creates tasks for workers instead of making direct API calls:
   ```
-  Coordinator → Creates Task → A2A Queue → Worker picks up → OpenCode executes → MCP tool calls API
+  Coordinator → Creates Task → A2A Queue → Worker picks up → CodeTether executes → MCP tool calls API
   ```
   This enables distributed execution, better monitoring, and resilience.
 
@@ -449,14 +449,14 @@ CodeTether is now fully compliant with the official A2A Protocol v0.3 specificat
 * **Redis Reactive Task Execution**: Workers can now subscribe to Redis MessageBroker events for near-instant task execution. Tasks start within milliseconds instead of waiting for poll cycles.
 * **Worker Redis Integration**: Added Redis pub/sub support to agent workers with automatic reconnection, event subscriptions, and graceful shutdown handling.
 * **Model Filtering by Authentication**: Workers now automatically filter available models based on configured authentication. Only models from providers with valid API keys or OAuth tokens in `auth.json` are registered with the server.
-* **Runtime Sessions API**: Direct access to local OpenCode sessions without requiring codebase registration
-  - `GET /v1/opencode/runtime/status` - Check if OpenCode runtime is available locally
-  - `GET /v1/opencode/runtime/projects` - List all local projects with session counts
-  - `GET /v1/opencode/runtime/sessions` - List all sessions with pagination
-  - `GET /v1/opencode/runtime/sessions/{id}` - Get session details
-  - `GET /v1/opencode/runtime/sessions/{id}/messages` - Get conversation history
-  - `GET /v1/opencode/runtime/sessions/{id}/parts` - Get message content parts
-* **Enhanced OpenCode Status**: The `/v1/opencode/status` endpoint now includes runtime session information when OpenCode is detected locally
+* **Runtime Sessions API**: Direct access to local CodeTether sessions without requiring codebase registration
+  - `GET /v1/agent/runtime/status` - Check if CodeTether runtime is available locally
+  - `GET /v1/agent/runtime/projects` - List all local projects with session counts
+  - `GET /v1/agent/runtime/sessions` - List all sessions with pagination
+  - `GET /v1/agent/runtime/sessions/{id}` - Get session details
+  - `GET /v1/agent/runtime/sessions/{id}/messages` - Get conversation history
+  - `GET /v1/agent/runtime/sessions/{id}/parts` - Get message content parts
+* **Enhanced CodeTether Status**: The `/v1/agent/status` endpoint now includes runtime session information when CodeTether is detected locally
 * **Blue-Green Deployments**: Added `make bluegreen-deploy` target with zero-downtime deployment support
 * **Kubernetes Targets**: New makefile targets for dev/staging/prod deployments (`make k8s-dev`, `make k8s-staging`, `make k8s-prod`)
 
@@ -474,12 +474,12 @@ CodeTether is now fully compliant with the official A2A Protocol v0.3 specificat
   - Task workflow explanation (polling, execution, streaming)
   - Session sync functionality
   - Troubleshooting guide
-* **Worker API Documentation**: Added Worker endpoints to OpenCode API reference
-  - `POST /v1/opencode/workers/register` - Register a worker
-  - `POST /v1/opencode/workers/{id}/unregister` - Unregister a worker
-  - `PUT /v1/opencode/tasks/{id}/status` - Update task status
-  - `POST /v1/opencode/tasks/{id}/output` - Stream task output
-  - `POST /v1/opencode/codebases/{id}/sessions/sync` - Sync sessions
+* **Worker API Documentation**: Added Worker endpoints to CodeTether API reference
+  - `POST /v1/agent/workers/register` - Register a worker
+  - `POST /v1/agent/workers/{id}/unregister` - Unregister a worker
+  - `PUT /v1/agent/tasks/{id}/status` - Update task status
+  - `POST /v1/agent/tasks/{id}/output` - Stream task output
+  - `POST /v1/agent/codebases/{id}/sessions/sync` - Sync sessions
 * Updated Distributed Workers guide with accurate Agent Worker integration
 * Updated REST API reference with Worker and Task endpoints
 * Added Runtime Sessions API examples to README
