@@ -442,18 +442,36 @@ knative:
         cpu: "250m"
     # Session TTL before garbage collection (24 hours)
     sessionTTLHours: 24
+    # Workspace PVCs for per-workspace persistent storage in Knative workers.
+    # Recommended on Harvester/Longhorn: enabled=true, accessModes=[ReadWriteMany].
+    workspacePersistence:
+      enabled: false
+      # PVC size for each workspace volume
+      size: "20Gi"
+      # Access modes for workspace PVCs
+      accessModes:
+        - ReadWriteMany
+      # StorageClass for workspace PVCs (e.g., longhorn)
+      # Empty string uses cluster default StorageClass
+      storageClass: ""
+      # Prefix for dynamically-created workspace PVC names
+      pvcNamePrefix: "codetether-workspace"
+      # Mount point inside Knative worker pods
+      mountPath: "/workspace"
+      # Subdirectory under mountPath used by git_service clone operations
+      reposSubPath: "repos"
     # Secret containing AI provider API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
     # Create this secret manually: kubectl create secret generic ai-provider-keys \
     #   --from-literal=ANTHROPIC_API_KEY=sk-ant-xxx \
     #   --from-literal=OPENAI_API_KEY=sk-xxx
     apiKeySecret: ""
     # Secret containing codetether-agent auth credentials for AI providers
-    # (Legacy: was OpenCode auth.json — now used by codetether-agent Rust worker)
+    # (Legacy: was CodeTether auth.json — now used by codetether-agent Rust worker)
     # Create: kubectl create secret generic agent-auth \
     #   --from-file=auth.json=$HOME/.config/codetether/auth.json -n a2a-server
     authSecret: ""
     # Secret containing codetether-agent config file
-    # (Legacy: was opencode.json — now used by codetether-agent Rust worker)
+    # (Legacy: was codetether.json — now used by codetether-agent Rust worker)
     # Create: kubectl create secret generic agent-config \
     #   --from-file=config.json=$HOME/.config/codetether/config.json -n a2a-server
     configSecret: ""

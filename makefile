@@ -12,6 +12,7 @@ DOCKER_TAG ?= v$(CODETETHER_VERSION)
 DOCKER_REGISTRY ?= us-central1-docker.pkg.dev/spotlessbinco/codetether
 OCI_REGISTRY = us-central1-docker.pkg.dev/spotlessbinco/codetether
 PORT ?= 8001
+WORKER_PORT ?= 8010
 CHART_PATH = chart/a2a-server
 CHART_VERSION ?= 1.4.1
 NAMESPACE ?= a2a-server
@@ -480,6 +481,7 @@ dev-no-worker: ## Run Python server and React dev server (no worker)
 	) & \
 	wait
 
+
 .PHONY: worker
 worker: ## Run a local Rust codetether A2A worker
 	@if [ -x "$(CODETETHER_RUST_BIN)" ]; then \
@@ -495,7 +497,7 @@ worker: ## Run a local Rust codetether A2A worker
 		exit 1; \
 	fi; \
 	echo "🚀 Starting Rust codetether worker ($(WORKER_NAME)): $$CODETETHER_CMD"; \
-	"$$CODETETHER_CMD" worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "$(WORKER_NAME)"
+	"$$CODETETHER_CMD" worker --server http://localhost:$(WORKER_PORT) --codebases . --auto-approve safe --name "$(WORKER_NAME)"
 
 .PHONY: worker-legacy
 worker-legacy: ## [DEPRECATED] Run legacy Python worker only when ALLOW_LEGACY_PY_WORKER=1
