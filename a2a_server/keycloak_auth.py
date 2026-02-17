@@ -138,7 +138,7 @@ class UserAgentSession:
     session_id: str
     codebase_id: str
     agent_type: str
-    opencode_session_id: Optional[str] = None
+    agent_session_id: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_activity: datetime = field(default_factory=datetime.utcnow)
     device_id: Optional[str] = None
@@ -150,7 +150,7 @@ class UserAgentSession:
             'session_id': self.session_id,
             'codebase_id': self.codebase_id,
             'agent_type': self.agent_type,
-            'opencode_session_id': self.opencode_session_id,
+            'agent_session_id': self.agent_session_id,
             'created_at': self.created_at.isoformat(),
             'last_activity': self.last_activity.isoformat(),
             'device_id': self.device_id,
@@ -692,15 +692,15 @@ class KeycloakAuthService:
     def update_agent_session(
         self,
         session_id: str,
-        opencode_session_id: Optional[str] = None,
+        agent_session_id: Optional[str] = None,
         message: Optional[Dict[str, Any]] = None,
     ):
         """Update an agent session."""
         session = self._agent_sessions.get(session_id)
         if session:
             session.last_activity = datetime.utcnow()
-            if opencode_session_id:
-                session.opencode_session_id = opencode_session_id
+            if agent_session_id:
+                session.agent_session_id = agent_session_id
             if message:
                 session.messages.append(
                     {**message, 'timestamp': datetime.utcnow().isoformat()}
@@ -748,6 +748,7 @@ keycloak_auth = KeycloakAuthService()
 
 
 async def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> Optional[UserSession]:
     """Dependency to get current authenticated user.
@@ -797,6 +798,13 @@ async def get_current_user(
                 logger.warning(
                     f'Failed to look up tenant for realm {realm_name}: {e}'
                 )
+
+        # Fallback for requests where tenant context is injected by middleware/header.
+        if not tenant_id:
+            tenant_id = (
+                getattr(request.state, 'tenant_id', None)
+                or request.headers.get('X-Tenant-ID')
+            )
 
         return UserSession(
             user_id=user_id,

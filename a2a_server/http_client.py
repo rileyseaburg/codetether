@@ -28,6 +28,7 @@ import time
 from contextlib import asynccontextmanager
 from enum import Enum
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -37,8 +38,19 @@ logger = logging.getLogger(__name__)
 # Configuration
 # -------------------------------------------------------------------
 
-MARKETING_SITE_URL = os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000')
+MARKETING_SITE_URL = os.environ.get('MARKETING_SITE_URL', '').strip()
+MARKETING_SITE_URL_CANDIDATES = [
+    url.strip()
+    for url in os.environ.get(
+        'MARKETING_SITE_URL_CANDIDATES',
+        'https://localhost:3001,http://localhost:3001,http://localhost:3000',
+    ).split(',')
+    if url.strip()
+]
 MARKETING_API_KEY = os.environ.get('MARKETING_API_KEY', '')
+MARKETING_SITE_DISCOVERY_TIMEOUT = float(
+    os.environ.get('MARKETING_SITE_DISCOVERY_TIMEOUT_SECONDS', '2.5')
+)
 
 # Connection pool settings
 MAX_CONNECTIONS = int(os.environ.get('HTTP_MAX_CONNECTIONS', '20'))
@@ -54,6 +66,29 @@ RETRY_MAX_ATTEMPTS = int(os.environ.get('HTTP_RETRY_MAX_ATTEMPTS', '3'))
 RETRY_BASE_DELAY = float(os.environ.get('HTTP_RETRY_BASE_DELAY_SECONDS', '1.0'))
 RETRY_MAX_DELAY = float(os.environ.get('HTTP_RETRY_MAX_DELAY_SECONDS', '30.0'))
 RETRY_BACKOFF_FACTOR = float(os.environ.get('HTTP_RETRY_BACKOFF_FACTOR', '2.0'))
+
+
+def _env_to_bool(value: Optional[str], *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _should_verify_tls(base_url: str) -> bool:
+    """
+    Determine whether to verify TLS certificates.
+
+    Override with MARKETING_SITE_TLS_VERIFY=true|false.
+    Defaults to false only for localhost https in dev.
+    """
+    explicit_verify = os.environ.get('MARKETING_SITE_TLS_VERIFY')
+    if explicit_verify is not None:
+        return _env_to_bool(explicit_verify, default=True)
+
+    parsed = urlparse(base_url)
+    if parsed.scheme == 'https' and parsed.hostname in {'localhost', '127.0.0.1', '::1'}:
+        return False
+    return True
 
 
 # -------------------------------------------------------------------
@@ -172,6 +207,8 @@ class HttpClientManager:
         self._client: Optional[httpx.AsyncClient] = None
         self._circuit = CircuitBreaker('marketing_site')
         self._started = False
+        self._base_url: Optional[str] = None
+        self._verify_tls: Optional[bool] = None
 
     async def start(self) -> None:
         """Initialize the shared HTTP client with connection pool."""
@@ -187,17 +224,71 @@ class HttpClientManager:
         if MARKETING_API_KEY:
             headers['x-api-key'] = MARKETING_API_KEY
 
+        base_url = await self._resolve_base_url()
+        verify_tls = _should_verify_tls(base_url)
+
         self._client = httpx.AsyncClient(
-            base_url=MARKETING_SITE_URL,
+            base_url=base_url,
             headers=headers,
             limits=limits,
             timeout=httpx.Timeout(30.0, connect=10.0),
+            verify=verify_tls,
         )
         self._started = True
+        self._base_url = base_url
+        self._verify_tls = verify_tls
         logger.info(
-            'HTTP client started (base_url=%s, max_conn=%d)',
-            MARKETING_SITE_URL, MAX_CONNECTIONS,
+            'HTTP client started (base_url=%s, verify_tls=%s, max_conn=%d)',
+            base_url, verify_tls, MAX_CONNECTIONS,
         )
+
+    async def _resolve_base_url(self) -> str:
+        """
+        Resolve marketing-site base URL.
+
+        Priority:
+        1) Explicit MARKETING_SITE_URL
+        2) Auto-detect from MARKETING_SITE_URL_CANDIDATES
+        """
+        if MARKETING_SITE_URL:
+            return MARKETING_SITE_URL
+
+        candidates = MARKETING_SITE_URL_CANDIDATES or [
+            'https://localhost:3001',
+            'http://localhost:3001',
+            'http://localhost:3000',
+        ]
+        for candidate in candidates:
+            if await self._probe_base_url(candidate):
+                logger.info('HTTP client auto-detected marketing site at %s', candidate)
+                return candidate
+
+        fallback = candidates[0]
+        logger.warning(
+            'HTTP client could not auto-detect marketing site; defaulting to %s',
+            fallback,
+        )
+        return fallback
+
+    async def _probe_base_url(self, base_url: str) -> bool:
+        """Probe a candidate base URL quickly without tripping the circuit breaker."""
+        verify_tls = _should_verify_tls(base_url)
+        timeout = httpx.Timeout(
+            MARKETING_SITE_DISCOVERY_TIMEOUT,
+            connect=min(MARKETING_SITE_DISCOVERY_TIMEOUT, 1.5),
+        )
+
+        try:
+            async with httpx.AsyncClient(
+                base_url=base_url,
+                timeout=timeout,
+                verify=verify_tls,
+                follow_redirects=False,
+            ) as probe:
+                resp = await probe.get('/')
+            return resp.status_code < 500
+        except httpx.RequestError:
+            return False
 
     async def stop(self) -> None:
         """Gracefully close the shared HTTP client."""
@@ -327,9 +418,19 @@ class HttpClientManager:
         await asyncio.sleep(delay + jitter)
 
     def get_health(self) -> Dict[str, Any]:
+        base_url = (
+            self._base_url
+            or MARKETING_SITE_URL
+            or (MARKETING_SITE_URL_CANDIDATES[0] if MARKETING_SITE_URL_CANDIDATES else None)
+        )
+        verify_tls = self._verify_tls if self._verify_tls is not None else (
+            _should_verify_tls(base_url) if base_url else None
+        )
         return {
             'started': self._started,
-            'base_url': MARKETING_SITE_URL,
+            'base_url': base_url,
+            'configured_base_url': MARKETING_SITE_URL or None,
+            'tls_verify': verify_tls,
             'circuit_breaker': self._circuit.get_health(),
         }
 

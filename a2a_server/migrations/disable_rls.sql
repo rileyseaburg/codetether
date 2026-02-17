@@ -32,13 +32,13 @@ ALTER TABLE workers DISABLE ROW LEVEL SECURITY;
 -- Disable RLS on Codebases Table
 -- ============================================
 
-DROP POLICY IF EXISTS tenant_isolation_codebases_select ON codebases;
-DROP POLICY IF EXISTS tenant_isolation_codebases_insert ON codebases;
-DROP POLICY IF EXISTS tenant_isolation_codebases_update ON codebases;
-DROP POLICY IF EXISTS tenant_isolation_codebases_delete ON codebases;
-DROP POLICY IF EXISTS admin_bypass_codebases ON codebases;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_select ON workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_insert ON workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_update ON workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_delete ON workspaces;
+DROP POLICY IF EXISTS admin_bypass_workspaces ON workspaces;
 
-ALTER TABLE codebases DISABLE ROW LEVEL SECURITY;
+ALTER TABLE workspaces DISABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- Disable RLS on Tasks Table
@@ -63,6 +63,27 @@ DROP POLICY IF EXISTS tenant_isolation_sessions_delete ON sessions;
 DROP POLICY IF EXISTS admin_bypass_sessions ON sessions;
 
 ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- Disable RLS on RBAC User Roles Table
+-- ============================================
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'rbac_user_roles'
+    ) THEN
+        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_rbac_user_roles_select ON rbac_user_roles';
+        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_rbac_user_roles_insert ON rbac_user_roles';
+        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_rbac_user_roles_update ON rbac_user_roles';
+        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_rbac_user_roles_delete ON rbac_user_roles';
+        EXECUTE 'DROP POLICY IF EXISTS admin_bypass_rbac_user_roles ON rbac_user_roles';
+        EXECUTE 'ALTER TABLE rbac_user_roles DISABLE ROW LEVEL SECURITY';
+    END IF;
+END $$;
 
 -- ============================================
 -- Remove helper functions (optional - keep for potential re-enable)
@@ -92,9 +113,10 @@ BEGIN
     RAISE NOTICE '============================================';
     RAISE NOTICE 'Tables with RLS disabled:';
     RAISE NOTICE '  - workers';
-    RAISE NOTICE '  - codebases';
+    RAISE NOTICE '  - workspaces';
     RAISE NOTICE '  - tasks';
     RAISE NOTICE '  - sessions';
+    RAISE NOTICE '  - rbac_user_roles';
     RAISE NOTICE '';
     RAISE NOTICE 'All RLS policies have been removed.';
     RAISE NOTICE 'Application-level tenant filtering remains active.';

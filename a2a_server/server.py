@@ -51,7 +51,6 @@ from .agent_card import AgentCard
 from .monitor_api import (
     monitor_router,
     agent_router,
-    opencode_router,  # backward-compat alias (same object as agent_router) — kept for redirect
     voice_router,
     auth_router,
     nextauth_router,
@@ -71,6 +70,7 @@ from .token_billing_api import router as token_billing_router
 from .finops_api import router as finops_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
+from .okr_api import okr_router
 
 # Import OAuth 2.1 provider for MCP protocol compliance
 try:
@@ -537,32 +537,14 @@ class A2AServer:
         self.app.include_router(monitor_router)
 
         # Include agent integration routes (/v1/agent/*)
-        # NOTE: agent_router IS opencode_router (alias) so this single
-        # include_router call serves both /v1/agent/* paths.
         self.app.include_router(agent_router)
         logger.info('Agent API router mounted at /v1/agent')
 
-        # Legacy backward-compat: redirect /v1/opencode/* → /v1/agent/*
-        # This allows old clients/workers to keep functioning during migration.
-        from fastapi import APIRouter as _Router
-        from fastapi.responses import RedirectResponse as _Redirect
-
-        _legacy_router = _Router(prefix='/v1/opencode', tags=['opencode-legacy'], deprecated=True)
-
-        @_legacy_router.api_route('/{path:path}', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
-        async def _opencode_to_agent_redirect(path: str, request: Request):
-            # Build redirect preserving the original scheme (handles TLS termination)
-            scheme = request.headers.get('x-forwarded-proto', request.url.scheme)
-            new_path = request.url.path.replace('/v1/opencode/', '/v1/agent/', 1)
-            query = f'?{request.url.query}' if request.url.query else ''
-            new_url = f'{scheme}://{request.url.netloc}{new_path}{query}'
-            return _Redirect(url=new_url, status_code=307)
-
-        self.app.include_router(_legacy_router)
-        logger.info('Legacy /v1/opencode/* redirect router mounted')
-
         # Include Ralph autonomous development routes
         self.app.include_router(ralph_router)
+
+        # Include OKR management routes
+        self.app.include_router(okr_router)
 
         # Include authentication routes
         self.app.include_router(auth_router)

@@ -816,6 +816,285 @@ class KeycloakTenantService:
                     f'Failed to list realms: {e.response.text}'
                 )
 
+    async def get_realm_roles(self, realm_name: str) -> List[str]:
+        """
+        List realm-level roles for a tenant realm.
+
+        Args:
+            realm_name: The realm name
+
+        Returns:
+            Sorted list of role names
+        """
+        await self._get_admin_token()
+
+        roles_url = f'{self.keycloak_url}/admin/realms/{realm_name}/roles'
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(
+                    roles_url,
+                    headers=self._get_auth_headers(),
+                    timeout=30.0,
+                )
+                if response.status_code == 404:
+                    raise TenantNotFoundError(f'Realm {realm_name} not found')
+                response.raise_for_status()
+                roles = response.json()
+                return sorted(
+                    {
+                        role.get('name')
+                        for role in roles
+                        if isinstance(role, dict) and role.get('name')
+                    }
+                )
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise TenantNotFoundError(f'Realm {realm_name} not found')
+                logger.error(f'Failed to list roles: {e.response.text}')
+                raise KeycloakTenantServiceError(
+                    f'Failed to list roles: {e.response.text}'
+                )
+
+    async def ensure_realm_roles(
+        self, realm_name: str, role_names: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Ensure realm roles exist in Keycloak for the given role names.
+
+        Args:
+            realm_name: Realm to manage
+            role_names: Role names to ensure exist
+
+        Returns:
+            Summary dict with created/existing/failed role names
+        """
+        await self._get_admin_token()
+        normalized = sorted({name.strip() for name in role_names if name and name.strip()})
+        existing_roles = set(await self.get_realm_roles(realm_name))
+
+        created: List[str] = []
+        existing: List[str] = []
+        failed: Dict[str, str] = {}
+
+        async with httpx.AsyncClient() as client:
+            for role_name in normalized:
+                if role_name in existing_roles:
+                    existing.append(role_name)
+                    continue
+                try:
+                    await self._create_role(
+                        client,
+                        realm_name,
+                        role_name,
+                        f'OPA RBAC role: {role_name}',
+                    )
+                    created.append(role_name)
+                except Exception as e:
+                    failed[role_name] = str(e)
+
+        return {
+            'created': created,
+            'existing': existing,
+            'failed': failed,
+        }
+
+    async def list_realm_users(
+        self,
+        realm_name: str,
+        search: Optional[str] = None,
+        first: int = 0,
+        max_results: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        List users in a realm.
+
+        Args:
+            realm_name: Realm to query
+            search: Optional Keycloak search query
+            first: Pagination offset
+            max_results: Max users to return
+
+        Returns:
+            List of user records from Keycloak
+        """
+        await self._get_admin_token()
+        users_url = f'{self.keycloak_url}/admin/realms/{realm_name}/users'
+
+        params: Dict[str, Any] = {
+            'first': max(0, first),
+            'max': min(max(1, max_results), 200),
+        }
+        if search:
+            params['search'] = search
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(
+                    users_url,
+                    params=params,
+                    headers=self._get_auth_headers(),
+                    timeout=30.0,
+                )
+                if response.status_code == 404:
+                    raise TenantNotFoundError(f'Realm {realm_name} not found')
+                response.raise_for_status()
+                users = response.json()
+                if not isinstance(users, list):
+                    return []
+                return users
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise TenantNotFoundError(f'Realm {realm_name} not found')
+                logger.error(f'Failed to list realm users: {e.response.text}')
+                raise KeycloakTenantServiceError(
+                    f'Failed to list realm users: {e.response.text}'
+                )
+
+    async def get_user_realm_roles(
+        self, realm_name: str, user_id: str
+    ) -> List[str]:
+        """
+        Get realm role names assigned to a user.
+        """
+        await self._get_admin_token()
+        mapping_url = (
+            f'{self.keycloak_url}/admin/realms/{realm_name}/users/{user_id}/role-mappings/realm'
+        )
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(
+                    mapping_url,
+                    headers=self._get_auth_headers(),
+                    timeout=30.0,
+                )
+                if response.status_code == 404:
+                    raise TenantNotFoundError(f'Realm {realm_name} not found')
+                response.raise_for_status()
+                role_mappings = response.json()
+                if not isinstance(role_mappings, list):
+                    return []
+                return sorted(
+                    {
+                        role.get('name')
+                        for role in role_mappings
+                        if isinstance(role, dict) and role.get('name')
+                    }
+                )
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise TenantNotFoundError(f'Realm {realm_name} not found')
+                logger.error(f'Failed to list user roles: {e.response.text}')
+                raise KeycloakTenantServiceError(
+                    f'Failed to list user roles: {e.response.text}'
+                )
+
+    async def set_user_realm_roles(
+        self,
+        realm_name: str,
+        user_id: str,
+        role_names: List[str],
+        managed_roles: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Set managed realm roles on a user in Keycloak.
+
+        Roles in `managed_roles` but not in `role_names` will be removed.
+        Roles not in `managed_roles` are left unchanged.
+        """
+        await self._get_admin_token()
+
+        desired_roles = {
+            role.strip() for role in role_names if isinstance(role, str) and role.strip()
+        }
+        managed_role_set = {
+            role.strip()
+            for role in (managed_roles or role_names)
+            if isinstance(role, str) and role.strip()
+        }
+
+        mapping_url = (
+            f'{self.keycloak_url}/admin/realms/{realm_name}/users/{user_id}/role-mappings/realm'
+        )
+
+        async with httpx.AsyncClient() as client:
+            try:
+                current_response = await client.get(
+                    mapping_url,
+                    headers=self._get_auth_headers(),
+                    timeout=30.0,
+                )
+                current_response.raise_for_status()
+                current_roles = current_response.json()
+                current_by_name = {
+                    role.get('name'): role
+                    for role in current_roles
+                    if isinstance(role, dict) and role.get('name')
+                }
+
+                to_remove = [
+                    role_obj
+                    for role_name, role_obj in current_by_name.items()
+                    if role_name in managed_role_set and role_name not in desired_roles
+                ]
+                to_add = sorted(
+                    role_name
+                    for role_name in desired_roles
+                    if role_name not in current_by_name
+                )
+
+                role_payloads_to_add: List[Dict[str, Any]] = []
+                for role_name in to_add:
+                    role_url = (
+                        f'{self.keycloak_url}/admin/realms/{realm_name}/roles/{role_name}'
+                    )
+                    role_response = await client.get(
+                        role_url,
+                        headers=self._get_auth_headers(),
+                        timeout=30.0,
+                    )
+                    role_response.raise_for_status()
+                    role_payloads_to_add.append(role_response.json())
+
+                if to_remove:
+                    remove_response = await client.request(
+                        'DELETE',
+                        mapping_url,
+                        json=to_remove,
+                        headers=self._get_auth_headers(),
+                        timeout=30.0,
+                    )
+                    remove_response.raise_for_status()
+
+                if role_payloads_to_add:
+                    add_response = await client.post(
+                        mapping_url,
+                        json=role_payloads_to_add,
+                        headers=self._get_auth_headers(),
+                        timeout=30.0,
+                    )
+                    add_response.raise_for_status()
+
+                final_roles = sorted(
+                    (set(current_by_name.keys()) - {r.get('name') for r in to_remove if r.get('name')})
+                    | set(to_add)
+                )
+
+                return {
+                    'assigned': to_add,
+                    'removed': sorted(
+                        [r.get('name') for r in to_remove if r.get('name')]
+                    ),
+                    'current': final_roles,
+                }
+
+            except httpx.HTTPStatusError as e:
+                logger.error(f'Failed to update user roles: {e.response.text}')
+                raise KeycloakTenantServiceError(
+                    f'Failed to update user roles: {e.response.text}'
+                )
+
 
 # Global tenant service instance
 keycloak_tenant_service = KeycloakTenantService()

@@ -166,19 +166,41 @@ class TaskReaper:
                     seconds=self.stuck_timeout
                 )
 
-                stuck_tasks = await conn.fetch(
-                    """
-                    SELECT id, codebase_id, title, prompt, agent_type,
-                           status, priority, worker_id, started_at,
-                           COALESCE((metadata->>'attempts')::int, 1) as attempts,
-                           metadata
-                    FROM tasks
-                    WHERE status = 'running'
-                      AND started_at < $1
-                    ORDER BY started_at ASC
-                    """,
-                    cutoff,
-                )
+                try:
+                    stuck_tasks = await conn.fetch(
+                        """
+                        SELECT id, workspace_id, title, prompt, agent_type,
+                               status, priority, worker_id, started_at,
+                               COALESCE((metadata->>'attempts')::int, 1) as attempts,
+                               metadata
+                        FROM tasks
+                        WHERE status = 'running'
+                          AND started_at < $1
+                        ORDER BY started_at ASC
+                        """,
+                        cutoff,
+                    )
+                except Exception as e:
+                    # Backward compatibility: older schemas may still use codebase_id.
+                    if (
+                        'workspace_id' in str(e).lower()
+                        and 'column' in str(e).lower()
+                    ):
+                        stuck_tasks = await conn.fetch(
+                            """
+                            SELECT id, codebase_id AS workspace_id, title, prompt, agent_type,
+                                   status, priority, worker_id, started_at,
+                                   COALESCE((metadata->>'attempts')::int, 1) as attempts,
+                                   metadata
+                            FROM tasks
+                            WHERE status = 'running'
+                              AND started_at < $1
+                            ORDER BY started_at ASC
+                            """,
+                            cutoff,
+                        )
+                    else:
+                        raise
 
                 stats.tasks_checked = len(stuck_tasks)
 

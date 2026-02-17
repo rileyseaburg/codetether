@@ -2,7 +2,7 @@
 -- PostgreSQL Row-Level Security (RLS) Migration
 -- A2A Server Multi-Tenant Isolation
 -- ============================================
--- 
+--
 -- This migration enables Row-Level Security (RLS) on all tenant-scoped tables
 -- to provide defense-in-depth database-level isolation for multi-tenant deployments.
 --
@@ -58,12 +58,12 @@ BEGIN
     -- Get the session variable
     -- IMPORTANT: current_setting returns '' (empty string) not NULL when not set
     tenant_id := current_setting('app.current_tenant_id', true);
-    
+
     -- Treat both NULL and empty string as "no tenant context"
     IF tenant_id IS NULL OR tenant_id = '' THEN
         RETURN NULL;
     END IF;
-    
+
     RETURN tenant_id;
 EXCEPTION
     WHEN OTHERS THEN
@@ -71,7 +71,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION get_current_tenant_id() IS 
+COMMENT ON FUNCTION get_current_tenant_id() IS
 'Returns the current tenant ID from session variable, or NULL if not set.
 Used by RLS policies for tenant isolation.
 NOTE: current_setting() returns empty string when not set, so we convert that to NULL.';
@@ -96,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_rls_audit_timestamp ON rls_audit_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_rls_audit_tenant ON rls_audit_log(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_rls_audit_table ON rls_audit_log(table_name);
 
-COMMENT ON TABLE rls_audit_log IS 
+COMMENT ON TABLE rls_audit_log IS
 'Audit log for RLS policy violations and access attempts.
 Records when tenant context mismatches occur for security monitoring.';
 
@@ -182,17 +182,17 @@ CREATE POLICY admin_bypass_workers ON workers
 -- Enable RLS on Codebases Table
 -- ============================================
 
-ALTER TABLE codebases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE codebases FORCE ROW LEVEL SECURITY;
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
-DROP POLICY IF EXISTS tenant_isolation_codebases_select ON codebases;
-DROP POLICY IF EXISTS tenant_isolation_codebases_insert ON codebases;
-DROP POLICY IF EXISTS tenant_isolation_codebases_update ON codebases;
-DROP POLICY IF EXISTS tenant_isolation_codebases_delete ON codebases;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_select ON workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_insert ON workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_update ON workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workspaces_delete ON workspaces;
 
 -- SELECT policy
-CREATE POLICY tenant_isolation_codebases_select ON codebases
+CREATE POLICY tenant_isolation_workspaces_select ON workspaces
     FOR SELECT
     USING (
         tenant_id = get_current_tenant_id()
@@ -201,7 +201,7 @@ CREATE POLICY tenant_isolation_codebases_select ON codebases
     );
 
 -- INSERT policy
-CREATE POLICY tenant_isolation_codebases_insert ON codebases
+CREATE POLICY tenant_isolation_workspaces_insert ON workspaces
     FOR INSERT
     WITH CHECK (
         tenant_id = get_current_tenant_id()
@@ -210,7 +210,7 @@ CREATE POLICY tenant_isolation_codebases_insert ON codebases
     );
 
 -- UPDATE policy
-CREATE POLICY tenant_isolation_codebases_update ON codebases
+CREATE POLICY tenant_isolation_workspaces_update ON workspaces
     FOR UPDATE
     USING (
         tenant_id = get_current_tenant_id()
@@ -224,7 +224,7 @@ CREATE POLICY tenant_isolation_codebases_update ON codebases
     );
 
 -- DELETE policy
-CREATE POLICY tenant_isolation_codebases_delete ON codebases
+CREATE POLICY tenant_isolation_workspaces_delete ON workspaces
     FOR DELETE
     USING (
         tenant_id = get_current_tenant_id()
@@ -233,14 +233,14 @@ CREATE POLICY tenant_isolation_codebases_delete ON codebases
     );
 
 -- Admin bypass policy
-DROP POLICY IF EXISTS admin_bypass_codebases ON codebases;
-CREATE POLICY admin_bypass_codebases ON codebases
+DROP POLICY IF EXISTS admin_bypass_workspaces ON workspaces;
+CREATE POLICY admin_bypass_workspaces ON workspaces
     FOR ALL
     TO a2a_admin
     USING (true)
     WITH CHECK (true);
 
--- RLS enabled on codebases table
+-- RLS enabled on workspaces table
 
 -- ============================================
 -- Enable RLS on Tasks Table
@@ -375,7 +375,7 @@ CREATE POLICY admin_bypass_sessions ON sessions
 -- ============================================
 
 CREATE OR REPLACE VIEW rls_status AS
-SELECT 
+SELECT
     n.nspname as schemaname,
     c.relname as tablename,
     c.relrowsecurity as rls_enabled,
@@ -384,9 +384,9 @@ FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
 AND c.relkind = 'r'
-AND c.relname IN ('workers', 'codebases', 'tasks', 'sessions', 'tenants');
+AND c.relname IN ('workers', 'workspaces', 'tasks', 'sessions', 'tenants');
 
-COMMENT ON VIEW rls_status IS 
+COMMENT ON VIEW rls_status IS
 'View showing RLS status for all tenant-scoped tables.
 Use: SELECT * FROM rls_status;';
 
@@ -435,7 +435,7 @@ BEGIN
     RAISE NOTICE '============================================';
     RAISE NOTICE 'Tables with RLS enabled:';
     RAISE NOTICE '  - workers';
-    RAISE NOTICE '  - codebases';
+    RAISE NOTICE '  - workspaces';
     RAISE NOTICE '  - tasks';
     RAISE NOTICE '  - sessions';
     RAISE NOTICE '';
