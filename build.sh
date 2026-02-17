@@ -48,7 +48,7 @@ else
     # - a2a-server -> a2a-server
     # - docs -> codetether-docs
     # - marketing -> a2a-marketing
-    # - opencode -> opencode
+    # - codetether -> codetether
     case "$SERVICE" in
         a2a-server) build_service "a2a-server" "a2a-server" ;;
         docs) build_service "docs" "codetether-docs" ;;

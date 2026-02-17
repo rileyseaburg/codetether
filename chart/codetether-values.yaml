@@ -237,3 +237,14 @@ knative:
         cpu: "250m"
     # Session TTL before garbage collection (24 hours)
     sessionTTLHours: 24
+    # Persistent per-workspace volumes for Knative workers
+    workspacePersistence:
+      enabled: true
+      size: "20Gi"
+      accessModes:
+        - ReadWriteMany
+      # Harvester default Longhorn StorageClass
+      storageClass: "longhorn"
+      pvcNamePrefix: "codetether-workspace"
+      mountPath: "/workspace"
+      reposSubPath: "repos"

@@ -29,6 +29,7 @@ data:
           timeoutSeconds: {{ .Values.knative.worker.maxTimeoutSeconds | default 600 }}
           containers:
             - image: {{ .Values.knative.worker.image }}
+              workingDir: "WORKSPACE_MOUNT_PATH"
               env:
                 - name: A2A_TENANT_ID
                   value: "TENANT_ID"
@@ -36,9 +37,13 @@ data:
                   value: "SESSION_ID"
                 - name: A2A_CODEBASE_ID
                   value: "CODEBASE_ID"
+                - name: CODETETHER_WORKER_NAME
+                  value: "session-SESSION_ID"
                 # codetether stores state in its own format
                 - name: CODETETHER_LOG_LEVEL
                   value: "info"
+                - name: GIT_CLONE_BASE
+                  value: "WORKSPACE_BASE_PATH"
                 - name: DATABASE_URL
                   value: "{{ .Values.externalPostgresql.url }}"
                 - name: MINIO_ENDPOINT
@@ -107,8 +112,12 @@ data:
                       name: {{ .Values.knative.worker.dbEncryptionSecret }}
                       key: encryption-key
                 {{- end }}
-              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.dbEncryptionSecret }}
+              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.dbEncryptionSecret .Values.knative.worker.workspacePersistence.enabled }}
               volumeMounts:
+                {{- if .Values.knative.worker.workspacePersistence.enabled }}
+                - name: workspace
+                  mountPath: "WORKSPACE_MOUNT_PATH"
+                {{- end }}
                 {{- if .Values.knative.worker.authSecret }}
                 - name: worker-auth
                   mountPath: /secrets/worker-auth
@@ -132,8 +141,13 @@ data:
                 requests:
                   memory: {{ .Values.knative.worker.resources.requests.memory | default "512Mi" }}
                   cpu: {{ .Values.knative.worker.resources.requests.cpu | default "250m" | quote }}
-          {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret }}
+          {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.workspacePersistence.enabled }}
           volumes:
+            {{- if .Values.knative.worker.workspacePersistence.enabled }}
+            - name: workspace
+              persistentVolumeClaim:
+                claimName: "WORKSPACE_PVC_NAME"
+            {{- end }}
             {{- if .Values.knative.worker.authSecret }}
             - name: worker-auth
               secret:

@@ -164,6 +164,20 @@ spec:
               value: "{{ include "a2a-server.fullname" . }}-knative-worker-template"
             - name: KUBERNETES_NAMESPACE
               value: {{ .Release.Namespace | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ENABLED
+              value: {{ .Values.knative.worker.workspacePersistence.enabled | default false | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS
+              value: {{ .Values.knative.worker.workspacePersistence.storageClass | default "" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_SIZE
+              value: {{ .Values.knative.worker.workspacePersistence.size | default "20Gi" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES
+              value: {{ join "," (.Values.knative.worker.workspacePersistence.accessModes | default (list "ReadWriteMany")) | quote }}
+            - name: KNATIVE_WORKSPACE_MOUNT_PATH
+              value: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+            - name: KNATIVE_WORKSPACE_BASE_PATH
+              value: {{ printf "%s/%s" ((.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") ((.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
+            - name: KNATIVE_WORKSPACE_PVC_PREFIX
+              value: {{ .Values.knative.worker.workspacePersistence.pvcNamePrefix | default "codetether-workspace" | quote }}
             - name: CRON_DRIVER
               value: {{ .Values.knative.cron.driver | default "auto" | quote }}
             - name: CRON_DEFAULT_NAMESPACE
@@ -424,6 +438,20 @@ spec:
               value: "{{ include "a2a-server.fullname" . }}-knative-worker-template"
             - name: KUBERNETES_NAMESPACE
               value: {{ .Release.Namespace | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ENABLED
+              value: {{ .Values.knative.worker.workspacePersistence.enabled | default false | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS
+              value: {{ .Values.knative.worker.workspacePersistence.storageClass | default "" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_SIZE
+              value: {{ .Values.knative.worker.workspacePersistence.size | default "20Gi" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES
+              value: {{ join "," (.Values.knative.worker.workspacePersistence.accessModes | default (list "ReadWriteMany")) | quote }}
+            - name: KNATIVE_WORKSPACE_MOUNT_PATH
+              value: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+            - name: KNATIVE_WORKSPACE_BASE_PATH
+              value: {{ printf "%s/%s" ((.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") ((.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
+            - name: KNATIVE_WORKSPACE_PVC_PREFIX
+              value: {{ .Values.knative.worker.workspacePersistence.pvcNamePrefix | default "codetether-workspace" | quote }}
             - name: CRON_DRIVER
               value: {{ .Values.knative.cron.driver | default "auto" | quote }}
             - name: CRON_DEFAULT_NAMESPACE
@@ -690,6 +718,20 @@ spec:
               value: "{{ include "a2a-server.fullname" $ }}-knative-worker-template"
             - name: KUBERNETES_NAMESPACE
               value: {{ $.Release.Namespace | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ENABLED
+              value: {{ $.Values.knative.worker.workspacePersistence.enabled | default false | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS
+              value: {{ $.Values.knative.worker.workspacePersistence.storageClass | default "" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_SIZE
+              value: {{ $.Values.knative.worker.workspacePersistence.size | default "20Gi" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES
+              value: {{ join "," ($.Values.knative.worker.workspacePersistence.accessModes | default (list "ReadWriteMany")) | quote }}
+            - name: KNATIVE_WORKSPACE_MOUNT_PATH
+              value: {{ $.Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+            - name: KNATIVE_WORKSPACE_BASE_PATH
+              value: {{ printf "%s/%s" (($.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") (($.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
+            - name: KNATIVE_WORKSPACE_PVC_PREFIX
+              value: {{ $.Values.knative.worker.workspacePersistence.pvcNamePrefix | default "codetether-workspace" | quote }}
             - name: CRON_DRIVER
               value: {{ $.Values.knative.cron.driver | default "auto" | quote }}
             - name: CRON_DEFAULT_NAMESPACE
