@@ -452,7 +452,7 @@ RLM enables agents to process arbitrarily long contexts by treating prompts as e
 
 ```
 ┌─────────────────────┐                ┌─────────────────────────────┐
-│ A2A Server (Python) │                │ OpenCode Worker (TypeScript)│
+│ A2A Server (Python) │                │ CodeTether Worker (TypeScript)│
 ├─────────────────────┤   dispatch     ├─────────────────────────────┤
 │ Task with:          │ ────────────>  │ RLM Tool                    │
 │ - model_ref         │                │ ┌─────────────────────────┐ │
@@ -551,7 +551,7 @@ A2A_RLM_DEFAULT_SUBCALL_MODEL_REF="zai:glm-4.7"
 A2A_RLM_FALLBACK_CHAIN="zai:glm-4.7,openai:gpt-4o-mini,controller"
 A2A_RLM_ALLOW_CONTROLLER_FALLBACK=1
 
-# OpenCode Worker (Guardrails)
+# CodeTether Worker (Guardrails)
 A2A_RLM_MAX_SUBCALLS_PER_ITERATION=5
 A2A_RLM_MAX_TOTAL_SUBCALLS=100
 A2A_RLM_MAX_SUBCALL_TOKENS=8000

@@ -17,10 +17,10 @@ CodeTether provides comprehensive session management for AI agent conversations.
 
 ```bash
 # List sessions
-GET /v1/opencode/codebases/{id}/sessions
+GET /v1/agent/codebases/{id}/sessions
 
-# Sync from OpenCode
-POST /v1/opencode/codebases/{id}/sessions/sync
+# Sync from CodeTether
+POST /v1/agent/codebases/{id}/sessions/sync
 ```
 
-See [OpenCode API](../api/opencode.md) for details.
+See [CodeTether API](../api/agent.md) for details.

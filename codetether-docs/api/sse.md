@@ -32,7 +32,7 @@ GET /v1/worker/tasks/stream?worker_id=worker-123 HTTP/1.1
 Host: api.codetether.run
 Accept: text/event-stream
 X-Codebases: my-project,api,backend
-X-Capabilities: opencode,build,deploy,test
+X-Capabilities: agent,build,deploy,test
 Authorization: Bearer <token>
 ```
 

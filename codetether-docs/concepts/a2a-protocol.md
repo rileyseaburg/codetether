@@ -71,7 +71,7 @@ curl https://api.codetether.run/.well-known/agent-card.json
     {
       "id": "code-assistance",
       "name": "Code Assistance",
-      "description": "AI-powered coding assistance via OpenCode"
+      "description": "AI-powered coding assistance via CodeTether"
     }
   ],
   "authentication": [
@@ -243,7 +243,7 @@ When a worker registers as an agent, it gets two identities:
       "name": "code-reviewer:dev-vm:abc123",
       "role": "code-reviewer",
       "instance_id": "dev-vm:abc123",
-      "description": "OpenCode worker agent...",
+      "description": "CodeTether worker agent...",
       "url": "https://api.codetether.run",
       "capabilities": {"streaming": true, "push_notifications": true},
       "last_seen": "2026-01-15T12:00:00"

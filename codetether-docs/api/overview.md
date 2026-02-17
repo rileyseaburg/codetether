@@ -12,7 +12,7 @@ CodeTether Server exposes multiple API endpoints for different purposes.
 | Endpoint | Port | Protocol | Description |
 |----------|------|----------|-------------|
 | `/v1/a2a` | 8000 | JSON-RPC 2.0 | A2A Protocol - agent-to-agent communication (alias: `POST /`) |
-| `/v1/opencode/*` | 8000 | REST | OpenCode integration - codebase & session management |
+| `/v1/agent/*` | 8000 | REST | CodeTether integration - codebase & session management |
 | `/v1/monitor/*` | 8000 | REST | Monitoring - agents, messages, stats |
 | `/v1/auth/*` | 8000 | REST | Authentication - tokens, sessions |
 | `/mcp/v1/*` | 9000 | JSON-RPC | MCP Protocol - tool integration |
@@ -26,7 +26,7 @@ CodeTether Server exposes multiple API endpoints for different purposes.
 POST https://codetether.example.com/v1/a2a
 
 # REST APIs
-GET/POST https://codetether.example.com/v1/opencode/...
+GET/POST https://codetether.example.com/v1/agent/...
 GET/POST https://codetether.example.com/v1/monitor/...
 
 # MCP Protocol
@@ -93,11 +93,11 @@ curl -X POST https://codetether.example.com/v1/a2a \
 
     [:octicons-arrow-right-24: REST Reference](rest.md)
 
--   :material-code-braces:{ .lg .middle } __OpenCode API__
+-   :material-code-braces:{ .lg .middle } __CodeTether API__
 
     Codebase registration, sessions, and AI coding agents
 
-    [:octicons-arrow-right-24: OpenCode Reference](opencode.md)
+    [:octicons-arrow-right-24: CodeTether Reference](agent.md)
 
 -   :material-broadcast:{ .lg .middle } __SSE Events__
 

@@ -13,7 +13,7 @@ Workers are separate processes that:
 
 - Connect to the CodeTether server
 - Poll for assigned tasks
-- Execute tasks using the local OpenCode fork (from `opencode/` directory)
+- Execute tasks using the local CodeTether fork (from `agent/` directory)
 - Report results back to the server
 - Sync session history to the central server
 
@@ -49,7 +49,7 @@ Edit `/etc/a2a-worker/config.json`:
       "description": "Main application"
     }
   ],
-  "capabilities": ["opencode", "build", "deploy", "test"]
+  "capabilities": ["agent", "build", "deploy", "test"]
 }
 ```
 
@@ -65,7 +65,7 @@ sudo systemctl enable a2a-agent-worker
 Once started, the server should show at least one registered worker:
 
 ```bash
-curl https://api.codetether.run/v1/opencode/workers
+curl https://api.codetether.run/v1/agent/workers
 ```
 
 On the worker machine, you can also confirm it is polling:
@@ -93,9 +93,9 @@ graph LR
         R --> W3[Worker N]
     end
 
-    W1 --> OC1[OpenCode]
-    W2 --> OC2[OpenCode]
-    W3 --> OC3[OpenCode]
+    W1 --> OC1[CodeTether]
+    W2 --> OC2[CodeTether]
+    W3 --> OC3[CodeTether]
 
     W1 -.-> R[Redis Events]
     W2 -.-> R
@@ -116,8 +116,8 @@ graph LR
 | `worker_name` | hostname | Unique worker identifier |
 | `poll_interval` | 5 | Seconds between task polls (fallback when reactive mode is unavailable) |
 | `codebases` | [] | Array of codebase objects to register |
-| `opencode_bin` | auto-detect | Path to OpenCode binary |
-| `capabilities` | ["opencode", "build", "deploy"] | Advertised capabilities |
+| `agent_bin` | auto-detect | Path to CodeTether binary |
+| `capabilities` | ["agent", "build", "deploy"] | Advertised capabilities |
 | `redis_url` | `redis://localhost:6379` | Redis URL for MessageBroker reactive task execution |
 
 ## Environment Variables
@@ -144,7 +144,7 @@ The installer creates `/etc/systemd/system/a2a-agent-worker.service`:
 
 ```ini
 [Unit]
-Description=A2A Agent Worker - OpenCode task executor
+Description=A2A Agent Worker - CodeTether task executor
 After=network-online.target
 
 [Service]
@@ -180,7 +180,7 @@ sudo journalctl -u a2a-agent-worker -f
 Register codebases with worker affinity:
 
 ```bash
-curl -X POST https://api.codetether.run/v1/opencode/codebases \
+curl -X POST https://api.codetether.run/v1/agent/codebases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-project",
@@ -201,7 +201,7 @@ Workers can also register a special "global" codebase that can receive tasks wit
 
 ```bash
 # Register as global codebase
-curl -X POST https://api.codetether.run/v1/opencode/codebases \
+curl -X POST https://api.codetether.run/v1/agent/codebases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "global-tasks",
@@ -320,7 +320,7 @@ sudo journalctl -u a2a-agent-worker -n 100
 
 ## Session Sync
 
-Workers automatically sync OpenCode session history to the server every ~60 seconds. This enables:
+Workers automatically sync CodeTether session history to the server every ~60 seconds. This enables:
 
 - Centralized session visibility
 - Session resumption from the web UI
@@ -337,4 +337,4 @@ The sync includes:
 - [Agent Worker](agent-worker.md) - Complete installation and configuration guide
 - [Architecture](../concepts/architecture.md) - System architecture overview
 - [Kubernetes Deployment](../deployment/kubernetes.md) - Production k8s deployment
-- [OpenCode API](../api/opencode.md) - Full API reference
+- [CodeTether API](../api/agent.md) - Full API reference

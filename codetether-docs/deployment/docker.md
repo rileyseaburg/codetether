@@ -17,9 +17,9 @@ docker run -d \
   ghcr.io/rileyseaburg/codetether-server:latest
 ```
 
-## Connecting to Host OpenCode
+## Connecting to Host CodeTether
 
-When running CodeTether in Docker and you want to connect to OpenCode running on your host machine:
+When running CodeTether in Docker and you want to connect to CodeTether running on your host machine:
 
 ### Docker Desktop (Mac/Windows)
 

@@ -140,7 +140,7 @@ async def publish_task_event(
 
 #### 2. Worker Email Configuration Interface
 
-New file: `opencode/packages/opencode/src/util/tenant-email.ts`
+New file: `agent/packages/agent/src/util/tenant-email.ts`
 
 ```typescript
 interface TenantEmailConfig {
@@ -217,7 +217,7 @@ async def get_tenant_email_stats(
 
 #### Phase 2: Worker Changes
 
-**File: `opencode/packages/opencode/src/server/routes/cloudevent.ts`**
+**File: `agent/packages/agent/src/server/routes/cloudevent.ts`**
 
 1. Extract `tenant_id` from CloudEvent headers (`ce-tenant`)
 2. Set PostgreSQL tenant context before all DB operations:
@@ -227,7 +227,7 @@ async def get_tenant_email_stats(
 3. Query tenant email config from DB
 4. Use tenant-specific credentials for SendGrid
 
-**File: `opencode/packages/opencode/src/util/tenant-email.ts`** (NEW)
+**File: `agent/packages/agent/src/util/tenant-email.ts`** (NEW)
 
 ```typescript
 import { Storage } from '../storage/storage';
@@ -268,7 +268,7 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
 }
 ```
 
-**File: `opencode/packages/opencode/src/util/email.ts`**
+**File: `agent/packages/agent/src/util/email.ts`**
 
 Modify to support tenant-specific configuration:
 

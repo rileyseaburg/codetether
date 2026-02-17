@@ -49,10 +49,10 @@ stateDiagram-v2
 }
 ```
 
-### Via OpenCode API
+### Via CodeTether API
 
 ```bash
-curl -X POST /v1/opencode/codebases/{id}/tasks \
+curl -X POST /v1/agent/codebases/{id}/tasks \
   -d '{"title": "Add tests", "prompt": "Add unit tests"}'
 ```
 
@@ -88,7 +88,7 @@ Tasks with `codebase_id: "global"` are sent to all workers that have registered 
 
 ```bash
 # Create a global task via MCP
-curl -X POST /v1/opencode/tasks \
+curl -X POST /v1/agent/tasks \
   -d '{
     "title": "System maintenance",
     "prompt": "Run system health checks",

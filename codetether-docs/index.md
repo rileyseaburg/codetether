@@ -38,13 +38,13 @@ CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Age
 
     [:octicons-arrow-right-24: Security](features/security.md)
 
--   :material-code-braces:{ .lg .middle } __OpenCode Integration__
+-   :material-code-braces:{ .lg .middle } __CodeTether Integration__
 
     ---
 
     Bridge AI coding agents to your codebase with session management
 
-    [:octicons-arrow-right-24: OpenCode](features/opencode.md)
+    [:octicons-arrow-right-24: CodeTether](features/agent.md)
 
 </div>
 
@@ -55,7 +55,7 @@ CodeTether Server is a production-ready implementation of the [A2A (Agent-to-Age
 CodeTether Server provides the infrastructure layer for running AI agents in production:
 
 - **[Ralph Autonomous Development](features/ralph.md)** — Implement entire PRDs autonomously with zero human intervention
-- **[RLM (Recursive Language Models)](features/opencode.md#rlm-recursive-language-models)** — Process arbitrarily large codebases without context limits
+- **[RLM (Recursive Language Models)](features/agent.md#rlm-recursive-language-models)** — Process arbitrarily large codebases without context limits
 - **[Zapier Integration](features/zapier.md)** — Connect to 5,000+ apps with no-code automation
 - **A2A Protocol Native** — Full implementation of the [A2A specification](https://a2a-protocol.org/specification.md) for agent-to-agent communication
 - **[Distributed Workers](features/distributed-workers.md)** — Run agents across multiple machines with automatic task routing
@@ -63,7 +63,7 @@ CodeTether Server provides the infrastructure layer for running AI agents in pro
 - **Session Management** — Resume conversations, sync across devices, maintain context
 - **[Security Features](features/security.md)** — Mandatory auth, audit trail, plugin sandboxing, K8s self-deployment
 - **Enterprise Auth** — Keycloak OIDC, API tokens
-- **OpenCode Bridge** — Native integration with OpenCode AI coding agents
+- **CodeTether Bridge** — Native integration with CodeTether AI coding agents
 - **[Deploy Anywhere](deployment/docker.md)** — Run on Docker, Kubernetes, or bare metal with ease
 - **[Email Reply Continuation](features/agent-worker.md#email-notifications)** — Reply to task notification emails to continue conversations with agents
 
@@ -83,10 +83,10 @@ CodeTether implements the complete A2A Protocol specification:
 Plus CodeTether extensions:
 
 - **[Ralph](features/ralph.md)** — Autonomous development loop that implements PRDs with self-healing retry
-- **[RLM](features/opencode.md#rlm-recursive-language-models)** — Recursive Language Models for infinite context processing
+- **[RLM](features/agent.md#rlm-recursive-language-models)** — Recursive Language Models for infinite context processing
 - **[Zapier](features/zapier.md)** — Native OAuth2 integration with triggers, actions, and searches
 - **Distributed task coordination** — Redis-backed task/state coordination (workers poll the server over HTTP)
-- **OpenCode Integration** — AI coding agent bridge with codebase registration
+- **CodeTether Integration** — AI coding agent bridge with codebase registration
 - **Monitor UI** — Web dashboard for real-time agent observation
 - **MCP Tools** — Model Context Protocol tool server
 - **Email Reply to Continue** — Reply directly to task notification emails to keep working with an agent
@@ -135,8 +135,8 @@ curl -X POST http://localhost:8000/v1/a2a \
 
 At a high level:
 
-- Clients talk to the API (`:8000`) for A2A JSON-RPC (`/v1/a2a`) and REST (`/v1/opencode/*`, `/v1/monitor/*`).
-- Workers run OpenCode and poll the server for pending tasks over HTTP.
+- Clients talk to the API (`:8000`) for A2A JSON-RPC (`/v1/a2a`) and REST (`/v1/agent/*`, `/v1/monitor/*`).
+- Workers run CodeTether and poll the server for pending tasks over HTTP.
 - Redis provides pub/sub plus shared task/state coordination.
 - The MCP server (`:9000`) exposes CodeTether capabilities as MCP tools.
 

@@ -10,7 +10,7 @@ CodeTether provides real-time streaming of agent output via Server-Sent Events (
 ## Connecting
 
 ```javascript
-const events = new EventSource('/v1/opencode/codebases/{id}/events');
+const events = new EventSource('/v1/agent/codebases/{id}/events');
 
 events.onmessage = (e) => {
   console.log(JSON.parse(e.data));
