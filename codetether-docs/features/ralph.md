@@ -15,7 +15,7 @@ Ralph is CodeTether's fully autonomous development agent that implements entire 
 Ralph provides:
 
 - **PRD-Driven Development**: Define user stories with acceptance criteria
-- **Fresh Context Per Story**: Each story spawns a new OpenCode instance
+- **Fresh Context Per Story**: Each story spawns a new CodeTether instance
 - **Iterative Learning**: Failed stories trigger re-analysis with accumulated context
 - **Self-Healing**: Automatic retry with learnings when acceptance criteria fail
 - **Git Integration**: Atomic commits per user story with meaningful messages
@@ -27,7 +27,7 @@ Ralph provides:
 flowchart TD
     A[PRD Input] --> B[Parse User Stories]
     B --> C{For Each Story}
-    C --> D[Spawn OpenCode]
+    C --> D[Spawn CodeTether]
     D --> E[Implement Story]
     E --> F{Check Criteria}
     F -->|Pass| G[Commit Changes]
@@ -43,7 +43,7 @@ flowchart TD
 
 1. **PRD Parsing**: Ralph reads your PRD (YAML format) and extracts user stories
 2. **Story Iteration**: For each user story:
-   - Spawns a fresh OpenCode instance (clean context)
+   - Spawns a fresh CodeTether instance (clean context)
    - Loads the story requirements and acceptance criteria
    - Implements the feature
    - Runs acceptance criteria checks
@@ -130,7 +130,7 @@ Access Ralph at `/dashboard/ralph`:
 
 ### Agent Overview
 
-- **Active Agents**: See which OpenCode instances are running
+- **Active Agents**: See which CodeTether instances are running
 - **Task Queue**: View pending stories
 - **Progress Metrics**: Pass rate, average iterations, time per story
 
@@ -376,6 +376,6 @@ POST /v1/ralph/runs/{run_id}/cancel
 
 ## Next Steps
 
-- [OpenCode Integration](opencode.md) - Learn about OpenCode features
-- [RLM Guide](../opencode-integration.md#rlm-recursive-language-models) - Deep dive into RLM
+- [CodeTether Integration](agent.md) - Learn about CodeTether features
+- [RLM Guide](../agent-integration.md#rlm-recursive-language-models) - Deep dive into RLM
 - [Agent Worker](agent-worker.md) - Deploy workers for Ralph

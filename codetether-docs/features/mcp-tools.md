@@ -412,9 +412,9 @@ MCP tools can be used by any AI assistant that supports tool calling:
 }
 ```
 
-### OpenCode
+### CodeTether
 
-OpenCode can use MCP tools directly for autonomous development workflows.
+CodeTether can use MCP tools directly for autonomous development workflows.
 
 ### Custom Integrations
 
@@ -426,4 +426,4 @@ Any system that can make HTTP POST requests to the MCP endpoint can use these to
 
 - [Ralph Guide](ralph.md) - Deep dive into autonomous development
 - [Agent Worker](agent-worker.md) - Deploy workers to execute tasks
-- [OpenCode Integration](opencode.md) - AI coding capabilities
+- [CodeTether Integration](agent.md) - AI coding capabilities

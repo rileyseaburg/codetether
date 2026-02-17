@@ -8,12 +8,13 @@ description: Mandatory auth, audit trail, plugin sandboxing, and K8s self-deploy
 !!! info "v1.1.0"
     These features ship with CodeTether Agent v1.1.0. They are implemented in Rust and cannot be disabled.
 
-CodeTether treats security as non-optional infrastructure. Five security controls are built into the platform:
+CodeTether treats security as non-optional infrastructure. Six security controls are built into the platform:
 
 | Control | Module | Description |
 |---------|--------|-------------|
 | **Mandatory Auth** | `src/server/auth.rs` | Bearer token on every endpoint. Cannot be disabled. |
 | **OPA Policy Engine** | `src/server/policy.rs`, `a2a_server/policy.py` | Centralized RBAC + scope + tenant authorization via OPA. |
+| **Database RLS** | `a2a_server/database.py`, `migrations/024_okr_rls.sql` | PostgreSQL Row-Level Security for tenant isolation at the database layer. |
 | **Audit Trail** | `src/audit/mod.rs` | Append-only log of every action. Queryable. |
 | **Plugin Sandboxing** | `src/tool/sandbox.rs` | Ed25519-signed manifests, resource limits. |
 | **K8s Self-Deployment** | `src/k8s/mod.rs` | Agent manages its own pods, scales, self-heals. |
@@ -90,6 +91,84 @@ export OPA_URL=http://localhost:8181
 ```
 
 See [Policy Engine (OPA)](../auth/policy-engine.md) for full documentation including role matrix, API key scopes, and adding new permissions.
+
+---
+
+## Database Row-Level Security (RLS)
+
+PostgreSQL Row-Level Security provides **database-level tenant isolation** as a defense-in-depth layer. Even if application code has a bug that omits a `WHERE tenant_id = $1` clause, the database itself will never return another tenant's data.
+
+### How It Works
+
+1. **Session variable**: Before executing queries, the Python API sets a PostgreSQL session variable:
+   ```sql
+   SET app.current_tenant_id = 'tenant-abc-123';
+   ```
+
+2. **Helper function**: A `SECURITY DEFINER` function reads the session variable:
+   ```sql
+   CREATE FUNCTION get_current_tenant_id() RETURNS TEXT AS $$
+       SELECT nullif(current_setting('app.current_tenant_id', true), '');
+   $$ LANGUAGE sql STABLE SECURITY DEFINER;
+   ```
+
+3. **RLS policies** on each table enforce that rows are only visible when `tenant_id = get_current_tenant_id()`.
+
+4. **Child tables** without their own `tenant_id` column (e.g., `okr_key_results`, `okr_runs`) inherit isolation through FK-based subquery policies that check the parent table.
+
+### Using `tenant_scope()` in API Code
+
+The `tenant_scope()` context manager in `a2a_server/database.py` handles the full lifecycle:
+
+```python
+from .database import tenant_scope
+
+@router.get("/v1/okr")
+async def list_okrs(user: UserSession = Depends(require_auth)):
+    tenant_id = getattr(user, "tenant_id", None)
+    async with tenant_scope(tenant_id) as conn:
+        rows = await conn.fetch("SELECT * FROM okrs ORDER BY created_at DESC")
+    return [dict(r) for r in rows]
+```
+
+This acquires a connection, sets the session variable, yields the connection, then resets the variable and releases the connection — even if an exception occurs.
+
+### Tables with RLS Enabled
+
+| Table | Policy Pattern | Migration |
+|-------|---------------|-----------|
+| `workers` | Direct `tenant_id` match | `enable_rls.sql` |
+| `workspaces` | Direct `tenant_id` match | `enable_rls.sql` |
+| `tasks` | Direct `tenant_id` match | `enable_rls.sql` |
+| `sessions` | Direct `tenant_id` match | `enable_rls.sql` |
+| `task_runs` | Direct `tenant_id` match | `010_task_runs_tenant_isolation.sql` |
+| `okrs` | Direct `tenant_id` match | `024_okr_rls.sql` |
+| `okr_key_results` | FK subquery via `okrs` | `024_okr_rls.sql` |
+| `okr_runs` | FK subquery via `okrs` | `024_okr_rls.sql` |
+| `cronjobs` | Direct `tenant_id` match | `013_cronjobs.sql` |
+| `cronjob_runs` | Direct `tenant_id` match | `013_cronjobs.sql` |
+| `analytics_events` | Direct `tenant_id` match | `012_analytics_events.sql` |
+| `analytics_identity_map` | Direct `tenant_id` match | `012_analytics_events.sql` |
+
+### Admin Bypass
+
+The `a2a_admin` PostgreSQL role bypasses all RLS policies for maintenance and migration operations.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RLS_ENABLED` | `true` | Set to `false` to disable RLS context setting in the API. Policies remain in PostgreSQL but `get_current_tenant_id()` returns NULL, allowing unrestricted access. |
+
+### Checking RLS Status
+
+```sql
+-- View which tables have RLS enabled
+SELECT * FROM rls_status;
+
+-- List all policies on a specific table
+SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'okrs';
+```
 
 ---
 
@@ -274,6 +353,10 @@ When enabled, the agent runs a background reconciliation every 30 seconds:
 │         │                                               │
 │  ┌──────▼───────┐  Every action recorded:               │
 │  │ Audit Layer  │  Append-only JSON Lines log           │
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  Database-level tenant isolation:     │
+│  │ Database RLS │  PostgreSQL row-level security        │
 │  └──────┬───────┘                                       │
 │         │                                               │
 │  ┌──────▼───────┐  Tools verified before execution:     │

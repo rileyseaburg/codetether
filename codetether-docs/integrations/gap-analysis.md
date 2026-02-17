@@ -452,8 +452,8 @@ GET /v2/action-runs/123e4567-e89b-12d3-a456-426614174000
 
 ### Current State
 CodeTether supports this pattern via:
-- `POST /v1/opencode/codebases/{id}/tasks` (create)
-- `GET /v1/opencode/tasks/{id}` (poll)
+- `POST /v1/agent/codebases/{id}/tasks` (create)
+- `GET /v1/agent/tasks/{id}` (poll)
 
 But the API is complex and not documented for this use case.
 
