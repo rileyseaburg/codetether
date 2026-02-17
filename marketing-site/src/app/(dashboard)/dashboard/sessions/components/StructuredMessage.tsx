@@ -1,25 +1,13 @@
 'use client'
 
 import { useState, memo, useId } from 'react'
-import {
-    Project,
-    Session,
-    Message,
-    Part,
-    Diff,
-    Todo,
-    TodoList,
-    SessionDiff,
-    isSessionID,
-    isMessageID,
-    isPartID
-} from '../../../../../../opencode-storage-types'
+
 import { JsonNode } from './JsonNode'
 import { CopyButton } from './CopyButton'
 import type { JsonValue, ParsedJsonPayload } from './JsonHelpers'
 import { formatCost } from '../utils'
 
-type OpenCodeDataType =
+type CodeTetherDataType =
     | { type: 'Project'; data: Project }
     | { type: 'Session'; data: Session }
     | { type: 'Message'; data: Message }
@@ -403,7 +391,7 @@ function getEventDotClass(kind: EventSummary['kind']): string {
     }
 }
 
-function detectOpenCodeType(data: unknown): OpenCodeDataType {
+function detectCodeTetherType(data: unknown): CodeTetherDataType {
     if (typeof data !== 'object' || data === null) {
         return { type: 'Unknown', data }
     }
@@ -450,7 +438,7 @@ function detectOpenCodeType(data: unknown): OpenCodeDataType {
     return { type: 'Unknown', data }
 }
 
-function getDataTypeLabel(dataType: OpenCodeDataType): string {
+function getDataTypeLabel(dataType: CodeTetherDataType): string {
     switch (dataType.type) {
         case 'Project':
             const p = dataType.data as Project
@@ -485,7 +473,7 @@ function StructuredMessageInner({ payload, isUser = false, model }: StructuredMe
     const id = useId()
 
     const { value: rawValue, kind } = unwrapPayload(payload)
-    const dataType = detectOpenCodeType(rawValue)
+    const dataType = detectCodeTetherType(rawValue)
     const jsonText = (() => {
         if (kind === 'lines' && Array.isArray(rawValue)) {
             return rawValue.map((line) => JSON.stringify(line)).join('\n')

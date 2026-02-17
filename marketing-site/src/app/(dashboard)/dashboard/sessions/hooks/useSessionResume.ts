@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { API_URL, Session } from '../types'
 
 interface UseSessionResumeProps {
-    selectedCodebase: string
+    selectedWorkspace: string
     selectedMode: string
     selectedModel: string
     onSessionUpdate: (sessionId: string) => void
-    loadSessions: (codebaseId: string) => Promise<void>
+    loadSessions: (workspaceId: string) => Promise<void>
     loadSessionMessages: (sessionId: string, force?: boolean) => Promise<void>
 }
 
@@ -15,7 +15,7 @@ const MAX_RETRIES = 2
 const POLL_INTERVAL_MS = 2000 // Poll every 2 seconds
 const MAX_POLL_ATTEMPTS = 90 // 3 minutes max polling (90 * 2s)
 
-type TaskStatus = 'pending' | 'working' | 'completed' | 'failed' | 'cancelled'
+type TaskStatus = 'pending' | 'running' | 'working' | 'completed' | 'failed' | 'cancelled'
 
 interface TaskStatusResponse {
     id: string
@@ -44,7 +44,7 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_R
     throw lastError
 }
 
-export function useSessionResume({ selectedCodebase, selectedMode, selectedModel, onSessionUpdate, loadSessions, loadSessionMessages }: UseSessionResumeProps) {
+export function useSessionResume({ selectedWorkspace, selectedMode, selectedModel, onSessionUpdate, loadSessions, loadSessionMessages }: UseSessionResumeProps) {
     const [loading, setLoading] = useState(false)
     const [actionStatus, setActionStatus] = useState<string | null>(null)
     const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null)
@@ -89,14 +89,14 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
     const pollTaskStatus = useCallback(async (
         taskId: string,
         sessionId: string,
-        codebaseId: string
+        workspaceId: string
     ): Promise<void> => {
         return new Promise((resolve, reject) => {
             pollAttemptsRef.current = 0
-            
+
             const poll = async () => {
                 pollAttemptsRef.current++
-                
+
                 if (pollAttemptsRef.current > MAX_POLL_ATTEMPTS) {
                     stopPolling()
                     setTaskStatus('failed')
@@ -107,7 +107,7 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
                 }
 
                 try {
-                    const response = await fetch(`${API_URL}/v1/opencode/tasks/${taskId}`)
+                    const response = await fetch(`${API_URL}/v1/agent/tasks/${taskId}`)
                     if (!response.ok) {
                         console.warn('[useSessionResume] Failed to poll task status:', response.status)
                         return // Continue polling
@@ -118,14 +118,14 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
 
                     if (data.status === 'pending') {
                         setActionStatus(`Waiting for worker... (${pollAttemptsRef.current}s)`)
-                    } else if (data.status === 'working') {
+                    } else if (data.status === 'working' || data.status === 'running') {
                         setActionStatus('Agent is processing...')
                     } else if (data.status === 'completed') {
                         stopPolling()
                         setActionStatus('Response received!')
                         // Reload messages to show the response
                         await loadSessionMessages(sessionId, true)
-                        await loadSessions(codebaseId)
+                        await loadSessions(workspaceId)
                         setLoading(false)
                         resolve()
                     } else if (data.status === 'failed') {
@@ -152,7 +152,7 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
     }, [stopPolling, loadSessionMessages, loadSessions])
 
     const resumeSession = async (session: Session, prompt: string | null) => {
-        if (!selectedCodebase || !session?.id) return
+        if (!selectedWorkspace || !session?.id) return
 
         // Skip empty resume calls if there's already a request in flight
         // This prevents the Resume button from interfering with message sends
@@ -179,7 +179,7 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
 
         const requestId = ++requestIdRef.current
         activeRequestIdRef.current = requestId
-        const url = `${API_URL}/v1/opencode/codebases/${selectedCodebase}/sessions/${session.id}/resume`
+        const url = `${API_URL}/v1/agent/workspaces/${selectedWorkspace}/sessions/${session.id}/resume`
         const controller = new AbortController()
         abortControllerRef.current = controller
         timeoutRef.current = setTimeout(() => {
@@ -221,7 +221,7 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
                 setActionStatus('Task queued, waiting for worker...')
 
                 // Start polling for task status (non-blocking)
-                pollTaskStatus(data.task_id, activeSessionId, selectedCodebase).catch((error) => {
+                pollTaskStatus(data.task_id, activeSessionId, selectedWorkspace).catch((error) => {
                     console.warn('[useSessionResume] Task polling ended:', error?.message || error)
                 })
                 // Don't await - let it poll in background while showing intermediate state
@@ -229,7 +229,7 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
             }
 
             // Direct response (no task queued) - old behavior
-            await loadSessions(selectedCodebase)
+            await loadSessions(selectedWorkspace)
             // Force reload messages since session ID may be the same but content changed
             await loadSessionMessages(activeSessionId, true)
             setActionStatus(prompt ? 'Message sent (session resumed if needed).' : 'Session resumed.')
@@ -252,11 +252,11 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
                     console.error('[useSessionResume] Try: 1) Disable extensions 2) Check browser DevTools Network tab for blocked requests')
                     setActionStatus('Resume failed: Network error after retries. Check ad blockers or DevTools.')
                 } else {
-                    console.error('[useSessionResume] Error:', error, { url, codebase: selectedCodebase, session: session.id })
+                    console.error('[useSessionResume] Error:', error, { url, workspace: selectedWorkspace, session: session.id })
                     setActionStatus(`Resume failed: ${error.message}`)
                 }
             } else {
-                console.error('[useSessionResume] Error:', error, { url, codebase: selectedCodebase, session: session.id })
+                console.error('[useSessionResume] Error:', error, { url, workspace: selectedWorkspace, session: session.id })
                 setActionStatus('Resume failed: Unknown error')
             }
         } finally {
@@ -270,17 +270,17 @@ export function useSessionResume({ selectedCodebase, selectedMode, selectedModel
         }
     }
 
-    // Cancel any active polling when component unmounts or codebase changes
+    // Cancel any active polling when component unmounts or workspace changes
     const cancelPolling = useCallback(() => {
         stopPolling()
         setActiveTaskId(null)
         setTaskStatus(null)
     }, [stopPolling])
 
-    return { 
-        loading, 
-        actionStatus, 
-        setActionStatus, 
+    return {
+        loading,
+        actionStatus,
+        setActionStatus,
         resumeSession,
         taskStatus,
         activeTaskId,

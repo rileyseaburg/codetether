@@ -172,9 +172,9 @@ export type AgentTaskCreate = {
     [key: string]: unknown
   }
   /**
-   * Codebase Id
+   * Workspace Id
    */
-  codebase_id?: string | null
+  workspace_id?: string | null
   /**
    * Model
    */
@@ -200,9 +200,9 @@ export type AgentTaskResponse = {
    */
   id: string
   /**
-   * Codebase Id
+   * Workspace Id
    */
-  codebase_id?: string | null
+  workspace_id?: string | null
   /**
    * Title
    */
@@ -784,84 +784,6 @@ export type ChangeSubscriptionRequest = {
    * New plan to switch to (free, pro, enterprise)
    */
   new_plan: string
-}
-
-/**
- * CodebaseAccessRequest
- *
- * Request to associate/check codebase access.
- */
-export type CodebaseAccessRequest = {
-  /**
-   * Codebase Id
-   */
-  codebase_id: string
-  /**
-   * Role
-   */
-  role?: string
-}
-
-/**
- * CodebaseRegistration
- *
- * Request model for registering a codebase.
- */
-export type CodebaseRegistration = {
-  /**
-   * Name
-   */
-  name: string
-  /**
-   * Path
-   */
-  path?: string
-  /**
-   * Description
-   */
-  description?: string
-  /**
-   * Agent Config
-   */
-  agent_config?: {
-    [key: string]: unknown
-  }
-  /**
-   * Worker Id
-   */
-  worker_id?: string | null
-  /**
-   * Git Url
-   */
-  git_url?: string | null
-  /**
-   * Git Branch
-   */
-  git_branch?: string
-  /**
-   * Git Token
-   */
-  git_token?: string | null
-}
-
-/**
- * CodebaseSyncRequest
- *
- * Request model for codebase sync from worker.
- */
-export type CodebaseSyncRequest = {
-  /**
-   * Size Bytes
-   */
-  size_bytes: number
-  /**
-   * Files Changed
-   */
-  files_changed?: number
-  /**
-   * Worker Id
-   */
-  worker_id?: string | null
 }
 
 /**
@@ -1721,7 +1643,7 @@ export type ErrorResponse = {
 /**
  * ExternalSessionIngestRequest
  *
- * Ingest a non-OpenCode chat/session transcript (e.g. VS Code chat).
+ * Ingest an external chat/session transcript (e.g. VS Code chat).
  */
 export type ExternalSessionIngestRequest = {
   /**
@@ -4731,9 +4653,9 @@ export type ValidationError = {
  */
 export type VoiceSessionRequest = {
   /**
-   * Codebase Id
+   * Workspace Id
    */
-  codebase_id?: string | null
+  workspace_id?: string | null
   /**
    * Session Id
    */
@@ -4939,13 +4861,13 @@ export type WorkerRegistration = {
     [key: string]: unknown
   }>
   /**
-   * Global Codebase Id
+   * Global Workspace Id
    */
-  global_codebase_id?: string | null
+  global_workspace_id?: string | null
   /**
-   * Codebases
+   * Workspaces
    */
-  codebases?: Array<string>
+  workspaces?: Array<string>
 }
 
 /**
@@ -4970,6 +4892,84 @@ export type WorkerStatus = {
    * Last Heartbeat
    */
   last_heartbeat?: string | null
+}
+
+/**
+ * WorkspaceAccessRequest
+ *
+ * Request to associate/check workspace access.
+ */
+export type WorkspaceAccessRequest = {
+  /**
+   * Workspace Id
+   */
+  workspace_id: string
+  /**
+   * Role
+   */
+  role?: string
+}
+
+/**
+ * WorkspaceRegistration
+ *
+ * Request model for registering a workspace.
+ */
+export type WorkspaceRegistration = {
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Path
+   */
+  path?: string
+  /**
+   * Description
+   */
+  description?: string
+  /**
+   * Agent Config
+   */
+  agent_config?: {
+    [key: string]: unknown
+  }
+  /**
+   * Worker Id
+   */
+  worker_id?: string | null
+  /**
+   * Git Url
+   */
+  git_url?: string | null
+  /**
+   * Git Branch
+   */
+  git_branch?: string
+  /**
+   * Git Token
+   */
+  git_token?: string | null
+}
+
+/**
+ * WorkspaceSyncRequest
+ *
+ * Request model for workspace sync from worker.
+ */
+export type WorkspaceSyncRequest = {
+  /**
+   * Size Bytes
+   */
+  size_bytes: number
+  /**
+   * Files Changed
+   */
+  files_changed?: number
+  /**
+   * Worker Id
+   */
+  worker_id?: string | null
 }
 
 /**
@@ -5622,28 +5622,29 @@ export type DatabaseSessionsV1AgentDatabaseSessionsGetResponses = {
   200: unknown
 }
 
-export type DatabaseCodebasesV1AgentDatabaseCodebasesGetData = {
+export type DatabaseWorkspacesV1AgentDatabaseWorkspacesGetData = {
   body?: never
   path?: never
   query?: never
-  url: '/v1/agent/database/codebases'
+  url: '/v1/agent/database/workspaces'
 }
 
-export type DatabaseCodebasesV1AgentDatabaseCodebasesGetResponses = {
+export type DatabaseWorkspacesV1AgentDatabaseWorkspacesGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type DeduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePostData = {
-  body?: never
-  path?: never
-  query?: never
-  url: '/v1/agent/database/codebases/deduplicate'
-}
+export type DeduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePostData =
+  {
+    body?: never
+    path?: never
+    query?: never
+    url: '/v1/agent/database/workspaces/deduplicate'
+  }
 
-export type DeduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePostResponses =
+export type DeduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePostResponses =
   {
     /**
      * Successful Response
@@ -5869,7 +5870,7 @@ export type ListProvidersV1AgentProvidersGetResponses = {
   200: unknown
 }
 
-export type GetCodebasesV1AgentCodebasesGetData = {
+export type GetWorkspacesV1AgentWorkspacesGetData = {
   body?: never
   path?: never
   query?: {
@@ -5882,51 +5883,51 @@ export type GetCodebasesV1AgentCodebasesGetData = {
      */
     include_duplicates?: boolean
   }
-  url: '/v1/agent/codebases'
+  url: '/v1/agent/workspaces'
 }
 
-export type GetCodebasesV1AgentCodebasesGetErrors = {
+export type GetWorkspacesV1AgentWorkspacesGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetCodebasesV1AgentCodebasesGetError =
-  GetCodebasesV1AgentCodebasesGetErrors[keyof GetCodebasesV1AgentCodebasesGetErrors]
+export type GetWorkspacesV1AgentWorkspacesGetError =
+  GetWorkspacesV1AgentWorkspacesGetErrors[keyof GetWorkspacesV1AgentWorkspacesGetErrors]
 
-export type GetCodebasesV1AgentCodebasesGetResponses = {
+export type GetWorkspacesV1AgentWorkspacesGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type RegisterCodebaseV1AgentCodebasesPostData = {
-  body: CodebaseRegistration
+export type RegisterWorkspaceV1AgentWorkspacesPostData = {
+  body: WorkspaceRegistration
   path?: never
   query?: never
-  url: '/v1/agent/codebases'
+  url: '/v1/agent/workspaces'
 }
 
-export type RegisterCodebaseV1AgentCodebasesPostErrors = {
+export type RegisterWorkspaceV1AgentWorkspacesPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type RegisterCodebaseV1AgentCodebasesPostError =
-  RegisterCodebaseV1AgentCodebasesPostErrors[keyof RegisterCodebaseV1AgentCodebasesPostErrors]
+export type RegisterWorkspaceV1AgentWorkspacesPostError =
+  RegisterWorkspaceV1AgentWorkspacesPostErrors[keyof RegisterWorkspaceV1AgentWorkspacesPostErrors]
 
-export type RegisterCodebaseV1AgentCodebasesPostResponses = {
+export type RegisterWorkspaceV1AgentWorkspacesPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type ListCodebasesV1AgentCodebasesListGetData = {
+export type ListWorkspacesV1AgentWorkspacesListGetData = {
   body?: never
   path?: never
   query?: {
@@ -5935,230 +5936,259 @@ export type ListCodebasesV1AgentCodebasesListGetData = {
      */
     include_duplicates?: boolean
   }
-  url: '/v1/agent/codebases/list'
+  url: '/v1/agent/workspaces/list'
 }
 
-export type ListCodebasesV1AgentCodebasesListGetErrors = {
+export type ListWorkspacesV1AgentWorkspacesListGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type ListCodebasesV1AgentCodebasesListGetError =
-  ListCodebasesV1AgentCodebasesListGetErrors[keyof ListCodebasesV1AgentCodebasesListGetErrors]
+export type ListWorkspacesV1AgentWorkspacesListGetError =
+  ListWorkspacesV1AgentWorkspacesListGetErrors[keyof ListWorkspacesV1AgentWorkspacesListGetErrors]
 
-export type ListCodebasesV1AgentCodebasesListGetResponses = {
+export type ListWorkspacesV1AgentWorkspacesListGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteData = {
+export type UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}'
+  url: '/v1/agent/workspaces/{workspace_id}'
 }
 
-export type UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteErrors = {
+export type UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteError =
-  UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteErrors[keyof UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteErrors]
+export type UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteError =
+  UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteErrors[keyof UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteErrors]
 
-export type UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteResponses = {
+export type UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type GetCodebaseV1AgentCodebasesCodebaseIdGetData = {
+export type GetWorkspaceV1AgentWorkspacesWorkspaceIdGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}'
+  url: '/v1/agent/workspaces/{workspace_id}'
 }
 
-export type GetCodebaseV1AgentCodebasesCodebaseIdGetErrors = {
+export type GetWorkspaceV1AgentWorkspacesWorkspaceIdGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetCodebaseV1AgentCodebasesCodebaseIdGetError =
-  GetCodebaseV1AgentCodebasesCodebaseIdGetErrors[keyof GetCodebaseV1AgentCodebasesCodebaseIdGetErrors]
+export type GetWorkspaceV1AgentWorkspacesWorkspaceIdGetError =
+  GetWorkspaceV1AgentWorkspacesWorkspaceIdGetErrors[keyof GetWorkspaceV1AgentWorkspacesWorkspaceIdGetErrors]
 
-export type GetCodebaseV1AgentCodebasesCodebaseIdGetResponses = {
+export type GetWorkspaceV1AgentWorkspacesWorkspaceIdGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostData = {
+export type TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostData = {
   body: AgentTrigger
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/trigger'
+  url: '/v1/agent/workspaces/{workspace_id}/trigger'
 }
 
-export type TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostErrors = {
+export type TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostError =
-  TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostErrors[keyof TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostErrors]
+export type TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostError =
+  TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostErrors[keyof TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostErrors]
 
-export type TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostResponses = {
+export type TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostData = {
+export type SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostData = {
   body: AgentMessage
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/message'
+  url: '/v1/agent/workspaces/{workspace_id}/message'
 }
 
-export type SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostErrors = {
+export type SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostError =
-  SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostErrors[keyof SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostErrors]
+export type SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostError =
+  SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostErrors[keyof SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostErrors]
 
-export type SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostResponses = {
+export type SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostData = {
+export type InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/interrupt'
+  url: '/v1/agent/workspaces/{workspace_id}/interrupt'
 }
 
-export type InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostErrors = {
+export type InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostError =
-  InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostErrors[keyof InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostErrors]
+export type InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostError =
+  InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostErrors[keyof InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostErrors]
 
-export type InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostResponses = {
+export type InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type StopAgentV1AgentCodebasesCodebaseIdStopPostData = {
+export type StopAgentV1AgentWorkspacesWorkspaceIdStopPostData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/stop'
+  url: '/v1/agent/workspaces/{workspace_id}/stop'
 }
 
-export type StopAgentV1AgentCodebasesCodebaseIdStopPostErrors = {
+export type StopAgentV1AgentWorkspacesWorkspaceIdStopPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type StopAgentV1AgentCodebasesCodebaseIdStopPostError =
-  StopAgentV1AgentCodebasesCodebaseIdStopPostErrors[keyof StopAgentV1AgentCodebasesCodebaseIdStopPostErrors]
+export type StopAgentV1AgentWorkspacesWorkspaceIdStopPostError =
+  StopAgentV1AgentWorkspacesWorkspaceIdStopPostErrors[keyof StopAgentV1AgentWorkspacesWorkspaceIdStopPostErrors]
 
-export type StopAgentV1AgentCodebasesCodebaseIdStopPostResponses = {
+export type StopAgentV1AgentWorkspacesWorkspaceIdStopPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetData = {
+export type GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/status'
+  url: '/v1/agent/workspaces/{workspace_id}/status'
 }
 
-export type GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetErrors = {
+export type GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetError =
-  GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetErrors[keyof GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetErrors]
+export type GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetError =
+  GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetErrors[keyof GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetErrors]
 
-export type GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetResponses = {
+export type GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetData = {
+export type StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetData = {
+  body?: never
+  path: {
+    /**
+     * Workspace Id
+     */
+    workspace_id: string
+  }
+  query?: never
+  url: '/v1/agent/workspaces/{workspace_id}/events'
+}
+
+export type StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetError =
+  StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetErrors[keyof StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetErrors]
+
+export type StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown
+}
+
+export type StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetData = {
   body?: never
   path: {
     /**
@@ -6170,30 +6200,31 @@ export type StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetData = {
   url: '/v1/agent/codebases/{codebase_id}/events'
 }
 
-export type StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetErrors = {
+export type StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetError =
-  StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetErrors[keyof StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetErrors]
+export type StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetError =
+  StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetErrors[keyof StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetErrors]
 
-export type StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
+export type StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
 
-export type GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetData = {
+export type GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: {
     /**
@@ -6201,30 +6232,35 @@ export type GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetData = {
      */
     limit?: number
   }
-  url: '/v1/agent/codebases/{codebase_id}/messages'
+  url: '/v1/agent/workspaces/{workspace_id}/messages'
 }
 
-export type GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetErrors = {
+export type GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetError =
-  GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetErrors[keyof GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetErrors]
+export type GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetError =
+  GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetErrors[keyof GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetErrors]
 
-export type GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
+export type GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
 
 export type ListAllTasksV1AgentTasksGetData = {
   body?: never
   path?: never
   query?: {
+    /**
+     * Workspace Id
+     */
+    workspace_id?: string | null
     /**
      * Codebase Id
      */
@@ -6282,13 +6318,13 @@ export type CreateGlobalTaskV1AgentTasksPostResponses = {
   200: unknown
 }
 
-export type ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetData = {
+export type ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: {
     /**
@@ -6296,49 +6332,49 @@ export type ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetData = {
      */
     status?: string | null
   }
-  url: '/v1/agent/codebases/{codebase_id}/tasks'
+  url: '/v1/agent/workspaces/{workspace_id}/tasks'
 }
 
-export type ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetErrors = {
+export type ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetError =
-  ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetErrors[keyof ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetErrors]
+export type ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetError =
+  ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetErrors[keyof ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetErrors]
 
-export type ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetResponses = {
+export type ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostData = {
+export type CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostData = {
   body: AgentTaskCreate
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/tasks'
+  url: '/v1/agent/workspaces/{workspace_id}/tasks'
 }
 
-export type CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostErrors = {
+export type CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostError =
-  CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostErrors[keyof CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostErrors]
+export type CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostError =
+  CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostErrors[keyof CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostErrors]
 
-export type CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostResponses = {
+export type CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostResponses = {
   /**
    * Successful Response
    */
@@ -6406,13 +6442,13 @@ export type CancelTaskV1AgentTasksTaskIdCancelPostResponses = {
   200: unknown
 }
 
-export type ListSessionsV1AgentCodebasesCodebaseIdSessionsGetData = {
+export type ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: {
     /**
@@ -6428,44 +6464,44 @@ export type ListSessionsV1AgentCodebasesCodebaseIdSessionsGetData = {
      */
     q?: string | null
   }
-  url: '/v1/agent/codebases/{codebase_id}/sessions'
+  url: '/v1/agent/workspaces/{workspace_id}/sessions'
 }
 
-export type ListSessionsV1AgentCodebasesCodebaseIdSessionsGetErrors = {
+export type ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type ListSessionsV1AgentCodebasesCodebaseIdSessionsGetError =
-  ListSessionsV1AgentCodebasesCodebaseIdSessionsGetErrors[keyof ListSessionsV1AgentCodebasesCodebaseIdSessionsGetErrors]
+export type ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetError =
+  ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetErrors[keyof ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetErrors]
 
-export type ListSessionsV1AgentCodebasesCodebaseIdSessionsGetResponses = {
+export type ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostData =
+export type IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostData =
   {
     body: ExternalSessionIngestRequest
     path: {
       /**
-       * Codebase Id
+       * Workspace Id
        */
-      codebase_id: string
+      workspace_id: string
       /**
        * Session Id
        */
       session_id: string
     }
     query?: never
-    url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/ingest'
+    url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/ingest'
   }
 
-export type IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostErrors =
+export type IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostErrors =
   {
     /**
      * Validation Error
@@ -6473,10 +6509,10 @@ export type IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdInge
     422: HttpValidationError
   }
 
-export type IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostError =
-  IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostErrors[keyof IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostErrors]
+export type IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostError =
+  IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostErrors[keyof IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostErrors]
 
-export type IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostResponses =
+export type IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostResponses =
   {
     /**
      * Successful Response
@@ -6484,64 +6520,29 @@ export type IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdInge
     200: unknown
   }
 
-export type SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostData = {
+export type SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostData = {
   body: SessionSyncRequest
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/sessions/sync'
+  url: '/v1/agent/workspaces/{workspace_id}/sessions/sync'
 }
 
-export type SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostErrors = {
+export type SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostError =
-  SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostErrors[keyof SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostErrors]
+export type SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostError =
+  SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostErrors[keyof SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostErrors]
 
-export type SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
-
-export type SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostData =
-  {
-    body: MessageSyncRequest
-    path: {
-      /**
-       * Codebase Id
-       */
-      codebase_id: string
-      /**
-       * Session Id
-       */
-      session_id: string
-    }
-    query?: never
-    url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/messages/sync'
-  }
-
-export type SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostErrors =
-  {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError
-  }
-
-export type SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostError =
-  SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostErrors[keyof SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostErrors]
-
-export type SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostResponses =
+export type SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostResponses =
   {
     /**
      * Successful Response
@@ -6549,33 +6550,69 @@ export type SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessag
     200: unknown
   }
 
-export type GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetData = {
+export type SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostData =
+  {
+    body: MessageSyncRequest
+    path: {
+      /**
+       * Workspace Id
+       */
+      workspace_id: string
+      /**
+       * Session Id
+       */
+      session_id: string
+    }
+    query?: never
+    url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/messages/sync'
+  }
+
+export type SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostError =
+  SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostErrors[keyof SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostErrors]
+
+export type SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
     /**
      * Session Id
      */
     session_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}'
+  url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}'
 }
 
-export type GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetErrors = {
+export type GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetError =
-  GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetErrors[keyof GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetErrors]
+export type GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetError =
+  GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetErrors[keyof GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetErrors]
 
-export type GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetResponses =
+export type GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetResponses =
   {
     /**
      * Successful Response
@@ -6583,14 +6620,14 @@ export type GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetResponses =
     200: unknown
   }
 
-export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetData =
+export type GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetData =
   {
     body?: never
     path: {
       /**
-       * Codebase Id
+       * Workspace Id
        */
-      codebase_id: string
+      workspace_id: string
       /**
        * Session Id
        */
@@ -6602,10 +6639,10 @@ export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMes
        */
       limit?: number
     }
-    url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/messages'
+    url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/messages'
   }
 
-export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetErrors =
+export type GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetErrors =
   {
     /**
      * Validation Error
@@ -6613,10 +6650,10 @@ export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMes
     422: HttpValidationError
   }
 
-export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetError =
-  GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetErrors[keyof GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetErrors]
+export type GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetError =
+  GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetErrors[keyof GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetErrors]
 
-export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetResponses =
+export type GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetResponses =
   {
     /**
      * Successful Response
@@ -6624,24 +6661,24 @@ export type GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMes
     200: unknown
   }
 
-export type ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostData =
+export type ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostData =
   {
     body: SessionResumeRequest
     path: {
       /**
-       * Codebase Id
+       * Workspace Id
        */
-      codebase_id: string
+      workspace_id: string
       /**
        * Session Id
        */
       session_id: string
     }
     query?: never
-    url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/resume'
+    url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/resume'
   }
 
-export type ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostErrors =
+export type ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostErrors =
   {
     /**
      * Validation Error
@@ -6649,10 +6686,10 @@ export type ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostEr
     422: HttpValidationError
   }
 
-export type ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostError =
-  ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostErrors[keyof ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostErrors]
+export type ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostError =
+  ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostErrors[keyof ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostErrors]
 
-export type ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostResponses =
+export type ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostResponses =
   {
     /**
      * Successful Response
@@ -6660,95 +6697,97 @@ export type ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostRe
     200: unknown
   }
 
-export type StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostData = {
+export type StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostData = {
   /**
    * Config
    */
   body?: WatchModeConfig | null
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/watch/start'
+  url: '/v1/agent/workspaces/{workspace_id}/watch/start'
 }
 
-export type StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostErrors = {
+export type StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostError =
-  StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostErrors[keyof StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostErrors]
+export type StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostError =
+  StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostErrors[keyof StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostErrors]
 
-export type StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
+export type StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
 
-export type StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostData = {
+export type StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/watch/stop'
+  url: '/v1/agent/workspaces/{workspace_id}/watch/stop'
 }
 
-export type StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostErrors = {
+export type StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostError =
-  StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostErrors[keyof StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostErrors]
+export type StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostError =
+  StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostErrors[keyof StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostErrors]
 
-export type StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostResponses = {
+export type StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetData = {
+export type GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/watch/status'
+  url: '/v1/agent/workspaces/{workspace_id}/watch/status'
 }
 
-export type GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetErrors = {
+export type GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetError =
-  GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetErrors[keyof GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetErrors]
+export type GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetError =
+  GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetErrors[keyof GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetErrors]
 
-export type GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
+export type GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
 
 export type RegisterWorkerV1AgentWorkersRegisterPostData = {
   body: WorkerRegistration
@@ -7421,54 +7460,19 @@ export type TestApiKeyEndpointV1AgentApiKeysTestPostResponses = {
   200: unknown
 }
 
-export type UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostData = {
+export type UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostData = {
   body?: never
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/upload'
+  url: '/v1/agent/workspaces/{workspace_id}/upload'
 }
 
-export type UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
-
-export type UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostError =
-  UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostErrors[keyof UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostErrors]
-
-export type UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostResponses =
-  {
-    /**
-     * Successful Response
-     */
-    200: unknown
-  }
-
-export type DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetData = {
-  body?: never
-  path: {
-    /**
-     * Codebase Id
-     */
-    codebase_id: string
-  }
-  query?: {
-    /**
-     * Stream
-     */
-    stream?: boolean
-  }
-  url: '/v1/agent/codebases/{codebase_id}/download'
-}
-
-export type DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors =
+export type UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostErrors =
   {
     /**
      * Validation Error
@@ -7476,10 +7480,10 @@ export type DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors =
     422: HttpValidationError
   }
 
-export type DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetError =
-  DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors[keyof DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors]
+export type UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostError =
+  UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostErrors[keyof UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostErrors]
 
-export type DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetResponses =
+export type UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostResponses =
   {
     /**
      * Successful Response
@@ -7487,29 +7491,67 @@ export type DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetResponse
     200: unknown
   }
 
-export type SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostData = {
-  body: CodebaseSyncRequest
+export type DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetData =
+  {
+    body?: never
+    path: {
+      /**
+       * Workspace Id
+       */
+      workspace_id: string
+    }
+    query?: {
+      /**
+       * Stream
+       */
+      stream?: boolean
+    }
+    url: '/v1/agent/workspaces/{workspace_id}/download'
+  }
+
+export type DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
+
+export type DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetError =
+  DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetErrors[keyof DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetErrors]
+
+export type DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetResponses =
+  {
+    /**
+     * Successful Response
+     */
+    200: unknown
+  }
+
+export type SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostData = {
+  body: WorkspaceSyncRequest
   path: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
   }
   query?: never
-  url: '/v1/agent/codebases/{codebase_id}/sync'
+  url: '/v1/agent/workspaces/{workspace_id}/sync'
 }
 
-export type SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
+export type SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostErrors =
+  {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError
+  }
 
-export type SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostError =
-  SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostErrors[keyof SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostErrors]
+export type SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostError =
+  SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostErrors[keyof SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostErrors]
 
-export type SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostResponses =
+export type SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostResponses =
   {
     /**
      * Successful Response
@@ -7548,151 +7590,6 @@ export type GetSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGetRespons
      */
     200: unknown
   }
-
-export type OpencodeToAgentRedirectV1OpencodePathGetData = {
-  body?: never
-  path: {
-    /**
-     * Path
-     */
-    path: string
-  }
-  query?: never
-  url: '/v1/opencode/{path}'
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGetErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGetError =
-  OpencodeToAgentRedirectV1OpencodePathGetErrors[keyof OpencodeToAgentRedirectV1OpencodePathGetErrors]
-
-export type OpencodeToAgentRedirectV1OpencodePathGetResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet2Data = {
-  body?: never
-  path: {
-    /**
-     * Path
-     */
-    path: string
-  }
-  query?: never
-  url: '/v1/opencode/{path}'
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet2Errors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet2Error =
-  OpencodeToAgentRedirectV1OpencodePathGet2Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet2Errors]
-
-export type OpencodeToAgentRedirectV1OpencodePathGet2Responses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet3Data = {
-  body?: never
-  path: {
-    /**
-     * Path
-     */
-    path: string
-  }
-  query?: never
-  url: '/v1/opencode/{path}'
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet3Errors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet3Error =
-  OpencodeToAgentRedirectV1OpencodePathGet3Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet3Errors]
-
-export type OpencodeToAgentRedirectV1OpencodePathGet3Responses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet4Data = {
-  body?: never
-  path: {
-    /**
-     * Path
-     */
-    path: string
-  }
-  query?: never
-  url: '/v1/opencode/{path}'
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet4Errors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet4Error =
-  OpencodeToAgentRedirectV1OpencodePathGet4Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet4Errors]
-
-export type OpencodeToAgentRedirectV1OpencodePathGet4Responses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet5Data = {
-  body?: never
-  path: {
-    /**
-     * Path
-     */
-    path: string
-  }
-  query?: never
-  url: '/v1/opencode/{path}'
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet5Errors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError
-}
-
-export type OpencodeToAgentRedirectV1OpencodePathGet5Error =
-  OpencodeToAgentRedirectV1OpencodePathGet5Errors[keyof OpencodeToAgentRedirectV1OpencodePathGet5Errors]
-
-export type OpencodeToAgentRedirectV1OpencodePathGet5Responses = {
-  /**
-   * Successful Response
-   */
-  200: unknown
-}
 
 export type ListRalphRunsV1RalphRunsGetData = {
   body?: never
@@ -8130,7 +8027,7 @@ export type SyncSessionStateV1AuthSyncGetResponses = {
   200: unknown
 }
 
-export type GetUserCodebasesV1AuthUserUserIdCodebasesGetData = {
+export type GetUserWorkspacesV1AuthUserUserIdWorkspacesGetData = {
   body?: never
   path: {
     /**
@@ -8139,28 +8036,28 @@ export type GetUserCodebasesV1AuthUserUserIdCodebasesGetData = {
     user_id: string
   }
   query?: never
-  url: '/v1/auth/user/{user_id}/codebases'
+  url: '/v1/auth/user/{user_id}/workspaces'
 }
 
-export type GetUserCodebasesV1AuthUserUserIdCodebasesGetErrors = {
+export type GetUserWorkspacesV1AuthUserUserIdWorkspacesGetErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type GetUserCodebasesV1AuthUserUserIdCodebasesGetError =
-  GetUserCodebasesV1AuthUserUserIdCodebasesGetErrors[keyof GetUserCodebasesV1AuthUserUserIdCodebasesGetErrors]
+export type GetUserWorkspacesV1AuthUserUserIdWorkspacesGetError =
+  GetUserWorkspacesV1AuthUserUserIdWorkspacesGetErrors[keyof GetUserWorkspacesV1AuthUserUserIdWorkspacesGetErrors]
 
-export type GetUserCodebasesV1AuthUserUserIdCodebasesGetResponses = {
+export type GetUserWorkspacesV1AuthUserUserIdWorkspacesGetResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type AssociateUserCodebaseV1AuthUserUserIdCodebasesPostData = {
-  body: CodebaseAccessRequest
+export type AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostData = {
+  body: WorkspaceAccessRequest
   path: {
     /**
      * User Id
@@ -8168,43 +8065,44 @@ export type AssociateUserCodebaseV1AuthUserUserIdCodebasesPostData = {
     user_id: string
   }
   query?: never
-  url: '/v1/auth/user/{user_id}/codebases'
+  url: '/v1/auth/user/{user_id}/workspaces'
 }
 
-export type AssociateUserCodebaseV1AuthUserUserIdCodebasesPostErrors = {
+export type AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError
 }
 
-export type AssociateUserCodebaseV1AuthUserUserIdCodebasesPostError =
-  AssociateUserCodebaseV1AuthUserUserIdCodebasesPostErrors[keyof AssociateUserCodebaseV1AuthUserUserIdCodebasesPostErrors]
+export type AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostError =
+  AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostErrors[keyof AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostErrors]
 
-export type AssociateUserCodebaseV1AuthUserUserIdCodebasesPostResponses = {
+export type AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostResponses = {
   /**
    * Successful Response
    */
   200: unknown
 }
 
-export type RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteData = {
-  body?: never
-  path: {
-    /**
-     * User Id
-     */
-    user_id: string
-    /**
-     * Codebase Id
-     */
-    codebase_id: string
+export type RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteData =
+  {
+    body?: never
+    path: {
+      /**
+       * User Id
+       */
+      user_id: string
+      /**
+       * Workspace Id
+       */
+      workspace_id: string
+    }
+    query?: never
+    url: '/v1/auth/user/{user_id}/workspaces/{workspace_id}'
   }
-  query?: never
-  url: '/v1/auth/user/{user_id}/codebases/{codebase_id}'
-}
 
-export type RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteErrors =
+export type RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteErrors =
   {
     /**
      * Validation Error
@@ -8212,10 +8110,10 @@ export type RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteErrors =
     422: HttpValidationError
   }
 
-export type RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteError =
-  RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteErrors[keyof RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteErrors]
+export type RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteError =
+  RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteErrors[keyof RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteErrors]
 
-export type RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteResponses =
+export type RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteResponses =
   {
     /**
      * Successful Response
@@ -8262,9 +8160,9 @@ export type CreateAgentSessionV1AuthUserUserIdAgentSessionsPostData = {
   }
   query: {
     /**
-     * Codebase Id
+     * Workspace Id
      */
-    codebase_id: string
+    workspace_id: string
     /**
      * Agent Type
      */

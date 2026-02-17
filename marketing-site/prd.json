@@ -22,10 +22,10 @@
       "title": "Connect chat to A2A send_message API",
       "description": "As a visitor, I want my messages sent to a real AI worker so I get intelligent responses",
       "acceptanceCriteria": [
-        "Chat sends messages to POST /v1/opencode/tasks endpoint",
+        "Chat sends messages to POST /v1/agent/tasks endpoint",
         "Task created with title, prompt from user message, agent_type build",
         "API_URL from env NEXT_PUBLIC_API_URL or defaults to http://localhost:8001",
-        "Returns task_id and polls GET /v1/opencode/tasks/{id} for completion",
+        "Returns task_id and polls GET /v1/agent/tasks/{id} for completion",
         "Displays AI response from task.result when status=completed",
         "Typecheck passes"
       ],

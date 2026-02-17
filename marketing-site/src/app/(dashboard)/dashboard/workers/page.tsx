@@ -18,12 +18,12 @@ interface Worker {
     models: Array<{ providerID?: string, modelID?: string, provider?: string, name?: string, id?: string } | string>
     capabilities: string[]
     global_codebase_id?: string
-    worker_runtime?: 'rust' | 'opencode_python'
+    worker_runtime?: 'rust' | 'python'
     worker_runtime_label?: string
     is_sse_connected?: boolean
 }
 
-interface Codebase {
+interface Workspace {
     id: string
     name: string
     path: string
@@ -119,21 +119,21 @@ function chooseRecommendedModel(modelRefs: string[]): string | null {
     return modelRefs[0] || null
 }
 
-type WorkerType = 'codetether-agent' | 'opencode'
+type WorkerType = 'codetether-agent' | 'agent'
 
 function detectWorkerType(worker: Worker): WorkerType {
     if (worker.worker_runtime === 'rust') return 'codetether-agent'
-    if (worker.worker_runtime === 'opencode_python') return 'opencode'
+    if (worker.worker_runtime === 'python') return 'agent'
 
     const name = (worker.name || '').toLowerCase()
     const caps = (worker.capabilities || []).map(c => c.toLowerCase())
     if (name.includes('codetether') || caps.includes('ralph') || caps.includes('swarm') || caps.includes('rlm')) {
         return 'codetether-agent'
     }
-    if (caps.includes('opencode') || name.includes('opencode')) {
-        return 'opencode'
+    if (caps.includes('agent') || name.includes('agent')) {
+        return 'agent'
     }
-    return 'opencode'
+    return 'agent'
 }
 
 const workerTypeMeta: Record<WorkerType, { label: string, color: string, icon: string }> = {
@@ -142,8 +142,8 @@ const workerTypeMeta: Record<WorkerType, { label: string, color: string, icon: s
         color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800',
         icon: '🦀',
     },
-    'opencode': {
-        label: 'OpenCode Worker',
+    'agent': {
+        label: 'CodeTether Worker',
         color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800',
         icon: '🐍',
     },
@@ -178,17 +178,17 @@ function extractOutputText(payload: unknown): string {
 
 function WorkerCard({
     worker,
-    codebases,
+    workspaces,
     onOpenChat,
     chatOpen,
 }: {
     worker: Worker
-    codebases: Codebase[]
+    workspaces: Workspace[]
     onOpenChat: (workerId: string) => void
     chatOpen: boolean
 }) {
     const [expanded, setExpanded] = useState(false)
-    const linkedCodebases = codebases.filter(cb => (worker.codebases || []).includes(cb.id) || cb.worker_id === worker.worker_id)
+    const linkedWorkspaces = workspaces.filter(ws => (worker.codebases || []).includes(ws.id) || ws.worker_id === worker.worker_id)
     const modelCount = worker.models?.length || 0
 
     return (
@@ -214,11 +214,10 @@ function WorkerCard({
                     <button
                         onClick={() => onOpenChat(worker.worker_id)}
                         disabled={!worker.is_sse_connected}
-                        className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                            worker.is_sse_connected
+                        className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${worker.is_sse_connected
                                 ? 'bg-cyan-600 text-white hover:bg-cyan-500'
                                 : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
-                        }`}
+                            }`}
                     >
                         {chatOpen ? 'Open Chat' : 'Chat via SSE'}
                     </button>
@@ -232,7 +231,7 @@ function WorkerCard({
 
             <div className="mt-3 flex flex-wrap gap-2">
                 <span className="px-2 py-1 text-xs bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400 rounded">{modelCount} models</span>
-                <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded">{linkedCodebases.length} codebases</span>
+                <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded">{linkedWorkspaces.length} workspaces</span>
                 <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded">{formatTimeAgo(worker.last_seen)}</span>
             </div>
 
@@ -242,20 +241,20 @@ function WorkerCard({
                         <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Worker Type</h4>
                         <div className="flex items-center gap-2">
                             <WorkerTypeBadge worker={worker} />
-                            <span className="text-xs text-gray-400">{detectWorkerType(worker) === 'codetether-agent' ? 'Rust-based agent with ralph/swarm/rlm capabilities' : 'Python-based worker with opencode/build/deploy capabilities'}</span>
+                            <span className="text-xs text-gray-400">{detectWorkerType(worker) === 'codetether-agent' ? 'Rust-based agent with ralph/swarm/rlm capabilities' : 'Python-based worker with agent/build/deploy capabilities'}</span>
                         </div>
                     </div>
 
                     <div>
-                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Linked Codebases</h4>
-                        {linkedCodebases.length === 0 ? (
-                            <p className="text-xs text-gray-400">No codebases linked</p>
+                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Linked Workspaces</h4>
+                        {linkedWorkspaces.length === 0 ? (
+                            <p className="text-xs text-gray-400">No workspaces linked</p>
                         ) : (
                             <div className="space-y-1">
-                                {linkedCodebases.map(cb => (
-                                    <div key={cb.id} className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-700 dark:text-gray-300">{cb.name}</span>
-                                        <span className="font-mono text-gray-400">{cb.id.slice(0, 8)}</span>
+                                {linkedWorkspaces.map(ws => (
+                                    <div key={ws.id} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-700 dark:text-gray-300">{ws.name}</span>
+                                        <span className="font-mono text-gray-400">{ws.id.slice(0, 8)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -300,7 +299,7 @@ export default function WorkersPage() {
     const resolvedApiUrl = apiUrl || FALLBACK_API_URL
 
     const [workers, setWorkers] = useState<Worker[]>([])
-    const [codebases, setCodebases] = useState<Codebase[]>([])
+    const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [chatWorkerId, setChatWorkerId] = useState<string | null>(null)
@@ -465,14 +464,14 @@ export default function WorkersPage() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [workersRes, codebasesRes, connectedRes] = await Promise.all([
-                tenantFetch<Worker[]>('/v1/opencode/workers'),
-                tenantFetch<Codebase[]>('/v1/opencode/codebases/list'),
+            const [workersRes, workspacesRes, connectedRes] = await Promise.all([
+                tenantFetch<Worker[]>('/v1/agent/workers'),
+                tenantFetch<Workspace[] | { workspaces?: Workspace[], codebases?: Workspace[] }>('/v1/agent/workspaces/list'),
                 tenantFetch<ConnectedWorkersResponse>('/v1/worker/connected'),
             ])
 
-            if (workersRes.error || codebasesRes.error) {
-                throw new Error(workersRes.error || codebasesRes.error || 'Failed to fetch data')
+            if (workersRes.error || workspacesRes.error) {
+                throw new Error(workersRes.error || workspacesRes.error || 'Failed to fetch data')
             }
 
             const connectedWorkers = connectedRes.data?.workers || []
@@ -489,7 +488,10 @@ export default function WorkersPage() {
             )
 
             const workersData = Array.isArray(workersRes.data) ? workersRes.data : []
-            const codebasesData = Array.isArray(codebasesRes.data) ? codebasesRes.data : []
+            const workspacesPayload = workspacesRes.data as Workspace[] | { workspaces?: Workspace[], codebases?: Workspace[] } | undefined
+            const workspacesData = Array.isArray(workspacesPayload)
+                ? workspacesPayload
+                : (workspacesPayload?.workspaces ?? workspacesPayload?.codebases ?? [])
 
             const mergedWorkers = workersData.map((worker) => {
                 const connected = connectedById.get(worker.worker_id)
@@ -502,7 +504,7 @@ export default function WorkersPage() {
             })
 
             setWorkers(mergedWorkers)
-            setCodebases(codebasesData)
+            setWorkspaces(workspacesData)
             setError(null)
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load')
@@ -636,7 +638,7 @@ export default function WorkersPage() {
     const onlineWorkers = workers.filter(w => (new Date().getTime() - new Date(w.last_seen).getTime()) < 120000)
     const staleWorkers = workers.filter(w => (new Date().getTime() - new Date(w.last_seen).getTime()) >= 120000)
     const codetetherWorkers = workers.filter(w => detectWorkerType(w) === 'codetether-agent')
-    const opencodeWorkers = workers.filter(w => detectWorkerType(w) === 'opencode')
+    const agentWorkers = workers.filter(w => detectWorkerType(w) === 'agent')
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -670,12 +672,12 @@ export default function WorkersPage() {
                     <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">🦀 CodeTether</div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800">
-                    <div className="text-2xl font-bold text-indigo-600">{opencodeWorkers.length}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">🐍 OpenCode</div>
+                    <div className="text-2xl font-bold text-indigo-600">{agentWorkers.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">🐍 CodeTether</div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-purple-600">{codebases.length}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Codebases</div>
+                    <div className="text-2xl font-bold text-purple-600">{workspaces.length}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Workspaces</div>
                 </div>
             </div>
 
@@ -689,7 +691,7 @@ export default function WorkersPage() {
                         <WorkerCard
                             key={worker.worker_id}
                             worker={worker}
-                            codebases={codebases}
+                            workspaces={workspaces}
                             onOpenChat={setChatWorkerId}
                             chatOpen={chatWorkerId === worker.worker_id}
                         />
@@ -724,21 +726,19 @@ export default function WorkersPage() {
                                 </div>
                             ) : (
                                 activeChatMessages.map((message) => (
-                                    <div key={message.id} className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${
-                                        message.role === 'user'
+                                    <div key={message.id} className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${message.role === 'user'
                                             ? 'ml-auto bg-cyan-600 text-white'
                                             : message.role === 'system'
                                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                                                 : message.status === 'error'
                                                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                                                     : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
-                                    }`}>
+                                        }`}>
                                         <div className="whitespace-pre-wrap break-words">
                                             {message.content || (message.status === 'streaming' ? '...' : '')}
                                         </div>
-                                        <div className={`mt-1 text-[10px] ${
-                                            message.role === 'user' ? 'text-cyan-100' : 'text-gray-400 dark:text-gray-500'
-                                        }`}>
+                                        <div className={`mt-1 text-[10px] ${message.role === 'user' ? 'text-cyan-100' : 'text-gray-400 dark:text-gray-500'
+                                            }`}>
                                             {new Date(message.createdAt).toLocaleTimeString()}
                                             {message.status === 'streaming' ? ' • streaming' : ''}
                                             {message.status === 'error' ? ' • error' : ''}

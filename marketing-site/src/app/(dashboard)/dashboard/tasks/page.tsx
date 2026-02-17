@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { useCodebases } from '../sessions/hooks/useCodebases'
+import { useWorkspaces } from '../sessions/hooks/useWorkspaces'
 import { getTaskOutputV1AgentTasksTaskIdOutputGet, listAllTasksV1AgentTasksGet, hasApiAuthToken } from '@/lib/api'
 import { useTenantApi } from '@/hooks/useTenantApi'
 
@@ -245,10 +245,10 @@ export default function TasksPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [filter, setFilter] = useState('all')
     const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-    const { codebases } = useCodebases()
+    const { workspaces } = useWorkspaces()
     const { data: session } = useSession()
     const { apiUrl } = useTenantApi()
-    const [selectedCodebase, setSelectedCodebase] = useState<string>('all')
+    const [selectedWorkspace, setSelectedWorkspace] = useState<string>('all')
     const [taskSwarmMonitors, setTaskSwarmMonitors] = useState<Record<string, SwarmMonitorState>>({})
     const taskStreamRef = useRef<EventSource | null>(null)
     
@@ -492,8 +492,8 @@ export default function TasksPage() {
 
     const filteredTasks = tasks.filter((task: Task) => {
         const statusMatch = filter === 'all' || task.status === filter
-        const codebaseMatch = selectedCodebase === 'all' || task.codebase_id === selectedCodebase
-        return statusMatch && codebaseMatch
+        const workspaceMatch = selectedWorkspace === 'all' || task.codebase_id === selectedWorkspace
+        return statusMatch && workspaceMatch
     })
 
     const getStatusClasses = (status: string) => {
@@ -571,12 +571,12 @@ export default function TasksPage() {
                                     New Task
                                 </button>
                                 <select
-                                    value={selectedCodebase}
-                                    onChange={(e) => setSelectedCodebase(e.target.value)}
+                                    value={selectedWorkspace}
+                                    onChange={(e) => setSelectedWorkspace(e.target.value)}
                                     className="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 >
-                                    <option value="all">All Codebases</option>
-                                    {codebases.map((cb: any) => (
+                                    <option value="all">All Workspaces</option>
+                                    {workspaces.map((cb: any) => (
                                         <option key={cb.id} value={cb.id}>{cb.name}</option>
                                     ))}
                                 </select>
@@ -744,7 +744,7 @@ export default function TasksPage() {
                                 )}
                                 {selectedTask.codebase_id && (
                                     <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">Codebase ID</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Workspace ID</p>
                                         <p className="text-sm text-gray-900 dark:text-white">{selectedTask.codebase_id}</p>
                                     </div>
                                 )}
