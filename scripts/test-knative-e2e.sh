@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# End-to-End Test for Knative OpenCode Workers
+# End-to-End Test for Knative CodeTether Workers
 #
 # This script tests the FULL flow:
 # 1. Trigger agent via API

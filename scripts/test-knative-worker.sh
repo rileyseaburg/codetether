@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Test script for Per-Session Knative OpenCode Workers
+# Test script for Per-Session Knative CodeTether Workers
 #
 # This script tests the full flow:
 # 1. Use existing codebase
@@ -231,7 +231,7 @@ if [ -n "$SESSION_ID" ]; then
     SHORT_SESSION="${SESSION_ID:0:12}"
     KSVC_NAME="codetether-session-${SHORT_SESSION}"
 else
-    KSVC_NAME="opencode-codebase-${CODEBASE_ID}"
+    KSVC_NAME="codetether-codebase-${CODEBASE_ID}"
 fi
 
 # Step 3: Check initial Knative state
@@ -317,7 +317,7 @@ while true; do
         break
     elif [ "$KSVC_STATUS" = "NotFound" ]; then
         # Also check for any session-related services
-        FOUND_KSVC=$(kubectl get ksvc -n "$NAMESPACE" -o name 2>/dev/null | grep -i "session\|opencode" | head -1 || true)
+        FOUND_KSVC=$(kubectl get ksvc -n "$NAMESPACE" -o name 2>/dev/null | grep -i "session\|codetether" | head -1 || true)
         if [ -n "$FOUND_KSVC" ]; then
             log_info "Found Knative service: $FOUND_KSVC (${ELAPSED}s)"
         else
@@ -342,9 +342,9 @@ echo "All Knative Triggers:"
 kubectl get trigger -n "$NAMESPACE" 2>/dev/null || echo "  (none found)"
 
 echo ""
-echo "OpenCode Worker Pods:"
+echo "CodeTether Worker Pods:"
 kubectl get pods -n "$NAMESPACE" -l "app.kubernetes.io/component=codetether-worker" 2>/dev/null || \
-kubectl get pods -n "$NAMESPACE" | grep -E "opencode|session" || echo "  (none found)"
+kubectl get pods -n "$NAMESPACE" | grep -E "codetether|session" || echo "  (none found)"
 
 # Step 7: Check task status
 log_step 7 "Checking task status"
