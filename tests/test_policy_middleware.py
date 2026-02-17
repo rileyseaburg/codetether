@@ -114,7 +114,8 @@ class TestAgentRouterAdmin:
         assert _match_permission("/v1/agent/reaper/health", "GET") == "admin:access"
 
     def test_vault(self):
-        assert _match_permission("/v1/agent/vault/status", "GET") == "admin:access"
+        assert _match_permission("/v1/agent/vault/status", "GET") == "api_keys:read"
+        assert _match_permission("/v1/agent/vault/config", "GET") == "admin:access"
 
 
 class TestAgentRouterCodebases:
@@ -269,23 +270,25 @@ class TestAnalyticsRouter:
 
 
 class TestMCPRouter:
+    """MCP is an internal agent protocol — skips middleware auth (like /a2a/)."""
+
     def test_rpc_write(self):
-        assert _match_permission("/mcp/v1/rpc", "POST") == "mcp:write"
+        assert _match_permission("/mcp/v1/rpc", "POST") == ""
 
     def test_message_write(self):
-        assert _match_permission("/mcp/v1/message", "POST") == "mcp:write"
+        assert _match_permission("/mcp/v1/message", "POST") == ""
 
     def test_tasks_write(self):
-        assert _match_permission("/mcp/v1/tasks", "POST") == "mcp:write"
+        assert _match_permission("/mcp/v1/tasks", "POST") == ""
 
     def test_tasks_read(self):
-        assert _match_permission("/mcp/v1/tasks", "GET") == "mcp:read"
+        assert _match_permission("/mcp/v1/tasks", "GET") == ""
 
     def test_root_read(self):
-        assert _match_permission("/mcp", "GET") == "mcp:read"
+        assert _match_permission("/mcp", "GET") == ""
 
     def test_sse(self):
-        assert _match_permission("/mcp/v1/sse", "GET") == "mcp:read"
+        assert _match_permission("/mcp/v1/sse", "GET") == ""
 
 
 class TestAuthRouterProtectedEndpoints:

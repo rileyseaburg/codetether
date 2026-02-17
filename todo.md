@@ -1,5 +1,5 @@
 - [x] Implement Direct Chat with Global Codebase
-- [x] Support dynamic model discovery via OpenCode /provider spec
+- [x] Support dynamic model discovery via CodeTether /provider spec
 - [x] Update `make dev` to start full stack (Server + UI + Worker)
 - [x] Configure PostgreSQL persistence for worker registration
 - [ ] Deploy helm chart to a2a namespace

@@ -53,7 +53,7 @@ class SSEWorkerClient:
         self.worker_name = worker_name
         self.worker_id = worker_id or f'{worker_name}-{os.getpid()}'
         self.codebases = codebases or set()
-        self.capabilities = capabilities or ['opencode', 'build']
+        self.capabilities = capabilities or ['agent', 'build']
         self.auth_token = auth_token
         self.session: Optional[aiohttp.ClientSession] = None
         self.running = False
@@ -199,7 +199,7 @@ class SSEWorkerClient:
         await asyncio.sleep(2)
 
         # In a real implementation, you would:
-        # 1. Run OpenCode or other agent on the task
+        # 1. Run CodeTether or other agent on the task
         # 2. Capture the output/result
         # 3. Handle errors appropriately
 

@@ -356,7 +356,7 @@ describe('React Component E2E Tests', () => {
             cy.get('[role="status"]').should('contain.text', 'Select a codebase')
 
             // Get available codebases and test selection
-            cy.request(`${API_URL}/v1/opencode/codebases`).then((response) => {
+            cy.request(`${API_URL}/v1/agent/codebases`).then((response) => {
                 const codebases = response.body
 
                 // Test that codebases are populated in dropdown
@@ -390,10 +390,10 @@ describe('React Component E2E Tests', () => {
 
         it('should test ChatMessage component rendering', () => {
             // Load a session with messages
-            cy.request(`${API_URL}/v1/opencode/codebases`).then((cbResponse) => {
+            cy.request(`${API_URL}/v1/agent/codebases`).then((cbResponse) => {
                 const codebase = cbResponse.body[0]
 
-                cy.request(`${API_URL}/v1/opencode/codebases/${codebase.id}/sessions`).then((sessResponse) => {
+                cy.request(`${API_URL}/v1/agent/codebases/${codebase.id}/sessions`).then((sessResponse) => {
                     const sessionsWithMessages = sessResponse.body.filter(s => s.hasMessages)
 
                     if (sessionsWithMessages.length > 0) {
@@ -408,7 +408,7 @@ describe('React Component E2E Tests', () => {
                         // Test ChatMessage component structure
                         cy.get('[role="region"][aria-label*="Chat"]').should('exist')
 
-                        cy.request(`${API_URL}/v1/opencode/sessions/${session.id}/messages`).then((msgResponse) => {
+                        cy.request(`${API_URL}/v1/agent/sessions/${session.id}/messages`).then((msgResponse) => {
                             const messages = msgResponse.body
                             if (messages.length > 0) {
                                 // Test that messages are rendered
