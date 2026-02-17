@@ -17,8 +17,8 @@ This starts:
 
 **What the worker does:**
 - Connects to the server via SSE stream (`/v1/worker/tasks/stream`)
-- Discovers models from OpenCode auth (`~/.local/share/opencode/auth.json`)
-- Syncs local OpenCode sessions to the server
+- Discovers models from CodeTether auth (`~/.local/share/agent/auth.json`)
+- Syncs local CodeTether sessions to the server
 - Processes tasks from the queue
 
 **Manual worker start (if needed):**
@@ -113,7 +113,7 @@ make local-worker-restart
 5. **Backend events** (`a2a_server/monitor_api.py`) ✅
    - `part.tool` events include tool_name, status, metadata, output, error
    - `rlm.routing.decision` events transformed to `rlm.routing`
-   - OpenCode emits these events when RLM tool executes
+   - CodeTether emits these events when RLM tool executes
 
 ## Current State Summary
 
@@ -124,7 +124,7 @@ make local-worker-restart
 
 ## Next Steps (Future Work)
 
-- Add more granular RLM step events (if OpenCode emits them)
+- Add more granular RLM step events (if CodeTether emits them)
 - Show estimated completion time based on chunk progress
 - Add ability to cancel RLM execution in-progress
 - Performance metrics visualization (tokens/second, cost breakdown)
@@ -179,20 +179,20 @@ Refactored `ralph/page.tsx` from **2006 lines** to modular components:
 | File | Endpoints to Migrate |
 |------|---------------------|
 | `dashboard/page.tsx` | codebases/list, workers, models, trigger, codebases CRUD |
-| `dashboard/tasks/page.tsx` | opencode/tasks |
+| `dashboard/tasks/page.tsx` | agent/tasks |
 | `dashboard/settings/page.tsx` | providers, vault/status, api-keys, billing/status |
 | `dashboard/billing/page.tsx` | billing/status, checkout, portal |
 
 ### Medium Priority (Features)
 | File | Endpoints |
 |------|-----------|
-| `components/IntercomChat.tsx` | opencode/tasks |
-| `components/ChatWidget.tsx` | opencode/tasks |
-| `components/WorkerSelector/index.tsx` | opencode/workers |
+| `components/IntercomChat.tsx` | agent/tasks |
+| `components/ChatWidget.tsx` | agent/tasks |
+| `components/WorkerSelector/index.tsx` | agent/workers |
 | `sessions/hooks/useSessions.ts` | codebases sessions |
 | `sessions/hooks/useCodebases.ts` | codebases/list |
-| `ralph/prd-api.ts` | opencode/tasks |
-| `ralph/useAIPRDChat.ts` | opencode/tasks |
+| `ralph/prd-api.ts` | agent/tasks |
+| `ralph/useAIPRDChat.ts` | agent/tasks |
 
 ### Lower Priority
 | File | Endpoints |

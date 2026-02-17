@@ -11,8 +11,8 @@ A2A-Server-MCP/
 ├── a2a_server/           # Python FastAPI server (the brain)
 ├── agent_worker/         # DEPRECATED Python worker (replaced by codetether-agent)
 ├── codetether-agent/     # Rust worker binary - PRODUCTION (codetether worker)
-├── opencode/             # OpenCode fork (git submodule - DO NOT MODIFY HERE)
-├── opencode-a2a-integration/  # TypeScript integration for OpenCode CLI
+├── agent/             # CodeTether fork (git submodule - DO NOT MODIFY HERE)
+├── agent-a2a-integration/  # TypeScript integration for CodeTether CLI
 ├── marketing-site/       # Next.js web dashboard
 │   └── src/app/(dashboard)/dashboard/ralph/  # Ralph autonomous development UI
 ├── ui/swift/A2AMonitor/  # iOS monitoring app
@@ -34,19 +34,19 @@ A2A-Server-MCP/
 ### 2. Python Worker (`agent_worker/worker.py`) - ⚠️ DEPRECATED
 
 - **DEPRECATED**: Will be removed in a future release
-- Was the original production worker that spawned OpenCode as a subprocess
+- Was the original production worker that spawned CodeTether as a subprocess
 - Use `codetether worker` (Rust binary) instead
 - Legacy config at `/etc/a2a-worker/config.json` is still supported by the install script
 - Kept for reference during migration period
 
-### 3. TypeScript Worker (`opencode-a2a-integration/`) - CLI TOOL
+### 3. TypeScript Worker (`agent-a2a-integration/`) - CLI TOOL
 
-- For running `opencode a2a --server <url>` command
-- Integrated into OpenCode binary
+- For running `agent a2a --server <url>` command
+- Integrated into CodeTether binary
 - Used for development/testing
 - NOT the production worker
 
-**The Rust worker (`codetether worker`) is the production orchestrator. It replaces both the Python worker and the need to shell out to OpenCode.**
+**The Rust worker (`codetether worker`) is the production orchestrator. It replaces both the Python worker and the need to shell out to CodeTether.**
 
 ## Task Flow (How Work Gets Done)
 
@@ -63,10 +63,10 @@ A2A-Server-MCP/
 4. Worker claims task (POST /v1/worker/tasks/claim)
          │
          ▼
-5. Worker spawns: opencode run --agent build --format json -- "<prompt>"
+5. Worker spawns: agent run --agent build --format json -- "<prompt>"
          │
          ▼
-6. OpenCode executes, worker streams output
+6. CodeTether executes, worker streams output
          │
          ▼
 7. Worker releases task (POST /v1/worker/tasks/release)
@@ -79,9 +79,9 @@ A2A-Server-MCP/
 
 ### Task Management
 
-- `GET /v1/opencode/tasks` - List all tasks
-- `POST /v1/opencode/codebases/{id}/tasks` - Create task
-- `POST /v1/opencode/tasks/{id}/cancel` - Cancel task
+- `GET /v1/agent/tasks` - List all tasks
+- `POST /v1/agent/codebases/{id}/tasks` - Create task
+- `POST /v1/agent/tasks/{id}/cancel` - Cancel task
 
 ### Worker Communication
 
@@ -101,7 +101,7 @@ A2A-Server-MCP/
 Ralph is a fully autonomous development agent that implements entire PRDs:
 
 - **PRD Input**: YAML-formatted user stories with acceptance criteria
-- **Fresh Context**: Each story spawns a new OpenCode instance
+- **Fresh Context**: Each story spawns a new CodeTether instance
 - **Iterative Learning**: Failed stories re-analyze using `progress.txt`
 - **Self-Healing**: Automatic retry with accumulated learnings
 - **Git Integration**: Atomic commits per user story
@@ -135,9 +135,9 @@ Automatic stuck task recovery:
 - Emails on permanent failure
 
 **Endpoints**:
-- `GET /v1/opencode/tasks/stuck`
-- `POST /v1/opencode/tasks/stuck/recover`
-- `GET /v1/opencode/reaper/health`
+- `GET /v1/agent/tasks/stuck`
+- `POST /v1/agent/tasks/stuck/recover`
+- `GET /v1/agent/reaper/health`
 
 ---
 
@@ -204,7 +204,7 @@ This appears in:
 Set `SENDGRID_API_KEY` environment variable. The TypeScript integration supports:
 
 ```bash
-opencode a2a --email riley@spotlessbinco.com --sendgrid-key SG.xxx
+agent a2a --email riley@spotlessbinco.com --sendgrid-key SG.xxx
 ```
 
 ### Email Replies (Task Continuation)
@@ -216,7 +216,7 @@ Users can **reply directly to notification emails** to continue a conversation w
 2. User replies to the email
 3. SendGrid Inbound Parse forwards to `/v1/email/inbound`
 4. Server creates continuation task with `resume_session_id`
-5. Worker picks up task and resumes the OpenCode session
+5. Worker picks up task and resumes the CodeTether session
 
 **Configuration:**
 ```json
@@ -240,7 +240,7 @@ EMAIL_REPLY_PREFIX=task
 {
     "server_url": "https://api.codetether.run",
     "worker_name": "spotless-dev-worker",
-    "opencode_bin": "/opt/a2a-worker/bin/opencode",
+    "agent_bin": "/opt/a2a-worker/bin/agent",
     "codebases": [
         { "name": "spotlessbinco", "path": "/home/riley/spotlessbinco" }
     ],
@@ -273,11 +273,11 @@ Workers **must** register their codebases to receive tasks for them. The server 
 
 1. Worker connects via SSE with `X-Codebases` header containing comma-separated codebase IDs
 2. Worker calls `PUT /v1/worker/codebases` to update its codebase list
-3. Worker registers codebases via `POST /v1/opencode/codebases` which associates them with its worker_id
+3. Worker registers codebases via `POST /v1/agent/codebases` which associates them with its worker_id
 
 ## Common Mistakes - AVOID THESE
 
-1. **Modifying opencode/ directly** - It's a submodule. Changes go in `opencode-a2a-integration/`
+1. **Modifying agent/ directly** - It's a submodule. Changes go in `agent-a2a-integration/`
 2. **Using the deprecated Python worker** - Use `codetether worker` (Rust binary) instead
 3. **Not using MCP tools** - Always use spotless-ads/rustyroad tools, not manual file edits
 4. **Posting to wrong endpoint** - Use `/v1/monitor/intervene` for notifications, not `/v1/monitor/messages`
@@ -306,7 +306,7 @@ codetether worker --server http://localhost:8000 --codebases . --auto-approve sa
 make worker
 
 # Using TypeScript CLI (development/testing only)
-opencode a2a -s http://localhost:8000 -t secret123 -n dev-worker --auto-approve all
+agent a2a -s http://localhost:8000 -t secret123 -n dev-worker --auto-approve all
 
 # DEPRECATED: Python worker (will be removed)
 # python agent_worker/worker.py
@@ -323,13 +323,13 @@ curl http://localhost:8000/health
 ### Check if worker is connected
 
 ```bash
-curl http://localhost:8000/v1/opencode/workers
+curl http://localhost:8000/v1/agent/workers
 ```
 
 ### Check pending tasks
 
 ```bash
-curl http://localhost:8000/v1/opencode/tasks?status=pending
+curl http://localhost:8000/v1/agent/tasks?status=pending
 ```
 
 ### Check monitor messages
@@ -351,7 +351,7 @@ tail -f /tmp/a2a-worker.log  # If running manually
 ┌──────────────────────────────────────────────────────────────────────┐
 │                           CLIENTS                                     │
 ├──────────────┬──────────────┬──────────────┬────────────────────────┤
-│  Marketing   │   iOS App    │  OpenCode    │   Direct API           │
+│  Marketing   │   iOS App    │  CodeTether    │   Direct API           │
 │  Web UI      │  A2AMonitor  │  CLI         │   Calls                │
 └──────┬───────┴──────┬───────┴──────┬───────┴──────┬─────────────────┘
        │              │              │              │
@@ -377,7 +377,7 @@ tail -f /tmp/a2a-worker.log  # If running manually
                                │
                                ▼ subprocess
 ┌──────────────────────────────────────────────────────────────────────┐
-│                      OPENCODE (opencode run ...)                      │
+│                      OPENCODE (agent run ...)                      │
 │  - Executes prompts                                                  │
 │  - Uses MCP tools (rustyroad, spotless-ads, etc.)                   │
 │  - Returns JSON output                                               │
@@ -390,7 +390,7 @@ If you're still confused:
 
 1. Re-read the "Two Workers" section
 2. Check the task flow diagram
-3. Look at `/v1/opencode/tasks` to see actual task data
+3. Look at `/v1/agent/tasks` to see actual task data
 4. Check `/v1/monitor/messages` for recent activity
 
 **Remember: The Rust worker (`codetether worker`) is the production orchestrator.**

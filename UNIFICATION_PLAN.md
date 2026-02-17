@@ -6,7 +6,7 @@ This plan outlines the strategy to unify three separate sites under the root dom
 ## Current State
 - **Marketing Site**: `marketing-site/` (Next.js) - Primary marketing and landing pages
 - **Documentation Site**: `docs/` (MkDocs) - Technical documentation
-- **API Site**: `opencode/` (Next.js) - API reference and SDK documentation
+- **API Site**: `agent/` (Next.js) - API reference and SDK documentation
 
 ## Unification Strategy
 ### Domain Structure
@@ -38,7 +38,7 @@ api.codetether.run      → API reference site
   - `/api` → `https://api.codetether.run`
 
 ### 3. API Site (Next.js)
-- **File**: `opencode/packages/opencode/next.config.js`
+- **File**: `agent/packages/agent/next.config.js`
 - **Changes**: Added redirect rules for root and `/docs` paths
 - **Redirects**:
   - `/docs` → `https://docs.codetether.run`
