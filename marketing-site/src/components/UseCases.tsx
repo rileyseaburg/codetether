@@ -4,7 +4,7 @@ const useCases = [
     {
         title: 'Engineering Teams',
         description:
-            'Write a PRD, run Ralph. Wake up to implemented features with tests passing and commits pushed. RLM ensures infinite context—your entire codebase is understood, not just single files.',
+            'Write a PRD, run Ralph. Wake up to implemented features with tests passing and commits pushed. RLM ensures infinite context so your full workspace is understood, not just single files.',
         icon: '🔄',
         features: ['Autonomous dev', 'PRD → Code', 'RLM context'],
         workflow: 'PRD → Ralph implements → Review PR in morning'
@@ -52,7 +52,7 @@ const useCases = [
     {
         title: 'SaaS Founders',
         description:
-            'Your codebase is growing. RLM agents can analyze your entire repo, find bugs, write tests, and generate documentation. Finally, an AI that understands context beyond a single file.',
+            'Your product workspace is growing. RLM agents can analyze your full source context, find bugs, write tests, and generate documentation across teams and tools.',
         icon: '💻',
         features: ['Code review', 'Test generation', 'Documentation'],
         workflow: 'Push to GitHub → Agent reviews → Issues created'

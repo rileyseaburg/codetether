@@ -105,7 +105,7 @@ export default function AutomationsPage() {
   useEffect(() => {
     // In MVP, use default templates
     setTemplates(defaultTemplates)
-    
+
     // TODO: Fetch from API
     // const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://codetether.com'
     // fetch(`${apiUrl}/v1/automations/templates`)
@@ -132,8 +132,8 @@ export default function AutomationsPage() {
     setSubmitResult(null)
 
     try {
-       const token = localStorage.getItem('a2a_token')
-       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+      const token = localStorage.getItem('a2a_token')
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
       // Build the prompt from template
       let prompt = selectedTemplate.name + '\n\n'
@@ -142,7 +142,7 @@ export default function AutomationsPage() {
         prompt += `${input.label}: ${value}\n`
       }
 
-      const response = await fetch(`${apiUrl}/v1/opencode/tasks`, {
+      const response = await fetch(`${apiUrl}/v1/agent/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -255,21 +255,19 @@ export default function AutomationsPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setActiveTab('new')}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${
-                  activeTab === 'new'
+                className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'new'
                     ? 'bg-cyan-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 New Automation
               </button>
               <button
                 onClick={() => setActiveTab('history')}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${
-                  activeTab === 'history'
+                className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'history'
                     ? 'bg-cyan-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 History
               </button>
@@ -281,11 +279,10 @@ export default function AutomationsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {submitResult && (
           <div
-            className={`mb-6 p-4 rounded-md ${
-              submitResult.success
+            className={`mb-6 p-4 rounded-md ${submitResult.success
                 ? 'bg-green-50 text-green-800 border border-green-200'
                 : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
+              }`}
           >
             {submitResult.message}
           </div>
@@ -316,9 +313,8 @@ export default function AutomationsPage() {
                               {template.name}
                             </h3>
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${
-                                CATEGORY_COLORS[template.category] || 'bg-gray-100 text-gray-800'
-                              }`}
+                              className={`text-xs px-2 py-0.5 rounded-full ${CATEGORY_COLORS[template.category] || 'bg-gray-100 text-gray-800'
+                                }`}
                             >
                               {template.category}
                             </span>
@@ -433,11 +429,10 @@ export default function AutomationsPage() {
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            automation.status === 'active'
+                          className={`px-2 py-1 text-xs rounded-full ${automation.status === 'active'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
-                          }`}
+                            }`}
                         >
                           {automation.status}
                         </span>

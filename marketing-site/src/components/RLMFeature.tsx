@@ -53,7 +53,7 @@ const features = [
     {
         name: 'No More Token Limits',
         description:
-            'ChatGPT maxes out at 128K tokens. RLM processes your entire codebase, all your content, every spreadsheet row—no limits.',
+            'ChatGPT maxes out at 128K tokens. RLM processes your full workspace context, all your content, and every spreadsheet row with no hard limit.',
         icon: InfinityIcon,
     },
     {
@@ -101,7 +101,7 @@ export function RLMFeature() {
                             ❌ Before RLM (Regular ChatGPT)
                         </h3>
                         <div className="space-y-3 font-mono text-sm">
-                            <p className="text-gray-500">You: Analyze my codebase for security issues</p>
+                            <p className="text-gray-500">You: Analyze my workspace for security issues</p>
                             <p className="text-red-500">ChatGPT: Please paste the code you&apos;d like me to review.</p>
                             <p className="text-gray-500">You: *pastes 3 files*</p>
                             <p className="text-red-500">ChatGPT: I can only see these 3 files. Do you have more?</p>
@@ -116,7 +116,7 @@ export function RLMFeature() {
                             ✅ With RLM (CodeTether)
                         </h3>
                         <div className="space-y-3 font-mono text-sm">
-                            <p className="text-gray-600 dark:text-gray-300">You: Analyze my codebase for security issues</p>
+                            <p className="text-gray-600 dark:text-gray-300">You: Analyze my workspace for security issues</p>
                             <p className="text-cyan-600 dark:text-cyan-400">RLM: Loading 847 files into context...</p>
                             <p className="text-cyan-600 dark:text-cyan-400">RLM: Analyzing in batches of 50...</p>
                             <p className="text-cyan-600 dark:text-cyan-400">RLM: Running 17 sub-LLM security checks...</p>

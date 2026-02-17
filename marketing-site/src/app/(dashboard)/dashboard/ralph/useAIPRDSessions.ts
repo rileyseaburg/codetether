@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet } from '@/lib/api'
+import { getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet } from '@/lib/api'
 
 export interface PRDChatMessage {
   role: 'user' | 'assistant'
@@ -9,7 +9,7 @@ export interface PRDChatMessage {
 
 interface PRDChatSession {
   id: string
-  sessionId: string  // The actual OpenCode session ID for loading messages
+  sessionId: string  // The actual CodeTether session ID for loading messages
   messages: PRDChatMessage[]
   lastUpdated: string | number
   title?: string
@@ -18,14 +18,14 @@ interface PRDChatSession {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
-export function useAIPRDSessions(codebaseId: string | undefined) {
+export function useAIPRDSessions(workspaceId: string | undefined) {
   const [sessions, setSessions] = useState<PRDChatSession[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadSessions = async () => {
-    // Skip loading for 'global' or undefined codebase - sessions are codebase-specific
-    if (!codebaseId || codebaseId === 'global') {
+    // Skip loading for 'global' or undefined workspace.
+    if (!workspaceId || workspaceId === 'global') {
       setSessions([])
       return
     }
@@ -35,7 +35,7 @@ export function useAIPRDSessions(codebaseId: string | undefined) {
 
     try {
       // Use direct fetch until SDK is regenerated with new endpoint
-      const response = await fetch(`${API_BASE}/v1/ralph/chat/sessions/${codebaseId}`)
+      const response = await fetch(`${API_BASE}/v1/ralph/chat/sessions/${workspaceId}`)
       
       if (!response.ok) {
         setSessions([])
@@ -43,10 +43,10 @@ export function useAIPRDSessions(codebaseId: string | undefined) {
       }
       
       const sessionsData = await response.json()
-      // Get PRD chat sessions for this codebase
+      // Get PRD chat sessions for this workspace
       const allSessions = (sessionsData.sessions || []).map((s: any) => ({
         id: s.id,
-        sessionId: s.session_id,  // The OpenCode session ID
+        sessionId: s.session_id,  // The CodeTether session ID
         title: s.title || 'PRD Chat',
         lastUpdated: s.updated_at || s.created_at || 0,
         messages: [],
@@ -66,13 +66,13 @@ export function useAIPRDSessions(codebaseId: string | undefined) {
   }
 
   const loadSessionMessages = useCallback(async (openCodeSessionId: string): Promise<PRDChatMessage[]> => {
-    if (!codebaseId || codebaseId === 'global') {
+    if (!workspaceId || workspaceId === 'global') {
       return []
     }
 
     try {
-      const { data, error: apiError } = await getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet({
-        path: { codebase_id: codebaseId, session_id: openCodeSessionId }
+      const { data, error: apiError } = await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet({
+        path: { workspace_id: workspaceId, session_id: openCodeSessionId }
       })
 
       if (apiError || !data) {
@@ -92,11 +92,11 @@ export function useAIPRDSessions(codebaseId: string | undefined) {
       console.error('Failed to load session messages:', e)
       return []
     }
-  }, [codebaseId])
+  }, [workspaceId])
 
   useEffect(() => {
     loadSessions()
-  }, [codebaseId])
+  }, [workspaceId])
 
   return { sessions, loading, error, loadSessions, deleteSession, loadSessionMessages }
 }

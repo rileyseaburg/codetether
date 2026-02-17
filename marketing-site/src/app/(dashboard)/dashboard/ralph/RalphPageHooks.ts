@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import {
     listWorkersV1AgentWorkersGet,
+    listModelsV1AgentModelsGet,
     createRalphRunV1RalphRunsPost,
     listAllTasksV1AgentTasksGet,
 } from '@/lib/api'
@@ -50,21 +51,38 @@ export function useRalphHooks(store: RalphState) {
     const loadAgents = useCallback(async () => {
         store.setLoadingAgents(true)
         try {
-            const { data: workers } = await listWorkersV1AgentWorkersGet()
-            if (workers && Array.isArray(workers)) {
-                store.setAgents((workers as unknown as Worker[]).map((w: Worker) => ({
-                    name: w.name || '',
-                    role: 'worker',
-                    instance_id: w.worker_id || '',
-                    models_supported: (w.models || []).map((m: string | WorkerModel) => {
-                        if (typeof m === 'string') return m
-                        // Handle multiple API response formats
-                        const provider = m.provider || m.provider_id || m.providerID || ''
-                        const model = m.name || m.id || m.modelID || ''
-                        return provider && model ? `${provider}:${model}` : model || provider || ''
-                    }).filter(Boolean),
-                })))
+            // Fetch models from the dedicated models endpoint (aggregated, deduplicated, sorted)
+            const { data: modelsResponse } = await listModelsV1AgentModelsGet()
+            const resp = modelsResponse as { models?: { id?: string }[]; default?: string } | undefined
+            if (resp?.models && Array.isArray(resp.models)) {
+                const modelIds = resp.models
+                    .map((m: { id?: string }) => m.id)
+                    .filter((id): id is string => Boolean(id))
+                // Set as a single synthetic agent with all models
+                store.setAgents([{ name: 'all', role: 'worker', models_supported: modelIds }])
+                // Auto-select default model if none selected
+                if (!store.selectedModel && resp.default) {
+                    store.setSelectedModel(resp.default)
+                }
             }
+        } catch {
+            // Fallback: extract models from workers
+            try {
+                const { data: workers } = await listWorkersV1AgentWorkersGet()
+                if (workers && Array.isArray(workers)) {
+                    store.setAgents((workers as unknown as Worker[]).map((w: Worker) => ({
+                        name: w.name || '',
+                        role: 'worker',
+                        instance_id: w.worker_id || '',
+                        models_supported: (w.models || []).map((m: string | WorkerModel) => {
+                            if (typeof m === 'string') return m
+                            const provider = m.provider || m.provider_id || m.providerID || ''
+                            const model = m.name || m.id || m.modelID || ''
+                            return provider && model ? `${provider}/${model}` : model || provider || ''
+                        }).filter(Boolean),
+                    })))
+                }
+            } catch { /* both endpoints failed, no models available */ }
         } finally {
             store.setLoadingAgents(false)
         }
@@ -85,7 +103,7 @@ export function useRalphHooks(store: RalphState) {
                 tokensSaved: 0,
             }
             store.setRun(run)
-            
+
             const { data } = await createRalphRunV1RalphRunsPost({
                 body: {
                     prd: {
@@ -107,7 +125,7 @@ export function useRalphHooks(store: RalphState) {
                     max_parallel: store.maxParallel,
                 },
             })
-            
+
             if (data?.id) {
                 store.setRun(p => p ? { ...p, id: data.id } : null)
             }
@@ -124,7 +142,7 @@ export function useRalphHooks(store: RalphState) {
                     (t.metadata as { ralph?: boolean })?.ralph || t.title?.startsWith('Ralph:')
                 ))
             }
-        } catch {}
+        } catch { }
     }, [store])
 
     return { handlePrdChange, handlePRDFromBuilder, loadAgents, startServerRalph, loadTasks }

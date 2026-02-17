@@ -35,7 +35,7 @@ type ModelCostRates = {
     cacheWrite?: number
 }
 
-// Rates are USD per 1M tokens to match opencode pricing math.
+// Rates are USD per 1M tokens to match agent pricing math.
 const AZURE_ANTHROPIC_OPUS_45_COST: ModelCostRates = {
     input: 5,
     output: 25,

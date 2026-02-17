@@ -121,7 +121,7 @@ Ralph implements entire PRDs with zero human intervention. Define user stories, 
 Connect to 100+ tools via Model Context Protocol. File systems, databases, APIs, and more.
 
 ### AI Coding at Scale
-Deploy AI coding agents across your infrastructure using OpenCode. Automated code generation, refactoring, and testing.
+Deploy AI coding agents across your infrastructure using CodeTether. Automated code generation, refactoring, and testing.
 
 ### RLM (Recursive Language Models)
 Process arbitrarily long contexts through recursive LLM calls. Analyze entire monorepos without context limits.
@@ -196,7 +196,7 @@ async function getTask(taskId: string): Promise<TaskResponse> {
   }
 }
 
-function parseOpenCodeResult(result: string): string {
+function parseCodeTetherResult(result: string): string {
   if (!result) return 'No response received'
   if (!result.trim().startsWith('{')) return result
 
@@ -342,7 +342,7 @@ export function ChatWidget() {
       setMessages(prev => [...prev, aiMsg])
 
       const completedTask = await pollForCompletion(taskId)
-      const parsedResult = parseOpenCodeResult(completedTask.result || '')
+      const parsedResult = parseCodeTetherResult(completedTask.result || '')
 
       setMessages(prev =>
         prev.map(msg =>

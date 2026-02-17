@@ -4,32 +4,20 @@ export async function searchWorkersModels(query: string): Promise<string[]> {
     if (!query?.trim()) return []
 
     try {
-        const url = `${API_URL}/v1/agent/workers?search=${encodeURIComponent(query)}`
+        // Use dedicated models endpoint for aggregated, deduplicated results
+        const url = `${API_URL}/v1/agent/models`
         const response = await fetch(url)
         if (!response.ok) return []
 
-        const workers = await response.json()
-        const allModels: string[] = []
+        const data = await response.json()
+        const models: { id?: string }[] = data?.models || []
+        const queryLower = query.toLowerCase()
 
-        for (const worker of workers || []) {
-            const rawModels = (worker.models as Array<string | Record<string, unknown>>) || []
-            for (const m of rawModels) {
-                let modelStr: string | null = null
-                if (typeof m === 'string') {
-                    modelStr = m
-                } else if (m && typeof m === 'object') {
-                    const obj = m as any
-                    if (obj.providerID && obj.modelID) modelStr = `${obj.providerID}:${obj.modelID}`
-                    else if (obj.provider && obj.name && obj.name !== obj.provider) modelStr = `${obj.provider}:${obj.name}`
-                    else if (obj.provider && obj.id && obj.id !== obj.provider) modelStr = `${obj.provider}:${obj.id}`
-                    else if (obj.name) modelStr = obj.name
-                    else if (obj.id) modelStr = obj.id
-                }
-                if (modelStr) allModels.push(modelStr)
-            }
-        }
-
-        return allModels.slice(0, 50)
+        return models
+            .map(m => m.id)
+            .filter((id): id is string => Boolean(id))
+            .filter(id => id.toLowerCase().includes(queryLower))
+            .slice(0, 50)
     } catch {
         return []
     }

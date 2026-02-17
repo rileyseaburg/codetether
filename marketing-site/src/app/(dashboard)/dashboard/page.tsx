@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import VoiceAgentButton from './components/voice/VoiceAgentButton'
 import TenantStatusBanner from '@/components/TenantStatusBanner'
@@ -9,16 +9,17 @@ import { WorkerSelector } from '@/components/WorkerSelector'
 import { useRalphStore } from './ralph/store'
 import { useTenantApi } from '@/hooks/useTenantApi'
 import {
-    listCodebasesV1AgentCodebasesListGet,
+    listWorkspacesV1AgentWorkspacesListGet,
     listAllTasksV1AgentTasksGet,
     listWorkersV1AgentWorkersGet,
-    triggerAgentV1AgentCodebasesCodebaseIdTriggerPost,
-    registerCodebaseV1AgentCodebasesPost,
-    unregisterCodebaseV1AgentCodebasesCodebaseIdDelete,
+    listModelsV1AgentModelsGet,
+    triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost,
+    registerWorkspaceV1AgentWorkspacesPost,
+    unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete,
     hasApiAuthToken,
 } from '@/lib/api'
 
-interface Codebase {
+interface Workspace {
     id: string
     name: string
     path: string
@@ -32,6 +33,8 @@ interface Worker {
     name: string
     hostname?: string
     status: string
+    global_workspace_id?: string
+    // Legacy alias kept for backward compatibility in mixed deployments.
     global_codebase_id?: string
     last_seen?: string
     is_sse_connected?: boolean
@@ -72,6 +75,17 @@ interface SwarmRoutingSnapshot {
     updatedAt: number
 }
 
+interface WorkspaceRuntimeContext {
+    mode: 'knative' | 'worker' | 'unknown'
+    source: 'task' | 'trigger' | 'inferred'
+    taskId?: string
+    status?: string
+    workerId?: string
+    sessionId?: string
+    knativeServiceName?: string
+    updatedAt: number
+}
+
 const INITIAL_SWARM_MONITOR: SwarmMonitorState = {
     connected: false,
     status: 'idle',
@@ -84,6 +98,8 @@ const INITIAL_SWARM_MONITOR: SwarmMonitorState = {
     recentLines: [],
     lastUpdatedAt: null,
 }
+
+const WORKSPACE_WIZARD_DISMISSED_KEY = 'codetether.workspaceWizardDismissed'
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
     if (!value || typeof value !== 'object') {
@@ -99,6 +115,20 @@ const getString = (record: Record<string, unknown> | null, keys: string[]): stri
         if (typeof value === 'string') {
             const trimmed = value.trim()
             if (trimmed) return trimmed
+        }
+    }
+    return undefined
+}
+
+const getBoolean = (record: Record<string, unknown> | null, keys: string[]): boolean | undefined => {
+    if (!record) return undefined
+    for (const key of keys) {
+        const value = record[key]
+        if (typeof value === 'boolean') return value
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase()
+            if (normalized === 'true') return true
+            if (normalized === 'false') return false
         }
     }
     return undefined
@@ -329,8 +359,8 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 export default function DashboardPage() {
     const { data: session } = useSession()
     const { apiUrl, tenantId, tenantSlug, isAuthenticated, tenantFetch } = useTenantApi()
-    const { selectedModel, setSelectedModel, selectedCodebase, setSelectedCodebase, setAgents, setLoadingAgents } = useRalphStore()
-    const [codebases, setCodebases] = useState<Codebase[]>([])
+    const { selectedModel, selectedCodebase, setSelectedCodebase, setAgents, setLoadingAgents } = useRalphStore()
+    const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [workers, setWorkers] = useState<Worker[]>([])
     const [selectedAgent, setSelectedAgent] = useState('build')
     const [selectedWorkerId, setSelectedWorkerId] = useState('')
@@ -345,12 +375,85 @@ export default function DashboardPage() {
     const [swarmMonitor, setSwarmMonitor] = useState<SwarmMonitorState>(INITIAL_SWARM_MONITOR)
     const swarmEventSourceRef = useRef<EventSource | null>(null)
     const [showRegisterModal, setShowRegisterModal] = useState(false)
+    const [showWorkspaceWizard, setShowWorkspaceWizard] = useState(false)
+    const [workspaceWizardStep, setWorkspaceWizardStep] = useState(0)
+    const [workspaceWizardMode, setWorkspaceWizardMode] = useState<'local' | 'git' | 'external'>('local')
+    const [workspaceWizardDismissed, setWorkspaceWizardDismissed] = useState(false)
+    const [registerMode, setRegisterMode] = useState<'local' | 'git' | 'external'>('local')
     const [registerForm, setRegisterForm] = useState({
         name: '',
         path: '',
         description: '',
-        worker_id: ''
+        worker_id: '',
+        git_url: '',
+        git_branch: 'main',
+        external_provider: '',
+        external_reference: '',
     })
+    const [runtimeContext, setRuntimeContext] = useState<WorkspaceRuntimeContext | null>(null)
+    const fallbackWorkspaceId = useMemo(() => {
+        const connectedWorker = workers.find(
+            (w) => w.is_sse_connected && (w.global_workspace_id || w.global_codebase_id)
+        )
+        const connectedGlobal = connectedWorker?.global_workspace_id || connectedWorker?.global_codebase_id
+        if (connectedGlobal) return connectedGlobal
+
+        const anyWorker = workers.find((w) => w.global_workspace_id || w.global_codebase_id)
+        const anyGlobal = anyWorker?.global_workspace_id || anyWorker?.global_codebase_id
+        if (anyGlobal) return anyGlobal
+
+        if (workspaces.length === 1) return workspaces[0]?.id || ''
+        return ''
+    }, [workers, workspaces])
+    const selectedWorkspaceExists = useMemo(
+        () => Boolean(selectedCodebase) && workspaces.some((cb) => cb.id === selectedCodebase),
+        [workspaces, selectedCodebase]
+    )
+    const activeWorkspaceId = useMemo(() => {
+        if (selectedWorkspaceExists && selectedCodebase) return selectedCodebase
+        return fallbackWorkspaceId
+    }, [fallbackWorkspaceId, selectedCodebase, selectedWorkspaceExists])
+
+    useEffect(() => {
+        if (!fallbackWorkspaceId) return
+        if (!selectedCodebase) {
+            setSelectedCodebase(fallbackWorkspaceId)
+            return
+        }
+        if (!selectedWorkspaceExists && selectedCodebase !== fallbackWorkspaceId) {
+            setSelectedCodebase(fallbackWorkspaceId)
+        }
+    }, [fallbackWorkspaceId, selectedCodebase, selectedWorkspaceExists, setSelectedCodebase])
+
+    const activeWorkspace = useMemo(
+        () => workspaces.find((workspace) => workspace.id === activeWorkspaceId),
+        [activeWorkspaceId, workspaces]
+    )
+    const activeWorkspaceOwner = useMemo(
+        () => workers.find((worker) => worker.worker_id === activeWorkspace?.worker_id),
+        [activeWorkspace?.worker_id, workers]
+    )
+    const selectedWorker = useMemo(
+        () => workers.find((worker) => worker.worker_id === selectedWorkerId),
+        [selectedWorkerId, workers]
+    )
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const dismissed = window.localStorage.getItem(WORKSPACE_WIZARD_DISMISSED_KEY) === '1'
+        setWorkspaceWizardDismissed(dismissed)
+    }, [])
+
+    useEffect(() => {
+        if (workspaces.length > 0) {
+            setShowWorkspaceWizard(false)
+            return
+        }
+        if (!workspaceWizardDismissed) {
+            setWorkspaceWizardStep(0)
+            setShowWorkspaceWizard(true)
+        }
+    }, [workspaceWizardDismissed, workspaces.length])
 
     const upsertRoutingSnapshot = useCallback(
         (
@@ -452,14 +555,14 @@ export default function DashboardPage() {
 
         setSwarmMonitor(INITIAL_SWARM_MONITOR)
 
-        if (!selectedCodebase || selectedCodebase === 'global') {
+        if (!activeWorkspaceId) {
             return
         }
 
         // Handle relative API URLs (e.g., "/api") by resolving against window.location
         const baseApiUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl
         const baseUrl = baseApiUrl.replace(/\/+$/, '')
-        const sseUrl = new URL(`${baseUrl}/v1/agent/codebases/${encodeURIComponent(selectedCodebase)}/events`)
+        const sseUrl = new URL(`${baseUrl}/v1/agent/workspaces/${encodeURIComponent(activeWorkspaceId)}/events`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
         }
@@ -500,15 +603,23 @@ export default function DashboardPage() {
                 swarmEventSourceRef.current = null
             }
         }
-    }, [apiUrl, selectedCodebase, ingestSwarmPayload, session?.accessToken])
+    }, [activeWorkspaceId, apiUrl, ingestSwarmPayload, session?.accessToken])
 
-    const loadCodebases = useCallback(async () => {
+    useEffect(() => {
+        if (!activeWorkspaceId) {
+            setRuntimeContext(null)
+        }
+    }, [activeWorkspaceId])
+
+    const loadWorkspaces = useCallback(async () => {
         try {
-            const { data, error } = await listCodebasesV1AgentCodebasesListGet()
+            const { data, error } = await listWorkspacesV1AgentWorkspacesListGet()
             if (!error && data) {
                 const response = data as any
-                const items = Array.isArray(response) ? response : (response?.codebases ?? response?.data ?? [])
-                setCodebases(
+                const items = Array.isArray(response)
+                    ? response
+                    : (response?.workspaces ?? response?.codebases ?? response?.data ?? [])
+                setWorkspaces(
                     (items as any[])
                         .map((cb) => ({
                             id: String(cb?.id ?? ''),
@@ -522,7 +633,7 @@ export default function DashboardPage() {
                 )
             }
         } catch (error) {
-            console.error('Failed to load codebases:', error)
+            console.error('Failed to load workspaces:', error)
         }
     }, [])
 
@@ -559,18 +670,43 @@ export default function DashboardPage() {
                 })
 
                 setWorkers(mergedWorkers)
-                // Sync into ralph store so ModelSelector can read models
-                setAgents(mergedWorkers.map((w: any) => ({
-                    name: w.name || '',
-                    role: 'worker',
-                    instance_id: w.worker_id || '',
-                    models_supported: (w.models || []).map((m: any) => {
-                        if (typeof m === 'string') return m
-                        const provider = m.provider || m.provider_id || m.providerID || ''
-                        const model = m.name || m.id || m.modelID || ''
-                        return provider && model ? `${provider}:${model}` : model || provider || ''
-                    }).filter(Boolean),
-                })))
+                // Load models from dedicated models endpoint (aggregated + deduplicated)
+                try {
+                    const { data: modelsData } = await listModelsV1AgentModelsGet()
+                    const modelsResp = modelsData as { models?: { id?: string }[]; default?: string } | undefined
+                    if (modelsResp?.models?.length) {
+                        const modelIds = modelsResp.models
+                            .map((m: { id?: string }) => m.id)
+                            .filter((id): id is string => Boolean(id))
+                        setAgents([{ name: 'all', role: 'worker', models_supported: modelIds }])
+                    } else {
+                        // Fallback: extract from workers
+                        setAgents(mergedWorkers.map((w: any) => ({
+                            name: w.name || '',
+                            role: 'worker',
+                            instance_id: w.worker_id || '',
+                            models_supported: (w.models || []).map((m: any) => {
+                                if (typeof m === 'string') return m
+                                const provider = m.provider || m.provider_id || m.providerID || ''
+                                const model = m.name || m.id || m.modelID || ''
+                                return provider && model ? `${provider}/${model}` : model || provider || ''
+                            }).filter(Boolean),
+                        })))
+                    }
+                } catch {
+                    // Fallback: extract from workers
+                    setAgents(mergedWorkers.map((w: any) => ({
+                        name: w.name || '',
+                        role: 'worker',
+                        instance_id: w.worker_id || '',
+                        models_supported: (w.models || []).map((m: any) => {
+                            if (typeof m === 'string') return m
+                            const provider = m.provider || m.provider_id || m.providerID || ''
+                            const model = m.name || m.id || m.modelID || ''
+                            return provider && model ? `${provider}/${model}` : model || provider || ''
+                        }).filter(Boolean),
+                    })))
+                }
             }
         } catch (error) {
             console.error('Failed to load workers:', error)
@@ -580,15 +716,51 @@ export default function DashboardPage() {
     }, [setAgents, setLoadingAgents, tenantFetch])
 
     const loadRoutingFromTasks = useCallback(async () => {
-        if (!selectedCodebase) return
+        if (!activeWorkspaceId) return
         try {
             const { data, error } = await listAllTasksV1AgentTasksGet({
-                query: { codebase_id: selectedCodebase },
+                query: { workspace_id: activeWorkspaceId },
             })
             if (error || !data) return
 
             const response = data as any
             const tasks = Array.isArray(response) ? response : (response?.tasks ?? [])
+            const latestTask = [...tasks]
+                .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+                    const aTime = Date.parse(String(a?.created_at ?? ''))
+                    const bTime = Date.parse(String(b?.created_at ?? ''))
+                    return bTime - aTime
+                })[0]
+
+            if (latestTask) {
+                const taskRecord = asRecord(latestTask)
+                const metadata = asRecord(taskRecord?.metadata)
+                const knativeFlag = getBoolean(metadata, ['knative']) === true
+                const knativeServiceName =
+                    getString(metadata, ['knative_service_name', 'knative_service']) ??
+                    getString(taskRecord, ['knative_service_name'])
+                const workerId =
+                    getString(metadata, ['target_worker_id', 'worker_id']) ??
+                    getString(taskRecord, ['worker_id'])
+                const sessionId =
+                    getString(metadata, ['session_id']) ??
+                    getString(taskRecord, ['session_id'])
+                const status = getString(taskRecord, ['status'])
+
+                setRuntimeContext({
+                    mode: knativeFlag || Boolean(knativeServiceName) ? 'knative' : workerId ? 'worker' : 'unknown',
+                    source: 'task',
+                    taskId: getString(taskRecord, ['id']),
+                    status,
+                    workerId,
+                    sessionId,
+                    knativeServiceName,
+                    updatedAt: Date.now(),
+                })
+            } else {
+                setRuntimeContext(null)
+            }
+
             const latestSwarmTask = tasks
                 .filter((task: Record<string, unknown>) => isSwarmAgentType(task?.agent_type))
                 .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -608,22 +780,22 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Failed to load routing snapshot from tasks:', error)
         }
-    }, [selectedCodebase, upsertRoutingSnapshot])
+    }, [activeWorkspaceId, upsertRoutingSnapshot])
 
     useEffect(() => {
         // Wait until we have an auth token before making SDK calls
         if (!session?.accessToken && !hasApiAuthToken()) return
 
-        loadCodebases()
+        loadWorkspaces()
         loadWorkers()
         loadRoutingFromTasks()
         const interval = setInterval(() => {
-            loadCodebases()
+            loadWorkspaces()
             loadWorkers()
             loadRoutingFromTasks()
         }, 10000)
         return () => clearInterval(interval)
-    }, [loadCodebases, loadWorkers, loadRoutingFromTasks, session?.accessToken])
+    }, [loadWorkspaces, loadWorkers, loadRoutingFromTasks, session?.accessToken])
 
     useEffect(() => {
         const triggerWorkers = workers.filter((w) => w.is_sse_connected)
@@ -632,24 +804,30 @@ export default function DashboardPage() {
             return
         }
 
-        const selectedStillValid = triggerWorkers.some((w) => w.worker_id === selectedWorkerId)
-        if (selectedStillValid) return
+        const selectedWorkspaceWorkerId = workspaces.find((cb) => cb.id === activeWorkspaceId)?.worker_id
+        const preferredWorker = triggerWorkers.find((w) => w.worker_id === selectedWorkspaceWorkerId)?.worker_id
 
-        const selectedCodebaseWorkerId = codebases.find((cb) => cb.id === selectedCodebase)?.worker_id
-        const preferredWorker = triggerWorkers.find((w) => w.worker_id === selectedCodebaseWorkerId)
-        setSelectedWorkerId(preferredWorker?.worker_id || triggerWorkers[0]?.worker_id || '')
-    }, [codebases, selectedCodebase, selectedWorkerId, workers])
-
-    const triggerAgent = async () => {
-        if (!selectedCodebase || !prompt.trim()) return
         if (!selectedWorkerId) {
-            alert('Select a connected worker before triggering an agent.')
+            if (preferredWorker) {
+                setSelectedWorkerId(preferredWorker)
+            }
             return
         }
+
+        const selectedStillValid = triggerWorkers.some((w) => w.worker_id === selectedWorkerId)
+        if (!selectedStillValid) {
+            setSelectedWorkerId(preferredWorker || '')
+        }
+    }, [activeWorkspaceId, workspaces, selectedWorkerId, workers])
+
+    const triggerAgent = async () => {
+        if (!activeWorkspaceId || !prompt.trim()) return
         setLoading(true)
         try {
             const metadata: Record<string, unknown> = {}
-            metadata.target_worker_id = selectedWorkerId
+            if (selectedWorkerId) {
+                metadata.target_worker_id = selectedWorkerId
+            }
             if (selectedAgent === 'swarm') {
                 metadata.decomposition_strategy = swarmStrategy
                 metadata.swarm = {
@@ -671,11 +849,26 @@ export default function DashboardPage() {
                 ...(Object.keys(metadata).length > 0 && { metadata }),
             }
 
-            const { data, error } = await triggerAgentV1AgentCodebasesCodebaseIdTriggerPost({
-                path: { codebase_id: selectedCodebase },
+            const { data, error } = await triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost({
+                path: { workspace_id: activeWorkspaceId },
                 body
             })
             if (!error) {
+                const response = (data as Record<string, unknown> | undefined) ?? {}
+                const responseKnative = response?.knative === true
+                const responseSessionId =
+                    typeof response?.session_id === 'string' ? response.session_id : undefined
+                setRuntimeContext({
+                    mode: responseKnative ? 'knative' : selectedWorkerId ? 'worker' : 'unknown',
+                    source: 'trigger',
+                    status: 'queued',
+                    workerId: selectedWorkerId || activeWorkspace?.worker_id || undefined,
+                    sessionId: responseSessionId,
+                    knativeServiceName: responseSessionId
+                        ? `codetether-session-${responseSessionId}`
+                        : undefined,
+                    updatedAt: Date.now(),
+                })
                 setPrompt('')
                 const routing = (data as any)?.routing
                 if (routing) {
@@ -697,35 +890,106 @@ export default function DashboardPage() {
         }
     }
 
-    const registerCodebase = async () => {
-        if (!registerForm.name || !registerForm.path) return
+    const registerWorkspace = async () => {
+        const trimmedName = registerForm.name.trim()
+        const trimmedPath = registerForm.path.trim()
+        const trimmedGitUrl = registerForm.git_url.trim()
+        const trimmedGitBranch = registerForm.git_branch.trim() || 'main'
+        const trimmedExternalProvider = registerForm.external_provider.trim()
+        const trimmedExternalReference = registerForm.external_reference.trim()
+
+        if (!trimmedName) return
+        if (registerMode === 'local' && !trimmedPath) return
+        if (registerMode === 'git' && !trimmedGitUrl) return
+        if (registerMode === 'external' && (!trimmedExternalProvider || !registerForm.worker_id)) return
         try {
-            const { error } = await registerCodebaseV1AgentCodebasesPost({
-                body: {
-                    name: registerForm.name,
-                    path: registerForm.path,
-                    ...(registerForm.description && { description: registerForm.description }),
-                    ...(registerForm.worker_id && { worker_id: registerForm.worker_id })
+            const body: Record<string, unknown> = {
+                name: trimmedName,
+                ...(registerForm.description && { description: registerForm.description }),
+                ...(registerForm.worker_id && { worker_id: registerForm.worker_id }),
+            }
+            if (registerMode === 'local') {
+                body.path = trimmedPath
+            } else if (registerMode === 'git') {
+                body.git_url = trimmedGitUrl
+                body.git_branch = trimmedGitBranch
+                if (trimmedPath) body.path = trimmedPath
+            } else {
+                const providerSlug = trimmedExternalProvider
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '') || 'external'
+                const referenceSlug = (trimmedExternalReference || trimmedName)
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '') || 'workspace'
+                body.path = trimmedPath || `external://${providerSlug}/${referenceSlug}`
+                body.agent_config = {
+                    source_type: 'external',
+                    source_provider: trimmedExternalProvider,
+                    ...(trimmedExternalReference && { source_reference: trimmedExternalReference }),
                 }
+            }
+            const { error } = await registerWorkspaceV1AgentWorkspacesPost({
+                body: body as any
             })
             if (!error) {
                 setShowRegisterModal(false)
-                setRegisterForm({ name: '', path: '', description: '', worker_id: '' })
-                loadCodebases()
+                setShowWorkspaceWizard(false)
+                setRegisterMode('local')
+                setRegisterForm({
+                    name: '',
+                    path: '',
+                    description: '',
+                    worker_id: '',
+                    git_url: '',
+                    git_branch: 'main',
+                    external_provider: '',
+                    external_reference: '',
+                })
+                loadWorkspaces()
             }
         } catch (error) {
-            console.error('Failed to register codebase:', error)
+            console.error('Failed to register workspace:', error)
         }
     }
 
-    const deleteCodebase = async (id: string) => {
-        if (!confirm('Delete this codebase?')) return
+    const deleteWorkspace = async (id: string) => {
+        if (!confirm('Delete this workspace?')) return
         try {
-            await unregisterCodebaseV1AgentCodebasesCodebaseIdDelete({ path: { codebase_id: id } })
-            loadCodebases()
+            await unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete({ path: { workspace_id: id } })
+            loadWorkspaces()
         } catch (error) {
-            console.error('Failed to delete codebase:', error)
+            console.error('Failed to delete workspace:', error)
         }
+    }
+
+    const openRegisterWorkspaceModal = (mode: 'local' | 'git' | 'external' = 'local') => {
+        setRegisterMode(mode)
+        setRegisterForm({
+            name: '',
+            path: '',
+            description: '',
+            worker_id: '',
+            git_url: '',
+            git_branch: 'main',
+            external_provider: '',
+            external_reference: '',
+        })
+        setShowRegisterModal(true)
+    }
+
+    const dismissWorkspaceWizard = (remember: boolean) => {
+        setShowWorkspaceWizard(false)
+        if (remember && typeof window !== 'undefined') {
+            window.localStorage.setItem(WORKSPACE_WIZARD_DISMISSED_KEY, '1')
+            setWorkspaceWizardDismissed(true)
+        }
+    }
+
+    const launchWorkspaceSetupFromWizard = () => {
+        setShowWorkspaceWizard(false)
+        openRegisterWorkspaceModal(workspaceWizardMode)
     }
 
     const isWorkerOnline = (worker: Worker) => {
@@ -761,21 +1025,180 @@ export default function DashboardPage() {
     )
     const recentSwarmLines = swarmMonitor.recentLines.slice(-16)
     const routingSnapshot = swarmMonitor.routing
+    const effectiveRuntimeMode: WorkspaceRuntimeContext['mode'] = runtimeContext?.mode ?? (selectedWorker ? 'worker' : 'unknown')
+    const runtimeModeLabel =
+        effectiveRuntimeMode === 'knative'
+            ? 'Knative Session Worker'
+            : effectiveRuntimeMode === 'worker'
+                ? 'Direct Connected Worker'
+                : 'Not yet resolved'
+    const canRegisterWorkspace =
+        Boolean(registerForm.name.trim()) &&
+        (
+            (registerMode === 'local' && Boolean(registerForm.path.trim())) ||
+            (registerMode === 'git' && Boolean(registerForm.git_url.trim())) ||
+            (registerMode === 'external' && Boolean(registerForm.external_provider.trim()) && Boolean(registerForm.worker_id))
+        )
 
     return (
         <div className="space-y-6">
             {/* Tenant Status Banner */}
             <TenantStatusBanner />
 
+            {showWorkspaceWizard && workspaces.length === 0 && (
+                <div className="fixed inset-0 z-50">
+                    <div className="fixed inset-0 bg-gray-900/50" />
+                    <div className="fixed inset-0 z-10 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div className="border-b border-gray-200 p-5 dark:border-gray-700">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                                                First-Time Setup
+                                            </p>
+                                            <h2 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
+                                                Create your first workspace
+                                            </h2>
+                                        </div>
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                            Step {workspaceWizardStep + 1} / 3
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="p-6">
+                                    {workspaceWizardStep === 0 && (
+                                        <div className="space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                                            <p>
+                                                A workspace is a durable context boundary.
+                                            </p>
+                                            <p>
+                                                It binds source material, runtime configuration, routing, and history under one stable ID.
+                                            </p>
+                                            <p>
+                                                Every task, session, and artifact in this dashboard is anchored to a selected workspace.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {workspaceWizardStep === 1 && (
+                                        <div className="space-y-4">
+                                            <p className="text-sm text-gray-700 dark:text-gray-200">
+                                                Choose how you want to attach source material to this workspace:
+                                            </p>
+                                            <div className="grid gap-3 sm:grid-cols-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceWizardMode('local')}
+                                                    className={`rounded-lg border p-4 text-left ${workspaceWizardMode === 'local'
+                                                            ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
+                                                            : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                >
+                                                    <p className="font-semibold text-gray-900 dark:text-white">Directory</p>
+                                                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                        Attach an existing folder already available in your runtime.
+                                                    </p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceWizardMode('git')}
+                                                    className={`rounded-lg border p-4 text-left ${workspaceWizardMode === 'git'
+                                                            ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
+                                                            : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                >
+                                                    <p className="font-semibold text-gray-900 dark:text-white">Repository URL</p>
+                                                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                        Attach a remote source URL and materialize it into workspace storage.
+                                                    </p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceWizardMode('external')}
+                                                    className={`rounded-lg border p-4 text-left ${workspaceWizardMode === 'external'
+                                                            ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
+                                                            : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                >
+                                                    <p className="font-semibold text-gray-900 dark:text-white">External App</p>
+                                                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                        Create a workspace identity for non-repo systems and connected tools.
+                                                    </p>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {workspaceWizardStep === 2 && (
+                                        <div className="space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                                            <p>
+                                                Runtime mapping:
+                                            </p>
+                                            <p>
+                                                Direct mode routes work to an active connected runtime.
+                                            </p>
+                                            <p>
+                                                Knative mode creates a per-session service/pod while keeping the same workspace identity.
+                                            </p>
+                                            <p>
+                                                External app workspaces use the same identity model, so tasks, permissions, and activity stay consistent across systems.
+                                            </p>
+                                            <p className="rounded-md bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+                                                Workspace details remain editable after setup.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between border-t border-gray-200 p-4 dark:border-gray-700">
+                                    <button
+                                        onClick={() => dismissWorkspaceWizard(true)}
+                                        className="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    >
+                                        Dismiss tips
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setWorkspaceWizardStep((step) => Math.max(0, step - 1))}
+                                            disabled={workspaceWizardStep === 0}
+                                            className="rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-200 dark:hover:bg-gray-700"
+                                        >
+                                            Back
+                                        </button>
+                                        {workspaceWizardStep < 2 ? (
+                                            <button
+                                                onClick={() => setWorkspaceWizardStep((step) => Math.min(2, step + 1))}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                            >
+                                                Next
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={launchWorkspaceSetupFromWizard}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                            >
+                                                Open Workspace Form
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-                {/* Left sidebar - Codebases */}
+                {/* Left sidebar - Workspaces */}
                 <div className="lg:col-span-1">
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Codebases</h2>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Workspaces</h2>
                                 <button
-                                    onClick={() => setShowRegisterModal(true)}
+                                    onClick={openRegisterWorkspaceModal}
                                     className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
                                 >
                                     <PlusIcon className="h-4 w-4 inline mr-1" />
@@ -784,13 +1207,22 @@ export default function DashboardPage() {
                             </div>
                         </div>
                         <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-300px)] overflow-y-auto">
-                            {codebases.length === 0 ? (
+                            {workspaces.length === 0 ? (
                                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                                     <FolderIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                    <p className="mt-2 text-sm">No codebases registered</p>
+                                    <p className="mt-2 text-sm">No workspaces registered</p>
+                                    <button
+                                        onClick={() => {
+                                            setWorkspaceWizardStep(0)
+                                            setShowWorkspaceWizard(true)
+                                        }}
+                                        className="mt-3 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                                    >
+                                        Start Workspace Wizard
+                                    </button>
                                 </div>
                             ) : (
-                                codebases.map((cb) => (
+                                workspaces.map((cb) => (
                                     <div
                                         key={cb.id}
                                         className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
@@ -810,7 +1242,7 @@ export default function DashboardPage() {
                                         )}
                                         <div className="mt-2 flex gap-2">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); deleteCodebase(cb.id) }}
+                                                onClick={(e) => { e.stopPropagation(); deleteWorkspace(cb.id) }}
                                                 className="text-xs text-red-600 dark:text-red-400 hover:underline"
                                             >
                                                 🗑️ Delete
@@ -828,23 +1260,79 @@ export default function DashboardPage() {
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trigger Agent</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Select a codebase and run an AI agent</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Run work in any workspace. If none is selected, direct/global workspace is used.
+                            </p>
                         </div>
                         <div className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Codebase
+                                    Workspace
                                 </label>
                                 <select
                                     value={selectedCodebase}
                                     onChange={(e) => setSelectedCodebase(e.target.value)}
                                     className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 >
-                                    <option value="">Select a codebase...</option>
-                                    {codebases.map((cb) => (
+                                    <option value="">
+                                        {fallbackWorkspaceId ? 'Auto (Direct / Global Workspace)' : 'Select a workspace...'}
+                                    </option>
+                                    {workspaces.map((cb) => (
                                         <option key={cb.id} value={cb.id}>{cb.name}</option>
                                     ))}
                                 </select>
+                                <div className="mt-2 rounded-md border border-blue-200 bg-blue-50/70 p-2 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+                                    <p className="font-medium">Workspace = context identity + source path + runtime owner</p>
+                                    <p className="mt-1">
+                                        Set a runtime-accessible path for this workspace. With Knative enabled, the same workspace ID maps to session pods without changing context.
+                                    </p>
+                                </div>
+                                <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200">
+                                    <p className="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400">
+                                        Execution Topology
+                                    </p>
+                                    <div className="mt-2 space-y-1">
+                                        <p>
+                                            <span className="font-medium">Workspace:</span>{' '}
+                                            {activeWorkspace?.name || activeWorkspaceId || 'None'}
+                                        </p>
+                                        <p className="break-all">
+                                            <span className="font-medium">Path:</span>{' '}
+                                            {activeWorkspace?.path || 'Not set'}
+                                        </p>
+                                        <p>
+                                            <span className="font-medium">Owner Worker:</span>{' '}
+                                            {activeWorkspaceOwner?.name || activeWorkspace?.worker_id || 'Auto'}
+                                        </p>
+                                        <p>
+                                            <span className="font-medium">Runtime Mode:</span>{' '}
+                                            {runtimeModeLabel}
+                                        </p>
+                                        {runtimeContext?.sessionId && (
+                                            <p>
+                                                <span className="font-medium">Session:</span> {runtimeContext.sessionId}
+                                            </p>
+                                        )}
+                                        {runtimeContext?.knativeServiceName && (
+                                            <p className="break-all">
+                                                <span className="font-medium">Knative Service:</span>{' '}
+                                                {runtimeContext.knativeServiceName}
+                                            </p>
+                                        )}
+                                        {runtimeContext?.workerId && (
+                                            <p>
+                                                <span className="font-medium">Target Worker:</span>{' '}
+                                                {runtimeContext.workerId}
+                                            </p>
+                                        )}
+                                        {runtimeContext?.status && (
+                                            <p>
+                                                <span className="font-medium">Latest Task Status:</span>{' '}
+                                                {runtimeContext.status}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -856,11 +1344,11 @@ export default function DashboardPage() {
                                     workers={workers}
                                     onlyConnected
                                     includeAutoOption
-                                    autoOptionLabel="Select a connected worker..."
+                                    autoOptionLabel="Auto routing (recommended)"
                                     className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Required. Tasks from this form are routed to the selected connected worker.
+                                    Optional override. Leave blank to use workspace owner or platform routing (including Knative when enabled).
                                 </p>
                             </div>
                             <div>
@@ -875,7 +1363,7 @@ export default function DashboardPage() {
                                     <option value="build">🔧 Build - Full access agent</option>
                                     <option value="plan">📋 Plan - Read-only analysis</option>
                                     <option value="coder">💻 Coder - Code writing focused</option>
-                                    <option value="explore">🔍 Explore - Codebase search</option>
+                                    <option value="explore">🔍 Explore - Workspace search</option>
                                     <option value="swarm">🕸️ Swarm - Parallel sub-agents</option>
                                 </select>
                             </div>
@@ -982,7 +1470,7 @@ export default function DashboardPage() {
                             </div>
                             <button
                                 onClick={triggerAgent}
-                                disabled={loading || !selectedCodebase || !selectedWorkerId || !prompt.trim()}
+                                disabled={loading || !activeWorkspaceId || !prompt.trim()}
                                 className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? '⏳ Running...' : '🚀 Run Agent'}
@@ -1003,15 +1491,15 @@ export default function DashboardPage() {
                                 </span>
                             </div>
                             <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                                {selectedCodebase
-                                    ? `Streaming from ${selectedCodebase}`
-                                    : 'Select a codebase to watch swarm execution'}
+                                {activeWorkspaceId
+                                    ? `Streaming from ${activeWorkspaceId}`
+                                    : 'No workspace available for swarm stream'}
                             </p>
                         </div>
                         <div className="p-4 space-y-3">
-                            {!selectedCodebase ? (
+                            {!activeWorkspaceId ? (
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    No codebase selected.
+                                    Connect a worker or register a workspace to stream swarm events.
                                 </p>
                             ) : (
                                 <>
@@ -1128,12 +1616,12 @@ export default function DashboardPage() {
                                             </div>
                                             <span className="ml-2 h-2 w-2 rounded-full bg-green-500" />
                                         </div>
-                                        {w.global_codebase_id && (
+                                        {(w.global_workspace_id || w.global_codebase_id) && (
                                             <button
-                                                onClick={() => setSelectedCodebase(w.global_codebase_id!)}
+                                                onClick={() => setSelectedCodebase((w.global_workspace_id || w.global_codebase_id)!)}
                                                 className="mt-2 w-full rounded bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center justify-center gap-1"
                                             >
-                                                💬 Chat Directly
+                                                💬 Use Global Workspace
                                             </button>
                                         )}
                                     </div>
@@ -1147,21 +1635,32 @@ export default function DashboardPage() {
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
                         </div>
                         <div className="p-4 space-y-2">
+                            {workspaces.length === 0 && (
+                                <button
+                                    onClick={() => {
+                                        setWorkspaceWizardStep(0)
+                                        setShowWorkspaceWizard(true)
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-md text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 flex items-center gap-2"
+                                >
+                                    <span>🧭</span> First Workspace Wizard
+                                </button>
+                            )}
                             <div className="mb-3">
                                 <VoiceAgentButton
-                                    codebaseId={selectedCodebase || undefined}
+                                    codebaseId={activeWorkspaceId || undefined}
                                     workers={workers}
                                     onWorkerDeployed={loadWorkers}
                                 />
                             </div>
                             <button
-                                onClick={() => setShowRegisterModal(true)}
+                                onClick={openRegisterWorkspaceModal}
                                 className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                             >
-                                <span>📁</span> Register Codebase
+                                <span>📁</span> Register Workspace
                             </button>
                             <button
-                                onClick={loadCodebases}
+                                onClick={loadWorkspaces}
                                 className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                             >
                                 <RefreshIcon className="h-4 w-4" /> Refresh All
@@ -1184,28 +1683,140 @@ export default function DashboardPage() {
                             <div className="flex min-h-full items-center justify-center p-4">
                                 <div className="relative w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
                                     <div className="p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Codebase</h3>
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Workspace</h3>
                                         <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRegisterMode('local')}
+                                                        className={`rounded-md px-3 py-2 text-sm font-medium border ${registerMode === 'local'
+                                                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                                : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        Directory
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRegisterMode('git')}
+                                                        className={`rounded-md px-3 py-2 text-sm font-medium border ${registerMode === 'git'
+                                                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                                : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        Repository URL
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRegisterMode('external')}
+                                                        className={`rounded-md px-3 py-2 text-sm font-medium border ${registerMode === 'external'
+                                                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                                : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        External App
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                                                 <input
                                                     type="text"
                                                     value={registerForm.name}
                                                     onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                                                    placeholder="my-project"
+                                                    placeholder="workspace-name"
                                                     className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                 />
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Path</label>
-                                                <input
-                                                    type="text"
-                                                    value={registerForm.path}
-                                                    onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
-                                                    placeholder="/home/user/projects/my-project"
-                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                />
-                                            </div>
+                                            {registerMode === 'local' ? (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Directory</label>
+                                                    <input
+                                                        type="text"
+                                                        value={registerForm.path}
+                                                        onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                        placeholder="/absolute/path/on-worker-or-mounted-volume"
+                                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                        Required. This path must exist in the selected runtime environment.
+                                                    </p>
+                                                </div>
+                                            ) : registerMode === 'git' ? (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Git URL</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.git_url}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, git_url: e.target.value })}
+                                                            placeholder="https://github.com/org/repo.git"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Git Branch</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.git_branch}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, git_branch: e.target.value })}
+                                                            placeholder="main"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Directory Override (optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.path}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                            placeholder="/var/lib/codetether/repos/my-repo"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        The source is materialized and bound to this workspace ID.
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">External Provider</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.external_provider}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, external_provider: e.target.value })}
+                                                            placeholder="Canva, HubSpot, Mailchimp, Salesforce..."
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">External Reference (optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.external_reference}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, external_reference: e.target.value })}
+                                                            placeholder="campaign-2026-q1, brand-kit-main, legal-case-42"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Directory Override (optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.path}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                            placeholder="/mounted/sync/path/if-available"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        Use this mode to anchor workspace identity to non-repository systems while keeping routing, permissions, and history unified.
+                                                    </p>
+                                                </>
+                                            )}
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
                                                 <input
@@ -1217,13 +1828,15 @@ export default function DashboardPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Worker (optional)</label>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                    {registerMode === 'external' ? 'Worker (required for external app)' : 'Worker (optional)'}
+                                                </label>
                                                 <WorkerSelector
                                                     value={registerForm.worker_id}
                                                     onChange={(worker_id) => setRegisterForm({ ...registerForm, worker_id })}
                                                     workers={workers}
                                                     onlyConnected
-                                                    includeAutoOption
+                                                    includeAutoOption={registerMode !== 'external'}
                                                     autoOptionLabel="Auto-assign (default)"
                                                     className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                 />
@@ -1237,10 +1850,15 @@ export default function DashboardPage() {
                                                 Cancel
                                             </button>
                                             <button
-                                                onClick={registerCodebase}
-                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                                onClick={registerWorkspace}
+                                                disabled={!canRegisterWorkspace}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                Register
+                                                {registerMode === 'git'
+                                                    ? 'Register & Queue Clone'
+                                                    : registerMode === 'external'
+                                                        ? 'Create External Workspace'
+                                                        : 'Register Workspace'}
                                             </button>
                                         </div>
                                     </div>

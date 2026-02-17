@@ -23,13 +23,16 @@ export interface Worker {
     capabilities: string[]
 }
 
-export interface Codebase {
+export interface Workspace {
     id: string
     name: string
     path: string
     worker_id?: string
     status: string
 }
+
+/** @deprecated Use Workspace instead */
+export type Codebase = Workspace
 
 export interface Task {
     id: string
@@ -65,26 +68,31 @@ export interface PRDChatResponse {
 export const api = {
     // Workers
     workers: {
-        list: () => fetchJson<Worker[]>(`${API_URL}/v1/opencode/workers`),
+        list: () => fetchJson<Worker[]>(`${API_URL}/v1/agent/workers`),
     },
-    
-    // Codebases
+
+    // Workspaces
+    workspaces: {
+        list: () => fetchJson<Workspace[]>(`${API_URL}/v1/agent/workspaces/`),
+    },
+
+    /** @deprecated Use workspaces instead */
     codebases: {
-        list: () => fetchJson<Codebase[]>(`${API_URL}/v1/opencode/codebases/list`),
+        list: () => fetchJson<Codebase[]>(`${API_URL}/v1/agent/codebases/list`),
     },
-    
+
     // Tasks
     tasks: {
-        get: (id: string) => fetchJson<Task>(`${API_URL}/v1/opencode/tasks/${id}`),
-        
+        get: (id: string) => fetchJson<Task>(`${API_URL}/v1/agent/tasks/${id}`),
+
         list: (params?: { status?: string; limit?: number }) => {
             const searchParams = new URLSearchParams()
             if (params?.status) searchParams.set('status', params.status)
             if (params?.limit) searchParams.set('limit', String(params.limit))
             const query = searchParams.toString()
-            return fetchJson<Task[]>(`${API_URL}/v1/opencode/tasks${query ? '?' + query : ''}`)
+            return fetchJson<Task[]>(`${API_URL}/v1/agent/tasks${query ? '?' + query : ''}`)
         },
-        
+
         create: (data: {
             title: string
             prompt: string
@@ -93,13 +101,13 @@ export const api = {
             priority?: number
             model?: string
             metadata?: Record<string, unknown>
-        }) => fetchJson<Task>(`${API_URL}/v1/opencode/tasks`, {
+        }) => fetchJson<Task>(`${API_URL}/v1/agent/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         }),
     },
-    
+
     // Ralph / PRD Chat
     ralph: {
         chat: (data: PRDChatRequest) => fetchJson<PRDChatResponse>(`${API_URL}/v1/ralph/chat`, {
@@ -107,7 +115,7 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         }),
-        
+
         runs: {
             create: (data: {
                 prd: {
@@ -132,9 +140,9 @@ export const api = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             }),
-            
+
             get: (id: string) => fetchJson<{ id: string; status: string }>(`${API_URL}/v1/ralph/runs/${id}`),
-            
+
             stream: (id: string) => {
                 // Handle relative API URLs by resolving against window.location (browser only)
                 const baseApiUrl = typeof window !== 'undefined' && API_URL.startsWith('/')

@@ -1,11 +1,14 @@
-export interface Codebase {
+export interface Workspace {
     id: string
     name: string
     path: string
     status: string
     worker_id?: string | null
-    opencode_port?: number | null
+    agent_port?: number | null
 }
+
+/** @deprecated Use Workspace instead */
+export type Codebase = Workspace
 
 export interface Session {
     id: string

@@ -1,6 +1,8 @@
 export const parseModel = (modelStr: string) => {
-    const [provider, ...modelParts] = modelStr.split(':')
-    return { provider: provider || '', model: modelParts.join(':') || '' }
+    // Handle both "provider/model" (from API) and "provider:model" (legacy) formats
+    const sep = modelStr.includes('/') ? '/' : ':'
+    const [provider, ...modelParts] = modelStr.split(sep)
+    return { provider: provider || '', model: modelParts.join(sep) || '' }
 }
 
 export const fuzzyMatch = (search: string, text: string, threshold = 0.6) => {
@@ -140,7 +142,7 @@ const PROVIDER_MAP: Record<string, { label: string; category: RouteCategory; cos
     'privatemode-ai': { label: 'PrivateMode', category: 'community', costHint: '$' },
 
     // Platform-specific
-    'opencode': { label: 'OpenCode', category: 'direct', costHint: '~' },
+    'agent': { label: 'CodeTether', category: 'direct', costHint: '~' },
     'gitlab': { label: 'GitLab', category: 'enterprise', costHint: '$$' },
     'v0': { label: 'v0', category: 'free', costHint: 'free' },
     'llama': { label: 'Llama', category: 'community', costHint: '$' },

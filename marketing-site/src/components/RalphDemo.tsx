@@ -47,7 +47,7 @@ RLM: Enabled (threshold: 80K tokens)`,
         type: 'story_start',
         storyId: 'US-001',
         content: `Iteration 1: US-001 - Add status field to database
-Spawning fresh OpenCode instance...
+Spawning fresh CodeTether instance...
 Context: 2,340 tokens (progress.txt empty)`,
         duration: 2.5,
     },
@@ -105,7 +105,7 @@ Updating prd.json: passes: true`,
         type: 'story_start',
         storyId: 'US-002',
         content: `Iteration 2: US-002 - Display status badge on cards
-Fresh OpenCode instance (no memory of iteration 1)
+Fresh CodeTether instance (no memory of iteration 1)
 Reading progress.txt for context... 8,420 tokens loaded`,
         duration: 2.5,
     },
@@ -218,7 +218,7 @@ progress.txt updated with compressed context`,
         type: 'story_start',
         storyId: 'US-003',
         content: `Iteration 3: US-003 - Add status toggle to list
-Fresh OpenCode instance
+Fresh CodeTether instance
 Loading compressed progress.txt... 24,180 tokens
 (Would have been 85K without RLM!)`,
         duration: 2.5,
@@ -660,7 +660,7 @@ export function RalphDemo() {
                             href="/register"
                             className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:from-cyan-500 hover:to-cyan-400 transition-colors"
                         >
-                            Try Ralph + RLM on Your Codebase
+                            Try Ralph + RLM on Your Workspace
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                             </svg>

@@ -10,40 +10,43 @@ const debounce = <T extends (...args: any[]) => any>(fn: T, ms: number): ((...ar
 
 export const useDropdownFilter = (options: string[], search: string) => {
     const [debouncedSearch, setDebouncedSearch] = useState(search)
-    
+
     const debouncedSetSearch = useRef(debounce((s: string) => setDebouncedSearch(s), 100))
-    
+
     useEffect(() => {
         debouncedSetSearch.current(search)
     }, [search])
-    
+
     return useMemo(() => {
         if (!debouncedSearch?.trim()) return options
-        
+
         const s = debouncedSearch.toLowerCase().trim()
         if (!s) return options
-        
-        // Extract search terms: handle "provider:model" or just free text
-        const [searchProvider, ...searchModelParts] = s.split(':')
-        const searchModel = searchModelParts.join(':')
-        const searchWords = new Set(s.split(/[:\s]+/).filter(w => w.length > 0))
-        
+
+        // Extract search terms: handle "provider/model", "provider:model", or free text
+        const sepMatch = s.match(/[\/:]/)
+        const sep = sepMatch ? sepMatch[0] : '/'
+        const [searchProvider, ...searchModelParts] = s.split(sep)
+        const searchModel = searchModelParts.join(sep)
+        const searchWords = new Set(s.split(/[\/:\s]+/).filter(w => w.length > 0))
+
         return options.filter(opt => {
-            const parts = opt.split(':')
+            const optSep = opt.includes('/') ? '/' : ':'
+            const parts = opt.split(optSep)
             const provider = (parts[0] || '').toLowerCase()
-            const model = parts.slice(1).join(':').toLowerCase()
+            const model = parts.slice(1).join(optSep).toLowerCase()
             const full = opt.toLowerCase()
-            
+
             // Exact or prefix match
             if (full.startsWith(s) || provider.startsWith(s) || model.startsWith(s)) return true
-            
-            // Handle "provider:model" format search
+
+            // Handle "provider/model" or "provider:model" format search
             if (searchProvider && searchModel) {
                 const providerMatch = searchProvider.length <= 2 || provider.includes(searchProvider)
                 const modelMatch = !searchModel || model.includes(searchModel)
                 if (providerMatch && modelMatch) return true
             }
-            
+
             // Word-based matching
             let score = 0
             for (const word of searchWords) {
@@ -62,7 +65,7 @@ export const useDropdownFilter = (options: string[], search: string) => {
                     if (matches / word.length >= 0.6) score += 0.5
                 }
             }
-            
+
             return score >= searchWords.size * 0.5
         })
     }, [options, debouncedSearch])

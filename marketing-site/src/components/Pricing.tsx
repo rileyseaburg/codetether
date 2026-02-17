@@ -15,7 +15,7 @@ const plans = [
         name: 'Free',
         featured: false,
         price: { monthly: '$0', annually: '$0' },
-        description: 'Try before you buy. Perfect for testing workflows.',
+        description: 'Get started free. Perfect for testing workflows.',
         bestFor: 'Testing & experimentation',
         tokenInfo: '$5 token credit included',
         button: {
@@ -24,9 +24,9 @@ const plans = [
             action: 'signup',
         },
         features: [
-            '10 tasks / month',
-            '1 concurrent task',
-            '10 min max runtime',
+            '100 tasks / month',
+            '1 worker',
+            '3 workspaces',
             '$5 prepaid token credit',
             'Per-token usage tracking',
             'Mandatory auth (HMAC-SHA256)',
@@ -34,9 +34,9 @@ const plans = [
             'Community Discord',
         ],
         limits: {
-            tasks: 10,
+            tasks: 100,
             concurrency: 1,
-            runtime: '10 min',
+            runtime: '3 workspaces',
         },
         logomarkClassName: 'fill-gray-500',
     },
@@ -44,8 +44,8 @@ const plans = [
         id: 'pro',
         name: 'Pro',
         featured: true,
-        price: { monthly: '$297', annually: '$297' },
-        description: 'For automation builders replacing Zapier + VAs.',
+        price: { monthly: '$49', annually: '$49' },
+        description: 'For builders who need serious throughput.',
         bestFor: 'Solopreneurs & automation builders',
         tokenInfo: '$50 token credit / month included',
         button: {
@@ -54,9 +54,9 @@ const plans = [
             action: 'checkout',
         },
         features: [
-            '300 tasks / month',
-            '3 concurrent tasks',
-            '30 min max runtime',
+            '5,000 tasks / month',
+            '5 workers',
+            '20 workspaces',
             '$50/mo prepaid token credit',
             'Per-model cost breakdown',
             'Monthly spending limits',
@@ -67,29 +67,29 @@ const plans = [
             'Reply-to-continue',
         ],
         limits: {
-            tasks: 300,
-            concurrency: 3,
-            runtime: '30 min',
+            tasks: 5000,
+            concurrency: 5,
+            runtime: '20 workspaces',
         },
         logomarkClassName: 'fill-cyan-500',
     },
     {
-        id: 'agency',
-        name: 'Agency',
+        id: 'enterprise',
+        name: 'Enterprise',
         featured: false,
-        price: { monthly: '$497', annually: '$497' },
-        description: 'For teams running client automations at scale.',
-        bestFor: 'Agencies & teams',
+        price: { monthly: '$199', annually: '$199' },
+        description: 'Unlimited tasks, workers, and workspaces.',
+        bestFor: 'Teams & agencies',
         tokenInfo: '$150 token credit / month included',
         button: {
-            label: 'Upgrade to Agency',
+            label: 'Upgrade to Enterprise',
             href: '/register',
             action: 'checkout',
         },
         features: [
-            '2,000 tasks / month',
-            '10 concurrent tasks',
-            '60 min max runtime',
+            'Unlimited tasks / month',
+            'Unlimited workers',
+            'Unlimited workspaces',
             '$150/mo prepaid token credit',
             'Per-tenant token isolation',
             'Custom spending limits & alerts',
@@ -100,9 +100,9 @@ const plans = [
             'Custom security policies (OPA)',
         ],
         limits: {
-            tasks: 2000,
-            concurrency: 10,
-            runtime: '60 min',
+            tasks: -1,
+            concurrency: -1,
+            runtime: 'Unlimited',
         },
         logomarkClassName: 'fill-gray-900',
     },
@@ -229,7 +229,7 @@ function Plan({
                             'font-semibold',
                             featured ? 'text-cyan-400' : 'text-cyan-600 dark:text-cyan-400',
                         )}>
-                            {limits.tasks.toLocaleString()}
+                            {limits.tasks === -1 ? '∞' : limits.tasks.toLocaleString()}
                         </div>
                         <div className={clsx(
                             featured ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400',
@@ -242,12 +242,12 @@ function Plan({
                             'font-semibold',
                             featured ? 'text-cyan-400' : 'text-cyan-600 dark:text-cyan-400',
                         )}>
-                            {limits.concurrency}
+                            {limits.concurrency === -1 ? '∞' : limits.concurrency}
                         </div>
                         <div className={clsx(
                             featured ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400',
                         )}>
-                            concurrent
+                            workers
                         </div>
                     </div>
                     <div>
@@ -260,7 +260,7 @@ function Plan({
                         <div className={clsx(
                             featured ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400',
                         )}>
-                            runtime
+                            workspaces
                         </div>
                     </div>
                 </div>
