@@ -1190,6 +1190,8 @@ if __name__ == '__main__':
     max_retry = int(os.getenv('VOICE_WORKER_MAX_RETRY', '24'))
     agent_name = os.getenv('VOICE_AGENT_NAME', 'codetether-voice-agent')
 
+    health_port = int(os.getenv('VOICE_WORKER_HEALTH_PORT', '0'))
+
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
@@ -1197,5 +1199,6 @@ if __name__ == '__main__':
             shutdown_process_timeout=shutdown_timeout,
             agent_name=agent_name,
             max_retry=max_retry,
+            port=health_port,
         ),
     )

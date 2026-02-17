@@ -3,7 +3,7 @@
 A2A Agent Worker - DEPRECATED
 
 !!! DEPRECATION NOTICE !!!
-This Python worker (which shells out to the OpenCode CLI) is replaced by the
+This Python worker (which shells out to the legacy Python CLI) is replaced by the
 codetether Rust binary's built-in A2A worker mode.
 
 New worker setup:
@@ -26,9 +26,9 @@ This worker:
 1. Registers itself with the A2A server
 2. Registers local codebases it can work on
 3. Connects via SSE to receive task assignments pushed from server
-4. Executes tasks using OpenCode
+4. Executes tasks using Agent
 5. Reports results back to the server
-6. Reports OpenCode session history to the server
+6. Reports Agent session history to the server
 
 Usage (DEPRECATED):
     python worker.py --server https://api.codetether.run --name "dev-vm-worker"
@@ -152,7 +152,7 @@ class SpecialCodebaseId(StrEnum):
 class AgentType(StrEnum):
     """Agent types that determine how tasks are executed."""
 
-    BUILD = 'build'  # Default OpenCode build agent
+    BUILD = 'build'  # Default Agent build agent
     ECHO = 'echo'  # Lightweight test agent that echoes input
     NOOP = 'noop'  # Lightweight test agent that does nothing
     REGISTER_CODEBASE = (
@@ -183,15 +183,15 @@ class WorkerConfig:
     worker_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
     codebases: List[Dict[str, str]] = field(default_factory=list)
     poll_interval: int = 5  # Fallback poll interval when SSE is unavailable
-    opencode_bin: Optional[str] = None
-    # Optional override for OpenCode storage location (directory that contains
+    agent_bin: Optional[str] = None
+    # Optional override for Agent storage location (directory that contains
     # subdirs like project/, session/, message/, part/).
-    opencode_storage_path: Optional[str] = None
+    agent_storage_path: Optional[str] = None
     # Optional message sync (for session detail view on remote codebases)
     session_message_sync_max_sessions: int = 3
     session_message_sync_max_messages: int = 100
     capabilities: List[str] = field(
-        default_factory=lambda: ['opencode', 'build', 'deploy']
+        default_factory=lambda: ['agent', 'build', 'deploy']
     )
     # Max concurrent tasks (bounded worker pool)
     max_concurrent_tasks: int = 2
@@ -309,7 +309,7 @@ class WorkerClient:
         """Register this worker with the A2A server."""
         try:
             session = await self.get_session()
-            url = f'{self.config.server_url}/v1/opencode/workers/register'
+            url = f'{self.config.server_url}/v1/agent/workers/register'
 
             import platform
 
@@ -350,7 +350,7 @@ class WorkerClient:
         """Unregister this worker from the A2A server."""
         try:
             session = await self.get_session()
-            url = f'{self.config.server_url}/v1/opencode/workers/{self.config.worker_id}/unregister'
+            url = f'{self.config.server_url}/v1/agent/workers/{self.config.worker_id}/unregister'
 
             async with session.post(url) as resp:
                 if resp.status == 200:
@@ -366,7 +366,7 @@ class WorkerClient:
         """
         try:
             session = await self.get_session()
-            url = f'{self.config.server_url}/v1/opencode/workers/{self.config.worker_id}/heartbeat'
+            url = f'{self.config.server_url}/v1/agent/workers/{self.config.worker_id}/heartbeat'
 
             async with session.post(
                 url, timeout=aiohttp.ClientTimeout(total=10)
@@ -498,7 +498,7 @@ class WorkerClient:
             models_str = ', '.join(models_list) if models_list else 'any'
 
             agent_description = description or (
-                f'OpenCode worker agent (role={role}, instance={instance_id}). '
+                f'Agent worker agent (role={role}, instance={instance_id}). '
                 f'Routing capabilities: {caps_str}. '
                 f'Models supported: {models_str}'
             )
@@ -669,7 +669,7 @@ class WorkerClient:
 
         try:
             session = await self.get_session()
-            url = f'{self.config.server_url}/v1/opencode/codebases'
+            url = f'{self.config.server_url}/v1/agent/codebases'
 
             payload = {
                 'name': name,
@@ -706,7 +706,7 @@ class WorkerClient:
         try:
             session = await self.get_session()
 
-            url = f'{self.config.server_url}/v1/opencode/tasks'
+            url = f'{self.config.server_url}/v1/agent/tasks'
             params = {
                 'status': TaskStatus.PENDING,
             }
@@ -814,7 +814,7 @@ class WorkerClient:
             return
         try:
             session = await self.get_session()
-            url = f'{self.config.server_url}/v1/opencode/tasks/{task_id}/output'
+            url = f'{self.config.server_url}/v1/agent/tasks/{task_id}/output'
 
             payload = {
                 'worker_id': self.config.worker_id,
@@ -856,7 +856,7 @@ class WorkerClient:
             max_retries: Maximum number of retry attempts (default: 4, total 5 attempts)
             base_delay: Initial delay in seconds before first retry (default: 1.0)
         """
-        url = f'{self.config.server_url}/v1/opencode/tasks/{task_id}/status'
+        url = f'{self.config.server_url}/v1/agent/tasks/{task_id}/status'
 
         payload = {
             'status': status,
@@ -927,7 +927,7 @@ class WorkerClient:
         self, user_id: Optional[str] = None
     ) -> bool:
         """
-        Sync API keys from the server (Vault-backed) to local OpenCode auth.json.
+        Sync API keys from the server (Vault-backed) to local Agent auth.json.
 
         This allows users to manage their API keys in the web UI and have them
         automatically synced to workers.
@@ -943,7 +943,7 @@ class WorkerClient:
             session = await self.get_session()
 
             # Build sync URL with optional user_id
-            sync_url = f'{self.config.server_url}/v1/opencode/api-keys/sync'
+            sync_url = f'{self.config.server_url}/v1/agent/api-keys/sync'
             params = {'worker_id': self.config.worker_id}
             if user_id:
                 params['user_id'] = user_id
@@ -957,7 +957,7 @@ class WorkerClient:
 
                 data = await resp.json()
 
-            # Get paths for auth.json and opencode.json
+            # Get paths for auth.json and codetether.json
             data_home = os.environ.get('XDG_DATA_HOME') or os.path.expanduser(
                 '~/.local/share'
             )
@@ -965,8 +965,8 @@ class WorkerClient:
                 'XDG_CONFIG_HOME'
             ) or os.path.expanduser('~/.config')
 
-            auth_path = Path(data_home) / 'opencode' / 'auth.json'
-            config_path = Path(config_home) / 'opencode' / 'opencode.json'
+            auth_path = Path(data_home) / 'agent' / 'auth.json'
+            config_path = Path(config_home) / 'agent' / 'codetether.json'
 
             # Merge server keys with existing local auth.json
             server_auth = data.get('auth', {})
@@ -994,7 +994,7 @@ class WorkerClient:
                     f'(total: {len(merged_auth)} providers)'
                 )
 
-            # Merge server provider configs with existing opencode.json
+            # Merge server provider configs with existing codetether.json
             server_providers = data.get('providers', {})
             if server_providers:
                 existing_config = {}
@@ -1004,7 +1004,7 @@ class WorkerClient:
                             existing_config = json.load(f)
                     except Exception as e:
                         logger.warning(
-                            f'Failed to read existing opencode.json: {e}'
+                            f'Failed to read existing codetether.json: {e}'
                         )
 
                 # Merge provider configs
@@ -1038,7 +1038,7 @@ class WorkerClient:
         """
         try:
             session = await self.get_session()
-            url = f'{self.config.server_url}/v1/opencode/codebases/{codebase_id}/sessions/sync'
+            url = f'{self.config.server_url}/v1/agent/codebases/{codebase_id}/sessions/sync'
             payload = {
                 'worker_id': self.config.worker_id,
                 'sessions': sessions,
@@ -1071,7 +1071,7 @@ class WorkerClient:
 
             session = await self.get_session()
             url = (
-                f'{self.config.server_url}/v1/opencode/codebases/{codebase_id}'
+                f'{self.config.server_url}/v1/agent/codebases/{codebase_id}'
                 f'/sessions/{session_id}/messages/sync'
             )
             payload = {
@@ -1301,7 +1301,7 @@ class EmailNotificationService:
                 import json as json_module
                 import html as html_module
 
-                # Handle NDJSON (newline-delimited JSON) from OpenCode streaming
+                # Handle NDJSON (newline-delimited JSON) from Agent streaming
                 # Extract text content from streaming events
                 text_parts = []
                 try:
@@ -1312,7 +1312,7 @@ class EmailNotificationService:
                             continue
                         try:
                             parsed = json_module.loads(line)
-                            # OpenCode streaming format: look for text events
+                            # Agent streaming format: look for text events
                             if isinstance(parsed, dict):
                                 event_type = parsed.get('type', '')
                                 part = parsed.get('part', {})
@@ -1625,7 +1625,7 @@ class ConfigManager:
     Handles configuration and setup for the worker.
 
     Responsibilities:
-    - Finding OpenCode binary
+    - Finding Agent binary
     - Managing storage paths
     - Provider authentication discovery
     - Model discovery
@@ -1633,43 +1633,43 @@ class ConfigManager:
 
     def __init__(self, config: WorkerConfig):
         self.config = config
-        self._opencode_storage_path: Optional[Path] = None
+        self._agent_storage_path: Optional[Path] = None
 
-    def find_opencode_binary(self) -> str:
-        """Find the opencode binary."""
+    def find_agent_binary(self) -> str:
+        """Find the agent binary."""
         locations = [
-            str(Path.home() / '.local' / 'bin' / 'opencode'),
-            str(Path.home() / 'bin' / 'opencode'),
-            '/usr/local/bin/opencode',
-            '/usr/bin/opencode',
+            str(Path.home() / '.local' / 'bin' / 'agent'),
+            str(Path.home() / 'bin' / 'agent'),
+            '/usr/local/bin/codetether',
+            '/usr/bin/codetether',
             # Check in the A2A project
             str(
                 Path(__file__).parent.parent
-                / 'opencode'
+                / 'agent'
                 / 'packages'
-                / 'opencode'
+                / 'agent'
                 / 'bin'
-                / 'opencode'
+                / 'agent'
             ),
         ]
 
         for loc in locations:
             if Path(loc).exists() and os.access(loc, os.X_OK):
-                logger.info(f'Found opencode at: {loc}')
+                logger.info(f'Found agent binary at: {loc}')
                 return loc
 
         # Try PATH
         try:
             result = subprocess.run(
-                ['which', 'opencode'], capture_output=True, text=True
+                ['which', 'agent'], capture_output=True, text=True
             )
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception as e:
             logger.debug(f'Binary search via PATH failed: {e}')
 
-        logger.warning('OpenCode binary not found, some features may not work')
-        return 'opencode'
+        logger.warning('Agent binary not found, some features may not work')
+        return 'agent'
 
     def get_authenticated_providers(self) -> set:
         """Get set of provider IDs that have authentication configured."""
@@ -1679,7 +1679,7 @@ class ConfigManager:
                 '~/.local/share'
             )
             auth_path = (
-                Path(os.path.expanduser(data_home)) / 'opencode' / 'auth.json'
+                Path(os.path.expanduser(data_home)) / 'agent' / 'auth.json'
             )
             if auth_path.exists():
                 with open(auth_path, 'r', encoding='utf-8') as f:
@@ -1701,13 +1701,13 @@ class ConfigManager:
                     f'Found {len(authenticated)} authenticated providers: {sorted(authenticated)}'
                 )
         except Exception as e:
-            logger.warning(f'Failed to read OpenCode auth.json: {e}')
+            logger.warning(f'Failed to read Agent auth.json: {e}')
         return authenticated
 
     async def get_available_models(
-        self, opencode_bin: str
+        self, agent_bin: str
     ) -> List[Dict[str, Any]]:
-        """Fetch available models from local OpenCode instance.
+        """Fetch available models from local Agent instance.
 
         Only returns models from providers that have authentication configured.
         """
@@ -1760,16 +1760,16 @@ class ConfigManager:
                                     }
                                 )
         except Exception as e:
-            # OpenCode might not be running
+            # Agent might not be running
             logger.debug(f'Model discovery via API failed: {e}')
 
         # Fallback: Try CLI if no models found via API
         if not all_models:
             try:
-                logger.info(f'Trying CLI: {opencode_bin} models')
-                if opencode_bin and os.path.exists(opencode_bin):
+                logger.info(f'Trying CLI: {agent_bin} models')
+                if agent_bin and os.path.exists(agent_bin):
                     proc = await asyncio.create_subprocess_exec(
-                        opencode_bin,
+                        agent_bin,
                         'models',
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
@@ -1804,7 +1804,7 @@ class ConfigManager:
                         )
                 else:
                     logger.warning(
-                        f'OpenCode binary not found or not executable: {opencode_bin}'
+                        f'Agent binary not found or not executable: {agent_bin}'
                     )
             except Exception as e:
                 logger.warning(f'Failed to list models via CLI: {e}')
@@ -1834,16 +1834,16 @@ class ConfigManager:
 
         return authenticated_models
 
-    def get_opencode_storage_path(self) -> Path:
-        """Get the OpenCode global storage path.
+    def get_agent_storage_path(self) -> Path:
+        """Get the Agent global storage path.
 
         We prefer an explicit override, but we also try to "do what I mean" in
         common deployments where the worker runs as a service account while the
-        codebases (and OpenCode storage) live under /home/<user>/.
+        codebases (and Agent storage) live under /home/<user>/.
         """
 
-        if self._opencode_storage_path is not None:
-            return self._opencode_storage_path
+        if self._agent_storage_path is not None:
+            return self._agent_storage_path
 
         def _dir_has_any_children(p: Path) -> bool:
             try:
@@ -1864,7 +1864,7 @@ class ConfigManager:
             ) and _dir_has_any_children(storage / 'part')
 
         def _storage_match_score(storage: Path) -> int:
-            """Return how many registered codebases appear in this OpenCode storage's project list."""
+            """Return how many registered codebases appear in this Agent storage's project list."""
             codebase_paths: List[str] = [
                 str(cb.get('path'))
                 for cb in (self.config.codebases or [])
@@ -1922,7 +1922,7 @@ class ConfigManager:
 
         # 1) Explicit override (config/env)
         override = (
-            self.config.opencode_storage_path
+            self.config.agent_storage_path
             or os.environ.get('A2A_OPENCODE_STORAGE_PATH')
             or os.environ.get('OPENCODE_STORAGE_PATH')
         )
@@ -1935,7 +1935,7 @@ class ConfigManager:
             'XDG_DATA_HOME', str(Path.home() / '.local' / 'share')
         )
         candidates.append(
-            Path(os.path.expanduser(xdg_data)) / 'opencode' / 'storage'
+            Path(os.path.expanduser(xdg_data)) / 'agent' / 'storage'
         )
 
         # 3) Heuristic: infer /home/<user> from codebase paths
@@ -1948,11 +1948,11 @@ class ConfigManager:
             if len(parts) >= 3 and parts[0] == '/' and parts[1] == 'home':
                 inferred_users.append(parts[2])
 
-        # Also infer from the opencode binary path (often /home/<user>/.opencode/bin/opencode)
-        opencode_bin = self.config.opencode_bin
-        if opencode_bin:
+        # Also infer from the agent binary path (often /home/<user>/.cargo/bin/codetether)
+        agent_bin = self.config.agent_bin
+        if agent_bin:
             try:
-                bin_parts = Path(opencode_bin).parts
+                bin_parts = Path(agent_bin).parts
                 if (
                     len(bin_parts) >= 3
                     and bin_parts[0] == '/'
@@ -1961,7 +1961,7 @@ class ConfigManager:
                     inferred_users.append(bin_parts[2])
             except Exception as e:
                 logger.debug(
-                    f'Failed to infer user from opencode binary path: {e}'
+                    f'Failed to infer user from agent binary path: {e}'
                 )
 
         for user in dict.fromkeys(inferred_users):  # preserve order, de-dupe
@@ -1970,7 +1970,7 @@ class ConfigManager:
                 / user
                 / '.local'
                 / 'share'
-                / 'opencode'
+                / 'agent'
                 / 'storage'
             )
 
@@ -1980,7 +1980,7 @@ class ConfigManager:
                 / user
                 / '.local'
                 / 'share'
-                / 'opencode'
+                / 'agent'
                 / 'storage'
             ).resolve()
             for user in dict.fromkeys(inferred_users)
@@ -1998,9 +1998,9 @@ class ConfigManager:
 
                     # Explicit override wins if it exists.
                     if override_path is not None and c == override_path:
-                        self._opencode_storage_path = c
+                        self._agent_storage_path = c
                         logger.info(
-                            f'Using OpenCode storage at (override): {c}'
+                            f'Using Agent storage at (override): {c}'
                         )
                         return c
 
@@ -2030,18 +2030,18 @@ class ConfigManager:
 
         if best_match is not None and best_tuple is not None:
             if best_tuple[0] > 0:
-                self._opencode_storage_path = best_match
+                self._agent_storage_path = best_match
                 logger.info(
-                    f'Using OpenCode storage at: {best_match} (matched {best_tuple[0]} codebase(s))'
+                    f'Using Agent storage at: {best_match} (matched {best_tuple[0]} codebase(s))'
                 )
                 return best_match
 
             # No project→codebase matches found. Prefer a storage that still looks
             # "real" (has message/part data) and/or was inferred from /home/<user>.
             if best_tuple[1] > 0 or best_tuple[2] > 0:
-                self._opencode_storage_path = best_match
+                self._agent_storage_path = best_match
                 logger.info(
-                    'Using OpenCode storage at: %s (best available; message_data=%s, inferred_home=%s)',
+                    'Using Agent storage at: %s (best available; message_data=%s, inferred_home=%s)',
                     best_match,
                     bool(best_tuple[1]),
                     bool(best_tuple[2]),
@@ -2050,23 +2050,23 @@ class ConfigManager:
 
         if first_existing is not None:
             # Fall back to *something* that exists, but warn because it might be empty/wrong.
-            self._opencode_storage_path = first_existing
+            self._agent_storage_path = first_existing
             logger.warning(
-                'OpenCode storage path exists but did not match any registered codebase projects; '
+                'Agent storage path exists but did not match any registered codebase projects; '
                 f'falling back to: {first_existing}'
             )
             return first_existing
 
         # Final fallback (even if it doesn't exist yet)
-        self._opencode_storage_path = (
+        self._agent_storage_path = (
             candidates[0]
             if candidates
-            else (Path.home() / '.local' / 'share' / 'opencode' / 'storage')
+            else (Path.home() / '.local' / 'share' / 'agent' / 'storage')
         )
         logger.warning(
-            f'OpenCode storage path not found on disk; defaulting to: {self._opencode_storage_path}'
+            f'Agent storage path not found on disk; defaulting to: {self._agent_storage_path}'
         )
-        return self._opencode_storage_path
+        return self._agent_storage_path
 
 
 # =============================================================================
@@ -2079,7 +2079,7 @@ class SessionSyncService:
     Handles session management and syncing with the server.
 
     Responsibilities:
-    - Reading sessions from OpenCode storage
+    - Reading sessions from Agent storage
     - Reporting sessions to server
     - Message sync for remote codebases
     """
@@ -2095,8 +2095,8 @@ class SessionSyncService:
         self.client = client
 
     def _get_project_id_for_path(self, codebase_path: str) -> Optional[str]:
-        """Get the OpenCode project ID (hash) for a given codebase path."""
-        storage_path = self.config_manager.get_opencode_storage_path()
+        """Get the Agent project ID (hash) for a given codebase path."""
+        storage_path = self.config_manager.get_agent_storage_path()
         project_dir = storage_path / 'project'
 
         if not project_dir.exists():
@@ -2132,13 +2132,13 @@ class SessionSyncService:
     def get_sessions_for_codebase(
         self, codebase_path: str
     ) -> List[Dict[str, Any]]:
-        """Get all OpenCode sessions for a codebase."""
+        """Get all Agent sessions for a codebase."""
         project_id = self._get_project_id_for_path(codebase_path)
         if not project_id:
-            logger.debug(f'No OpenCode project ID found for {codebase_path}')
+            logger.debug(f'No Agent project ID found for {codebase_path}')
             return []
 
-        storage_path = self.config_manager.get_opencode_storage_path()
+        storage_path = self.config_manager.get_agent_storage_path()
         session_dir = storage_path / 'session' / project_id
 
         if not session_dir.exists():
@@ -2155,7 +2155,7 @@ class SessionSyncService:
                     updated_ms = time_data.get('updated', 0)
 
                     session_id = session_data.get('id')
-                    # OpenCode stores messages separately; count message files for UI convenience.
+                    # Agent stores messages separately; count message files for UI convenience.
                     msg_count = 0
                     if session_id:
                         msg_dir = storage_path / 'message' / str(session_id)
@@ -2201,8 +2201,8 @@ class SessionSyncService:
         return sessions
 
     def get_global_sessions(self) -> List[Dict[str, Any]]:
-        """Get all global OpenCode sessions (not associated with a specific project)."""
-        storage_path = self.config_manager.get_opencode_storage_path()
+        """Get all global Agent sessions (not associated with a specific project)."""
+        storage_path = self.config_manager.get_agent_storage_path()
         session_dir = storage_path / 'session' / 'global'
 
         if not session_dir.exists():
@@ -2265,8 +2265,8 @@ class SessionSyncService:
     def get_session_messages(
         self, session_id: str, max_messages: Optional[int] = None
     ) -> List[Dict[str, Any]]:
-        """Get messages (including parts) for a specific session from OpenCode storage."""
-        storage_path = self.config_manager.get_opencode_storage_path()
+        """Get messages (including parts) for a specific session from Agent storage."""
+        storage_path = self.config_manager.get_agent_storage_path()
         message_dir = storage_path / 'message' / session_id
 
         if not message_dir.exists():
@@ -2347,7 +2347,7 @@ class SessionSyncService:
                         'time': {'created': created_iso},
                         'agent': agent,
                         'model': model,
-                        # OpenCode message-level metadata (preferred for UI stats)
+                        # Agent message-level metadata (preferred for UI stats)
                         'cost': msg_data.get('cost'),
                         'tokens': msg_data.get('tokens'),
                         'tool_calls': msg_data.get('tool_calls')
@@ -2377,7 +2377,7 @@ class SessionSyncService:
             try:
                 sessions = self.get_sessions_for_codebase(codebase.path)
                 logger.info(
-                    f"Discovered {len(sessions)} OpenCode sessions for codebase '{codebase.name}' "
+                    f"Discovered {len(sessions)} Agent sessions for codebase '{codebase.name}' "
                     f'(id={codebase_id}, path={codebase.path})'
                 )
                 if not sessions:
@@ -2448,7 +2448,7 @@ class SessionSyncService:
                 return
 
             logger.info(
-                f'Discovered {len(global_sessions)} global OpenCode sessions'
+                f'Discovered {len(global_sessions)} global Agent sessions'
             )
 
             # Ensure we have a "global" codebase registered
@@ -2485,7 +2485,7 @@ class SessionSyncService:
                 new_id = await register_codebase_fn(
                     name=SpecialCodebaseId.GLOBAL,
                     path=str(Path.home()),
-                    description='Global OpenCode sessions (not project-specific)',
+                    description='Global Agent sessions (not project-specific)',
                 )
                 if new_id:
                     retry_status = await self.client.sync_sessions(
@@ -2558,12 +2558,12 @@ class ContextCompactionService:
     def __init__(
         self,
         session_sync: 'SessionSyncService',
-        opencode_bin: str,
+        agent_bin: str,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         target_tokens: int = DEFAULT_TARGET_TOKENS,
     ):
         self.session_sync = session_sync
-        self.opencode_bin = opencode_bin
+        self.agent_bin = agent_bin
         self.max_tokens = max_tokens
         self.target_tokens = target_tokens
 
@@ -2721,7 +2721,7 @@ Format as a handoff note for the next agent."""
         original_task: str,
     ) -> Optional[str]:
         """
-        Generate a summary of the session using OpenCode.
+        Generate a summary of the session using Agent.
 
         Returns the summary text or None if generation fails.
         """
@@ -2742,10 +2742,10 @@ Format as a handoff note for the next agent."""
 
         summary_prompt = self.generate_summary_prompt(messages, original_task)
 
-        # Run a quick summarization using OpenCode with a fast model
+        # Run a quick summarization using Agent with a fast model
         try:
             cmd = [
-                self.opencode_bin,
+                self.agent_bin,
                 'run',
                 '--agent',
                 'general',  # Use general agent for summarization
@@ -2910,7 +2910,7 @@ class TaskExecutor:
     Handles task execution logic.
 
     Responsibilities:
-    - OpenCode subprocess management
+    - Agent subprocess management
     - Task claiming/releasing (via client)
     - Special task handlers (register_codebase, echo, noop)
     - Semaphore-based concurrency control
@@ -2924,14 +2924,14 @@ class TaskExecutor:
         client: WorkerClient,
         config_manager: ConfigManager,
         session_sync: SessionSyncService,
-        opencode_bin: str,
+        agent_bin: str,
         email_service: Optional[EmailNotificationService] = None,
     ):
         self.config = config
         self.client = client
         self.config_manager = config_manager
         self.session_sync = session_sync
-        self.opencode_bin = opencode_bin
+        self.agent_bin = agent_bin
         self.email_service = email_service
         self.active_processes: Dict[str, asyncio.subprocess.Process] = {}
         # Task processing state
@@ -2940,7 +2940,7 @@ class TaskExecutor:
         # Context compaction service for auto-summarization
         self.compaction_service = ContextCompactionService(
             session_sync=session_sync,
-            opencode_bin=opencode_bin,
+            agent_bin=agent_bin,
             max_tokens=getattr(config, 'compaction_max_tokens', 100000),
             target_tokens=getattr(config, 'compaction_target_tokens', 50000),
         )
@@ -2952,12 +2952,12 @@ class TaskExecutor:
                 self.config.max_concurrent_tasks
             )
 
-    def _resolve_model_for_opencode(self, model_ref: str) -> str:
+    def _resolve_model_for_agent(self, model_ref: str) -> str:
         """
-        Convert model_ref (provider:model) to OpenCode format (provider/model).
+        Convert model_ref (provider:model) to Agent format (provider/model).
 
         CodeTether uses provider:model (colon) as the canonical format for storage
-        and routing. OpenCode CLI expects provider/model (slash).
+        and routing. legacy Python CLI expects provider/model (slash).
 
         Args:
             model_ref: Model identifier in provider:model format (e.g., "anthropic:claude-sonnet-4.5")
@@ -3061,7 +3061,7 @@ class TaskExecutor:
         global_codebase_id: Optional[str],
         register_codebase_fn: Callable,
     ):
-        """Execute a task using OpenCode or handle special task types."""
+        """Execute a task using Agent or handle special task types."""
         task_id: str = task.get('id') or task.get('task_id') or ''
         codebase_id: str = task.get('codebase_id') or ''
         agent_type: str = (
@@ -3077,7 +3077,7 @@ class TaskExecutor:
             await self.handle_register_codebase_task(task, register_codebase_fn)
             return
 
-        # Lightweight test/utility agent types that do not require OpenCode.
+        # Lightweight test/utility agent types that do not require Agent.
         # Useful for end-to-end validation of the CodeTether task queue.
         if agent_type in (AgentType.ECHO, AgentType.NOOP):
             title = task.get('title')
@@ -3164,15 +3164,15 @@ class TaskExecutor:
             metadata = task.get('metadata', {})
 
             # Get model: prefer model_ref from task (set via routing), fall back to metadata.model
-            # model_ref uses provider:model format, OpenCode expects provider/model
+            # model_ref uses provider:model format, Agent expects provider/model
             model_ref = task.get('model_ref')
             if model_ref:
-                model = self._resolve_model_for_opencode(model_ref)
+                model = self._resolve_model_for_agent(model_ref)
             else:
                 # Also convert metadata.model since it may come from clients using colon format
                 metadata_model = metadata.get('model')
                 model = (
-                    self._resolve_model_for_opencode(metadata_model)
+                    self._resolve_model_for_agent(metadata_model)
                     if metadata_model
                     else None
                 )
@@ -3216,10 +3216,10 @@ class TaskExecutor:
                     )
                     # Continue with original prompt
 
-            # Run OpenCode
+            # Run Agent
             # Use effective_session_id which may be None if session was too large
             # and we're starting fresh with summary context
-            result = await self.run_opencode(
+            result = await self.run_agent(
                 codebase_id=codebase_id,
                 codebase_path=codebase.path,
                 prompt=prompt,
@@ -3362,7 +3362,7 @@ class TaskExecutor:
                 task_id, TaskStatus.FAILED, error=str(e)
             )
 
-    async def run_opencode(
+    async def run_agent(
         self,
         codebase_id: str,
         codebase_path: str,
@@ -3372,10 +3372,10 @@ class TaskExecutor:
         model: Optional[str] = None,
         session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Run OpenCode agent on a codebase."""
+        """Run Agent agent on a codebase."""
 
         def _extract_session_id(obj: Any) -> Optional[str]:
-            """Best-effort extraction of an OpenCode session id from JSON output."""
+            """Best-effort extraction of an Agent session id from JSON output."""
             if isinstance(obj, dict):
                 for k in ('sessionID', 'session_id', 'sessionId', 'session'):
                     v = obj.get(k)
@@ -3484,8 +3484,8 @@ class TaskExecutor:
             except Exception:
                 return None
 
-        def _recent_opencode_log_hint(returncode: int) -> Optional[str]:
-            """Best-effort hint for failures where OpenCode logs to file.
+        def _recent_agent_log_hint(returncode: int) -> Optional[str]:
+            """Best-effort hint for failures where Agent logs to file.
 
             Avoid dumping full logs into task output (can be huge / sensitive).
             Instead, point operators to the most recent log file and surface
@@ -3497,7 +3497,7 @@ class TaskExecutor:
                     'XDG_DATA_HOME', str(Path.home() / '.local' / 'share')
                 )
                 log_dir = (
-                    Path(os.path.expanduser(data_home)) / 'opencode' / 'log'
+                    Path(os.path.expanduser(data_home)) / 'agent' / 'log'
                 )
                 if not log_dir.exists() or not log_dir.is_dir():
                     return None
@@ -3524,25 +3524,25 @@ class TaskExecutor:
                     or 'AI_LoadAPIKeyError' in tail_text
                 ):
                     return (
-                        'OpenCode is missing LLM credentials (e.g. ANTHROPIC_API_KEY). '
+                        'Agent is missing LLM credentials (e.g. ANTHROPIC_API_KEY). '
                         'Set the required key(s) in /etc/a2a-worker/env and restart the worker. '
-                        f'OpenCode log: {latest}'
+                        f'Agent log: {latest}'
                     )
 
-                return f'OpenCode exited with code {returncode}. See OpenCode log: {latest}'
+                return f'Agent exited with code {returncode}. See Agent log: {latest}'
             except Exception:
                 return None
 
-        # Check if opencode exists
-        if not Path(self.opencode_bin).exists():
+        # Check if agent binary exists
+        if not Path(self.agent_bin).exists():
             return {
                 'success': False,
-                'error': f'OpenCode not found at {self.opencode_bin}',
+                'error': f'Agent not found at {self.agent_bin}',
             }
 
-        # Build command using 'opencode run' with proper flags
+        # Build command using agent CLI with proper flags
         cmd = [
-            self.opencode_bin,
+            self.agent_bin,
             'run',
             '--agent',
             agent_type,
@@ -3568,7 +3568,7 @@ class TaskExecutor:
         log_model = f' --model {model}' if model else ''
         log_session = f' --session {session_id}' if session_id else ''
         logger.info(
-            f'Running: {self.opencode_bin} run --agent {agent_type}{log_model}{log_session} ...'
+            f'Running: {self.agent_bin} run --agent {agent_type}{log_model}{log_session} ...'
         )
 
         try:
@@ -3592,7 +3592,7 @@ class TaskExecutor:
             active_session_id: Optional[str] = session_id
 
             # Run the process using async subprocess to avoid blocking the event loop
-            # Use a large buffer limit (16MB) to handle OpenCode's potentially very long
+            # Use a large buffer limit (16MB) to handle Agent's potentially very long
             # JSON output lines (e.g., file contents, large tool results). The default
             # 64KB limit causes "Separator is found, but chunk is longer than limit" errors.
             subprocess_limit = 16 * 1024 * 1024  # 16MB
@@ -3702,7 +3702,7 @@ class TaskExecutor:
                 """Read stdout lines asynchronously.
 
                 Uses readline() with explicit error handling for very long lines.
-                OpenCode can produce JSON lines >64KB when including file contents.
+                Agent can produce JSON lines >64KB when including file contents.
                 """
                 nonlocal active_session_id
                 if process.stdout is None:
@@ -3718,7 +3718,7 @@ class TaskExecutor:
                         line = line_bytes.decode('utf-8', errors='replace')
                         output_lines.append(line)
 
-                        # Try to detect session id from OpenCode JSON output.
+                        # Try to detect session id from Agent JSON output.
                         if not active_session_id:
                             try:
                                 obj = json.loads(line)
@@ -3836,14 +3836,14 @@ class TaskExecutor:
             returncode = process.returncode or 0
             if returncode == 0:
                 # Parse JSON output to extract actual text response
-                parsed_output = _parse_opencode_json_output(stdout)
+                parsed_output = _parse_codetether.json_output(stdout)
                 return {
                     'success': True,
                     'output': parsed_output,
                     'session_id': active_session_id,
                 }
             else:
-                hint = _recent_opencode_log_hint(returncode)
+                hint = _recent_agent_log_hint(returncode)
                 err = (stderr or '').strip()
                 return {
                     'success': False,
@@ -3855,10 +3855,10 @@ class TaskExecutor:
             return {'success': False, 'error': str(e)}
 
 
-def _parse_opencode_json_output(stdout: str) -> str:
-    """Parse OpenCode JSON output and extract the text response.
+def _parse_codetether.json_output(stdout: str) -> str:
+    """Parse Agent JSON output and extract the text response.
 
-    OpenCode with --format json outputs a series of JSON events like:
+    Agent with --format json outputs a series of JSON events like:
     - {"type":"step_start",...}
     - {"type":"text","part":{"text":"Hello world"},...}
     - {"type":"tool_use",...}
@@ -3933,8 +3933,8 @@ class AgentWorker:
         # Initialize services
         self.client = WorkerClient(config)
         self.config_manager = ConfigManager(config)
-        self.opencode_bin = (
-            config.opencode_bin or self.config_manager.find_opencode_binary()
+        self.agent_bin = (
+            config.agent_bin or self.config_manager.find_agent_binary()
         )
         self.session_sync = SessionSyncService(
             config, self.config_manager, self.client
@@ -3953,7 +3953,7 @@ class AgentWorker:
             self.client,
             self.config_manager,
             self.session_sync,
-            self.opencode_bin,
+            self.agent_bin,
             self.email_service if self.email_service.is_configured() else None,
         )
 
@@ -3965,46 +3965,46 @@ class AgentWorker:
         """Get or create HTTP session with connection pooling."""
         return await self.client.get_session()
 
-    def _find_opencode_binary(self) -> str:
-        """Find the opencode binary."""
-        return self.config_manager.find_opencode_binary()
+    def _find_agent_binary(self) -> str:
+        """Find the agent binary."""
+        return self.config_manager.find_agent_binary()
 
     def _get_authenticated_providers(self) -> set:
         """Get set of provider IDs that have authentication configured."""
         return self.config_manager.get_authenticated_providers()
 
     async def _get_available_models(self) -> List[Dict[str, Any]]:
-        """Fetch available models from local OpenCode instance."""
-        return await self.config_manager.get_available_models(self.opencode_bin)
+        """Fetch available models from local Agent instance."""
+        return await self.config_manager.get_available_models(self.agent_bin)
 
-    def _get_opencode_storage_path(self) -> Path:
-        """Get the OpenCode global storage path."""
-        return self.config_manager.get_opencode_storage_path()
+    def _get_agent_storage_path(self) -> Path:
+        """Get the Agent global storage path."""
+        return self.config_manager.get_agent_storage_path()
 
     def _get_project_id_for_path(self, codebase_path: str) -> Optional[str]:
-        """Get the OpenCode project ID (hash) for a given codebase path."""
+        """Get the Agent project ID (hash) for a given codebase path."""
         return self.session_sync._get_project_id_for_path(codebase_path)
 
     def get_sessions_for_codebase(
         self, codebase_path: str
     ) -> List[Dict[str, Any]]:
-        """Get all OpenCode sessions for a codebase."""
+        """Get all Agent sessions for a codebase."""
         return self.session_sync.get_sessions_for_codebase(codebase_path)
 
     def get_global_sessions(self) -> List[Dict[str, Any]]:
-        """Get all global OpenCode sessions (not associated with a specific project)."""
+        """Get all global Agent sessions (not associated with a specific project)."""
         return self.session_sync.get_global_sessions()
 
     def get_session_messages(
         self, session_id: str, max_messages: Optional[int] = None
     ) -> List[Dict[str, Any]]:
-        """Get messages (including parts) for a specific session from OpenCode storage."""
+        """Get messages (including parts) for a specific session from Agent storage."""
         return self.session_sync.get_session_messages(session_id, max_messages)
 
     async def sync_api_keys_from_server(
         self, user_id: Optional[str] = None
     ) -> bool:
-        """Sync API keys from the server to local OpenCode auth.json."""
+        """Sync API keys from the server to local Agent auth.json."""
         return await self.client.sync_api_keys_from_server(user_id)
 
     async def stream_task_output(self, task_id: str, output: str):
@@ -4038,7 +4038,7 @@ class AgentWorker:
         """Send heartbeat to the A2A server to indicate worker is alive."""
         return await self.client.send_heartbeat()
 
-    async def run_opencode(
+    async def run_agent(
         self,
         codebase_id: str,
         codebase_path: str,
@@ -4048,8 +4048,8 @@ class AgentWorker:
         model: Optional[str] = None,
         session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Run OpenCode agent on a codebase."""
-        return await self.task_executor.run_opencode(
+        """Run Agent agent on a codebase."""
+        return await self.task_executor.run_agent(
             codebase_id,
             codebase_path,
             prompt,
@@ -4060,7 +4060,7 @@ class AgentWorker:
         )
 
     async def execute_task(self, task: Dict[str, Any]):
-        """Execute a task using OpenCode or handle special task types."""
+        """Execute a task using Agent or handle special task types."""
         await self.task_executor.execute_task(
             task,
             self.codebases,
@@ -4122,25 +4122,25 @@ class AgentWorker:
         )
         logger.info(f'Connecting to server: {self.config.server_url}')
 
-        # Surface OpenCode credential discovery issues early (common when running under systemd).
+        # Surface Agent credential discovery issues early (common when running under systemd).
         try:
             data_home = os.environ.get('XDG_DATA_HOME') or os.path.expanduser(
                 '~/.local/share'
             )
             auth_path = (
-                Path(os.path.expanduser(data_home)) / 'opencode' / 'auth.json'
+                Path(os.path.expanduser(data_home)) / 'agent' / 'auth.json'
             )
             if auth_path.exists():
-                logger.info(f'OpenCode auth detected at: {auth_path}')
+                logger.info(f'Agent auth detected at: {auth_path}')
             else:
                 logger.warning(
-                    'OpenCode auth.json not found for this worker. '
+                    'Agent auth.json not found for this worker. '
                     f'Expected at: {auth_path}. '
-                    "OpenCode agents may fail with 'missing API key' unless you authenticate as this service user "
+                    "Agent agents may fail with 'missing API key' unless you authenticate as this service user "
                     "or import/copy auth.json into the worker's XDG data directory."
                 )
         except Exception as e:
-            logger.debug(f'Failed to check OpenCode auth.json presence: {e}')
+            logger.debug(f'Failed to check Agent auth.json presence: {e}')
 
         self.running = True
 
@@ -4152,7 +4152,7 @@ class AgentWorker:
         self._global_codebase_id = await self.register_codebase(
             name=SpecialCodebaseId.GLOBAL,
             path=str(Path.home()),
-            description='Global OpenCode sessions (not project-specific)',
+            description='Global Agent sessions (not project-specific)',
         )
 
         # Register worker with server
@@ -4220,7 +4220,7 @@ class AgentWorker:
             self._global_codebase_id = await self.register_codebase(
                 name=SpecialCodebaseId.GLOBAL,
                 path=str(Path.home()),
-                description='Global OpenCode sessions (not project-specific)',
+                description='Global Agent sessions (not project-specific)',
             )
 
         # Get available models before registering
@@ -4424,7 +4424,7 @@ class AgentWorker:
         sse_headers['X-Codebases'] = ','.join(codebase_ids)
 
         # Add capabilities header
-        sse_headers['X-Capabilities'] = 'opencode,build,deploy,test'
+        sse_headers['X-Capabilities'] = 'agent,build,deploy,test'
 
         async with session.get(
             sse_url,
@@ -4695,12 +4695,12 @@ async def main():
         default=None,
         help='Fallback poll interval in seconds (when SSE unavailable)',
     )
-    parser.add_argument('--opencode', help='Path to opencode binary')
+    parser.add_argument('--agent-bin', help='Path to agent binary')
 
     parser.add_argument(
-        '--opencode-storage-path',
+        '--agent-storage-path',
         default=None,
-        help='Override OpenCode storage path (directory containing project/, session/, message/, part/)',
+        help='Override Agent storage path (directory containing project/, session/, message/, part/)',
     )
     parser.add_argument(
         '--session-message-sync-max-sessions',
@@ -4881,11 +4881,11 @@ async def main():
         'mcp_url': mcp_url,
         'codebases': codebases,
         'poll_interval': poll_interval,
-        'opencode_bin': args.opencode or file_config.get('opencode_bin'),
-        'opencode_storage_path': (
-            args.opencode_storage_path
+        'agent_bin': args.agent or file_config.get('agent_bin'),
+        'agent_storage_path': (
+            args.agent_storage_path
             or os.environ.get('A2A_OPENCODE_STORAGE_PATH')
-            or file_config.get('opencode_storage_path')
+            or file_config.get('agent_storage_path')
         ),
     }
 
