@@ -1035,6 +1035,32 @@ async def claim_task(
     success = await registry.claim_task(claim.task_id, resolved_worker_id)
 
     if success:
+        # Update task status to 'running' in DB so the UI reflects reality
+        try:
+            from .agent_bridge import get_bridge as get_agent_bridge
+            from .agent_bridge import AgentTaskStatus
+            bridge = get_agent_bridge()
+            if bridge:
+                await bridge.update_task_status(
+                    task_id=claim.task_id,
+                    status=AgentTaskStatus.RUNNING,
+                    worker_id=resolved_worker_id,
+                )
+            else:
+                from . import database as db
+                pool = await db.get_pool()
+                if pool:
+                    async with pool.acquire() as conn:
+                        await conn.execute(
+                            "UPDATE tasks SET status = 'running', worker_id = $2, "
+                            'started_at = NOW(), updated_at = NOW() '
+                            'WHERE id = $1',
+                            claim.task_id,
+                            resolved_worker_id,
+                        )
+        except Exception as e:
+            logger.warning(f'Failed to update task {claim.task_id} to running: {e}')
+
         return {
             'success': True,
             'task_id': claim.task_id,
@@ -1123,6 +1149,61 @@ async def release_task(
             )
         except Exception as e:
             logger.debug(f'Loop completion check for {release.task_id}: {e}')
+
+        # Send email notification on task completion/failure
+        if release.status in ('completed', 'failed'):
+            try:
+                from .database import get_pool
+                pool = await get_pool()
+                if pool:
+                    async with pool.acquire() as conn:
+                        task_row = await conn.fetchrow(
+                            "SELECT title, metadata FROM tasks WHERE id = $1",
+                            release.task_id,
+                        )
+                    if task_row:
+                        metadata = task_row['metadata']
+                        if isinstance(metadata, str):
+                            import json as _json
+                            metadata = _json.loads(metadata)
+                        notify_email = (metadata or {}).get('notify_email')
+                        if notify_email:
+                            from .email_notifications import (
+                                is_configured,
+                                send_task_completion_email,
+                            )
+                            if is_configured():
+                                email_sent = await send_task_completion_email(
+                                    to_email=notify_email,
+                                    task_id=release.task_id,
+                                    title=task_row['title'] or 'Task',
+                                    status=release.status,
+                                    result=release.result,
+                                    error=release.error
+                                    if release.status == 'failed'
+                                    else None,
+                                    worker_name=resolved_worker_id,
+                                )
+                                if email_sent:
+                                    logger.info(
+                                        f'Completion email sent to {notify_email} '
+                                        f'for task {release.task_id}'
+                                    )
+                                else:
+                                    logger.warning(
+                                        f'Failed to send completion email for '
+                                        f'task {release.task_id}'
+                                    )
+                            else:
+                                logger.debug(
+                                    'Email notifications not configured '
+                                    '(missing SENDGRID_API_KEY or SENDGRID_FROM_EMAIL)'
+                                )
+            except Exception as e:
+                logger.error(
+                    f'Error sending completion email for task '
+                    f'{release.task_id}: {e}'
+                )
 
         return {
             'success': True,

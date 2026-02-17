@@ -16,7 +16,7 @@ import logging
 import sqlite3
 import threading
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 from datetime import datetime, timezone, timedelta
 from collections import deque
 from dataclasses import dataclass, asdict
@@ -37,6 +37,11 @@ from functools import lru_cache
 # Import PostgreSQL persistence layer
 from . import database as db
 from .task_orchestration import orchestrate_task_route
+from .vm_workspace_provisioner import (
+    VMWorkspaceSpec,
+    vm_workspace_provisioner,
+    is_enabled as is_vm_workspaces_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1637,6 +1642,51 @@ async def _rehydrate_workspace_into_bridge(workspace_id: str):
         return None
 
 
+def _extract_workspace_runtime_meta(
+    workspace: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Extract runtime metadata from a workspace dict."""
+    if not isinstance(workspace, dict):
+        return {'runtime': 'container'}
+
+    agent_config = workspace.get('agent_config')
+    if not isinstance(agent_config, dict):
+        agent_config = {}
+
+    runtime = agent_config.get('workspace_runtime') or 'container'
+    return {
+        'runtime': runtime,
+        'vm_name': agent_config.get('vm_name'),
+        'vm_namespace': agent_config.get('vm_namespace'),
+        'vm_status': agent_config.get('vm_status'),
+        'vm_pvc_name': agent_config.get('vm_workspace_pvc'),
+        'vm_ssh_service': agent_config.get('vm_ssh_service'),
+        'vm_ssh_host': agent_config.get('vm_ssh_host'),
+        'vm_ssh_port': agent_config.get('vm_ssh_port'),
+    }
+
+
+def _build_vm_spec_from_registration(registration: 'WorkspaceRegistration') -> VMWorkspaceSpec:
+    """Create a VMWorkspaceSpec from request payload with safe defaults."""
+    vm_cfg = registration.vm or {}
+    cpu_cores = int(vm_cfg.get('cpu_cores', vm_cfg.get('cpuCores', 2)))
+    memory = str(vm_cfg.get('memory', '8Gi'))
+    disk_size = str(vm_cfg.get('disk_size', vm_cfg.get('diskSize', '30Gi')))
+    image = str(vm_cfg.get('image', '')).strip()
+    ssh_public_key = str(vm_cfg.get('ssh_public_key', vm_cfg.get('sshPublicKey', ''))).strip()
+    ssh_user = str(vm_cfg.get('ssh_user', vm_cfg.get('sshUser', 'coder'))).strip() or 'coder'
+
+    defaults = VMWorkspaceSpec()
+    return VMWorkspaceSpec(
+        cpu_cores=max(1, cpu_cores),
+        memory=memory,
+        disk_size=disk_size,
+        image=image or defaults.image,
+        ssh_public_key=ssh_public_key or defaults.ssh_public_key,
+        ssh_user=ssh_user,
+    )
+
+
 class WorkspaceRegistration(BaseModel):
     """Request model for registering a workspace."""
 
@@ -1648,6 +1698,8 @@ class WorkspaceRegistration(BaseModel):
     git_url: Optional[str] = None  # HTTPS Git URL to clone
     git_branch: str = 'main'
     git_token: Optional[str] = None  # Access token (stored in Vault, not DB)
+    runtime: Literal['container', 'vm'] = 'container'
+    vm: Optional[Dict[str, Any]] = None
 
 
 class AgentTrigger(BaseModel):
@@ -1659,6 +1711,7 @@ class AgentTrigger(BaseModel):
     model_ref: Optional[str] = None
     files: List[str] = []
     worker_personality: Optional[str] = None
+    notify_email: Optional[str] = None
     metadata: Dict[str, Any] = {}
 
 
@@ -2335,11 +2388,31 @@ async def get_runtime_session_parts(
 
 @agent_router_alias.get('/models')
 async def list_models():
-    """List available AI models from registered workers in the database."""
+    """List available AI models from SSE-connected codetether-agent workers only."""
     models_by_id = {}  # id -> (model_dict, has_pricing)
 
-    # Get models from registered workers (reads from PostgreSQL/Redis/In-memory)
-    workers = await list_workers()
+    # Only use SSE-connected workers (codetether-agent)
+    connected_worker_ids: set = set()
+    try:
+        from .worker_sse import get_worker_registry
+
+        sse_registry = get_worker_registry()
+        sse_workers = await sse_registry.list_workers()
+        connected_worker_ids = {
+            str(w.get('worker_id', '')) for w in sse_workers if w.get('worker_id')
+        }
+    except Exception:
+        pass
+
+    if not connected_worker_ids:
+        return {'models': [], 'default': None}
+
+    all_workers = await list_workers()
+    workers = [
+        w for w in all_workers
+        if str(w.get('worker_id', '')) in connected_worker_ids
+    ]
+
     for worker in workers:
         worker_models = worker.get('models', [])
         for m in worker_models:
@@ -2702,6 +2775,120 @@ async def register_workspace(registration: WorkspaceRegistration):
             'message': f'Repository registration created. A worker will clone {registration.git_url}.',
         }
 
+    # ── VM workspace registration (KubeVirt/Harvester) ────────────────
+    if registration.runtime == 'vm':
+        if registration.worker_id:
+            raise HTTPException(
+                status_code=400,
+                detail='worker_id cannot be provided when runtime=vm',
+            )
+        if not is_vm_workspaces_enabled():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    'VM workspace provisioning is disabled. '
+                    'Set VM_WORKSPACES_ENABLED=true in the server environment.'
+                ),
+            )
+
+        workspace_id = str(uuid.uuid4())[:8]
+        workspace_path = registration.path or '/workspace'
+        try:
+            vm_spec = _build_vm_spec_from_registration(registration)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f'Invalid VM spec in registration payload: {e}',
+            )
+
+        vm_result = await vm_workspace_provisioner.provision_workspace_vm(
+            workspace_id=workspace_id,
+            workspace_name=registration.name,
+            tenant_id='default',
+            spec=vm_spec,
+        )
+        if not vm_result.success:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    vm_result.error_message
+                    or 'Failed to provision VM workspace'
+                ),
+            )
+
+        runtime_agent_config = dict(registration.agent_config or {})
+        runtime_agent_config.update(
+            {
+                'workspace_runtime': 'vm',
+                'vm_provider': 'kubevirt',
+                'vm_name': vm_result.vm_name,
+                'vm_namespace': vm_result.namespace,
+                'vm_status': vm_result.status,
+                'vm_workspace_pvc': vm_result.pvc_name,
+                'vm_ssh_service': vm_result.ssh_service_name,
+                'vm_ssh_host': vm_result.ssh_host,
+                'vm_ssh_port': vm_result.ssh_port,
+                'vm_spec': {
+                    'cpu_cores': vm_spec.cpu_cores,
+                    'memory': vm_spec.memory,
+                    'disk_size': vm_spec.disk_size,
+                    'image': vm_spec.image,
+                },
+            }
+        )
+
+        workspace_data = {
+            'id': workspace_id,
+            'name': registration.name,
+            'path': workspace_path,
+            'description': registration.description,
+            'agent_config': runtime_agent_config,
+            'status': 'active',
+        }
+
+        # Persist to PostgreSQL + Redis first (source of truth)
+        await db.db_upsert_workspace(workspace_data)
+        await _redis_upsert_workspace_meta(workspace_data)
+
+        # Mirror into in-memory bridge for local API workflows.
+        try:
+            workspace = await bridge.register_workspace(
+                name=registration.name,
+                path=workspace_path,
+                description=registration.description,
+                agent_config=runtime_agent_config,
+                workspace_id=workspace_id,
+            )
+            workspace_data = workspace.to_dict()
+            workspace_data['agent_config'] = runtime_agent_config
+            await db.db_upsert_workspace(workspace_data)
+            await _redis_upsert_workspace_meta(workspace_data)
+        except Exception as e:
+            logger.warning(
+                f'VM workspace {workspace_id} provisioned but bridge registration failed: {e}'
+            )
+
+        await monitoring_service.log_message(
+            agent_name='CodeTether Agent',
+            content=f'Provisioned VM workspace: {registration.name}',
+            message_type='system',
+            metadata={
+                'workspace_id': workspace_id,
+                'runtime': 'vm',
+                'vm_name': vm_result.vm_name,
+                'vm_namespace': vm_result.namespace,
+                'vm_status': vm_result.status,
+            },
+        )
+
+        return {
+            'success': True,
+            'workspace_id': workspace_id,
+            'workspace': workspace_data,
+            'runtime': 'vm',
+            'vm': vm_result.to_dict(),
+        }
+
     # If worker_id provided, this is a confirmed registration from a worker
     # The worker has already validated the path exists on its machine
     if registration.worker_id:
@@ -2805,7 +2992,7 @@ async def register_workspace(registration: WorkspaceRegistration):
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}')
-async def get_workspace(workspace_id: str):
+async def get_workspace(workspace_id: str, include_runtime_status: bool = False):
     """Get details of a registered workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -2816,16 +3003,41 @@ async def get_workspace(workspace_id: str):
     # Check local bridge first
     workspace = bridge.get_workspace(workspace_id)
     if workspace:
-        return workspace.to_dict()
+        workspace_dict = workspace.to_dict()
+        if include_runtime_status:
+            runtime_meta = _extract_workspace_runtime_meta(workspace_dict)
+            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
+                vm_status = await vm_workspace_provisioner.get_vm_status(
+                    runtime_meta['vm_name']
+                )
+                if isinstance(workspace_dict.get('agent_config'), dict):
+                    workspace_dict['agent_config']['vm_status'] = vm_status
+        return workspace_dict
 
     # Check PostgreSQL
     db_workspace = await db.db_get_workspace(workspace_id)
     if db_workspace:
+        if include_runtime_status:
+            runtime_meta = _extract_workspace_runtime_meta(db_workspace)
+            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
+                vm_status = await vm_workspace_provisioner.get_vm_status(
+                    runtime_meta['vm_name']
+                )
+                if isinstance(db_workspace.get('agent_config'), dict):
+                    db_workspace['agent_config']['vm_status'] = vm_status
         return db_workspace
 
     # Check Redis fallback
     redis_workspace = await _redis_get_workspace_meta(workspace_id)
     if redis_workspace:
+        if include_runtime_status:
+            runtime_meta = _extract_workspace_runtime_meta(redis_workspace)
+            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
+                vm_status = await vm_workspace_provisioner.get_vm_status(
+                    runtime_meta['vm_name']
+                )
+                if isinstance(redis_workspace.get('agent_config'), dict):
+                    redis_workspace['agent_config']['vm_status'] = vm_status
         return redis_workspace
 
     raise HTTPException(status_code=404, detail='Workspace not found')
@@ -2847,6 +3059,8 @@ async def unregister_workspace(workspace_id: str):
     # Check all sources before deletion for proper response
     db_workspace = await db.db_get_workspace(workspace_id)
     redis_workspace = await _redis_get_workspace_meta(workspace_id)
+    bridge_workspace_dict = workspace.to_dict() if workspace else None
+    workspace_snapshot = bridge_workspace_dict or db_workspace or redis_workspace
 
     if workspace:
         success = await bridge.unregister_workspace(workspace_id)
@@ -2857,6 +3071,19 @@ async def unregister_workspace(workspace_id: str):
 
     if not workspace_name and redis_workspace:
         workspace_name = redis_workspace.get('name')
+
+    runtime_meta = _extract_workspace_runtime_meta(workspace_snapshot)
+    vm_cleanup_ok: Optional[bool] = None
+    if runtime_meta.get('runtime') == 'vm':
+        vm_cleanup_ok = await vm_workspace_provisioner.delete_workspace_vm(
+            workspace_id=workspace_id,
+            vm_name=runtime_meta.get('vm_name'),
+            delete_pvc=True,
+        )
+        if not vm_cleanup_ok:
+            logger.warning(
+                f'Workspace {workspace_id} removed from registry but VM cleanup was incomplete'
+            )
 
     # Delete from PostgreSQL
     await db.db_delete_workspace(workspace_id)
@@ -2870,7 +3097,11 @@ async def unregister_workspace(workspace_id: str):
                 agent_name='CodeTether Agent',
                 content=f'Unregistered workspace: {workspace_name}',
                 message_type='system',
-                metadata={'workspace_id': workspace_id},
+                metadata={
+                    'workspace_id': workspace_id,
+                    'runtime': runtime_meta.get('runtime'),
+                    'vm_cleanup_ok': vm_cleanup_ok,
+                },
             )
         return {'success': True}
 
@@ -2980,18 +3211,28 @@ async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
         'metadata': {
             **routed_metadata,
             'files': trigger.files,
+            **(
+                {'notify_email': trigger.notify_email}
+                if trigger.notify_email
+                else {}
+            ),
         },
         'worker_id': worker_id,
         'target_agent_name': routing_decision.target_agent_name,
         'model_ref': effective_model_ref,
     }
-    await db.db_upsert_task(task_data)
+    saved = await db.db_upsert_task(task_data)
+    if not saved:
+        raise HTTPException(
+            status_code=500, detail='Failed to persist task to database'
+        )
 
     logger.info(
         f'Created task {task_id} for workspace {workspace_name} (worker: {worker_id})'
     )
 
     # Notify SSE-connected workers of the new task
+    notified: list = []
     try:
         from .worker_sse import notify_workers_of_new_task
 
@@ -3001,11 +3242,19 @@ async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
                 f'Task {task_id} pushed to {len(notified)} SSE workers: {notified}'
             )
         else:
-            logger.debug(
+            logger.warning(
                 f'Task {task_id} created but no SSE workers available for workspace {workspace_id}'
             )
     except Exception as e:
         logger.warning(f'Failed to notify SSE workers of task {task_id}: {e}')
+
+    workers_notified = len(notified) if notified else 0
+    if workers_notified > 0:
+        task_status = 'dispatched'
+        message = f'Task dispatched to {workers_notified} worker(s)'
+    else:
+        task_status = 'waiting_for_worker'
+        message = 'Task saved but no workers are online to execute it. Connect a worker to start processing.'
 
     # Log the trigger
     await monitoring_service.log_message(
@@ -3016,6 +3265,8 @@ async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
             'workspace_id': workspace_id,
             'agent': trigger.agent,
             'task_id': task_id,
+            'task_status': task_status,
+            'workers_notified': workers_notified,
             'routing': {
                 'complexity': routing_decision.complexity,
                 'model_tier': routing_decision.model_tier,
@@ -3029,7 +3280,9 @@ async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
     return {
         'success': True,
         'session_id': task_id,
-        'message': f'Task queued for worker (task: {task_id})',
+        'message': message,
+        'task_status': task_status,
+        'workers_notified': workers_notified,
         'workspace_id': workspace_id,
         'agent': trigger.agent,
         'routing': {
@@ -5568,6 +5821,7 @@ class WorkerRegistration(BaseModel):
     models: List[Dict[str, Any]] = []
     global_workspace_id: Optional[str] = None
     workspaces: List[str] = []  # List of workspace IDs this worker handles
+    agents: List[Dict[str, Any]] = []  # Custom agent definitions this worker supports
 
 
 class TaskStatusUpdate(BaseModel):
@@ -5605,6 +5859,18 @@ async def register_worker(registration: WorkerRegistration):
     # Secondary persistence: Redis (for session sync and fallback)
     await _redis_upsert_worker(worker_info)
 
+    # Persist agent definitions from this worker
+    if registration.agents:
+        for agent_def in registration.agents:
+            agent_def['worker_id'] = registration.worker_id
+            if not agent_def.get('id'):
+                agent_def['id'] = str(uuid.uuid4())
+            await db.db_upsert_agent_definition(agent_def)
+        logger.info(
+            f'Worker {registration.worker_id} registered {len(registration.agents)} agent(s): '
+            f'{", ".join(a.get("name", "?") for a in registration.agents)}'
+        )
+
     logger.info(
         f'Worker registered: {registration.name} (ID: {registration.worker_id})'
     )
@@ -5627,6 +5893,9 @@ async def unregister_worker(worker_id: str):
     # Remove from in-memory
     if worker_id in _registered_workers:
         worker_info = _registered_workers.pop(worker_id)
+
+    # Remove agent definitions for this worker
+    await db.db_delete_agent_definitions_by_worker(worker_id)
 
     # Remove from PostgreSQL
     await db.db_delete_worker(worker_id)
@@ -6057,6 +6326,173 @@ async def assign_worker_profile(worker_id: str, body: WorkerProfileAssign):
     if not ok:
         raise HTTPException(status_code=500, detail='Failed to assign profile')
     return {'success': True, 'worker_id': worker_id, 'profile_id': body.profile_id}
+
+
+# ---------------------------------------------------------------------------
+# Agent Definitions – CRUD endpoints
+# ---------------------------------------------------------------------------
+
+
+class AgentDefinitionCreate(BaseModel):
+    """Request body for creating a custom agent definition."""
+    name: str
+    description: Optional[str] = None
+    mode: str = 'primary'
+    hidden: bool = False
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    max_steps: Optional[int] = None
+    system_prompt: Optional[str] = None
+
+
+class AgentDefinitionUpdate(BaseModel):
+    """Request body for updating a custom agent definition."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    mode: Optional[str] = None
+    hidden: Optional[bool] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    max_steps: Optional[int] = None
+    system_prompt: Optional[str] = None
+
+
+@agent_router_alias.get('/agents')
+async def list_agent_definitions(
+    worker_id: Optional[str] = None,
+    include_builtins: bool = True,
+):
+    """List all agent definitions, optionally filtered by worker.
+
+    Returns a merged list of built-in agents and custom per-worker agents.
+    """
+    builtin_agents = [
+        {
+            'id': f'builtin-{name}',
+            'name': name,
+            'description': desc,
+            'mode': mode,
+            'native': True,
+            'hidden': False,
+            'model': None,
+            'temperature': None,
+            'top_p': None,
+            'max_steps': max_steps,
+            'system_prompt': None,
+            'worker_id': None,
+        }
+        for name, desc, mode, max_steps in [
+            ('build', 'Full access agent for development work', 'primary', 100),
+            ('plan', 'Read-only agent for analysis and code exploration', 'primary', 50),
+            ('coder', 'Code writing focused agent', 'primary', 100),
+            ('explore', 'Fast agent for workspace search and exploration', 'subagent', 20),
+            ('swarm', 'Parallel sub-agents for complex tasks', 'primary', 200),
+        ]
+    ]
+
+    # Get custom agents from database
+    custom_agents = await db.db_list_agent_definitions(
+        worker_id=worker_id,
+        include_hidden=False,
+        include_native=False,
+    )
+
+    if include_builtins:
+        return builtin_agents + custom_agents
+    return custom_agents
+
+
+@agent_router_alias.get('/workers/{worker_id}/agents')
+async def list_worker_agents(worker_id: str):
+    """List agent definitions for a specific worker."""
+    agents = await db.db_list_agent_definitions(worker_id=worker_id)
+    return agents
+
+
+@agent_router_alias.post('/workers/{worker_id}/agents')
+async def create_worker_agent(
+    worker_id: str,
+    body: AgentDefinitionCreate,
+):
+    """Create a custom agent definition for a worker."""
+    # Verify worker exists
+    worker = _registered_workers.get(worker_id) or await db.db_get_worker(worker_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail='Worker not found')
+
+    agent_def = {
+        'id': str(uuid.uuid4()),
+        'name': body.name,
+        'description': body.description,
+        'mode': body.mode,
+        'native': False,
+        'hidden': body.hidden,
+        'model': body.model,
+        'temperature': body.temperature,
+        'top_p': body.top_p,
+        'max_steps': body.max_steps,
+        'system_prompt': body.system_prompt,
+        'worker_id': worker_id,
+    }
+
+    ok = await db.db_upsert_agent_definition(agent_def)
+    if not ok:
+        raise HTTPException(status_code=500, detail='Failed to create agent definition')
+
+    return {'success': True, 'agent': agent_def}
+
+
+@agent_router_alias.get('/agents/{agent_id}')
+async def get_agent_definition(agent_id: str):
+    """Get a single agent definition by ID."""
+    agent = await db.db_get_agent_definition(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail='Agent definition not found')
+    return agent
+
+
+@agent_router_alias.put('/workers/{worker_id}/agents/{agent_id}')
+async def update_worker_agent(
+    worker_id: str,
+    agent_id: str,
+    body: AgentDefinitionUpdate,
+):
+    """Update a custom agent definition."""
+    existing = await db.db_get_agent_definition(agent_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail='Agent definition not found')
+    if existing.get('worker_id') != worker_id:
+        raise HTTPException(status_code=403, detail='Agent belongs to a different worker')
+    if existing.get('native'):
+        raise HTTPException(status_code=400, detail='Cannot modify built-in agents')
+
+    updates = body.model_dump(exclude_none=True)
+    merged = {**existing, **updates}
+    ok = await db.db_upsert_agent_definition(merged)
+    if not ok:
+        raise HTTPException(status_code=500, detail='Failed to update agent definition')
+
+    return {'success': True, 'agent': merged}
+
+
+@agent_router_alias.delete('/workers/{worker_id}/agents/{agent_id}')
+async def delete_worker_agent(worker_id: str, agent_id: str):
+    """Delete a custom agent definition."""
+    existing = await db.db_get_agent_definition(agent_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail='Agent definition not found')
+    if existing.get('worker_id') != worker_id:
+        raise HTTPException(status_code=403, detail='Agent belongs to a different worker')
+    if existing.get('native'):
+        raise HTTPException(status_code=400, detail='Cannot delete built-in agents')
+
+    ok = await db.db_delete_agent_definition(agent_id)
+    if not ok:
+        raise HTTPException(status_code=500, detail='Failed to delete agent definition')
+
+    return {'success': True}
 
 
 @agent_router_alias.put('/tasks/{task_id}/status')
