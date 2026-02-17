@@ -13,7 +13,7 @@ Resolution Priority:
 
 Model Reference Format:
 - Normalized: "provider:model" (e.g., "anthropic:claude-sonnet-4", "local:llama3.1:8b")
-- OpenCode: "provider/model" (e.g., "anthropic/claude-sonnet-4")
+- Slash: "provider/model" (e.g., "anthropic/claude-sonnet-4")
 
 Note: The colon split is done on FIRST colon only to handle model names
 with colons (e.g., "local:llama3.1:8b" -> provider="local", model="llama3.1:8b")
@@ -110,46 +110,46 @@ def parse_normalized_ref(ref: str) -> Tuple[str, str]:
     return (provider, model)
 
 
-def to_opencode_format(ref: str) -> str:
+def to_slash_format(ref: str) -> str:
     """
-    Convert normalized model reference to OpenCode format.
+    Convert normalized model reference to Slash format.
 
-    Converts "provider:model" to "provider/model" format used by OpenCode.
+    Converts "provider:model" to "provider/model" format using slash notation.
 
     Args:
         ref: Normalized model reference (e.g., "anthropic:claude-sonnet-4")
 
     Returns:
-        OpenCode format reference (e.g., "anthropic/claude-sonnet-4")
+        Slash format reference (e.g., "anthropic/claude-sonnet-4")
 
     Examples:
-        >>> to_opencode_format('anthropic:claude-sonnet-4')
+        >>> to_slash_format('anthropic:claude-sonnet-4')
         "anthropic/claude-sonnet-4"
 
-        >>> to_opencode_format('local:llama3.1:8b')
+        >>> to_slash_format('local:llama3.1:8b')
         "local/llama3.1:8b"
     """
     provider, model = parse_normalized_ref(ref)
     return f'{provider}/{model}'
 
 
-def from_opencode_format(ref: str) -> str:
+def from_slash_format(ref: str) -> str:
     """
-    Convert OpenCode format to normalized model reference.
+    Convert Slash format to normalized model reference.
 
     Converts "provider/model" to "provider:model" format.
 
     Args:
-        ref: OpenCode format reference (e.g., "anthropic/claude-sonnet-4")
+        ref: Slash format reference (e.g., "anthropic/claude-sonnet-4")
 
     Returns:
         Normalized model reference (e.g., "anthropic:claude-sonnet-4")
 
     Examples:
-        >>> from_opencode_format('anthropic/claude-sonnet-4')
+        >>> from_slash_format('anthropic/claude-sonnet-4')
         "anthropic:claude-sonnet-4"
 
-        >>> from_opencode_format('local/llama3.1:8b')
+        >>> from_slash_format('local/llama3.1:8b')
         "local:llama3.1:8b"
     """
     if not ref:
@@ -157,7 +157,7 @@ def from_opencode_format(ref: str) -> str:
 
     if '/' not in ref:
         raise ValueError(
-            f"Invalid OpenCode model reference format: '{ref}'. "
+            f"Invalid Agent model reference format: '{ref}'. "
             "Expected 'provider/model' format (e.g., 'anthropic/claude-sonnet-4')"
         )
 
@@ -395,8 +395,8 @@ def resolve_with_worker(
 __all__ = [
     # Core functions
     'parse_normalized_ref',
-    'to_opencode_format',
-    'from_opencode_format',
+    'to_slash_format',
+    'from_slash_format',
     'is_model_available',
     'resolve_subcall_model_ref',
     'resolve_with_worker',

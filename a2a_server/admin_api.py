@@ -13,14 +13,25 @@ Users must have 'admin' or 'a2a-admin' role in their Keycloak realm.
 
 import logging
 import os
+import json
+import re
+import tempfile
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from .database import get_pool
-from .keycloak_auth import require_admin, UserSession
+from .database import RLS_ENABLED as DB_RLS_ENABLED, get_pool, get_tenant_by_realm, tenant_scope
+from .keycloak_auth import require_admin, UserSession, KEYCLOAK_REALM
+from .policy import (
+    OPA_LOCAL_MODE,
+    POLICIES_DIR,
+    reload_local_policy_data,
+    require_permission,
+)
+from .tenant_service import KeycloakTenantService, KeycloakTenantServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +136,420 @@ class AdminDashboard(BaseModel):
     recent_tasks: Dict[str, int]
 
 
+class PolicyRoleDefinition(BaseModel):
+    """Role definition stored in policies/data.json."""
+
+    description: str = ''
+    permissions: List[str] = []
+    inherits: Optional[str] = None
+
+
+class PolicyRBACResponse(BaseModel):
+    """RBAC policy payload for admin UI."""
+
+    roles: Dict[str, PolicyRoleDefinition]
+    permissions: List[str]
+    permissions_by_resource: Dict[str, List[str]]
+    metadata: Dict[str, Any]
+
+
+class UpdatePolicyRoleRequest(BaseModel):
+    """Create/update request for a policy role."""
+
+    description: str = ''
+    permissions: List[str] = []
+    inherits: Optional[str] = None
+
+
+class UpdatePolicyRoleResponse(BaseModel):
+    """Create/update response for a policy role."""
+
+    role_name: str
+    role: PolicyRoleDefinition
+    metadata: Dict[str, Any]
+
+
+class RBACRoleCatalogResponse(BaseModel):
+    """Role catalog for Keycloak + OPA management."""
+
+    realm_name: str
+    opa_roles: List[str]
+    keycloak_roles: List[str]
+    missing_in_keycloak: List[str]
+    metadata: Dict[str, Any]
+
+
+class RBACSyncRolesResponse(BaseModel):
+    """Result of syncing OPA roles to Keycloak realm roles."""
+
+    realm_name: str
+    created: List[str]
+    existing: List[str]
+    failed: Dict[str, str]
+
+
+class RBACUserSummary(BaseModel):
+    """User row in RBAC user management list."""
+
+    id: str
+    email: str
+    username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    name: Optional[str] = None
+    enabled: bool = True
+    email_verified: bool = False
+    roles: List[str] = []
+    opa_roles: List[str] = []
+    db_opa_roles: List[str] = []
+    db_synced: Optional[bool] = None
+
+
+class RBACUserListResponse(BaseModel):
+    """Response model for RBAC user listing."""
+
+    realm_name: str
+    users: List[RBACUserSummary]
+    total: int
+    limit: int
+    offset: int
+    metadata: Dict[str, Any]
+
+
+class RBACUserRoleUpdateRequest(BaseModel):
+    """Request model to update OPA-managed Keycloak roles for one user."""
+
+    roles: List[str]
+    realm_name: Optional[str] = None
+    sync_missing_roles: bool = True
+
+
+class RBACUserRoleUpdateResponse(BaseModel):
+    """Response model for user role updates."""
+
+    realm_name: str
+    user_id: str
+    assigned: List[str]
+    removed: List[str]
+    roles: List[str]
+    tenant_id: Optional[str] = None
+    postgres_synced: bool = False
+    metadata: Dict[str, Any]
+
+
+# Shared validation patterns for RBAC role edits.
+_ROLE_NAME_RE = re.compile(r'^[a-z0-9][a-z0-9_-]{1,63}$')
+_PERMISSION_RE = re.compile(r'^[a-z_][a-z0-9_]*:[a-z*][a-z0-9_*-]*$')
+
+
 # ========================================
 # Data Fetching Functions
 # ========================================
+
+
+def _policy_data_file() -> Path:
+    return POLICIES_DIR / 'data.json'
+
+
+def _opa_role_names() -> List[str]:
+    data = _load_policy_data_or_error()
+    roles = data.get('roles', {})
+    if not isinstance(roles, dict):
+        return []
+    return sorted(
+        role_name
+        for role_name in roles.keys()
+        if isinstance(role_name, str) and role_name.strip()
+    )
+
+
+def _resolve_realm_name(
+    admin: UserSession, explicit_realm_name: Optional[str] = None
+) -> str:
+    if explicit_realm_name and explicit_realm_name.strip():
+        return explicit_realm_name.strip()
+    if admin.realm_name:
+        return admin.realm_name
+    return KEYCLOAK_REALM
+
+
+async def _resolve_tenant_id_for_realm(
+    admin: UserSession, realm_name: str
+) -> Optional[str]:
+    if admin.tenant_id and (
+        not admin.realm_name or admin.realm_name == realm_name
+    ):
+        return admin.tenant_id
+
+    tenant = await get_tenant_by_realm(realm_name)
+    if tenant and tenant.get('id'):
+        return str(tenant['id'])
+    return None
+
+
+async def _fetch_postgres_rbac_roles(
+    tenant_id: Optional[str], user_ids: List[str]
+) -> Dict[str, List[str]]:
+    if not tenant_id or not user_ids:
+        return {}
+
+    try:
+        async with tenant_scope(tenant_id) as conn:
+            rows = await conn.fetch(
+                """
+                SELECT user_id, roles
+                FROM rbac_user_roles
+                WHERE tenant_id = $1
+                  AND user_id = ANY($2::TEXT[])
+                """,
+                tenant_id,
+                user_ids,
+            )
+    except Exception as e:
+        logger.warning(f'Failed to fetch Postgres RBAC role snapshots: {e}')
+        return {}
+
+    role_map: Dict[str, List[str]] = {}
+    for row in rows:
+        roles = row['roles'] or []
+        role_map[str(row['user_id'])] = sorted(
+            {
+                role.strip()
+                for role in roles
+                if isinstance(role, str) and role.strip()
+            }
+        )
+    return role_map
+
+
+async def _upsert_postgres_rbac_roles(
+    tenant_id: Optional[str],
+    realm_name: str,
+    entries: List[Dict[str, Any]],
+    updated_by: str,
+) -> bool:
+    if not tenant_id or not entries:
+        return False
+
+    values = []
+    for entry in entries:
+        roles = entry.get('roles') or []
+        normalized_roles = sorted(
+            {
+                role.strip()
+                for role in roles
+                if isinstance(role, str) and role.strip()
+            }
+        )
+        values.append(
+            (
+                tenant_id,
+                realm_name,
+                str(entry.get('user_id') or ''),
+                str(entry.get('email') or ''),
+                normalized_roles,
+                str(entry.get('source') or 'keycloak_sync'),
+                updated_by,
+            )
+        )
+
+    if not values:
+        return False
+
+    try:
+        async with tenant_scope(tenant_id) as conn:
+            await conn.executemany(
+                """
+                INSERT INTO rbac_user_roles (
+                    tenant_id, realm_name, user_id, email, roles, source, updated_by
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (tenant_id, user_id) DO UPDATE SET
+                    realm_name = EXCLUDED.realm_name,
+                    email = CASE
+                        WHEN EXCLUDED.email = '' THEN rbac_user_roles.email
+                        ELSE EXCLUDED.email
+                    END,
+                    roles = EXCLUDED.roles,
+                    source = EXCLUDED.source,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = NOW()
+                """,
+                values,
+            )
+        return True
+    except Exception as e:
+        logger.warning(f'Failed to upsert Postgres RBAC role snapshots: {e}')
+        return False
+
+
+def _policy_metadata(policy_file: Path) -> Dict[str, Any]:
+    mtime = None
+    if policy_file.exists():
+        mtime = datetime.utcfromtimestamp(
+            policy_file.stat().st_mtime
+        ).isoformat()
+
+    return {
+        'opa_local_mode': OPA_LOCAL_MODE,
+        'changes_apply_immediately': OPA_LOCAL_MODE,
+        'reload_required': not OPA_LOCAL_MODE,
+        'data_file': str(policy_file),
+        'writable': os.access(policy_file.parent, os.W_OK),
+        'updated_at': mtime,
+    }
+
+
+def _load_policy_data_or_error() -> Dict[str, Any]:
+    policy_file = _policy_data_file()
+    if not policy_file.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f'Policy data file not found: {policy_file}',
+        )
+
+    try:
+        with open(policy_file, encoding='utf-8') as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f'Invalid JSON in policy data file: {e}',
+        ) from e
+    except OSError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f'Failed to read policy data file: {e}',
+        ) from e
+
+    if not isinstance(data, dict):
+        raise HTTPException(
+            status_code=500, detail='Policy data file must contain a JSON object'
+        )
+
+    roles = data.setdefault('roles', {})
+    if not isinstance(roles, dict):
+        raise HTTPException(
+            status_code=500,
+            detail="Policy data file key 'roles' must be an object",
+        )
+
+    return data
+
+
+def _write_policy_data_or_error(data: Dict[str, Any]) -> None:
+    policy_file = _policy_data_file()
+    policy_file.parent.mkdir(parents=True, exist_ok=True)
+
+    payload = json.dumps(data, indent=4) + '\n'
+    fd, tmp_path = tempfile.mkstemp(
+        prefix='policy-data-', suffix='.json', dir=str(policy_file.parent)
+    )
+
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as tmp_file:
+            tmp_file.write(payload)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_path, policy_file)
+    except OSError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f'Failed to persist policy data: {e}',
+        ) from e
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
+def _build_permission_catalog(
+    roles: Dict[str, Any],
+) -> tuple[List[str], Dict[str, List[str]]]:
+    permissions: set[str] = set()
+
+    for role in roles.values():
+        if not isinstance(role, dict):
+            continue
+        for permission in role.get('permissions', []):
+            if isinstance(permission, str) and ':' in permission:
+                permissions.add(permission)
+
+    permission_list = sorted(permissions)
+    grouped: Dict[str, List[str]] = {}
+    for permission in permission_list:
+        resource = permission.split(':', 1)[0]
+        grouped.setdefault(resource, []).append(permission)
+
+    return permission_list, grouped
+
+
+def _normalize_role(
+    role_name: str,
+    request: UpdatePolicyRoleRequest,
+    existing_roles: Dict[str, Any],
+) -> PolicyRoleDefinition:
+    if not _ROLE_NAME_RE.match(role_name):
+        raise HTTPException(
+            status_code=400,
+            detail='Role name must be 2-64 chars: lowercase letters, numbers, "_" or "-"',
+        )
+
+    description = request.description.strip()
+    inherits = request.inherits.strip() if request.inherits else None
+
+    permissions = sorted(
+        {
+            permission.strip()
+            for permission in request.permissions
+            if isinstance(permission, str) and permission.strip()
+        }
+    )
+
+    if inherits:
+        if inherits == role_name:
+            raise HTTPException(
+                status_code=400, detail='A role cannot inherit from itself'
+            )
+        if inherits not in existing_roles:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Inherited role '{inherits}' does not exist",
+            )
+        if permissions:
+            raise HTTPException(
+                status_code=400,
+                detail='Inherited roles cannot also define explicit permissions',
+            )
+        return PolicyRoleDefinition(
+            description=description,
+            permissions=[],
+            inherits=inherits,
+        )
+
+    if not permissions:
+        raise HTTPException(
+            status_code=400,
+            detail='Custom roles must include at least one permission',
+        )
+
+    invalid_permissions = [
+        permission
+        for permission in permissions
+        if not _PERMISSION_RE.match(permission)
+    ]
+    if invalid_permissions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid permission format: '{invalid_permissions[0]}'",
+        )
+
+    return PolicyRoleDefinition(
+        description=description,
+        permissions=permissions,
+        inherits=None,
+    )
 
 
 async def get_user_stats() -> UserStats:
@@ -987,6 +1409,361 @@ async def get_health(admin: UserSession = Depends(require_admin)):
 async def get_system_alerts(admin: UserSession = Depends(require_admin)):
     """Get current system alerts."""
     return await get_alerts()
+
+
+# ========================================
+# OPA Policy Management Endpoints
+# ========================================
+
+
+@router.get('/policy/rbac', response_model=PolicyRBACResponse)
+async def get_policy_rbac(
+    admin: UserSession = Depends(require_admin),
+    _: Dict[str, Any] = Depends(require_permission('admin:manage_policies')),
+):
+    """Return RBAC role/permission data used by the admin policy editor."""
+    data = _load_policy_data_or_error()
+    role_map = data.get('roles', {})
+
+    normalized_roles: Dict[str, PolicyRoleDefinition] = {}
+    for role_name, role_config in role_map.items():
+        if not isinstance(role_name, str) or not isinstance(role_config, dict):
+            continue
+
+        normalized_roles[role_name] = PolicyRoleDefinition(
+            description=str(role_config.get('description') or ''),
+            permissions=sorted(
+                {
+                    permission
+                    for permission in role_config.get('permissions', [])
+                    if isinstance(permission, str) and permission.strip()
+                }
+            ),
+            inherits=(
+                role_config.get('inherits')
+                if isinstance(role_config.get('inherits'), str)
+                else None
+            ),
+        )
+
+    permissions, permissions_by_resource = _build_permission_catalog(role_map)
+    return PolicyRBACResponse(
+        roles=normalized_roles,
+        permissions=permissions,
+        permissions_by_resource=permissions_by_resource,
+        metadata=_policy_metadata(_policy_data_file()),
+    )
+
+
+@router.put(
+    '/policy/roles/{role_name}',
+    response_model=UpdatePolicyRoleResponse,
+)
+async def upsert_policy_role(
+    role_name: str,
+    request: UpdatePolicyRoleRequest,
+    admin: UserSession = Depends(require_admin),
+    _: Dict[str, Any] = Depends(require_permission('admin:manage_policies')),
+):
+    """Create or update one role inside policies/data.json."""
+    data = _load_policy_data_or_error()
+    roles = data.get('roles', {})
+    if not isinstance(roles, dict):
+        raise HTTPException(status_code=500, detail='Invalid roles configuration')
+
+    role = _normalize_role(role_name, request, roles)
+    role_payload: Dict[str, Any] = {'description': role.description}
+    if role.inherits:
+        role_payload['inherits'] = role.inherits
+    else:
+        role_payload['permissions'] = role.permissions
+
+    roles[role_name] = role_payload
+    data['roles'] = roles
+    _write_policy_data_or_error(data)
+
+    if OPA_LOCAL_MODE:
+        try:
+            reload_local_policy_data()
+        except Exception as e:
+            logger.error(f'Failed to reload local policy cache: {e}')
+            raise HTTPException(
+                status_code=500,
+                detail='Role updated, but failed to reload local policy cache',
+            ) from e
+
+    logger.info(f"Admin {admin.email} updated OPA role '{role_name}'")
+    return UpdatePolicyRoleResponse(
+        role_name=role_name,
+        role=role,
+        metadata=_policy_metadata(_policy_data_file()),
+    )
+
+
+# ========================================
+# RBAC User Management (Keycloak + OPA)
+# ========================================
+
+
+@router.get('/rbac/roles', response_model=RBACRoleCatalogResponse)
+async def get_rbac_roles(
+    realm_name: Optional[str] = Query(default=None),
+    admin: UserSession = Depends(require_admin),
+    _: Dict[str, Any] = Depends(require_permission('admin:manage_users')),
+):
+    """Get OPA and Keycloak role catalogs for RBAC management."""
+    resolved_realm = _resolve_realm_name(admin, realm_name)
+    tenant_id = await _resolve_tenant_id_for_realm(admin, resolved_realm)
+    opa_roles = _opa_role_names()
+
+    service = KeycloakTenantService()
+    try:
+        keycloak_roles = await service.get_realm_roles(resolved_realm)
+    except KeycloakTenantServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    missing_in_keycloak = sorted(
+        role_name for role_name in opa_roles if role_name not in keycloak_roles
+    )
+
+    return RBACRoleCatalogResponse(
+        realm_name=resolved_realm,
+        opa_roles=opa_roles,
+        keycloak_roles=keycloak_roles,
+        missing_in_keycloak=missing_in_keycloak,
+        metadata={
+            'opa_local_mode': OPA_LOCAL_MODE,
+            'opa_role_source': str(_policy_data_file()),
+            'tenant_id': tenant_id,
+            'postgres_rls_enabled': DB_RLS_ENABLED,
+            'postgres_sync_enabled': bool(tenant_id),
+            'postgres_table': 'rbac_user_roles',
+        },
+    )
+
+
+@router.post('/rbac/roles/sync', response_model=RBACSyncRolesResponse)
+async def sync_rbac_roles_to_keycloak(
+    realm_name: Optional[str] = Query(default=None),
+    admin: UserSession = Depends(require_admin),
+    _: Dict[str, Any] = Depends(require_permission('admin:manage_users')),
+):
+    """Create missing Keycloak realm roles for all OPA RBAC roles."""
+    resolved_realm = _resolve_realm_name(admin, realm_name)
+    opa_roles = _opa_role_names()
+    service = KeycloakTenantService()
+
+    try:
+        result = await service.ensure_realm_roles(resolved_realm, opa_roles)
+    except KeycloakTenantServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    logger.info(
+        f"Admin {admin.email} synced OPA roles to Keycloak realm '{resolved_realm}'"
+    )
+    return RBACSyncRolesResponse(
+        realm_name=resolved_realm,
+        created=result.get('created', []),
+        existing=result.get('existing', []),
+        failed=result.get('failed', {}),
+    )
+
+
+@router.get('/rbac/users', response_model=RBACUserListResponse)
+async def list_rbac_users(
+    realm_name: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    admin: UserSession = Depends(require_admin),
+    _: Dict[str, Any] = Depends(require_permission('admin:manage_users')),
+):
+    """List Keycloak users and their OPA-managed role assignments."""
+    resolved_realm = _resolve_realm_name(admin, realm_name)
+    service = KeycloakTenantService()
+    opa_roles = set(_opa_role_names())
+    tenant_id = await _resolve_tenant_id_for_realm(admin, resolved_realm)
+
+    try:
+        users = await service.list_realm_users(
+            resolved_realm, search=search, first=offset, max_results=limit
+        )
+    except KeycloakTenantServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    import asyncio
+
+    user_ids = [str(user.get('id')) for user in users if user.get('id')]
+    role_lists = await asyncio.gather(
+        *[
+            service.get_user_realm_roles(resolved_realm, user_id)
+            for user_id in user_ids
+        ],
+        return_exceptions=True,
+    )
+    roles_by_user_id: Dict[str, List[str]] = {}
+    for idx, role_list in enumerate(role_lists):
+        if isinstance(role_list, Exception):
+            roles_by_user_id[user_ids[idx]] = []
+        else:
+            roles_by_user_id[user_ids[idx]] = role_list
+
+    db_roles_by_user_id = await _fetch_postgres_rbac_roles(tenant_id, user_ids)
+    snapshots_to_upsert: List[Dict[str, Any]] = []
+
+    rows: List[RBACUserSummary] = []
+    for user in users:
+        user_id = str(user.get('id') or '')
+        user_roles = roles_by_user_id.get(user_id, [])
+        opa_user_roles = [role for role in user_roles if role in opa_roles]
+        db_opa_roles = [
+            role
+            for role in db_roles_by_user_id.get(user_id, [])
+            if role in opa_roles
+        ]
+        db_synced: Optional[bool]
+        if tenant_id:
+            db_synced = sorted(opa_user_roles) == sorted(db_opa_roles)
+        else:
+            db_synced = None
+        first_name = user.get('firstName')
+        last_name = user.get('lastName')
+        full_name = ' '.join(
+            part for part in [first_name, last_name] if isinstance(part, str) and part
+        ) or None
+        snapshots_to_upsert.append(
+            {
+                'user_id': user_id,
+                'email': str(user.get('email') or ''),
+                'roles': opa_user_roles,
+                'source': 'keycloak_sync',
+            }
+        )
+        rows.append(
+            RBACUserSummary(
+                id=user_id,
+                email=str(user.get('email') or ''),
+                username=str(user.get('username') or ''),
+                first_name=first_name,
+                last_name=last_name,
+                name=full_name,
+                enabled=bool(user.get('enabled', True)),
+                email_verified=bool(user.get('emailVerified', False)),
+                roles=user_roles,
+                opa_roles=opa_user_roles,
+                db_opa_roles=db_opa_roles,
+                db_synced=db_synced,
+            )
+        )
+
+    postgres_synced = await _upsert_postgres_rbac_roles(
+        tenant_id=tenant_id,
+        realm_name=resolved_realm,
+        entries=snapshots_to_upsert,
+        updated_by=admin.email,
+    )
+
+    return RBACUserListResponse(
+        realm_name=resolved_realm,
+        users=rows,
+        total=len(rows),
+        limit=limit,
+        offset=offset,
+        metadata={
+            'opa_roles': sorted(opa_roles),
+            'tenant_id': tenant_id,
+            'postgres_rls_enabled': DB_RLS_ENABLED,
+            'postgres_sync_enabled': bool(tenant_id),
+            'postgres_synced': postgres_synced,
+            'postgres_table': 'rbac_user_roles',
+        },
+    )
+
+
+@router.put('/rbac/users/{user_id}/roles', response_model=RBACUserRoleUpdateResponse)
+async def update_rbac_user_roles(
+    user_id: str,
+    request: RBACUserRoleUpdateRequest,
+    admin: UserSession = Depends(require_admin),
+    _: Dict[str, Any] = Depends(require_permission('admin:manage_users')),
+):
+    """
+    Update OPA-managed Keycloak realm roles for one user.
+
+    This endpoint only manages roles that exist in OPA data.json.
+    """
+    resolved_realm = _resolve_realm_name(admin, request.realm_name)
+    tenant_id = await _resolve_tenant_id_for_realm(admin, resolved_realm)
+    opa_roles = set(_opa_role_names())
+    requested_roles = sorted(
+        {
+            role.strip()
+            for role in request.roles
+            if isinstance(role, str) and role.strip()
+        }
+    )
+
+    invalid_roles = [role for role in requested_roles if role not in opa_roles]
+    if invalid_roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested roles are not defined in OPA policy: {', '.join(invalid_roles)}",
+        )
+
+    service = KeycloakTenantService()
+
+    if request.sync_missing_roles:
+        try:
+            await service.ensure_realm_roles(resolved_realm, list(opa_roles))
+        except KeycloakTenantServiceError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+
+    try:
+        result = await service.set_user_realm_roles(
+            realm_name=resolved_realm,
+            user_id=user_id,
+            role_names=requested_roles,
+            managed_roles=list(opa_roles),
+        )
+    except KeycloakTenantServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    logger.info(
+        f"Admin {admin.email} updated roles for user {user_id} in realm '{resolved_realm}': {requested_roles}"
+    )
+
+    current_opa_roles = [
+        role for role in result.get('current', []) if role in opa_roles
+    ]
+    postgres_synced = await _upsert_postgres_rbac_roles(
+        tenant_id=tenant_id,
+        realm_name=resolved_realm,
+        entries=[
+            {
+                'user_id': user_id,
+                'email': '',
+                'roles': current_opa_roles,
+                'source': 'admin_update',
+            }
+        ],
+        updated_by=admin.email,
+    )
+
+    return RBACUserRoleUpdateResponse(
+        realm_name=resolved_realm,
+        user_id=user_id,
+        assigned=result.get('assigned', []),
+        removed=result.get('removed', []),
+        roles=result.get('current', []),
+        tenant_id=tenant_id,
+        postgres_synced=postgres_synced,
+        metadata={
+            'opa_managed_roles': sorted(opa_roles),
+            'postgres_rls_enabled': DB_RLS_ENABLED,
+            'postgres_sync_enabled': bool(tenant_id),
+            'postgres_table': 'rbac_user_roles',
+        },
+    )
 
 
 # ========================================

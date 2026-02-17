@@ -37,7 +37,7 @@ import logging
 import os
 import re
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -50,6 +50,39 @@ KUBERNETES_NAMESPACE = os.environ.get('KUBERNETES_NAMESPACE', 'a2a-server')
 CONFIGMAP_NAME = os.environ.get(
     'KNATIVE_TEMPLATE_CONFIGMAP',
     'codetether-a2a-server-knative-worker-template',
+)
+KNATIVE_WORKSPACE_PERSISTENCE_ENABLED = (
+    os.environ.get('KNATIVE_WORKSPACE_PERSISTENCE_ENABLED', 'false').lower()
+    == 'true'
+)
+KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS = os.environ.get(
+    'KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS',
+    '',
+).strip()
+KNATIVE_WORKSPACE_PERSISTENCE_SIZE = os.environ.get(
+    'KNATIVE_WORKSPACE_PERSISTENCE_SIZE',
+    '20Gi',
+).strip() or '20Gi'
+_access_modes_raw = os.environ.get(
+    'KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES',
+    'ReadWriteMany',
+)
+KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES = [
+    mode.strip() for mode in _access_modes_raw.split(',') if mode.strip()
+] or ['ReadWriteMany']
+KNATIVE_WORKSPACE_MOUNT_PATH = (
+    os.environ.get('KNATIVE_WORKSPACE_MOUNT_PATH', '/workspace').strip()
+    or '/workspace'
+)
+KNATIVE_WORKSPACE_BASE_PATH = (
+    os.environ.get('KNATIVE_WORKSPACE_BASE_PATH', '/workspace/repos').strip()
+    or '/workspace/repos'
+)
+KNATIVE_WORKSPACE_PVC_PREFIX = (
+    os.environ.get('KNATIVE_WORKSPACE_PVC_PREFIX', 'codetether-workspace')
+    .strip()
+    .lower()
+    or 'codetether-workspace'
 )
 
 # Kubernetes client - imported conditionally
@@ -148,6 +181,31 @@ class TemplateError(KnativeSpawnerError):
     pass
 
 
+@dataclass
+class WorkspacePersistenceConfig:
+    """Config for persistent workspace volume provisioning."""
+
+    enabled: bool = False
+    storage_class: str = ''
+    size: str = '20Gi'
+    access_modes: List[str] = field(default_factory=lambda: ['ReadWriteMany'])
+    mount_path: str = '/workspace'
+    base_path: str = '/workspace/repos'
+    pvc_prefix: str = 'codetether-workspace'
+
+    @classmethod
+    def from_env(cls) -> 'WorkspacePersistenceConfig':
+        return cls(
+            enabled=KNATIVE_WORKSPACE_PERSISTENCE_ENABLED,
+            storage_class=KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS,
+            size=KNATIVE_WORKSPACE_PERSISTENCE_SIZE,
+            access_modes=list(KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES),
+            mount_path=KNATIVE_WORKSPACE_MOUNT_PATH,
+            base_path=KNATIVE_WORKSPACE_BASE_PATH,
+            pvc_prefix=KNATIVE_WORKSPACE_PVC_PREFIX,
+        )
+
+
 class KnativeSpawner:
     """
     Manages Knative Services and Triggers for per-session agent workers.
@@ -172,6 +230,7 @@ class KnativeSpawner:
         self._initialized = False
         self._templates: Dict[str, str] = {}
         self._init_lock = asyncio.Lock()
+        self.workspace_persistence = WorkspacePersistenceConfig.from_env()
 
     async def _init_client(self) -> bool:
         """Initialize the Kubernetes async client."""
@@ -250,6 +309,7 @@ class KnativeSpawner:
         session_id: str,
         tenant_id: str,
         codebase_id: str,
+        workspace_pvc_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Render a template with placeholder substitution."""
         if template_key not in self._templates:
@@ -261,11 +321,109 @@ class KnativeSpawner:
         rendered = template.replace('SESSION_ID', session_id)
         rendered = rendered.replace('TENANT_ID', tenant_id)
         rendered = rendered.replace('CODEBASE_ID', codebase_id)
+        rendered = rendered.replace(
+            'WORKSPACE_MOUNT_PATH',
+            self.workspace_persistence.mount_path,
+        )
+        rendered = rendered.replace(
+            'WORKSPACE_BASE_PATH',
+            self.workspace_persistence.base_path,
+        )
+        rendered = rendered.replace(
+            'WORKSPACE_PVC_NAME',
+            workspace_pvc_name or '',
+        )
 
         try:
             return yaml.safe_load(rendered)
         except yaml.YAMLError as e:
             raise TemplateError(f'Failed to parse rendered template: {e}')
+
+    @staticmethod
+    def _sanitize_k8s_name(value: str) -> str:
+        """Convert arbitrary value into a valid k8s DNS label segment."""
+        normalized = re.sub(r'[^a-z0-9-]+', '-', value.lower())
+        normalized = re.sub(r'-{2,}', '-', normalized).strip('-')
+        if not normalized:
+            return 'default'
+        return normalized[:63]
+
+    def _workspace_pvc_name(self, codebase_id: str) -> str:
+        suffix = self._sanitize_k8s_name(codebase_id)
+        prefix = self._sanitize_k8s_name(self.workspace_persistence.pvc_prefix)
+        max_suffix = max(1, 63 - len(prefix) - 1)
+        return f'{prefix}-{suffix[:max_suffix]}'
+
+    async def _ensure_workspace_pvc(
+        self,
+        codebase_id: str,
+        tenant_id: str,
+    ) -> Optional[str]:
+        """
+        Ensure a persistent workspace PVC exists for the codebase.
+
+        Returns PVC name when persistence is enabled; otherwise None.
+        """
+        if not self.workspace_persistence.enabled:
+            return None
+
+        if not self._core_api:
+            raise KnativeSpawnerError('Kubernetes client not initialized')
+
+        pvc_name = self._workspace_pvc_name(codebase_id)
+
+        try:
+            await self._core_api.read_namespaced_persistent_volume_claim(
+                name=pvc_name,
+                namespace=self.namespace,
+            )
+            logger.info(
+                f'Workspace PVC {pvc_name} already exists for codebase '
+                f'{codebase_id}'
+            )
+            return pvc_name
+        except ApiException as e:
+            if e.status != 404:
+                raise
+
+        labels = {
+            'app.kubernetes.io/managed-by': 'a2a-server-knative-spawner',
+            'codetether.run/workspace': self._sanitize_k8s_name(codebase_id),
+            'codetether.run/tenant': self._sanitize_k8s_name(tenant_id),
+        }
+        spec: Dict[str, Any] = {
+            'accessModes': self.workspace_persistence.access_modes,
+            'resources': {
+                'requests': {
+                    'storage': self.workspace_persistence.size,
+                }
+            },
+        }
+        storage_class = self.workspace_persistence.storage_class
+        if storage_class:
+            spec['storageClassName'] = storage_class
+
+        pvc_body = {
+            'apiVersion': 'v1',
+            'kind': 'PersistentVolumeClaim',
+            'metadata': {
+                'name': pvc_name,
+                'namespace': self.namespace,
+                'labels': labels,
+            },
+            'spec': spec,
+        }
+
+        await self._core_api.create_namespaced_persistent_volume_claim(
+            namespace=self.namespace,
+            body=pvc_body,
+        )
+        logger.info(
+            f'Created workspace PVC {pvc_name} for codebase {codebase_id} '
+            f'(size={self.workspace_persistence.size}, '
+            f'access_modes={self.workspace_persistence.access_modes})'
+        )
+        return pvc_name
 
     async def create_session_worker(
         self,
@@ -320,12 +478,18 @@ class KnativeSpawner:
             if not self._templates:
                 await self._load_templates()
 
+            workspace_pvc_name = await self._ensure_workspace_pvc(
+                codebase_id=codebase_id,
+                tenant_id=tenant_id,
+            )
+
             # Create Knative Service
             service_body = self._render_template(
                 'service-template.yaml',
                 session_id=session_id,
                 tenant_id=tenant_id,
                 codebase_id=codebase_id,
+                workspace_pvc_name=workspace_pvc_name,
             )
 
             try:
@@ -351,6 +515,7 @@ class KnativeSpawner:
                 session_id=session_id,
                 tenant_id=tenant_id,
                 codebase_id=codebase_id,
+                workspace_pvc_name=workspace_pvc_name,
             )
 
             try:
@@ -806,4 +971,5 @@ __all__ = [
     # Configuration
     'KNATIVE_ENABLED',
     'KUBERNETES_NAMESPACE',
+    'KNATIVE_WORKSPACE_PERSISTENCE_ENABLED',
 ]

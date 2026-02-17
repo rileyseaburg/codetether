@@ -84,7 +84,7 @@ class AgentTaskResponse(BaseModel):
     """Response model for an agent task."""
 
     id: str
-    codebase_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     title: str
     prompt: str
     agent_type: str = 'build'
@@ -1188,13 +1188,13 @@ async def export_csv(limit: int = 10000, all_messages: bool = False):
 
 
 # ============================================================================
-# OpenCode Integration - Trigger AI agents on registered codebases
+# Agent Integration - Trigger CodeTether agents on registered workspaces
 # ============================================================================
 
-# Import OpenCode bridge (lazy load to avoid circular imports)
+# Import agent bridge (lazy load to avoid circular imports)
 _agent_bridge = None
 
-# Worker-synced session data: {codebase_id: [session_dicts]}
+# Worker-synced session data: {workspace_id: [session_dicts]}
 _worker_sessions: Dict[str, List[Dict[str, Any]]] = {}
 # Worker-synced messages: {session_id: [message_dicts]}
 _worker_messages: Dict[str, List[Dict[str, Any]]] = {}
@@ -1259,8 +1259,8 @@ async def _get_redis_client():
             return None
 
 
-def _redis_key_worker_sessions(codebase_id: str) -> str:
-    return f'a2a:agent:codebases:{codebase_id}:sessions'
+def _redis_key_worker_sessions(workspace_id: str) -> str:
+    return f'a2a:agent:workspaces:{workspace_id}:sessions'
 
 
 def _redis_key_worker_messages(session_id: str) -> str:
@@ -1316,12 +1316,12 @@ def _redis_key_worker(worker_id: str) -> str:
     return f'a2a:agent:workers:{worker_id}'
 
 
-def _redis_key_codebases_index() -> str:
-    return 'a2a:agent:codebases:index'
+def _redis_key_workspaces_index() -> str:
+    return 'a2a:agent:workspaces:index'
 
 
-def _redis_key_codebase_meta(codebase_id: str) -> str:
-    return f'a2a:agent:codebases:{codebase_id}:meta'
+def _redis_key_workspace_meta(workspace_id: str) -> str:
+    return f'a2a:agent:workspaces:{workspace_id}:meta'
 
 
 async def _redis_upsert_worker(worker_info: Dict[str, Any]) -> None:
@@ -1395,78 +1395,78 @@ async def _redis_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def _redis_upsert_codebase_meta(codebase: Dict[str, Any]) -> None:
-    """Best-effort: mirror codebase registry to Redis for multi-replica setups."""
+async def _redis_upsert_workspace_meta(workspace: Dict[str, Any]) -> None:
+    """Best-effort: mirror workspace registry to Redis for multi-replica setups."""
     client = await _get_redis_client()
     if not client:
         return
 
-    codebase_id = codebase.get('id')
-    if not codebase_id:
+    workspace_id = workspace.get('id')
+    if not workspace_id:
         return
 
     try:
-        await client.sadd(_redis_key_codebases_index(), codebase_id)
+        await client.sadd(_redis_key_workspaces_index(), workspace_id)
         await client.set(
-            _redis_key_codebase_meta(codebase_id), json.dumps(codebase)
+            _redis_key_workspace_meta(workspace_id), json.dumps(workspace)
         )
     except Exception as e:
-        logger.debug(f'Failed to persist codebase meta to Redis: {e}')
+        logger.debug(f'Failed to persist workspace meta to Redis: {e}')
 
 
-async def _redis_delete_codebase_meta(codebase_id: str) -> None:
+async def _redis_delete_workspace_meta(workspace_id: str) -> None:
     client = await _get_redis_client()
     if not client:
         return
 
     try:
-        await client.srem(_redis_key_codebases_index(), codebase_id)
-        await client.delete(_redis_key_codebase_meta(codebase_id))
+        await client.srem(_redis_key_workspaces_index(), workspace_id)
+        await client.delete(_redis_key_workspace_meta(workspace_id))
     except Exception as e:
-        logger.debug(f'Failed to delete codebase meta from Redis: {e}')
+        logger.debug(f'Failed to delete workspace meta from Redis: {e}')
 
 
-async def _redis_list_codebase_meta() -> List[Dict[str, Any]]:
+async def _redis_list_workspace_meta() -> List[Dict[str, Any]]:
     client = await _get_redis_client()
     if not client:
         return []
 
     try:
-        codebase_ids = await client.smembers(_redis_key_codebases_index())
-        if not codebase_ids:
+        workspace_ids = await client.smembers(_redis_key_workspaces_index())
+        if not workspace_ids:
             return []
 
-        keys = [_redis_key_codebase_meta(cid) for cid in codebase_ids]
+        keys = [_redis_key_workspace_meta(cid) for cid in workspace_ids]
         raw_items = await client.mget(keys)
 
-        codebases: List[Dict[str, Any]] = []
+        workspaces: List[Dict[str, Any]] = []
         for raw in raw_items:
             if not raw:
                 continue
             try:
-                codebases.append(json.loads(raw))
+                workspaces.append(json.loads(raw))
             except Exception:
                 continue
-        return codebases
+        return workspaces
     except Exception as e:
-        logger.debug(f'Failed to list codebases from Redis: {e}')
+        logger.debug(f'Failed to list workspaces from Redis: {e}')
         return []
 
 
-async def _redis_get_codebase_meta(
-    codebase_id: str,
+async def _redis_get_workspace_meta(
+    workspace_id: str,
 ) -> Optional[Dict[str, Any]]:
     client = await _get_redis_client()
     if not client:
         return None
 
     try:
-        raw = await client.get(_redis_key_codebase_meta(codebase_id))
+        raw = await client.get(_redis_key_workspace_meta(workspace_id))
         if not raw:
             return None
         return json.loads(raw)
     except Exception as e:
-        logger.debug(f'Failed to get codebase meta from Redis: {e}')
+        logger.debug(f'Failed to get workspace meta from Redis: {e}')
         return None
 
 
@@ -1480,19 +1480,19 @@ def get_agent_bridge():
             _agent_bridge = AgentBridge()
             logger.info('Agent bridge initialized')
 
-            # Deduplicate codebases on startup to clean up any stale entries
+            # Deduplicate workspaces on startup to clean up any stale entries
             # This runs async in background to not block initialization
             async def _deduplicate_on_startup():
                 try:
-                    results = await db.db_deduplicate_all_codebases()
+                    results = await db.db_deduplicate_all_workspaces()
                     if results:
                         total = sum(results.values())
                         logger.info(
-                            f'Startup deduplication: removed {total} duplicate codebase entries'
+                            f'Startup deduplication: removed {total} duplicate workspace entries'
                         )
                 except Exception as e:
                     logger.warning(
-                        f'Failed to deduplicate codebases on startup: {e}'
+                        f'Failed to deduplicate workspaces on startup: {e}'
                     )
 
             import asyncio
@@ -1539,7 +1539,7 @@ def get_agent_bridge():
                             'id': task.id,
                             'title': task.title,
                             'description': task.prompt,
-                            'codebase_id': task.codebase_id,
+                            'workspace_id': task.workspace_id,
                             'agent_type': task.agent_type,
                             'model': task.model,
                             'priority': task.priority,
@@ -1578,43 +1578,39 @@ def get_agent_bridge():
     return _agent_bridge
 
 
-# Backward-compatible alias — old name still works
-get_opencode_bridge = get_agent_bridge
+async def _rehydrate_workspace_into_bridge(workspace_id: str):
+    """Best-effort: load a workspace from Redis/PostgreSQL into this instance's bridge.
 
-
-async def _rehydrate_codebase_into_bridge(codebase_id: str):
-    """Best-effort: load a codebase from Redis/PostgreSQL into this instance's bridge.
-
-    Some endpoints historically required the codebase to exist in the in-memory
+    Some endpoints historically required the workspace to exist in the in-memory
     Agent bridge registry. In multi-replica setups or after restarts, the
-    bridge can be empty while PostgreSQL still has durable codebase/session data.
+    bridge can be empty while PostgreSQL still has durable workspace/session data.
 
-    Returns the registered codebase (if successful) or None.
+    Returns the registered workspace (if successful) or None.
     """
     bridge = get_agent_bridge()
     if bridge is None:
         return None
 
-    existing = bridge.get_codebase(codebase_id)
+    existing = bridge.get_workspace(workspace_id)
     if existing is not None:
         return existing
 
     meta: Optional[Dict[str, Any]] = None
     try:
-        meta = await _redis_get_codebase_meta(codebase_id)
+        meta = await _redis_get_workspace_meta(workspace_id)
     except Exception:
         meta = None
 
     if not meta:
         try:
-            meta = await db.db_get_codebase(codebase_id)
+            meta = await db.db_get_workspace(workspace_id)
         except Exception:
             meta = None
 
     if not meta:
         return None
 
-    name = meta.get('name') or codebase_id
+    name = meta.get('name') or workspace_id
     path = meta.get('path')
     if not isinstance(path, str) or not path:
         return None
@@ -1623,26 +1619,26 @@ async def _rehydrate_codebase_into_bridge(codebase_id: str):
     if not isinstance(agent_config, dict):
         agent_config = {}
 
-    desired_id = meta.get('id') or codebase_id
+    desired_id = meta.get('id') or workspace_id
     try:
-        codebase = await bridge.register_codebase(
+        workspace = await bridge.register_workspace(
             name=name,
             path=path,
             description=meta.get('description') or '',
             agent_config=agent_config,
             worker_id=meta.get('worker_id'),
-            codebase_id=desired_id,
+            workspace_id=desired_id,
         )
-        return codebase
+        return workspace
     except Exception as e:
         logger.debug(
-            f'Failed to rehydrate codebase {codebase_id} into bridge: {e}'
+            f'Failed to rehydrate workspace {workspace_id} into bridge: {e}'
         )
         return None
 
 
-class CodebaseRegistration(BaseModel):
-    """Request model for registering a codebase."""
+class WorkspaceRegistration(BaseModel):
+    """Request model for registering a workspace."""
 
     name: str
     path: str = ''  # Can be empty when git_url is provided
@@ -1681,7 +1677,7 @@ class AgentTaskCreate(BaseModel):
     agent_type: str = 'build'
     priority: int = 0
     metadata: Dict[str, Any] = {}
-    codebase_id: Optional[str] = None  # Optional: specify target codebase
+    workspace_id: Optional[str] = None  # Optional: specify target workspace
     model: Optional[str] = None  # Optional: specify model
     model_ref: Optional[str] = None  # Optional: normalized provider:model
     worker_personality: Optional[str] = None
@@ -1697,12 +1693,12 @@ class WatchModeConfig(BaseModel):
 agent_router = APIRouter(prefix='/v1/agent', tags=['agent'])
 
 # Backward-compatible alias (deprecated — will be removed in a future release)
-opencode_router = agent_router
+agent_router_alias = agent_router
 
 
 @agent_router.on_event('startup')
 async def agent_startup():
-    """Load codebases from PostgreSQL on startup."""
+    """Load workspaces from PostgreSQL on startup."""
     try:
         bridge = None
         try:
@@ -1711,9 +1707,9 @@ async def agent_startup():
             pass
 
         if bridge:
-            await bridge._load_codebases_from_db()
+            await bridge._load_workspaces_from_db()
     except Exception as e:
-        logger.warning(f'Failed to load codebases on startup: {e}')
+        logger.warning(f'Failed to load workspaces on startup: {e}')
 
 
 @lru_cache(maxsize=1)
@@ -1752,7 +1748,7 @@ def _require_ingest_auth(request: Request) -> None:
         raise HTTPException(status_code=403, detail='Invalid token')
 
 
-@opencode_router.get('/status')
+@agent_router_alias.get('/status')
 async def agent_status():
     """Check Agent worker status including local runtime sessions."""
     bridge = get_agent_bridge()
@@ -1799,7 +1795,7 @@ async def agent_status():
             if runtime_available
             else 'Agent worker not available',
             'agent_binary': None,
-            'registered_codebases': 0,
+            'registered_workspaces': 0,
             'runtime': {
                 'available': runtime_available,
                 'storage_path': storage_path,
@@ -1810,20 +1806,20 @@ async def agent_status():
             else None,
         }
 
-    registered_codebases = len(bridge.list_codebases())
+    registered_workspaces = len(bridge.list_workspaces())
     try:
         # If Redis is configured, it may have the authoritative multi-replica
         # registry even when this instance has an empty local DB.
-        redis_codebases = await _redis_list_codebase_meta()
-        registered_codebases = max(registered_codebases, len(redis_codebases))
+        redis_workspaces = await _redis_list_workspace_meta()
+        registered_workspaces = max(registered_workspaces, len(redis_workspaces))
     except Exception:
         pass
 
     return {
         'available': True,
         'message': 'Agent bridge ready',
-        'agent_binary': bridge.opencode_bin,
-        'registered_codebases': registered_codebases,
+        'agent_binary': bridge.agent_bin,
+        'registered_workspaces': registered_workspaces,
         'auto_start': bridge.auto_start,
         'runtime': {
             'available': runtime_available,
@@ -1836,13 +1832,13 @@ async def agent_status():
     }
 
 
-@opencode_router.get('/database/status')
+@agent_router_alias.get('/database/status')
 async def database_status():
     """Check PostgreSQL database status and statistics."""
     return await db.db_health_check()
 
 
-@opencode_router.get('/database/sessions')
+@agent_router_alias.get('/database/sessions')
 async def database_sessions(
     limit: int = 100,
     offset: int = 0,
@@ -1850,7 +1846,7 @@ async def database_sessions(
     """
     List all sessions from PostgreSQL database.
 
-    Returns sessions across all codebases, sorted by most recently updated.
+    Returns sessions across all workspaces, sorted by most recently updated.
     Use this endpoint for a global view of all agent sessions.
     """
     sessions = await db.db_list_all_sessions(limit=limit, offset=offset)
@@ -1863,43 +1859,43 @@ async def database_sessions(
     }
 
 
-@opencode_router.get('/database/codebases')
-async def database_codebases():
+@agent_router_alias.get('/database/workspaces')
+async def database_workspaces():
     """
-    List all codebases from PostgreSQL database.
+    List all workspaces from PostgreSQL database.
 
-    Returns all registered codebases with their worker assignments.
+    Returns all registered workspaces with their worker assignments.
     """
-    codebases = await db.db_list_codebases()
+    workspaces = await db.db_list_workspaces()
     return {
-        'codebases': codebases,
-        'total': len(codebases),
+        'workspaces': workspaces,
+        'total': len(workspaces),
         'source': 'postgresql',
     }
 
 
-@opencode_router.post('/database/codebases/deduplicate')
-async def deduplicate_codebases():
+@agent_router_alias.post('/database/workspaces/deduplicate')
+async def deduplicate_workspaces():
     """
-    Remove duplicate codebase entries, keeping the oldest (canonical) ID for each path.
+    Remove duplicate workspace entries, keeping the oldest (canonical) ID for each path.
 
     This is useful after server restarts or when workers have created duplicate entries.
     The canonical ID is preserved to maintain consistency with existing tasks and sessions.
     """
-    results = await db.db_deduplicate_all_codebases()
+    results = await db.db_deduplicate_all_workspaces()
 
     total_removed = sum(results.values())
     return {
         'success': True,
         'deduplicated_paths': results,
         'total_duplicates_removed': total_removed,
-        'message': f'Removed {total_removed} duplicate codebase entries'
+        'message': f'Removed {total_removed} duplicate workspace entries'
         if total_removed > 0
         else 'No duplicates found',
     }
 
 
-@opencode_router.get('/database/workers')
+@agent_router_alias.get('/database/workers')
 async def database_workers():
     """
     List all workers from PostgreSQL database.
@@ -1915,23 +1911,23 @@ async def database_workers():
 
 
 # =============================================================================
-# OpenCode Runtime Session Endpoints (Direct Storage Access)
+# Agent Runtime Session Endpoints (Direct Storage Access)
 # =============================================================================
-# These endpoints read directly from OpenCode's storage directory
-# (~/.local/share/codetether/storage/) without requiring a codebase to be registered.
+# These endpoints read directly from agent storage directory
+# (~/.local/share/codetether/storage/) without requiring a workspace to be registered.
 # This allows users to immediately see and resume their existing sessions.
 
 # XDG Base Directory paths for Agent storage
 AGENT_DATA_DIR = os.environ.get(
     'AGENT_DATA_DIR', os.path.expanduser('~/.local/share/codetether')
 )
-OPENCODE_STORAGE_DIR = os.path.join(AGENT_DATA_DIR, 'storage')
+AGENT_STORAGE_DIR = os.path.join(AGENT_DATA_DIR, 'storage')
 
 
 def _get_agent_storage_path() -> Optional[str]:
     """Get the Agent storage directory path if it exists."""
-    if os.path.isdir(OPENCODE_STORAGE_DIR):
-        return OPENCODE_STORAGE_DIR
+    if os.path.isdir(AGENT_STORAGE_DIR):
+        return AGENT_STORAGE_DIR
     # Fallback locations
     fallbacks = [
         os.path.expanduser('~/.local/share/codetether/storage'),
@@ -1964,12 +1960,12 @@ async def _read_json_file(filepath: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-@opencode_router.get('/runtime/status')
+@agent_router_alias.get('/runtime/status')
 async def agent_runtime_status():
     """
     Check if Agent runtime is available on this system.
 
-    Returns information about the local OpenCode installation and storage.
+    Returns information about the local agent installation and storage.
     """
     storage_path = _get_agent_storage_path()
 
@@ -2015,7 +2011,7 @@ async def agent_runtime_status():
     }
 
 
-@opencode_router.get('/runtime/projects')
+@agent_router_alias.get('/runtime/projects')
 async def list_agent_projects():
     """
     List all Agent projects detected on this system.
@@ -2078,7 +2074,7 @@ async def list_agent_projects():
     return {'projects': projects}
 
 
-@opencode_router.get('/runtime/sessions')
+@agent_router_alias.get('/runtime/sessions')
 async def list_all_runtime_sessions(
     project_id: Optional[str] = None,
     limit: int = 50,
@@ -2161,10 +2157,10 @@ async def list_all_runtime_sessions(
     }
 
 
-@opencode_router.get('/runtime/sessions/{session_id}')
+@agent_router_alias.get('/runtime/sessions/{session_id}')
 async def get_runtime_session(session_id: str):
     """
-    Get details for a specific OpenCode session.
+    Get details for a specific agent session.
 
     Returns the full session data including metadata.
     """
@@ -2210,14 +2206,14 @@ async def get_runtime_session(session_id: str):
     )
 
 
-@opencode_router.get('/runtime/sessions/{session_id}/messages')
+@agent_router_alias.get('/runtime/sessions/{session_id}/messages')
 async def get_runtime_session_messages(
     session_id: str,
     limit: int = 50,
     offset: int = 0,
 ):
     """
-    Get messages for a specific OpenCode session.
+    Get messages for a specific agent session.
 
     Returns the conversation history for the session.
     """
@@ -2272,7 +2268,7 @@ async def get_runtime_session_messages(
     }
 
 
-@opencode_router.get('/runtime/sessions/{session_id}/parts')
+@agent_router_alias.get('/runtime/sessions/{session_id}/parts')
 async def get_runtime_session_parts(
     session_id: str,
     message_id: Optional[str] = None,
@@ -2337,7 +2333,7 @@ async def get_runtime_session_parts(
     }
 
 
-@opencode_router.get('/models')
+@agent_router_alias.get('/models')
 async def list_models():
     """List available AI models from registered workers in the database."""
     models_by_id = {}  # id -> (model_dict, has_pricing)
@@ -2392,7 +2388,7 @@ async def list_models():
     return {'models': [], 'default': None}
 
 
-@opencode_router.get('/providers')
+@agent_router_alias.get('/providers')
 async def list_providers():
     """List available AI providers from HashiCorp Vault (source of truth).
 
@@ -2443,7 +2439,7 @@ async def list_providers():
     }
 
 
-def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
+def _normalize_workspace_path(path: Optional[str]) -> Optional[str]:
     if not path or not isinstance(path, str):
         return None
     try:
@@ -2452,23 +2448,23 @@ def _normalize_codebase_path(path: Optional[str]) -> Optional[str]:
         return path
 
 
-@opencode_router.get('/codebases')
-async def get_codebases(
+@agent_router_alias.get('/workspaces')
+async def get_workspaces(
     path: Optional[str] = None,
     include_duplicates: bool = False,
 ):
     """Backward-compatible GET handler.
 
     - If `path` is provided, returns the normalized filesystem path.
-    - If `path` is omitted, returns the list of registered codebases.
+    - If `path` is omitted, returns the list of registered workspaces.
 
     Historically, the UI called this as a listing endpoint; FastAPI treated
     `path` as required and returned 422. We keep the path-normalization behavior
     while also supporting listing to prevent client errors.
     """
     if path:
-        return _normalize_codebase_path(path)
-    return await list_codebases(include_duplicates=include_duplicates)
+        return _normalize_workspace_path(path)
+    return await list_workspaces(include_duplicates=include_duplicates)
 
 
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -2484,7 +2480,7 @@ def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _codebase_sort_key(cb: Dict[str, Any]) -> tuple:
+def _workspace_sort_key(cb: Dict[str, Any]) -> tuple:
     # Prefer most recently updated, then created, then stable id
     updated = _parse_iso_datetime(cb.get('updated_at'))
     created = _parse_iso_datetime(cb.get('created_at'))
@@ -2533,15 +2529,15 @@ async def _get_active_worker_ids() -> set:
     return active
 
 
-def _dedupe_codebases_by_path(
-    codebases: List[Dict[str, Any]],
+def _dedupe_workspaces_by_path(
+    workspaces: List[Dict[str, Any]],
     active_worker_ids: set,
 ) -> List[Dict[str, Any]]:
     grouped: Dict[str, List[Dict[str, Any]]] = {}
     passthrough: List[Dict[str, Any]] = []
 
-    for cb in codebases:
-        path = _normalize_codebase_path(cb.get('path'))
+    for cb in workspaces:
+        path = _normalize_workspace_path(cb.get('path'))
         if not path:
             passthrough.append(cb)
             continue
@@ -2565,7 +2561,7 @@ def _dedupe_codebases_by_path(
             # Prefer worker-owned entries even if the worker is currently inactive.
             owned_candidates = [cb for cb in cbs if cb.get('worker_id')]
             candidates = owned_candidates if owned_candidates else cbs
-        chosen = max(candidates, key=_codebase_sort_key)
+        chosen = max(candidates, key=_workspace_sort_key)
 
         # Provide visibility into de-duping without breaking older clients.
         chosen = dict(chosen)
@@ -2584,41 +2580,41 @@ def _dedupe_codebases_by_path(
     return deduped + passthrough
 
 
-@opencode_router.get('/codebases/list')
-async def list_codebases(include_duplicates: bool = False):
-    """List all registered codebases.
+@agent_router_alias.get('/workspaces/list')
+async def list_workspaces(include_duplicates: bool = False):
+    """List all registered workspaces.
 
     By default, de-duplicates entries that share the same filesystem path and
-    prefers codebases owned by recently-seen workers. Pass include_duplicates=true
+    prefers workspaces owned by recently-seen workers. Pass include_duplicates=true
     to return the raw, unfiltered list.
     """
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     # Collect from all sources: PostgreSQL > Redis > local bridge
-    local_codebases = [cb.to_dict() for cb in bridge.list_codebases()]
-    redis_codebases = await _redis_list_codebase_meta()
-    db_codebases = await db.db_list_codebases()
+    local_workspaces = [cb.to_dict() for cb in bridge.list_workspaces()]
+    redis_workspaces = await _redis_list_workspace_meta()
+    db_workspaces = await db.db_list_workspaces()
 
     merged: Dict[str, Dict[str, Any]] = {}
 
     # Local first (most up-to-date for this instance)
-    for cb in local_codebases:
+    for cb in local_workspaces:
         cid = cb.get('id')
         if cid:
             merged[cid] = cb
 
-    # Redis (may have codebases from other instances)
-    for cb in redis_codebases:
+    # Redis (may have workspaces from other instances)
+    for cb in redis_workspaces:
         cid = cb.get('id')
         if cid and cid not in merged:
             merged[cid] = cb
 
     # PostgreSQL (durable, survives restarts)
-    for cb in db_codebases:
+    for cb in db_workspaces:
         cid = cb.get('id')
         if cid and cid not in merged:
             merged[cid] = cb
@@ -2632,15 +2628,15 @@ async def list_codebases(include_duplicates: bool = False):
     except Exception:
         active_worker_ids = set()
 
-    return _dedupe_codebases_by_path(result, active_worker_ids)
+    return _dedupe_workspaces_by_path(result, active_worker_ids)
 
 
-@opencode_router.post('/codebases')
-async def register_codebase(registration: CodebaseRegistration):
+@agent_router_alias.post('/workspaces')
+async def register_workspace(registration: WorkspaceRegistration):
     """
-    Register a new codebase for agent work.
+    Register a new workspace for agent work.
 
-    If worker_id is provided (from a worker), the codebase is registered directly
+    If worker_id is provided (from a worker), the workspace is registered directly
     since the worker has already validated the path exists locally.
 
     If NO worker_id is provided (from UI), a registration task is created for
@@ -2649,7 +2645,7 @@ async def register_codebase(registration: CodebaseRegistration):
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     # ── Git URL registration ─────────────────────────────────────
@@ -2664,43 +2660,43 @@ async def register_codebase(registration: CodebaseRegistration):
             )
 
         import hashlib
-        codebase_id = hashlib.sha256(
+        workspace_id = hashlib.sha256(
             registration.git_url.encode()
         ).hexdigest()[:16]
 
         # Store Git token in Vault if provided (never persisted in DB)
         if registration.git_token:
-            await store_git_credentials(codebase_id, registration.git_token)
+            await store_git_credentials(workspace_id, registration.git_token)
 
-        # Register codebase with git_url (path TBD after clone)
-        codebase_data = {
-            'id': codebase_id,
+        # Register workspace with git_url (path TBD after clone)
+        workspace_data = {
+            'id': workspace_id,
             'name': registration.name,
-            'path': registration.path or f'/var/lib/codetether/repos/{codebase_id}',
+            'path': registration.path or f'/var/lib/codetether/repos/{workspace_id}',
             'description': registration.description,
             'agent_config': registration.agent_config,
             'git_url': registration.git_url,
             'git_branch': registration.git_branch,
             'status': 'cloning',
         }
-        await db.db_upsert_codebase(codebase_data)
+        await db.db_upsert_workspace(workspace_data)
 
         # Create a clone task for workers to pick up
         task = await bridge.create_task(
-            codebase_id=codebase_id,
+            codebase_id=workspace_id,
             title=f'Clone repository: {registration.name}',
             prompt=f'Clone Git repo {registration.git_url} (branch: {registration.git_branch})',
             agent_type='clone_repo',
             metadata={
                 'git_url': registration.git_url,
                 'git_branch': registration.git_branch,
-                'codebase_id': codebase_id,
+                'workspace_id': workspace_id,
             },
         )
 
         return {
             'success': True,
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'pending': True,
             'task_id': task.id if task else None,
             'message': f'Repository registration created. A worker will clone {registration.git_url}.',
@@ -2711,54 +2707,54 @@ async def register_codebase(registration: CodebaseRegistration):
     if registration.worker_id:
         try:
             normalized_path = (
-                _normalize_codebase_path(registration.path) or registration.path
+                _normalize_workspace_path(registration.path) or registration.path
             )
 
             # If we've seen this path before (e.g., after a server restart), reuse
-            # the existing codebase ID from PostgreSQL to prevent duplicates.
+            # the existing workspace ID from PostgreSQL to prevent duplicates.
             existing_id: Optional[str] = None
             try:
-                existing = await db.db_list_codebases_by_path(normalized_path)
+                existing = await db.db_list_workspaces_by_path(normalized_path)
                 if existing:
                     # Prefer most recently updated entry.
                     existing_id = existing[0].get('id')
             except Exception:
                 existing_id = None
 
-            codebase = await bridge.register_codebase(
+            workspace = await bridge.register_workspace(
                 name=registration.name,
                 path=normalized_path,
                 description=registration.description,
                 agent_config=registration.agent_config,
                 worker_id=registration.worker_id,
-                codebase_id=existing_id,
+                workspace_id=existing_id,
             )
 
-            codebase_dict = codebase.to_dict()
+            workspace_dict = workspace.to_dict()
 
             # Primary persistence: PostgreSQL
-            await db.db_upsert_codebase(codebase_dict)
+            await db.db_upsert_workspace(workspace_dict)
 
             # Secondary: Redis for distributed session sync
-            await _redis_upsert_codebase_meta(codebase_dict)
+            await _redis_upsert_workspace_meta(workspace_dict)
 
             await monitoring_service.log_message(
-                agent_name='OpenCode Bridge',
-                content=f'Registered codebase: {registration.name} at {registration.path} (worker: {registration.worker_id})',
+                agent_name='CodeTether Agent',
+                content=f'Registered workspace: {registration.name} at {registration.path} (worker: {registration.worker_id})',
                 message_type='system',
                 metadata={
-                    'codebase_id': codebase.id,
+                    'workspace_id': workspace.id,
                     'path': registration.path,
                     'worker_id': registration.worker_id,
                 },
             )
 
-            return {'success': True, 'codebase': codebase_dict}
+            return {'success': True, 'workspace': workspace_dict}
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
     # No worker_id - this is a registration REQUEST from UI
-    # Create a task for workers to validate and claim this codebase
+    # Create a task for workers to validate and claim this workspace
     # Check if any workers are registered (check all sources)
     db_workers = await db.db_list_workers()
     redis_workers = await _redis_list_workers()
@@ -2771,12 +2767,12 @@ async def register_codebase(registration: CodebaseRegistration):
             detail='No workers available. Start a worker on the machine with access to this path.',
         )
 
-    # Create a "register_codebase" task that workers will pick up
+    # Create a "register_workspace" task that workers will pick up
     task = await bridge.create_task(
         codebase_id='__pending__',  # Special marker for registration tasks
-        title=f'Register codebase: {registration.name}',
-        prompt=f'Validate and register codebase at path: {registration.path}',
-        agent_type='register_codebase',
+        title=f'Register workspace: {registration.name}',
+        prompt=f'Validate and register workspace at path: {registration.path}',
+        agent_type='register_workspace',
         metadata={
             'name': registration.name,
             'path': registration.path,
@@ -2787,7 +2783,7 @@ async def register_codebase(registration: CodebaseRegistration):
 
     if task:
         await monitoring_service.log_message(
-            agent_name='OpenCode Bridge',
+            agent_name='CodeTether Agent',
             content=f'Created registration task for: {registration.name} at {registration.path}',
             message_type='system',
             metadata={
@@ -2808,93 +2804,93 @@ async def register_codebase(registration: CodebaseRegistration):
         )
 
 
-@opencode_router.get('/codebases/{codebase_id}')
-async def get_codebase(codebase_id: str):
-    """Get details of a registered codebase."""
+@agent_router_alias.get('/workspaces/{workspace_id}')
+async def get_workspace(workspace_id: str):
+    """Get details of a registered workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     # Check local bridge first
-    codebase = bridge.get_codebase(codebase_id)
-    if codebase:
-        return codebase.to_dict()
+    workspace = bridge.get_workspace(workspace_id)
+    if workspace:
+        return workspace.to_dict()
 
     # Check PostgreSQL
-    db_codebase = await db.db_get_codebase(codebase_id)
-    if db_codebase:
-        return db_codebase
+    db_workspace = await db.db_get_workspace(workspace_id)
+    if db_workspace:
+        return db_workspace
 
     # Check Redis fallback
-    redis_codebase = await _redis_get_codebase_meta(codebase_id)
-    if redis_codebase:
-        return redis_codebase
+    redis_workspace = await _redis_get_workspace_meta(workspace_id)
+    if redis_workspace:
+        return redis_workspace
 
-    raise HTTPException(status_code=404, detail='Codebase not found')
+    raise HTTPException(status_code=404, detail='Workspace not found')
 
 
-@opencode_router.delete('/codebases/{codebase_id}')
-async def unregister_codebase(codebase_id: str):
-    """Unregister a codebase."""
+@agent_router_alias.delete('/workspaces/{workspace_id}')
+async def unregister_workspace(workspace_id: str):
+    """Unregister a workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    codebase_name = codebase.name if codebase else None
+    workspace = bridge.get_workspace(workspace_id)
+    workspace_name = workspace.name if workspace else None
     success = False
 
     # Check all sources before deletion for proper response
-    db_codebase = await db.db_get_codebase(codebase_id)
-    redis_codebase = await _redis_get_codebase_meta(codebase_id)
+    db_workspace = await db.db_get_workspace(workspace_id)
+    redis_workspace = await _redis_get_workspace_meta(workspace_id)
 
-    if codebase:
-        success = bridge.unregister_codebase(codebase_id)
-        codebase_name = codebase.name
+    if workspace:
+        success = await bridge.unregister_workspace(workspace_id)
+        workspace_name = workspace.name
 
-    if not codebase_name and db_codebase:
-        codebase_name = db_codebase.get('name')
+    if not workspace_name and db_workspace:
+        workspace_name = db_workspace.get('name')
 
-    if not codebase_name and redis_codebase:
-        codebase_name = redis_codebase.get('name')
+    if not workspace_name and redis_workspace:
+        workspace_name = redis_workspace.get('name')
 
     # Delete from PostgreSQL
-    await db.db_delete_codebase(codebase_id)
+    await db.db_delete_workspace(workspace_id)
 
     # Delete from Redis
-    await _redis_delete_codebase_meta(codebase_id)
+    await _redis_delete_workspace_meta(workspace_id)
 
-    if success or db_codebase or redis_codebase:
-        if codebase_name:
+    if success or db_workspace or redis_workspace:
+        if workspace_name:
             await monitoring_service.log_message(
-                agent_name='OpenCode Bridge',
-                content=f'Unregistered codebase: {codebase_name}',
+                agent_name='CodeTether Agent',
+                content=f'Unregistered workspace: {workspace_name}',
                 message_type='system',
-                metadata={'codebase_id': codebase_id},
+                metadata={'workspace_id': workspace_id},
             )
         return {'success': True}
 
-    raise HTTPException(status_code=404, detail='Codebase not found')
+    raise HTTPException(status_code=404, detail='Workspace not found')
 
 
-@opencode_router.post('/codebases/{codebase_id}/trigger')
-async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
-    """Trigger an OpenCode agent to work on a codebase.
+@agent_router_alias.post('/workspaces/{workspace_id}/trigger')
+async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
+    """Trigger a CodeTether agent to work on a workspace.
 
     When Knative is enabled, this will spawn an ephemeral Knative worker
     for the session. Otherwise, it creates a task for SSE-connected workers.
     """
-    # Look up codebase from database (primary source of truth)
-    db_codebase = await db.db_get_codebase(codebase_id)
-    if not db_codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    # Look up workspace from database (primary source of truth)
+    db_workspace = await db.db_get_workspace(workspace_id)
+    if not db_workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
-    codebase_name = db_codebase.get('name', codebase_id)
-    worker_id = db_codebase.get('worker_id')
+    workspace_name = db_workspace.get('name', workspace_id)
+    worker_id = db_workspace.get('worker_id')
     routing_decision, routed_metadata = orchestrate_task_route(
         prompt=trigger.prompt,
         agent_type=trigger.agent,
@@ -2915,9 +2911,9 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
             content=trigger.prompt,
             message_type='human',
             metadata={
-                'action': 'opencode.trigger',
-                'codebase_id': codebase_id,
-                'codebase_name': codebase_name,
+                'action': 'agent.trigger',
+                'workspace_id': workspace_id,
+                'workspace_name': workspace_name,
                 'agent': trigger.agent,
                 'model': effective_model,
                 'model_ref': effective_model_ref,
@@ -2935,10 +2931,10 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
         # If Knative is enabled, use the bridge which has Knative integration
         if is_knative_enabled():
             logger.info(
-                f'Using Knative path for trigger on codebase {codebase_id}'
+                f'Using Knative path for trigger on workspace {workspace_id}'
             )
             trigger_request = AgentTriggerRequest(
-                codebase_id=codebase_id,
+                workspace_id=workspace_id,
                 prompt=trigger.prompt,
                 agent=trigger.agent,
                 model=effective_model,
@@ -2951,7 +2947,7 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
                     'success': True,
                     'session_id': response.session_id,
                     'message': response.message or 'Task triggered via Knative',
-                    'codebase_id': codebase_id,
+                    'workspace_id': workspace_id,
                     'agent': trigger.agent,
                     'knative': True,
                     'routing': {
@@ -2975,7 +2971,7 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     )
     task_data = {
         'id': task_id,
-        'codebase_id': codebase_id,
+        'workspace_id': workspace_id,
         'title': task_title,
         'prompt': trigger.prompt,
         'agent_type': trigger.agent,
@@ -2992,7 +2988,7 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     await db.db_upsert_task(task_data)
 
     logger.info(
-        f'Created task {task_id} for codebase {codebase_name} (worker: {worker_id})'
+        f'Created task {task_id} for workspace {workspace_name} (worker: {worker_id})'
     )
 
     # Notify SSE-connected workers of the new task
@@ -3006,18 +3002,18 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
             )
         else:
             logger.debug(
-                f'Task {task_id} created but no SSE workers available for codebase {codebase_id}'
+                f'Task {task_id} created but no SSE workers available for workspace {workspace_id}'
             )
     except Exception as e:
         logger.warning(f'Failed to notify SSE workers of task {task_id}: {e}')
 
     # Log the trigger
     await monitoring_service.log_message(
-        agent_name='OpenCode Bridge',
-        content=f"Triggered agent '{trigger.agent}' on {codebase_name}",
+        agent_name='CodeTether Agent',
+        content=f"Triggered agent '{trigger.agent}' on {workspace_name}",
         message_type='system',
         metadata={
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'agent': trigger.agent,
             'task_id': task_id,
             'routing': {
@@ -3034,7 +3030,7 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
         'success': True,
         'session_id': task_id,
         'message': f'Task queued for worker (task: {task_id})',
-        'codebase_id': codebase_id,
+        'workspace_id': workspace_id,
         'agent': trigger.agent,
         'routing': {
             'complexity': routing_decision.complexity,
@@ -3046,18 +3042,18 @@ async def trigger_agent(codebase_id: str, trigger: AgentTrigger):
     }
 
 
-@opencode_router.post('/codebases/{codebase_id}/message')
-async def send_agent_message(codebase_id: str, msg: AgentMessage):
+@agent_router_alias.post('/workspaces/{workspace_id}/message')
+async def send_agent_message(workspace_id: str, msg: AgentMessage):
     """Send a follow-up message to an active agent session."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     # Log user follow-up messages as human so they render correctly in monitoring UIs.
     try:
@@ -3066,9 +3062,9 @@ async def send_agent_message(codebase_id: str, msg: AgentMessage):
             content=msg.message,
             message_type='human',
             metadata={
-                'action': 'opencode.message',
-                'codebase_id': codebase_id,
-                'codebase_name': codebase.name,
+                'action': 'agent.message',
+                'workspace_id': workspace_id,
+                'workspace_name': workspace.name,
                 'agent': msg.agent,
             },
         )
@@ -3076,7 +3072,7 @@ async def send_agent_message(codebase_id: str, msg: AgentMessage):
         logger.debug(f'Failed to log user follow-up message: {e}')
 
     response = await bridge.send_message(
-        codebase_id=codebase_id,
+        codebase_id=workspace_id,
         message=msg.message,
         agent=msg.agent,
     )
@@ -3084,77 +3080,77 @@ async def send_agent_message(codebase_id: str, msg: AgentMessage):
     return response.to_dict()
 
 
-@opencode_router.post('/codebases/{codebase_id}/interrupt')
-async def interrupt_agent(codebase_id: str):
+@agent_router_alias.post('/workspaces/{workspace_id}/interrupt')
+async def interrupt_agent(workspace_id: str):
     """Interrupt the current agent task."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    success = await bridge.interrupt_agent(codebase_id)
+    success = await bridge.interrupt_agent(workspace_id)
 
     if success:
-        codebase = bridge.get_codebase(codebase_id)
+        workspace = bridge.get_workspace(workspace_id)
         await monitoring_service.log_message(
-            agent_name='OpenCode Bridge',
-            content=f'Interrupted agent on {codebase.name if codebase else codebase_id}',
+            agent_name='CodeTether Agent',
+            content=f'Interrupted agent on {workspace.name if workspace else workspace_id}',
             message_type='system',
-            metadata={'codebase_id': codebase_id},
+            metadata={'workspace_id': workspace_id},
         )
 
     return {'success': success}
 
 
-@opencode_router.post('/codebases/{codebase_id}/stop')
-async def stop_agent(codebase_id: str):
-    """Stop the OpenCode agent for a codebase."""
+@agent_router_alias.post('/workspaces/{workspace_id}/stop')
+async def stop_agent(workspace_id: str):
+    """Stop the CodeTether agent for a workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    success = await bridge.stop_agent(codebase_id)
+    success = await bridge.stop_agent(workspace_id)
 
     if success:
-        codebase = bridge.get_codebase(codebase_id)
+        workspace = bridge.get_workspace(workspace_id)
         await monitoring_service.log_message(
-            agent_name='OpenCode Bridge',
-            content=f'Stopped agent for {codebase.name if codebase else codebase_id}',
+            agent_name='CodeTether Agent',
+            content=f'Stopped agent for {workspace.name if workspace else workspace_id}',
             message_type='system',
-            metadata={'codebase_id': codebase_id},
+            metadata={'workspace_id': workspace_id},
         )
 
     return {'success': success}
 
 
-@opencode_router.get('/codebases/{codebase_id}/status')
-async def get_agent_status(codebase_id: str):
+@agent_router_alias.get('/workspaces/{workspace_id}/status')
+async def get_agent_status(workspace_id: str):
     """Get the current status of an agent."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    status = await bridge.get_agent_status(codebase_id)
+    status = await bridge.get_agent_status(workspace_id)
     if not status:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     return status
 
 
-def _parse_opencode_output_line(
+def _parse_agent_output_line(
     line: str,
     task_id: str,
     worker_id: Optional[str],
     session_id: Optional[str],
 ) -> Optional[str]:
-    """Parse an OpenCode JSON output line and return an SSE frame.
+    """Parse an agent JSON output line and return an SSE frame.
 
-    OpenCode with --format json outputs lines like:
+    Agent with --format json outputs lines like:
     - {"type":"step_start","part":{...}}
     - {"type":"text","part":{"text":"Hello world"}}
     - {"type":"tool_use","part":{...}}
@@ -3229,9 +3225,9 @@ def _parse_opencode_output_line(
         return None
 
 
-@opencode_router.get('/codebases/{codebase_id}/events')
-async def stream_agent_events(codebase_id: str, request: Request):
-    """Stream real-time events from an OpenCode agent session via SSE.
+@agent_router_alias.get('/workspaces/{workspace_id}/events')
+async def stream_agent_events(workspace_id: str, request: Request):
+    """Stream real-time events from a CodeTether agent session via SSE.
 
     Events include:
     - message.updated: Full message updates
@@ -3241,14 +3237,14 @@ async def stream_agent_events(codebase_id: str, request: Request):
     """
     import aiohttp
 
-    # "global" is a virtual codebase used by the dashboard when no specific
-    # codebase is selected.  Return a keep-alive SSE stream so the browser
+    # "global" is a virtual workspace used by the dashboard when no specific
+    # Workspace is selected.  Return a keep-alive SSE stream so the browser
     # EventSource stays connected instead of retrying on 404.
-    if codebase_id == 'global':
+    if workspace_id == 'global':
         import asyncio as _asyncio
 
         async def _global_keepalive():
-            yield 'event: status\ndata: {"status": "idle", "codebase": "global"}\n\n'
+            yield 'event: status\ndata: {"status": "idle", "workspace": "global"}\n\n'
             while True:
                 if await request.is_disconnected():
                     break
@@ -3271,36 +3267,36 @@ async def stream_agent_events(codebase_id: str, request: Request):
             status_code=503, detail='Agent bridge not available'
         )
 
-    # Resolve codebase metadata across all backends.
+    # Resolve workspace metadata across all backends.
     # NOTE: AgentBridge persists to PostgreSQL, while the server also persists
-    # codebases to Redis for durability and multi-replica support.
-    # The SSE stream must therefore not depend solely on bridge._codebases.
-    codebase_obj = bridge.get_codebase(codebase_id)
-    codebase_meta: Optional[Dict[str, Any]] = (
-        codebase_obj.to_dict() if codebase_obj else None
+    # Workspaces to Redis for durability and multi-replica support.
+    # The SSE stream must therefore not depend solely on bridge._workspaces.
+    workspace_obj = bridge.get_workspace(workspace_id)
+    workspace_meta: Optional[Dict[str, Any]] = (
+        workspace_obj.to_dict() if workspace_obj else None
     )
 
-    if not codebase_meta:
+    if not workspace_meta:
         try:
-            codebase_meta = await db.db_get_codebase(codebase_id)
+            workspace_meta = await db.db_get_workspace(workspace_id)
         except Exception:
-            codebase_meta = None
+            workspace_meta = None
 
-    if not codebase_meta:
-        codebase_meta = await _redis_get_codebase_meta(codebase_id)
+    if not workspace_meta:
+        workspace_meta = await _redis_get_workspace_meta(workspace_id)
 
-    if not codebase_meta:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    if not workspace_meta:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
-    worker_id = codebase_meta.get('worker_id')
-    opencode_port = codebase_meta.get('opencode_port')
-    codebase_path = codebase_meta.get('path') or ''
+    worker_id = workspace_meta.get('worker_id')
+    agent_port = workspace_meta.get('agent_port')
+    workspace_path = workspace_meta.get('path') or ''
 
     # For remote workers, use task-based events
     if worker_id:
 
         async def remote_event_generator():
-            """Stream events for remote worker codebases from task output/results.
+            """Stream events for remote worker workspaces from task output/results.
 
             Previously this stream ended immediately after dumping a small batch of
             completed task results, which caused browser EventSource clients to
@@ -3348,7 +3344,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
             yield (
                 'event: connected\n'
-                f'data: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": True, "worker_id": worker_id})}\n\n'
+                f'data: {json.dumps({"workspace_id": workspace_id, "status": "connected", "remote": True, "worker_id": worker_id})}\n\n'
             )
 
             emitted_task_ids: set[str] = set()
@@ -3356,7 +3352,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
             last_task_status: Dict[str, str] = {}
 
             # Emit recent completed task results on initial connect.
-            all_tasks = await bridge.list_tasks(codebase_id=codebase_id)
+            all_tasks = await bridge.list_tasks(codebase_id=workspace_id)
             recent_tasks = all_tasks[-10:] if len(all_tasks) > 10 else all_tasks
             for t in recent_tasks:
                 task_metadata = (
@@ -3378,7 +3374,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
             # Inform the client we're in remote mode, then stay connected.
             yield (
                 'event: status\n'
-                f'data: {json.dumps({"status": "idle", "message": "Remote worker codebase - streaming task output/results"})}\n\n'
+                f'data: {json.dumps({"status": "idle", "message": "Remote worker workspace - streaming task output/results"})}\n\n'
             )
 
             keepalive_interval_s = 15.0
@@ -3390,7 +3386,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
                     if await request.is_disconnected():
                         break
 
-                    all_tasks = await bridge.list_tasks(codebase_id=codebase_id)
+                    all_tasks = await bridge.list_tasks(codebase_id=workspace_id)
                     recent_tasks = (
                         all_tasks[-25:] if len(all_tasks) > 25 else all_tasks
                     )
@@ -3427,9 +3423,9 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             for chunk in outputs[cursor:]:
                                 content = (chunk or {}).get('output')
                                 if content:
-                                    # Parse OpenCode JSON output to extract actual events
-                                    # OpenCode outputs lines like: {"type":"text","part":{"text":"Hello"}}
-                                    parsed_event = _parse_opencode_output_line(
+                                    # Parse agent JSON output to extract actual events
+                                    # Agent outputs lines like: {"type":"text","part":{"text":"Hello"}}
+                                    parsed_event = _parse_agent_output_line(
                                         content,
                                         t.id,
                                         (chunk or {}).get('worker_id'),
@@ -3478,7 +3474,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
                     await asyncio.sleep(poll_interval_s)
             except asyncio.CancelledError:
-                logger.info(f'Remote event stream cancelled for {codebase_id}')
+                logger.info(f'Remote event stream cancelled for {workspace_id}')
             except Exception as e:
                 logger.error(f'Error streaming remote events: {e}')
                 yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
@@ -3493,20 +3489,20 @@ async def stream_agent_events(codebase_id: str, request: Request):
             },
         )
 
-    if not opencode_port:
+    if not agent_port:
 
         async def offline_event_generator():
             """Keep an SSE stream open even when no agent is currently running.
 
             This avoids EventSource error spam in the UI and still allows clients
-            to receive task output/results for codebases that execute work via the
+            to receive task output/results for workspaces that execute work via the
             task queue (or become available later).
             """
             import time
 
             yield (
                 'event: connected\n'
-                f'data: {json.dumps({"codebase_id": codebase_id, "status": "connected", "remote": bool(worker_id), "worker_id": worker_id})}\n\n'
+                f'data: {json.dumps({"workspace_id": workspace_id, "status": "connected", "remote": bool(worker_id), "worker_id": worker_id})}\n\n'
             )
 
             yield (
@@ -3529,7 +3525,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
                     # Stream any available task output/results.
                     try:
                         all_tasks = await bridge.list_tasks(
-                            codebase_id=codebase_id
+                            codebase_id=workspace_id
                         )
                     except Exception:
                         all_tasks = []
@@ -3604,7 +3600,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
 
                     await asyncio.sleep(poll_interval_s)
             except asyncio.CancelledError:
-                logger.info(f'Offline event stream cancelled for {codebase_id}')
+                logger.info(f'Offline event stream cancelled for {workspace_id}')
             except Exception as e:
                 logger.error(f'Error streaming offline events: {e}')
                 yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
@@ -3620,28 +3616,28 @@ async def stream_agent_events(codebase_id: str, request: Request):
         )
 
     async def event_generator():
-        """Proxy events from OpenCode SSE endpoint."""
+        """Proxy events from agent SSE endpoint."""
         try:
-            port_int = int(opencode_port)
+            port_int = int(agent_port)
         except Exception:
             port_int = None
 
         if port_int is None:
             raise HTTPException(status_code=400, detail='Agent not running')
 
-        base_url = bridge._get_opencode_base_url(port_int)
+        base_url = bridge._get_agent_base_url(port_int)
 
-        yield f'event: connected\ndata: {json.dumps({"codebase_id": codebase_id, "status": "connected"})}\n\n'
+        yield f'event: connected\ndata: {json.dumps({"workspace_id": workspace_id, "status": "connected"})}\n\n'
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/event',
-                    params={'directory': codebase_path},
+                    params={'directory': workspace_path},
                     timeout=aiohttp.ClientTimeout(total=None),
                 ) as resp:
                     if resp.status != 200:
-                        yield f'event: error\ndata: {json.dumps({"error": "Failed to connect to OpenCode"})}\n\n'
+                        yield f'event: error\ndata: {json.dumps({"error": "Failed to connect to agent"})}\n\n'
                         return
 
                     async for line in resp.content:
@@ -3653,8 +3649,8 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             try:
                                 event_data = json.loads(line_text[5:].strip())
                                 # Transform and forward the event
-                                transformed = transform_opencode_event(
-                                    event_data, codebase_id
+                                transformed = transform_agent_event(
+                                    event_data, workspace_id
                                 )
                                 if transformed:
                                     yield f'event: {transformed["event_type"]}\ndata: {json.dumps(transformed)}\n\n'
@@ -3664,7 +3660,7 @@ async def stream_agent_events(codebase_id: str, request: Request):
                             yield f'data: {line_text}\n\n'
 
         except asyncio.CancelledError:
-            logger.info(f'Event stream cancelled for {codebase_id}')
+            logger.info(f'Event stream cancelled for {workspace_id}')
         except Exception as e:
             logger.error(f'Error streaming events: {e}')
             yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
@@ -3680,10 +3676,16 @@ async def stream_agent_events(codebase_id: str, request: Request):
     )
 
 
-def transform_opencode_event(
-    event: Dict[str, Any], codebase_id: str
+@agent_router_alias.get('/codebases/{codebase_id}/events')
+async def stream_agent_events_legacy(codebase_id: str, request: Request):
+    """Backward-compatible SSE route for older dashboard clients."""
+    return await stream_agent_events(codebase_id, request)
+
+
+def transform_agent_event(
+    event: Dict[str, Any], workspace_id: str
 ) -> Optional[Dict[str, Any]]:
-    """Transform OpenCode events into UI-friendly format."""
+    """Transform agent events into UI-friendly format."""
     event_type = event.get('type', '')
     properties = event.get('properties', {})
 
@@ -3692,7 +3694,7 @@ def transform_opencode_event(
         info = properties.get('info', {})
         return {
             'event_type': 'message',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'message_id': info.get('id'),
             'session_id': info.get('sessionID'),
             'role': info.get('role'),
@@ -3711,7 +3713,7 @@ def transform_opencode_event(
 
         result = {
             'event_type': f'part.{part_type}',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'part_id': part.get('id'),
             'message_id': part.get('messageID'),
             'session_id': part.get('sessionID'),
@@ -3754,7 +3756,7 @@ def transform_opencode_event(
     if event_type == 'session.status':
         return {
             'event_type': 'status',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'session_id': properties.get('sessionID'),
             'status': properties.get('status'),
             'agent': properties.get('agent'),
@@ -3763,7 +3765,7 @@ def transform_opencode_event(
     if event_type == 'session.idle':
         return {
             'event_type': 'idle',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'session_id': properties.get('sessionID'),
         }
 
@@ -3771,7 +3773,7 @@ def transform_opencode_event(
     if event_type == 'rlm.routing.decision':
         return {
             'event_type': 'rlm.routing',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'session_id': properties.get('sessionID'),
             'tool': properties.get('tool'),
             'call_id': properties.get('callID'),
@@ -3787,7 +3789,7 @@ def transform_opencode_event(
     if event_type == 'file.edited':
         return {
             'event_type': 'file_edit',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'path': properties.get('path'),
             'hash': properties.get('hash'),
         }
@@ -3796,7 +3798,7 @@ def transform_opencode_event(
     if event_type == 'command.executed':
         return {
             'event_type': 'command',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'command': properties.get('command'),
             'exit_code': properties.get('exitCode'),
             'output': properties.get('output'),
@@ -3806,7 +3808,7 @@ def transform_opencode_event(
     if event_type == 'lsp.diagnostics':
         return {
             'event_type': 'diagnostics',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'path': properties.get('path'),
             'diagnostics': properties.get('diagnostics'),
         }
@@ -3815,48 +3817,48 @@ def transform_opencode_event(
     if event_type == 'todo.updated':
         return {
             'event_type': 'todo',
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'todos': properties.get('info'),
         }
 
     # Default: pass through with generic type
     return {
         'event_type': event_type.replace('.', '_'),
-        'codebase_id': codebase_id,
+        'workspace_id': workspace_id,
         'raw': event,
     }
 
 
-@opencode_router.get('/codebases/{codebase_id}/messages')
-async def get_session_messages(codebase_id: str, limit: int = 50):
+@agent_router_alias.get('/workspaces/{workspace_id}/messages')
+async def get_session_messages(workspace_id: str, limit: int = 50):
     """Get recent messages from an agent session."""
     import aiohttp
 
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge._codebases.get(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge._workspaces.get(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
-    if not codebase.opencode_port or not codebase.session_id:
+    if not workspace.agent_port or not workspace.session_id:
         return {'messages': [], 'session_id': None}
 
     try:
-        base_url = bridge._get_opencode_base_url(codebase.opencode_port)
+        base_url = bridge._get_agent_base_url(workspace.agent_port)
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f'{base_url}/session/{codebase.session_id}/message',
-                params={'limit': limit, 'directory': codebase.path},
+                f'{base_url}/session/{workspace.session_id}/message',
+                params={'limit': limit, 'directory': workspace.path},
             ) as resp:
                 if resp.status == 200:
                     messages = await resp.json()
                     return {
                         'messages': messages,
-                        'session_id': codebase.session_id,
+                        'session_id': workspace.session_id,
                     }
                 return {'messages': [], 'error': f'Status {resp.status}'}
     except Exception as e:
@@ -3939,15 +3941,17 @@ async def _validate_target_worker_is_available(
         )
 
 
-@opencode_router.get('/tasks')
+@agent_router_alias.get('/tasks')
 async def list_all_tasks(
+    workspace_id: Optional[str] = None,
     codebase_id: Optional[str] = None,
     status: Optional[str] = None,
     worker_id: Optional[str] = None,
 ):
-    """List all agent tasks, optionally filtered by codebase, status, or worker."""
+    """List all agent tasks, optionally filtered by workspace, status, or worker."""
     # Use database as primary source of truth for tasks
     tasks = await db.db_list_tasks(
+        workspace_id=workspace_id,
         codebase_id=codebase_id,
         status=status,
         worker_id=worker_id,
@@ -3955,21 +3959,21 @@ async def list_all_tasks(
     return tasks
 
 
-@opencode_router.post('/tasks')
+@agent_router_alias.post('/tasks')
 async def create_global_task(task_data: AgentTaskCreate):
-    """Create a new task, optionally tied to a specific codebase.
+    """Create a new task, optionally tied to a specific workspace.
 
-    If codebase_id is provided, the task will run in that codebase's directory.
+    If workspace_id is provided, the task will run in that workspace's directory.
     Otherwise, it runs as a 'global' task (worker's home directory).
     """
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    # Use provided codebase_id or fall back to 'global'
-    effective_codebase_id = task_data.codebase_id or 'global'
+    # Use provided workspace_id or fall back to 'global'
+    effective_workspace_id = task_data.workspace_id or 'global'
 
     # Build metadata + routing policy outputs.
     base_metadata = task_data.metadata.copy() if task_data.metadata else {}
@@ -3988,9 +3992,9 @@ async def create_global_task(task_data: AgentTaskCreate):
     )
     await _validate_target_worker_is_available(routed_metadata)
 
-    # Create task with the specified codebase context
+    # Create task with the specified workspace context
     task = await bridge.create_task(
-        codebase_id=effective_codebase_id,
+        codebase_id=effective_workspace_id,
         title=task_data.title,
         prompt=task_data.prompt,
         agent_type=task_data.agent_type,
@@ -4006,26 +4010,26 @@ async def create_global_task(task_data: AgentTaskCreate):
     return task
 
 
-@opencode_router.post('/codebases/{codebase_id}/tasks')
-async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
+@agent_router_alias.post('/workspaces/{workspace_id}/tasks')
+async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
     """Create a new task for an agent to work on."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        # Codebase may exist durably in PostgreSQL/Redis but not in the local
+    workspace = bridge.get_workspace(workspace_id)
+    if not workspace:
+        # Workspace may exist durably in PostgreSQL/Redis but not in the local
         # in-memory registry (e.g., after restart or when requests are routed
         # to a different replica). Rehydrate so task creation works reliably.
         try:
-            codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+            workspace = await _rehydrate_workspace_into_bridge(workspace_id)
         except Exception:
-            codebase = None
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+            workspace = None
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     base_metadata = task_data.metadata.copy() if task_data.metadata else {}
     if task_data.model:
@@ -4044,7 +4048,7 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
     await _validate_target_worker_is_available(routed_metadata)
 
     task = await bridge.create_task(
-        codebase_id=codebase_id,
+        codebase_id=workspace_id,
         title=task_data.title,
         prompt=task_data.prompt,
         agent_type=task_data.agent_type,
@@ -4064,10 +4068,10 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
             content=task_data.prompt,
             message_type='human',
             metadata={
-                'action': 'opencode.task.create',
+                'action': 'agent.task.create',
                 'task_id': task.id,
-                'codebase_id': codebase_id,
-                'codebase_name': codebase.name,
+                'workspace_id': workspace_id,
+                'workspace_name': workspace.name,
                 'agent_type': task_data.agent_type,
                 'priority': task_data.priority,
                 'title': task_data.title,
@@ -4085,12 +4089,12 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
 
     # Log the task creation
     await monitoring_service.log_message(
-        agent_name='OpenCode Bridge',
+        agent_name='CodeTether Agent',
         content=f'Task created: {task_data.title}',
         message_type='system',
         metadata={
             'task_id': task.id,
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'routing': {
                 'complexity': routing_decision.complexity,
                 'model_tier': routing_decision.model_tier,
@@ -4104,24 +4108,24 @@ async def create_agent_task(codebase_id: str, task_data: AgentTaskCreate):
     return {'success': True, 'task': task.to_dict()}
 
 
-@opencode_router.get('/codebases/{codebase_id}/tasks')
-async def list_codebase_tasks(codebase_id: str, status: Optional[str] = None):
-    """List all tasks for a specific codebase."""
+@agent_router_alias.get('/workspaces/{workspace_id}/tasks')
+async def list_workspace_tasks(workspace_id: str, status: Optional[str] = None):
+    """List all tasks for a specific workspace."""
     # Use database as primary source of truth for tasks
     tasks = await db.db_list_tasks(
-        codebase_id=codebase_id,
+        workspace_id=workspace_id,
         status=status,
     )
     return tasks
 
 
-@opencode_router.get('/tasks/{task_id}', response_model=AgentTaskResponse)
+@agent_router_alias.get('/tasks/{task_id}', response_model=AgentTaskResponse)
 async def get_task(task_id: str):
     """Get details of a specific task."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     task = await bridge.get_task(task_id)
@@ -4131,13 +4135,13 @@ async def get_task(task_id: str):
     return task.to_dict()
 
 
-@opencode_router.post('/tasks/{task_id}/cancel')
+@agent_router_alias.post('/tasks/{task_id}/cancel')
 async def cancel_task(task_id: str):
     """Cancel a pending task."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     success = bridge.cancel_task(task_id)
@@ -4166,7 +4170,7 @@ class SessionResumeRequest(BaseModel):
 
 
 def _session_sort_key(session: Dict[str, Any]) -> tuple:
-    """Best-effort sort key across OpenCode/worker/DB session shapes."""
+    """Best-effort sort key across agent/worker/DB session shapes."""
 
     def _dt(value: Any) -> Optional[datetime]:
         normalized = _normalize_iso_timestamp(value)
@@ -4184,7 +4188,7 @@ def _session_sort_key(session: Dict[str, Any]) -> tuple:
 
 
 async def _merge_sessions_with_database(
-    codebase_id: str,
+    workspace_id: str,
     sessions: List[Dict[str, Any]],
     limit: int = 500,
 ) -> List[Dict[str, Any]]:
@@ -4200,7 +4204,7 @@ async def _merge_sessions_with_database(
 
     try:
         persisted = await db.db_list_sessions(
-            codebase_id=codebase_id, limit=limit
+            workspace_id=workspace_id, limit=limit
         )
     except Exception as e:
         logger.debug(f'Failed to merge DB sessions: {e}')
@@ -4237,17 +4241,17 @@ async def _merge_sessions_with_database(
     return merged
 
 
-@opencode_router.get('/codebases/{codebase_id}/sessions')
+@agent_router_alias.get('/workspaces/{workspace_id}/sessions')
 async def list_sessions(
-    codebase_id: str,
+    workspace_id: str,
     limit: int = 50,
     offset: int = 0,
     q: Optional[str] = None,
 ):
-    """List sessions for a codebase with pagination.
+    """List sessions for a workspace with pagination.
 
     Args:
-        codebase_id: The codebase ID
+        workspace_id: The workspace ID
         limit: Max sessions to return (default 50, max 200)
         offset: Number of sessions to skip for pagination
     """
@@ -4258,7 +4262,7 @@ async def list_sessions(
     offset = max(0, offset)
 
     bridge = get_agent_bridge()
-    codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
+    workspace = bridge.get_workspace(workspace_id) if bridge is not None else None
 
     def _session_matches_query(session: Dict[str, Any], query: str) -> bool:
         needle = query.strip().lower()
@@ -4313,12 +4317,12 @@ async def list_sessions(
             'synced_at': synced_at,
         }
 
-    # Check Redis-backed worker-synced sessions first (for remote codebases / multi-replica).
+    # Check Redis-backed worker-synced sessions first (for remote workspaces / multi-replica).
     redis_client = await _get_redis_client()
     if redis_client is not None:
         try:
             raw = await redis_client.get(
-                _redis_key_worker_sessions(codebase_id)
+                _redis_key_worker_sessions(workspace_id)
             )
             if raw:
                 payload = json.loads(raw)
@@ -4329,7 +4333,7 @@ async def list_sessions(
                 )
                 if sessions:
                     merged = await _merge_sessions_with_database(
-                        codebase_id, sessions
+                        workspace_id, sessions
                     )
                     return _paginate_sessions(
                         merged,
@@ -4341,66 +4345,66 @@ async def list_sessions(
         except Exception as e:
             logger.debug(f'Failed to read worker sessions from Redis: {e}')
 
-    # Check if we have worker-synced sessions first (for remote codebases)
-    if codebase_id in _worker_sessions and _worker_sessions[codebase_id]:
+    # Check if we have worker-synced sessions first (for remote workspaces)
+    if workspace_id in _worker_sessions and _worker_sessions[workspace_id]:
         merged = await _merge_sessions_with_database(
-            codebase_id, _worker_sessions[codebase_id]
+            workspace_id, _worker_sessions[workspace_id]
         )
         return _paginate_sessions(merged, 'worker_sync')
 
-    # If we don't have a codebase locally, try to rehydrate it so we can query
-    # the OpenCode API / local state for local codebases.
-    if codebase is None and bridge is not None:
-        codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+    # If we don't have a workspace locally, try to rehydrate it so we can query
+    # the agent API / local state for local workspaces.
+    if workspace is None and bridge is not None:
+        workspace = await _rehydrate_workspace_into_bridge(workspace_id)
 
-    # If there's a running OpenCode instance, query its API
-    if codebase and codebase.opencode_port:
+    # If there's a running agent instance, query its API
+    if workspace and workspace.agent_port:
         try:
-            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
+            base_url = bridge._get_agent_base_url(workspace.agent_port)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/session',
-                    params={'directory': codebase.path},
+                    params={'directory': workspace.path},
                 ) as resp:
                     if resp.status == 200:
                         sessions = await resp.json()
                         merged = await _merge_sessions_with_database(
-                            codebase_id, sessions
+                            workspace_id, sessions
                         )
-                        return _paginate_sessions(merged, 'opencode_api')
+                        return _paginate_sessions(merged, 'agent_api')
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}')
+            logger.warning(f'Failed to query agent API: {e}')
 
-    # Fallback: Read sessions from OpenCode's local state directory
-    if codebase:
-        sessions = await _read_local_sessions(codebase.path)
+    # Fallback: Read sessions from agent's local state directory
+    if workspace:
+        sessions = await _read_local_sessions(workspace.path)
         if sessions:
-            merged = await _merge_sessions_with_database(codebase_id, sessions)
+            merged = await _merge_sessions_with_database(workspace_id, sessions)
             return _paginate_sessions(merged, 'local_state')
 
     # Durable fallback: PostgreSQL persistence (common for remote workers).
     try:
         persisted = await db.db_list_sessions(
-            codebase_id=codebase_id, limit=500
+            workspace_id=workspace_id, limit=500
         )
         if persisted:
             return _paginate_sessions(persisted, 'database')
     except Exception as e:
         logger.debug(f'Failed to read sessions from PostgreSQL: {e}')
 
-    # At this point, we have no sessions from any source. If the codebase exists
+    # At this point, we have no sessions from any source. If the workspace exists
     # in Redis/PostgreSQL, return an empty list; otherwise treat it as unknown.
     try:
-        exists = await _redis_get_codebase_meta(codebase_id)
+        exists = await _redis_get_workspace_meta(workspace_id)
     except Exception:
         exists = None
     if not exists:
         try:
-            exists = await db.db_get_codebase(codebase_id)
+            exists = await db.db_get_workspace(workspace_id)
         except Exception:
             exists = None
     if not exists:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     return _paginate_sessions([], 'database')
 
@@ -4413,7 +4417,7 @@ class SessionSyncRequest(BaseModel):
 
 
 class ExternalSessionIngestRequest(BaseModel):
-    """Ingest a non-OpenCode chat/session transcript (e.g. VS Code chat)."""
+    """Ingest an external chat/session transcript (e.g. VS Code chat)."""
 
     source: Optional[str] = None
     worker_id: Optional[str] = None
@@ -4424,7 +4428,7 @@ class ExternalSessionIngestRequest(BaseModel):
 def _normalize_iso_timestamp(value: Any) -> Optional[str]:
     """Normalize timestamps coming from workers.
 
-    Workers may send ISO strings (preferred) or epoch times (OpenCode often uses
+    Workers may send ISO strings (preferred) or epoch times (agent often uses
     milliseconds since epoch). We normalize to an ISO-8601 string when possible
     so PostgreSQL ordering and UI displays behave consistently.
     """
@@ -4455,7 +4459,7 @@ def _normalize_iso_timestamp(value: Any) -> Optional[str]:
 def _normalize_model_value(model: Any) -> Optional[str]:
     """Normalize model values to string format.
 
-    OpenCode stores models as objects like {providerID: 'anthropic', modelID: 'claude-...'}.
+    Agent stores models as objects like {providerID: 'anthropic', modelID: 'claude-...'}.
     We normalize to the standard 'provider/model' string format for the UI.
     """
     if model is None:
@@ -4473,9 +4477,9 @@ def _normalize_model_value(model: Any) -> Optional[str]:
     return None
 
 
-@opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/ingest')
+@agent_router_alias.post('/workspaces/{workspace_id}/sessions/{session_id}/ingest')
 async def ingest_external_session(
-    codebase_id: str,
+    workspace_id: str,
     session_id: str,
     payload: ExternalSessionIngestRequest,
     request: Request,
@@ -4518,7 +4522,7 @@ async def ingest_external_session(
     await db.db_upsert_session(
         {
             'id': session_id,
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'project_id': session_data.get('project_id')
             or session_data.get('projectID'),
             'directory': session_data.get('directory')
@@ -4645,16 +4649,16 @@ async def ingest_external_session(
     }
 
 
-@opencode_router.post('/codebases/{codebase_id}/sessions/sync')
-async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
+@agent_router_alias.post('/workspaces/{workspace_id}/sessions/sync')
+async def sync_sessions(workspace_id: str, request: SessionSyncRequest):
     """Receive synced sessions from a worker.
 
     This endpoint accepts session data from workers and persists it to PostgreSQL
-    and Redis. It does NOT require the codebase to exist in the in-memory bridge -
-    workers can sync sessions for any codebase_id they manage.
+    and Redis. It does NOT require the workspace to exist in the in-memory bridge -
+    workers can sync sessions for any workspace_id they manage.
     """
     # Store the synced sessions
-    _worker_sessions[codebase_id] = request.sessions
+    _worker_sessions[workspace_id] = request.sessions
 
     # Best-effort persist to PostgreSQL (primary persistence)
     for session_data in request.sessions:
@@ -4668,7 +4672,7 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
             await db.db_upsert_session(
                 {
                     'id': session_data.get('id'),
-                    'codebase_id': codebase_id,
+                    'workspace_id': workspace_id,
                     'project_id': session_data.get('project_id'),
                     'directory': session_data.get('directory'),
                     'title': session_data.get('title'),
@@ -4686,7 +4690,7 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
     if redis_client is not None:
         try:
             await redis_client.set(
-                _redis_key_worker_sessions(codebase_id),
+                _redis_key_worker_sessions(workspace_id),
                 json.dumps(
                     {
                         'worker_id': request.worker_id,
@@ -4699,7 +4703,7 @@ async def sync_sessions(codebase_id: str, request: SessionSyncRequest):
             logger.debug(f'Failed to persist worker sessions to Redis: {e}')
 
     logger.info(
-        f'Synced {len(request.sessions)} sessions for codebase {codebase_id} from worker {request.worker_id}'
+        f'Synced {len(request.sessions)} sessions for workspace {workspace_id} from worker {request.worker_id}'
     )
     return {'success': True, 'sessions_count': len(request.sessions)}
 
@@ -4711,16 +4715,16 @@ class MessageSyncRequest(BaseModel):
     messages: List[Dict[str, Any]]
 
 
-@opencode_router.post(
-    '/codebases/{codebase_id}/sessions/{session_id}/messages/sync'
+@agent_router_alias.post(
+    '/workspaces/{workspace_id}/sessions/{session_id}/messages/sync'
 )
 async def sync_session_messages(
-    codebase_id: str, session_id: str, request: MessageSyncRequest
+    workspace_id: str, session_id: str, request: MessageSyncRequest
 ):
     """Receive synced messages from a worker.
 
     This endpoint accepts message data from workers and persists it to PostgreSQL
-    and Redis. It does NOT require the codebase to exist in the in-memory bridge -
+    and Redis. It does NOT require the workspace to exist in the in-memory bridge -
     workers can sync messages for any session they manage.
     """
     # Store the synced messages
@@ -4733,7 +4737,7 @@ async def sync_session_messages(
                 if {'worker_id', 'models', 'registered_at'}.issubset(keys):
                     return True
                 if 'models' in keys and {
-                    'global_codebase_id',
+                    'global_workspace_id',
                     'last_seen',
                 }.issubset(keys):
                     return True
@@ -4755,7 +4759,7 @@ async def sync_session_messages(
         if isinstance(c, str) and c.strip():
             return c
 
-        # Worker-synced OpenCode shape: parts[].text
+        # Worker-synced agent shape: parts[].text
         parts = msg.get('parts')
         if isinstance(parts, list):
             texts: List[str] = []
@@ -4840,12 +4844,12 @@ async def sync_session_messages(
     try:
         from .token_billing import TokenCounts, get_token_billing_service
 
-        # Resolve tenant_id from codebase
+        # Resolve tenant_id from workspace
         tenant_id = None
         try:
-            codebase_record = await db.db_get_codebase(codebase_id)
-            if codebase_record:
-                tenant_id = codebase_record.get('tenant_id')
+            workspace_record = await db.db_get_workspace(workspace_id)
+            if workspace_record:
+                tenant_id = workspace_record.get('tenant_id')
         except Exception:
             pass
 
@@ -4894,39 +4898,39 @@ async def sync_session_messages(
     return {'success': True, 'messages_count': len(request.messages)}
 
 
-@opencode_router.get('/codebases/{codebase_id}/sessions/{session_id}')
-async def get_session(codebase_id: str, session_id: str):
+@agent_router_alias.get('/workspaces/{workspace_id}/sessions/{session_id}')
+async def get_session(workspace_id: str, session_id: str):
     """Get details of a specific session."""
     import aiohttp
 
     bridge = get_agent_bridge()
-    codebase = bridge.get_codebase(codebase_id) if bridge is not None else None
+    workspace = bridge.get_workspace(workspace_id) if bridge is not None else None
 
-    # If there's a running OpenCode instance, query its API
-    if codebase and codebase.opencode_port:
+    # If there's a running agent instance, query its API
+    if workspace and workspace.agent_port:
         try:
-            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
+            base_url = bridge._get_agent_base_url(workspace.agent_port)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/session/{session_id}',
-                    params={'directory': codebase.path},
+                    params={'directory': workspace.path},
                 ) as resp:
                     if resp.status == 200:
                         session_data = await resp.json()
                         return session_data
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}')
+            logger.warning(f'Failed to query agent API: {e}')
 
     # Fallback: Read from local state
-    if codebase:
-        session_data = await _read_local_session(codebase.path, session_id)
+    if workspace:
+        session_data = await _read_local_session(workspace.path, session_id)
         if session_data:
             return session_data
 
     # Final fallback: PostgreSQL persistence.
     try:
         persisted = await db.db_get_session(session_id=session_id)
-        if persisted and persisted.get('codebase_id') == codebase_id:
+        if persisted and persisted.get('workspace_id') == workspace_id:
             return persisted
     except Exception as e:
         logger.debug(f'Failed to read session from PostgreSQL: {e}')
@@ -4934,16 +4938,16 @@ async def get_session(codebase_id: str, session_id: str):
     raise HTTPException(status_code=404, detail='Session not found')
 
 
-@opencode_router.get('/codebases/{codebase_id}/sessions/{session_id}/messages')
+@agent_router_alias.get('/workspaces/{workspace_id}/sessions/{session_id}/messages')
 async def get_session_messages_by_id(
-    codebase_id: str, session_id: str, limit: int = 100
+    workspace_id: str, session_id: str, limit: int = 100
 ):
     """Get messages from a specific session."""
     import aiohttp
     import traceback
 
     try:
-        return await _get_session_messages_impl(codebase_id, session_id, limit)
+        return await _get_session_messages_impl(workspace_id, session_id, limit)
     except Exception as e:
         logger.error(
             f'Unhandled error in get_session_messages_by_id: {e}\n{traceback.format_exc()}'
@@ -4958,21 +4962,21 @@ async def get_session_messages_by_id(
 
 
 async def _get_session_messages_impl(
-    codebase_id: str, session_id: str, limit: int = 100
+    workspace_id: str, session_id: str, limit: int = 100
 ):
     """Internal implementation for get_session_messages_by_id."""
     import aiohttp
 
     try:
         bridge = get_agent_bridge()
-        codebase = (
-            bridge.get_codebase(codebase_id) if bridge is not None else None
+        workspace = (
+            bridge.get_workspace(workspace_id) if bridge is not None else None
         )
     except Exception as e:
         logger.warning(
-            f'Failed to get bridge/codebase for session messages: {e}'
+            f'Failed to get bridge/workspace for session messages: {e}'
         )
-        codebase = None
+        workspace = None
         bridge = None
 
     # Check Redis-backed worker-synced messages first.
@@ -5013,37 +5017,37 @@ async def _get_session_messages_impl(
             'source': 'worker_sync',
         }
 
-    # If we don't have a codebase locally, try to rehydrate it so we can query
-    # the OpenCode API / local state for local codebases.
-    if codebase is None and bridge is not None:
+    # If we don't have a workspace locally, try to rehydrate it so we can query
+    # the agent API / local state for local workspaces.
+    if workspace is None and bridge is not None:
         try:
-            codebase = await _rehydrate_codebase_into_bridge(codebase_id)
+            workspace = await _rehydrate_workspace_into_bridge(workspace_id)
         except Exception as e:
             logger.warning(
-                f'Failed to rehydrate codebase for session messages: {e}'
+                f'Failed to rehydrate workspace for session messages: {e}'
             )
-            codebase = None
+            workspace = None
 
-    # If there's a running OpenCode instance, query its API
-    if codebase and codebase.opencode_port:
+    # If there's a running agent instance, query its API
+    if workspace and workspace.agent_port:
         try:
-            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
+            base_url = bridge._get_agent_base_url(workspace.agent_port)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f'{base_url}/session/{session_id}/message',
-                    params={'directory': codebase.path, 'limit': limit},
+                    params={'directory': workspace.path, 'limit': limit},
                 ) as resp:
                     if resp.status == 200:
                         messages = await resp.json()
                         return {'messages': messages, 'session_id': session_id}
         except Exception as e:
-            logger.warning(f'Failed to query OpenCode API: {e}')
+            logger.warning(f'Failed to query agent API: {e}')
 
     # Fallback: Read from local state (only works when the server has filesystem access).
-    if codebase:
+    if workspace:
         try:
             messages = await _read_local_session_messages(
-                codebase.path, session_id
+                workspace.path, session_id
             )
             if messages:
                 return {
@@ -5095,9 +5099,9 @@ async def _get_session_messages_impl(
     return {'messages': [], 'session_id': session_id, 'source': 'local_state'}
 
 
-@opencode_router.post('/codebases/{codebase_id}/sessions/{session_id}/resume')
+@agent_router_alias.post('/workspaces/{workspace_id}/sessions/{session_id}/resume')
 async def resume_session(
-    codebase_id: str, session_id: str, request: SessionResumeRequest
+    workspace_id: str, session_id: str, request: SessionResumeRequest
 ):
     """Resume an old session and optionally send a new prompt."""
     import aiohttp
@@ -5105,14 +5109,14 @@ async def resume_session(
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        codebase = await _rehydrate_codebase_into_bridge(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge.get_workspace(workspace_id)
+    if not workspace:
+        workspace = await _rehydrate_workspace_into_bridge(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     resume_prompt = request.prompt or 'Continue where we left off'
     resume_metadata: Dict[str, Any] = {'resume_session_id': session_id}
@@ -5141,9 +5145,9 @@ async def resume_session(
                 content=request.prompt,
                 message_type='human',
                 metadata={
-                    'action': 'opencode.session.resume',
-                    'codebase_id': codebase_id,
-                    'codebase_name': codebase.name,
+                    'action': 'agent.session.resume',
+                    'workspace_id': workspace_id,
+                    'workspace_name': workspace.name,
                     'resume_session_id': session_id,
                     'agent': request.agent,
                     'model': effective_resume_model,
@@ -5199,15 +5203,15 @@ async def resume_session(
             await _append_worker_message(
                 session_id,
                 user_message,
-                worker_id=codebase.worker_id if codebase else None,
+                worker_id=workspace.worker_id if workspace else None,
             )
         except Exception as e:
             logger.debug(f'Failed to append user message to worker cache: {e}')
 
     # For remote workers, create a task with the session_id in metadata
-    if codebase.worker_id:
+    if workspace.worker_id:
         task = await bridge.create_task(
-            codebase_id=codebase_id,
+            codebase_id=workspace_id,
             title=f'Resume session: {request.prompt[:50] if request.prompt else "Continue"}',
             prompt=resume_prompt,
             agent_type=request.agent,
@@ -5231,15 +5235,15 @@ async def resume_session(
             },
         }
 
-    # For local codebases with running OpenCode, use the API
-    if codebase.opencode_port:
+    # For local workspaces with running agent, use the API
+    if workspace.agent_port:
         try:
-            base_url = bridge._get_opencode_base_url(codebase.opencode_port)
+            base_url = bridge._get_agent_base_url(workspace.agent_port)
             async with aiohttp.ClientSession() as session:
                 # First, initialize the session
                 async with session.post(
                     f'{base_url}/session/{session_id}/init',
-                    params={'directory': codebase.path},
+                    params={'directory': workspace.path},
                 ) as resp:
                     if resp.status != 200:
                         error = await resp.text()
@@ -5254,21 +5258,21 @@ async def resume_session(
                         'content': request.prompt,
                         'agent': request.agent,
                     }
-                    # Best-effort: allow overriding model when OpenCode supports it.
+                    # Best-effort: allow overriding model when agent supports it.
                     if effective_resume_model:
                         payload['model'] = effective_resume_model
 
                     async def _send_message(body: Dict[str, Any]):
                         async with session.post(
                             f'{base_url}/session/{session_id}/message',
-                            params={'directory': codebase.path},
+                            params={'directory': workspace.path},
                             json=body,
                         ) as resp:
                             return resp.status, await resp.text()
 
                     status, text = await _send_message(payload)
                     if status == 422 and effective_resume_model:
-                        # Compatibility: some OpenCode builds may not accept a `model` field.
+                        # Compatibility: some agent builds may not accept a `model` field.
                         payload.pop('model', None)
                         status, text = await _send_message(payload)
 
@@ -5277,8 +5281,8 @@ async def resume_session(
                             result = json.loads(text) if text else None
                         except Exception:
                             result = None
-                        # Update codebase session_id
-                        codebase.session_id = session_id
+                        # Update workspace session_id
+                        workspace.session_id = session_id
                         return {
                             'success': True,
                             'message': 'Session resumed',
@@ -5287,8 +5291,8 @@ async def resume_session(
                             'response': result,
                         }
                 else:
-                    # Update codebase session_id
-                    codebase.session_id = session_id
+                    # Update workspace session_id
+                    workspace.session_id = session_id
                     return {
                         'success': True,
                         'message': 'Session initialized',
@@ -5301,11 +5305,11 @@ async def resume_session(
             logger.error(f'Failed to resume session: {e}')
             raise HTTPException(status_code=500, detail=str(e))
 
-    # If no running OpenCode, start one with the session
+    # If no running agent, start one with the session
     from .agent_bridge import AgentTriggerRequest
 
     trigger_request = AgentTriggerRequest(
-        codebase_id=codebase_id,
+        workspace_id=workspace_id,
         prompt=request.prompt or 'Continue the conversation',
         agent=request.agent,
         model=effective_resume_model,
@@ -5315,10 +5319,10 @@ async def resume_session(
     response = await bridge.trigger_agent(trigger_request)
     return {
         'success': response.success,
-        'message': 'Session resumed with new OpenCode instance',
+        'message': 'Session resumed with new agent instance',
         'session_id': session_id,
         'new_session_id': response.session_id,
-        # When OpenCode is started on-demand, follow-up messages should target the active OpenCode session.
+        # When agent is started on-demand, follow-up messages should target the active agent session.
         'active_session_id': response.session_id or session_id,
         'error': response.error,
         'routing': {
@@ -5331,13 +5335,13 @@ async def resume_session(
     }
 
 
-async def _read_local_sessions(codebase_path: str) -> List[Dict[str, Any]]:
-    """Read sessions from OpenCode's local state directory."""
+async def _read_local_sessions(workspace_path: str) -> List[Dict[str, Any]]:
+    """Read sessions from agent's local state directory."""
     import glob
 
     sessions = []
-    # OpenCode stores state in .opencode directory
-    state_dir = os.path.join(codebase_path, '.opencode', 'state')
+    # Agent stores state in .codetether directory
+    state_dir = os.path.join(workspace_path, '.codetether', 'state')
 
     if not os.path.exists(state_dir):
         return sessions
@@ -5372,11 +5376,11 @@ async def _read_local_sessions(codebase_path: str) -> List[Dict[str, Any]]:
 
 
 async def _read_local_session(
-    codebase_path: str, session_id: str
+    workspace_path: str, session_id: str
 ) -> Optional[Dict[str, Any]]:
-    """Read a specific session from OpenCode's local state directory."""
+    """Read a specific session from agent's local state directory."""
     session_file = os.path.join(
-        codebase_path, '.opencode', 'state', 'session', f'{session_id}.json'
+        workspace_path, '.codetether', 'state', 'session', f'{session_id}.json'
     )
 
     if not os.path.exists(session_file):
@@ -5391,10 +5395,10 @@ async def _read_local_session(
 
 
 async def _read_local_session_messages(
-    codebase_path: str, session_id: str
+    workspace_path: str, session_id: str
 ) -> List[Dict[str, Any]]:
     """Read messages from a session's local state."""
-    session_data = await _read_local_session(codebase_path, session_id)
+    session_data = await _read_local_session(workspace_path, session_id)
     if session_data:
         return session_data.get('messages', [])
     return []
@@ -5405,92 +5409,92 @@ async def _read_local_session_messages(
 # ========================================
 
 
-@opencode_router.post('/codebases/{codebase_id}/watch/start')
+@agent_router_alias.post('/workspaces/{workspace_id}/watch/start')
 async def start_watch_mode(
-    codebase_id: str, config: Optional[WatchModeConfig] = None
+    workspace_id: str, config: Optional[WatchModeConfig] = None
 ):
     """
-    Start watch mode for a codebase - agent will automatically process tasks.
+    Start watch mode for a workspace - agent will automatically process tasks.
 
     The agent will poll for pending tasks and execute them in order of priority.
     """
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     interval = config.interval if config else 5
 
-    success = await bridge.start_watch_mode(codebase_id, interval=interval)
+    success = await bridge.start_watch_mode(workspace_id, interval=interval)
     if not success:
         raise HTTPException(
             status_code=500, detail='Failed to start watch mode'
         )
 
     await monitoring_service.log_message(
-        agent_name='OpenCode Bridge',
-        content=f'Watch mode started for {codebase.name} (interval: {interval}s)',
+        agent_name='CodeTether Agent',
+        content=f'Watch mode started for {workspace.name} (interval: {interval}s)',
         message_type='system',
-        metadata={'codebase_id': codebase_id, 'interval': interval},
+        metadata={'workspace_id': workspace_id, 'interval': interval},
     )
 
     return {
         'success': True,
-        'message': f'Watch mode started for {codebase.name}',
+        'message': f'Watch mode started for {workspace.name}',
         'interval': interval,
     }
 
 
-@opencode_router.post('/codebases/{codebase_id}/watch/stop')
-async def stop_watch_mode(codebase_id: str):
-    """Stop watch mode for a codebase."""
+@agent_router_alias.post('/workspaces/{workspace_id}/watch/stop')
+async def stop_watch_mode(workspace_id: str):
+    """Stop watch mode for a workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
-    success = await bridge.stop_watch_mode(codebase_id)
+    success = await bridge.stop_watch_mode(workspace_id)
     if not success:
         raise HTTPException(status_code=500, detail='Failed to stop watch mode')
 
     await monitoring_service.log_message(
-        agent_name='OpenCode Bridge',
-        content=f'Watch mode stopped for {codebase.name}',
+        agent_name='CodeTether Agent',
+        content=f'Watch mode stopped for {workspace.name}',
         message_type='system',
-        metadata={'codebase_id': codebase_id},
+        metadata={'workspace_id': workspace_id},
     )
 
     return {
         'success': True,
-        'message': f'Watch mode stopped for {codebase.name}',
+        'message': f'Watch mode stopped for {workspace.name}',
     }
 
 
-@opencode_router.get('/codebases/{codebase_id}/watch/status')
-async def get_watch_status(codebase_id: str):
-    """Get watch mode status for a codebase."""
+@agent_router_alias.get('/workspaces/{workspace_id}/watch/status')
+async def get_watch_status(workspace_id: str):
+    """Get watch mode status for a workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
     pending_tasks = await bridge.list_tasks(
-        codebase_id=codebase_id,
+        codebase_id=workspace_id,
         status=bridge._tasks.__class__.PENDING
         if hasattr(bridge._tasks, '__class__')
         else None,
@@ -5499,21 +5503,21 @@ async def get_watch_status(codebase_id: str):
 
     pending_count = len(
         await bridge.list_tasks(
-            codebase_id=codebase_id, status=AgentTaskStatus.PENDING
+            codebase_id=workspace_id, status=AgentTaskStatus.PENDING
         )
     )
     running_count = len(
         await bridge.list_tasks(
-            codebase_id=codebase_id, status=AgentTaskStatus.RUNNING
+            codebase_id=workspace_id, status=AgentTaskStatus.RUNNING
         )
     )
 
     return {
-        'codebase_id': codebase_id,
-        'name': codebase.name,
-        'watch_mode': codebase.watch_mode,
-        'status': codebase.status.value,
-        'interval': codebase.watch_interval,
+        'workspace_id': workspace_id,
+        'name': workspace.name,
+        'watch_mode': workspace.watch_mode,
+        'status': workspace.status.value,
+        'interval': workspace.watch_interval,
         'pending_tasks': pending_count,
         'running_tasks': running_count,
     }
@@ -5562,8 +5566,8 @@ class WorkerRegistration(BaseModel):
     capabilities: List[str] = []
     hostname: Optional[str] = None
     models: List[Dict[str, Any]] = []
-    global_codebase_id: Optional[str] = None
-    codebases: List[str] = []  # List of codebase IDs this worker handles
+    global_workspace_id: Optional[str] = None
+    workspaces: List[str] = []  # List of workspace IDs this worker handles
 
 
 class TaskStatusUpdate(BaseModel):
@@ -5576,7 +5580,7 @@ class TaskStatusUpdate(BaseModel):
     error: Optional[str] = None
 
 
-@opencode_router.post('/workers/register')
+@agent_router_alias.post('/workers/register')
 async def register_worker(registration: WorkerRegistration):
     """Register a worker with the A2A server."""
     worker_info = {
@@ -5585,8 +5589,8 @@ async def register_worker(registration: WorkerRegistration):
         'capabilities': registration.capabilities,
         'hostname': registration.hostname,
         'models': registration.models,
-        'global_codebase_id': registration.global_codebase_id,
-        'codebases': registration.codebases,  # Codebase IDs for task routing
+        'global_workspace_id': registration.global_workspace_id,
+        'workspaces': registration.workspaces,  # Workspace IDs for task routing
         'registered_at': datetime.utcnow().isoformat(),
         'last_seen': datetime.utcnow().isoformat(),
         'status': 'active',
@@ -5615,7 +5619,7 @@ async def register_worker(registration: WorkerRegistration):
     return {'success': True, 'worker': worker_info}
 
 
-@opencode_router.post('/workers/{worker_id}/unregister')
+@agent_router_alias.post('/workers/{worker_id}/unregister')
 async def unregister_worker(worker_id: str):
     """Unregister a worker."""
     worker_info = None
@@ -5650,7 +5654,7 @@ async def unregister_worker(worker_id: str):
     return {'success': False, 'message': 'Worker not found'}
 
 
-@opencode_router.get('/workers')
+@agent_router_alias.get('/workers')
 async def list_workers(search: Optional[str] = None):
     """List all registered workers with optional model search filter."""
     def _classify_worker_runtime(
@@ -5677,7 +5681,7 @@ async def list_workers(search: Optional[str] = None):
         ]
         python_markers = [
             'python',
-            'opencode',
+            'agent',
             'hosted-worker',
             'hosted_worker',
         ]
@@ -5702,29 +5706,29 @@ async def list_workers(search: Optional[str] = None):
         if sse_worker:
             return 'rust'
 
-        # Local in-memory registrations are legacy OpenCode Python workers (deprecated),
+        # Local in-memory registrations are legacy Python workers (deprecated),
         # unless clear Rust hints are present.
         if source == 'memory':
             if rust_hint and not python_hint:
                 return 'rust'
-            return 'opencode_python'
+            return 'python'
 
         # Durable remote entries are typically Rust workers unless explicitly marked python.
         if source in ('redis', 'database'):
             if python_hint and not rust_hint:
-                return 'opencode_python'
+                return 'python'
             return 'rust'
 
         if python_hint and not rust_hint:
-            return 'opencode_python'
+            return 'python'
         if rust_hint:
             return 'rust'
-        return 'opencode_python'
+        return 'python'
 
     def _runtime_label(runtime: str) -> str:
         if runtime == 'rust':
             return 'Rust Worker'
-        return 'OpenCode Python Worker (deprecated)'
+        return 'Legacy Python Worker (deprecated)'
 
     # Priority: PostgreSQL > Redis > in-memory
     db_workers = await db.db_list_workers()
@@ -5798,7 +5802,7 @@ async def list_workers(search: Optional[str] = None):
     return workers
 
 
-@opencode_router.get('/workers/{worker_id}')
+@agent_router_alias.get('/workers/{worker_id}')
 async def get_worker(worker_id: str):
     """Get worker details."""
     # Check in-memory first
@@ -5818,7 +5822,7 @@ async def get_worker(worker_id: str):
     raise HTTPException(status_code=404, detail='Worker not found')
 
 
-@opencode_router.post('/workers/{worker_id}/heartbeat')
+@agent_router_alias.post('/workers/{worker_id}/heartbeat')
 async def worker_heartbeat(worker_id: str):
     """Update worker last-seen timestamp."""
     now = datetime.utcnow().isoformat()
@@ -5871,7 +5875,7 @@ async def worker_heartbeat(worker_id: str):
                             'capabilities': sse_worker.get('capabilities', []),
                             'hostname': '',
                             'models': [],
-                            'codebases': list(sse_worker.get('codebases', [])),
+                            'workspaces': list(sse_worker.get('workspaces', [])),
                             'registered_at': now,
                             'last_seen': now,
                             'status': 'active',
@@ -5946,7 +5950,7 @@ class WorkerProfileAssign(BaseModel):
 # Worker Profiles – CRUD endpoints
 # ---------------------------------------------------------------------------
 
-@opencode_router.get('/worker-profiles')
+@agent_router_alias.get('/worker-profiles')
 async def list_worker_profiles(
     builtin_only: bool = False,
     tenant_id: Optional[str] = None,
@@ -5967,7 +5971,7 @@ async def list_worker_profiles(
     return profiles
 
 
-@opencode_router.get('/worker-profiles/{profile_id}')
+@agent_router_alias.get('/worker-profiles/{profile_id}')
 async def get_worker_profile(profile_id: str):
     """Get a single worker profile by ID or slug."""
     profile = await db.db_get_worker_profile(profile_id)
@@ -5982,7 +5986,7 @@ async def get_worker_profile(profile_id: str):
     return profile
 
 
-@opencode_router.post('/worker-profiles')
+@agent_router_alias.post('/worker-profiles')
 async def create_worker_profile(
     body: WorkerProfileCreate,
     tenant_id: Optional[str] = None,
@@ -6009,7 +6013,7 @@ async def create_worker_profile(
     return profile
 
 
-@opencode_router.patch('/worker-profiles/{profile_id}')
+@agent_router_alias.patch('/worker-profiles/{profile_id}')
 async def update_worker_profile(profile_id: str, body: WorkerProfileUpdate):
     """Update a custom worker profile. Builtin profiles cannot be modified."""
     updates = {k: v for k, v in body.dict().items() if v is not None}
@@ -6030,7 +6034,7 @@ async def update_worker_profile(profile_id: str, body: WorkerProfileUpdate):
     return profile
 
 
-@opencode_router.delete('/worker-profiles/{profile_id}')
+@agent_router_alias.delete('/worker-profiles/{profile_id}')
 async def delete_worker_profile(profile_id: str):
     """Delete a custom worker profile. Builtin profiles cannot be deleted."""
     deleted = await db.db_delete_worker_profile(profile_id)
@@ -6042,7 +6046,7 @@ async def delete_worker_profile(profile_id: str):
     return {'success': True}
 
 
-@opencode_router.post('/workers/{worker_id}/profile')
+@agent_router_alias.post('/workers/{worker_id}/profile')
 async def assign_worker_profile(worker_id: str, body: WorkerProfileAssign):
     """Assign (or clear) a personality profile on a worker."""
     if body.profile_id:
@@ -6055,13 +6059,13 @@ async def assign_worker_profile(worker_id: str, body: WorkerProfileAssign):
     return {'success': True, 'worker_id': worker_id, 'profile_id': body.profile_id}
 
 
-@opencode_router.put('/tasks/{task_id}/status')
+@agent_router_alias.put('/tasks/{task_id}/status')
 async def update_task_status(task_id: str, update: TaskStatusUpdate):
     """Update task status (called by workers)."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     from .agent_bridge import AgentTaskStatus
@@ -6121,7 +6125,7 @@ class TaskOutputChunk(BaseModel):
     timestamp: Optional[str] = None
 
 
-@opencode_router.post('/tasks/{task_id}/output')
+@agent_router_alias.post('/tasks/{task_id}/output')
 async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
     """Receive streaming output from a worker (called by workers)."""
     if task_id not in _task_output_streams:
@@ -6154,7 +6158,7 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
     return {'success': True}
 
 
-@opencode_router.get('/tasks/{task_id}/output')
+@agent_router_alias.get('/tasks/{task_id}/output')
 async def get_task_output(task_id: str, since: Optional[int] = None):
     """Get streaming output for a task."""
     outputs = _task_output_streams.get(task_id, [])
@@ -6169,7 +6173,7 @@ async def get_task_output(task_id: str, since: Optional[int] = None):
     }
 
 
-@opencode_router.get('/tasks/{task_id}/output/stream')
+@agent_router_alias.get('/tasks/{task_id}/output/stream')
 async def stream_task_output_sse(task_id: str, request: Request):
     """SSE stream for real-time task output."""
     from sse_starlette.sse import EventSourceResponse
@@ -6210,13 +6214,13 @@ async def stream_task_output_sse(task_id: str, request: Request):
     return EventSourceResponse(event_generator())
 
 
-@opencode_router.post('/tasks/{task_id}/cancel')
+@agent_router_alias.post('/tasks/{task_id}/cancel')
 async def cancel_task(task_id: str):
     """Cancel a pending task."""
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
     success = bridge.cancel_task(task_id)
@@ -6234,7 +6238,7 @@ async def cancel_task(task_id: str):
 # ========================================
 
 
-@opencode_router.get('/tasks/stuck')
+@agent_router_alias.get('/tasks/stuck')
 async def get_stuck_tasks(
     timeout_seconds: int = 300,
 ):
@@ -6259,7 +6263,7 @@ async def get_stuck_tasks(
     async with pool.acquire() as conn:
         stuck_tasks = await conn.fetch(
             """
-            SELECT id, codebase_id, title, status, priority, worker_id,
+            SELECT id, workspace_id, title, status, priority, worker_id,
                    started_at, created_at,
                    EXTRACT(EPOCH FROM (NOW() - started_at))::int as stuck_seconds,
                    COALESCE((metadata->>'attempts')::int, 1) as attempts,
@@ -6279,7 +6283,7 @@ async def get_stuck_tasks(
     }
 
 
-@opencode_router.post('/tasks/stuck/recover')
+@agent_router_alias.post('/tasks/stuck/recover')
 async def recover_stuck_tasks():
     """
     Manually trigger recovery of stuck tasks.
@@ -6310,7 +6314,7 @@ async def recover_stuck_tasks():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@opencode_router.post('/tasks/{task_id}/requeue')
+@agent_router_alias.post('/tasks/{task_id}/requeue')
 async def requeue_task(task_id: str):
     """
     Manually requeue a specific task.
@@ -6387,7 +6391,7 @@ async def requeue_task(task_id: str):
     }
 
 
-@opencode_router.get('/reaper/health')
+@agent_router_alias.get('/reaper/health')
 async def get_reaper_health():
     """Get the health status of the task reaper."""
     try:
@@ -6454,10 +6458,10 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-class CodebaseAccessRequest(BaseModel):
-    """Request to associate/check codebase access."""
+class WorkspaceAccessRequest(BaseModel):
+    """Request to associate/check workspace access."""
 
-    codebase_id: str
+    workspace_id: str
     role: str = 'owner'
 
 
@@ -6560,60 +6564,60 @@ async def sync_session_state(user_id: str):
     return auth.sync_session_state(user_id)
 
 
-@auth_router.get('/user/{user_id}/codebases')
-async def get_user_codebases(user_id: str):
-    """Get all codebases associated with a user."""
+@auth_router.get('/user/{user_id}/workspaces')
+async def get_user_workspaces(user_id: str):
+    """Get all workspaces associated with a user."""
     auth = get_keycloak_auth()
     if auth is None:
         raise HTTPException(
             status_code=503, detail='Authentication service not available'
         )
 
-    codebases = auth.get_user_codebases(user_id)
-    return [c.to_dict() for c in codebases]
+    workspaces = auth.get_user_workspaces(user_id)
+    return [c.to_dict() for c in workspaces]
 
 
-@auth_router.post('/user/{user_id}/codebases')
-async def associate_user_codebase(user_id: str, request: CodebaseAccessRequest):
-    """Associate a codebase with a user."""
+@auth_router.post('/user/{user_id}/workspaces')
+async def associate_user_workspace(user_id: str, request: WorkspaceAccessRequest):
+    """Associate a workspace with a user."""
     auth = get_keycloak_auth()
     if auth is None:
         raise HTTPException(
             status_code=503, detail='Authentication service not available'
         )
 
-    # Get codebase info from bridge
+    # Get workspace info from bridge
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
-            status_code=503, detail='OpenCode bridge not available'
+            status_code=503, detail='Agent bridge not available'
         )
 
-    codebase = bridge.get_codebase(request.codebase_id)
-    if not codebase:
-        raise HTTPException(status_code=404, detail='Codebase not found')
+    workspace = bridge.get_workspace(request.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail='Workspace not found')
 
-    association = auth.associate_codebase(
+    association = auth.associate_workspace(
         user_id=user_id,
-        codebase_id=codebase.id,
-        codebase_name=codebase.name,
-        codebase_path=codebase.path,
+        workspace_id=workspace.id,
+        workspace_name=workspace.name,
+        workspace_path=workspace.path,
         role=request.role,
     )
 
     return {'success': True, 'association': association.to_dict()}
 
 
-@auth_router.delete('/user/{user_id}/codebases/{codebase_id}')
-async def remove_user_codebase(user_id: str, codebase_id: str):
-    """Remove a codebase association from a user."""
+@auth_router.delete('/user/{user_id}/workspaces/{workspace_id}')
+async def remove_user_workspace(user_id: str, workspace_id: str):
+    """Remove a workspace association from a user."""
     auth = get_keycloak_auth()
     if auth is None:
         raise HTTPException(
             status_code=503, detail='Authentication service not available'
         )
 
-    success = auth.remove_codebase_association(user_id, codebase_id)
+    success = auth.remove_workspace_association(user_id, workspace_id)
     return {'success': success}
 
 
@@ -6633,7 +6637,7 @@ async def get_user_agent_sessions(user_id: str):
 @auth_router.post('/user/{user_id}/agent-sessions')
 async def create_agent_session(
     user_id: str,
-    codebase_id: str,
+    workspace_id: str,
     agent_type: str = 'build',
     device_id: Optional[str] = None,
 ):
@@ -6644,15 +6648,15 @@ async def create_agent_session(
             status_code=503, detail='Authentication service not available'
         )
 
-    # Verify user has access to codebase
-    if not auth.can_access_codebase(user_id, codebase_id):
+    # Verify user has access to workspace
+    if not auth.can_access_workspace(user_id, workspace_id):
         raise HTTPException(
-            status_code=403, detail='User does not have access to this codebase'
+            status_code=403, detail='User does not have access to this workspace'
         )
 
     session = auth.create_agent_session(
         user_id=user_id,
-        codebase_id=codebase_id,
+        workspace_id=workspace_id,
         agent_type=agent_type,
         device_id=device_id,
     )
@@ -6718,7 +6722,7 @@ nextauth_router = APIRouter(prefix='/api/auth', tags=['nextauth'])
 @nextauth_router.get('/csrf')
 async def get_csrf():
     """NextAuth compatibility: Get CSRF token."""
-    return {'csrfToken': 'mock-csrf-token-' + str(uuid.uuid4())}
+    return {'csrfToken': 'csrf-' + str(uuid.uuid4())}
 
 
 @nextauth_router.post('/signin/keycloak')
@@ -6765,8 +6769,7 @@ async def signin_keycloak(request: Request):
 @nextauth_router.get('/session')
 async def get_nextauth_session(request: Request):
     """NextAuth compatibility: Get current session."""
-    # Return a mock session for Cypress tests if needed
-    # For now, return empty to indicate no session
+    # Return empty to indicate no active session
     return {}
 
 
@@ -6794,6 +6797,7 @@ from .vault_client import (
     delete_user_api_key,
     list_user_api_keys,
     get_all_user_api_keys,
+    get_all_user_api_keys_with_diagnostics,
     get_worker_sync_data,
     check_vault_connection,
     test_api_key as vault_test_api_key,
@@ -6860,7 +6864,7 @@ class APIKeyCreate(BaseModel):
     base_url: Optional[str] = None  # Custom base URL for provider
 
 
-@opencode_router.get('/providers')
+@agent_router_alias.get('/providers')
 async def list_providers():
     """List all known LLM providers with their configuration."""
     return {
@@ -6880,13 +6884,15 @@ async def list_providers():
     }
 
 
-@opencode_router.get('/vault/status')
-async def vault_status():
+@agent_router_alias.get('/vault/status')
+async def vault_status(
+    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+):
     """Check Vault connectivity status."""
-    return await check_vault_connection()
+    return await check_vault_connection(user_id=user.user_id if user else None)
 
 
-@opencode_router.get('/api-keys')
+@agent_router_alias.get('/api-keys')
 async def list_api_keys(
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
@@ -6894,9 +6900,11 @@ async def list_api_keys(
     if not user:
         raise HTTPException(status_code=401, detail='Authentication required')
 
-    all_keys = await get_all_user_api_keys(user.user_id)
+    all_keys, vault_error, vault_error_status = (
+        await get_all_user_api_keys_with_diagnostics(user.user_id)
+    )
 
-    return {
+    response = {
         'keys': [
             {
                 'provider_id': pid,
@@ -6913,8 +6921,15 @@ async def list_api_keys(
         'user_id': user.user_id,
     }
 
+    if vault_error:
+        response['vault_error'] = vault_error
+    if vault_error_status is not None:
+        response['vault_error_status'] = vault_error_status
 
-@opencode_router.post('/api-keys')
+    return response
+
+
+@agent_router_alias.post('/api-keys')
 async def create_or_update_api_key(
     key_data: APIKeyCreate,
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
@@ -6954,7 +6969,7 @@ async def create_or_update_api_key(
     }
 
 
-@opencode_router.delete('/api-keys/{provider_id}')
+@agent_router_alias.delete('/api-keys/{provider_id}')
 async def delete_api_key(
     provider_id: str,
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
@@ -6972,7 +6987,7 @@ async def delete_api_key(
     return {'success': True, 'message': f'API key for {provider_id} deleted'}
 
 
-@opencode_router.get('/api-keys/sync')
+@agent_router_alias.get('/api-keys/sync')
 async def get_api_keys_for_sync(
     user_id: Optional[str] = None,
     worker_id: Optional[str] = None,
@@ -6984,7 +6999,7 @@ async def get_api_keys_for_sync(
     If user_id is provided (worker request), returns that user's keys.
     Otherwise, returns the authenticated user's keys.
 
-    Workers should authenticate and provide the user_id for the codebase owner.
+    Workers should authenticate and provide the user_id for the workspace owner.
     """
     # Determine which user's keys to fetch
     target_user_id = user_id
@@ -6998,13 +7013,13 @@ async def get_api_keys_for_sync(
         )
 
     # TODO: In production, verify worker has permission to access this user's keys
-    # This could be done by checking if the worker is assigned to a codebase owned by the user
+    # This could be done by checking if the worker is assigned to a workspace owned by the user
 
     sync_data = await get_worker_sync_data(target_user_id)
     return sync_data
 
 
-@opencode_router.post('/api-keys/test')
+@agent_router_alias.post('/api-keys/test')
 async def test_api_key_endpoint(
     key_data: APIKeyCreate,
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
@@ -7016,14 +7031,14 @@ async def test_api_key_endpoint(
 
 
 # =============================================================================
-# Codebase Storage Endpoints (MinIO Upload/Download)
+# Workspace Storage Endpoints (MinIO Upload/Download)
 # =============================================================================
-# These endpoints allow uploading/downloading codebase tarballs to MinIO
+# These endpoints allow uploading/downloading workspace tarballs to MinIO
 # and syncing from workers.
 
 
 def _get_minio_client():
-    """Get or create a MinIO client for codebase storage."""
+    """Get or create a MinIO client for workspace storage."""
     if not MINIO_ENDPOINT or not MINIO_ACCESS_KEY or not MINIO_SECRET_KEY:
         return None
 
@@ -7050,28 +7065,28 @@ def _get_minio_client():
         return None
 
 
-async def _verify_codebase_ownership(
-    codebase_id: str, tenant_id: Optional[str] = None
+async def _verify_workspace_ownership(
+    workspace_id: str, tenant_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
-    """Verify that a codebase exists and optionally belongs to a tenant.
+    """Verify that a workspace exists and optionally belongs to a tenant.
 
-    Returns the codebase dict if valid, None otherwise.
+    Returns the workspace dict if valid, None otherwise.
     """
-    codebase = await db.db_get_codebase(codebase_id)
-    if not codebase:
+    workspace = await db.db_get_workspace(workspace_id)
+    if not workspace:
         return None
 
     # If RLS/tenant enforcement is enabled and tenant_id provided, check ownership
     if tenant_id and db.RLS_ENABLED:
-        codebase_tenant = codebase.get('tenant_id')
-        if codebase_tenant and codebase_tenant != tenant_id:
+        workspace_tenant = workspace.get('tenant_id')
+        if workspace_tenant and workspace_tenant != tenant_id:
             return None
 
-    return codebase
+    return workspace
 
 
-class CodebaseSyncRequest(BaseModel):
-    """Request model for codebase sync from worker."""
+class WorkspaceSyncRequest(BaseModel):
+    """Request model for workspace sync from worker."""
 
     size_bytes: int
     files_changed: int = 0
@@ -7086,38 +7101,38 @@ class WorkerStatusResponse(BaseModel):
     created_at: Optional[str] = None
     last_activity: Optional[str] = None
     tenant_id: Optional[str] = None
-    codebase_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     error_message: Optional[str] = None
 
 
-@opencode_router.post('/codebases/{codebase_id}/upload')
-async def upload_codebase_tarball(
-    codebase_id: str,
+@agent_router_alias.post('/workspaces/{workspace_id}/upload')
+async def upload_workspace_tarball(
+    workspace_id: str,
     request: Request,
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
-    """Upload a codebase tarball to MinIO.
+    """Upload a workspace tarball to MinIO.
 
     This endpoint accepts multipart/form-data with a file field containing
-    the codebase tarball (typically .tar.gz).
+    the workspace tarball (typically .tar.gz).
 
-    The file is stored at codebases/{codebase_id}.tar.gz in the configured
+    The file is stored at workspaces/{workspace_id}.tar.gz in the configured
     MinIO bucket.
 
     Args:
-        codebase_id: The codebase ID to upload to
+        workspace_id: The workspace ID to upload to
         request: The FastAPI request (for multipart parsing)
         user: Optional authenticated user for tenant validation
 
     Returns:
         JSON with minio_path and size_bytes
     """
-    # Verify codebase exists
+    # Verify workspace exists
     tenant_id = user.user_id if user else None
-    codebase = await _verify_codebase_ownership(codebase_id, tenant_id)
-    if not codebase:
+    workspace = await _verify_workspace_ownership(workspace_id, tenant_id)
+    if not workspace:
         raise HTTPException(
-            status_code=404, detail=f'Codebase {codebase_id} not found'
+            status_code=404, detail=f'Workspace {workspace_id} not found'
         )
 
     # Get MinIO client
@@ -7154,7 +7169,7 @@ async def upload_codebase_tarball(
             )
 
         # Determine file path in MinIO
-        minio_path = f'codebases/{codebase_id}.tar.gz'
+        minio_path = f'workspaces/{workspace_id}.tar.gz'
 
         # Ensure bucket exists
         if not minio_client.bucket_exists(MINIO_BUCKET):
@@ -7169,22 +7184,22 @@ async def upload_codebase_tarball(
             content_type='application/gzip',
         )
 
-        # Update codebase record with minio_path
+        # Update workspace record with minio_path
         pool = await db.get_pool()
         if pool:
             async with pool.acquire() as conn:
                 await conn.execute(
                     """
-                    UPDATE codebases
+                    UPDATE workspaces
                     SET minio_path = $2, last_sync_at = NOW(), updated_at = NOW()
                     WHERE id = $1
                     """,
-                    codebase_id,
+                    workspace_id,
                     minio_path,
                 )
 
         logger.info(
-            f'Uploaded codebase {codebase_id} to MinIO: {minio_path} ({size_bytes} bytes)'
+            f'Uploaded workspace {workspace_id} to MinIO: {minio_path} ({size_bytes} bytes)'
         )
 
         return {
@@ -7196,35 +7211,35 @@ async def upload_codebase_tarball(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f'Failed to upload codebase {codebase_id}: {e}')
+        logger.error(f'Failed to upload workspace {workspace_id}: {e}')
         raise HTTPException(status_code=500, detail=f'Upload failed: {str(e)}')
 
 
-@opencode_router.get('/codebases/{codebase_id}/download')
-async def download_codebase_tarball(
-    codebase_id: str,
+@agent_router_alias.get('/workspaces/{workspace_id}/download')
+async def download_workspace_tarball(
+    workspace_id: str,
     stream: bool = False,
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
 ):
-    """Get a presigned URL or stream the codebase tarball from MinIO.
+    """Get a presigned URL or stream the workspace tarball from MinIO.
 
     By default, returns a presigned URL that expires in 1 hour.
     Set stream=true to stream the file directly.
 
     Args:
-        codebase_id: The codebase ID to download
+        workspace_id: The workspace ID to download
         stream: If True, stream the file directly instead of returning a URL
         user: Optional authenticated user for tenant validation
 
     Returns:
         JSON with presigned url and expiry, or streams the file directly
     """
-    # Verify codebase exists
+    # Verify workspace exists
     tenant_id = user.user_id if user else None
-    codebase = await _verify_codebase_ownership(codebase_id, tenant_id)
-    if not codebase:
+    workspace = await _verify_workspace_ownership(workspace_id, tenant_id)
+    if not workspace:
         raise HTTPException(
-            status_code=404, detail=f'Codebase {codebase_id} not found'
+            status_code=404, detail=f'Workspace {workspace_id} not found'
         )
 
     # Get MinIO client
@@ -7236,7 +7251,7 @@ async def download_codebase_tarball(
         )
 
     # Determine file path - prefer stored path, fall back to convention
-    minio_path = codebase.get('minio_path') or f'codebases/{codebase_id}.tar.gz'
+    minio_path = workspace.get('minio_path') or f'workspaces/{workspace_id}.tar.gz'
 
     # Check if file exists
     try:
@@ -7244,7 +7259,7 @@ async def download_codebase_tarball(
     except Exception:
         raise HTTPException(
             status_code=404,
-            detail=f'Codebase tarball not found at {minio_path}',
+            detail=f'Workspace tarball not found at {minio_path}',
         )
 
     if stream:
@@ -7264,11 +7279,11 @@ async def download_codebase_tarball(
                 iterfile(),
                 media_type='application/gzip',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{codebase_id}.tar.gz"'
+                    'Content-Disposition': f'attachment; filename="{workspace_id}.tar.gz"'
                 },
             )
         except Exception as e:
-            logger.error(f'Failed to stream codebase {codebase_id}: {e}')
+            logger.error(f'Failed to stream workspace {workspace_id}: {e}')
             raise HTTPException(
                 status_code=500, detail=f'Download failed: {str(e)}'
             )
@@ -7289,38 +7304,38 @@ async def download_codebase_tarball(
             }
         except Exception as e:
             logger.error(
-                f'Failed to generate presigned URL for {codebase_id}: {e}'
+                f'Failed to generate presigned URL for {workspace_id}: {e}'
             )
             raise HTTPException(
                 status_code=500, detail=f'Failed to generate URL: {str(e)}'
             )
 
 
-@opencode_router.post('/codebases/{codebase_id}/sync')
-async def sync_codebase_from_worker(
-    codebase_id: str,
-    sync_request: CodebaseSyncRequest,
+@agent_router_alias.post('/workspaces/{workspace_id}/sync')
+async def sync_workspace_from_worker(
+    workspace_id: str,
+    sync_request: WorkspaceSyncRequest,
 ):
     """Receive sync notification from a worker (webhook).
 
-    Workers call this endpoint after syncing their local codebase to MinIO.
+    Workers call this endpoint after syncing their local workspace to MinIO.
     This updates the last_sync_at timestamp in the database.
 
     Args:
-        codebase_id: The codebase ID being synced
+        workspace_id: The workspace ID being synced
         sync_request: Sync details (size_bytes, files_changed)
 
     Returns:
         JSON acknowledgment
     """
-    # Verify codebase exists (no tenant validation for worker sync)
-    codebase = await db.db_get_codebase(codebase_id)
-    if not codebase:
+    # Verify workspace exists (no tenant validation for worker sync)
+    workspace = await db.db_get_workspace(workspace_id)
+    if not workspace:
         raise HTTPException(
-            status_code=404, detail=f'Codebase {codebase_id} not found'
+            status_code=404, detail=f'Workspace {workspace_id} not found'
         )
 
-    # Update the codebase record
+    # Update the workspace record
     pool = await db.get_pool()
     if not pool:
         raise HTTPException(status_code=503, detail='Database not available')
@@ -7329,15 +7344,15 @@ async def sync_codebase_from_worker(
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                UPDATE codebases
+                UPDATE workspaces
                 SET last_sync_at = NOW(), updated_at = NOW()
                 WHERE id = $1
                 """,
-                codebase_id,
+                workspace_id,
             )
 
         logger.info(
-            f'Codebase {codebase_id} synced from worker {sync_request.worker_id}: '
+            f'Workspace {workspace_id} synced from worker {sync_request.worker_id}: '
             f'{sync_request.size_bytes} bytes, {sync_request.files_changed} files changed'
         )
 
@@ -7347,18 +7362,18 @@ async def sync_codebase_from_worker(
 
         return {
             'acknowledged': True,
-            'codebase_id': codebase_id,
+            'workspace_id': workspace_id,
             'size_bytes': sync_request.size_bytes,
             'files_changed': sync_request.files_changed,
             'synced_at': datetime.utcnow().isoformat(),
         }
 
     except Exception as e:
-        logger.error(f'Failed to update sync status for {codebase_id}: {e}')
+        logger.error(f'Failed to update sync status for {workspace_id}: {e}')
         raise HTTPException(status_code=500, detail=f'Sync failed: {str(e)}')
 
 
-@opencode_router.get('/sessions/{session_id}/worker-status')
+@agent_router_alias.get('/sessions/{session_id}/worker-status')
 async def get_session_worker_status(
     session_id: str,
     user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
@@ -7387,7 +7402,7 @@ async def get_session_worker_status(
             # Session exists but no Knative worker
             return WorkerStatusResponse(
                 status='pending',
-                codebase_id=session.get('codebase_id'),
+                workspace_id=session.get('workspace_id'),
                 created_at=session.get('created_at'),
                 last_activity=last_activity,
             )
@@ -7415,7 +7430,7 @@ async def get_session_worker_status(
             and worker_info.last_activity_at
             else None,
             tenant_id=worker_info.tenant_id,
-            codebase_id=worker_info.codebase_id,
+            workspace_id=worker_info.workspace_id,
             error_message=worker_info.error_message,
         )
 
@@ -7427,7 +7442,7 @@ async def get_session_worker_status(
         if session:
             return WorkerStatusResponse(
                 status=session.get('worker_status', 'unknown'),
-                codebase_id=session.get('codebase_id'),
+                workspace_id=session.get('workspace_id'),
                 created_at=session.get('created_at'),
                 last_activity=session.get('last_activity_at'),
                 error_message='Knative spawner module not available',
@@ -7456,7 +7471,7 @@ AVAILABLE_VOICES = [
 
 
 class VoiceSessionRequest(BaseModel):
-    codebase_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     session_id: Optional[str] = None
     voice: str = 'puck'
     mode: str = 'chat'
@@ -7550,7 +7565,7 @@ async def create_voice_session(request: VoiceSessionRequest):
         'voice': request.voice,
         'mode': request.mode,
         'playback_style': request.playback_style,
-        'codebase_id': request.codebase_id,
+        'workspace_id': request.workspace_id,
         'session_id': request.session_id,
         'user_id': request.user_id,
     }
@@ -7662,7 +7677,7 @@ async def get_voice_session(room_name: str, user_id: Optional[str] = None):
         'voice': metadata.get('voice'),
         'mode': metadata.get('mode'),
         'playback_style': metadata.get('playback_style'),
-        'codebase_id': metadata.get('codebase_id'),
+        'workspace_id': metadata.get('workspace_id'),
         'session_id': metadata.get('session_id'),
         'livekit_url': bridge.public_url,
     }
@@ -7764,13 +7779,12 @@ async def get_voice_session_state(room_name: str):
 __all__ = [
     'monitor_router',
     'agent_router',
-    'opencode_router',  # backward-compat alias for agent_router
+    'agent_router_alias',  # backward-compat alias for agent_router
     'voice_router',
     'auth_router',
     'nextauth_router',
     'monitoring_service',
     'log_agent_message',
     'get_agent_bridge',
-    'get_opencode_bridge',  # backward-compat alias
     'get_keycloak_auth',
 ]

@@ -150,9 +150,9 @@ class WorkerRegistry:
         or if the worker doesn't own the task's codebase.
         """
         # First, verify worker can handle this task's codebase (before acquiring lock)
-        from .monitor_api import get_opencode_bridge
+        from .agent_bridge import get_bridge as get_agent_bridge
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge:
             task = await bridge.get_task(task_id)
             if task:
@@ -276,14 +276,14 @@ class WorkerRegistry:
     ) -> None:
         """Broadcast pending tasks to a worker that just became available."""
         try:
-            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import get_bridge as get_agent_bridge
 
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if not bridge:
                 return
 
             # Get pending tasks for codebases this worker handles
-            from .opencode_bridge import AgentTaskStatus
+            from .agent_bridge import AgentTaskStatus
 
             pending_tasks = await bridge.list_tasks(
                 status=AgentTaskStatus.PENDING
@@ -405,7 +405,7 @@ class WorkerRegistry:
         """Check if the codebase registry says this worker handles the codebase."""
         try:
             # First try in-memory bridge cache
-            from .opencode_bridge import get_bridge
+            from .agent_bridge import get_bridge
 
             bridge = get_bridge()
             codebase = bridge.get_codebase(codebase_id)
@@ -427,7 +427,7 @@ class WorkerRegistry:
     ) -> bool:
         """Check if any currently connected SSE worker owns this codebase in the DB."""
         try:
-            from .opencode_bridge import get_bridge
+            from .agent_bridge import get_bridge
 
             bridge = get_bridge()
             codebase = bridge.get_codebase(codebase_id)
@@ -619,9 +619,9 @@ class WorkerRegistry:
         """
         try:
             # Fetch task details from the bridge
-            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import get_bridge as get_agent_bridge
 
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if not bridge:
                 logger.warning(
                     f'Cannot broadcast task {task_id}: bridge not available'
@@ -871,10 +871,10 @@ async def worker_task_stream(
 
             # Send any pending tasks to the newly connected worker
             try:
-                from .monitor_api import get_opencode_bridge
-                from .opencode_bridge import AgentTaskStatus
+                from .agent_bridge import get_bridge as get_agent_bridge
+                from .agent_bridge import AgentTaskStatus
 
-                bridge = get_opencode_bridge()
+                bridge = get_agent_bridge()
                 if bridge:
                     # Get all pending tasks
                     pending_tasks = await bridge.list_tasks(
@@ -1080,9 +1080,9 @@ async def release_task(
     if success:
         # Persist status/result/error to in-memory cache AND database
         try:
-            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import get_bridge as get_agent_bridge
             from .agent_bridge import AgentTaskStatus
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if bridge:
                 status_enum = AgentTaskStatus(release.status)
                 await bridge.update_task_status(
@@ -1269,7 +1269,7 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
     )
 
 
-def setup_task_creation_hook(opencode_bridge) -> None:
+def setup_task_creation_hook(agent_bridge) -> None:
     """
     Set up a hook to notify workers when tasks are created.
 

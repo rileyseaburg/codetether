@@ -25,11 +25,9 @@ from .monitor_api import (
     monitor_router,
     nextauth_router,
     agent_router,
-    opencode_router,  # backward-compat alias
     voice_router,
     log_agent_message,
     get_agent_bridge,
-    get_opencode_bridge,  # backward-compat alias → same as get_agent_bridge
 )
 from .worker_sse import (
     worker_sse_router,

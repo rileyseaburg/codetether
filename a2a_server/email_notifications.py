@@ -97,7 +97,7 @@ def _sanitize_result(result: Optional[str], max_length: int = 3000) -> str:
             try:
                 parsed = json.loads(line)
                 if isinstance(parsed, dict):
-                    # OpenCode streaming format
+                    # Agent streaming format
                     event_type = parsed.get('type', '')
                     part = parsed.get('part', {})
 

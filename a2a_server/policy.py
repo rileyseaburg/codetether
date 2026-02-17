@@ -87,6 +87,10 @@ class _DecisionCache:
                 k: v for k, v in self._store.items() if v[1] > cutoff
             }
 
+    def clear(self) -> None:
+        """Clear all cached decisions."""
+        self._store.clear()
+
 
 _cache = _DecisionCache(OPA_CACHE_TTL)
 
@@ -107,6 +111,14 @@ def _load_local_policy_data() -> Dict[str, Any]:
             logger.warning(f"Policy data file not found: {data_file}")
             _local_policy_data = {"roles": {}, "public_endpoints": []}
     return _local_policy_data
+
+
+def reload_local_policy_data() -> Dict[str, Any]:
+    """Force reload of local policy data from disk and clear decision cache."""
+    global _local_policy_data
+    _local_policy_data = None
+    _cache.clear()
+    return _load_local_policy_data()
 
 
 def _evaluate_local(

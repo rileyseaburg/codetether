@@ -1,7 +1,7 @@
 """
 PostgreSQL database persistence layer for A2A Server.
 
-Provides durable storage for workers, codebases, tasks, and sessions
+Provides durable storage for workers, workspaces, tasks, and sessions
 that survives server restarts and works across multiple replicas.
 
 Configuration:
@@ -155,7 +155,7 @@ async def _init_schema():
                 capabilities JSONB DEFAULT '[]'::jsonb,
                 hostname TEXT,
                 models JSONB DEFAULT '[]'::jsonb,
-                global_codebase_id TEXT,
+                global_workspace_id TEXT,
                 registered_at TIMESTAMPTZ DEFAULT NOW(),
                 last_seen TIMESTAMPTZ DEFAULT NOW(),
                 status TEXT DEFAULT 'active',
@@ -171,10 +171,10 @@ async def _init_schema():
         except Exception:
             pass
 
-        # Migration: Add global_codebase_id column if it doesn't exist
+        # Migration: Add global_workspace_id column if it doesn't exist
         try:
             await conn.execute(
-                'ALTER TABLE workers ADD COLUMN IF NOT EXISTS global_codebase_id TEXT'
+                'ALTER TABLE workers ADD COLUMN IF NOT EXISTS global_workspace_id TEXT'
             )
         except Exception:
             pass
@@ -187,9 +187,9 @@ async def _init_schema():
         except Exception:
             pass
 
-        # Codebases table
+        # Workspaces table
         await conn.execute("""
-            CREATE TABLE IF NOT EXISTS codebases (
+            CREATE TABLE IF NOT EXISTS workspaces (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 path TEXT NOT NULL,
@@ -200,43 +200,43 @@ async def _init_schema():
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
                 status TEXT DEFAULT 'active',
                 session_id TEXT,
-                opencode_port INTEGER,
+                agent_port INTEGER,
                 tenant_id TEXT REFERENCES tenants(id),
                 minio_path TEXT,
                 last_sync_at TIMESTAMPTZ
             )
         """)
 
-        # Migration: Add tenant_id column to codebases if it doesn't exist
+        # Migration: Add tenant_id column to workspaces if it doesn't exist
         try:
             await conn.execute(
-                'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
+                'ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS tenant_id TEXT REFERENCES tenants(id)'
             )
         except Exception:
             pass
 
-        # Migration: Add MinIO columns to codebases
+        # Migration: Add MinIO columns to workspaces
         try:
             await conn.execute(
-                'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS minio_path TEXT'
+                'ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS minio_path TEXT'
             )
         except Exception:
             pass
         try:
             await conn.execute(
-                'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ'
+                'ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ'
             )
         except Exception:
             pass
 
-        # Migration: Add Git repo columns to codebases
+        # Migration: Add Git repo columns to workspaces
         for col_def in [
             'git_url TEXT',
             'git_branch TEXT DEFAULT \'main\'',
         ]:
             try:
                 await conn.execute(
-                    f'ALTER TABLE codebases ADD COLUMN IF NOT EXISTS {col_def}'
+                    f'ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS {col_def}'
                 )
             except Exception:
                 pass
@@ -245,7 +245,7 @@ async def _init_schema():
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY,
-                codebase_id TEXT REFERENCES codebases(id) ON DELETE CASCADE,
+                workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
                 title TEXT NOT NULL,
                 prompt TEXT NOT NULL,
                 agent_type TEXT DEFAULT 'build',
@@ -279,11 +279,29 @@ async def _init_schema():
         except Exception:
             pass
 
-        # Sessions table (for worker-synced OpenCode sessions)
+        # Migration: Rename codebase_id -> workspace_id across all tables
+        for _tbl in ['tasks', 'sessions', 'inbound_emails', 'outbound_emails',
+                      'ralph_runs', 'prd_chat_sessions', 'perpetual_loops']:
+            try:
+                await conn.execute(
+                    f'ALTER TABLE {_tbl} RENAME COLUMN codebase_id TO workspace_id'
+                )
+            except Exception:
+                pass
+
+        # Migration: Rename opencode_port -> agent_port in workspaces
+        try:
+            await conn.execute(
+                'ALTER TABLE workspaces RENAME COLUMN opencode_port TO agent_port'
+            )
+        except Exception:
+            pass
+
+        # Sessions table (for worker-synced sessions)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
-                codebase_id TEXT REFERENCES codebases(id) ON DELETE CASCADE,
+                workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
                 project_id TEXT,
                 directory TEXT,
                 title TEXT,
@@ -367,7 +385,7 @@ async def _init_schema():
                 body_text TEXT,
                 body_html TEXT,
                 session_id TEXT,
-                codebase_id TEXT,
+                workspace_id TEXT,
                 task_id TEXT,
                 sender_ip TEXT,
                 spf_result TEXT,
@@ -393,7 +411,7 @@ async def _init_schema():
                 body_text TEXT,
                 task_id TEXT,
                 session_id TEXT,
-                codebase_id TEXT,
+                workspace_id TEXT,
                 worker_id TEXT,
                 status TEXT DEFAULT 'queued',
                 sendgrid_message_id TEXT,
@@ -410,7 +428,7 @@ async def _init_schema():
             CREATE TABLE IF NOT EXISTS ralph_runs (
                 id TEXT PRIMARY KEY,
                 prd JSONB NOT NULL,
-                codebase_id TEXT,
+                workspace_id TEXT,
                 model TEXT,
                 status TEXT DEFAULT 'pending',
                 max_iterations INTEGER DEFAULT 10,
@@ -470,19 +488,19 @@ async def _init_schema():
             'CREATE INDEX IF NOT EXISTS idx_workers_last_seen ON workers(last_seen)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_codebases_worker ON codebases(worker_id)'
+            'CREATE INDEX IF NOT EXISTS idx_workspaces_worker ON workspaces(worker_id)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_codebases_status ON codebases(status)'
+            'CREATE INDEX IF NOT EXISTS idx_workspaces_status ON workspaces(status)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_codebases_path ON codebases(path)'
+            'CREATE INDEX IF NOT EXISTS idx_workspaces_path ON workspaces(path)'
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_tasks_codebase ON tasks(codebase_id)'
+            'CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON tasks(workspace_id)'
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_tasks_worker ON tasks(worker_id)'
@@ -491,7 +509,7 @@ async def _init_schema():
             'CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority DESC, created_at ASC)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_sessions_codebase ON sessions(codebase_id)'
+            'CREATE INDEX IF NOT EXISTS idx_sessions_workspace ON sessions(workspace_id)'
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)'
@@ -516,7 +534,7 @@ async def _init_schema():
             'CREATE INDEX IF NOT EXISTS idx_workers_tenant ON workers(tenant_id)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_codebases_tenant ON codebases(tenant_id)'
+            'CREATE INDEX IF NOT EXISTS idx_workspaces_tenant ON workspaces(tenant_id)'
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_tasks_tenant ON tasks(tenant_id)'
@@ -562,10 +580,40 @@ async def _init_schema():
             'CREATE INDEX IF NOT EXISTS idx_ralph_runs_created ON ralph_runs(created_at DESC)'
         )
         await conn.execute(
-            'CREATE INDEX IF NOT EXISTS idx_ralph_runs_codebase ON ralph_runs(codebase_id)'
+            'CREATE INDEX IF NOT EXISTS idx_ralph_runs_workspace ON ralph_runs(workspace_id)'
         )
         await conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_ralph_runs_tenant ON ralph_runs(tenant_id)'
+        )
+
+        # Agent Definitions table (custom agents per worker)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS agent_definitions (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                mode TEXT DEFAULT 'primary',
+                native BOOLEAN DEFAULT FALSE,
+                hidden BOOLEAN DEFAULT FALSE,
+                model TEXT,
+                temperature REAL,
+                top_p REAL,
+                max_steps INTEGER,
+                system_prompt TEXT,
+                worker_id TEXT REFERENCES workers(worker_id) ON DELETE CASCADE,
+                tenant_id TEXT REFERENCES tenants(id),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(worker_id, name)
+            )
+        """)
+
+        # Index for listing agents by worker
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_agent_definitions_worker ON agent_definitions(worker_id)'
+        )
+        await conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_agent_definitions_tenant ON agent_definitions(tenant_id)'
         )
 
         logger.info('✓ PostgreSQL schema initialized')
@@ -605,7 +653,7 @@ async def db_upsert_worker(
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO workers (worker_id, name, capabilities, hostname, models, global_codebase_id, registered_at, last_seen, status, tenant_id)
+                INSERT INTO workers (worker_id, name, capabilities, hostname, models, global_workspace_id, registered_at, last_seen, status, tenant_id)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 ON CONFLICT (worker_id)
                 DO UPDATE SET
@@ -613,7 +661,7 @@ async def db_upsert_worker(
                     capabilities = EXCLUDED.capabilities,
                     hostname = EXCLUDED.hostname,
                     models = EXCLUDED.models,
-                    global_codebase_id = EXCLUDED.global_codebase_id,
+                    global_workspace_id = EXCLUDED.global_workspace_id,
                     last_seen = EXCLUDED.last_seen,
                     status = EXCLUDED.status,
                     tenant_id = COALESCE(EXCLUDED.tenant_id, workers.tenant_id)
@@ -623,7 +671,7 @@ async def db_upsert_worker(
                 json.dumps(worker_info.get('capabilities', [])),
                 worker_info.get('hostname'),
                 json.dumps(worker_info.get('models', [])),
-                worker_info.get('global_codebase_id'),
+                worker_info.get('global_workspace_id'),
                 _parse_timestamp(worker_info.get('registered_at'))
                 or datetime.utcnow(),
                 _parse_timestamp(worker_info.get('last_seen'))
@@ -725,6 +773,233 @@ async def db_update_worker_heartbeat(worker_id: str) -> bool:
         return False
 
 
+# ========================================
+# Agent Definition Operations
+# ========================================
+
+
+async def db_upsert_agent_definition(
+    agent: Dict[str, Any], tenant_id: Optional[str] = None
+) -> bool:
+    """Insert or update an agent definition.
+
+    Args:
+        agent: The agent definition data dict
+        tenant_id: Optional tenant ID for multi-tenant isolation
+    """
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        effective_tenant_id = tenant_id or agent.get('tenant_id')
+        agent_id = agent.get('id') or str(uuid.uuid4())
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO agent_definitions (
+                    id, name, description, mode, native, hidden, model,
+                    temperature, top_p, max_steps, system_prompt,
+                    worker_id, tenant_id, created_at, updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                ON CONFLICT (worker_id, name)
+                DO UPDATE SET
+                    description = EXCLUDED.description,
+                    mode = EXCLUDED.mode,
+                    hidden = EXCLUDED.hidden,
+                    model = EXCLUDED.model,
+                    temperature = EXCLUDED.temperature,
+                    top_p = EXCLUDED.top_p,
+                    max_steps = EXCLUDED.max_steps,
+                    system_prompt = EXCLUDED.system_prompt,
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, agent_definitions.tenant_id),
+                    updated_at = EXCLUDED.updated_at
+                """,
+                agent_id,
+                agent.get('name'),
+                agent.get('description'),
+                agent.get('mode', 'primary'),
+                agent.get('native', False),
+                agent.get('hidden', False),
+                agent.get('model'),
+                agent.get('temperature'),
+                agent.get('top_p'),
+                agent.get('max_steps'),
+                agent.get('system_prompt'),
+                agent.get('worker_id'),
+                effective_tenant_id,
+                _parse_timestamp(agent.get('created_at')) or datetime.utcnow(),
+                datetime.utcnow(),
+            )
+        return True
+    except Exception as e:
+        logger.error(f'Failed to upsert agent definition: {e}')
+        return False
+
+
+async def db_delete_agent_definition(agent_id: str) -> bool:
+    """Delete an agent definition by ID."""
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                'DELETE FROM agent_definitions WHERE id = $1', agent_id
+            )
+        return True
+    except Exception as e:
+        logger.error(f'Failed to delete agent definition: {e}')
+        return False
+
+
+async def db_delete_agent_definitions_by_worker(worker_id: str) -> bool:
+    """Delete all agent definitions for a worker (used when worker unregisters)."""
+    pool = await get_pool()
+    if not pool:
+        return False
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                'DELETE FROM agent_definitions WHERE worker_id = $1', worker_id
+            )
+        return True
+    except Exception as e:
+        logger.error(f'Failed to delete agent definitions for worker: {e}')
+        return False
+
+
+async def db_get_agent_definition(agent_id: str) -> Optional[Dict[str, Any]]:
+    """Get an agent definition by ID."""
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM agent_definitions WHERE id = $1', agent_id
+            )
+            if row:
+                return _row_to_agent_definition(row)
+            return None
+    except Exception as e:
+        logger.error(f'Failed to get agent definition: {e}')
+        return None
+
+
+async def db_get_agent_definition_by_name(
+    worker_id: str, name: str
+) -> Optional[Dict[str, Any]]:
+    """Get an agent definition by worker ID and name."""
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM agent_definitions WHERE worker_id = $1 AND name = $2',
+                worker_id,
+                name,
+            )
+            if row:
+                return _row_to_agent_definition(row)
+            return None
+    except Exception as e:
+        logger.error(f'Failed to get agent definition by name: {e}')
+        return None
+
+
+async def db_list_agent_definitions(
+    worker_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    include_hidden: bool = False,
+    include_native: bool = True,
+) -> List[Dict[str, Any]]:
+    """List agent definitions, optionally filtered by worker or tenant."""
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_idx = 1
+
+            if worker_id:
+                conditions.append(f'worker_id = ${param_idx}')
+                params.append(worker_id)
+                param_idx += 1
+
+            if tenant_id:
+                conditions.append(f'tenant_id = ${param_idx}')
+                params.append(tenant_id)
+                param_idx += 1
+
+            if not include_hidden:
+                conditions.append('hidden = FALSE')
+
+            if not include_native:
+                conditions.append('native = FALSE')
+
+            where_clause = (
+                'WHERE ' + ' AND '.join(conditions) if conditions else ''
+            )
+
+            rows = await conn.fetch(
+                f'SELECT * FROM agent_definitions {where_clause} ORDER BY name',
+                *params,
+            )
+            return [_row_to_agent_definition(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list agent definitions: {e}')
+        return []
+
+
+async def db_list_all_agent_definitions() -> List[Dict[str, Any]]:
+    """List all agent definitions across all workers (admin endpoint)."""
+    pool = await get_pool()
+    if not pool:
+        return []
+
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM agent_definitions WHERE hidden = FALSE ORDER BY worker_id, name"
+            )
+            return [_row_to_agent_definition(row) for row in rows]
+    except Exception as e:
+        logger.error(f'Failed to list all agent definitions: {e}')
+        return []
+
+
+def _row_to_agent_definition(row) -> Dict[str, Any]:
+    """Convert a database row to an agent definition dict."""
+    return {
+        'id': row['id'],
+        'name': row['name'],
+        'description': row['description'],
+        'mode': row['mode'],
+        'native': row['native'],
+        'hidden': row['hidden'],
+        'model': row['model'],
+        'temperature': float(row['temperature']) if row['temperature'] else None,
+        'top_p': float(row['top_p']) if row['top_p'] else None,
+        'max_steps': row['max_steps'],
+        'system_prompt': row['system_prompt'],
+        'worker_id': row['worker_id'],
+        'tenant_id': row['tenant_id'],
+        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+        'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
+    }
+
+
 def _row_to_worker(row) -> Dict[str, Any]:
     """Convert a database row to a worker dict."""
     return {
@@ -737,7 +1012,7 @@ def _row_to_worker(row) -> Dict[str, Any]:
         'models': json.loads(row['models'])
         if isinstance(row['models'], str)
         else row['models'],
-        'global_codebase_id': row['global_codebase_id'],
+        'global_workspace_id': row['global_workspace_id'],
         'registered_at': row['registered_at'].isoformat()
         if row['registered_at']
         else None,
@@ -747,17 +1022,17 @@ def _row_to_worker(row) -> Dict[str, Any]:
 
 
 # ========================================
-# Codebase Operations
+# Workspace Operations
 # ========================================
 
 
-async def db_upsert_codebase(
-    codebase: Dict[str, Any], tenant_id: Optional[str] = None
+async def db_upsert_workspace(
+    workspace: Dict[str, Any], tenant_id: Optional[str] = None
 ) -> bool:
-    """Insert or update a codebase in the database.
+    """Insert or update a workspace in the database.
 
     Args:
-        codebase: The codebase data dict
+        workspace: The workspace data dict
         tenant_id: Optional tenant ID for multi-tenant isolation
     """
     pool = await get_pool()
@@ -766,14 +1041,14 @@ async def db_upsert_codebase(
 
     try:
         # Handle both 'created_at' and 'registered_at' field names
-        created_at = codebase.get('created_at') or codebase.get('registered_at')
-        # Use provided tenant_id or fall back to codebase dict
-        effective_tenant_id = tenant_id or codebase.get('tenant_id')
+        created_at = workspace.get('created_at') or workspace.get('registered_at')
+        # Use provided tenant_id or fall back to workspace dict
+        effective_tenant_id = tenant_id or workspace.get('tenant_id')
 
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO codebases (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, opencode_port, tenant_id, git_url, git_branch)
+                INSERT INTO workspaces (id, name, path, description, worker_id, agent_config, created_at, updated_at, status, session_id, agent_port, tenant_id, git_url, git_branch)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 ON CONFLICT (id)
                 DO UPDATE SET
@@ -785,35 +1060,35 @@ async def db_upsert_codebase(
                     updated_at = NOW(),
                     status = EXCLUDED.status,
                     session_id = EXCLUDED.session_id,
-                    opencode_port = EXCLUDED.opencode_port,
-                    tenant_id = COALESCE(EXCLUDED.tenant_id, codebases.tenant_id),
-                    git_url = COALESCE(EXCLUDED.git_url, codebases.git_url),
-                    git_branch = COALESCE(EXCLUDED.git_branch, codebases.git_branch)
+                    agent_port = EXCLUDED.agent_port,
+                    tenant_id = COALESCE(EXCLUDED.tenant_id, workspaces.tenant_id),
+                    git_url = COALESCE(EXCLUDED.git_url, workspaces.git_url),
+                    git_branch = COALESCE(EXCLUDED.git_branch, workspaces.git_branch)
             """,
-                codebase.get('id'),
-                codebase.get('name'),
-                codebase.get('path'),
-                codebase.get('description', ''),
-                codebase.get('worker_id'),
-                json.dumps(codebase.get('agent_config', {})),
+                workspace.get('id'),
+                workspace.get('name'),
+                workspace.get('path'),
+                workspace.get('description', ''),
+                workspace.get('worker_id'),
+                json.dumps(workspace.get('agent_config', {})),
                 _parse_timestamp(created_at) or datetime.utcnow(),
-                _parse_timestamp(codebase.get('updated_at'))
+                _parse_timestamp(workspace.get('updated_at'))
                 or datetime.utcnow(),
-                codebase.get('status', 'active'),
-                codebase.get('session_id'),
-                codebase.get('opencode_port'),
+                workspace.get('status', 'active'),
+                workspace.get('session_id'),
+                workspace.get('agent_port'),
                 effective_tenant_id,
-                codebase.get('git_url'),
-                codebase.get('git_branch', 'main'),
+                workspace.get('git_url'),
+                workspace.get('git_branch', 'main'),
             )
         return True
     except Exception as e:
-        logger.error(f'Failed to upsert codebase: {e}')
+        logger.error(f'Failed to upsert workspace: {e}')
         return False
 
 
-async def db_delete_codebase(codebase_id: str) -> bool:
-    """Delete a codebase from the database."""
+async def db_delete_workspace(workspace_id: str) -> bool:
+    """Delete a workspace from the database."""
     pool = await get_pool()
     if not pool:
         return False
@@ -821,16 +1096,16 @@ async def db_delete_codebase(codebase_id: str) -> bool:
     try:
         async with pool.acquire() as conn:
             await conn.execute(
-                'DELETE FROM codebases WHERE id = $1', codebase_id
+                'DELETE FROM workspaces WHERE id = $1', workspace_id
             )
         return True
     except Exception as e:
-        logger.error(f'Failed to delete codebase: {e}')
+        logger.error(f'Failed to delete workspace: {e}')
         return False
 
 
-async def db_get_codebase(codebase_id: str) -> Optional[Dict[str, Any]]:
-    """Get a codebase by ID."""
+async def db_get_workspace(workspace_id: str) -> Optional[Dict[str, Any]]:
+    """Get a workspace by ID."""
     pool = await get_pool()
     if not pool:
         return None
@@ -838,29 +1113,29 @@ async def db_get_codebase(codebase_id: str) -> Optional[Dict[str, Any]]:
     try:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                'SELECT * FROM codebases WHERE id = $1', codebase_id
+                'SELECT * FROM workspaces WHERE id = $1', workspace_id
             )
             if row:
-                return _row_to_codebase(row)
+                return _row_to_workspace(row)
         return None
     except Exception as e:
-        logger.error(f'Failed to get codebase: {e}')
+        logger.error(f'Failed to get workspace: {e}')
         return None
 
 
-async def db_list_codebases(
+async def db_list_workspaces(
     worker_id: Optional[str] = None,
     status: Optional[str] = None,
     tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List all codebases, optionally filtered by worker, status, or tenant."""
+    """List all workspaces, optionally filtered by worker, status, or tenant."""
     pool = await get_pool()
     if not pool:
         return []
 
     try:
         async with pool.acquire() as conn:
-            query = 'SELECT * FROM codebases WHERE 1=1'
+            query = 'SELECT * FROM workspaces WHERE 1=1'
             params = []
             param_idx = 1
 
@@ -882,17 +1157,17 @@ async def db_list_codebases(
             query += ' ORDER BY updated_at DESC'
 
             rows = await conn.fetch(query, *params)
-            return [_row_to_codebase(row) for row in rows]
+            return [_row_to_workspace(row) for row in rows]
     except Exception as e:
-        logger.error(f'Failed to list codebases: {e}')
+        logger.error(f'Failed to list workspaces: {e}')
         return []
 
 
-async def db_list_codebases_by_path(path: str) -> List[Dict[str, Any]]:
-    """List all codebases matching a specific normalized path.
+async def db_list_workspaces_by_path(path: str) -> List[Dict[str, Any]]:
+    """List all workspaces matching a specific normalized path.
 
-    Returns codebases ordered by created_at ASC so the oldest (canonical) ID is first.
-    This ensures we consistently use the original codebase ID when there are duplicates.
+    Returns workspaces ordered by created_at ASC so the oldest (canonical) ID is first.
+    This ensures we consistently use the original workspace ID when there are duplicates.
     """
     pool = await get_pool()
     if not pool:
@@ -901,31 +1176,31 @@ async def db_list_codebases_by_path(path: str) -> List[Dict[str, Any]]:
     try:
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                'SELECT * FROM codebases WHERE path = $1 ORDER BY created_at ASC',
+                'SELECT * FROM workspaces WHERE path = $1 ORDER BY created_at ASC',
                 path,
             )
-            return [_row_to_codebase(row) for row in rows]
+            return [_row_to_workspace(row) for row in rows]
     except Exception as e:
-        logger.error(f'Failed to list codebases by path: {e}')
+        logger.error(f'Failed to list workspaces by path: {e}')
         return []
 
 
-async def db_get_canonical_codebase_id(path: str) -> Optional[str]:
-    """Get the canonical (oldest) codebase ID for a given path.
+async def db_get_canonical_workspace_id(path: str) -> Optional[str]:
+    """Get the canonical (oldest) workspace ID for a given path.
 
     This is the authoritative ID that should be used for task routing.
-    Returns None if no codebase exists for this path.
+    Returns None if no workspace exists for this path.
     """
-    codebases = await db_list_codebases_by_path(path)
-    if codebases:
-        return codebases[0].get('id')
+    workspaces = await db_list_workspaces_by_path(path)
+    if workspaces:
+        return workspaces[0].get('id')
     return None
 
 
-async def db_deduplicate_codebases(
+async def db_deduplicate_workspaces(
     path: str, keep_id: Optional[str] = None
 ) -> int:
-    """Remove duplicate codebase entries for a path, keeping only the canonical one.
+    """Remove duplicate workspace entries for a path, keeping only the canonical one.
 
     Args:
         path: The normalized path to deduplicate
@@ -940,9 +1215,9 @@ async def db_deduplicate_codebases(
 
     try:
         async with pool.acquire() as conn:
-            # Get all codebases for this path
+            # Get all workspaces for this path
             rows = await conn.fetch(
-                'SELECT id, created_at FROM codebases WHERE path = $1 ORDER BY created_at ASC',
+                'SELECT id, created_at FROM workspaces WHERE path = $1 ORDER BY created_at ASC',
                 path,
             )
 
@@ -964,23 +1239,23 @@ async def db_deduplicate_codebases(
                 return 0
 
             deleted = await conn.execute(
-                'DELETE FROM codebases WHERE id = ANY($1)',
+                'DELETE FROM workspaces WHERE id = ANY($1)',
                 ids_to_delete,
             )
 
             count = int(deleted.split()[-1]) if deleted else 0
             logger.info(
-                f'Deduplicated codebases for path {path}: kept {canonical_id}, '
+                f'Deduplicated workspaces for path {path}: kept {canonical_id}, '
                 f'removed {count} duplicates: {ids_to_delete}'
             )
             return count
     except Exception as e:
-        logger.error(f'Failed to deduplicate codebases for {path}: {e}')
+        logger.error(f'Failed to deduplicate workspaces for {path}: {e}')
         return 0
 
 
-async def db_deduplicate_all_codebases() -> Dict[str, int]:
-    """Deduplicate all codebase entries, keeping the oldest for each path.
+async def db_deduplicate_all_workspaces() -> Dict[str, int]:
+    """Deduplicate all workspace entries, keeping the oldest for each path.
 
     Returns:
         Dict mapping path to number of duplicates removed.
@@ -995,27 +1270,27 @@ async def db_deduplicate_all_codebases() -> Dict[str, int]:
             # Find all paths with duplicates
             rows = await conn.fetch("""
                 SELECT path, COUNT(*) as count
-                FROM codebases
+                FROM workspaces
                 GROUP BY path
                 HAVING COUNT(*) > 1
             """)
 
             for row in rows:
                 path = row['path']
-                removed = await db_deduplicate_codebases(path)
+                removed = await db_deduplicate_workspaces(path)
                 if removed > 0:
                     results[path] = removed
 
         if results:
-            logger.info(f'Deduplicated codebases: {results}')
+            logger.info(f'Deduplicated workspaces: {results}')
         return results
     except Exception as e:
-        logger.error(f'Failed to deduplicate all codebases: {e}')
+        logger.error(f'Failed to deduplicate all workspaces: {e}')
         return results
 
 
-def _row_to_codebase(row) -> Dict[str, Any]:
-    """Convert a database row to a codebase dict."""
+def _row_to_workspace(row) -> Dict[str, Any]:
+    """Convert a database row to a workspace dict."""
     agent_config = row['agent_config']
     if isinstance(agent_config, str):
         agent_config = json.loads(agent_config)
@@ -1037,12 +1312,31 @@ def _row_to_codebase(row) -> Dict[str, Any]:
         else None,
         'status': row['status'],
         'session_id': row['session_id'],
-        'opencode_port': row['opencode_port'],
+        'agent_port': row['agent_port'],
         'minio_path': row.get('minio_path'),
         'last_sync_at': row['last_sync_at'].isoformat()
         if row.get('last_sync_at')
         else None,
     }
+
+
+# ========================================
+# Backward Compatibility Aliases
+# ========================================
+# These aliases allow legacy code to continue using 'codebase' function names.
+# They delegate to the equivalent 'workspace' functions.
+
+# Alias for db_upsert_workspace
+db_upsert_codebase = db_upsert_workspace
+
+# Alias for db_delete_workspace
+db_delete_codebase = db_delete_workspace
+
+# Alias for db_get_workspace
+db_get_codebase = db_get_workspace
+
+# Alias for db_list_workspaces
+db_list_codebases = db_list_workspaces
 
 
 # ========================================
@@ -1066,25 +1360,12 @@ async def db_upsert_task(
     try:
         # Use provided tenant_id or fall back to task dict
         effective_tenant_id = tenant_id or task.get('tenant_id')
+        workspace_id = task.get('workspace_id') or task.get('codebase_id')
 
         async with pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO tasks (id, codebase_id, title, prompt, agent_type, status, priority, worker_id, result, error, metadata, created_at, updated_at, started_at, completed_at, tenant_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-                ON CONFLICT (id)
-                DO UPDATE SET
-                    status = EXCLUDED.status,
-                    worker_id = EXCLUDED.worker_id,
-                    result = EXCLUDED.result,
-                    error = EXCLUDED.error,
-                    updated_at = NOW(),
-                    started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
-                    completed_at = EXCLUDED.completed_at,
-                    tenant_id = COALESCE(EXCLUDED.tenant_id, tasks.tenant_id)
-            """,
+            params = (
                 task.get('id'),
-                task.get('codebase_id'),
+                workspace_id,
                 task.get('title'),
                 task.get('prompt'),
                 task.get('agent_type', 'build'),
@@ -1100,6 +1381,49 @@ async def db_upsert_task(
                 _parse_timestamp(task.get('completed_at')),
                 effective_tenant_id,
             )
+            try:
+                await conn.execute(
+                    """
+                    INSERT INTO tasks (id, workspace_id, title, prompt, agent_type, status, priority, worker_id, result, error, metadata, created_at, updated_at, started_at, completed_at, tenant_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                    ON CONFLICT (id)
+                    DO UPDATE SET
+                        status = EXCLUDED.status,
+                        worker_id = EXCLUDED.worker_id,
+                        result = EXCLUDED.result,
+                        error = EXCLUDED.error,
+                        updated_at = NOW(),
+                        started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
+                        completed_at = EXCLUDED.completed_at,
+                        tenant_id = COALESCE(EXCLUDED.tenant_id, tasks.tenant_id)
+                """,
+                    *params,
+                )
+            except Exception as e:
+                # Backward compatibility: some DBs still use codebase_id.
+                if (
+                    'workspace_id' in str(e).lower()
+                    and 'column' in str(e).lower()
+                ):
+                    await conn.execute(
+                        """
+                        INSERT INTO tasks (id, codebase_id, title, prompt, agent_type, status, priority, worker_id, result, error, metadata, created_at, updated_at, started_at, completed_at, tenant_id)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                        ON CONFLICT (id)
+                        DO UPDATE SET
+                            status = EXCLUDED.status,
+                            worker_id = EXCLUDED.worker_id,
+                            result = EXCLUDED.result,
+                            error = EXCLUDED.error,
+                            updated_at = NOW(),
+                            started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
+                            completed_at = EXCLUDED.completed_at,
+                            tenant_id = COALESCE(EXCLUDED.tenant_id, tasks.tenant_id)
+                    """,
+                        *params,
+                    )
+                else:
+                    raise
         return True
     except Exception as e:
         logger.error(f'Failed to upsert task: {e}')
@@ -1126,6 +1450,7 @@ async def db_get_task(task_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def db_list_tasks(
+    workspace_id: Optional[str] = None,
     codebase_id: Optional[str] = None,
     status: Optional[str] = None,
     worker_id: Optional[str] = None,
@@ -1138,37 +1463,57 @@ async def db_list_tasks(
         return []
 
     try:
+        # Backward compatibility for legacy callers.
+        if not workspace_id and codebase_id:
+            workspace_id = codebase_id
+
         async with pool.acquire() as conn:
-            query = 'SELECT * FROM tasks WHERE 1=1'
-            params = []
-            param_idx = 1
+            def _build_query(workspace_column: str):
+                query = 'SELECT * FROM tasks WHERE 1=1'
+                params = []
+                param_idx = 1
 
-            if codebase_id:
-                query += f' AND codebase_id = ${param_idx}'
-                params.append(codebase_id)
-                param_idx += 1
+                if workspace_id:
+                    query += f' AND {workspace_column} = ${param_idx}'
+                    params.append(workspace_id)
+                    param_idx += 1
 
-            if status:
-                query += f' AND status = ${param_idx}'
-                params.append(status)
-                param_idx += 1
+                if status:
+                    query += f' AND status = ${param_idx}'
+                    params.append(status)
+                    param_idx += 1
 
-            if worker_id:
-                query += f' AND worker_id = ${param_idx}'
-                params.append(worker_id)
-                param_idx += 1
+                if worker_id:
+                    query += f' AND worker_id = ${param_idx}'
+                    params.append(worker_id)
+                    param_idx += 1
 
-            if tenant_id:
-                query += f' AND tenant_id = ${param_idx}'
-                params.append(tenant_id)
-                param_idx += 1
+                if tenant_id:
+                    query += f' AND tenant_id = ${param_idx}'
+                    params.append(tenant_id)
+                    param_idx += 1
 
-            query += (
-                f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
-            )
-            params.append(limit)
+                query += (
+                    f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
+                )
+                params.append(limit)
+                return query, params
 
-            rows = await conn.fetch(query, *params)
+            try:
+                query, params = _build_query('workspace_id')
+                rows = await conn.fetch(query, *params)
+            except Exception as e:
+                # Backward compatibility: some DBs still use codebase_id.
+                if (
+                    workspace_id
+                    and 'workspace_id' in str(e).lower()
+                    and 'column' in str(e).lower()
+                ):
+                    query, params = _build_query('codebase_id')
+                    rows = await conn.fetch(query, *params)
+                else:
+                    raise
+
             return [_row_to_task(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list tasks: {e}')
@@ -1176,7 +1521,7 @@ async def db_list_tasks(
 
 
 async def db_get_next_pending_task(
-    codebase_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Get the next pending task (highest priority, oldest first)."""
     pool = await get_pool()
@@ -1185,15 +1530,15 @@ async def db_get_next_pending_task(
 
     try:
         async with pool.acquire() as conn:
-            if codebase_id:
+            if workspace_id:
                 row = await conn.fetchrow(
                     """
                     SELECT * FROM tasks
-                    WHERE status = 'pending' AND codebase_id = $1
+                    WHERE status = 'pending' AND workspace_id = $1
                     ORDER BY priority DESC, created_at ASC
                     LIMIT 1
                 """,
-                    codebase_id,
+                    workspace_id,
                 )
             else:
                 row = await conn.fetchrow("""
@@ -1292,9 +1637,13 @@ def _row_to_task(row) -> Dict[str, Any]:
     elif metadata is None:
         metadata = {}
 
+    workspace_id = row.get('workspace_id') or row.get('codebase_id')
+
     return {
         'id': row['id'],
-        'codebase_id': row['codebase_id'],
+        'workspace_id': workspace_id,
+        # Keep a legacy alias for old API clients.
+        'codebase_id': workspace_id,
         'title': row['title'],
         'prompt': row['prompt'],
         'agent_type': row['agent_type'],
@@ -1344,7 +1693,7 @@ async def db_upsert_session(
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO sessions (id, codebase_id, project_id, directory, title, version, summary, created_at, updated_at, tenant_id)
+                INSERT INTO sessions (id, workspace_id, project_id, directory, title, version, summary, created_at, updated_at, tenant_id)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 ON CONFLICT (id)
                 DO UPDATE SET
@@ -1355,7 +1704,7 @@ async def db_upsert_session(
                     tenant_id = COALESCE(EXCLUDED.tenant_id, sessions.tenant_id)
             """,
                 session.get('id'),
-                session.get('codebase_id'),
+                session.get('workspace_id'),
                 session.get('project_id'),
                 session.get('directory'),
                 session.get('title'),
@@ -1374,11 +1723,11 @@ async def db_upsert_session(
 
 
 async def db_list_sessions(
-    codebase_id: str,
+    workspace_id: str,
     limit: int = 50,
     tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List sessions for a codebase, optionally filtered by tenant."""
+    """List sessions for a workspace, optionally filtered by tenant."""
     pool = await get_pool()
     if not pool:
         return []
@@ -1389,11 +1738,11 @@ async def db_list_sessions(
                 rows = await conn.fetch(
                     """
                     SELECT * FROM sessions
-                    WHERE codebase_id = $1 AND tenant_id = $3
+                    WHERE workspace_id = $1 AND tenant_id = $3
                     ORDER BY updated_at DESC
                     LIMIT $2
                 """,
-                    codebase_id,
+                    workspace_id,
                     limit,
                     tenant_id,
                 )
@@ -1401,11 +1750,11 @@ async def db_list_sessions(
                 rows = await conn.fetch(
                     """
                     SELECT * FROM sessions
-                    WHERE codebase_id = $1
+                    WHERE workspace_id = $1
                     ORDER BY updated_at DESC
                     LIMIT $2
                 """,
-                    codebase_id,
+                    workspace_id,
                     limit,
                 )
             return [_row_to_session(row) for row in rows]
@@ -1419,7 +1768,7 @@ async def db_list_all_sessions(
     offset: int = 0,
     tenant_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List all sessions across all codebases, optionally filtered by tenant."""
+    """List all sessions across all workspaces, optionally filtered by tenant."""
     pool = await get_pool()
     if not pool:
         return []
@@ -1429,9 +1778,9 @@ async def db_list_all_sessions(
             if tenant_id:
                 rows = await conn.fetch(
                     """
-                    SELECT s.*, c.name as codebase_name, c.path as codebase_path
+                    SELECT s.*, c.name as workspace_name, c.path as workspace_path
                     FROM sessions s
-                    LEFT JOIN codebases c ON s.codebase_id = c.id
+                    LEFT JOIN workspaces c ON s.workspace_id = c.id
                     WHERE s.tenant_id = $3
                     ORDER BY s.updated_at DESC
                     LIMIT $1 OFFSET $2
@@ -1443,9 +1792,9 @@ async def db_list_all_sessions(
             else:
                 rows = await conn.fetch(
                     """
-                    SELECT s.*, c.name as codebase_name, c.path as codebase_path
+                    SELECT s.*, c.name as workspace_name, c.path as workspace_path
                     FROM sessions s
-                    LEFT JOIN codebases c ON s.codebase_id = c.id
+                    LEFT JOIN workspaces c ON s.workspace_id = c.id
                     ORDER BY s.updated_at DESC
                     LIMIT $1 OFFSET $2
                 """,
@@ -1455,8 +1804,8 @@ async def db_list_all_sessions(
             sessions = []
             for row in rows:
                 session = _row_to_session(row)
-                session['codebase_name'] = row.get('codebase_name')
-                session['codebase_path'] = row.get('codebase_path')
+                session['workspace_name'] = row.get('workspace_name')
+                session['workspace_path'] = row.get('workspace_path')
                 sessions.append(session)
             return sessions
     except Exception as e:
@@ -1493,7 +1842,7 @@ def _row_to_session(row) -> Dict[str, Any]:
 
     return {
         'id': row['id'],
-        'codebase_id': row['codebase_id'],
+        'workspace_id': row.get('workspace_id') or row.get('codebase_id'),
         'project_id': row['project_id'],
         'directory': row['directory'],
         'title': row['title'],
@@ -1525,7 +1874,7 @@ async def db_update_session_worker_status(
         worker_status: Worker status (pending, creating, ready, running,
                        scaled_to_zero, failed, terminated)
         knative_service_name: Optional Knative Service name
-                              (e.g., "opencode-session-ses123")
+                              (e.g., "agent-session-ses123")
 
     Returns:
         True if updated successfully
@@ -1596,14 +1945,14 @@ async def db_update_session_activity(session_id: str) -> bool:
         return False
 
 
-async def db_update_codebase_minio_path(
-    codebase_id: str, minio_path: str
+async def db_update_workspace_minio_path(
+    workspace_id: str, minio_path: str
 ) -> bool:
-    """Update codebase's MinIO path.
+    """Update workspace's MinIO path.
 
     Args:
-        codebase_id: The codebase ID to update
-        minio_path: Path in MinIO bucket (e.g., "codebases/cb123.tar.gz")
+        workspace_id: The workspace ID to update
+        minio_path: Path in MinIO bucket (e.g., "workspaces/cb123.tar.gz")
 
     Returns:
         True if updated successfully
@@ -1616,25 +1965,25 @@ async def db_update_codebase_minio_path(
         async with pool.acquire() as conn:
             result = await conn.execute(
                 """
-                UPDATE codebases
+                UPDATE workspaces
                 SET minio_path = $2,
                     updated_at = NOW()
                 WHERE id = $1
                 """,
-                codebase_id,
+                workspace_id,
                 minio_path,
             )
             return 'UPDATE 1' in result
     except Exception as e:
-        logger.error(f'Failed to update codebase MinIO path: {e}')
+        logger.error(f'Failed to update workspace MinIO path: {e}')
         return False
 
 
-async def db_update_codebase_sync_time(codebase_id: str) -> bool:
-    """Update codebase's last_sync_at timestamp to now.
+async def db_update_workspace_sync_time(workspace_id: str) -> bool:
+    """Update workspace's last_sync_at timestamp to now.
 
     Args:
-        codebase_id: The codebase ID to update
+        workspace_id: The workspace ID to update
 
     Returns:
         True if updated successfully
@@ -1647,16 +1996,16 @@ async def db_update_codebase_sync_time(codebase_id: str) -> bool:
         async with pool.acquire() as conn:
             result = await conn.execute(
                 """
-                UPDATE codebases
+                UPDATE workspaces
                 SET last_sync_at = NOW(),
                     updated_at = NOW()
                 WHERE id = $1
                 """,
-                codebase_id,
+                workspace_id,
             )
             return 'UPDATE 1' in result
     except Exception as e:
-        logger.error(f'Failed to update codebase sync time: {e}')
+        logger.error(f'Failed to update workspace sync time: {e}')
         return False
 
 
@@ -1777,8 +2126,8 @@ async def db_health_check() -> Dict[str, Any]:
 
             # Get counts
             worker_count = await conn.fetchval('SELECT COUNT(*) FROM workers')
-            codebase_count = await conn.fetchval(
-                'SELECT COUNT(*) FROM codebases'
+            workspace_count = await conn.fetchval(
+                'SELECT COUNT(*) FROM workspaces'
             )
             task_count = await conn.fetchval('SELECT COUNT(*) FROM tasks')
             session_count = await conn.fetchval('SELECT COUNT(*) FROM sessions')
@@ -1788,7 +2137,7 @@ async def db_health_check() -> Dict[str, Any]:
                 'message': 'PostgreSQL connected',
                 'stats': {
                     'workers': worker_count,
-                    'codebases': codebase_count,
+                    'workspaces': workspace_count,
                     'tasks': task_count,
                     'sessions': session_count,
                 },
@@ -2517,9 +2866,10 @@ async def db_enable_rls() -> Dict[str, Any]:
 
     This enables Row-Level Security on all tenant-scoped tables:
     - workers
-    - codebases
+    - workspaces
     - tasks
     - sessions
+    - rbac_user_roles
 
     Returns:
         Dict with migration result
@@ -2613,7 +2963,7 @@ async def get_rls_status() -> Dict[str, Any]:
                     forcerowsecurity as rls_forced
                 FROM pg_tables
                 WHERE schemaname = 'public'
-                AND tablename IN ('workers', 'codebases', 'tasks', 'sessions')
+                AND tablename IN ('workers', 'workspaces', 'tasks', 'sessions', 'rbac_user_roles')
             """)
 
             tables = {}
@@ -2632,7 +2982,7 @@ async def get_rls_status() -> Dict[str, Any]:
                 SELECT tablename, policyname
                 FROM pg_policies
                 WHERE schemaname = 'public'
-                AND tablename IN ('workers', 'codebases', 'tasks', 'sessions')
+                AND tablename IN ('workers', 'workspaces', 'tasks', 'sessions', 'rbac_user_roles')
             """)
 
             policy_count: Dict[str, int] = {}
@@ -2646,7 +2996,7 @@ async def get_rls_status() -> Dict[str, Any]:
                 tables[table]['policy_count'] = policy_count.get(table, 0)
 
             return {
-                'enabled': all_enabled and len(tables) == 4,
+                'enabled': all_enabled and len(tables) == 5,
                 'database_available': True,
                 'rls_env_enabled': RLS_ENABLED,
                 'strict_mode': RLS_STRICT_MODE,
@@ -2693,7 +3043,7 @@ async def db_log_inbound_email(
     body_text: str,
     body_html: Optional[str] = None,
     session_id: Optional[str] = None,
-    codebase_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
     task_id: Optional[str] = None,
     sender_ip: Optional[str] = None,
     spf_result: Optional[str] = None,
@@ -2712,7 +3062,7 @@ async def db_log_inbound_email(
         body_text: Plain text body
         body_html: HTML body (optional)
         session_id: Parsed session ID from reply-to address
-        codebase_id: Parsed codebase ID from reply-to address
+        workspace_id: Parsed workspace ID from reply-to address
         task_id: ID of continuation task created (if any)
         sender_ip: IP address of sender (from SendGrid)
         spf_result: SPF validation result
@@ -2736,7 +3086,7 @@ async def db_log_inbound_email(
                 """
                 INSERT INTO inbound_emails (
                     id, from_email, to_email, subject, body_text, body_html,
-                    session_id, codebase_id, task_id, sender_ip, spf_result,
+                    session_id, workspace_id, task_id, sender_ip, spf_result,
                     status, error, metadata, received_at, processed_at, tenant_id
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), $15, $16)
                 """,
@@ -2747,7 +3097,7 @@ async def db_log_inbound_email(
                 body_text,
                 body_html,
                 session_id,
-                codebase_id,
+                workspace_id,
                 task_id,
                 sender_ip,
                 spf_result,
@@ -2832,7 +3182,7 @@ async def db_log_outbound_email(
     reply_to: Optional[str] = None,
     task_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    codebase_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
     worker_id: Optional[str] = None,
     status: str = 'queued',
     sendgrid_message_id: Optional[str] = None,
@@ -2852,7 +3202,7 @@ async def db_log_outbound_email(
         reply_to: Reply-to address for threading
         task_id: Related task ID
         session_id: Related session ID
-        codebase_id: Related codebase ID
+        workspace_id: Related workspace ID
         worker_id: Worker that sent the email
         status: Email status (queued, sent, failed)
         sendgrid_message_id: SendGrid message ID if sent
@@ -2875,7 +3225,7 @@ async def db_log_outbound_email(
                 """
                 INSERT INTO outbound_emails (
                     id, to_email, from_email, reply_to, subject, body_html, body_text,
-                    task_id, session_id, codebase_id, worker_id, status,
+                    task_id, session_id, workspace_id, worker_id, status,
                     sendgrid_message_id, error, metadata, created_at, sent_at, tenant_id
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), $16, $17)
                 """,
@@ -2888,7 +3238,7 @@ async def db_log_outbound_email(
                 body_text,
                 task_id,
                 session_id,
-                codebase_id,
+                workspace_id,
                 worker_id,
                 status,
                 sendgrid_message_id,
@@ -3102,7 +3452,7 @@ async def db_list_outbound_emails(
 
 
 async def db_upsert_prd_chat_session(
-    codebase_id: str,
+    workspace_id: str,
     session_id: str,
     title: Optional[str] = None,
 ) -> bool:
@@ -3115,12 +3465,12 @@ async def db_upsert_prd_chat_session(
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO prd_chat_sessions (codebase_id, session_id, title, updated_at)
+                INSERT INTO prd_chat_sessions (workspace_id, session_id, title, updated_at)
                 VALUES ($1, $2, $3, NOW())
-                ON CONFLICT (codebase_id, session_id)
+                ON CONFLICT (workspace_id, session_id)
                 DO UPDATE SET updated_at = NOW(), title = COALESCE($3, prd_chat_sessions.title)
                 """,
-                codebase_id,
+                workspace_id,
                 session_id,
                 title,
             )
@@ -3131,9 +3481,9 @@ async def db_upsert_prd_chat_session(
 
 
 async def db_list_prd_chat_sessions(
-    codebase_id: str, limit: int = 50
+    workspace_id: str, limit: int = 50
 ) -> List[Dict[str, Any]]:
-    """List PRD chat sessions for a codebase."""
+    """List PRD chat sessions for a workspace."""
     pool = await get_pool()
     if not pool:
         return []
@@ -3142,14 +3492,14 @@ async def db_list_prd_chat_sessions(
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT p.id, p.codebase_id, p.session_id, p.title, p.created_at, p.updated_at,
+                SELECT p.id, p.workspace_id, p.session_id, p.title, p.created_at, p.updated_at,
                        (SELECT COUNT(*) FROM session_messages WHERE session_id = p.session_id) as message_count
                 FROM prd_chat_sessions p
-                WHERE p.codebase_id = $1
+                WHERE p.workspace_id = $1
                 ORDER BY p.updated_at DESC
                 LIMIT $2
                 """,
-                codebase_id,
+                workspace_id,
                 limit,
             )
             return [dict(row) for row in rows]
@@ -3166,7 +3516,7 @@ async def db_list_prd_chat_sessions(
 async def db_create_ralph_run(
     run_id: str,
     prd: Dict[str, Any],
-    codebase_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
     model: Optional[str] = None,
     max_iterations: int = 10,
     run_mode: str = 'sequential',
@@ -3179,7 +3529,7 @@ async def db_create_ralph_run(
     Args:
         run_id: Unique run identifier
         prd: PRD document as dict
-        codebase_id: Target codebase ID
+        workspace_id: Target workspace ID
         model: AI model to use
         max_iterations: Maximum iterations per story
         run_mode: 'sequential' or 'parallel'
@@ -3198,14 +3548,14 @@ async def db_create_ralph_run(
             row = await conn.fetchrow(
                 """
                 INSERT INTO ralph_runs (
-                    id, prd, codebase_id, model, status,
+                    id, prd, workspace_id, model, status,
                     max_iterations, run_mode, max_parallel, tenant_id
                 ) VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8)
                 RETURNING *
                 """,
                 run_id,
                 json.dumps(prd),
-                codebase_id,
+                workspace_id,
                 model,
                 max_iterations,
                 run_mode,
@@ -3401,7 +3751,7 @@ async def db_update_ralph_run(
 
 async def db_list_ralph_runs(
     status: Optional[str] = None,
-    codebase_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
@@ -3411,7 +3761,7 @@ async def db_list_ralph_runs(
 
     Args:
         status: Filter by status
-        codebase_id: Filter by codebase
+        workspace_id: Filter by workspace
         tenant_id: Filter by tenant
         limit: Maximum number of results
         offset: Offset for pagination
@@ -3433,9 +3783,9 @@ async def db_list_ralph_runs(
             params.append(status)
             param_idx += 1
 
-        if codebase_id:
-            conditions.append(f'codebase_id = ${param_idx}')
-            params.append(codebase_id)
+        if workspace_id:
+            conditions.append(f'workspace_id = ${param_idx}')
+            params.append(workspace_id)
             param_idx += 1
 
         if tenant_id:
