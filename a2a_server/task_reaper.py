@@ -167,16 +167,25 @@ class TaskReaper:
                 )
 
                 try:
+                    # Treat a task as "stuck" only when it's been running longer than the
+                    # timeout *and* the assigned worker is no longer heartbeating.
+                    # This avoids requeuing legitimate long-running jobs.
                     stuck_tasks = await conn.fetch(
                         """
-                        SELECT id, workspace_id, title, prompt, agent_type,
-                               status, priority, worker_id, started_at,
-                               COALESCE((metadata->>'attempts')::int, 1) as attempts,
-                               metadata
-                        FROM tasks
-                        WHERE status = 'running'
-                          AND started_at < $1
-                        ORDER BY started_at ASC
+                        SELECT t.id, t.workspace_id, t.title, t.prompt, t.agent_type,
+                               t.status, t.priority, t.worker_id, t.started_at,
+                               COALESCE((t.metadata->>'attempts')::int, 0) as attempts,
+                               t.metadata
+                        FROM tasks t
+                        LEFT JOIN workers w ON t.worker_id = w.worker_id
+                        WHERE t.status = 'running'
+                          AND t.started_at < $1
+                          AND (
+                            t.worker_id IS NULL
+                            OR w.worker_id IS NULL
+                            OR w.last_seen < $1
+                          )
+                        ORDER BY t.started_at ASC
                         """,
                         cutoff,
                     )
@@ -188,14 +197,20 @@ class TaskReaper:
                     ):
                         stuck_tasks = await conn.fetch(
                             """
-                            SELECT id, codebase_id AS workspace_id, title, prompt, agent_type,
-                                   status, priority, worker_id, started_at,
-                                   COALESCE((metadata->>'attempts')::int, 1) as attempts,
-                                   metadata
-                            FROM tasks
-                            WHERE status = 'running'
-                              AND started_at < $1
-                            ORDER BY started_at ASC
+                            SELECT t.id, t.codebase_id AS workspace_id, t.title, t.prompt, t.agent_type,
+                                   t.status, t.priority, t.worker_id, t.started_at,
+                                   COALESCE((t.metadata->>'attempts')::int, 0) as attempts,
+                                   t.metadata
+                            FROM tasks t
+                            LEFT JOIN workers w ON t.worker_id = w.worker_id
+                            WHERE t.status = 'running'
+                              AND t.started_at < $1
+                              AND (
+                                t.worker_id IS NULL
+                                OR w.worker_id IS NULL
+                                OR w.last_seen < $1
+                              )
+                            ORDER BY t.started_at ASC
                             """,
                             cutoff,
                         )
