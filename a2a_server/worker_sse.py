@@ -123,13 +123,23 @@ class WorkerRegistry:
             return worker
 
     async def update_heartbeat(self, worker_id: str) -> bool:
-        """Update the last heartbeat time for a worker."""
+        """Update the last heartbeat time for a worker (in-memory and DB)."""
         async with self._lock:
             worker = self._workers.get(worker_id)
             if worker:
                 worker.last_heartbeat = datetime.now(timezone.utc)
+                # Persist to DB so task_reaper sees an active worker
+                asyncio.create_task(self._persist_heartbeat(worker_id))
                 return True
             return False
+
+    async def _persist_heartbeat(self, worker_id: str) -> None:
+        """Fire-and-forget DB write to keep workers.last_seen current."""
+        try:
+            from . import database as db
+            await db.db_update_worker_heartbeat(worker_id)
+        except Exception as e:
+            logger.debug(f'Failed to persist heartbeat for {worker_id}: {e}')
 
     async def update_worker_codebases(
         self, worker_id: str, codebases: Set[str]
@@ -156,6 +166,17 @@ class WorkerRegistry:
         if bridge:
             task = await bridge.get_task(task_id)
             if task:
+                task_metadata = task.metadata or {}
+                target_worker_id = str(
+                    task_metadata.get('target_worker_id') or ''
+                ).strip()
+                if target_worker_id and target_worker_id != worker_id:
+                    logger.debug(
+                        f'Worker {worker_id} skipped task {task_id} '
+                        f'(target_worker_id={target_worker_id})'
+                    )
+                    return False
+
                 codebase_id = task.codebase_id
                 # Check if this is a restricted codebase (not global/__pending__)
                 if codebase_id and codebase_id not in ('global', '__pending__'):
@@ -840,7 +861,21 @@ async def worker_task_stream(
 
     codebases = set()
     if x_codebases:
-        codebases = {c.strip() for c in x_codebases.split(',') if c.strip()}
+        raw_codebases = {c.strip() for c in x_codebases.split(',') if c.strip()}
+        codebases = set(raw_codebases)
+        # Resolve any filesystem paths to codebase UUIDs so task routing
+        # (which uses UUIDs) works correctly.
+        path_entries = {c for c in raw_codebases if c.startswith('/')}
+        if path_entries:
+            try:
+                from . import database as _db
+                for path in path_entries:
+                    matches = await _db.db_list_workspaces_by_path(path)
+                    for ws in matches:
+                        if ws.get('id'):
+                            codebases.add(ws['id'])
+            except Exception as _e:
+                logger.debug(f'SSE path→UUID resolution failed: {_e}')
 
     registry = get_worker_registry()
 
@@ -1331,7 +1366,10 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
     registry = get_worker_registry()
     codebase_id = task.get('codebase_id')
     target_agent_name = task.get('target_agent_name')
+    target_worker_id = task.get('target_worker_id')
     required_capabilities = task.get('required_capabilities')
+    if not target_worker_id and isinstance(task.get('metadata'), dict):
+        target_worker_id = task['metadata'].get('target_worker_id')
 
     # Parse required_capabilities if it's a JSON string
     if isinstance(required_capabilities, str):
@@ -1346,6 +1384,7 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
         task,
         codebase_id=codebase_id,
         target_agent_name=target_agent_name,
+        target_worker_id=target_worker_id,
         required_capabilities=required_capabilities,
     )
 
