@@ -522,7 +522,8 @@ class DispatchTaskRequest(BaseModel):
         max_length=50000,
     )
     agent_type: str = Field(
-        default='build', description='Type of agent to use (build, plan, general, explore)'
+        default='build',
+        description='Type of agent to use (build, plan, general, explore, forage)',
     )
     model: Optional[str] = Field(default=None, description='Model to use for execution')
     priority: int = Field(default=0, ge=0, le=100, description='Priority (higher = more urgent)')

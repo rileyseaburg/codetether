@@ -328,7 +328,7 @@ class MCPHTTPServer:
                         },
                         'agent_type': {
                             'type': 'string',
-                            'enum': ['build', 'plan', 'general', 'explore'],
+                            'enum': ['build', 'plan', 'general', 'explore', 'forage'],
                             'description': 'Agent type (default: build)',
                         },
                         'model': {
