@@ -6388,6 +6388,12 @@ async def list_agent_definitions(
             ('plan', 'Read-only agent for analysis and code exploration', 'primary', 50),
             ('coder', 'Code writing focused agent', 'primary', 100),
             ('explore', 'Fast agent for workspace search and exploration', 'subagent', 20),
+            (
+                'forage',
+                'OKR-governed autonomous opportunity scanner/executor',
+                'primary',
+                200,
+            ),
             ('swarm', 'Parallel sub-agents for complex tasks', 'primary', 200),
         ]
     ]
