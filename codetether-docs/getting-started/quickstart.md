@@ -148,13 +148,13 @@ for chunk in client.send_task_streaming("Generate a report"):
     print(chunk, end="", flush=True)
 ```
 
-## Using with OpenCode
+## Using with CodeTether
 
-If you have built [OpenCode from the local fork](../features/opencode.md) (included in the `opencode/` directory), you can register codebases:
+If you have built [CodeTether from the local fork](../features/agent.md) (included in the `agent/` directory), you can register codebases:
 
 ```bash
 # Register a codebase
-curl -X POST http://localhost:8000/v1/opencode/codebases \
+curl -X POST http://localhost:8000/v1/agent/codebases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-project",
@@ -163,7 +163,7 @@ curl -X POST http://localhost:8000/v1/opencode/codebases \
   }'
 
 # Trigger an agent task
-curl -X POST http://localhost:8000/v1/opencode/codebases/{codebase_id}/trigger \
+curl -X POST http://localhost:8000/v1/agent/codebases/{codebase_id}/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Add unit tests for the authentication module",
@@ -220,11 +220,11 @@ This makes CodeTether compatible with any A2A-compliant client or agent.
 
     [:octicons-arrow-right-24: Configuration](configuration.md)
 
--   :material-code-braces:{ .lg .middle } __OpenCode Integration__
+-   :material-code-braces:{ .lg .middle } __CodeTether Integration__
 
     Bridge AI coding agents to your codebase
 
-    [:octicons-arrow-right-24: OpenCode](../features/opencode.md)
+    [:octicons-arrow-right-24: CodeTether](../features/agent.md)
 
 -   :material-kubernetes:{ .lg .middle } __Deploy to Production__
 

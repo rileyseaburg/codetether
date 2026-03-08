@@ -35,21 +35,21 @@ def _get_version() -> str:
 def _print_about() -> None:
     v = _get_version()
     print(f'CodeTether {v}')
-    print('\nOpenCode integration')
+    print('\nCodeTether integration')
     print(
-        "- CodeTether integrates with an 'opencode'-compatible CLI for AI coding agents."
+        "- CodeTether integrates with an 'agent'-compatible CLI for AI coding agents."
     )
     print(
-        "- This project maintains and tests against a fork of OpenCode (see the repo's 'opencode/' directory)."
+        "- This project maintains and tests against a fork of CodeTether (see the repo's 'agent/' directory)."
     )
     print(
-        "- You can also point CodeTether at another compatible 'opencode' binary via configuration."
+        "- You can also point CodeTether at another compatible 'agent' binary via configuration."
     )
     print('\nUpstream credit')
     print(
-        '- OpenCode: https://opencode.ai (by its upstream authors and contributors)'
+        '- CodeTether: https://agent.ai (by its upstream authors and contributors)'
     )
-    print('- CodeTether is not affiliated with the upstream OpenCode project.')
+    print('- CodeTether is not affiliated with the upstream CodeTether project.')
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:

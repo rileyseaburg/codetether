@@ -4,7 +4,7 @@ const features = [
     {
         name: 'RLM: Infinite Context',
         description:
-            'Based on MIT/Harvard research. Process your entire codebase, all your content, every spreadsheet—no token limits. AI that finally reads everything.',
+            'Based on MIT/Harvard research. Process your entire workspace context, all your content, every spreadsheet, and connected tools with no token limits.',
         icon: RLMIcon,
     },
     {

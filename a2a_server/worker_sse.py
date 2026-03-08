@@ -123,13 +123,23 @@ class WorkerRegistry:
             return worker
 
     async def update_heartbeat(self, worker_id: str) -> bool:
-        """Update the last heartbeat time for a worker."""
+        """Update the last heartbeat time for a worker (in-memory and DB)."""
         async with self._lock:
             worker = self._workers.get(worker_id)
             if worker:
                 worker.last_heartbeat = datetime.now(timezone.utc)
+                # Persist to DB so task_reaper sees an active worker
+                asyncio.create_task(self._persist_heartbeat(worker_id))
                 return True
             return False
+
+    async def _persist_heartbeat(self, worker_id: str) -> None:
+        """Fire-and-forget DB write to keep workers.last_seen current."""
+        try:
+            from . import database as db
+            await db.db_update_worker_heartbeat(worker_id)
+        except Exception as e:
+            logger.debug(f'Failed to persist heartbeat for {worker_id}: {e}')
 
     async def update_worker_codebases(
         self, worker_id: str, codebases: Set[str]
@@ -150,12 +160,23 @@ class WorkerRegistry:
         or if the worker doesn't own the task's codebase.
         """
         # First, verify worker can handle this task's codebase (before acquiring lock)
-        from .monitor_api import get_opencode_bridge
+        from .agent_bridge import get_bridge as get_agent_bridge
 
-        bridge = get_opencode_bridge()
+        bridge = get_agent_bridge()
         if bridge:
             task = await bridge.get_task(task_id)
             if task:
+                task_metadata = task.metadata or {}
+                target_worker_id = str(
+                    task_metadata.get('target_worker_id') or ''
+                ).strip()
+                if target_worker_id and target_worker_id != worker_id:
+                    logger.debug(
+                        f'Worker {worker_id} skipped task {task_id} '
+                        f'(target_worker_id={target_worker_id})'
+                    )
+                    return False
+
                 codebase_id = task.codebase_id
                 # Check if this is a restricted codebase (not global/__pending__)
                 if codebase_id and codebase_id not in ('global', '__pending__'):
@@ -276,14 +297,14 @@ class WorkerRegistry:
     ) -> None:
         """Broadcast pending tasks to a worker that just became available."""
         try:
-            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import get_bridge as get_agent_bridge
 
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if not bridge:
                 return
 
             # Get pending tasks for codebases this worker handles
-            from .opencode_bridge import AgentTaskStatus
+            from .agent_bridge import AgentTaskStatus
 
             pending_tasks = await bridge.list_tasks(
                 status=AgentTaskStatus.PENDING
@@ -405,7 +426,7 @@ class WorkerRegistry:
         """Check if the codebase registry says this worker handles the codebase."""
         try:
             # First try in-memory bridge cache
-            from .opencode_bridge import get_bridge
+            from .agent_bridge import get_bridge
 
             bridge = get_bridge()
             codebase = bridge.get_codebase(codebase_id)
@@ -427,7 +448,7 @@ class WorkerRegistry:
     ) -> bool:
         """Check if any currently connected SSE worker owns this codebase in the DB."""
         try:
-            from .opencode_bridge import get_bridge
+            from .agent_bridge import get_bridge
 
             bridge = get_bridge()
             codebase = bridge.get_codebase(codebase_id)
@@ -619,9 +640,9 @@ class WorkerRegistry:
         """
         try:
             # Fetch task details from the bridge
-            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import get_bridge as get_agent_bridge
 
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if not bridge:
                 logger.warning(
                     f'Cannot broadcast task {task_id}: bridge not available'
@@ -840,7 +861,21 @@ async def worker_task_stream(
 
     codebases = set()
     if x_codebases:
-        codebases = {c.strip() for c in x_codebases.split(',') if c.strip()}
+        raw_codebases = {c.strip() for c in x_codebases.split(',') if c.strip()}
+        codebases = set(raw_codebases)
+        # Resolve any filesystem paths to codebase UUIDs so task routing
+        # (which uses UUIDs) works correctly.
+        path_entries = {c for c in raw_codebases if c.startswith('/')}
+        if path_entries:
+            try:
+                from . import database as _db
+                for path in path_entries:
+                    matches = await _db.db_list_workspaces_by_path(path)
+                    for ws in matches:
+                        if ws.get('id'):
+                            codebases.add(ws['id'])
+            except Exception as _e:
+                logger.debug(f'SSE path→UUID resolution failed: {_e}')
 
     registry = get_worker_registry()
 
@@ -871,10 +906,10 @@ async def worker_task_stream(
 
             # Send any pending tasks to the newly connected worker
             try:
-                from .monitor_api import get_opencode_bridge
-                from .opencode_bridge import AgentTaskStatus
+                from .agent_bridge import get_bridge as get_agent_bridge
+                from .agent_bridge import AgentTaskStatus
 
-                bridge = get_opencode_bridge()
+                bridge = get_agent_bridge()
                 if bridge:
                     # Get all pending tasks
                     pending_tasks = await bridge.list_tasks(
@@ -1035,6 +1070,32 @@ async def claim_task(
     success = await registry.claim_task(claim.task_id, resolved_worker_id)
 
     if success:
+        # Update task status to 'running' in DB so the UI reflects reality
+        try:
+            from .agent_bridge import get_bridge as get_agent_bridge
+            from .agent_bridge import AgentTaskStatus
+            bridge = get_agent_bridge()
+            if bridge:
+                await bridge.update_task_status(
+                    task_id=claim.task_id,
+                    status=AgentTaskStatus.RUNNING,
+                    worker_id=resolved_worker_id,
+                )
+            else:
+                from . import database as db
+                pool = await db.get_pool()
+                if pool:
+                    async with pool.acquire() as conn:
+                        await conn.execute(
+                            "UPDATE tasks SET status = 'running', worker_id = $2, "
+                            'started_at = NOW(), updated_at = NOW() '
+                            'WHERE id = $1',
+                            claim.task_id,
+                            resolved_worker_id,
+                        )
+        except Exception as e:
+            logger.warning(f'Failed to update task {claim.task_id} to running: {e}')
+
         return {
             'success': True,
             'task_id': claim.task_id,
@@ -1080,9 +1141,9 @@ async def release_task(
     if success:
         # Persist status/result/error to in-memory cache AND database
         try:
-            from .monitor_api import get_opencode_bridge
+            from .agent_bridge import get_bridge as get_agent_bridge
             from .agent_bridge import AgentTaskStatus
-            bridge = get_opencode_bridge()
+            bridge = get_agent_bridge()
             if bridge:
                 status_enum = AgentTaskStatus(release.status)
                 await bridge.update_task_status(
@@ -1123,6 +1184,61 @@ async def release_task(
             )
         except Exception as e:
             logger.debug(f'Loop completion check for {release.task_id}: {e}')
+
+        # Send email notification on task completion/failure
+        if release.status in ('completed', 'failed'):
+            try:
+                from .database import get_pool
+                pool = await get_pool()
+                if pool:
+                    async with pool.acquire() as conn:
+                        task_row = await conn.fetchrow(
+                            "SELECT title, metadata FROM tasks WHERE id = $1",
+                            release.task_id,
+                        )
+                    if task_row:
+                        metadata = task_row['metadata']
+                        if isinstance(metadata, str):
+                            import json as _json
+                            metadata = _json.loads(metadata)
+                        notify_email = (metadata or {}).get('notify_email')
+                        if notify_email:
+                            from .email_notifications import (
+                                is_configured,
+                                send_task_completion_email,
+                            )
+                            if is_configured():
+                                email_sent = await send_task_completion_email(
+                                    to_email=notify_email,
+                                    task_id=release.task_id,
+                                    title=task_row['title'] or 'Task',
+                                    status=release.status,
+                                    result=release.result,
+                                    error=release.error
+                                    if release.status == 'failed'
+                                    else None,
+                                    worker_name=resolved_worker_id,
+                                )
+                                if email_sent:
+                                    logger.info(
+                                        f'Completion email sent to {notify_email} '
+                                        f'for task {release.task_id}'
+                                    )
+                                else:
+                                    logger.warning(
+                                        f'Failed to send completion email for '
+                                        f'task {release.task_id}'
+                                    )
+                            else:
+                                logger.debug(
+                                    'Email notifications not configured '
+                                    '(missing SENDGRID_API_KEY or SENDGRID_FROM_EMAIL)'
+                                )
+            except Exception as e:
+                logger.error(
+                    f'Error sending completion email for task '
+                    f'{release.task_id}: {e}'
+                )
 
         return {
             'success': True,
@@ -1250,7 +1366,10 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
     registry = get_worker_registry()
     codebase_id = task.get('codebase_id')
     target_agent_name = task.get('target_agent_name')
+    target_worker_id = task.get('target_worker_id')
     required_capabilities = task.get('required_capabilities')
+    if not target_worker_id and isinstance(task.get('metadata'), dict):
+        target_worker_id = task['metadata'].get('target_worker_id')
 
     # Parse required_capabilities if it's a JSON string
     if isinstance(required_capabilities, str):
@@ -1265,11 +1384,12 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
         task,
         codebase_id=codebase_id,
         target_agent_name=target_agent_name,
+        target_worker_id=target_worker_id,
         required_capabilities=required_capabilities,
     )
 
 
-def setup_task_creation_hook(opencode_bridge) -> None:
+def setup_task_creation_hook(agent_bridge) -> None:
     """
     Set up a hook to notify workers when tasks are created.
 

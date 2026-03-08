@@ -81,8 +81,11 @@ def get_weather(city: str) -> str:
     Returns:
         Weather information as a string
     """
-    # Mock weather data
-    return f"The weather in {city} is sunny with a temperature of 72°F (22°C)."
+    import os
+    api_key = os.environ.get('WEATHER_API_KEY')
+    if not api_key:
+        return f"Weather service not configured. Set WEATHER_API_KEY environment variable."
+    return f"Weather API integration not yet implemented for {city}. Configure a weather provider."
 
 
 @function_tool

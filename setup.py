@@ -22,7 +22,7 @@ def _read_readme() -> str:
 setup(
     name='codetether',
     version='1.5.0',
-    description='CodeTether: A2A Protocol v0.3 compliant agent orchestration platform with MCP + OpenCode integration',
+    description='CodeTether: A2A Protocol v0.3 compliant agent orchestration platform with MCP + CodeTether integration',
     long_description=_read_readme(),
     long_description_content_type='text/markdown',
     author='CodeTether Contributors',

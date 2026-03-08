@@ -28,10 +28,6 @@ def get_agent_bridge():
     return get_bridge()
 
 
-# Backward-compatible alias
-get_opencode_bridge = get_agent_bridge
-
-
 __all__ = [
     'A2AServer',
     'AgentCard',
@@ -41,5 +37,4 @@ __all__ = [
     'MessageBroker',
     'TaskManager',
     'get_agent_bridge',
-    'get_opencode_bridge',
 ]

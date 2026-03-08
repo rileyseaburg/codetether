@@ -24,31 +24,105 @@ data:
             autoscaling.knative.dev/min-scale: "0"
             autoscaling.knative.dev/max-scale: "1"
             autoscaling.knative.dev/scale-to-zero-pod-retention-period: "{{ .Values.knative.worker.idleTimeoutSeconds | default 300 }}s"
+            {{- if .Values.knative.worker.vault.enabled }}
+            # The worker binary authenticates to Vault natively via the pod SA JWT.
+            # No Vault Agent sidecar annotations are needed.
+            {{- end }}
         spec:
+          serviceAccountName: {{ .Values.knative.worker.serviceAccountName | default "codetether-worker" | quote }}
           containerConcurrency: {{ .Values.knative.worker.containerConcurrency | default 1 }}
           timeoutSeconds: {{ .Values.knative.worker.maxTimeoutSeconds | default 600 }}
           containers:
-            - image: {{ .Values.knative.worker.image }}
+            - name: worker
+              image: {{ .Values.knative.worker.image }}
+              imagePullPolicy: Always
+              command:
+                - codetether
+              args:
+                - worker
+                - --server
+                - http://{{ include "a2a-server.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+                - --name
+                - session-SESSION_ID
+                - {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+              workingDir: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+              ports:
+                - containerPort: 8080
+                  name: http1
+                  protocol: TCP
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: 8080
+                initialDelaySeconds: 5
+                periodSeconds: 10
+              readinessProbe:
+                httpGet:
+                  path: /ready
+                  port: 8080
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                successThreshold: 1
+                failureThreshold: 3
+                timeoutSeconds: 1
               env:
-                - name: A2A_TENANT_ID
+                # Avoid placeholder strings in env var names; older spawner builds
+                # use broad string replacement and can mutate names unexpectedly.
+                - name: A2A_TENANT
                   value: "TENANT_ID"
-                - name: A2A_SESSION_ID
+                - name: A2A_SESSION
                   value: "SESSION_ID"
-                - name: A2A_CODEBASE_ID
+                - name: A2A_CODEBASE
                   value: "CODEBASE_ID"
+                - name: CODETETHER_WORKER_NAME
+                  value: "session-SESSION_ID"
                 # codetether stores state in its own format
                 - name: CODETETHER_LOG_LEVEL
                   value: "info"
+                - name: RUST_LOG
+                  value: "info"
+                {{- if .Values.knative.worker.vault.enabled }}
+                # VAULT_ROLE triggers native Kubernetes auth in the binary.
+                # The pod SA JWT at the standard k8s path is the only credential needed.
+                - name: VAULT_ADDR
+                  value: {{ .Values.knative.worker.vault.address | quote }}
+                - name: VAULT_SKIP_VERIFY
+                  value: {{ ternary "1" "0" (.Values.knative.worker.vault.tlsSkipVerify | default false) | quote }}
+                - name: VAULT_ROLE
+                  value: {{ .Values.knative.worker.vault.role | default "codetether-worker" | quote }}
+                - name: VAULT_AUTH_MOUNT
+                  value: {{ .Values.knative.worker.vault.authMount | default "kubernetes" | quote }}
+                # Path to the projected SA token with audience=vault (see volumes below)
+                - name: VAULT_K8S_SA_JWT_PATH
+                  value: "/var/run/secrets/vault/token"
+                {{- end }}
+                - name: KNATIVE_SERVICE
+                  value: "true"
+                - name: GIT_CLONE_BASE
+                  value: {{ printf "%s/%s" ((.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") ((.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
                 - name: DATABASE_URL
                   value: "{{ .Values.externalPostgresql.url }}"
                 - name: MINIO_ENDPOINT
                   value: "{{ .Values.minio.endpoint }}"
                 - name: MINIO_BUCKET
                   value: "{{ .Values.minio.bucket }}"
+                {{- if .Values.minio.existingSecret }}
+                - name: MINIO_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.minio.existingSecret }}
+                      key: accessKey
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.minio.existingSecret }}
+                      key: secretKey
+                {{- else }}
                 - name: MINIO_ACCESS_KEY
                   value: "{{ .Values.minio.accessKey }}"
                 - name: MINIO_SECRET_KEY
                   value: "{{ .Values.minio.secretKey }}"
+                {{- end }}
                 - name: MINIO_SECURE
                   value: "{{ .Values.minio.secure }}"
                 # A2A Server callback URL for task status updates
@@ -107,8 +181,12 @@ data:
                       name: {{ .Values.knative.worker.dbEncryptionSecret }}
                       key: encryption-key
                 {{- end }}
-              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.dbEncryptionSecret }}
+              {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.dbEncryptionSecret .Values.knative.worker.workspacePersistence.enabled .Values.knative.worker.vault.enabled }}
               volumeMounts:
+                {{- if .Values.knative.worker.workspacePersistence.enabled }}
+                - name: workspace
+                  mountPath: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+                {{- end }}
                 {{- if .Values.knative.worker.authSecret }}
                 - name: worker-auth
                   mountPath: /secrets/worker-auth
@@ -124,6 +202,11 @@ data:
                   mountPath: /secrets/gcp
                   readOnly: true
                 {{- end }}
+                {{- if .Values.knative.worker.vault.enabled }}
+                - name: vault-sa-token
+                  mountPath: /var/run/secrets/vault
+                  readOnly: true
+                {{- end }}
               {{- end }}
               resources:
                 limits:
@@ -132,8 +215,13 @@ data:
                 requests:
                   memory: {{ .Values.knative.worker.resources.requests.memory | default "512Mi" }}
                   cpu: {{ .Values.knative.worker.resources.requests.cpu | default "250m" | quote }}
-          {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret }}
+          {{- if or .Values.knative.worker.authSecret .Values.knative.worker.configSecret .Values.knative.worker.gcpCredentialsSecret .Values.knative.worker.workspacePersistence.enabled .Values.knative.worker.vault.enabled }}
           volumes:
+            {{- if .Values.knative.worker.workspacePersistence.enabled }}
+            - name: workspace
+              persistentVolumeClaim:
+                claimName: "WORKSPACE_PVC_NAME"
+            {{- end }}
             {{- if .Values.knative.worker.authSecret }}
             - name: worker-auth
               secret:
@@ -148,6 +236,15 @@ data:
             - name: gcp-credentials
               secret:
                 secretName: {{ .Values.knative.worker.gcpCredentialsSecret }}
+            {{- end }}
+            {{- if .Values.knative.worker.vault.enabled }}
+            - name: vault-sa-token
+              projected:
+                sources:
+                  - serviceAccountToken:
+                      audience: vault
+                      expirationSeconds: 3600
+                      path: token
             {{- end }}
           {{- end }}
   trigger-template.yaml: |

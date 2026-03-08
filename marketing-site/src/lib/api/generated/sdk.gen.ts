@@ -23,9 +23,9 @@ import type {
   AssignWorkerProfileV1AgentWorkersWorkerIdProfilePostData,
   AssignWorkerProfileV1AgentWorkersWorkerIdProfilePostErrors,
   AssignWorkerProfileV1AgentWorkersWorkerIdProfilePostResponses,
-  AssociateUserCodebaseV1AuthUserUserIdCodebasesPostData,
-  AssociateUserCodebaseV1AuthUserUserIdCodebasesPostErrors,
-  AssociateUserCodebaseV1AuthUserUserIdCodebasesPostResponses,
+  AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostData,
+  AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostErrors,
+  AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostResponses,
   AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetData,
   AuthorizationServerMetadataWellKnownOauthAuthorizationServerGetResponses,
   AuthorizationServerMetadataWellKnownOauthAuthorizationServerPathGetData,
@@ -72,9 +72,9 @@ import type {
   CreateAgentSessionV1AuthUserUserIdAgentSessionsPostData,
   CreateAgentSessionV1AuthUserUserIdAgentSessionsPostErrors,
   CreateAgentSessionV1AuthUserUserIdAgentSessionsPostResponses,
-  CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostData,
-  CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostErrors,
-  CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostResponses,
+  CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostData,
+  CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostErrors,
+  CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostResponses,
   CreateApiKeyV1UsersApiKeysPostData,
   CreateApiKeyV1UsersApiKeysPostErrors,
   CreateApiKeyV1UsersApiKeysPostResponses,
@@ -125,8 +125,6 @@ import type {
   CreateWorkerProfileV1AgentWorkerProfilesPostData,
   CreateWorkerProfileV1AgentWorkerProfilesPostErrors,
   CreateWorkerProfileV1AgentWorkerProfilesPostResponses,
-  DatabaseCodebasesV1AgentDatabaseCodebasesGetData,
-  DatabaseCodebasesV1AgentDatabaseCodebasesGetResponses,
   DatabaseSessionsV1AgentDatabaseSessionsGetData,
   DatabaseSessionsV1AgentDatabaseSessionsGetErrors,
   DatabaseSessionsV1AgentDatabaseSessionsGetResponses,
@@ -134,8 +132,10 @@ import type {
   DatabaseStatusV1AgentDatabaseStatusGetResponses,
   DatabaseWorkersV1AgentDatabaseWorkersGetData,
   DatabaseWorkersV1AgentDatabaseWorkersGetResponses,
-  DeduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePostData,
-  DeduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePostResponses,
+  DatabaseWorkspacesV1AgentDatabaseWorkspacesGetData,
+  DatabaseWorkspacesV1AgentDatabaseWorkspacesGetResponses,
+  DeduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePostData,
+  DeduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePostResponses,
   DeleteApiKeyV1AgentApiKeysProviderIdDeleteData,
   DeleteApiKeyV1AgentApiKeysProviderIdDeleteErrors,
   DeleteApiKeyV1AgentApiKeysProviderIdDeleteResponses,
@@ -174,9 +174,9 @@ import type {
   DispatchTaskV1TasksDispatchPostData,
   DispatchTaskV1TasksDispatchPostErrors,
   DispatchTaskV1TasksDispatchPostResponses,
-  DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetData,
-  DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors,
-  DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetResponses,
+  DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetData,
+  DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetErrors,
+  DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetResponses,
   EvaluatePoliciesV1FinopsPoliciesEvaluatePostData,
   EvaluatePoliciesV1FinopsPoliciesEvaluatePostResponses,
   ExportCsvV1MonitorExportCsvGetData,
@@ -197,9 +197,9 @@ import type {
   GetAgentSessionV1AuthAgentSessionsSessionIdGetData,
   GetAgentSessionV1AuthAgentSessionsSessionIdGetErrors,
   GetAgentSessionV1AuthAgentSessionsSessionIdGetResponses,
-  GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetData,
-  GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetErrors,
-  GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetResponses,
+  GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetData,
+  GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetErrors,
+  GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetResponses,
   GetAlertSummaryV1FinopsAlertsSummaryGetData,
   GetAlertSummaryV1FinopsAlertsSummaryGetResponses,
   GetAlertsV1FinopsAlertsGetData,
@@ -213,12 +213,6 @@ import type {
   GetAttributionV1AnalyticsAttributionUserIdGetResponses,
   GetBillingStatusV1UsersBillingStatusGetData,
   GetBillingStatusV1UsersBillingStatusGetResponses,
-  GetCodebasesV1AgentCodebasesGetData,
-  GetCodebasesV1AgentCodebasesGetErrors,
-  GetCodebasesV1AgentCodebasesGetResponses,
-  GetCodebaseV1AgentCodebasesCodebaseIdGetData,
-  GetCodebaseV1AgentCodebasesCodebaseIdGetErrors,
-  GetCodebaseV1AgentCodebasesCodebaseIdGetResponses,
   GetConnectedWorkerV1WorkerConnectedWorkerIdGetData,
   GetConnectedWorkerV1WorkerConnectedWorkerIdGetErrors,
   GetConnectedWorkerV1WorkerConnectedWorkerIdGetResponses,
@@ -320,15 +314,15 @@ import type {
   GetRunV1QueueRunsRunIdGetData,
   GetRunV1QueueRunsRunIdGetErrors,
   GetRunV1QueueRunsRunIdGetResponses,
-  GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetData,
-  GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetErrors,
-  GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetResponses,
-  GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetData,
-  GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetErrors,
-  GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetResponses,
-  GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetData,
-  GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetErrors,
-  GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetResponses,
+  GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetData,
+  GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetErrors,
+  GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetResponses,
+  GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetData,
+  GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetErrors,
+  GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetResponses,
+  GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetData,
+  GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetErrors,
+  GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetResponses,
   GetSessionV1AuthSessionGetData,
   GetSessionV1AuthSessionGetErrors,
   GetSessionV1AuthSessionGetResponses,
@@ -376,24 +370,30 @@ import type {
   GetUserAgentSessionsV1AuthUserUserIdAgentSessionsGetData,
   GetUserAgentSessionsV1AuthUserUserIdAgentSessionsGetErrors,
   GetUserAgentSessionsV1AuthUserUserIdAgentSessionsGetResponses,
-  GetUserCodebasesV1AuthUserUserIdCodebasesGetData,
-  GetUserCodebasesV1AuthUserUserIdCodebasesGetErrors,
-  GetUserCodebasesV1AuthUserUserIdCodebasesGetResponses,
+  GetUserWorkspacesV1AuthUserUserIdWorkspacesGetData,
+  GetUserWorkspacesV1AuthUserUserIdWorkspacesGetErrors,
+  GetUserWorkspacesV1AuthUserUserIdWorkspacesGetResponses,
   GetVoiceSessionStateV1VoiceSessionsRoomNameStateGetData,
   GetVoiceSessionStateV1VoiceSessionsRoomNameStateGetErrors,
   GetVoiceSessionStateV1VoiceSessionsRoomNameStateGetResponses,
   GetVoiceSessionV1VoiceSessionsRoomNameGetData,
   GetVoiceSessionV1VoiceSessionsRoomNameGetErrors,
   GetVoiceSessionV1VoiceSessionsRoomNameGetResponses,
-  GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetData,
-  GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetErrors,
-  GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetResponses,
+  GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetData,
+  GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetErrors,
+  GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetResponses,
   GetWorkerProfileV1AgentWorkerProfilesProfileIdGetData,
   GetWorkerProfileV1AgentWorkerProfilesProfileIdGetErrors,
   GetWorkerProfileV1AgentWorkerProfilesProfileIdGetResponses,
   GetWorkerV1AgentWorkersWorkerIdGetData,
   GetWorkerV1AgentWorkersWorkerIdGetErrors,
   GetWorkerV1AgentWorkersWorkerIdGetResponses,
+  GetWorkspacesV1AgentWorkspacesGetData,
+  GetWorkspacesV1AgentWorkspacesGetErrors,
+  GetWorkspacesV1AgentWorkspacesGetResponses,
+  GetWorkspaceV1AgentWorkspacesWorkspaceIdGetData,
+  GetWorkspaceV1AgentWorkspacesWorkspaceIdGetErrors,
+  GetWorkspaceV1AgentWorkspacesWorkspaceIdGetResponses,
   HandleInboundEmailV1EmailInboundPostData,
   HandleInboundEmailV1EmailInboundPostErrors,
   HandleInboundEmailV1EmailInboundPostResponses,
@@ -414,12 +414,12 @@ import type {
   IdentifyUserV1AnalyticsIdentifyPostData,
   IdentifyUserV1AnalyticsIdentifyPostErrors,
   IdentifyUserV1AnalyticsIdentifyPostResponses,
-  IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostData,
-  IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostErrors,
-  IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostResponses,
-  InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostData,
-  InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostErrors,
-  InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostResponses,
+  IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostData,
+  IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostErrors,
+  IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostResponses,
+  InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostData,
+  InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostErrors,
+  InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostResponses,
   ListAgentProjectsV1AgentRuntimeProjectsGetData,
   ListAgentProjectsV1AgentRuntimeProjectsGetResponses,
   ListAllRuntimeSessionsV1AgentRuntimeSessionsGetData,
@@ -437,12 +437,6 @@ import type {
   ListApiKeysV1UsersApiKeysGetResponses,
   ListBudgetPoliciesV1FinopsPoliciesGetData,
   ListBudgetPoliciesV1FinopsPoliciesGetResponses,
-  ListCodebasesV1AgentCodebasesListGetData,
-  ListCodebasesV1AgentCodebasesListGetErrors,
-  ListCodebasesV1AgentCodebasesListGetResponses,
-  ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetData,
-  ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetErrors,
-  ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetResponses,
   ListConnectedWorkersV1WorkerConnectedGetData,
   ListConnectedWorkersV1WorkerConnectedGetResponses,
   ListCronjobsV1CronjobsGetData,
@@ -489,9 +483,9 @@ import type {
   ListRulesV1ProactiveRulesGetData,
   ListRulesV1ProactiveRulesGetErrors,
   ListRulesV1ProactiveRulesGetResponses,
-  ListSessionsV1AgentCodebasesCodebaseIdSessionsGetData,
-  ListSessionsV1AgentCodebasesCodebaseIdSessionsGetErrors,
-  ListSessionsV1AgentCodebasesCodebaseIdSessionsGetResponses,
+  ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetData,
+  ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetErrors,
+  ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetResponses,
   ListTasksRestMcpV1TasksGetData,
   ListTasksRestMcpV1TasksGetErrors,
   ListTasksRestMcpV1TasksGetResponses,
@@ -517,6 +511,12 @@ import type {
   ListWorkersV1AgentWorkersGetData,
   ListWorkersV1AgentWorkersGetErrors,
   ListWorkersV1AgentWorkersGetResponses,
+  ListWorkspacesV1AgentWorkspacesListGetData,
+  ListWorkspacesV1AgentWorkspacesListGetErrors,
+  ListWorkspacesV1AgentWorkspacesListGetResponses,
+  ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetData,
+  ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetErrors,
+  ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetResponses,
   LoginV1AuthLoginPostData,
   LoginV1AuthLoginPostErrors,
   LoginV1AuthLoginPostResponses,
@@ -543,21 +543,6 @@ import type {
   NextauthCallbackApiAuthCallbackKeycloakGetData,
   NextauthCallbackApiAuthCallbackKeycloakGetErrors,
   NextauthCallbackApiAuthCallbackKeycloakGetResponses,
-  OpencodeToAgentRedirectV1OpencodePathGet2Data,
-  OpencodeToAgentRedirectV1OpencodePathGet2Errors,
-  OpencodeToAgentRedirectV1OpencodePathGet2Responses,
-  OpencodeToAgentRedirectV1OpencodePathGet3Data,
-  OpencodeToAgentRedirectV1OpencodePathGet3Errors,
-  OpencodeToAgentRedirectV1OpencodePathGet3Responses,
-  OpencodeToAgentRedirectV1OpencodePathGet4Data,
-  OpencodeToAgentRedirectV1OpencodePathGet4Errors,
-  OpencodeToAgentRedirectV1OpencodePathGet4Responses,
-  OpencodeToAgentRedirectV1OpencodePathGet5Data,
-  OpencodeToAgentRedirectV1OpencodePathGet5Errors,
-  OpencodeToAgentRedirectV1OpencodePathGet5Responses,
-  OpencodeToAgentRedirectV1OpencodePathGetData,
-  OpencodeToAgentRedirectV1OpencodePathGetErrors,
-  OpencodeToAgentRedirectV1OpencodePathGetResponses,
   PrdChatV1RalphChatPostData,
   PrdChatV1RalphChatPostErrors,
   PrdChatV1RalphChatPostResponses,
@@ -576,21 +561,21 @@ import type {
   RefreshTokenV1AuthRefreshPostResponses,
   RegisterClientOauthRegisterPostData,
   RegisterClientOauthRegisterPostResponses,
-  RegisterCodebaseV1AgentCodebasesPostData,
-  RegisterCodebaseV1AgentCodebasesPostErrors,
-  RegisterCodebaseV1AgentCodebasesPostResponses,
   RegisterV1UsersRegisterPostData,
   RegisterV1UsersRegisterPostErrors,
   RegisterV1UsersRegisterPostResponses,
   RegisterWorkerV1AgentWorkersRegisterPostData,
   RegisterWorkerV1AgentWorkersRegisterPostErrors,
   RegisterWorkerV1AgentWorkersRegisterPostResponses,
+  RegisterWorkspaceV1AgentWorkspacesPostData,
+  RegisterWorkspaceV1AgentWorkspacesPostErrors,
+  RegisterWorkspaceV1AgentWorkspacesPostResponses,
   ReleaseTaskV1WorkerTasksReleasePostData,
   ReleaseTaskV1WorkerTasksReleasePostErrors,
   ReleaseTaskV1WorkerTasksReleasePostResponses,
-  RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteData,
-  RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteErrors,
-  RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteResponses,
+  RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteData,
+  RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteErrors,
+  RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteResponses,
   RequestPasswordResetV1UsersPasswordResetRequestPostData,
   RequestPasswordResetV1UsersPasswordResetRequestPostErrors,
   RequestPasswordResetV1UsersPasswordResetRequestPostResponses,
@@ -622,9 +607,9 @@ import type {
   ResumeInstanceV1AdminInstancesNamespaceResumePostData,
   ResumeInstanceV1AdminInstancesNamespaceResumePostErrors,
   ResumeInstanceV1AdminInstancesNamespaceResumePostResponses,
-  ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostData,
-  ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostErrors,
-  ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostResponses,
+  ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostData,
+  ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostErrors,
+  ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostResponses,
   RetryFailedConversionsV1ProactiveConversionsRetryPostData,
   RetryFailedConversionsV1ProactiveConversionsRetryPostResponses,
   RevokeApiKeyV1UsersApiKeysKeyIdDeleteData,
@@ -641,9 +626,9 @@ import type {
   SearchMessagesV1MonitorMessagesSearchGetData,
   SearchMessagesV1MonitorMessagesSearchGetErrors,
   SearchMessagesV1MonitorMessagesSearchGetResponses,
-  SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostData,
-  SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostErrors,
-  SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostResponses,
+  SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostData,
+  SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostErrors,
+  SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostResponses,
   SendInterventionV1MonitorIntervenePostData,
   SendInterventionV1MonitorIntervenePostErrors,
   SendInterventionV1MonitorIntervenePostResponses,
@@ -669,18 +654,21 @@ import type {
   SignupTenantV1TenantsSignupPostData,
   SignupTenantV1TenantsSignupPostErrors,
   SignupTenantV1TenantsSignupPostResponses,
-  StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostData,
-  StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostErrors,
-  StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostResponses,
-  StopAgentV1AgentCodebasesCodebaseIdStopPostData,
-  StopAgentV1AgentCodebasesCodebaseIdStopPostErrors,
-  StopAgentV1AgentCodebasesCodebaseIdStopPostResponses,
-  StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostData,
-  StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostErrors,
-  StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostResponses,
-  StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetData,
-  StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetErrors,
-  StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetResponses,
+  StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostData,
+  StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostErrors,
+  StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostResponses,
+  StopAgentV1AgentWorkspacesWorkspaceIdStopPostData,
+  StopAgentV1AgentWorkspacesWorkspaceIdStopPostErrors,
+  StopAgentV1AgentWorkspacesWorkspaceIdStopPostResponses,
+  StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostData,
+  StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostErrors,
+  StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostResponses,
+  StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetData,
+  StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetErrors,
+  StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetResponses,
+  StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetData,
+  StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetErrors,
+  StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetResponses,
   StreamRalphRunV1RalphRunsRunIdStreamGetData,
   StreamRalphRunV1RalphRunsRunIdStreamGetErrors,
   StreamRalphRunV1RalphRunsRunIdStreamGetResponses,
@@ -698,18 +686,18 @@ import type {
   SuspendInstanceV1AdminInstancesNamespaceSuspendPostData,
   SuspendInstanceV1AdminInstancesNamespaceSuspendPostErrors,
   SuspendInstanceV1AdminInstancesNamespaceSuspendPostResponses,
-  SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostData,
-  SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostErrors,
-  SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostResponses,
-  SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostData,
-  SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostErrors,
-  SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostResponses,
+  SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostData,
+  SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostErrors,
+  SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostResponses,
   SyncSessionStateV1AuthSyncGetData,
   SyncSessionStateV1AuthSyncGetErrors,
   SyncSessionStateV1AuthSyncGetResponses,
-  SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostData,
-  SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostErrors,
-  SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostResponses,
+  SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostData,
+  SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostErrors,
+  SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostResponses,
+  SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostData,
+  SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostErrors,
+  SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostResponses,
   TestApiKeyEndpointV1AgentApiKeysTestPostData,
   TestApiKeyEndpointV1AgentApiKeysTestPostErrors,
   TestApiKeyEndpointV1AgentApiKeysTestPostResponses,
@@ -743,9 +731,9 @@ import type {
   TrackPageViewV1AnalyticsPagePostData,
   TrackPageViewV1AnalyticsPagePostErrors,
   TrackPageViewV1AnalyticsPagePostResponses,
-  TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostData,
-  TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostErrors,
-  TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostResponses,
+  TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostData,
+  TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostErrors,
+  TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostResponses,
   TriggerCronjobInternalV1CronjobsInternalJobIdTriggerPostData,
   TriggerCronjobInternalV1CronjobsInternalJobIdTriggerPostErrors,
   TriggerCronjobInternalV1CronjobsInternalJobIdTriggerPostResponses,
@@ -754,12 +742,12 @@ import type {
   TriggerCronjobV1CronjobsJobIdTriggerPostResponses,
   TriggerRecoveryV1RalphRecoverPostData,
   TriggerRecoveryV1RalphRecoverPostResponses,
-  UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteData,
-  UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteErrors,
-  UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteResponses,
   UnregisterWorkerV1AgentWorkersWorkerIdUnregisterPostData,
   UnregisterWorkerV1AgentWorkersWorkerIdUnregisterPostErrors,
   UnregisterWorkerV1AgentWorkersWorkerIdUnregisterPostResponses,
+  UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteData,
+  UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteErrors,
+  UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteResponses,
   UpdateCronjobV1CronjobsJobIdPutData,
   UpdateCronjobV1CronjobsJobIdPutErrors,
   UpdateCronjobV1CronjobsJobIdPutResponses,
@@ -787,9 +775,9 @@ import type {
   UpdateWorkerProfileV1AgentWorkerProfilesProfileIdPatchData,
   UpdateWorkerProfileV1AgentWorkerProfilesProfileIdPatchErrors,
   UpdateWorkerProfileV1AgentWorkerProfilesProfileIdPatchResponses,
-  UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostData,
-  UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostErrors,
-  UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostResponses,
+  UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostData,
+  UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostErrors,
+  UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostResponses,
   UpsertModelPricingV1TokenBillingPricingPutData,
   UpsertModelPricingV1TokenBillingPricingPutErrors,
   UpsertModelPricingV1TokenBillingPricingPutResponses,
@@ -1193,7 +1181,7 @@ export const databaseStatusV1AgentDatabaseStatusGet = <
  *
  * List all sessions from PostgreSQL database.
  *
- * Returns sessions across all codebases, sorted by most recently updated.
+ * Returns sessions across all workspaces, sorted by most recently updated.
  * Use this endpoint for a global view of all agent sessions.
  */
 export const databaseSessionsV1AgentDatabaseSessionsGet = <
@@ -1211,47 +1199,47 @@ export const databaseSessionsV1AgentDatabaseSessionsGet = <
   >({ url: '/v1/agent/database/sessions', ...options })
 
 /**
- * Database Codebases
+ * Database Workspaces
  *
- * List all codebases from PostgreSQL database.
+ * List all workspaces from PostgreSQL database.
  *
- * Returns all registered codebases with their worker assignments.
+ * Returns all registered workspaces with their worker assignments.
  */
-export const databaseCodebasesV1AgentDatabaseCodebasesGet = <
+export const databaseWorkspacesV1AgentDatabaseWorkspacesGet = <
   ThrowOnError extends boolean = false,
 >(
   options?: Options<
-    DatabaseCodebasesV1AgentDatabaseCodebasesGetData,
+    DatabaseWorkspacesV1AgentDatabaseWorkspacesGetData,
     ThrowOnError
   >,
 ) =>
   (options?.client ?? client).get<
-    DatabaseCodebasesV1AgentDatabaseCodebasesGetResponses,
+    DatabaseWorkspacesV1AgentDatabaseWorkspacesGetResponses,
     unknown,
     ThrowOnError
-  >({ url: '/v1/agent/database/codebases', ...options })
+  >({ url: '/v1/agent/database/workspaces', ...options })
 
 /**
- * Deduplicate Codebases
+ * Deduplicate Workspaces
  *
- * Remove duplicate codebase entries, keeping the oldest (canonical) ID for each path.
+ * Remove duplicate workspace entries, keeping the oldest (canonical) ID for each path.
  *
  * This is useful after server restarts or when workers have created duplicate entries.
  * The canonical ID is preserved to maintain consistency with existing tasks and sessions.
  */
-export const deduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePost = <
+export const deduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePost = <
   ThrowOnError extends boolean = false,
 >(
   options?: Options<
-    DeduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePostData,
+    DeduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePostData,
     ThrowOnError
   >,
 ) =>
   (options?.client ?? client).post<
-    DeduplicateCodebasesV1AgentDatabaseCodebasesDeduplicatePostResponses,
+    DeduplicateWorkspacesV1AgentDatabaseWorkspacesDeduplicatePostResponses,
     unknown,
     ThrowOnError
-  >({ url: '/v1/agent/database/codebases/deduplicate', ...options })
+  >({ url: '/v1/agent/database/workspaces/deduplicate', ...options })
 
 /**
  * Database Workers
@@ -1276,7 +1264,7 @@ export const databaseWorkersV1AgentDatabaseWorkersGet = <
  *
  * Check if Agent runtime is available on this system.
  *
- * Returns information about the local OpenCode installation and storage.
+ * Returns information about the local agent installation and storage.
  */
 export const agentRuntimeStatusV1AgentRuntimeStatusGet = <
   ThrowOnError extends boolean = false,
@@ -1339,7 +1327,7 @@ export const listAllRuntimeSessionsV1AgentRuntimeSessionsGet = <
 /**
  * Get Runtime Session
  *
- * Get details for a specific OpenCode session.
+ * Get details for a specific agent session.
  *
  * Returns the full session data including metadata.
  */
@@ -1360,7 +1348,7 @@ export const getRuntimeSessionV1AgentRuntimeSessionsSessionIdGet = <
 /**
  * Get Runtime Session Messages
  *
- * Get messages for a specific OpenCode session.
+ * Get messages for a specific agent session.
  *
  * Returns the conversation history for the session.
  */
@@ -1432,50 +1420,50 @@ export const listProvidersV1AgentProvidersGet = <
   >({ url: '/v1/agent/providers', ...options })
 
 /**
- * Get Codebases
+ * Get Workspaces
  *
  * Backward-compatible GET handler.
  *
  * - If `path` is provided, returns the normalized filesystem path.
- * - If `path` is omitted, returns the list of registered codebases.
+ * - If `path` is omitted, returns the list of registered workspaces.
  *
  * Historically, the UI called this as a listing endpoint; FastAPI treated
  * `path` as required and returned 422. We keep the path-normalization behavior
  * while also supporting listing to prevent client errors.
  */
-export const getCodebasesV1AgentCodebasesGet = <
+export const getWorkspacesV1AgentWorkspacesGet = <
   ThrowOnError extends boolean = false,
 >(
-  options?: Options<GetCodebasesV1AgentCodebasesGetData, ThrowOnError>,
+  options?: Options<GetWorkspacesV1AgentWorkspacesGetData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    GetCodebasesV1AgentCodebasesGetResponses,
-    GetCodebasesV1AgentCodebasesGetErrors,
+    GetWorkspacesV1AgentWorkspacesGetResponses,
+    GetWorkspacesV1AgentWorkspacesGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases', ...options })
+  >({ url: '/v1/agent/workspaces', ...options })
 
 /**
- * Register Codebase
+ * Register Workspace
  *
- * Register a new codebase for agent work.
+ * Register a new workspace for agent work.
  *
- * If worker_id is provided (from a worker), the codebase is registered directly
+ * If worker_id is provided (from a worker), the workspace is registered directly
  * since the worker has already validated the path exists locally.
  *
  * If NO worker_id is provided (from UI), a registration task is created for
  * workers to pick up, validate the path, and confirm registration.
  */
-export const registerCodebaseV1AgentCodebasesPost = <
+export const registerWorkspaceV1AgentWorkspacesPost = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<RegisterCodebaseV1AgentCodebasesPostData, ThrowOnError>,
+  options: Options<RegisterWorkspaceV1AgentWorkspacesPostData, ThrowOnError>,
 ) =>
   (options.client ?? client).post<
-    RegisterCodebaseV1AgentCodebasesPostResponses,
-    RegisterCodebaseV1AgentCodebasesPostErrors,
+    RegisterWorkspaceV1AgentWorkspacesPostResponses,
+    RegisterWorkspaceV1AgentWorkspacesPostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases',
+    url: '/v1/agent/workspaces',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1484,82 +1472,85 @@ export const registerCodebaseV1AgentCodebasesPost = <
   })
 
 /**
- * List Codebases
+ * List Workspaces
  *
- * List all registered codebases.
+ * List all registered workspaces.
  *
  * By default, de-duplicates entries that share the same filesystem path and
- * prefers codebases owned by recently-seen workers. Pass include_duplicates=true
+ * prefers workspaces owned by recently-seen workers. Pass include_duplicates=true
  * to return the raw, unfiltered list.
  */
-export const listCodebasesV1AgentCodebasesListGet = <
+export const listWorkspacesV1AgentWorkspacesListGet = <
   ThrowOnError extends boolean = false,
 >(
-  options?: Options<ListCodebasesV1AgentCodebasesListGetData, ThrowOnError>,
+  options?: Options<ListWorkspacesV1AgentWorkspacesListGetData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    ListCodebasesV1AgentCodebasesListGetResponses,
-    ListCodebasesV1AgentCodebasesListGetErrors,
+    ListWorkspacesV1AgentWorkspacesListGetResponses,
+    ListWorkspacesV1AgentWorkspacesListGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/list', ...options })
+  >({ url: '/v1/agent/workspaces/list', ...options })
 
 /**
- * Unregister Codebase
+ * Unregister Workspace
  *
- * Unregister a codebase.
+ * Unregister a workspace.
  */
-export const unregisterCodebaseV1AgentCodebasesCodebaseIdDelete = <
+export const unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteData,
+    UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).delete<
-    UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteResponses,
-    UnregisterCodebaseV1AgentCodebasesCodebaseIdDeleteErrors,
+    UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteResponses,
+    UnregisterWorkspaceV1AgentWorkspacesWorkspaceIdDeleteErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}', ...options })
 
 /**
- * Get Codebase
+ * Get Workspace
  *
- * Get details of a registered codebase.
+ * Get details of a registered workspace.
  */
-export const getCodebaseV1AgentCodebasesCodebaseIdGet = <
+export const getWorkspaceV1AgentWorkspacesWorkspaceIdGet = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<GetCodebaseV1AgentCodebasesCodebaseIdGetData, ThrowOnError>,
+  options: Options<
+    GetWorkspaceV1AgentWorkspacesWorkspaceIdGetData,
+    ThrowOnError
+  >,
 ) =>
   (options.client ?? client).get<
-    GetCodebaseV1AgentCodebasesCodebaseIdGetResponses,
-    GetCodebaseV1AgentCodebasesCodebaseIdGetErrors,
+    GetWorkspaceV1AgentWorkspacesWorkspaceIdGetResponses,
+    GetWorkspaceV1AgentWorkspacesWorkspaceIdGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}', ...options })
 
 /**
  * Trigger Agent
  *
- * Trigger an OpenCode agent to work on a codebase.
+ * Trigger a CodeTether agent to work on a workspace.
  *
  * When Knative is enabled, this will spawn an ephemeral Knative worker
  * for the session. Otherwise, it creates a task for SSE-connected workers.
  */
-export const triggerAgentV1AgentCodebasesCodebaseIdTriggerPost = <
+export const triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostData,
+    TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostResponses,
-    TriggerAgentV1AgentCodebasesCodebaseIdTriggerPostErrors,
+    TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostResponses,
+    TriggerAgentV1AgentWorkspacesWorkspaceIdTriggerPostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/trigger',
+    url: '/v1/agent/workspaces/{workspace_id}/trigger',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1572,20 +1563,20 @@ export const triggerAgentV1AgentCodebasesCodebaseIdTriggerPost = <
  *
  * Send a follow-up message to an active agent session.
  */
-export const sendAgentMessageV1AgentCodebasesCodebaseIdMessagePost = <
+export const sendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostData,
+    SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostResponses,
-    SendAgentMessageV1AgentCodebasesCodebaseIdMessagePostErrors,
+    SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostResponses,
+    SendAgentMessageV1AgentWorkspacesWorkspaceIdMessagePostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/message',
+    url: '/v1/agent/workspaces/{workspace_id}/message',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1598,62 +1589,62 @@ export const sendAgentMessageV1AgentCodebasesCodebaseIdMessagePost = <
  *
  * Interrupt the current agent task.
  */
-export const interruptAgentV1AgentCodebasesCodebaseIdInterruptPost = <
+export const interruptAgentV1AgentWorkspacesWorkspaceIdInterruptPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostData,
+    InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostResponses,
-    InterruptAgentV1AgentCodebasesCodebaseIdInterruptPostErrors,
+    InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostResponses,
+    InterruptAgentV1AgentWorkspacesWorkspaceIdInterruptPostErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/interrupt', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/interrupt', ...options })
 
 /**
  * Stop Agent
  *
- * Stop the OpenCode agent for a codebase.
+ * Stop the CodeTether agent for a workspace.
  */
-export const stopAgentV1AgentCodebasesCodebaseIdStopPost = <
+export const stopAgentV1AgentWorkspacesWorkspaceIdStopPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    StopAgentV1AgentCodebasesCodebaseIdStopPostData,
+    StopAgentV1AgentWorkspacesWorkspaceIdStopPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    StopAgentV1AgentCodebasesCodebaseIdStopPostResponses,
-    StopAgentV1AgentCodebasesCodebaseIdStopPostErrors,
+    StopAgentV1AgentWorkspacesWorkspaceIdStopPostResponses,
+    StopAgentV1AgentWorkspacesWorkspaceIdStopPostErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/stop', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/stop', ...options })
 
 /**
  * Get Agent Status
  *
  * Get the current status of an agent.
  */
-export const getAgentStatusV1AgentCodebasesCodebaseIdStatusGet = <
+export const getAgentStatusV1AgentWorkspacesWorkspaceIdStatusGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetData,
+    GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetResponses,
-    GetAgentStatusV1AgentCodebasesCodebaseIdStatusGetErrors,
+    GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetResponses,
+    GetAgentStatusV1AgentWorkspacesWorkspaceIdStatusGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/status', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/status', ...options })
 
 /**
  * Stream Agent Events
  *
- * Stream real-time events from an OpenCode agent session via SSE.
+ * Stream real-time events from a CodeTether agent session via SSE.
  *
  * Events include:
  * - message.updated: Full message updates
@@ -1661,17 +1652,36 @@ export const getAgentStatusV1AgentCodebasesCodebaseIdStatusGet = <
  * - session.status: Status changes (idle, running, etc.)
  * - Tool execution states (pending, running, completed, error)
  */
-export const streamAgentEventsV1AgentCodebasesCodebaseIdEventsGet = <
+export const streamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetData,
+    StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetResponses,
-    StreamAgentEventsV1AgentCodebasesCodebaseIdEventsGetErrors,
+    StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetResponses,
+    StreamAgentEventsV1AgentWorkspacesWorkspaceIdEventsGetErrors,
+    ThrowOnError
+  >({ url: '/v1/agent/workspaces/{workspace_id}/events', ...options })
+
+/**
+ * Stream Agent Events Legacy
+ *
+ * Backward-compatible SSE route for older dashboard clients.
+ */
+export const streamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetData,
+    ThrowOnError
+  >,
+) =>
+  (options.client ?? client).get<
+    StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetResponses,
+    StreamAgentEventsLegacyV1AgentCodebasesCodebaseIdEventsGetErrors,
     ThrowOnError
   >({ url: '/v1/agent/codebases/{codebase_id}/events', ...options })
 
@@ -1680,24 +1690,24 @@ export const streamAgentEventsV1AgentCodebasesCodebaseIdEventsGet = <
  *
  * Get recent messages from an agent session.
  */
-export const getSessionMessagesV1AgentCodebasesCodebaseIdMessagesGet = <
+export const getSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetData,
+    GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetResponses,
-    GetSessionMessagesV1AgentCodebasesCodebaseIdMessagesGetErrors,
+    GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetResponses,
+    GetSessionMessagesV1AgentWorkspacesWorkspaceIdMessagesGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/messages', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/messages', ...options })
 
 /**
  * List All Tasks
  *
- * List all agent tasks, optionally filtered by codebase, status, or worker.
+ * List all agent tasks, optionally filtered by workspace, status, or worker.
  */
 export const listAllTasksV1AgentTasksGet = <
   ThrowOnError extends boolean = false,
@@ -1713,9 +1723,9 @@ export const listAllTasksV1AgentTasksGet = <
 /**
  * Create Global Task
  *
- * Create a new task, optionally tied to a specific codebase.
+ * Create a new task, optionally tied to a specific workspace.
  *
- * If codebase_id is provided, the task will run in that codebase's directory.
+ * If workspace_id is provided, the task will run in that workspace's directory.
  * Otherwise, it runs as a 'global' task (worker's home directory).
  */
 export const createGlobalTaskV1AgentTasksPost = <
@@ -1737,43 +1747,43 @@ export const createGlobalTaskV1AgentTasksPost = <
   })
 
 /**
- * List Codebase Tasks
+ * List Workspace Tasks
  *
- * List all tasks for a specific codebase.
+ * List all tasks for a specific workspace.
  */
-export const listCodebaseTasksV1AgentCodebasesCodebaseIdTasksGet = <
+export const listWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetData,
+    ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetResponses,
-    ListCodebaseTasksV1AgentCodebasesCodebaseIdTasksGetErrors,
+    ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetResponses,
+    ListWorkspaceTasksV1AgentWorkspacesWorkspaceIdTasksGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/tasks', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/tasks', ...options })
 
 /**
  * Create Agent Task
  *
  * Create a new task for an agent to work on.
  */
-export const createAgentTaskV1AgentCodebasesCodebaseIdTasksPost = <
+export const createAgentTaskV1AgentWorkspacesWorkspaceIdTasksPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostData,
+    CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostResponses,
-    CreateAgentTaskV1AgentCodebasesCodebaseIdTasksPostErrors,
+    CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostResponses,
+    CreateAgentTaskV1AgentWorkspacesWorkspaceIdTasksPostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/tasks',
+    url: '/v1/agent/workspaces/{workspace_id}/tasks',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1816,26 +1826,26 @@ export const cancelTaskV1AgentTasksTaskIdCancelPost = <
 /**
  * List Sessions
  *
- * List sessions for a codebase with pagination.
+ * List sessions for a workspace with pagination.
  *
  * Args:
- * codebase_id: The codebase ID
+ * workspace_id: The workspace ID
  * limit: Max sessions to return (default 50, max 200)
  * offset: Number of sessions to skip for pagination
  */
-export const listSessionsV1AgentCodebasesCodebaseIdSessionsGet = <
+export const listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    ListSessionsV1AgentCodebasesCodebaseIdSessionsGetData,
+    ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    ListSessionsV1AgentCodebasesCodebaseIdSessionsGetResponses,
-    ListSessionsV1AgentCodebasesCodebaseIdSessionsGetErrors,
+    ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetResponses,
+    ListSessionsV1AgentWorkspacesWorkspaceIdSessionsGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/sessions', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/sessions', ...options })
 
 /**
  * Ingest External Session
@@ -1845,19 +1855,19 @@ export const listSessionsV1AgentCodebasesCodebaseIdSessionsGet = <
  * This endpoint is designed for tools like a VS Code extension to upload chat
  * turns without overwriting the worker session caches (unlike /sessions/sync).
  */
-export const ingestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPost =
+export const ingestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPost =
   <ThrowOnError extends boolean = false>(
     options: Options<
-      IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostData,
+      IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostData,
       ThrowOnError
     >,
   ) =>
     (options.client ?? client).post<
-      IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostResponses,
-      IngestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIngestPostErrors,
+      IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostResponses,
+      IngestExternalSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdIngestPostErrors,
       ThrowOnError
     >({
-      url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/ingest',
+      url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/ingest',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -1871,23 +1881,23 @@ export const ingestExternalSessionV1AgentCodebasesCodebaseIdSessionsSessionIdIng
  * Receive synced sessions from a worker.
  *
  * This endpoint accepts session data from workers and persists it to PostgreSQL
- * and Redis. It does NOT require the codebase to exist in the in-memory bridge -
- * workers can sync sessions for any codebase_id they manage.
+ * and Redis. It does NOT require the workspace to exist in the in-memory bridge -
+ * workers can sync sessions for any workspace_id they manage.
  */
-export const syncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPost = <
+export const syncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostData,
+    SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostResponses,
-    SyncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPostErrors,
+    SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostResponses,
+    SyncSessionsV1AgentWorkspacesWorkspaceIdSessionsSyncPostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/sessions/sync',
+    url: '/v1/agent/workspaces/{workspace_id}/sessions/sync',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1901,22 +1911,22 @@ export const syncSessionsV1AgentCodebasesCodebaseIdSessionsSyncPost = <
  * Receive synced messages from a worker.
  *
  * This endpoint accepts message data from workers and persists it to PostgreSQL
- * and Redis. It does NOT require the codebase to exist in the in-memory bridge -
+ * and Redis. It does NOT require the workspace to exist in the in-memory bridge -
  * workers can sync messages for any session they manage.
  */
-export const syncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPost =
+export const syncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPost =
   <ThrowOnError extends boolean = false>(
     options: Options<
-      SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostData,
+      SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostData,
       ThrowOnError
     >,
   ) =>
     (options.client ?? client).post<
-      SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostResponses,
-      SyncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesSyncPostErrors,
+      SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostResponses,
+      SyncSessionMessagesV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesSyncPostErrors,
       ThrowOnError
     >({
-      url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/messages/sync',
+      url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/messages/sync',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -1929,20 +1939,20 @@ export const syncSessionMessagesV1AgentCodebasesCodebaseIdSessionsSessionIdMessa
  *
  * Get details of a specific session.
  */
-export const getSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGet = <
+export const getSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetData,
+    GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetResponses,
-    GetSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGetErrors,
+    GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetResponses,
+    GetSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdGetErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}',
+    url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}',
     ...options,
   })
 
@@ -1951,19 +1961,19 @@ export const getSessionV1AgentCodebasesCodebaseIdSessionsSessionIdGet = <
  *
  * Get messages from a specific session.
  */
-export const getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet =
+export const getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet =
   <ThrowOnError extends boolean = false>(
     options: Options<
-      GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetData,
+      GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetData,
       ThrowOnError
     >,
   ) =>
     (options.client ?? client).get<
-      GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetResponses,
-      GetSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGetErrors,
+      GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetResponses,
+      GetSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGetErrors,
       ThrowOnError
     >({
-      url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/messages',
+      url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/messages',
       ...options,
     })
 
@@ -1972,19 +1982,19 @@ export const getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMe
  *
  * Resume an old session and optionally send a new prompt.
  */
-export const resumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePost =
+export const resumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePost =
   <ThrowOnError extends boolean = false>(
     options: Options<
-      ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostData,
+      ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostData,
       ThrowOnError
     >,
   ) =>
     (options.client ?? client).post<
-      ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostResponses,
-      ResumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePostErrors,
+      ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostResponses,
+      ResumeSessionV1AgentWorkspacesWorkspaceIdSessionsSessionIdResumePostErrors,
       ThrowOnError
     >({
-      url: '/v1/agent/codebases/{codebase_id}/sessions/{session_id}/resume',
+      url: '/v1/agent/workspaces/{workspace_id}/sessions/{session_id}/resume',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -1995,24 +2005,24 @@ export const resumeSessionV1AgentCodebasesCodebaseIdSessionsSessionIdResumePost 
 /**
  * Start Watch Mode
  *
- * Start watch mode for a codebase - agent will automatically process tasks.
+ * Start watch mode for a workspace - agent will automatically process tasks.
  *
  * The agent will poll for pending tasks and execute them in order of priority.
  */
-export const startWatchModeV1AgentCodebasesCodebaseIdWatchStartPost = <
+export const startWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostData,
+    StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostResponses,
-    StartWatchModeV1AgentCodebasesCodebaseIdWatchStartPostErrors,
+    StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostResponses,
+    StartWatchModeV1AgentWorkspacesWorkspaceIdWatchStartPostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/watch/start',
+    url: '/v1/agent/workspaces/{workspace_id}/watch/start',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -2023,40 +2033,40 @@ export const startWatchModeV1AgentCodebasesCodebaseIdWatchStartPost = <
 /**
  * Stop Watch Mode
  *
- * Stop watch mode for a codebase.
+ * Stop watch mode for a workspace.
  */
-export const stopWatchModeV1AgentCodebasesCodebaseIdWatchStopPost = <
+export const stopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostData,
+    StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostResponses,
-    StopWatchModeV1AgentCodebasesCodebaseIdWatchStopPostErrors,
+    StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostResponses,
+    StopWatchModeV1AgentWorkspacesWorkspaceIdWatchStopPostErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/watch/stop', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/watch/stop', ...options })
 
 /**
  * Get Watch Status
  *
- * Get watch mode status for a codebase.
+ * Get watch mode status for a workspace.
  */
-export const getWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGet = <
+export const getWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetData,
+    GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetResponses,
-    GetWatchStatusV1AgentCodebasesCodebaseIdWatchStatusGetErrors,
+    GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetResponses,
+    GetWatchStatusV1AgentWorkspacesWorkspaceIdWatchStatusGetErrors,
     ThrowOnError
-  >({ url: '/v1/agent/codebases/{codebase_id}/watch/status', ...options })
+  >({ url: '/v1/agent/workspaces/{workspace_id}/watch/status', ...options })
 
 /**
  * Register Worker
@@ -2471,7 +2481,11 @@ export const vaultStatusV1AgentVaultStatusGet = <
     VaultStatusV1AgentVaultStatusGetResponses,
     unknown,
     ThrowOnError
-  >({ url: '/v1/agent/vault/status', ...options })
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/agent/vault/status',
+    ...options,
+  })
 
 /**
  * List Api Keys
@@ -2548,7 +2562,7 @@ export const deleteApiKeyV1AgentApiKeysProviderIdDelete = <
  * If user_id is provided (worker request), returns that user's keys.
  * Otherwise, returns the authenticated user's keys.
  *
- * Workers should authenticate and provide the user_id for the codebase owner.
+ * Workers should authenticate and provide the user_id for the workspace owner.
  */
 export const getApiKeysForSyncV1AgentApiKeysSyncGet = <
   ThrowOnError extends boolean = false,
@@ -2590,105 +2604,105 @@ export const testApiKeyEndpointV1AgentApiKeysTestPost = <
   })
 
 /**
- * Upload Codebase Tarball
+ * Upload Workspace Tarball
  *
- * Upload a codebase tarball to MinIO.
+ * Upload a workspace tarball to MinIO.
  *
  * This endpoint accepts multipart/form-data with a file field containing
- * the codebase tarball (typically .tar.gz).
+ * the workspace tarball (typically .tar.gz).
  *
- * The file is stored at codebases/{codebase_id}.tar.gz in the configured
+ * The file is stored at workspaces/{workspace_id}.tar.gz in the configured
  * MinIO bucket.
  *
  * Args:
- * codebase_id: The codebase ID to upload to
+ * workspace_id: The workspace ID to upload to
  * request: The FastAPI request (for multipart parsing)
  * user: Optional authenticated user for tenant validation
  *
  * Returns:
  * JSON with minio_path and size_bytes
  */
-export const uploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPost = <
+export const uploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostData,
+    UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostResponses,
-    UploadCodebaseTarballV1AgentCodebasesCodebaseIdUploadPostErrors,
+    UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostResponses,
+    UploadWorkspaceTarballV1AgentWorkspacesWorkspaceIdUploadPostErrors,
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/v1/agent/codebases/{codebase_id}/upload',
+    url: '/v1/agent/workspaces/{workspace_id}/upload',
     ...options,
   })
 
 /**
- * Download Codebase Tarball
+ * Download Workspace Tarball
  *
- * Get a presigned URL or stream the codebase tarball from MinIO.
+ * Get a presigned URL or stream the workspace tarball from MinIO.
  *
  * By default, returns a presigned URL that expires in 1 hour.
  * Set stream=true to stream the file directly.
  *
  * Args:
- * codebase_id: The codebase ID to download
+ * workspace_id: The workspace ID to download
  * stream: If True, stream the file directly instead of returning a URL
  * user: Optional authenticated user for tenant validation
  *
  * Returns:
  * JSON with presigned url and expiry, or streams the file directly
  */
-export const downloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGet = <
+export const downloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetData,
+    DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetResponses,
-    DownloadCodebaseTarballV1AgentCodebasesCodebaseIdDownloadGetErrors,
+    DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetResponses,
+    DownloadWorkspaceTarballV1AgentWorkspacesWorkspaceIdDownloadGetErrors,
     ThrowOnError
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/v1/agent/codebases/{codebase_id}/download',
+    url: '/v1/agent/workspaces/{workspace_id}/download',
     ...options,
   })
 
 /**
- * Sync Codebase From Worker
+ * Sync Workspace From Worker
  *
  * Receive sync notification from a worker (webhook).
  *
- * Workers call this endpoint after syncing their local codebase to MinIO.
+ * Workers call this endpoint after syncing their local workspace to MinIO.
  * This updates the last_sync_at timestamp in the database.
  *
  * Args:
- * codebase_id: The codebase ID being synced
+ * workspace_id: The workspace ID being synced
  * sync_request: Sync details (size_bytes, files_changed)
  *
  * Returns:
  * JSON acknowledgment
  */
-export const syncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPost = <
+export const syncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostData,
+    SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostResponses,
-    SyncCodebaseFromWorkerV1AgentCodebasesCodebaseIdSyncPostErrors,
+    SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostResponses,
+    SyncWorkspaceFromWorkerV1AgentWorkspacesWorkspaceIdSyncPostErrors,
     ThrowOnError
   >({
-    url: '/v1/agent/codebases/{codebase_id}/sync',
+    url: '/v1/agent/workspaces/{workspace_id}/sync',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -2727,86 +2741,6 @@ export const getSessionWorkerStatusV1AgentSessionsSessionIdWorkerStatusGet = <
     url: '/v1/agent/sessions/{session_id}/worker-status',
     ...options,
   })
-
-/**
- *  Opencode To Agent Redirect
- *
- * @deprecated
- */
-export const opencodeToAgentRedirectV1OpencodePathGet = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<OpencodeToAgentRedirectV1OpencodePathGetData, ThrowOnError>,
-) =>
-  (options.client ?? client).delete<
-    OpencodeToAgentRedirectV1OpencodePathGetResponses,
-    OpencodeToAgentRedirectV1OpencodePathGetErrors,
-    ThrowOnError
-  >({ url: '/v1/opencode/{path}', ...options })
-
-/**
- *  Opencode To Agent Redirect
- *
- * @deprecated
- */
-export const opencodeToAgentRedirectV1OpencodePathGet2 = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<OpencodeToAgentRedirectV1OpencodePathGet2Data, ThrowOnError>,
-) =>
-  (options.client ?? client).get<
-    OpencodeToAgentRedirectV1OpencodePathGet2Responses,
-    OpencodeToAgentRedirectV1OpencodePathGet2Errors,
-    ThrowOnError
-  >({ url: '/v1/opencode/{path}', ...options })
-
-/**
- *  Opencode To Agent Redirect
- *
- * @deprecated
- */
-export const opencodeToAgentRedirectV1OpencodePathGet3 = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<OpencodeToAgentRedirectV1OpencodePathGet3Data, ThrowOnError>,
-) =>
-  (options.client ?? client).patch<
-    OpencodeToAgentRedirectV1OpencodePathGet3Responses,
-    OpencodeToAgentRedirectV1OpencodePathGet3Errors,
-    ThrowOnError
-  >({ url: '/v1/opencode/{path}', ...options })
-
-/**
- *  Opencode To Agent Redirect
- *
- * @deprecated
- */
-export const opencodeToAgentRedirectV1OpencodePathGet4 = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<OpencodeToAgentRedirectV1OpencodePathGet4Data, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    OpencodeToAgentRedirectV1OpencodePathGet4Responses,
-    OpencodeToAgentRedirectV1OpencodePathGet4Errors,
-    ThrowOnError
-  >({ url: '/v1/opencode/{path}', ...options })
-
-/**
- *  Opencode To Agent Redirect
- *
- * @deprecated
- */
-export const opencodeToAgentRedirectV1OpencodePathGet5 = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<OpencodeToAgentRedirectV1OpencodePathGet5Data, ThrowOnError>,
-) =>
-  (options.client ?? client).put<
-    OpencodeToAgentRedirectV1OpencodePathGet5Responses,
-    OpencodeToAgentRedirectV1OpencodePathGet5Errors,
-    ThrowOnError
-  >({ url: '/v1/opencode/{path}', ...options })
 
 /**
  * List Ralph Runs
@@ -3094,43 +3028,43 @@ export const syncSessionStateV1AuthSyncGet = <
   >({ url: '/v1/auth/sync', ...options })
 
 /**
- * Get User Codebases
+ * Get User Workspaces
  *
- * Get all codebases associated with a user.
+ * Get all workspaces associated with a user.
  */
-export const getUserCodebasesV1AuthUserUserIdCodebasesGet = <
+export const getUserWorkspacesV1AuthUserUserIdWorkspacesGet = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    GetUserCodebasesV1AuthUserUserIdCodebasesGetData,
+    GetUserWorkspacesV1AuthUserUserIdWorkspacesGetData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).get<
-    GetUserCodebasesV1AuthUserUserIdCodebasesGetResponses,
-    GetUserCodebasesV1AuthUserUserIdCodebasesGetErrors,
+    GetUserWorkspacesV1AuthUserUserIdWorkspacesGetResponses,
+    GetUserWorkspacesV1AuthUserUserIdWorkspacesGetErrors,
     ThrowOnError
-  >({ url: '/v1/auth/user/{user_id}/codebases', ...options })
+  >({ url: '/v1/auth/user/{user_id}/workspaces', ...options })
 
 /**
- * Associate User Codebase
+ * Associate User Workspace
  *
- * Associate a codebase with a user.
+ * Associate a workspace with a user.
  */
-export const associateUserCodebaseV1AuthUserUserIdCodebasesPost = <
+export const associateUserWorkspaceV1AuthUserUserIdWorkspacesPost = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    AssociateUserCodebaseV1AuthUserUserIdCodebasesPostData,
+    AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).post<
-    AssociateUserCodebaseV1AuthUserUserIdCodebasesPostResponses,
-    AssociateUserCodebaseV1AuthUserUserIdCodebasesPostErrors,
+    AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostResponses,
+    AssociateUserWorkspaceV1AuthUserUserIdWorkspacesPostErrors,
     ThrowOnError
   >({
-    url: '/v1/auth/user/{user_id}/codebases',
+    url: '/v1/auth/user/{user_id}/workspaces',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -3139,23 +3073,23 @@ export const associateUserCodebaseV1AuthUserUserIdCodebasesPost = <
   })
 
 /**
- * Remove User Codebase
+ * Remove User Workspace
  *
- * Remove a codebase association from a user.
+ * Remove a workspace association from a user.
  */
-export const removeUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDelete = <
+export const removeUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDelete = <
   ThrowOnError extends boolean = false,
 >(
   options: Options<
-    RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteData,
+    RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteData,
     ThrowOnError
   >,
 ) =>
   (options.client ?? client).delete<
-    RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteResponses,
-    RemoveUserCodebaseV1AuthUserUserIdCodebasesCodebaseIdDeleteErrors,
+    RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteResponses,
+    RemoveUserWorkspaceV1AuthUserUserIdWorkspacesWorkspaceIdDeleteErrors,
     ThrowOnError
-  >({ url: '/v1/auth/user/{user_id}/codebases/{codebase_id}', ...options })
+  >({ url: '/v1/auth/user/{user_id}/workspaces/{workspace_id}', ...options })
 
 /**
  * Get User Agent Sessions

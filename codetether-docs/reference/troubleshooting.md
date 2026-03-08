@@ -287,7 +287,7 @@ Ensure your server is configured to serve the full certificate chain.
    ```bash
    curl -N "http://localhost:8000/v1/worker/tasks/stream" \
      -H "X-Codebases: my-project,api" \
-     -H "X-Capabilities: opencode,build,deploy,test" \
+     -H "X-Capabilities: agent,build,deploy,test" \
      -H "Accept: text/event-stream"
    ```
 
@@ -300,8 +300,8 @@ Ensure your server is configured to serve the full certificate chain.
 
 3. Check worker registration and codebase IDs match:
    ```bash
-   curl http://localhost:8000/v1/opencode/workers
-   curl http://localhost:8000/v1/opencode/codebases
+   curl http://localhost:8000/v1/agent/workers
+   curl http://localhost:8000/v1/agent/codebases
    ```
 
 ### Global tasks not being received

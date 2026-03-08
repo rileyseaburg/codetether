@@ -19,12 +19,12 @@ interface PRDChatHistoryProps {
 }
 
 export function PRDChatHistory({ onContinueSession }: PRDChatHistoryProps) {
-  const { selectedCodebase } = useRalphStore()
-  const { sessions, loading, error, loadSessionMessages } = useAIPRDSessions(selectedCodebase || undefined)
+  const { selectedCodebase: selectedWorkspace } = useRalphStore()
+  const { sessions, loading, error, loadSessionMessages } = useAIPRDSessions(selectedWorkspace || undefined)
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null)
 
-  // Don't show anything if no codebase selected
-  if (!selectedCodebase || selectedCodebase === 'global') {
+  // Don't show anything if no workspace selected
+  if (!selectedWorkspace || selectedWorkspace === 'global') {
     return null
   }
 

@@ -41,7 +41,7 @@ def connect_sse_worker(worker_id: str, server_url: str = "http://localhost:8000"
     url = f"{server_url}/v1/worker/tasks/stream"
     headers = {
         "X-Codebases": "my-project,api",
-        "X-Capabilities": "opencode,build,deploy,test"
+        "X-Capabilities": "agent,build,deploy,test"
     }
 
     with requests.get(url, headers=headers, params={"worker_id": worker_id}, stream=True) as response:
@@ -113,11 +113,11 @@ Workers register to receive SSE notifications:
 
 ```bash
 # Register worker and get worker ID
-curl -X POST http://localhost:8000/v1/opencode/workers/register \
+curl -X POST http://localhost:8000/v1/agent/workers/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "worker-123",
-    "capabilities": ["opencode", "build", "test"],
+    "capabilities": ["agent", "build", "test"],
     "hostname": "dev-vm.internal"
   }'
 ```
@@ -137,7 +137,7 @@ Response:
 # Connect to SSE stream with headers for routing
 curl -N "http://localhost:8000/v1/worker/tasks/stream" \
   -H "X-Codebases: my-project,api" \
-  -H "X-Capabilities: opencode,build,deploy,test" \
+  -H "X-Capabilities: agent,build,deploy,test" \
   -H "worker_id: worker-123"
 ```
 
@@ -193,7 +193,7 @@ Workers send their registered codebases and capabilities via headers:
 
 ```
 X-Codebases: my-project,api,backend
-X-Capabilities: opencode,build,deploy,test
+X-Capabilities: agent,build,deploy,test
 ```
 
 The server uses these headers to route tasks to the appropriate workers.
@@ -228,7 +228,7 @@ curl http://localhost:8000/v1/workers/{worker_id}/status
    ```bash
    curl -N "http://localhost:8000/v1/worker/tasks/stream" \
      -H "X-Codebases: test" \
-     -H "X-Capabilities: opencode,build" \
+     -H "X-Capabilities: agent,build" \
      -H "worker_id: test"
    ```
 
@@ -238,7 +238,7 @@ curl http://localhost:8000/v1/workers/{worker_id}/status
 
 3. Verify worker registration:
    ```bash
-   curl http://localhost:8000/v1/opencode/workers
+   curl http://localhost:8000/v1/agent/workers
    ```
 
 ### Connection drops frequently?

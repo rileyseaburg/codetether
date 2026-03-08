@@ -1,18 +1,19 @@
 """
-OpenCode Bridge - Integrates OpenCode AI coding agent with A2A Server
+Agent Bridge - Integrates CodeTether agent with A2A Server
 
-This module provides a bridge between the A2A protocol server and OpenCode,
-allowing web UI triggers to start AI agents working on registered codebases.
+This module provides a bridge between the A2A protocol server and the
+CodeTether agent, allowing web UI triggers to start AI agents working
+on registered workspaces.
 
 Architecture:
-- Workers sync codebases, tasks, and sessions to PostgreSQL (via database.py)
+- Workers sync workspaces, tasks, and sessions to PostgreSQL (via database.py)
 - Bridge reads from PostgreSQL for a consistent view across replicas
 - No SQLite persistence - all durable storage is in PostgreSQL
 - In-memory caches are used for performance but are not authoritative
 
 Production usage:
 - Configure DATABASE_URL environment variable to point to PostgreSQL
-- Workers register codebases and sync session state to PostgreSQL
+- Workers register workspaces and sync session state to PostgreSQL
 - Multiple server replicas can read the same PostgreSQL data
 - Monitor API queries PostgreSQL directly for session listings
 """
@@ -49,15 +50,18 @@ from .knative_events import (
 
 logger = logging.getLogger(__name__)
 
-# OpenCode host configuration - allows container to connect to host VM's opencode
-# Use 'host.docker.internal' when running in Docker on Linux/Mac/Windows
-# Use the actual host IP when host.docker.internal is not available
-OPENCODE_HOST = os.environ.get('OPENCODE_HOST', 'localhost')
-OPENCODE_DEFAULT_PORT = int(os.environ.get('OPENCODE_PORT', '9777'))
+# Agent host configuration - allows container to connect to host VM's agent
+# Accepts AGENT_HOST/AGENT_PORT (preferred) or legacy OPENCODE_HOST/OPENCODE_PORT
+AGENT_HOST = os.environ.get('AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost'))
+AGENT_DEFAULT_PORT = int(os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777')))
+
+# Backward-compatible aliases
+# Legacy OPENCODE_HOST removed
+# Legacy OPENCODE_DEFAULT_PORT removed
 
 
 class AgentStatus(str, Enum):
-    """Status of an OpenCode agent instance."""
+    """Status of a CodeTether agent instance."""
 
     IDLE = 'idle'
     RUNNING = 'running'
@@ -230,7 +234,7 @@ class RegisteredCodebase:
     agent_config: Dict[str, Any] = field(default_factory=dict)
     last_triggered: Optional[datetime] = None
     status: AgentStatus = AgentStatus.IDLE
-    opencode_port: Optional[int] = None
+    agent_port: Optional[int] = None
     session_id: Optional[str] = None
     watch_mode: bool = False  # Whether agent is in watch mode
     watch_interval: int = 5  # Seconds between task checks
@@ -248,7 +252,7 @@ class RegisteredCodebase:
             if self.last_triggered
             else None,
             'status': self.status.value,
-            'opencode_port': self.opencode_port,
+            'agent_port': self.agent_port,
             'session_id': self.session_id,
             'watch_mode': self.watch_mode,
             'watch_interval': self.watch_interval,
@@ -290,37 +294,35 @@ class AgentTriggerResponse:
         }
 
 
-class OpenCodeBridge:
+class AgentBridge:
     """
-    Bridge between A2A Server and OpenCode.
+    Bridge between A2A Server and CodeTether agent.
 
-    Manages codebase registrations, task queues, and triggers OpenCode agents
-    through its HTTP API. Supports watch mode where agents poll for tasks.
+    Manages workspace registrations, task queues, and triggers agents
+    through the CodeTether HTTP API. Supports watch mode where agents
+    poll for tasks.
     """
 
     def __init__(
         self,
-        opencode_bin: Optional[str] = None,
+        agent_bin: Optional[str] = None,
         default_port: int = None,
         auto_start: bool = True,
-        db_path: Optional[str] = None,
-        opencode_host: Optional[str] = None,
+        agent_host: Optional[str] = None,
     ):
         """
-        Initialize the OpenCode bridge.
+        Initialize the Agent bridge.
 
         Args:
-            opencode_bin: Path to opencode binary (auto-detected if None)
-            default_port: Default port for OpenCode server
-            auto_start: Whether to auto-start OpenCode when triggering
-            db_path: DEPRECATED - bridge now uses PostgreSQL from database.py
-            opencode_host: Host where OpenCode API is running (for container->host)
+            agent_bin: Path to codetether agent binary (auto-detected if None)
+            default_port: Default port for agent server
+            auto_start: Whether to auto-start agent when triggering
+            agent_host: Host where agent API is running (for container->host)
         """
-        self.opencode_bin = opencode_bin or self._find_opencode_binary()
-        self.default_port = default_port or OPENCODE_DEFAULT_PORT
+        self.agent_bin = agent_bin or self._find_agent_binary()
+        self.default_port = default_port or AGENT_DEFAULT_PORT
         self.auto_start = auto_start
-        # OpenCode host - allows container to connect to host VM's opencode
-        self.opencode_host = opencode_host or OPENCODE_HOST
+        self.agent_host = agent_host or AGENT_HOST
 
         # In-memory caches (populated from PostgreSQL on demand)
         self._codebases: Dict[str, RegisteredCodebase] = {}
@@ -334,7 +336,7 @@ class OpenCodeBridge:
             str, asyncio.Task
         ] = {}  # codebase_id -> asyncio task
 
-        # Active OpenCode processes
+        # Active agent processes
         self._processes: Dict[str, subprocess.Popen] = {}
 
         # Port allocations
@@ -350,19 +352,19 @@ class OpenCodeBridge:
         self._session: Optional[aiohttp.ClientSession] = None
 
         logger.info(
-            f'OpenCode bridge initialized with binary: {self.opencode_bin}'
+            f'Agent bridge initialized with binary: {self.agent_bin}'
         )
-        logger.info(f'OpenCode host: {self.opencode_host}:{self.default_port}')
+        logger.info(f'Agent host: {self.agent_host}:{self.default_port}')
         logger.info(f'Using PostgreSQL database for persistence')
 
-    def _get_opencode_base_url(self, port: Optional[int] = None) -> str:
+    def _get_agent_base_url(self, port: Optional[int] = None) -> str:
         """
-        Get the base URL for OpenCode API.
+        Get the base URL for agent API.
 
-        Uses configured opencode_host to allow container->host communication.
+        Uses configured agent_host to allow container->host communication.
         """
         p = port or self.default_port
-        return f'http://{self.opencode_host}:{p}'
+        return f'http://{self.agent_host}:{p}'
 
     async def _save_codebase(self, codebase: RegisteredCodebase):
         """Save or update a codebase in PostgreSQL."""
@@ -379,7 +381,7 @@ class OpenCodeBridge:
                     'updated_at': datetime.utcnow().isoformat(),
                     'status': codebase.status.value,
                     'session_id': codebase.session_id,
-                    'opencode_port': codebase.opencode_port,
+                    'agent_port': codebase.agent_port,
                 }
             )
         except Exception as e:
@@ -408,6 +410,8 @@ class OpenCodeBridge:
             await db.db_upsert_task(
                 {
                     'id': task.id,
+                    # Workspace is the canonical DB column; keep legacy key too.
+                    'workspace_id': task.codebase_id,
                     'codebase_id': task.codebase_id,
                     'title': task.title,
                     'prompt': task.prompt,
@@ -453,7 +457,9 @@ class OpenCodeBridge:
 
         return AgentTask(
             id=row['id'],
-            codebase_id=row.get('codebase_id', 'global'),
+            codebase_id=row.get('workspace_id')
+            or row.get('codebase_id')
+            or 'global',
             title=row.get('title', ''),
             prompt=row.get('prompt', row.get('title', '')),
             agent_type=row.get('agent_type', 'build'),
@@ -532,7 +538,7 @@ class OpenCodeBridge:
                     agent_config=row.get('agent_config') or {},
                     last_triggered=parse_dt(row.get('last_triggered')),
                     status=AgentStatus(row.get('status', 'idle')),
-                    opencode_port=row.get('opencode_port'),
+                    agent_port=row.get('agent_port'),
                     session_id=row.get('session_id'),
                     watch_mode=row.get('watch_mode', False),
                     watch_interval=row.get('watch_interval', 5),
@@ -552,7 +558,7 @@ class OpenCodeBridge:
         """Load tasks from PostgreSQL and cache them in memory."""
         try:
             rows = await db.db_list_tasks(
-                codebase_id=codebase_id,
+                workspace_id=codebase_id,
                 status=status,
                 limit=limit,
             )
@@ -587,34 +593,27 @@ class OpenCodeBridge:
         codebase.status = status
         await self._save_codebase(codebase)
 
-    def _find_opencode_binary(self) -> str:
-        """Find the opencode binary in common locations."""
+    def _find_agent_binary(self) -> str:
+        """Find the codetether agent binary in common locations."""
         # Check environment variable first
-        env_bin = os.environ.get('OPENCODE_BIN_PATH')
+        env_bin = os.environ.get('AGENT_BIN_PATH')
         if env_bin and os.path.exists(env_bin):
             return env_bin
 
-        # Check common locations
+        # Check common locations for codetether agent binary
         locations = [
-            # Local project
-            str(
-                Path(__file__).parent.parent
-                / 'opencode'
-                / 'packages'
-                / 'opencode'
-                / 'bin'
-                / 'opencode'
-            ),
+            # Cargo-installed codetether binaries
+            str(Path.home() / '.cargo' / 'bin' / 'codetether-mcp-serve'),
+            str(Path.home() / '.cargo' / 'bin' / 'codetether'),
             # System paths
-            '/usr/local/bin/opencode',
-            '/usr/bin/opencode',
+            '/usr/local/bin/codetether-mcp-serve',
+            '/usr/local/bin/codetether',
+            '/usr/bin/codetether-mcp-serve',
+            '/usr/bin/codetether',
             # User paths
-            str(Path.home() / '.local' / 'bin' / 'opencode'),
-            str(Path.home() / 'bin' / 'opencode'),
-            str(Path.home() / '.opencode' / 'bin' / 'opencode'),
-            # npm/bun global
-            str(Path.home() / '.bun' / 'bin' / 'opencode'),
-            str(Path.home() / '.npm-global' / 'bin' / 'opencode'),
+            str(Path.home() / '.local' / 'bin' / 'codetether-mcp-serve'),
+            str(Path.home() / '.local' / 'bin' / 'codetether'),
+            str(Path.home() / 'bin' / 'codetether'),
         ]
 
         for loc in locations:
@@ -622,17 +621,20 @@ class OpenCodeBridge:
                 return loc
 
         # Try which command
-        try:
-            result = subprocess.run(
-                ['which', 'opencode'], capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception:
-            pass
+        for binary_name in ['codetether-mcp-serve', 'codetether']:
+            try:
+                result = subprocess.run(
+                    ['which', binary_name], capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+            except Exception:
+                pass
 
-        # Fallback to just "opencode" (assume in PATH)
-        return 'opencode'
+        # Fallback to just "codetether" (assume in PATH)
+        return 'codetether'
+
+    # Backward-compatible alias
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""
@@ -668,7 +670,7 @@ class OpenCodeBridge:
             name: Display name for the codebase
             path: Absolute path to the codebase directory (on worker machine)
             description: Optional description
-            agent_config: Optional OpenCode agent configuration
+            agent_config: Optional agent configuration
             worker_id: ID of the worker that owns this codebase (for remote execution)
 
         Returns:
@@ -692,7 +694,7 @@ class OpenCodeBridge:
             codebase.agent_config = agent_config or {}
             if worker_id:
                 codebase.worker_id = worker_id
-                codebase.opencode_port = (
+                codebase.agent_port = (
                     None  # Clear local port if it's now remote
                 )
             codebase.status = AgentStatus.IDLE
@@ -733,7 +735,7 @@ class OpenCodeBridge:
             codebase.agent_config = agent_config or {}
             if worker_id:
                 codebase.worker_id = worker_id
-                codebase.opencode_port = (
+                codebase.agent_port = (
                     None  # Clear local port if it's now remote
                 )
             codebase.status = AgentStatus.IDLE
@@ -790,8 +792,40 @@ class OpenCodeBridge:
         """List all registered codebases."""
         return list(self._codebases.values())
 
+    # ------------------------------------------------------------------
+    # Workspace compatibility API
+    # ------------------------------------------------------------------
+    # monitor_api now uses workspace terminology; keep bridge methods
+    # available under both names during the migration window.
+    async def register_workspace(
+        self,
+        name: str,
+        path: str,
+        description: str = '',
+        agent_config: Optional[Dict[str, Any]] = None,
+        worker_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> RegisteredCodebase:
+        return await self.register_codebase(
+            name=name,
+            path=path,
+            description=description,
+            agent_config=agent_config,
+            worker_id=worker_id,
+            codebase_id=workspace_id,
+        )
+
+    async def unregister_workspace(self, workspace_id: str) -> bool:
+        return await self.unregister_codebase(workspace_id)
+
+    def get_workspace(self, workspace_id: str) -> Optional[RegisteredCodebase]:
+        return self.get_codebase(workspace_id)
+
+    def list_workspaces(self) -> List[RegisteredCodebase]:
+        return self.list_codebases()
+
     def _allocate_port(self, codebase_id: str) -> int:
-        """Allocate a port for an OpenCode instance."""
+        """Allocate a port for an agent instance."""
         if codebase_id in self._port_allocations:
             return self._port_allocations[codebase_id]
 
@@ -800,9 +834,9 @@ class OpenCodeBridge:
         self._next_port += 1
         return port
 
-    async def _start_opencode_server(self, codebase: RegisteredCodebase) -> int:
+    async def _start_agent_server(self, codebase: RegisteredCodebase) -> int:
         """
-        Start an OpenCode server for a codebase.
+        Start an agent server for a codebase.
 
         Returns the port number.
         """
@@ -810,14 +844,14 @@ class OpenCodeBridge:
 
         # Build command
         cmd = [
-            self.opencode_bin,
+            self.agent_bin,
             'serve',
             '--port',
             str(port),
         ]
 
         logger.info(
-            f'Starting OpenCode server for {codebase.name} on port {port}'
+            f'Starting agent server for {codebase.name} on port {port}'
         )
         logger.debug(f'Command: {" ".join(cmd)}')
 
@@ -832,7 +866,7 @@ class OpenCodeBridge:
             )
 
             self._processes[codebase.id] = process
-            codebase.opencode_port = port
+            codebase.agent_port = port
             await self._update_codebase_status(codebase, AgentStatus.RUNNING)
 
             # Wait a moment for server to start
@@ -844,18 +878,18 @@ class OpenCodeBridge:
                 stderr = (
                     process.stderr.read().decode() if process.stderr else ''
                 )
-                raise RuntimeError(f'OpenCode server failed to start: {stderr}')
+                raise RuntimeError(f'Agent server failed to start: {stderr}')
 
-            logger.info(f'OpenCode server started successfully on port {port}')
+            logger.info(f'Agent server started successfully on port {port}')
             return port
 
         except Exception as e:
-            logger.error(f'Failed to start OpenCode server: {e}')
+            logger.error(f'Failed to start agent server: {e}')
             await self._update_codebase_status(codebase, AgentStatus.ERROR)
             raise
 
     async def stop_agent(self, codebase_id: str) -> bool:
-        """Stop a running OpenCode agent."""
+        """Stop a running agent."""
         codebase = self._codebases.get(codebase_id)
         if not codebase:
             return False
@@ -871,13 +905,13 @@ class OpenCodeBridge:
             del self._processes[codebase_id]
 
         await self._update_codebase_status(codebase, AgentStatus.STOPPED)
-        codebase.opencode_port = None
+        codebase.agent_port = None
 
         # Free port allocation
         if codebase_id in self._port_allocations:
             del self._port_allocations[codebase_id]
 
-        logger.info(f'Stopped OpenCode agent for {codebase.name}')
+        logger.info(f'Stopped agent for {codebase.name}')
         return True
 
     async def trigger_agent(
@@ -885,7 +919,7 @@ class OpenCodeBridge:
         request: AgentTriggerRequest,
     ) -> AgentTriggerResponse:
         """
-        Trigger an OpenCode agent to work on a codebase.
+        Trigger an agent to work on a codebase.
 
         Args:
             request: The trigger request with prompt and configuration
@@ -936,21 +970,21 @@ class OpenCodeBridge:
                 )
 
         try:
-            # Local execution: Ensure OpenCode server is running
+            # Local execution: Ensure agent server is running
             if (
-                not codebase.opencode_port
+                not codebase.agent_port
                 or codebase.status != AgentStatus.RUNNING
             ):
                 if self.auto_start:
-                    await self._start_opencode_server(codebase)
+                    await self._start_agent_server(codebase)
                 else:
                     return AgentTriggerResponse(
                         success=False,
-                        error='OpenCode server not running and auto_start is disabled',
+                        error='Agent server not running and auto_start is disabled',
                     )
 
             # Build API URL - use configured host for container->host communication
-            base_url = self._get_opencode_base_url(codebase.opencode_port)
+            base_url = self._get_agent_base_url(codebase.agent_port)
 
             session = await self._get_session()
 
@@ -1313,19 +1347,19 @@ class OpenCodeBridge:
 
     async def get_available_models(self) -> List[Dict[str, Any]]:
         """
-        Fetch available models from OpenCode.
+        Fetch available models from agent.
 
-        Tries to query an active OpenCode instance. If none are running,
+        Tries to query an active agent instance. If none are running,
         it may start a temporary one or fall back to reading config.
         """
-        # 1. Try to find an active OpenCode instance
+        # 1. Try to find an active agent instance
         active_port = None
         for codebase in self._codebases.values():
             if (
-                codebase.opencode_port
+                codebase.agent_port
                 and codebase.status == AgentStatus.RUNNING
             ):
-                active_port = codebase.opencode_port
+                active_port = codebase.agent_port
                 break
 
         if not active_port:
@@ -1333,13 +1367,13 @@ class OpenCodeBridge:
             active_port = self.default_port
 
         try:
-            base_url = self._get_opencode_base_url(active_port)
+            base_url = self._get_agent_base_url(active_port)
             session = await self._get_session()
 
             async with session.get(f'{base_url}/provider') as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    # Transform OpenCode provider/model format to A2A format
+                    # Transform agent provider/model format to A2A format
                     models = []
                     all_providers = data.get('all', [])
                     for provider in all_providers:
@@ -1378,7 +1412,7 @@ class OpenCodeBridge:
 
                     return models
         except Exception as e:
-            logger.debug(f'Failed to fetch models from OpenCode API: {e}')
+            logger.debug(f'Failed to fetch models from agent API: {e}')
 
         return []
 
@@ -1392,11 +1426,11 @@ class OpenCodeBridge:
 
         result = codebase.to_dict()
 
-        # If running, try to get more info from OpenCode API
-        if codebase.opencode_port and codebase.session_id:
+        # If running, try to get more info from agent API
+        if codebase.agent_port and codebase.session_id:
             try:
                 session = await self._get_session()
-                base_url = self._get_opencode_base_url(codebase.opencode_port)
+                base_url = self._get_agent_base_url(codebase.agent_port)
 
                 async with session.get(
                     f'{base_url}/session/{codebase.session_id}/message',
@@ -1425,7 +1459,7 @@ class OpenCodeBridge:
                 error=f'Codebase not found: {codebase_id}',
             )
 
-        if not codebase.session_id or not codebase.opencode_port:
+        if not codebase.session_id or not codebase.agent_port:
             return AgentTriggerResponse(
                 success=False,
                 error='No active session for this codebase',
@@ -1433,7 +1467,7 @@ class OpenCodeBridge:
 
         try:
             session = await self._get_session()
-            base_url = self._get_opencode_base_url(codebase.opencode_port)
+            base_url = self._get_agent_base_url(codebase.agent_port)
 
             payload = {
                 'sessionID': codebase.session_id,
@@ -1476,13 +1510,13 @@ class OpenCodeBridge:
         if (
             not codebase
             or not codebase.session_id
-            or not codebase.opencode_port
+            or not codebase.agent_port
         ):
             return False
 
         try:
             session = await self._get_session()
-            base_url = self._get_opencode_base_url(codebase.opencode_port)
+            base_url = self._get_agent_base_url(codebase.agent_port)
 
             async with session.post(
                 f'{base_url}/session/{codebase.session_id}/interrupt'
@@ -1659,7 +1693,7 @@ class OpenCodeBridge:
             status: New task status
             result: Optional result data
             error: Optional error message
-            session_id: Optional OpenCode session ID
+            session_id: Optional agent session ID
             worker_id: Optional worker ID that executed this task
             model_used: Optional model that was used (may differ from requested model_ref)
         """
@@ -1693,7 +1727,7 @@ class OpenCodeBridge:
             if task.completed_at is None:
                 task.completed_at = datetime.utcnow()
 
-        # Allow workers (or the control plane) to attach the active OpenCode
+        # Allow workers (or the control plane) to attach the active agent
         # session ID for UI deep-linking and eager message sync.
         if session_id and session_id != task.session_id:
             task.session_id = session_id
@@ -1813,16 +1847,16 @@ class OpenCodeBridge:
             await self._notify_status_change(codebase)
             return True
 
-        # For local execution, start the OpenCode server if not running
-        if not codebase.opencode_port or codebase.status in (
+        # For local execution, start the agent server if not running
+        if not codebase.agent_port or codebase.status in (
             AgentStatus.IDLE,
             AgentStatus.STOPPED,
         ):
             try:
-                await self._start_opencode_server(codebase)
+                await self._start_agent_server(codebase)
             except Exception as e:
                 logger.error(
-                    f'Failed to start OpenCode server for watch mode: {e}'
+                    f'Failed to start agent server for watch mode: {e}'
                 )
                 return False
 
@@ -1870,7 +1904,7 @@ class OpenCodeBridge:
         codebase.watch_mode = False
         await self._update_codebase_status(
             codebase,
-            AgentStatus.RUNNING if codebase.opencode_port else AgentStatus.IDLE,
+            AgentStatus.RUNNING if codebase.agent_port else AgentStatus.IDLE,
         )
 
         logger.info(f'Stopped watch mode for {codebase.name}')
@@ -1906,7 +1940,7 @@ class OpenCodeBridge:
             self._update_codebase_status(codebase, AgentStatus.ERROR)
 
     async def _execute_task(self, task: AgentTask):
-        """Execute a task using the OpenCode agent."""
+        """Execute a task using the CodeTether agent."""
         codebase = self._codebases.get(task.codebase_id)
         if not codebase:
             task.status = AgentTaskStatus.FAILED
@@ -1969,10 +2003,10 @@ class OpenCodeBridge:
         self, task: AgentTask, codebase: RegisteredCodebase, timeout: int = 600
     ):
         """Wait for an agent to complete its work."""
-        if not codebase.opencode_port or not task.session_id:
+        if not codebase.agent_port or not task.session_id:
             return
 
-        base_url = self._get_opencode_base_url(codebase.opencode_port)
+        base_url = self._get_agent_base_url(codebase.agent_port)
         session = await self._get_session()
 
         start_time = datetime.utcnow()
@@ -2033,38 +2067,32 @@ class OpenCodeBridge:
 
 
 # Global bridge instance
-_bridge: Optional[OpenCodeBridge] = None
+_bridge: Optional[AgentBridge] = None
 
 
-def get_bridge() -> OpenCodeBridge:
-    """Get the global OpenCode bridge instance."""
+def get_bridge() -> AgentBridge:
+    """Get the global Agent bridge instance."""
     global _bridge
     if _bridge is None:
-        _bridge = OpenCodeBridge()
+        _bridge = AgentBridge()
     return _bridge
 
 
 def init_bridge(
-    opencode_bin: Optional[str] = None,
+    agent_bin: Optional[str] = None,
     default_port: int = None,
     auto_start: bool = True,
-    opencode_host: Optional[str] = None,
-) -> OpenCodeBridge:
-    """Initialize the global OpenCode bridge instance."""
+    agent_host: Optional[str] = None,
+) -> AgentBridge:
+    """Initialize the global Agent bridge instance."""
     global _bridge
-    _bridge = OpenCodeBridge(
-        opencode_bin=opencode_bin,
-        default_port=default_port or OPENCODE_DEFAULT_PORT,
+    _bridge = AgentBridge(
+        agent_bin=agent_bin,
+        default_port=default_port or AGENT_DEFAULT_PORT,
         auto_start=auto_start,
-        opencode_host=opencode_host,
+        agent_host=agent_host,
     )
     return _bridge
-
-
-# Backward/forward-compatible aliases.
-# New code uses AgentBridge/get_agent_bridge; legacy code may use
-# OpenCodeBridge/get_bridge.
-AgentBridge = OpenCodeBridge
 
 
 def get_agent_bridge() -> AgentBridge:
@@ -2080,8 +2108,8 @@ def init_agent_bridge(
 ) -> AgentBridge:
     """Initialize the global AgentBridge instance."""
     return init_bridge(
-        opencode_bin=agent_bin,
+        agent_bin=agent_bin,
         default_port=default_port,
         auto_start=auto_start,
-        opencode_host=agent_host,
+        agent_host=agent_host,
     )

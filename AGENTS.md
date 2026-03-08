@@ -139,23 +139,23 @@ Permissions follow `resource:action` format (e.g., `task:read`, `agent:admin`). 
 
 ---
 
-## OpenCode Releases
+## CodeTether Releases
 
-OpenCode binaries are automatically built and published to **GitHub Releases** when you create a tag matching `opencode-v*` or `v*`.
+CodeTether binaries are automatically built and published to **GitHub Releases** when you create a tag matching `agent-v*` or `v*`.
 
 ### Release Process
 
 **Automatic (GitHub Actions):**
 ```bash
 # Trigger a release from the current version in package.json
-make release-opencode
+make release-agent
 
 # Or manually create and push a tag
-git tag opencode-v1.1.25
-git push origin opencode-v1.1.25
+git tag agent-v1.1.25
+git push origin agent-v1.1.25
 ```
 
-The GitHub Actions workflow (`.github/workflows/release-opencode.yml`) will:
+The GitHub Actions workflow (`.github/workflows/release-agent.yml`) will:
 1. Build binaries for all 11 platforms (Linux, macOS, Windows - x64/ARM64/baseline/musl)
 2. Package them as `.tar.gz` (Unix) or `.zip` (Windows)
 3. Create a GitHub Release with all binaries attached
@@ -163,34 +163,34 @@ The GitHub Actions workflow (`.github/workflows/release-opencode.yml`) will:
 **Manual (Local Build):**
 ```bash
 # Build locally and upload to GitHub release (requires gh CLI)
-make release-opencode-local
+make release-agent-local
 ```
 
 ### Available Platforms
 
 | Platform | File | Notes |
 |----------|------|-------|
-| Linux x64 | `opencode-vX.X.X-linux-x64.tar.gz` | Standard glibc build |
-| Linux x64 (baseline) | `opencode-vX.X.X-linux-x64-baseline.tar.gz` | For older CPUs without AVX2 |
-| Linux x64 (musl) | `opencode-vX.X.X-linux-x64-musl.tar.gz` | For Alpine Linux |
-| Linux ARM64 | `opencode-vX.X.X-linux-arm64.tar.gz` | ARM64 glibc |
-| Linux ARM64 (musl) | `opencode-vX.X.X-linux-arm64-musl.tar.gz` | ARM64 musl |
-| macOS x64 | `opencode-vX.X.X-darwin-x64.tar.gz` | Intel Macs |
-| macOS x64 (baseline) | `opencode-vX.X.X-darwin-x64-baseline.tar.gz` | Intel Macs without AVX2 |
-| macOS ARM64 | `opencode-vX.X.X-darwin-arm64.tar.gz` | Apple Silicon |
-| Windows x64 | `opencode-vX.X.X-windows-x64.zip` | Standard build |
-| Windows x64 (baseline) | `opencode-vX.X.X-windows-x64-baseline.zip` | For older CPUs |
+| Linux x64 | `agent-vX.X.X-linux-x64.tar.gz` | Standard glibc build |
+| Linux x64 (baseline) | `agent-vX.X.X-linux-x64-baseline.tar.gz` | For older CPUs without AVX2 |
+| Linux x64 (musl) | `agent-vX.X.X-linux-x64-musl.tar.gz` | For Alpine Linux |
+| Linux ARM64 | `agent-vX.X.X-linux-arm64.tar.gz` | ARM64 glibc |
+| Linux ARM64 (musl) | `agent-vX.X.X-linux-arm64-musl.tar.gz` | ARM64 musl |
+| macOS x64 | `agent-vX.X.X-darwin-x64.tar.gz` | Intel Macs |
+| macOS x64 (baseline) | `agent-vX.X.X-darwin-x64-baseline.tar.gz` | Intel Macs without AVX2 |
+| macOS ARM64 | `agent-vX.X.X-darwin-arm64.tar.gz` | Apple Silicon |
+| Windows x64 | `agent-vX.X.X-windows-x64.zip` | Standard build |
+| Windows x64 (baseline) | `agent-vX.X.X-windows-x64-baseline.zip` | For older CPUs |
 
 ### Installation for End Users
 
 **Linux/macOS (Bash):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.ps1" -UseBasicParsing).Content
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent.ps1" -UseBasicParsing).Content
 ```
 
 **Manual download:**
@@ -200,14 +200,14 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ril
 
 ### Release File Locations
 
-- **Workflow:** `.github/workflows/release-opencode.yml`
+- **Workflow:** `.github/workflows/release-agent.yml`
 - **Install Scripts:**
-  - `scripts/install-opencode.sh` (Linux/macOS)
-  - `scripts/install-opencode.ps1` (Windows)
+  - `scripts/install-agent.sh` (Linux/macOS)
+  - `scripts/install-agent.ps1` (Windows)
 - **Makefile Targets:**
-  - `build-opencode` - Build local binaries
-  - `release-opencode` - Trigger GitHub Actions release
-  - `release-opencode-local` - Build and upload locally
+  - `build-agent` - Build local binaries
+  - `release-agent` - Trigger GitHub Actions release
+  - `release-agent-local` - Build and upload locally
 
 ## Repository Structure
 

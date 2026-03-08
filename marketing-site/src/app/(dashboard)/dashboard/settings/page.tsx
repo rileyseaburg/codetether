@@ -37,6 +37,9 @@ interface VaultStatus {
     connected: boolean
     authenticated: boolean
     vault_addr: string
+    authorized?: boolean
+    authorization_error?: string
+    authorization_status?: number
     error?: string
 }
 
@@ -65,6 +68,7 @@ export default function SettingsPage() {
     const [providers, setProviders] = useState<Provider[]>([])
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
     const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null)
+    const [vaultAccessError, setVaultAccessError] = useState<string | null>(null)
     const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -99,6 +103,7 @@ export default function SettingsPage() {
     const loadData = async () => {
         setLoading(true)
         setError(null)
+        setVaultAccessError(null)
 
         try {
             const token = getAuthToken()
@@ -109,7 +114,7 @@ export default function SettingsPage() {
 
             const [providersRes, vaultRes, keysRes, billingRes] = await Promise.all([
                 listProvidersV1AgentProvidersGet(),
-                vaultStatusV1AgentVaultStatusGet(),
+                token ? vaultStatusV1AgentVaultStatusGet({ headers }) : vaultStatusV1AgentVaultStatusGet(),
                 token ? listApiKeysV1AgentApiKeysGet({ headers }) : Promise.resolve({ data: undefined, error: undefined }),
                 token ? getSubscriptionV1BillingSubscriptionGet({ headers }) : Promise.resolve({ data: undefined, error: undefined })
             ])
@@ -126,8 +131,13 @@ export default function SettingsPage() {
             if (!keysRes.error && keysRes.data) {
                 const response = keysRes.data as any
                 setApiKeys(Array.isArray(response) ? response : (response?.keys ?? []))
+                if (response?.vault_error) {
+                    setVaultAccessError(response.vault_error)
+                }
             } else if (keysRes.error && typeof keysRes.error === 'object' && 'status' in keysRes.error && (keysRes.error as any).status === 401) {
                 setError('Please sign in to manage your API keys')
+            } else if (keysRes.error) {
+                setError((keysRes.error as any)?.detail || 'Failed to load API keys')
             }
 
             if (!billingRes.error && billingRes.data) {
@@ -282,6 +292,9 @@ export default function SettingsPage() {
     }
 
     const selectedProviderInfo = providers.find(p => p.id === selectedProvider)
+    const vaultAuthorizationError = vaultAccessError || vaultStatus?.authorization_error || null
+    const vaultConnected = !!(vaultStatus?.connected && vaultStatus?.authenticated)
+    const vaultReady = vaultConnected && !vaultAuthorizationError && vaultStatus?.authorized !== false
 
     const usagePercent = billingStatus
         ? Math.min(100, Math.round((billingStatus.tasks_used / billingStatus.tasks_limit) * 100))
@@ -363,19 +376,25 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span
-                                className={`h-3 w-3 rounded-full ${vaultStatus.connected && vaultStatus.authenticated
+                                className={`h-3 w-3 rounded-full ${vaultReady
                                         ? 'bg-green-500'
-                                        : 'bg-red-500'
+                                        : vaultConnected
+                                            ? 'bg-yellow-500'
+                                            : 'bg-red-500'
                                     }`}
                             />
                             <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {vaultStatus.connected && vaultStatus.authenticated
+                                {vaultReady
                                     ? 'Connected to HashiCorp Vault'
-                                    : 'Vault unavailable'}
+                                    : vaultConnected
+                                        ? 'Connected to Vault, but API key access is blocked'
+                                        : 'Vault unavailable'}
                             </span>
                         </div>
-                        {vaultStatus.error && (
-                            <span className="text-sm text-red-600">{vaultStatus.error}</span>
+                        {(vaultAuthorizationError || vaultStatus.error) && (
+                            <span className="text-sm text-red-600">
+                                {vaultAuthorizationError || vaultStatus.error}
+                            </span>
                         )}
                     </div>
                 ) : (
@@ -407,9 +426,15 @@ export default function SettingsPage() {
                 </div>
 
                 {apiKeys.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                        No API keys configured. Add one below to get started.
-                    </div>
+                    vaultAuthorizationError ? (
+                        <div className="p-6 text-center text-red-600 dark:text-red-400">
+                            Unable to list API keys: {vaultAuthorizationError}
+                        </div>
+                    ) : (
+                        <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                            No API keys configured. Add one below to get started.
+                        </div>
+                    )
                 ) : (
                     <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                         {apiKeys.map(key => (

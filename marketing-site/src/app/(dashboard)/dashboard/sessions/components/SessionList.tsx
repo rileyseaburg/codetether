@@ -1,14 +1,14 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import type { Codebase, Session } from '../types'
+import type { Workspace, Session } from '../types'
 import { ChatIcon } from './ChatIcon'
 import { SessionItem } from './SessionItem'
 
 interface Props {
-    codebases: Codebase[]
+    workspaces: Workspace[]
     sessions: Session[]
-    selectedCodebase: string
+    selectedWorkspace: string
     selectedSession: Session | null
-    onCodebaseChange: (id: string) => void
+    onWorkspaceChange: (id: string) => void
     onSessionSelect: (s: Session) => void
     onSearchChange?: (query: string) => void
     hasMoreSessions?: boolean
@@ -18,11 +18,11 @@ interface Props {
 }
 
 export function SessionList({
-    codebases,
+    workspaces,
     sessions,
-    selectedCodebase,
+    selectedWorkspace,
     selectedSession,
-    onCodebaseChange,
+    onWorkspaceChange,
     onSessionSelect,
     onSearchChange,
     hasMoreSessions = false,
@@ -31,7 +31,7 @@ export function SessionList({
     totalSessions,
 }: Props) {
     const [filtersOpen, setFiltersOpen] = useState(false)
-    const selectedCodebaseName = codebases.find(cb => cb.id === selectedCodebase)?.name || 'all codebases'
+    const selectedWorkspaceName = workspaces.find(cb => cb.id === selectedWorkspace)?.name || 'all workspaces'
     const [query, setQuery] = useState('')
     const [sortOrder, setSortOrder] = useState<'recent' | 'oldest'>('recent')
     const normalizedQuery = query.trim().toLowerCase()
@@ -45,8 +45,8 @@ export function SessionList({
         if (onSearchChange) {
             onSearchChange('')
         }
-        setFiltersOpen(!selectedCodebase)
-    }, [selectedCodebase, onSearchChange])
+        setFiltersOpen(!selectedWorkspace)
+    }, [selectedWorkspace, onSearchChange])
 
     useEffect(() => {
         if (!onSearchChange) return
@@ -114,7 +114,7 @@ export function SessionList({
                     <div>
                         <h2 id="sessions-heading" className="text-base font-semibold text-gray-900 dark:text-white">Sessions</h2>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {selectedCodebaseName} - {totalLabel} total
+                            {selectedWorkspaceName} - {totalLabel} total
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -137,18 +137,18 @@ export function SessionList({
                     className={`mt-2 grid gap-2 ${filtersOpen ? 'grid' : 'hidden'} sm:grid`}
                 >
                     <div className="flex flex-col">
-                        <label htmlFor="codebase-select" className="sr-only">Select codebase</label>
+                        <label htmlFor="workspace-select" className="sr-only">Select workspace</label>
                         <select
-                            id="codebase-select"
-                            value={selectedCodebase}
-                            onChange={(e) => onCodebaseChange(e.target.value)}
+                            id="workspace-select"
+                            value={selectedWorkspace}
+                            onChange={(e) => onWorkspaceChange(e.target.value)}
                              className="min-w-0 rounded-md border-gray-300 bg-white text-sm text-gray-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            aria-describedby="codebase-hint"
+                            aria-describedby="workspace-hint"
                         >
-                            <option value="">Select codebase...</option>
-                            {codebases.map((cb) => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
+                            <option value="">Select workspace...</option>
+                            {workspaces.map((cb) => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
                         </select>
-                        <span id="codebase-hint" className="sr-only">Choose a codebase to filter sessions</span>
+                        <span id="workspace-hint" className="sr-only">Choose a workspace to filter sessions</span>
                     </div>
                     <div className="relative">
                         <label htmlFor="session-search" className="sr-only">Search sessions</label>
@@ -200,20 +200,20 @@ export function SessionList({
                 {showEmpty && (
                     <div className="p-6 text-center text-gray-500 sm:p-8" role="status" aria-live="polite">
                         <ChatIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" aria-hidden="true" />
-                        <p className="mt-2 text-sm">{selectedCodebase ? 'No sessions found' : 'Select a codebase'}</p>
+                        <p className="mt-2 text-sm">{selectedWorkspace ? 'No sessions found' : 'Select a workspace'}</p>
                     </div>
                 )}
                 {showFilteredEmpty && (
                     <div className="p-6 text-center text-gray-500 sm:p-8" role="status" aria-live="polite">
                         <ChatIcon className="mx-auto h-10 w-10 text-gray-400" aria-hidden="true" />
                         <p className="mt-2 text-sm">No matches for "{query}".</p>
-                        <p className="mt-1 text-xs text-gray-400">Try clearing filters or changing codebase.</p>
+                        <p className="mt-1 text-xs text-gray-400">Try clearing filters or changing workspace.</p>
                     </div>
                 )}
                 {!showEmpty && !showFilteredEmpty && (
                     <>
                         <p className="sr-only" role="status" aria-live="polite">
-                            {sortedSessions.length} session{sortedSessions.length !== 1 ? 's' : ''} available in {selectedCodebaseName}
+                            {sortedSessions.length} session{sortedSessions.length !== 1 ? 's' : ''} available in {selectedWorkspaceName}
                         </p>
                         {sortedSessions.map((s) => (
                             <SessionItem

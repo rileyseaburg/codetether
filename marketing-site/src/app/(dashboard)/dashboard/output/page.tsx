@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
-interface Codebase {
+interface Workspace {
     id: string
     name: string
     path: string
@@ -28,20 +28,20 @@ function TerminalIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export default function OutputPage() {
     const { data: session } = useSession()
-    const [codebases, setCodebases] = useState<Codebase[]>([])
-    const [selectedCodebase, setSelectedCodebase] = useState('')
+    const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+    const [selectedWorkspace, setSelectedWorkspace] = useState('')
     const [output, setOutput] = useState<OutputLine[]>([])
     const [connected, setConnected] = useState(false)
     const eventSourceRef = useRef<EventSource | null>(null)
     const outputEndRef = useRef<HTMLDivElement>(null)
 
-    const loadCodebases = useCallback(async () => {
+    const loadWorkspaces = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/opencode/codebases/list`)
+            const response = await fetch(`${API_URL}/v1/agent/workspaces/list`)
             if (response.ok) {
                 const data = await response.json()
-                const items = Array.isArray(data) ? data : (data?.codebases ?? [])
-                setCodebases(
+                const items = Array.isArray(data) ? data : (data?.workspaces ?? data?.codebases ?? [])
+                setWorkspaces(
                     (items as any[]).map((cb) => ({
                         id: String(cb?.id ?? ''),
                         name: String(cb?.name ?? cb?.id ?? ''),
@@ -51,26 +51,26 @@ export default function OutputPage() {
                 )
             }
         } catch (error) {
-            console.error('Failed to load codebases:', error)
+            console.error('Failed to load workspaces:', error)
         }
     }, [])
 
     useEffect(() => {
-        loadCodebases()
-    }, [loadCodebases])
+        loadWorkspaces()
+    }, [loadWorkspaces])
 
     useEffect(() => {
         // Auto-scroll to bottom
         outputEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [output])
 
-    const connectToCodebase = useCallback((codebaseId: string) => {
+    const connectToWorkspace = useCallback((workspaceId: string) => {
         // Close existing connection
         if (eventSourceRef.current) {
             eventSourceRef.current.close()
         }
 
-        if (!codebaseId) {
+        if (!workspaceId) {
             setOutput([])
             setConnected(false)
             return
@@ -80,7 +80,7 @@ export default function OutputPage() {
 
         // Handle relative API URLs by resolving against window.location
         const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
-        const sseUrl = new URL(`${baseApiUrl}/v1/opencode/codebases/${codebaseId}/events`)
+        const sseUrl = new URL(`${baseApiUrl}/v1/agent/workspaces/${workspaceId}/events`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
         }
@@ -121,15 +121,15 @@ export default function OutputPage() {
     }, [])
 
     useEffect(() => {
-        if (selectedCodebase) {
-            connectToCodebase(selectedCodebase)
+        if (selectedWorkspace) {
+            connectToWorkspace(selectedWorkspace)
         }
         return () => {
             if (eventSourceRef.current) {
                 eventSourceRef.current.close()
             }
         }
-    }, [selectedCodebase, connectToCodebase])
+    }, [selectedWorkspace, connectToWorkspace])
 
     const addOutput = (type: OutputLine['type'], content: string) => {
         setOutput((prev) => [...prev, { type, content, timestamp: new Date() }].slice(-500))
@@ -222,12 +222,12 @@ export default function OutputPage() {
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Agent Output</h2>
                     <div className="flex items-center gap-4">
                         <select
-                            value={selectedCodebase}
-                            onChange={(e) => setSelectedCodebase(e.target.value)}
+                            value={selectedWorkspace}
+                            onChange={(e) => setSelectedWorkspace(e.target.value)}
                             className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
                         >
-                            <option value="">Select codebase...</option>
-                            {codebases.map((cb) => (
+                            <option value="">Select workspace...</option>
+                            {workspaces.map((cb) => (
                                 <option key={cb.id} value={cb.id}>{cb.name}</option>
                             ))}
                         </select>
@@ -250,7 +250,7 @@ export default function OutputPage() {
                 {output.length === 0 ? (
                     <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                         <TerminalIcon className="mx-auto h-12 w-12 text-gray-400" />
-                        <p className="mt-2">Select a codebase to view agent output</p>
+                        <p className="mt-2">Select a workspace to view agent output</p>
                     </div>
                 ) : (
                     output.map((line, idx) => (

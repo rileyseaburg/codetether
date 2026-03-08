@@ -16,7 +16,7 @@ interface WorkerOption {
   name?: string;
   status?: string;
   last_seen?: string;
-  worker_runtime?: 'rust' | 'opencode_python';
+  worker_runtime?: 'rust' | 'python';
   worker_runtime_label?: string;
   is_sse_connected?: boolean;
 }

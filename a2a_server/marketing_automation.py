@@ -97,7 +97,7 @@ class MarketingAutomationService:
         logger.info(
             'MarketingAutomationService started (poll=%ss, budget=$%d/day, site=%s)',
             self.poll_interval, DAILY_BUDGET_DOLLARS,
-            os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000'),
+            os.environ.get('MARKETING_SITE_URL', 'auto'),
         )
 
     async def stop(self) -> None:
@@ -414,7 +414,7 @@ class MarketingAutomationService:
             'enabled': MARKETING_AUTOMATION_ENABLED,
             'poll_interval_seconds': self.poll_interval,
             'daily_budget_dollars': DAILY_BUDGET_DOLLARS,
-            'marketing_site_url': os.environ.get('MARKETING_SITE_URL', 'http://localhost:3000'),
+            'marketing_site_url': os.environ.get('MARKETING_SITE_URL', 'auto'),
             'last_cycle': self._last_cycle.isoformat() if self._last_cycle else None,
             'videos_this_week': self._videos_this_week,
             'max_videos_per_week': MAX_VIDEOS_PER_WEEK,

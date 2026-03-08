@@ -5,7 +5,7 @@ Provides REST endpoints for:
 - User login/logout
 - Token refresh
 - Session management
-- User-codebase associations
+- User-workspace associations
 - Cross-device sync
 """
 
@@ -21,7 +21,7 @@ from .keycloak_auth import (
     get_current_user,
     require_auth,
     UserSession,
-    UserCodebaseAssociation,
+    UserWorkspaceAssociation,
     UserAgentSession,
 )
 
@@ -76,15 +76,27 @@ class AuthStatusResponse(BaseModel):
     client_id: str
 
 
-class CodebaseAssociationRequest(BaseModel):
-    codebase_id: str
+class WorkspaceAssociationRequest(BaseModel):
+    workspace_id: str
+    # Accept both workspace_id and codebase_id during transition
+    codebase_id: Optional[str] = None  # Legacy alias for workspace_id
     role: str = 'owner'
+    
+    def get_workspace_id(self) -> str:
+        """Get workspace_id, supporting legacy codebase_id parameter."""
+        return self.workspace_id or self.codebase_id or ''
 
 
 class AgentSessionRequest(BaseModel):
-    codebase_id: str
+    workspace_id: str
+    # Accept both workspace_id and codebase_id during transition
+    codebase_id: Optional[str] = None  # Legacy alias for workspace_id
     agent_type: str = 'build'
     device_id: Optional[str] = None
+    
+    def get_workspace_id(self) -> str:
+        """Get workspace_id, supporting legacy codebase_id parameter."""
+        return self.workspace_id or self.codebase_id or ''
 
 
 # Endpoints
@@ -201,42 +213,100 @@ async def get_sync_state(
     return keycloak_auth.sync_session_state(user_id)
 
 
-# User-Codebase Associations
+# User-Workspace Associations
 
 
-@router.get('/user/{user_id}/codebases')
-async def get_user_codebases(
+@router.get('/user/{user_id}/workspaces')
+async def get_user_workspaces(
     user_id: str,
     user: Optional[UserSession] = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
-    """Get all codebases associated with a user."""
+    """Get all workspaces associated with a user."""
     if user and user.user_id != user_id:
         raise HTTPException(
-            status_code=403, detail="Cannot access other user's codebases"
+            status_code=403, detail="Cannot access other user's workspaces"
         )
 
-    associations = keycloak_auth.get_user_codebases(user_id)
+    associations = keycloak_auth.get_user_workspaces(user_id)
+    return [a.to_dict() for a in associations]
+
+
+@router.post('/user/{user_id}/workspaces')
+async def associate_workspace(
+    user_id: str,
+    request: WorkspaceAssociationRequest,
+    user: UserSession = Depends(require_auth),
+):
+    """Associate a workspace with a user."""
+    if user.user_id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot modify other user's workspaces"
+        )
+
+    # Note: In a real implementation, we'd look up workspace details
+    association = keycloak_auth.associate_workspace(
+        user_id=user_id,
+        workspace_id=request.get_workspace_id(),
+        workspace_name=request.get_workspace_id(),  # Would be fetched from workspace
+        workspace_path='',  # Would be fetched from workspace
+        role=request.role,
+    )
+
+    return {'success': True, 'association': association.to_dict()}
+
+
+@router.delete('/user/{user_id}/workspaces/{workspace_id}')
+async def remove_workspace_association(
+    user_id: str,
+    workspace_id: str,
+    user: UserSession = Depends(require_auth),
+):
+    """Remove a workspace association from a user."""
+    if user.user_id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot modify other user's workspaces"
+        )
+
+    removed = keycloak_auth.remove_workspace_association(user_id, workspace_id)
+    return {'success': removed}
+
+
+# Legacy routes for backward compatibility (redirect to workspace routes)
+
+
+@router.get('/user/{user_id}/codebases')
+async def get_user_codebases_legacy(
+    user_id: str,
+    user: Optional[UserSession] = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """Legacy endpoint - redirects to workspaces. Get all codebases associated with a user."""
+    if user and user.user_id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot access other user's workspaces"
+        )
+
+    associations = keycloak_auth.get_user_workspaces(user_id)
     return [a.to_dict() for a in associations]
 
 
 @router.post('/user/{user_id}/codebases')
-async def associate_codebase(
+async def associate_codebase_legacy(
     user_id: str,
-    request: CodebaseAssociationRequest,
+    request: WorkspaceAssociationRequest,
     user: UserSession = Depends(require_auth),
 ):
-    """Associate a codebase with a user."""
+    """Legacy endpoint - redirects to workspaces. Associate a codebase with a user."""
     if user.user_id != user_id:
         raise HTTPException(
-            status_code=403, detail="Cannot modify other user's codebases"
+            status_code=403, detail="Cannot modify other user's workspaces"
         )
 
-    # Note: In a real implementation, we'd look up codebase details
-    association = keycloak_auth.associate_codebase(
+    # Note: In a real implementation, we'd look up workspace details
+    association = keycloak_auth.associate_workspace(
         user_id=user_id,
-        codebase_id=request.codebase_id,
-        codebase_name=request.codebase_id,  # Would be fetched from codebase
-        codebase_path='',  # Would be fetched from codebase
+        workspace_id=request.get_workspace_id(),
+        workspace_name=request.get_workspace_id(),  # Would be fetched from workspace
+        workspace_path='',  # Would be fetched from workspace
         role=request.role,
     )
 
@@ -244,18 +314,18 @@ async def associate_codebase(
 
 
 @router.delete('/user/{user_id}/codebases/{codebase_id}')
-async def remove_codebase_association(
+async def remove_codebase_association_legacy(
     user_id: str,
     codebase_id: str,
     user: UserSession = Depends(require_auth),
 ):
-    """Remove a codebase association from a user."""
+    """Legacy endpoint - redirects to workspaces. Remove a codebase association from a user."""
     if user.user_id != user_id:
         raise HTTPException(
-            status_code=403, detail="Cannot modify other user's codebases"
+            status_code=403, detail="Cannot modify other user's workspaces"
         )
 
-    removed = keycloak_auth.remove_codebase_association(user_id, codebase_id)
+    removed = keycloak_auth.remove_workspace_association(user_id, codebase_id)
     return {'success': removed}
 
 
@@ -280,7 +350,8 @@ async def get_user_agent_sessions(
 @router.post('/user/{user_id}/agent-sessions')
 async def create_agent_session(
     user_id: str,
-    codebase_id: str = Query(...),
+    workspace_id: str = Query(...),
+    codebase_id: Optional[str] = Query(None),  # Legacy parameter
     agent_type: str = Query('build'),
     device_id: Optional[str] = Query(None),
     user: UserSession = Depends(require_auth),
@@ -291,9 +362,12 @@ async def create_agent_session(
             status_code=403, detail='Cannot create session for other user'
         )
 
+    # Support both workspace_id and codebase_id during transition
+    resolved_workspace_id = workspace_id or codebase_id or ''
+    
     session = keycloak_auth.create_agent_session(
         user_id=user_id,
-        codebase_id=codebase_id,
+        workspace_id=resolved_workspace_id,
         agent_type=agent_type,
         device_id=device_id,
     )

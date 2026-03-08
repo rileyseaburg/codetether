@@ -2,8 +2,8 @@
     "server_url": "https://api.codetether.run",
     "worker_name": "my-worker",
     "poll_interval": 5,
-    "opencode_bin": null,
-    "opencode_storage_path": null,
+    "agent_bin": null,
+    "agent_storage_path": null,
     "session_message_sync_max_sessions": 10,
     "session_message_sync_max_messages": 200,
     "redis_url": "redis://localhost:6379",
@@ -15,7 +15,7 @@
         }
     ],
     "capabilities": [
-        "opencode",
+        "codetether",
         "build",
         "deploy",
         "test"

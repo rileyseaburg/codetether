@@ -14,14 +14,14 @@ CodeTether provides a complete A2A protocol server that bridges the gap between 
 - **🔗 Full A2A Protocol Support**: Complete implementation of Agent-to-Agent communication standard
 - **🛠️ MCP Tool Integration**: Access external tools and resources through Model Context Protocol
 - **🤖 LLM Integration**: Connect Claude or other LLMs for intelligent agent coordination
-- **💻 OpenCode Integration**: Trigger AI coding agents from the web UI on registered codebases
+- **💻 CodeTether Integration**: Trigger AI coding agents from the web UI on registered codebases
 - **📡 Real-time Communication**: Server-Sent Events (SSE) for streaming responses
 - **💬 Agent-to-Agent Messaging**: Publish/subscribe and direct messaging between agents
 - **👁️ Real-time Monitor UI**: Web-based dashboard for agent supervision and human intervention
 - **📱 Swift Liquid Glass UI**: Native iOS/macOS app with Apple-style glassmorphism design
 - **🔄 Distributed Workers**: Remote agent workers with task queues and watch mode
-- **📂 Runtime Session Access**: Immediate access to local OpenCode sessions without registration
-- **📜 Session History**: Browse and resume past OpenCode sessions from any device
+- **📂 Runtime Session Access**: Immediate access to local CodeTether sessions without registration
+- **📜 Session History**: Browse and resume past CodeTether sessions from any device
 - **⏯️ Session Resumption**: Continue conversations with AI agents from where you left off
 - **� Model Filtering**: Workers automatically filter and register only authenticated models from `auth.json`
 - **�📊 Real-time Output Streaming**: See agent responses as they happen via SSE
@@ -136,9 +136,9 @@ docker run -p 8000:8000 codetether:latest
 curl http://localhost:8000/.well-known/agent-card.json
 ```
 
-**Connecting to Host VM's OpenCode:**
+**Connecting to Host VM's CodeTether:**
 
-When running the A2A server in Docker, you can connect to OpenCode running on your host machine:
+When running the A2A server in Docker, you can connect to CodeTether running on your host machine:
 
 ```bash
 # Docker Desktop (Mac/Windows) - uses host.docker.internal automatically
@@ -161,7 +161,7 @@ docker run -p 8000:8000 \
   codetether:latest
 ```
 
-This allows the containerized A2A server to access OpenCode sessions from the host VM via the OpenCode HTTP API.
+This allows the containerized A2A server to access CodeTether sessions from the host VM via the CodeTether HTTP API.
 
 ### ☸️ Kubernetes Deployment (Production)
 
@@ -376,8 +376,8 @@ A2A_AGENT_ORG=Your Organization
 MCP_SERVER_URLS=http://localhost:3001,http://localhost:3002
 MCP_TIMEOUT=30
 
-# OpenCode Configuration
-# Host where OpenCode API is running (for container->host communication)
+# CodeTether Configuration
+# Host where CodeTether API is running (for container->host communication)
 # Use 'localhost' for local development
 # Use 'host.docker.internal' for Docker Desktop (Mac/Windows)
 # Use actual host IP for Docker on Linux
@@ -438,6 +438,139 @@ psql -U postgres -c "CREATE DATABASE a2a_server_dev;"
 python scripts/migrate.py --dev
 ```
 
+### Migration Catalog
+
+All migrations live in `a2a_server/migrations/`. Apply them in order with `psql -f` or the migrate script.
+
+| Migration | Purpose |
+|-----------|---------|
+| `003_create_users_table.sql` | Users table with concurrency limits |
+| `004_hosted_workers.sql` | Worker registration and heartbeat tracking |
+| `005_notification_reliability.sql` | Email notification delivery tracking |
+| `006_stripe_tier_wiring.sql` | Stripe subscription tier columns on tenants |
+| `007_agent_routing.sql` | Agent-targeted task routing (capabilities, deadlines) |
+| `008_model_routing.sql` | Model preference routing for tasks |
+| `009_k8s_tenant_columns.sql` | Per-tenant K8s namespace and URL columns |
+| `010_task_runs_tenant_isolation.sql` | Tenant isolation + RLS on `task_runs` |
+| `011_prd_chat_sessions.sql` | PRD-driven chat session storage |
+| `012_analytics_events.sql` | First-party analytics event stream + attribution |
+| `013_cronjobs.sql` | Scheduled job definitions and run history |
+| `014_worker_profiles.sql` | Worker capability profiles and routing metadata |
+| `015_proactive_rules.sql` | Proactive automation rule definitions |
+| `016_proactive_personas.sql` | Agent persona configuration |
+| `017_perpetual_loops.sql` | Long-running background task loop tracking |
+| `018_audit_decisions.sql` | Audit decision records |
+| `018_token_billing.sql` | Token-based billing (usage tracking, credits, budgets) |
+| `019_finops.sql` | FinOps cost analysis and optimization |
+| `020_marketing_automation.sql` | Marketing campaign orchestration |
+| `021_conversion_tracking.sql` | Ad conversion tracking and attribution |
+| `022_codebase_to_workspace.sql` | Rename codebases → workspaces |
+| `023_okr.sql` | OKR tables (objectives, key results, runs) |
+| `024_okr_rls.sql` | RLS policies for OKR tables + `get_current_tenant_id()` helper |
+| `025_rbac_user_roles_rls.sql` | RBAC user role assignments with RLS |
+| `enable_rls.sql` | Enable RLS on core tables (workers, workspaces, tasks, sessions) |
+| `disable_rls.sql` | Rollback: disable all RLS policies |
+
+### Database Schema Overview
+
+The PostgreSQL schema is organized into these table groups:
+
+**Core Platform:**
+
+| Table | Description | Tenant-scoped |
+|-------|-------------|---------------|
+| `tenants` | Multi-tenant registry with Stripe + K8s metadata | No (root table) |
+| `users` | User accounts with concurrency limits | Yes |
+| `workers` | Registered worker instances | Yes |
+| `workspaces` | Codebases/projects registered for agent work | Yes |
+| `tasks` | Task definitions and status | Yes |
+| `task_runs` | Task execution runs with lease-based claiming | Yes |
+| `sessions` | Agent chat sessions | Yes |
+
+**OKR (Objectives & Key Results):**
+
+| Table | Description | Tenant-scoped |
+|-------|-------------|---------------|
+| `okrs` | Objective definitions with status workflow | Yes |
+| `okr_key_results` | Measurable key results per OKR | Via FK to `okrs` |
+| `okr_runs` | Execution runs per OKR | Via FK to `okrs` |
+
+**Billing & Analytics:**
+
+| Table | Description | Tenant-scoped |
+|-------|-------------|---------------|
+| `token_usage` | Per-request token consumption records | Yes |
+| `tenant_credits` | Prepaid credit balances | Yes |
+| `tenant_budgets` | Monthly spend caps | Yes |
+| `analytics_events` | First-party event stream | Yes |
+| `analytics_identity_map` | Anonymous → known user stitching | Yes |
+| `cronjobs` / `cronjob_runs` | Scheduled jobs and run history | Yes |
+
+### Row-Level Security (RLS)
+
+PostgreSQL RLS provides **database-level tenant isolation** as a defense-in-depth layer on top of application-level `WHERE tenant_id = $1` filtering.
+
+**How it works:**
+
+1. The Python API sets a session variable before each query:
+   ```python
+   from .database import tenant_scope
+
+   async with tenant_scope(tenant_id) as conn:
+       rows = await conn.fetch('SELECT * FROM okrs')  # RLS filters automatically
+   ```
+
+2. This calls `SET app.current_tenant_id = '<tenant_id>'` on the PostgreSQL connection
+
+3. RLS policies on each table enforce:
+   - `SELECT/INSERT/UPDATE/DELETE` only allowed where `tenant_id = get_current_tenant_id()`
+   - `NULL` tenant context (no session var set) allows access for backward compatibility
+   - `a2a_admin` role bypasses all RLS for maintenance operations
+
+4. Child tables without `tenant_id` (e.g., `okr_key_results`, `okr_runs`) inherit isolation through FK-based subquery policies:
+   ```sql
+   CREATE POLICY tenant_isolation_okr_kr_select ON okr_key_results
+       FOR SELECT
+       USING (EXISTS (
+           SELECT 1 FROM okrs WHERE okrs.id = okr_key_results.okr_id
+             AND okrs.tenant_id = get_current_tenant_id()
+       ));
+   ```
+
+**Tables with RLS enabled:**
+
+| Table | Policy Pattern | Migration |
+|-------|---------------|----------|
+| `workers` | Direct `tenant_id` match | `enable_rls.sql` |
+| `workspaces` | Direct `tenant_id` match | `enable_rls.sql` |
+| `tasks` | Direct `tenant_id` match | `enable_rls.sql` |
+| `sessions` | Direct `tenant_id` match | `enable_rls.sql` |
+| `task_runs` | Direct `tenant_id` match | `010_task_runs_tenant_isolation.sql` |
+| `okrs` | Direct `tenant_id` match | `024_okr_rls.sql` |
+| `okr_key_results` | FK subquery via `okrs` | `024_okr_rls.sql` |
+| `okr_runs` | FK subquery via `okrs` | `024_okr_rls.sql` |
+| `cronjobs` | Direct `tenant_id` match | `013_cronjobs.sql` |
+| `cronjob_runs` | Direct `tenant_id` match | `013_cronjobs.sql` |
+| `analytics_events` | Direct `tenant_id` match | `012_analytics_events.sql` |
+| `analytics_identity_map` | Direct `tenant_id` match | `012_analytics_events.sql` |
+
+**Environment variable:** `RLS_ENABLED=true` (default). Set to `false` to disable RLS context setting in the Python API (policies remain in PostgreSQL but `get_current_tenant_id()` returns NULL, allowing access).
+
+**Checking RLS status:**
+```sql
+-- View which tables have RLS enabled
+SELECT * FROM rls_status;
+
+-- List all policies on a table
+SELECT policyname, tablename FROM pg_policies WHERE tablename = 'okrs';
+```
+
+**Rollback:**
+```bash
+# Disable all RLS policies (core tables only)
+psql -d a2a_server_dev -f a2a_server/migrations/disable_rls.sql
+```
+
 ### Helm Chart Configuration
 
 The Helm chart supports multiple deployment environments:
@@ -467,9 +600,9 @@ The A2A server uses **JSON-RPC 2.0** over HTTP. All method calls are sent to the
 - **`GET /health`** - Health check endpoint
 - **`POST /v1/livekit/token`** - Get LiveKit token for media sessions
 
-### OpenCode Integration Endpoints
+### CodeTether Integration Endpoints
 
-The server provides REST endpoints for OpenCode agent management:
+The server provides REST endpoints for CodeTether agent management:
 
 **Codebases:**
 - **`GET /v1/agent/codebases`** - List all registered codebases
@@ -506,18 +639,18 @@ Direct access to local agent sessions without requiring codebase registration:
 - **`GET /v1/agent/runtime/sessions`** - List all sessions (with pagination)
 - **`GET /v1/agent/runtime/sessions/{id}`** - Get session details
 - **`GET /v1/agent/runtime/sessions/{id}/messages`** - Get conversation history
-- **`GET /v1/opencode/runtime/sessions/{id}/parts`** - Get message content parts
+- **`GET /v1/agent/runtime/sessions/{id}/parts`** - Get message content parts
 
 ```bash
 # Check runtime status (shows session count immediately)
-curl http://localhost:8000/v1/opencode/runtime/status
+curl http://localhost:8000/v1/agent/runtime/status
 # {"available": true, "projects": 3, "sessions": 247}
 
 # List all sessions
-curl http://localhost:8000/v1/opencode/runtime/sessions?limit=10
+curl http://localhost:8000/v1/agent/runtime/sessions?limit=10
 
 # Get messages for a specific session
-curl http://localhost:8000/v1/opencode/runtime/sessions/{session_id}/messages
+curl http://localhost:8000/v1/agent/runtime/sessions/{session_id}/messages
 ```
 
 ### Authentication Endpoints
@@ -1101,9 +1234,9 @@ a2a_server/
 ├── mcp_client.py            # MCP protocol client
 ├── mcp_server.py            # MCP server implementation
 ├── message_broker.py        # Redis pub/sub broker
-├── mock_mcp.py              # MCP mocking for tests
+├── enhanced_agents.py        # A2A coordination agents
 ├── models.py                # Pydantic data models
-├── monitor_api.py           # Monitoring & OpenCode API endpoints
+├── monitor_api.py           # Monitoring & CodeTether API endpoints
 ├── server.py                # Core A2A server
 └── task_manager.py          # Task lifecycle management
 
@@ -1522,7 +1655,7 @@ Access at `http://localhost:8000/v1/monitor/` when the server is running.
 - Human intervention capability
 - Message search and filtering
 - Export to JSON/CSV
-- OpenCode agent integration panel
+- CodeTether agent integration panel
 - Session history browser
 - Session resumption with context preservation
 - Real-time output streaming from running tasks
@@ -1535,7 +1668,7 @@ The monitor UI features a responsive sidebar navigation:
 - **Dashboard**: Overview of agents, tasks, and system status
 - **Agents**: List of registered agents with status indicators
 - **Tasks**: Task queue with create, view, and manage capabilities
-- **Sessions**: Browse and resume past OpenCode sessions
+- **Sessions**: Browse and resume past CodeTether sessions
 - **Codebases**: Registered codebases and their workers
 - **Messages**: Real-time message log with search
 - **Settings**: Configuration and preferences
@@ -1573,7 +1706,7 @@ The A2A server supports a distributed architecture where worker agents run on re
 ```
 ┌─────────────────────┐       ┌──────────────────────────┐
 │   CodeTether        │       │   Agent Worker (VM)      │
-│   (Kubernetes)      │◄─────►│   - OpenCode runtime     │
+│   (Kubernetes)      │◄─────►│   - CodeTether runtime     │
 │                     │ HTTP  │   - Local codebases      │
 │   - Task Queue      │       │   - Session sync         │
 │   - Session Store   │       │   - Output streaming     │
@@ -1581,8 +1714,8 @@ The A2A server supports a distributed architecture where worker agents run on re
 │   - Monitor API     │              ▲
 └─────────────────────┘              │
          ▲                     ┌─────┴────────────────────┐
-         │                     │   OpenCode Sessions      │
-    ┌────┴────┐                │   ~/.local/share/opencode│
+         │                     │   CodeTether Sessions      │
+    ┌────┴────┐                │   ~/.local/share/agent│
     │  Web UI │                │   └── storage/           │
     │  iOS/   │                │       ├── project/       │
     │  macOS  │                │       ├── session/       │
@@ -1708,7 +1841,7 @@ import asyncio
 
 async def stream_output(server_url: str, task_id: str):
     """Subscribe to real-time task output via SSE."""
-    url = f"{server_url}/v1/opencode/tasks/{task_id}/output/stream"
+    url = f"{server_url}/v1/agent/tasks/{task_id}/output/stream"
 
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("GET", url) as response:
@@ -1731,7 +1864,7 @@ Enable watch mode for continuous task processing:
 
 ```bash
 # Via API
-curl -X POST http://localhost:8000/v1/opencode/codebases/{id}/watch/start \
+curl -X POST http://localhost:8000/v1/agent/codebases/{id}/watch/start \
   -H "Content-Type: application/json" \
   -d '{"interval": 5}'
 ```
@@ -1783,7 +1916,7 @@ KEYCLOAK_CLIENT_SECRET=your-secret
 Include the access token in requests:
 
 ```bash
-curl https://api.codetether.run/v1/opencode/codebases \
+curl https://api.codetether.run/v1/agent/codebases \
   -H "Authorization: Bearer eyJ..."
 ```
 
@@ -1844,8 +1977,8 @@ https://api.codetether.run/v1/monitor/
 # Agent discovery
 https://api.codetether.run/.well-known/agent-card.json
 
-# OpenCode API
-https://api.codetether.run/v1/opencode/codebases
+# CodeTether API
+https://api.codetether.run/v1/agent/codebases
 
 # Login (Keycloak)
 curl -X POST https://api.codetether.run/v1/auth/login \

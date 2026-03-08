@@ -28,6 +28,8 @@ spec:
         autoscaling.knative.dev/scale-to-zero-pod-retention-period: "60s"
         # Target 1 concurrent task per pod
         autoscaling.knative.dev/target: "1"
+        # The agent binary performs Kubernetes auth natively using the
+        # pod's service account JWT — no Vault Agent sidecar is needed.
     spec:
       serviceAccountName: codetether-agent
       containerConcurrency: 1
@@ -40,13 +42,14 @@ spec:
           ports:
             - containerPort: 8080
               name: http1
-          # Run codetether serve command with port
+          # Serve directly — native Kubernetes auth in the binary reads the
+          # pod SA JWT and obtains a Vault token without a sidecar.
           command: ["/app/codetether"]
           args:
-            - "serve"
-            - "--hostname"
-            - "0.0.0.0"
-            - "--port"
+            - serve
+            - --hostname
+            - 0.0.0.0
+            - --port
             - "8080"
           env:
             - name: CODETETHER_SERVE_PORT
@@ -59,21 +62,19 @@ spec:
                   name: codetether-auth
                   key: token
                   optional: true
-            # Vault configuration for secrets
+            # VAULT_ROLE triggers native Kubernetes auth in the binary;
+            # no static VAULT_TOKEN or Vault Agent sidecar is required.
             - name: VAULT_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: vault-token
-                  key: VAULT_ADDR
-                  optional: true
-            - name: VAULT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: vault-token
-                  key: VAULT_TOKEN
-                  optional: true
+              value: "https://vault.spotlessbinco.com"
             - name: VAULT_SKIP_VERIFY
               value: "1"
+            - name: VAULT_ROLE
+              value: "codetether-agent"
+            - name: VAULT_AUTH_MOUNT
+              value: "kubernetes"
+            # Path to the projected SA token with audience=vault (see volumes below)
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
             # K8s self-deployment enabled
             - name: CODETETHER_K8S_SELF_DEPLOY
               value: "true"
@@ -96,6 +97,18 @@ spec:
               port: 8080
             initialDelaySeconds: 3
             periodSeconds: 5
+          volumeMounts:
+            - name: vault-sa-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+      volumes:
+        - name: vault-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: vault
+                  expirationSeconds: 3600
+                  path: token
 
 ---
 # Knative Broker for task events
@@ -156,6 +169,8 @@ kind: ServiceAccount
 metadata:
   name: codetether-agent
   namespace: a2a-server
+  annotations:
+    vault.hashicorp.com/agent-role: codetether-agent
 ---
 # RBAC for codetether-agent
 apiVersion: rbac.authorization.k8s.io/v1

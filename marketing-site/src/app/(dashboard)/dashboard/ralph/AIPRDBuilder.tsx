@@ -5,13 +5,13 @@ import { AnimatePresence } from 'framer-motion'
 import { useRalphStore, type PRD } from './store'
 import { ModelSelector } from '@/components/ModelSelector'
 import { WorkerSelector } from '@/components/WorkerSelector'
-import { useCodebases } from '../sessions/hooks/useCodebases'
+import { useWorkspaces } from '../sessions/hooks/useWorkspaces'
 import { ChatArea } from '@/components/ui/ChatArea'
 import { PRDPreviewPanel } from '@/components/ui/PRDPreviewPanel'
 import { ChatInput } from '@/components/ui/ChatInput'
-import { CodebaseSelector } from '@/components/ui/CodebaseSelector'
+import { WorkspaceSelector } from '@/components/ui/WorkspaceSelector'
 import { AIPRDModal } from '@/components/ui/AIPRDModal'
-import { useAIPRDChat, type GeneratedPRD } from './useAIPRDChat'
+import { useAIPRDChat } from './useAIPRDChat'
 
 export function AIPRDBuilder({ onPRDComplete, onCancel, onMinimize, onSwitchToManual, resumeSession, visible = true }: {
     onPRDComplete: (prd: PRD) => void
@@ -22,11 +22,13 @@ export function AIPRDBuilder({ onPRDComplete, onCancel, onMinimize, onSwitchToMa
     visible?: boolean
 }) {
     const { selectedCodebase, setSelectedCodebase, selectedWorker, setSelectedWorker } = useRalphStore()
-    const { codebases } = useCodebases()
+    const selectedWorkspace = selectedCodebase
+    const setSelectedWorkspace = setSelectedCodebase
+    const { workspaces } = useWorkspaces()
     const [input, setInput] = useState('')
     const [showPreview, setShowPreview] = useState(false)
     const [isRestoredConversation, setIsRestoredConversation] = useState(false)
-    const { messages, isLoading, generatedPRD, setGeneratedPRD, sendMessage, initializeChat, loadSession, messagesEndRef } = useAIPRDChat(selectedCodebase)
+    const { messages, isLoading, generatedPRD, sendMessage, initializeChat, loadSession } = useAIPRDChat(selectedWorkspace)
     
     // Track if we've already initialized to prevent re-init on visibility changes
     const hasInitialized = useRef(false)
@@ -96,7 +98,7 @@ export function AIPRDBuilder({ onPRDComplete, onCancel, onMinimize, onSwitchToMa
             </AnimatePresence>
             <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <div className="flex items-center gap-4 flex-wrap">
-                    <CodebaseSelector selectedCodebase={selectedCodebase || ''} codebases={codebases} onChange={setSelectedCodebase} />
+                    <WorkspaceSelector selectedWorkspace={selectedWorkspace || ''} workspaces={workspaces} onChange={setSelectedWorkspace} />
                     <WorkerSelector value={selectedWorker || ''} onChange={setSelectedWorker} />
                     <ModelSelector visualVariant="compact" />
                 </div>
