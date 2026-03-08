@@ -12,16 +12,20 @@ DOCKER_TAG ?= v$(CODETETHER_VERSION)
 DOCKER_REGISTRY ?= us-central1-docker.pkg.dev/spotlessbinco/codetether
 OCI_REGISTRY = us-central1-docker.pkg.dev/spotlessbinco/codetether
 PORT ?= 8001
+MARKETING_PORT ?= 3001
 WORKER_PORT ?= 8010
 CHART_PATH = chart/a2a-server
-CHART_VERSION ?= 1.4.1
+CHART_VERSION ?= 1.4.2
 NAMESPACE ?= a2a-server
 RELEASE_NAME ?= codetether
 VALUES_FILE ?= chart/codetether-values.yaml
 RELOAD ?= 0
 
 # Local systemd worker (optional)
-LOCAL_WORKER_SERVICE ?= codetether-worker
+LOCAL_WORKER_SERVICE ?= codetether-ubuntu-dev
+LOCAL_WORKER_NAME ?= ubuntu-dev
+LOCAL_WORKER_CODEBASES ?= /home/riley/A2A-Server-MCP
+LOCAL_WORKER_AUTO_APPROVE ?= all
 RESTART_LOCAL_WORKER ?= 1
 AUTO_INSTALL_LOCAL_WORKER ?= 1
 LOCAL_WORKER_INSTALL_SCRIPT ?= agent_worker/install-codetether-worker.sh
@@ -36,6 +40,9 @@ VOICE_AGENT_IMAGE_NAME = codetether-voice-agent
 KNATIVE_ENABLED ?= true
 KNATIVE_BROKER ?=
 KNATIVE_WORKER_IMAGE ?= $(OCI_REGISTRY)/codetether-worker:$(DOCKER_TAG)
+KNATIVE_WORKSPACE_PERSISTENCE_ENABLED ?= true
+WORKSPACE_STORAGE_CLASS ?= nfs-storage
+KNATIVE_WORKSPACE_STORAGE_CLASS ?= $(WORKSPACE_STORAGE_CLASS)
 CRON_DRIVER ?=
 CRON_INTERNAL_TOKEN ?=
 CRON_INTERNAL_TOKEN_SECRET ?=
@@ -49,6 +56,33 @@ CRON_STARTING_DEADLINE_SECONDS ?=
 CRON_SUCCESS_HISTORY_LIMIT ?=
 CRON_FAILURE_HISTORY_LIMIT ?=
 CRON_JOB_TTL_SECONDS ?=
+
+# Harvester/KubeVirt VM workspace overrides
+VM_WORKSPACES_ENABLED ?= true
+VM_WORKSPACES_NAMESPACE ?=
+VM_WORKSPACES_API_GROUP ?=
+VM_WORKSPACES_API_VERSION ?=
+VM_WORKSPACES_PLURAL ?=
+VM_WORKSPACES_DEFAULT_IMAGE ?=
+VM_WORKSPACES_DEFAULT_CPU_CORES ?=
+VM_WORKSPACES_DEFAULT_MEMORY ?=
+VM_WORKSPACES_DEFAULT_DISK_SIZE ?=
+VM_WORKSPACES_STORAGE_CLASS ?= $(WORKSPACE_STORAGE_CLASS)
+VM_WORKSPACES_CREATE_SSH_SERVICE ?=
+VM_WORKSPACES_SSH_SERVICE_TYPE ?=
+VM_WORKSPACES_SSH_USER ?=
+
+# MinIO object storage overrides
+MINIO_ENABLED ?= true
+MINIO_ENDPOINT ?= 192.168.50.223:9000
+MINIO_BUCKET ?= a2a-monitor
+MINIO_SECURE ?= false
+MINIO_ACCESS_KEY ?=
+MINIO_SECRET_KEY ?=
+MINIO_EXISTING_SECRET ?=
+
+# Disable local SQLite persistence and use MinIO/object storage by default
+PERSISTENCE_ENABLED ?= false
 
 # Lightweight deploy controls
 DEPLOY_VOICE_AGENT ?= 0
@@ -64,6 +98,12 @@ HELM_KNATIVE_ARGS += --set-string knative.broker=$(KNATIVE_BROKER)
 endif
 ifneq ($(strip $(KNATIVE_WORKER_IMAGE)),)
 HELM_KNATIVE_ARGS += --set-string knative.worker.image=$(KNATIVE_WORKER_IMAGE)
+endif
+ifneq ($(strip $(KNATIVE_WORKSPACE_PERSISTENCE_ENABLED)),)
+HELM_KNATIVE_ARGS += --set knative.worker.workspacePersistence.enabled=$(KNATIVE_WORKSPACE_PERSISTENCE_ENABLED)
+endif
+ifneq ($(strip $(KNATIVE_WORKSPACE_STORAGE_CLASS)),)
+HELM_KNATIVE_ARGS += --set-string knative.worker.workspacePersistence.storageClass=$(KNATIVE_WORKSPACE_STORAGE_CLASS)
 endif
 ifneq ($(strip $(CRON_DRIVER)),)
 HELM_KNATIVE_ARGS += --set-string knative.cron.driver=$(CRON_DRIVER)
@@ -106,6 +146,79 @@ ifneq ($(strip $(CRON_INTERNAL_TOKEN)),)
 HELM_KNATIVE_ARGS += --set-string knative.cron.internalToken=$(CRON_INTERNAL_TOKEN)
 endif
 endif
+
+HELM_VM_WORKSPACE_ARGS :=
+ifneq ($(strip $(VM_WORKSPACES_ENABLED)),)
+HELM_VM_WORKSPACE_ARGS += --set vmWorkspaces.enabled=$(VM_WORKSPACES_ENABLED)
+endif
+ifneq ($(strip $(VM_WORKSPACES_NAMESPACE)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.namespace=$(VM_WORKSPACES_NAMESPACE)
+endif
+ifneq ($(strip $(VM_WORKSPACES_API_GROUP)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.apiGroup=$(VM_WORKSPACES_API_GROUP)
+endif
+ifneq ($(strip $(VM_WORKSPACES_API_VERSION)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.apiVersion=$(VM_WORKSPACES_API_VERSION)
+endif
+ifneq ($(strip $(VM_WORKSPACES_PLURAL)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.plural=$(VM_WORKSPACES_PLURAL)
+endif
+ifneq ($(strip $(VM_WORKSPACES_DEFAULT_IMAGE)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.defaultImage=$(VM_WORKSPACES_DEFAULT_IMAGE)
+endif
+ifneq ($(strip $(VM_WORKSPACES_DEFAULT_CPU_CORES)),)
+HELM_VM_WORKSPACE_ARGS += --set vmWorkspaces.defaultCpuCores=$(VM_WORKSPACES_DEFAULT_CPU_CORES)
+endif
+ifneq ($(strip $(VM_WORKSPACES_DEFAULT_MEMORY)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.defaultMemory=$(VM_WORKSPACES_DEFAULT_MEMORY)
+endif
+ifneq ($(strip $(VM_WORKSPACES_DEFAULT_DISK_SIZE)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.defaultDiskSize=$(VM_WORKSPACES_DEFAULT_DISK_SIZE)
+endif
+ifneq ($(strip $(VM_WORKSPACES_STORAGE_CLASS)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.storageClass=$(VM_WORKSPACES_STORAGE_CLASS)
+endif
+ifneq ($(strip $(VM_WORKSPACES_CREATE_SSH_SERVICE)),)
+HELM_VM_WORKSPACE_ARGS += --set vmWorkspaces.createSSHService=$(VM_WORKSPACES_CREATE_SSH_SERVICE)
+endif
+ifneq ($(strip $(VM_WORKSPACES_SSH_SERVICE_TYPE)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.sshServiceType=$(VM_WORKSPACES_SSH_SERVICE_TYPE)
+endif
+ifneq ($(strip $(VM_WORKSPACES_SSH_USER)),)
+HELM_VM_WORKSPACE_ARGS += --set-string vmWorkspaces.sshUser=$(VM_WORKSPACES_SSH_USER)
+endif
+
+HELM_MINIO_ARGS :=
+ifneq ($(strip $(MINIO_ENABLED)),)
+HELM_MINIO_ARGS += --set minio.enabled=$(MINIO_ENABLED)
+endif
+ifneq ($(strip $(MINIO_ENDPOINT)),)
+HELM_MINIO_ARGS += --set-string minio.endpoint=$(MINIO_ENDPOINT)
+endif
+ifneq ($(strip $(MINIO_BUCKET)),)
+HELM_MINIO_ARGS += --set-string minio.bucket=$(MINIO_BUCKET)
+endif
+ifneq ($(strip $(MINIO_SECURE)),)
+HELM_MINIO_ARGS += --set minio.secure=$(MINIO_SECURE)
+endif
+ifneq ($(strip $(MINIO_EXISTING_SECRET)),)
+HELM_MINIO_ARGS += --set-string minio.existingSecret=$(MINIO_EXISTING_SECRET)
+endif
+ifeq ($(strip $(MINIO_EXISTING_SECRET)),)
+ifneq ($(strip $(MINIO_ACCESS_KEY)),)
+HELM_MINIO_ARGS += --set-string minio.accessKey=$(MINIO_ACCESS_KEY)
+endif
+ifneq ($(strip $(MINIO_SECRET_KEY)),)
+HELM_MINIO_ARGS += --set-string minio.secretKey=$(MINIO_SECRET_KEY)
+endif
+endif
+
+HELM_PERSISTENCE_ARGS :=
+ifneq ($(strip $(PERSISTENCE_ENABLED)),)
+HELM_PERSISTENCE_ARGS += --set persistence.enabled=$(PERSISTENCE_ENABLED)
+endif
+
+HELM_DEPLOY_ARGS := $(HELM_KNATIVE_ARGS) $(HELM_VM_WORKSPACE_ARGS) $(HELM_MINIO_ARGS) $(HELM_PERSISTENCE_ARGS)
 
 
 
@@ -151,9 +264,15 @@ help: ## Show this help message
 	@echo "  VALUES_FILE     - Path to Helm values file"
 	@echo "  DEBUG           - Enable debug output for deployments"
 	@echo "  KNATIVE_ENABLED - Override knative.enabled (true|false)"
+	@echo "  WORKSPACE_STORAGE_CLASS - Shared StorageClass for Knative PVCs and VM disks"
 	@echo "  CRON_DRIVER     - Override knative cron driver (auto|app|knative|disabled)"
 	@echo "  CRON_INTERNAL_TOKEN_SECRET - Secret name containing CRON_INTERNAL_TOKEN"
 	@echo "  CRON_INTERNAL_TOKEN - Plain token override (prefer secret-based value)"
+	@echo "  VM_WORKSPACES_ENABLED - Override vmWorkspaces.enabled (true|false)"
+	@echo "  VM_WORKSPACES_STORAGE_CLASS - Override vmWorkspaces.storageClass"
+	@echo "  MINIO_ENDPOINT  - MinIO endpoint (host:port)"
+	@echo "  MINIO_BUCKET    - MinIO bucket for durable object storage"
+	@echo "  MINIO_EXISTING_SECRET - Secret containing MinIO keys (accessKey/secretKey)"
 	@echo "  DEPLOY_VOICE_AGENT - For lightweight targets, also deploy voice agent (0|1)"
 	@echo "  RESTART_LOCAL_WORKER_AFTER_DEPLOY - For lightweight targets, restart local worker (0|1)"
 
@@ -389,44 +508,102 @@ dev: ## Alias for run-all (starts Python, Next.js, and Rust codetether-agent wor
 run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev server, and Rust codetether-agent worker
 	@echo "🚀 Starting Python server, React dev server, and Rust codetether-agent worker..."
 	@echo "   (MCP is now integrated on port $(PORT) at /mcp/*)"
-	@trap 'kill 0' EXIT; \
-	(if [ "$(RELOAD)" = "1" ]; then \
+	@SERVER_PORT_SELECTED="$(PORT)"; \
+	if ss -ltn "( sport = :$$SERVER_PORT_SELECTED )" | tail -n +2 | grep -q LISTEN; then \
+		for candidate in $$(seq $$(( $(PORT) + 1 )) $$(( $(PORT) + 20 ))); do \
+			if ! ss -ltn "( sport = :$$candidate )" | tail -n +2 | grep -q LISTEN; then \
+				SERVER_PORT_SELECTED="$$candidate"; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if ss -ltn "( sport = :$$SERVER_PORT_SELECTED )" | tail -n +2 | grep -q LISTEN; then \
+		echo "❌ No free backend port found starting at $(PORT)."; \
+		ss -ltnp "( sport = :$(PORT) )" || true; \
+		exit 1; \
+	fi; \
+	if [ "$$SERVER_PORT_SELECTED" != "$(PORT)" ]; then \
+		echo "ℹ Port $(PORT) is busy; using $$SERVER_PORT_SELECTED for the A2A server."; \
+	fi; \
+	MARKETING_PORT_SELECTED="$(MARKETING_PORT)"; \
+	if lsof -tiTCP:$$MARKETING_PORT_SELECTED -sTCP:LISTEN >/dev/null 2>&1; then \
+		for candidate in $$(seq $$(( $(MARKETING_PORT) + 1 )) $$(( $(MARKETING_PORT) + 20 ))); do \
+			if ! lsof -tiTCP:$$candidate -sTCP:LISTEN >/dev/null 2>&1; then \
+				MARKETING_PORT_SELECTED="$$candidate"; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if lsof -tiTCP:$$MARKETING_PORT_SELECTED -sTCP:LISTEN >/dev/null 2>&1; then \
+		echo "❌ No free marketing dev port found starting at $(MARKETING_PORT)."; \
+		exit 1; \
+	fi; \
+	if [ "$$MARKETING_PORT_SELECTED" != "$(MARKETING_PORT)" ]; then \
+		echo "ℹ Port $(MARKETING_PORT) is busy; using $$MARKETING_PORT_SELECTED for marketing-site."; \
+	fi; \
+	trap 'kill 0' EXIT; \
+	SERVER_BASE_URL="http://localhost:$$SERVER_PORT_SELECTED"; \
+	MARKETING_BASE_URL="https://localhost:$$MARKETING_PORT_SELECTED"; \
+	export A2A_SERVER_URL="$$SERVER_BASE_URL"; \
+	export A2A_AGENT_URL="$$SERVER_BASE_URL"; \
+	export MARKETING_SITE_URL="$$MARKETING_BASE_URL"; \
+	export MARKETING_SITE_URL_CANDIDATES="$$MARKETING_BASE_URL,http://localhost:$$MARKETING_PORT_SELECTED,http://localhost:3000"; \
+	if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 Server auto-reload enabled"; \
-		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $$SERVER_PORT_SELECTED & \
 	else \
-		$(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
-	fi) & \
+		$(PYTHON) run_server.py run --host 0.0.0.0 --port $$SERVER_PORT_SELECTED & \
+	fi; \
+	PYTHON_PID=$$!; \
 	(echo "⏳ Waiting for Python server to be ready..."; \
 		for i in $$(seq 1 30); do \
-			if curl -s http://localhost:$(PORT)/openapi.json > /dev/null 2>&1; then \
+			if ! kill -0 $$PYTHON_PID >/dev/null 2>&1; then \
+				echo "❌ Python server exited before becoming ready."; \
+				exit 1; \
+			fi; \
+			LISTENER_PID=$$(lsof -tiTCP:$$SERVER_PORT_SELECTED -sTCP:LISTEN 2>/dev/null | head -n 1 || true); \
+			if [ "$$LISTENER_PID" = "$$PYTHON_PID" ] && curl -s http://localhost:$$SERVER_PORT_SELECTED/openapi.json > /dev/null 2>&1; then \
 				echo "✅ Python server ready"; \
 				break; \
 			fi; \
 			sleep 1; \
 		done; \
+		if ! kill -0 $$PYTHON_PID >/dev/null 2>&1; then \
+			echo "❌ Python server exited during startup."; \
+			exit 1; \
+		fi; \
+		LISTENER_PID=$$(lsof -tiTCP:$$SERVER_PORT_SELECTED -sTCP:LISTEN 2>/dev/null | head -n 1 || true); \
+		if [ "$$LISTENER_PID" != "$$PYTHON_PID" ]; then \
+			echo "❌ Timed out waiting for Python server to claim port $$SERVER_PORT_SELECTED."; \
+			if [ -n "$$LISTENER_PID" ]; then \
+				echo "   Current listener on $$SERVER_PORT_SELECTED:"; \
+				lsof -nP -iTCP:$$SERVER_PORT_SELECTED -sTCP:LISTEN; \
+			fi; \
+			exit 1; \
+		fi; \
 		echo "🔄 Regenerating TypeScript API SDK from local server..."; \
-		cd marketing-site && npm run generate:api:local; \
+		cd marketing-site && OPENAPI_URL="$$SERVER_BASE_URL/openapi.json" npm run generate:api:local; \
 		echo "✅ API SDK regenerated"; \
-		npm run dev \
+		MARKETING_PORT=$$MARKETING_PORT_SELECTED NEXTAUTH_URL="$$MARKETING_BASE_URL" AUTH_URL="$$MARKETING_BASE_URL" API_URL="$$SERVER_BASE_URL" NEXT_PUBLIC_API_URL="$$SERVER_BASE_URL" npm run dev \
 	) & \
 	(if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
 		sleep 10; \
-		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"' ./a2a_server; \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command="echo '🔄 Python changed, waiting for server restart...'; sleep 3; cd marketing-site && OPENAPI_URL=$$SERVER_BASE_URL/openapi.json npm run generate:api:local && echo '✅ API SDK regenerated'" ./a2a_server; \
 	fi) & \
 	(echo "⏳ Waiting for MCP endpoint to be ready..."; \
 		for i in $$(seq 1 30); do \
-			if curl -s http://localhost:$(PORT)/mcp > /dev/null 2>&1; then \
+			if curl -s $$SERVER_BASE_URL/mcp > /dev/null 2>&1; then \
 				echo "✅ MCP endpoint ready"; \
 				break; \
 			fi; \
 			sleep 1; \
 		done; \
-		echo "🧹 Stopping existing local dev worker processes for http://localhost:$(PORT) (if any)..."; \
+		echo "🧹 Stopping existing local dev worker processes for $$SERVER_BASE_URL (if any)..."; \
 		for pid in $$(pgrep -x codetether 2>/dev/null || true); do \
 			args=$$(ps -o args= -p $$pid 2>/dev/null || true); \
 			if printf '%s\n' "$$args" | grep -Fq -- " worker " \
-				&& printf '%s\n' "$$args" | grep -Fq -- "--server http://localhost:$(PORT)" \
+				&& printf '%s\n' "$$args" | grep -Fq -- "--server $$SERVER_BASE_URL" \
 				&& printf '%s\n' "$$args" | grep -Fq -- "--name $(WORKER_NAME)"; then \
 				echo "   stopping worker pid=$$pid"; \
 				kill $$pid >/dev/null 2>&1 || true; \
@@ -448,36 +625,94 @@ run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev
 			exit 1; \
 		fi; \
 		echo "🚀 Starting Rust codetether A2A worker ($(WORKER_NAME))..."; \
-		"$$CODETETHER_CMD" worker --server http://localhost:$(PORT) --codebases . --auto-approve safe --name "$(WORKER_NAME)"; \
+		"$$CODETETHER_CMD" worker --server "$$SERVER_BASE_URL" --codebases . --auto-approve safe --name "$(WORKER_NAME)"; \
 	) & \
 	wait
 
 .PHONY: dev-no-worker
 dev-no-worker: ## Run Python server and React dev server (no worker)
 	@echo "🚀 Starting Python server and React dev server (no worker)..."
-	@trap 'kill 0' EXIT; \
-	(if [ "$(RELOAD)" = "1" ]; then \
+	@SERVER_PORT_SELECTED="$(PORT)"; \
+	if ss -ltn "( sport = :$$SERVER_PORT_SELECTED )" | tail -n +2 | grep -q LISTEN; then \
+		for candidate in $$(seq $$(( $(PORT) + 1 )) $$(( $(PORT) + 20 ))); do \
+			if ! ss -ltn "( sport = :$$candidate )" | tail -n +2 | grep -q LISTEN; then \
+				SERVER_PORT_SELECTED="$$candidate"; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if ss -ltn "( sport = :$$SERVER_PORT_SELECTED )" | tail -n +2 | grep -q LISTEN; then \
+		echo "❌ No free backend port found starting at $(PORT)."; \
+		ss -ltnp "( sport = :$(PORT) )" || true; \
+		exit 1; \
+	fi; \
+	if [ "$$SERVER_PORT_SELECTED" != "$(PORT)" ]; then \
+		echo "ℹ Port $(PORT) is busy; using $$SERVER_PORT_SELECTED for the A2A server."; \
+	fi; \
+	MARKETING_PORT_SELECTED="$(MARKETING_PORT)"; \
+	if lsof -tiTCP:$$MARKETING_PORT_SELECTED -sTCP:LISTEN >/dev/null 2>&1; then \
+		for candidate in $$(seq $$(( $(MARKETING_PORT) + 1 )) $$(( $(MARKETING_PORT) + 20 ))); do \
+			if ! lsof -tiTCP:$$candidate -sTCP:LISTEN >/dev/null 2>&1; then \
+				MARKETING_PORT_SELECTED="$$candidate"; \
+				break; \
+			fi; \
+		done; \
+	fi; \
+	if lsof -tiTCP:$$MARKETING_PORT_SELECTED -sTCP:LISTEN >/dev/null 2>&1; then \
+		echo "❌ No free marketing dev port found starting at $(MARKETING_PORT)."; \
+		exit 1; \
+	fi; \
+	if [ "$$MARKETING_PORT_SELECTED" != "$(MARKETING_PORT)" ]; then \
+		echo "ℹ Port $(MARKETING_PORT) is busy; using $$MARKETING_PORT_SELECTED for marketing-site."; \
+	fi; \
+	trap 'kill 0' EXIT; \
+	SERVER_BASE_URL="http://localhost:$$SERVER_PORT_SELECTED"; \
+	MARKETING_BASE_URL="https://localhost:$$MARKETING_PORT_SELECTED"; \
+	export A2A_SERVER_URL="$$SERVER_BASE_URL"; \
+	export A2A_AGENT_URL="$$SERVER_BASE_URL"; \
+	export MARKETING_SITE_URL="$$MARKETING_BASE_URL"; \
+	export MARKETING_SITE_URL_CANDIDATES="$$MARKETING_BASE_URL,http://localhost:$$MARKETING_PORT_SELECTED,http://localhost:3000"; \
+	if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 Server auto-reload enabled"; \
-		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
+		$(PYTHON) -m watchdog.watchmedo auto-restart --directory=./a2a_server --directory=. --pattern="*.py" --recursive -- $(PYTHON) run_server.py run --host 0.0.0.0 --port $$SERVER_PORT_SELECTED & \
 	else \
-		$(PYTHON) run_server.py run --host 0.0.0.0 --port $(PORT); \
-	fi) & \
+		$(PYTHON) run_server.py run --host 0.0.0.0 --port $$SERVER_PORT_SELECTED & \
+	fi; \
+	PYTHON_PID=$$!; \
 	(echo "⏳ Waiting for Python server to be ready..."; \
 		for i in $$(seq 1 30); do \
-			if curl -s http://localhost:$(PORT)/openapi.json > /dev/null 2>&1; then \
+			if ! kill -0 $$PYTHON_PID >/dev/null 2>&1; then \
+				echo "❌ Python server exited before becoming ready."; \
+				exit 1; \
+			fi; \
+			LISTENER_PID=$$(lsof -tiTCP:$$SERVER_PORT_SELECTED -sTCP:LISTEN 2>/dev/null | head -n 1 || true); \
+			if [ "$$LISTENER_PID" = "$$PYTHON_PID" ] && curl -s http://localhost:$$SERVER_PORT_SELECTED/openapi.json > /dev/null 2>&1; then \
 				echo "✅ Python server ready"; \
 				break; \
 			fi; \
 			sleep 1; \
 		done; \
+		if ! kill -0 $$PYTHON_PID >/dev/null 2>&1; then \
+			echo "❌ Python server exited during startup."; \
+			exit 1; \
+		fi; \
+		LISTENER_PID=$$(lsof -tiTCP:$$SERVER_PORT_SELECTED -sTCP:LISTEN 2>/dev/null | head -n 1 || true); \
+		if [ "$$LISTENER_PID" != "$$PYTHON_PID" ]; then \
+			echo "❌ Timed out waiting for Python server to claim port $$SERVER_PORT_SELECTED."; \
+			if [ -n "$$LISTENER_PID" ]; then \
+				echo "   Current listener on $$SERVER_PORT_SELECTED:"; \
+				lsof -nP -iTCP:$$SERVER_PORT_SELECTED -sTCP:LISTEN; \
+			fi; \
+			exit 1; \
+		fi; \
 		echo "🔄 Regenerating TypeScript API SDK from local server..."; \
-		cd marketing-site && npm run generate:api:local; \
+		cd marketing-site && OPENAPI_URL="$$SERVER_BASE_URL/openapi.json" npm run generate:api:local; \
 		echo "✅ API SDK regenerated"; \
-		npm run dev \
+		MARKETING_PORT=$$MARKETING_PORT_SELECTED NEXTAUTH_URL="$$MARKETING_BASE_URL" AUTH_URL="$$MARKETING_BASE_URL" API_URL="$$SERVER_BASE_URL" NEXT_PUBLIC_API_URL="$$SERVER_BASE_URL" npm run dev \
 	) & \
 	(echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
 		sleep 10; \
-		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command='echo "🔄 Python changed, waiting for server restart..."; sleep 3; cd marketing-site && npm run generate:api:local && echo "✅ API SDK regenerated"' ./a2a_server \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command="echo '🔄 Python changed, waiting for server restart...'; sleep 3; cd marketing-site && OPENAPI_URL=$$SERVER_BASE_URL/openapi.json npm run generate:api:local && echo '✅ API SDK regenerated'" ./a2a_server \
 	) & \
 	wait
 
@@ -608,9 +843,9 @@ one-command-deploy: ## Build image, load/push depending on environment, and depl
 	if [ -z "$$IMAGE_REF" ]; then \
 		 echo "Failed to determine image reference; aborting."; exit 1; \
 	fi; \
-	echo "Deploying Helm chart with image=$$IMAGE_REF"; \
-	helm upgrade --install a2a-server ./chart/a2a-server --namespace spotlessbinco --create-namespace \
-		--set image.repository=$$(echo $$IMAGE_REF | sed -e 's/:.*$$//') --set image.tag=$$(echo $$IMAGE_REF | sed -e 's/^.*://') $(HELM_KNATIVE_ARGS)
+		echo "Deploying Helm chart with image=$$IMAGE_REF"; \
+		helm upgrade --install a2a-server ./chart/a2a-server --namespace spotlessbinco --create-namespace \
+			--set image.repository=$$(echo $$IMAGE_REF | sed -e 's/:.*$$//') --set image.tag=$$(echo $$IMAGE_REF | sed -e 's/^.*://') $(HELM_DEPLOY_ARGS)
 
 # =============================================================================
 # Blue-Green Deployment Targets
@@ -661,7 +896,7 @@ deploy-status: ## Show blue-green deployment status
 bluegreen-deploy: ## Deploy with blue-green strategy (zero-downtime)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Starting blue-green deployment..."
-	BACKEND_TAG=$(DOCKER_TAG) EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" ./scripts/bluegreen-deploy.sh deploy
+	BACKEND_TAG=$(DOCKER_TAG) EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" ./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: bluegreen-rollback
 bluegreen-rollback: ## Rollback blue-green deployment to previous version
@@ -680,7 +915,7 @@ bluegreen-oci: docker-build docker-push helm-package helm-push ## Build, push im
 	@echo "🚀 Starting blue-green deployment with OCI chart..."
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
-		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 # =============================================================================
@@ -694,7 +929,7 @@ k8s-dev: docker-build-all docker-push-all ## Build and deploy all containers to 
 	NAMESPACE=a2a-server-dev RELEASE_NAME=a2a-server-dev \
 		VALUES_FILE=$(CHART_PATH)/values-dev.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
-		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: k8s-staging
@@ -704,7 +939,7 @@ k8s-staging: docker-build-all docker-push-all ## Build and deploy all containers
 	NAMESPACE=a2a-server-staging RELEASE_NAME=a2a-server-staging \
 		VALUES_FILE=$(CHART_PATH)/values-staging.yaml \
 		BACKEND_TAG=$(DOCKER_TAG) \
-		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: validate-knative-cron-config
@@ -725,7 +960,7 @@ k8s-prod: validate-knative-cron-config docker-build-all docker-push-all helm-pac
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=$(if $(CHART_SOURCE),$(CHART_SOURCE),local) CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
-		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 	@$(MAKE) voice-agent-deploy
 	@$(MAKE) local-worker-restart
@@ -748,7 +983,7 @@ _k8s-prod-knative-apply: validate-knative-cron-config
 		VALUES_FILE=$(VALUES_FILE) \
 		CHART_SOURCE=$(if $(CHART_SOURCE),$(CHART_SOURCE),local) CHART_VERSION=$(CHART_VERSION) \
 		BACKEND_TAG=$(DOCKER_TAG) \
-		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 	@if [ "$(DEPLOY_VOICE_AGENT)" = "1" ]; then \
 		$(MAKE) voice-agent-deploy; \
@@ -867,6 +1102,35 @@ local-worker-restart: ## Restart local systemd worker (best effort). Set RESTART
 		fi; \
 	fi
 
+
+.PHONY: local-worker-install
+local-worker-install: ## Install codetether-ubuntu-dev as a systemd service (requires sudo)
+	@echo "Installing codetether-ubuntu-dev systemd service..."
+	@CODETETHER_BIN="$$(command -v codetether 2>/dev/null || echo $(CODETETHER_RUST_BIN))"; \
+	$(SUDO) cp agent_worker/systemd/codetether-ubuntu-dev.service /etc/systemd/system/codetether-ubuntu-dev.service; \
+	$(SUDO) sed -i "s|/opt/codetether-worker/bin/codetether|$$CODETETHER_BIN|g" /etc/systemd/system/codetether-ubuntu-dev.service; \
+	$(SUDO) systemctl daemon-reload; \
+	$(SUDO) systemctl enable codetether-ubuntu-dev; \
+	echo "Service installed. Run: make local-worker-start"
+
+.PHONY: local-worker-start
+local-worker-start: ## Start codetether-ubuntu-dev systemd service
+	$(SUDO) systemctl start codetether-ubuntu-dev
+	$(SUDO) systemctl --no-pager status codetether-ubuntu-dev
+
+.PHONY: local-worker-stop
+local-worker-stop: ## Stop codetether-ubuntu-dev systemd service
+	$(SUDO) systemctl stop codetether-ubuntu-dev
+
+.PHONY: local-worker-status
+local-worker-status: ## Show status of codetether-ubuntu-dev systemd service
+	$(SUDO) systemctl --no-pager --full status codetether-ubuntu-dev
+	journalctl -u codetether-ubuntu-dev --no-pager -n 30
+
+.PHONY: local-worker-logs
+local-worker-logs: ## Tail logs of codetether-ubuntu-dev systemd service
+	journalctl -u codetether-ubuntu-dev -f
+
 # Convenience aliases
 .PHONY: k8s
 k8s: k8s-prod ## Alias for k8s-prod
@@ -877,14 +1141,14 @@ deploy-fast: helm-package helm-push ## Fast deploy (chart only, assumes images e
 	@echo "⚡ Fast deployment (chart update only)..."
 	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) \
 		CHART_SOURCE=oci CHART_VERSION=$(CHART_VERSION) BACKEND_TAG=$(DOCKER_TAG) \
-		EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" \
+		EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" \
 		./scripts/bluegreen-deploy.sh deploy
 
 .PHONY: deploy-now
 deploy-now: ## Immediate deploy with existing chart (no build)
 	@chmod +x scripts/bluegreen-deploy.sh
 	@echo "🚀 Immediate deployment with existing chart..."
-	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) BACKEND_TAG=$(DOCKER_TAG) EXTRA_HELM_ARGS="$(HELM_KNATIVE_ARGS)" ./scripts/bluegreen-deploy.sh deploy
+	NAMESPACE=$(NAMESPACE) RELEASE_NAME=$(RELEASE_NAME) BACKEND_TAG=$(DOCKER_TAG) EXTRA_HELM_ARGS="$(HELM_DEPLOY_ARGS)" ./scripts/bluegreen-deploy.sh deploy
 
 # =============================================================================
 # Kubernetes Utilities
@@ -935,7 +1199,7 @@ codetether-deploy: ## Deploy CodeTether with values file (auto-recovers from stu
 	helm upgrade --install $(RELEASE_NAME) oci://$(OCI_REGISTRY)/a2a-server \
 		--version $(CHART_VERSION) \
 		-n $(NAMESPACE) \
-		-f $(VALUES_FILE) $(HELM_KNATIVE_ARGS)
+		-f $(VALUES_FILE) $(HELM_DEPLOY_ARGS)
 
 .PHONY: codetether-build-marketing
 codetether-build-marketing: ## Build and push marketing site
@@ -1015,6 +1279,9 @@ test-models:
 VOICE_AGENT_CHART_PATH = chart/codetether-voice-agent
 VOICE_AGENT_CHART_VERSION ?= 0.1.0
 VOICE_AGENT_RELEASE_NAME ?= codetether-voice-agent
+VOICE_AGENT_CHART_SOURCE ?= local
+VOICE_AGENT_DEPLOY_TIMEOUT ?= 300s
+VOICE_AGENT_DEPLOY_HARD_TIMEOUT ?= 360s
 
 .PHONY: helm-package-voice-agent
 helm-package-voice-agent: ## Package voice agent Helm chart
@@ -1035,19 +1302,39 @@ helm-push-voice-agent: helm-package-voice-agent ## Package and push voice agent 
 .PHONY: voice-agent-deploy
 voice-agent-deploy: ## Deploy voice agent to production
 	@echo "🎤 Deploying CodeTether Voice Agent..."
-	helm upgrade --install $(VOICE_AGENT_RELEASE_NAME) \
-		oci://$(OCI_REGISTRY)/codetether-voice-agent \
-		--version $(VOICE_AGENT_CHART_VERSION) \
-		-n $(NAMESPACE) \
-		--set image.repository=$(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME) \
-		--set image.tag=$(DOCKER_TAG) \
-		--wait --timeout 300s || \
-	helm upgrade --install $(VOICE_AGENT_RELEASE_NAME) \
-		$(VOICE_AGENT_CHART_PATH) \
-		-n $(NAMESPACE) \
-		--set image.repository=$(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME) \
-		--set image.tag=$(DOCKER_TAG) \
-		--wait --timeout 300s
+	@set -euo pipefail; \
+	run_with_timeout() { \
+		if command -v timeout >/dev/null 2>&1; then \
+			timeout --signal=TERM $(VOICE_AGENT_DEPLOY_HARD_TIMEOUT) "$$@"; \
+		else \
+			"$$@"; \
+		fi; \
+	}; \
+	deploy_local() { \
+		run_with_timeout helm upgrade --install $(VOICE_AGENT_RELEASE_NAME) \
+			$(VOICE_AGENT_CHART_PATH) \
+			-n $(NAMESPACE) \
+			--set image.repository=$(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME) \
+			--set image.tag=$(DOCKER_TAG) \
+			--atomic --cleanup-on-fail \
+			--wait --timeout $(VOICE_AGENT_DEPLOY_TIMEOUT); \
+	}; \
+	deploy_oci() { \
+		run_with_timeout helm upgrade --install $(VOICE_AGENT_RELEASE_NAME) \
+			oci://$(OCI_REGISTRY)/codetether-voice-agent \
+			--version $(VOICE_AGENT_CHART_VERSION) \
+			-n $(NAMESPACE) \
+			--set image.repository=$(OCI_REGISTRY)/$(VOICE_AGENT_IMAGE_NAME) \
+			--set image.tag=$(DOCKER_TAG) \
+			--atomic --cleanup-on-fail \
+			--wait --timeout $(VOICE_AGENT_DEPLOY_TIMEOUT); \
+	}; \
+	case "$(VOICE_AGENT_CHART_SOURCE)" in \
+		local) deploy_local ;; \
+		oci) deploy_oci ;; \
+		auto) deploy_oci || { echo "⚠️ OCI deploy failed, falling back to local chart"; deploy_local; } ;; \
+		*) echo "Invalid VOICE_AGENT_CHART_SOURCE='$(VOICE_AGENT_CHART_SOURCE)'. Use local, oci, or auto."; exit 1 ;; \
+	esac
 	@echo "✅ Voice Agent deployed successfully"
 
 .PHONY: voice-agent-status

@@ -9,6 +9,25 @@
 #
 # Apply: kubectl apply -f knative-codetether-worker.yaml -n a2a-server
 
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: codetether-worker-workspace
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    component: ai-worker
+    codetether.run/component: worker
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-storage
+  resources:
+    requests:
+      storage: 20Gi
+
+---
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
@@ -33,8 +52,10 @@ spec:
         autoscaling.knative.dev/target: "1"
         # Initial scale of 1 to ensure worker registers on deploy
         autoscaling.knative.dev/initial-scale: "1"
+        # The worker binary performs Kubernetes auth natively using the
+        # pod's service account JWT — no Vault Agent sidecar is needed.
     spec:
-      # ServiceAccount with RBAC for secrets and pod access
+      # ServiceAccount with RBAC for pod access and Vault Kubernetes auth
       serviceAccountName: codetether-worker
       # Single concurrent task per pod (CPU/GPU bound)
       containerConcurrency: 1
@@ -47,35 +68,40 @@ spec:
           ports:
             - containerPort: 8080
               name: http1
-          # Run the worker subcommand with SSE polling
-          command: ["/app/codetether"]
+          # Run the worker subcommand directly — native Kubernetes auth in
+          # the binary reads the pod SA JWT and obtains a Vault token itself.
+          command: ["codetether"]
           args:
-            - "worker"
-            - "--server"
-            - "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
-            - "--name"
-            - "knative-worker"
-            - "/workspace"
+            - worker
+            - --server
+            - http://codetether-a2a-server.a2a-server.svc.cluster.local:8000
+            - --name
+            - knative-worker
+            - --auto-approve
+            - all
+            - /workspace
+          workingDir: /workspace
           env:
             - name: VAULT_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: vault-token
-                  key: VAULT_ADDR
-                  optional: true
-            - name: VAULT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: vault-token
-                  key: VAULT_TOKEN
-                  optional: true
+              value: "https://vault.spotlessbinco.com"
             - name: VAULT_SKIP_VERIFY
               value: "1"
+            # VAULT_ROLE triggers native Kubernetes auth in the binary;
+            # no static VAULT_TOKEN or Vault Agent sidecar is required.
+            - name: VAULT_ROLE
+              value: "codetether-worker"
+            - name: VAULT_AUTH_MOUNT
+              value: "kubernetes"
+            # Path to the projected SA token with audience=vault (see volumes below)
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
             - name: RUST_LOG
               value: "info"
             # Worker runs HTTP server on port 8080 for health probes (/health, /ready) and CloudEvents (/task)
             - name: KNATIVE_SERVICE
               value: "true"
+            - name: GIT_CLONE_BASE
+              value: "/workspace/repos"
           resources:
             limits:
               cpu: "2"
@@ -101,9 +127,20 @@ spec:
           volumeMounts:
             - name: workspace
               mountPath: /workspace
+            - name: vault-sa-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
       volumes:
         - name: workspace
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: codetether-worker-workspace
+        - name: vault-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: vault
+                  expirationSeconds: 3600
+                  path: token
       # Image pull secret is attached to ServiceAccount
 ---
 # Trigger to route task events to the worker

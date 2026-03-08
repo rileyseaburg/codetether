@@ -217,6 +217,13 @@ env:
   A2A_AGENT_URL: "https://api.codetether.run"
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
 
+  # Worker infrastructure attribution for /v1/agent/workers:
+  # - WORKER_INFRA_CACHE_TTL_SECONDS: refresh cadence for pod/node lookup
+  # - WORKER_INFRA_NODE_MAP: optional node->provider overrides
+  #   JSON: {"k8s-worker-1":"harvester"} or CSV: k8s-worker-1=harvester
+  WORKER_INFRA_CACHE_TTL_SECONDS: "30"
+  WORKER_INFRA_NODE_MAP: ""
+
 # Environment variables from secrets
 envFromSecret: {}
 # Example:
@@ -427,6 +434,9 @@ knative:
     # Default uses Quantum Forge registry with versioned tag.
     # Override with --set-string knative.worker.image=<registry>/<image>:<tag>
     image: "registry.quantum-forge.net/library/codetether-worker:latest"
+    # ServiceAccount used by Knative session workers.
+    # This ServiceAccount must be bound to the Vault Kubernetes auth role below.
+    serviceAccountName: "codetether-worker"
     # Scale to 0 after 5 minutes of no activity
     idleTimeoutSeconds: 300
     # Maximum time for a single task (Knative max is 600 seconds)
@@ -442,6 +452,17 @@ knative:
         cpu: "250m"
     # Session TTL before garbage collection (24 hours)
     sessionTTLHours: 24
+    # Native Kubernetes auth configuration for Knative workers.
+    # The worker binary uses the pod's service account JWT to authenticate
+    # directly to Vault — no Vault Agent sidecar or static token is needed.
+    vault:
+      enabled: false
+      role: "codetether-worker"
+      address: "https://vault.spotlessbinco.com"
+      # Vault auth backend mount path (must match the Kubernetes auth backend
+      # configured on your Vault server: vault auth enable -path=kubernetes kubernetes)
+      authMount: "kubernetes"
+      tlsSkipVerify: true
     # Workspace PVCs for per-workspace persistent storage in Knative workers.
     # Recommended on Harvester/Longhorn: enabled=true, accessModes=[ReadWriteMany].
     workspacePersistence:
@@ -493,6 +514,29 @@ knative:
     # Create: kubectl create secret generic db-encryption-key \
     #   --from-literal=encryption-key=your-32-byte-key-here -n a2a-server
     dbEncryptionSecret: ""
+
+# VM workspace provisioning (KubeVirt/Harvester-compatible)
+# When enabled, /v1/agent/workspaces accepts runtime=vm and provisions a
+# VirtualMachine per workspace using Kubernetes CRDs.
+vmWorkspaces:
+  enabled: false
+  namespace: ""
+  apiGroup: "kubevirt.io"
+  apiVersion: "v1"
+  plural: "virtualmachines"
+  defaultImage: "quay.io/containerdisks/ubuntu:22.04"
+  defaultCpuCores: 2
+  defaultMemory: "8Gi"
+  defaultDiskSize: "30Gi"
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  pvcPrefix: "codetether-vm-workspace"
+  createSSHService: true
+  sshServiceType: "ClusterIP"
+  sshUser: "coder"
+  # Optional SSH public key injected via cloud-init.
+  sshPublicKey: ""
 
 # Marketing site configuration
 marketing:
