@@ -235,6 +235,8 @@ class RegisteredCodebase:
     watch_mode: bool = False  # Whether agent is in watch mode
     watch_interval: int = 5  # Seconds between task checks
     worker_id: Optional[str] = None  # ID of the worker that owns this codebase
+    git_url: Optional[str] = None  # HTTPS Git URL for git-backed workspaces
+    git_branch: str = 'main'  # Git branch for git-backed workspaces
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -253,6 +255,8 @@ class RegisteredCodebase:
             'watch_mode': self.watch_mode,
             'watch_interval': self.watch_interval,
             'worker_id': self.worker_id,
+            'git_url': self.git_url,
+            'git_branch': self.git_branch,
         }
 
 
@@ -380,6 +384,8 @@ class OpenCodeBridge:
                     'status': codebase.status.value,
                     'session_id': codebase.session_id,
                     'opencode_port': codebase.opencode_port,
+                    'git_url': codebase.git_url,
+                    'git_branch': codebase.git_branch,
                 }
             )
         except Exception as e:
@@ -537,6 +543,8 @@ class OpenCodeBridge:
                     watch_mode=row.get('watch_mode', False),
                     watch_interval=row.get('watch_interval', 5),
                     worker_id=row.get('worker_id'),
+                    git_url=row.get('git_url'),
+                    git_branch=row.get('git_branch', 'main'),
                 )
                 loaded_count += 1
             logger.info(f'Loaded {loaded_count} codebases from PostgreSQL')
@@ -660,6 +668,8 @@ class OpenCodeBridge:
         agent_config: Optional[Dict[str, Any]] = None,
         worker_id: Optional[str] = None,
         codebase_id: Optional[str] = None,
+        git_url: Optional[str] = None,
+        git_branch: str = 'main',
     ) -> RegisteredCodebase:
         """
         Register a codebase for agent work.
@@ -670,6 +680,8 @@ class OpenCodeBridge:
             description: Optional description
             agent_config: Optional OpenCode agent configuration
             worker_id: ID of the worker that owns this codebase (for remote execution)
+            git_url: HTTPS Git URL for git-backed workspaces
+            git_branch: Git branch for git-backed workspaces (default: 'main')
 
         Returns:
             The registered codebase entry
@@ -695,6 +707,11 @@ class OpenCodeBridge:
                 codebase.opencode_port = (
                     None  # Clear local port if it's now remote
                 )
+            # Preserve git metadata from DB/args
+            if git_url is not None:
+                codebase.git_url = git_url
+            if git_branch:
+                codebase.git_branch = git_branch
             codebase.status = AgentStatus.IDLE
             await self._save_codebase(codebase)  # Persist update
 
@@ -736,6 +753,11 @@ class OpenCodeBridge:
                 codebase.opencode_port = (
                     None  # Clear local port if it's now remote
                 )
+            # Preserve git metadata from DB/args
+            if git_url is not None:
+                codebase.git_url = git_url
+            if git_branch:
+                codebase.git_branch = git_branch
             codebase.status = AgentStatus.IDLE
             await self._save_codebase(codebase)  # Persist update
 
@@ -757,6 +779,8 @@ class OpenCodeBridge:
             description=description,
             agent_config=agent_config or {},
             worker_id=worker_id,
+            git_url=git_url,
+            git_branch=git_branch,
         )
 
         self._codebases[codebase_id] = codebase

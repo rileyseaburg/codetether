@@ -1042,6 +1042,8 @@ def _row_to_codebase(row) -> Dict[str, Any]:
         'last_sync_at': row['last_sync_at'].isoformat()
         if row.get('last_sync_at')
         else None,
+        'git_url': row.get('git_url'),
+        'git_branch': row.get('git_branch', 'main'),
     }
 
 

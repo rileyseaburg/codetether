@@ -1632,6 +1632,8 @@ async def _rehydrate_codebase_into_bridge(codebase_id: str):
             agent_config=agent_config,
             worker_id=meta.get('worker_id'),
             codebase_id=desired_id,
+            git_url=meta.get('git_url'),
+            git_branch=meta.get('git_branch', 'main'),
         )
         return codebase
     except Exception as e:
