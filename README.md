@@ -540,6 +540,16 @@ Workers sync sessions from local storage to PostgreSQL. The dashboard and API re
 | **Docker**     | `docker-compose up`                  | Single container            |
 | **Kubernetes** | `make k8s-prod`                      | Full production stack       |
 
+### Codex MCP (Local)
+
+Codex CLI should use CodeTether over stdio via `~/.codex/config.toml` for local workspaces.
+
+```toml
+[mcp_servers.codetether]
+command = "/absolute/path/to/codetether"
+args = ["mcp", "serve", "/absolute/workspace/path"]
+```
+
 ### Production Deployment
 
 ```bash
