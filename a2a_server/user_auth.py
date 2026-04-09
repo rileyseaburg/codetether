@@ -17,7 +17,7 @@ import uuid
 import hashlib
 import secrets
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 
 import bcrypt
@@ -649,7 +649,7 @@ async def _get_user_from_api_key(api_key: str) -> Dict[str, Any]:
             raise HTTPException(status_code=401, detail='Invalid API key')
 
         # Check expiration
-        if row['expires_at'] and row['expires_at'] < datetime.utcnow():
+        if row['expires_at'] and row['expires_at'] < datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail='API key expired')
 
         # Update last used

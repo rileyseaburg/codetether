@@ -592,8 +592,8 @@ async def dispatch_task(
 
         await conn.execute(
             """
-            INSERT INTO tasks (id, title, prompt, agent_type, status, codebase_id, metadata, tenant_id, model, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, 'pending', $5, $6::jsonb, $7, $8, NOW(), NOW())
+            INSERT INTO tasks (id, title, prompt, agent_type, status, workspace_id, metadata, tenant_id, model, priority, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, 'pending', $5, $6::jsonb, $7, $8, $9, NOW(), NOW())
             """,
             task_id,
             request.title,
@@ -603,6 +603,7 @@ async def dispatch_task(
             json.dumps(request.metadata or {}),
             tenant_id,
             request.model,
+            request.priority,
         )
 
     # Dispatch to Knative
