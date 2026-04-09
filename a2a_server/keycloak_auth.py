@@ -753,6 +753,7 @@ async def get_current_user(
 ) -> Optional[UserSession]:
     """Dependency to get current authenticated user.
 
+    Supports Keycloak sessions/JWTs and ct_ API keys.
     Extracts realm from token, looks up tenant, and populates
     tenant_id and realm_name on the UserSession.
     """
@@ -760,6 +761,32 @@ async def get_current_user(
         return None
 
     token = credentials.credentials
+
+    # Handle ct_ API keys via user_auth module
+    if token.startswith('ct_'):
+        try:
+            from .user_auth import _get_user_from_api_key
+
+            user_dict = await _get_user_from_api_key(token)
+            tenant_id = (
+                getattr(request.state, 'tenant_id', None)
+                or request.headers.get('X-Tenant-ID')
+            )
+            return UserSession(
+                user_id=user_dict['id'],
+                email=user_dict.get('email', ''),
+                username=user_dict.get('email', ''),
+                name=f"{user_dict.get('first_name', '')} {user_dict.get('last_name', '')}".strip(),
+                session_id='apikey-' + str(uuid.uuid4()),
+                access_token=token,
+                refresh_token=None,
+                expires_at=datetime.utcnow() + timedelta(hours=24),
+                roles=user_dict.get('api_key_scopes', []) or ['user'],
+                tenant_id=tenant_id,
+                realm_name=None,
+            )
+        except HTTPException:
+            return None
 
     # First try to find existing session
     session = await keycloak_auth.get_session_by_token(token)
