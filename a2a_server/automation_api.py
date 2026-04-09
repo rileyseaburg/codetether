@@ -543,6 +543,7 @@ class DispatchTaskResponse(BaseModel):
     status: str = Field(..., description='Task status')
     title: str
     description: str
+    result: Optional[str] = Field(default=None, description='Task result text when completed')
     created_at: str
     dispatched_via_knative: bool = Field(
         ..., description='Whether task was dispatched to Knative broker'
@@ -670,7 +671,7 @@ async def get_dispatched_task(
 
         row = await conn.fetchrow(
             """
-            SELECT id, title, prompt, agent_type, status, model, created_at
+            SELECT id, title, prompt, agent_type, status, model, result, created_at
             FROM tasks
             WHERE id = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
             """,
@@ -687,6 +688,7 @@ async def get_dispatched_task(
         status=row['status'],
         title=row['title'],
         description=row['prompt'],
+        result=row['result'],
         created_at=row['created_at'].isoformat(),
         dispatched_via_knative=False,  # Would need to track this in DB
     )
