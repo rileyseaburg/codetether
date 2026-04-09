@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # for backward compatibility with internal deployments.
 WORKER_AUTH_TOKEN: Optional[str] = os.environ.get('WORKER_AUTH_TOKEN')
 _WORKER_PATH = re.compile(
-    r'^/v1/agent/(workers/|tasks$|codebases$)'
+    r'^/v1/agent/(workers/|tasks(/|/[^/]+/(output|status|claim|complete|cancel|requeue))?/?$)'
 )
 
 
