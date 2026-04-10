@@ -239,6 +239,14 @@ auth:
   #   agent1: "secret123"
   #   agent2: "secret456"
 
+# GitHub App configuration for app-wide @codetether webhook handling
+githubApp:
+  existingSecret: ""
+  appId: ""
+  privateKey: ""
+  webhookSecret: ""
+  apiBaseUrl: "https://api.github.com"
+
 # PostgreSQL configuration for durable persistence
 # This provides durable storage for workers, codebases, tasks, and sessions
 # that survives pod restarts and works across multiple replicas.

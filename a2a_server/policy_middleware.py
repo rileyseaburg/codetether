@@ -80,6 +80,7 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
 
     # Billing webhooks — Stripe signature verified
     (r"^/v1/webhooks/stripe$", {"POST"}, ""),
+    (r"^/v1/webhooks/github$", {"POST"}, ""),
 
     # ── Already-protected routes (skip to avoid double auth) ─────
     # Billing, admin, tenant (non-signup), user auth (non-public),
