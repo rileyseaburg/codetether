@@ -189,7 +189,7 @@
         "docs/integrations/voice.md for LiveKit voice",
         "docs/integrations/zapier.md for Zapier automation",
         "docs/integrations/keycloak.md for SSO",
-        "docs/integrations/opencode.md for OpenCode",
+        "docs/integrations/agent.md for CodeTether",
         "docs/integrations/email.md for email notifications"
       ],
       "passes": false,

@@ -22,8 +22,12 @@ class ServerConfig(BaseModel):
     auth_tokens: Optional[Dict[str, str]] = None
     log_level: str = 'INFO'
     # Agent host configuration - use host.docker.internal for container->host communication
-    opencode_host: str = 'localhost'
-    opencode_port: int = 9777
+    # Accepts AGENT_HOST/AGENT_PORT (preferred) or legacy OPENCODE_HOST/OPENCODE_PORT
+    agent_host: str = 'localhost'
+    agent_port: int = 9777
+    # Backward-compatible aliases
+    agent_host: str = 'localhost'
+    agent_port: int = 9777
 
 
 class AgentConfig(BaseModel):
@@ -49,9 +53,8 @@ def load_config() -> ServerConfig:
         auth_enabled=os.getenv('A2A_AUTH_ENABLED', 'false').lower() == 'true',
         auth_tokens=_parse_auth_tokens(os.getenv('A2A_AUTH_TOKENS')),
         log_level=os.getenv('A2A_LOG_LEVEL', 'INFO'),
-        # OpenCode host - use host.docker.internal when running in container
-        opencode_host=os.getenv('OPENCODE_HOST', 'localhost'),
-        opencode_port=int(os.getenv('OPENCODE_PORT', '9777')),
+        agent_host=os.getenv('AGENT_HOST', 'localhost'),
+        agent_port=int(os.getenv('AGENT_PORT', '9777')),
     )
 
 

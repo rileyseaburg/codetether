@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type { ChatItem, Session } from './types'
 import {
-  useCodebases,
+  useWorkspaces,
   useSessions,
   useSessionStream,
   useModelStorage,
@@ -22,7 +22,7 @@ import {
 import { RLMExecutionPane } from './components/RLMExecutionPane'
 
 export default function SessionsPage() {
-  const [selectedCodebase, setSelectedCodebase] = useState('')
+  const [selectedWorkspace, setSelectedWorkspace] = useState('')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [selectedMode, setSelectedMode] = useState('code')
   const [draftMessage, setDraftMessage] = useState('')
@@ -35,7 +35,7 @@ export default function SessionsPage() {
   const prevSelectedSessionIdRef = useRef<string | null>(null)
   const pendingResponseKeyRef = useRef<string | null>(null)
 
-  const { codebases } = useCodebases()
+  const { workspaces } = useWorkspaces()
   const { selectedModel, setSelectedModel } = useModelStorage()
   const {
     sessions,
@@ -53,10 +53,10 @@ export default function SessionsPage() {
     totalMessages,
     totalSessions,
     error,
-  } = useSessions(selectedCodebase)
-  const selectedCodebaseMeta = useMemo(
-    () => codebases.find((c) => c.id === selectedCodebase) || null,
-    [codebases, selectedCodebase],
+  } = useSessions(selectedWorkspace)
+  const selectedWorkspaceMeta = useMemo(
+    () => workspaces.find((c) => c.id === selectedWorkspace) || null,
+    [workspaces, selectedWorkspace],
   )
   const handleSessionUpdate = useCallback(
     (id: string) =>
@@ -69,7 +69,7 @@ export default function SessionsPage() {
     setActionStatus,
     resumeSession,
   } = useSessionResume({
-    selectedCodebase,
+    selectedWorkspace,
     selectedMode,
     selectedModel,
     onSessionUpdate: handleSessionUpdate,
@@ -81,8 +81,8 @@ export default function SessionsPage() {
   }, [selectedSession?.id, loadSessionMessages])
   const { streamConnected, streamStatus, liveDraft, rlmSteps, rlmStats, resetStream } =
     useSessionStream({
-      selectedCodebase,
-      selectedCodebaseMeta,
+      selectedWorkspace,
+      selectedWorkspaceMeta: selectedWorkspaceMeta,
       selectedSession,
       onIdle: handleIdle,
     })
@@ -111,13 +111,13 @@ export default function SessionsPage() {
     ? 'md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_minmax(280px,360px)]'
     : 'md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]'
   const handleLoadMoreSessions = useCallback(
-    () => loadMoreSessions(selectedCodebase),
-    [loadMoreSessions, selectedCodebase],
+    () => loadMoreSessions(selectedWorkspace),
+    [loadMoreSessions, selectedWorkspace],
   )
 
   useEffect(() => {
-    if (selectedCodebase) loadSessions(selectedCodebase, sessionQuery)
-  }, [selectedCodebase, sessionQuery, loadSessions])
+    if (selectedWorkspace) loadSessions(selectedWorkspace, sessionQuery)
+  }, [selectedWorkspace, sessionQuery, loadSessions])
   useEffect(() => {
     if (!selectedSession) return
     const sessionId = selectedSession.id
@@ -189,9 +189,9 @@ export default function SessionsPage() {
     }
   }, [awaitingResponse, liveDraft, actionStatus, lastChatKey, lastChatRole])
 
-  const onCodebaseChange = useCallback(
+  const onWorkspaceChange = useCallback(
     (id: string) => {
-      setSelectedCodebase(id)
+      setSelectedWorkspace(id)
       setSelectedSession(null)
       setMobilePane('sessions')
       setSessionQuery('')
@@ -264,11 +264,11 @@ export default function SessionsPage() {
         >
           <ErrorBoundary>
             <SessionList
-              codebases={codebases}
+              workspaces={workspaces}
               sessions={sessions}
-              selectedCodebase={selectedCodebase}
+              selectedWorkspace={selectedWorkspace}
               selectedSession={selectedSession}
-              onCodebaseChange={onCodebaseChange}
+              onWorkspaceChange={onWorkspaceChange}
               onSessionSelect={onSessionSelect}
               onSearchChange={setSessionQuery}
               hasMoreSessions={hasMoreSessions}
@@ -296,8 +296,8 @@ export default function SessionsPage() {
             <ErrorBoundary>
               <ChatHeader
                 selectedSession={selectedSession}
-                selectedCodebase={selectedCodebase}
-                selectedCodebaseName={selectedCodebaseMeta?.name}
+                selectedWorkspace={selectedWorkspace}
+                selectedWorkspaceName={selectedWorkspaceMeta?.name}
                 selectedMode={selectedMode}
                 selectedModel={selectedModel}
                 suggestedModels={suggestedModels}

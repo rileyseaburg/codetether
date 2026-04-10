@@ -126,20 +126,43 @@ class PerpetualCognitionManager:
             """)
 
             # 2. Find running loops that are due for iteration
-            due_loops = await conn.fetch("""
-                SELECT id, tenant_id, user_id, persona_slug, codebase_id,
-                       state, iteration_count, iteration_interval_seconds,
-                       max_iterations_per_day, iterations_today,
-                       daily_cost_ceiling_cents, cost_today_cents,
-                       last_iteration_at
-                FROM perpetual_loops
-                WHERE status = 'running'
-                  AND (
-                    last_iteration_at IS NULL
-                    OR last_iteration_at + (iteration_interval_seconds || ' seconds')::interval <= NOW()
-                  )
-                ORDER BY last_iteration_at ASC NULLS FIRST
-            """)
+            try:
+                due_loops = await conn.fetch("""
+                    SELECT id, tenant_id, user_id, persona_slug, workspace_id,
+                           state, iteration_count, iteration_interval_seconds,
+                           max_iterations_per_day, iterations_today,
+                           daily_cost_ceiling_cents, cost_today_cents,
+                           last_iteration_at
+                    FROM perpetual_loops
+                    WHERE status = 'running'
+                      AND (
+                        last_iteration_at IS NULL
+                        OR last_iteration_at + (iteration_interval_seconds || ' seconds')::interval <= NOW()
+                      )
+                    ORDER BY last_iteration_at ASC NULLS FIRST
+                """)
+            except Exception as e:
+                # Backward compatibility: older schemas may still use codebase_id.
+                if (
+                    'workspace_id' in str(e).lower()
+                    and 'column' in str(e).lower()
+                ):
+                    due_loops = await conn.fetch("""
+                        SELECT id, tenant_id, user_id, persona_slug, codebase_id AS workspace_id,
+                               state, iteration_count, iteration_interval_seconds,
+                               max_iterations_per_day, iterations_today,
+                               daily_cost_ceiling_cents, cost_today_cents,
+                               last_iteration_at
+                        FROM perpetual_loops
+                        WHERE status = 'running'
+                          AND (
+                            last_iteration_at IS NULL
+                            OR last_iteration_at + (iteration_interval_seconds || ' seconds')::interval <= NOW()
+                          )
+                        ORDER BY last_iteration_at ASC NULLS FIRST
+                    """)
+                else:
+                    raise
 
             for loop in due_loops:
                 try:
@@ -219,7 +242,7 @@ class PerpetualCognitionManager:
             'prompt': prompt,
             'title': f'Loop {loop_id[:8]}… iter #{iteration_number}',
             'agent_type': 'explore',
-            'codebase_id': loop.get('codebase_id'),
+            'codebase_id': loop['workspace_id'],
             'worker_personality': persona_slug,
             'metadata': {
                 'perpetual_loop_id': loop_id,

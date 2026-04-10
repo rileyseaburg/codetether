@@ -33,7 +33,7 @@ nav:
   - Features:
       - Security Features: features/security.md
       - Ralph (Autonomous Dev): features/ralph.md
-      - OpenCode Integration: features/opencode.md
+      - CodeTether Integration: features/agent.md
       - Zapier Integration: features/zapier.md
       - Agent Worker: features/agent-worker.md
       - Distributed Workers: features/distributed-workers.md
@@ -50,7 +50,7 @@ nav:
       - Overview: api/overview.md
       - JSON-RPC Methods: api/jsonrpc.md
       - REST Endpoints: api/rest.md
-      - OpenCode API: api/opencode.md
+      - CodeTether API: api/agent.md
       - SSE Events: api/sse.md
   - Authentication & Authorization:
       - Overview: auth/overview.md

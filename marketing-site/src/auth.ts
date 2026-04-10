@@ -310,6 +310,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 if (token.preferred_username) {
                     session.user.name = token.preferred_username as string
                 }
+                // Explicitly pass email from token to session
+                if (token.email) {
+                    session.user.email = token.email as string
+                }
 
                 // Pass tenant info to session
                 session.tenantId = token.tenantId as string | undefined

@@ -42,11 +42,11 @@ const faqs = [
         },
         {
             question: 'How does the security model work?',
-            answer: 'Authentication uses HMAC-SHA256 bearer tokens and is mandatory — there is no flag to disable it. All plugins are sandboxed with Ed25519 code signing and SHA-256 integrity checks. Every action is logged to an append-only JSON Lines audit trail with timestamps, categories, and metadata. Persona swarms enforce least-privilege — each agent only has the permissions it needs. Agency plans can add custom OPA Rego policies.',
+            answer: 'Authentication uses HMAC-SHA256 bearer tokens and is mandatory — there is no flag to disable it. All plugins are sandboxed with Ed25519 code signing and SHA-256 integrity checks. Every action is logged to an append-only JSON Lines audit trail with timestamps, categories, and metadata. Persona swarms enforce least-privilege — each agent only has the permissions it needs. Enterprise plans can add custom OPA Rego policies.',
         },
         {
             question: 'Is there a managed/hosted option?',
-            answer: 'Yes. Self-host for free, or use our managed platform with tiered pricing: Free (10 tasks/mo + $5 token credit), Pro ($297/mo, 300 tasks + $50/mo token credit), and Agency ($497/mo, 2000 tasks + $150/mo token credit). All plans include the same security guarantees.',
+            answer: 'Yes. Self-host for free, or use our managed platform with tiered pricing: Free (100 tasks/mo + $5 token credit), Pro ($49/mo, 5,000 tasks + $50/mo token credit), and Enterprise ($199/mo, unlimited tasks + $150/mo token credit). All plans include the same security guarantees.',
         },
         {
             question: 'How does token billing work?',

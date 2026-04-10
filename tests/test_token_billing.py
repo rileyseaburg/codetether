@@ -49,8 +49,8 @@ class TestTokenCounts:
         tc = TokenCounts.from_dict(None)
         assert tc.total == 0
 
-    def test_opencode_format(self):
-        """OpenCode uses {input, output, reasoning, cache: {read, write}}."""
+    def test_agent_format(self):
+        """CodeTether uses {input, output, reasoning, cache: {read, write}}."""
         tc = TokenCounts.from_dict({
             'input': 1500,
             'output': 800,

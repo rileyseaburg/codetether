@@ -3,8 +3,8 @@
 import { RalphRefreshIcon } from '../ui/RalphIcons'
 
 interface RalphSettingsPanelProps {
-    codebases: Array<{ id: string; name: string }>
-    selectedCodebase: string
+    workspaces?: Array<{ id: string; name: string }>
+    selectedWorkspace?: string
     selectedModel: string
     maxIterations: number
     runMode: 'sequential' | 'parallel'
@@ -12,24 +12,51 @@ interface RalphSettingsPanelProps {
     availableModels: string[]
     loadingAgents: boolean
     isRunning: boolean
-    onSetSelectedCodebase: (v: string) => void
+    onSetSelectedWorkspace?: (v: string) => void
     onSetSelectedModel: (v: string) => void
     onSetMaxIterations: (v: number) => void
     onSetRunMode: (m: 'sequential' | 'parallel') => void
     onSetMaxParallel: (v: number) => void
     onRefreshAgents: () => void
+    // Backward-compat props while migration completes.
+    codebases?: Array<{ id: string; name: string }>
+    selectedCodebase?: string
+    onSetSelectedCodebase?: (v: string) => void
 }
 
-export function RalphSettingsPanel({ codebases, selectedCodebase, selectedModel, maxIterations, runMode, maxParallel, availableModels, loadingAgents, isRunning, onSetSelectedCodebase, onSetSelectedModel, onSetMaxIterations, onSetRunMode, onSetMaxParallel, onRefreshAgents }: RalphSettingsPanelProps) {
+export function RalphSettingsPanel({
+    workspaces,
+    selectedWorkspace,
+    selectedModel,
+    maxIterations,
+    runMode,
+    maxParallel,
+    availableModels,
+    loadingAgents,
+    isRunning,
+    onSetSelectedWorkspace,
+    onSetSelectedModel,
+    onSetMaxIterations,
+    onSetRunMode,
+    onSetMaxParallel,
+    onRefreshAgents,
+    codebases,
+    selectedCodebase,
+    onSetSelectedCodebase,
+}: RalphSettingsPanelProps) {
+    const workspaceOptions = workspaces ?? codebases ?? []
+    const activeWorkspace = selectedWorkspace ?? selectedCodebase ?? 'global'
+    const setWorkspace = onSetSelectedWorkspace ?? onSetSelectedCodebase
+
     return (
         <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10" data-cy="ralph-settings-panel">
             <div className="p-4 border-b"><h2 className="text-sm font-semibold" data-cy="ralph-settings-title">Settings</h2></div>
             <div className="p-4 space-y-4">
                 <div>
-                    <label className="block text-xs mb-1">Codebase</label>
-                    <select value={selectedCodebase} onChange={(e) => onSetSelectedCodebase(e.target.value)} disabled={isRunning} data-cy="ralph-codebase-select" className="w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-900">
-                        <option value="global">Global</option>
-                        {codebases.map(cb => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
+                    <label className="block text-xs mb-1">Workspace</label>
+                    <select value={activeWorkspace} onChange={(e) => setWorkspace?.(e.target.value)} disabled={isRunning} data-cy="ralph-workspace-select" className="w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-900">
+                        <option value="global">Global workspace</option>
+                        {workspaceOptions.map(cb => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
                     </select>
                 </div>
                 <div>

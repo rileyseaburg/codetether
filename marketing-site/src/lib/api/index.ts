@@ -4,6 +4,14 @@
  */
 
 import { client } from './generated/client.gen'
+import {
+  getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet,
+  listWorkspacesV1AgentWorkspacesListGet,
+  listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet,
+  registerWorkspaceV1AgentWorkspacesPost,
+  triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost,
+  unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete,
+} from './generated'
 
 // Environment-aware base URL configuration
 const getBaseUrl = () => {
@@ -50,6 +58,101 @@ export function setApiAuthToken(token?: string, tenantId?: string) {
 export function hasApiAuthToken(): boolean {
   return !!_authToken
 }
+
+/**
+ * Backward-compat exports for legacy "codebases" naming used by dashboard pages.
+ * The API now uses "workspaces", but these wrappers avoid breaking existing callers.
+ */
+export const listCodebasesV1AgentCodebasesListGet =
+  listWorkspacesV1AgentWorkspacesListGet
+
+type LegacyTriggerOptions = Parameters<
+  typeof triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost
+>[0] & {
+  path: {
+    codebase_id?: string
+    workspace_id?: string
+  }
+}
+
+export const triggerAgentV1AgentCodebasesCodebaseIdTriggerPost = (
+  options: LegacyTriggerOptions,
+) => {
+  const workspaceId =
+    options?.path?.workspace_id ?? options?.path?.codebase_id ?? ''
+  return triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost({
+    ...(options as any),
+    path: { workspace_id: workspaceId },
+  })
+}
+
+export const registerCodebaseV1AgentCodebasesPost =
+  registerWorkspaceV1AgentWorkspacesPost
+
+type LegacyUnregisterOptions = Parameters<
+  typeof unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete
+>[0] & {
+  path: {
+    codebase_id?: string
+    workspace_id?: string
+  }
+}
+
+export const unregisterCodebaseV1AgentCodebasesCodebaseIdDelete = (
+  options: LegacyUnregisterOptions,
+) => {
+  const workspaceId =
+    options?.path?.workspace_id ?? options?.path?.codebase_id ?? ''
+  return unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete({
+    ...(options as any),
+    path: { workspace_id: workspaceId },
+  })
+}
+
+type LegacyListSessionsOptions = Parameters<
+  typeof listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet
+>[0] & {
+  path: {
+    codebase_id?: string
+    workspace_id?: string
+  }
+}
+
+export const listSessionsV1AgentCodebasesCodebaseIdSessionsGet = (
+  options: LegacyListSessionsOptions,
+) => {
+  const workspaceId =
+    options?.path?.workspace_id ?? options?.path?.codebase_id ?? ''
+  return listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet({
+    ...(options as any),
+    path: { workspace_id: workspaceId },
+  })
+}
+
+type LegacySessionMessagesOptions = Parameters<
+  typeof getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet
+>[0] & {
+  path: {
+    codebase_id?: string
+    workspace_id?: string
+    session_id: string
+  }
+}
+
+export const getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet =
+  (options: LegacySessionMessagesOptions) => {
+    const workspaceId =
+      options?.path?.workspace_id ?? options?.path?.codebase_id ?? ''
+    return getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet(
+      {
+        ...(options as any),
+        path: {
+          workspace_id: workspaceId,
+          session_id: options.path.session_id,
+        },
+      },
+    )
+  }
 
 // Re-export everything from generated SDK
 export * from './generated'

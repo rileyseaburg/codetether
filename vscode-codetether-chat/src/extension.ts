@@ -77,7 +77,7 @@ async function postJson(url: string, body: unknown, token?: string): Promise<any
 async function listServerCodebases(apiUrl: string, token?: string): Promise<Codebase[]> {
     const headers: Record<string, string> = {}
     if (token) headers.authorization = `Bearer ${token}`
-    const data = await fetchJson(`${apiUrl}/v1/opencode/codebases/list`, { headers })
+    const data = await fetchJson(`${apiUrl}/v1/agent/codebases/list`, { headers })
     const items = Array.isArray(data) ? data : Array.isArray(data?.codebases) ? data.codebases : []
     return (items as any[])
         .map((cb) => ({
@@ -242,7 +242,7 @@ export function activate(context: vscode.ExtensionContext) {
         const modelId = request.model?.id || `${request.model?.vendor ?? 'unknown'}/${request.model?.family ?? 'model'}`
         const inputTokens = await safeCountTokens(request.model, request.prompt, token)
 
-        const ingestUrl = `${apiUrl}/v1/opencode/codebases/${encodeURIComponent(codebaseId)}/sessions/${encodeURIComponent(sessionId)}/ingest`
+        const ingestUrl = `${apiUrl}/v1/agent/codebases/${encodeURIComponent(codebaseId)}/sessions/${encodeURIComponent(sessionId)}/ingest`
 
         const userMessageId = randomUUID()
         const userMessage = {

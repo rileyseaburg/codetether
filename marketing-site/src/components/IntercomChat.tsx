@@ -231,7 +231,7 @@ async function pollForCompletion(
 
   while (Date.now() - startTime < TIMEOUT_MS) {
     const task = await getTask(taskId)
-    
+
     if (onUpdate) {
       onUpdate(task)
     }
@@ -355,7 +355,7 @@ export function IntercomChat() {
     setMessages((prev) => [...prev, aiMsg])
 
     try {
-      // Create task via POST /v1/opencode/tasks
+      // Create task via POST /v1/agent/tasks
       const task = await createTask(userMessage)
       const taskId = getTaskId(task)
 
@@ -380,28 +380,28 @@ export function IntercomChat() {
         prev.map((msg) =>
           msg.id === aiMsgId
             ? {
-                ...msg,
-                content: completedTask.result || 'No response received',
-                status: 'sent',
-                originalMessage: undefined, // Clear retry info on success
-              }
+              ...msg,
+              content: completedTask.result || 'No response received',
+              status: 'sent',
+              originalMessage: undefined, // Clear retry info on success
+            }
             : msg
         )
       )
     } catch (error) {
       // Get detailed error info
       const errorInfo = getErrorInfo(error, userMessage)
-      
+
       // Update the AI message placeholder to show error
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMsgId
             ? {
-                ...msg,
-                content: errorInfo.message,
-                status: 'error',
-                originalMessage: userMessage, // Keep for retry
-              }
+              ...msg,
+              content: errorInfo.message,
+              status: 'error',
+              originalMessage: userMessage, // Keep for retry
+            }
             : msg
         )
       )
@@ -476,7 +476,7 @@ export function IntercomChat() {
             </div>
 
             {/* Message Area */}
-            <div 
+            <div
               ref={messagesContainerRef}
               className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-800"
             >
@@ -492,11 +492,10 @@ export function IntercomChat() {
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] px-4 py-2 text-sm ${
-                          msg.role === 'user'
+                        className={`max-w-[80%] px-4 py-2 text-sm ${msg.role === 'user'
                             ? getUserMessageStyle()
                             : getAIMessageStyle(msg.status)
-                        }`}
+                          }`}
                       >
                         {msg.status === 'sending' ? (
                           <LoadingIndicator />

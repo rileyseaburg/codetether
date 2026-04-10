@@ -1,10 +1,13 @@
 import { useState, useCallback, useRef } from 'react'
-import { API_URL, Session, SessionMessageWithParts } from '../types'
-import { listSessionsV1AgentCodebasesCodebaseIdSessionsGet, getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet } from '@/lib/api'
+import { Session, SessionMessageWithParts } from '../types'
+import {
+  listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet,
+  getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet,
+} from '@/lib/api'
 
 const SESSIONS_PAGE_SIZE = 30
 
-export function useSessions(selectedCodebase: string) {
+export function useSessions(selectedWorkspace: string) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [sessionMessages, setSessionMessages] = useState<SessionMessageWithParts[]>([])
   const [loading, setLoading] = useState(false)
@@ -39,8 +42,8 @@ export function useSessions(selectedCodebase: string) {
     setError(null)
     sessionsOffset.current = 0
     try {
-      const result = await listSessionsV1AgentCodebasesCodebaseIdSessionsGet({
-        path: { codebase_id: id },
+      const result = await listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet({
+        path: { workspace_id: id },
         query: {
           limit: SESSIONS_PAGE_SIZE,
           offset: 0,
@@ -74,8 +77,8 @@ export function useSessions(selectedCodebase: string) {
     setLoadingMoreSessions(true)
     const newOffset = sessionsOffset.current + SESSIONS_PAGE_SIZE
     try {
-      const result = await listSessionsV1AgentCodebasesCodebaseIdSessionsGet({
-        path: { codebase_id: id },
+      const result = await listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet({
+        path: { workspace_id: id },
         query: {
           limit: SESSIONS_PAGE_SIZE,
           offset: newOffset,
@@ -103,7 +106,7 @@ export function useSessions(selectedCodebase: string) {
       force?: boolean,
       limit: number = INITIAL_LOAD_LIMIT,
     ) => {
-      if (!selectedCodebase || !sessionId) {
+      if (!selectedWorkspace || !sessionId) {
         return
       }
       if (!force && latestLoadedSessionId.current === sessionId) {
@@ -118,8 +121,8 @@ export function useSessions(selectedCodebase: string) {
       setError(null)
       setSessionMessages([])
       try {
-        const result = await getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet({
-          path: { codebase_id: selectedCodebase, session_id: sessionId },
+        const result = await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet({
+          path: { workspace_id: selectedWorkspace, session_id: sessionId },
           query: { limit },
         })
 
@@ -147,12 +150,12 @@ export function useSessions(selectedCodebase: string) {
         }
       }
     },
-    [selectedCodebase],
+    [selectedWorkspace],
   )
 
   const loadMoreMessages = useCallback(async () => {
     if (
-      !selectedCodebase ||
+      !selectedWorkspace ||
       !latestLoadedSessionId.current ||
       loadingMore
     ) {
@@ -162,8 +165,8 @@ export function useSessions(selectedCodebase: string) {
     const sessionId = latestLoadedSessionId.current
     setLoadingMore(true)
     try {
-      const result = await getSessionMessagesByIdV1AgentCodebasesCodebaseIdSessionsSessionIdMessagesGet({
-        path: { codebase_id: selectedCodebase, session_id: sessionId },
+      const result = await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet({
+        path: { workspace_id: selectedWorkspace, session_id: sessionId },
         query: { limit: LOAD_MORE_LIMIT },
       })
 
@@ -180,7 +183,7 @@ export function useSessions(selectedCodebase: string) {
     } finally {
       setLoadingMore(false)
     }
-  }, [selectedCodebase, loadingMore, LOAD_MORE_LIMIT, totalMessages])
+  }, [selectedWorkspace, loadingMore, LOAD_MORE_LIMIT, totalMessages])
 
   const clearSessions = useCallback(() => {
     setSessions([])

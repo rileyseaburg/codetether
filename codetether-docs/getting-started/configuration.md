@@ -37,8 +37,8 @@ export MCP_HTTP_ENABLED=true
 export MCP_HTTP_HOST=0.0.0.0
 export MCP_HTTP_PORT=9000
 
-# OpenCode Integration
-export OPENCODE_DB_PATH=/data/opencode.db
+# CodeTether Integration
+export OPENCODE_DB_PATH=/data/agent.db
 export OPENCODE_HOST=localhost
 export OPENCODE_PORT=9777
 
@@ -130,16 +130,16 @@ The MCP (Model Context Protocol) server provides tool integration.
 | `MCP_HTTP_HOST` | `0.0.0.0` | MCP server host |
 | `MCP_HTTP_PORT` | `9000` | MCP server port |
 
-### OpenCode Integration
+### CodeTether Integration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCODE_HOST` | `localhost` | Host where OpenCode API is running |
-| `OPENCODE_PORT` | `9777` | OpenCode API port |
-| `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database for OpenCode sessions |
+| `OPENCODE_HOST` | `localhost` | Host where CodeTether API is running |
+| `OPENCODE_PORT` | `9777` | CodeTether API port |
+| `OPENCODE_DB_PATH` | `./data/agent.db` | SQLite database for CodeTether sessions |
 
 !!! tip "Docker Container Configuration"
-    When running CodeTether in Docker and connecting to OpenCode on your host:
+    When running CodeTether in Docker and connecting to CodeTether on your host:
 
     - **Docker Desktop (Mac/Windows)**: Use `OPENCODE_HOST=host.docker.internal`
     - **Linux**: Use `--add-host=host.docker.internal:host-gateway` and `OPENCODE_HOST=host.docker.internal`

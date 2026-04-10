@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # for backward compatibility with internal deployments.
 WORKER_AUTH_TOKEN: Optional[str] = os.environ.get('WORKER_AUTH_TOKEN')
 _WORKER_PATH = re.compile(
-    r'^/v1/agent/(workers/|tasks$|codebases$)'
+    r'^/v1/agent/(workers/|tasks(/|/[^/]+/(output|status|claim|complete|cancel|requeue))?/?$)'
 )
 
 
@@ -80,6 +80,7 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
 
     # Billing webhooks — Stripe signature verified
     (r"^/v1/webhooks/stripe$", {"POST"}, ""),
+    (r"^/v1/webhooks/github$", {"POST"}, ""),
 
     # ── Already-protected routes (skip to avoid double auth) ─────
     # Billing, admin, tenant (non-signup), user auth (non-public),
@@ -91,9 +92,6 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/cronjobs", None, ""),
     (r"^/v1/queue/", None, ""),
 
-    # Legacy redirect — just passes through
-    (r"^/v1/opencode/", None, ""),
-
     # ── Monitor Router (/v1/monitor) ─────────────────────────────
     (r"^/v1/monitor/intervene$", {"POST"}, "monitor:write"),
     (r"^/v1/monitor/export/", {"GET"}, "monitor:read"),
@@ -104,6 +102,7 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/database/codebases/deduplicate$", {"POST"}, "admin:access"),
     (r"^/v1/agent/database/", None, "admin:access"),
     (r"^/v1/agent/reaper/", None, "admin:access"),
+    (r"^/v1/agent/vault/status$", {"GET"}, "api_keys:read"),
     (r"^/v1/agent/vault/", None, "admin:access"),
     (r"^/v1/agent/tasks/stuck", None, "admin:access"),
 
@@ -229,11 +228,9 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/analytics/", None, "analytics:admin"),
 
     # ── MCP Router (/mcp) ────────────────────────────────────────
-    (r"^/mcp/v1/rpc$", {"POST"}, "mcp:write"),
-    (r"^/mcp/v1/message$", {"POST"}, "mcp:write"),
-    (r"^/mcp/v1/tasks$", {"POST"}, "mcp:write"),
-    (r"^/mcp$", {"POST"}, "mcp:write"),
-    (r"^/mcp", {"GET"}, "mcp:read"),
+    # MCP is an internal agent protocol (like /a2a/ and /v1/worker/).
+    # Voice agents and tool clients use it for service-to-service calls.
+    (r"^/mcp", None, ""),
 
     # ── Token Billing Router (/v1/token-billing) ─────────────────
     (r"^/v1/token-billing/budgets", {"POST", "PUT", "DELETE"}, "billing:write"),
@@ -300,8 +297,7 @@ class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Worker infrastructure bypass: internal workers (codebases, tasks,
-        # heartbeats) that arrive via /v1/opencode → 307 redirect lose any
-        # auth context.  When WORKER_AUTH_TOKEN is configured, require it;
+        # heartbeats) lose auth context.  When WORKER_AUTH_TOKEN is configured, require it;
         # otherwise trust cluster-internal traffic (backward-compatible).
         if _WORKER_PATH.search(path):
             if WORKER_AUTH_TOKEN:

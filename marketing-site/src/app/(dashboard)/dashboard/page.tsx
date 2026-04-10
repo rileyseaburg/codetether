@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import Link from 'next/link'
 import VoiceAgentButton from './components/voice/VoiceAgentButton'
 import TenantStatusBanner from '@/components/TenantStatusBanner'
 import { ModelSelector } from '@/components/ModelSelector'
@@ -9,22 +10,29 @@ import { WorkerSelector } from '@/components/WorkerSelector'
 import { useRalphStore } from './ralph/store'
 import { useTenantApi } from '@/hooks/useTenantApi'
 import {
-    listCodebasesV1AgentCodebasesListGet,
+    listWorkspacesV1AgentWorkspacesListGet,
     listAllTasksV1AgentTasksGet,
     listWorkersV1AgentWorkersGet,
-    triggerAgentV1AgentCodebasesCodebaseIdTriggerPost,
-    registerCodebaseV1AgentCodebasesPost,
-    unregisterCodebaseV1AgentCodebasesCodebaseIdDelete,
+    listModelsV1AgentModelsGet,
+    triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost,
+    registerWorkspaceV1AgentWorkspacesPost,
+    unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete,
     hasApiAuthToken,
 } from '@/lib/api'
 
-interface Codebase {
+interface Workspace {
     id: string
     name: string
     path: string
     description?: string
     status: string
     worker_id?: string
+    runtime: 'container' | 'vm'
+    vm_status?: string
+    vm_name?: string
+    vm_ssh_service?: string
+    vm_ssh_host?: string
+    vm_ssh_port?: number
 }
 
 interface Worker {
@@ -32,9 +40,23 @@ interface Worker {
     name: string
     hostname?: string
     status: string
+    global_workspace_id?: string
+    // Legacy alias kept for backward compatibility in mixed deployments.
     global_codebase_id?: string
     last_seen?: string
     is_sse_connected?: boolean
+}
+
+interface AgentDefinition {
+    id: string
+    name: string
+    description?: string | null
+    mode: string
+    native: boolean
+    hidden: boolean
+    model?: string | null
+    max_steps?: number | null
+    worker_id?: string | null
 }
 
 type SwarmSubtaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timed_out' | 'cancelled' | 'unknown'
@@ -72,6 +94,25 @@ interface SwarmRoutingSnapshot {
     updatedAt: number
 }
 
+interface WorkspaceRuntimeContext {
+    mode: 'knative' | 'worker' | 'unknown'
+    source: 'task' | 'trigger' | 'inferred'
+    taskId?: string
+    status?: string
+    workerId?: string
+    sessionId?: string
+    knativeServiceName?: string
+    updatedAt: number
+}
+
+interface VmRegistrationForm {
+    cpu_cores: string
+    memory: string
+    disk_size: string
+    image: string
+    ssh_public_key: string
+}
+
 const INITIAL_SWARM_MONITOR: SwarmMonitorState = {
     connected: false,
     status: 'idle',
@@ -84,6 +125,8 @@ const INITIAL_SWARM_MONITOR: SwarmMonitorState = {
     recentLines: [],
     lastUpdatedAt: null,
 }
+
+const WORKSPACE_WIZARD_DISMISSED_KEY = 'codetether.workspaceWizardDismissed'
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
     if (!value || typeof value !== 'object') {
@@ -99,6 +142,20 @@ const getString = (record: Record<string, unknown> | null, keys: string[]): stri
         if (typeof value === 'string') {
             const trimmed = value.trim()
             if (trimmed) return trimmed
+        }
+    }
+    return undefined
+}
+
+const getBoolean = (record: Record<string, unknown> | null, keys: string[]): boolean | undefined => {
+    if (!record) return undefined
+    for (const key of keys) {
+        const value = record[key]
+        if (typeof value === 'boolean') return value
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase()
+            if (normalized === 'true') return true
+            if (normalized === 'false') return false
         }
     }
     return undefined
@@ -299,7 +356,13 @@ const getSwarmSubtaskStatusClasses = (status: SwarmSubtaskStatus) => {
     if (status === 'completed') return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
     if (status === 'failed' || status === 'timed_out' || status === 'cancelled') return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
     if (status === 'running') return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+    if (status === 'pending') return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
     return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+}
+
+const getSwarmSubtaskStatusLabel = (status: SwarmSubtaskStatus) => {
+    if (status === 'pending') return 'waiting for worker'
+    return status
 }
 
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -329,12 +392,16 @@ function RefreshIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 export default function DashboardPage() {
     const { data: session } = useSession()
     const { apiUrl, tenantId, tenantSlug, isAuthenticated, tenantFetch } = useTenantApi()
-    const { selectedModel, setSelectedModel, selectedCodebase, setSelectedCodebase, setAgents, setLoadingAgents } = useRalphStore()
-    const [codebases, setCodebases] = useState<Codebase[]>([])
+    const { selectedModel, selectedCodebase, setSelectedCodebase, setAgents, setLoadingAgents } = useRalphStore()
+    const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [workers, setWorkers] = useState<Worker[]>([])
     const [selectedAgent, setSelectedAgent] = useState('build')
     const [selectedWorkerId, setSelectedWorkerId] = useState('')
+    const [agentDefinitions, setAgentDefinitions] = useState<AgentDefinition[]>([])
     const [prompt, setPrompt] = useState('')
+    const [osPrompt, setOsPrompt] = useState('')
+    const [osLaunching, setOsLaunching] = useState(false)
+    const [showAdvancedControls, setShowAdvancedControls] = useState(false)
     const [loading, setLoading] = useState(false)
     const [workerPersonality, setWorkerPersonality] = useState('')
     const [swarmStrategy, setSwarmStrategy] = useState<'auto' | 'domain' | 'data' | 'stage' | 'none'>('auto')
@@ -345,12 +412,98 @@ export default function DashboardPage() {
     const [swarmMonitor, setSwarmMonitor] = useState<SwarmMonitorState>(INITIAL_SWARM_MONITOR)
     const swarmEventSourceRef = useRef<EventSource | null>(null)
     const [showRegisterModal, setShowRegisterModal] = useState(false)
+    const [showWorkspaceWizard, setShowWorkspaceWizard] = useState(false)
+    const [workspaceWizardStep, setWorkspaceWizardStep] = useState(0)
+    const [workspaceWizardMode, setWorkspaceWizardMode] = useState<'local' | 'git' | 'external'>('local')
+    const [workspaceWizardDismissed, setWorkspaceWizardDismissed] = useState(false)
+    const [registerMode, setRegisterMode] = useState<'local' | 'git' | 'external'>('local')
+    const [registerRuntime, setRegisterRuntime] = useState<'container' | 'vm'>('container')
+    const [vmRegistrationForm, setVmRegistrationForm] = useState<VmRegistrationForm>({
+        cpu_cores: '2',
+        memory: '8Gi',
+        disk_size: '30Gi',
+        image: '',
+        ssh_public_key: '',
+    })
+    const [quickRuntime, setQuickRuntime] = useState<'container' | 'vm'>('vm')
+    const [quickCreating, setQuickCreating] = useState(false)
+    const [quickCreateMessage, setQuickCreateMessage] = useState<string | null>(null)
     const [registerForm, setRegisterForm] = useState({
         name: '',
         path: '',
         description: '',
-        worker_id: ''
+        worker_id: '',
+        git_url: '',
+        git_branch: 'main',
+        external_provider: '',
+        external_reference: '',
     })
+    const [runtimeContext, setRuntimeContext] = useState<WorkspaceRuntimeContext | null>(null)
+    const [triggerNotification, setTriggerNotification] = useState<{ type: 'success' | 'warning' | 'error'; message: string; detail?: string } | null>(null)
+    const triggerNotificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const fallbackWorkspaceId = useMemo(() => {
+        const connectedWorker = workers.find(
+            (w) => w.is_sse_connected && (w.global_workspace_id || w.global_codebase_id)
+        )
+        const connectedGlobal = connectedWorker?.global_workspace_id || connectedWorker?.global_codebase_id
+        if (connectedGlobal) return connectedGlobal
+
+        const anyWorker = workers.find((w) => w.global_workspace_id || w.global_codebase_id)
+        const anyGlobal = anyWorker?.global_workspace_id || anyWorker?.global_codebase_id
+        if (anyGlobal) return anyGlobal
+
+        if (workspaces.length === 1) return workspaces[0]?.id || ''
+        return ''
+    }, [workers, workspaces])
+    const selectedWorkspaceExists = useMemo(
+        () => Boolean(selectedCodebase) && workspaces.some((cb) => cb.id === selectedCodebase),
+        [workspaces, selectedCodebase]
+    )
+    const activeWorkspaceId = useMemo(() => {
+        if (selectedWorkspaceExists && selectedCodebase) return selectedCodebase
+        return fallbackWorkspaceId
+    }, [fallbackWorkspaceId, selectedCodebase, selectedWorkspaceExists])
+
+    useEffect(() => {
+        if (!fallbackWorkspaceId) return
+        if (!selectedCodebase) {
+            setSelectedCodebase(fallbackWorkspaceId)
+            return
+        }
+        if (!selectedWorkspaceExists && selectedCodebase !== fallbackWorkspaceId) {
+            setSelectedCodebase(fallbackWorkspaceId)
+        }
+    }, [fallbackWorkspaceId, selectedCodebase, selectedWorkspaceExists, setSelectedCodebase])
+
+    const activeWorkspace = useMemo(
+        () => workspaces.find((workspace) => workspace.id === activeWorkspaceId),
+        [activeWorkspaceId, workspaces]
+    )
+    const activeWorkspaceOwner = useMemo(
+        () => workers.find((worker) => worker.worker_id === activeWorkspace?.worker_id),
+        [activeWorkspace?.worker_id, workers]
+    )
+    const selectedWorker = useMemo(
+        () => workers.find((worker) => worker.worker_id === selectedWorkerId),
+        [selectedWorkerId, workers]
+    )
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const dismissed = window.localStorage.getItem(WORKSPACE_WIZARD_DISMISSED_KEY) === '1'
+        setWorkspaceWizardDismissed(dismissed)
+    }, [])
+
+    useEffect(() => {
+        if (workspaces.length > 0) {
+            setShowWorkspaceWizard(false)
+            return
+        }
+        if (!workspaceWizardDismissed) {
+            setWorkspaceWizardStep(0)
+            setShowWorkspaceWizard(true)
+        }
+    }, [workspaceWizardDismissed, workspaces.length])
 
     const upsertRoutingSnapshot = useCallback(
         (
@@ -452,14 +605,14 @@ export default function DashboardPage() {
 
         setSwarmMonitor(INITIAL_SWARM_MONITOR)
 
-        if (!selectedCodebase || selectedCodebase === 'global') {
+        if (!activeWorkspaceId) {
             return
         }
 
         // Handle relative API URLs (e.g., "/api") by resolving against window.location
         const baseApiUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl
         const baseUrl = baseApiUrl.replace(/\/+$/, '')
-        const sseUrl = new URL(`${baseUrl}/v1/agent/codebases/${encodeURIComponent(selectedCodebase)}/events`)
+        const sseUrl = new URL(`${baseUrl}/v1/agent/workspaces/${encodeURIComponent(activeWorkspaceId)}/events`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
         }
@@ -500,31 +653,76 @@ export default function DashboardPage() {
                 swarmEventSourceRef.current = null
             }
         }
-    }, [apiUrl, selectedCodebase, ingestSwarmPayload, session?.accessToken])
+    }, [activeWorkspaceId, apiUrl, ingestSwarmPayload, session?.accessToken])
 
-    const loadCodebases = useCallback(async () => {
+    useEffect(() => {
+        if (!activeWorkspaceId) {
+            setRuntimeContext(null)
+        }
+    }, [activeWorkspaceId])
+
+    const loadWorkspaces = useCallback(async () => {
         try {
-            const { data, error } = await listCodebasesV1AgentCodebasesListGet()
+            const { data, error } = await listWorkspacesV1AgentWorkspacesListGet()
             if (!error && data) {
                 const response = data as any
-                const items = Array.isArray(response) ? response : (response?.codebases ?? response?.data ?? [])
-                setCodebases(
+                const items = Array.isArray(response)
+                    ? response
+                    : (response?.workspaces ?? response?.codebases ?? response?.data ?? [])
+                setWorkspaces(
                     (items as any[])
-                        .map((cb) => ({
-                            id: String(cb?.id ?? ''),
-                            name: String(cb?.name ?? cb?.id ?? ''),
-                            path: String(cb?.path ?? ''),
-                            description: typeof cb?.description === 'string' ? cb.description : undefined,
-                            status: String(cb?.status ?? 'unknown'),
-                            worker_id: typeof cb?.worker_id === 'string' ? cb.worker_id : undefined,
-                        }))
+                        .map((cb) => {
+                            const agentConfig = asRecord(cb?.agent_config)
+                            const vmRecord = asRecord(cb?.vm)
+                            const runtime: Workspace['runtime'] =
+                                cb?.runtime === 'vm' ||
+                                    getString(agentConfig, ['workspace_runtime']) === 'vm'
+                                    ? 'vm'
+                                    : 'container'
+                            const vmPort = Number(
+                                getString(agentConfig, ['vm_ssh_port']) ??
+                                getString(vmRecord, ['ssh_port']) ??
+                                ''
+                            )
+                            return {
+                                id: String(cb?.id ?? ''),
+                                name: String(cb?.name ?? cb?.id ?? ''),
+                                path: String(cb?.path ?? ''),
+                                description: typeof cb?.description === 'string' ? cb.description : undefined,
+                                status: String(cb?.status ?? 'unknown'),
+                                worker_id: typeof cb?.worker_id === 'string' ? cb.worker_id : undefined,
+                                runtime,
+                                vm_status:
+                                    getString(agentConfig, ['vm_status']) ??
+                                    getString(vmRecord, ['status']),
+                                vm_name:
+                                    getString(agentConfig, ['vm_name']) ??
+                                    getString(vmRecord, ['vm_name']),
+                                vm_ssh_service: getString(agentConfig, ['vm_ssh_service']),
+                                vm_ssh_host:
+                                    getString(agentConfig, ['vm_ssh_host']) ??
+                                    getString(vmRecord, ['ssh_host']),
+                                vm_ssh_port: Number.isFinite(vmPort) ? vmPort : undefined,
+                            }
+                        })
                         .filter((cb) => cb.id)
                 )
             }
         } catch (error) {
-            console.error('Failed to load codebases:', error)
+            console.error('Failed to load workspaces:', error)
         }
     }, [])
+
+    const loadAgentDefinitions = useCallback(async () => {
+        try {
+            const res = await tenantFetch<AgentDefinition[]>('/v1/agent/agents')
+            if (res.data && Array.isArray(res.data)) {
+                setAgentDefinitions(res.data.filter((a) => !a.hidden))
+            }
+        } catch (err) {
+            console.error('Failed to load agent definitions:', err)
+        }
+    }, [tenantFetch])
 
     const loadWorkers = useCallback(async () => {
         try {
@@ -559,18 +757,21 @@ export default function DashboardPage() {
                 })
 
                 setWorkers(mergedWorkers)
-                // Sync into ralph store so ModelSelector can read models
-                setAgents(mergedWorkers.map((w: any) => ({
-                    name: w.name || '',
-                    role: 'worker',
-                    instance_id: w.worker_id || '',
-                    models_supported: (w.models || []).map((m: any) => {
-                        if (typeof m === 'string') return m
-                        const provider = m.provider || m.provider_id || m.providerID || ''
-                        const model = m.name || m.id || m.modelID || ''
-                        return provider && model ? `${provider}:${model}` : model || provider || ''
-                    }).filter(Boolean),
-                })))
+                // Load models from connected codetether-agent only
+                try {
+                    const { data: modelsData } = await listModelsV1AgentModelsGet()
+                    const modelsResp = modelsData as { models?: { id?: string }[]; default?: string } | undefined
+                    if (modelsResp?.models?.length) {
+                        const modelIds = modelsResp.models
+                            .map((m: { id?: string }) => m.id)
+                            .filter((id): id is string => Boolean(id))
+                        setAgents([{ name: 'all', role: 'worker', models_supported: modelIds }])
+                    } else {
+                        setAgents([])
+                    }
+                } catch {
+                    setAgents([])
+                }
             }
         } catch (error) {
             console.error('Failed to load workers:', error)
@@ -580,15 +781,51 @@ export default function DashboardPage() {
     }, [setAgents, setLoadingAgents, tenantFetch])
 
     const loadRoutingFromTasks = useCallback(async () => {
-        if (!selectedCodebase) return
+        if (!activeWorkspaceId) return
         try {
             const { data, error } = await listAllTasksV1AgentTasksGet({
-                query: { codebase_id: selectedCodebase },
+                query: { workspace_id: activeWorkspaceId },
             })
             if (error || !data) return
 
             const response = data as any
             const tasks = Array.isArray(response) ? response : (response?.tasks ?? [])
+            const latestTask = [...tasks]
+                .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+                    const aTime = Date.parse(String(a?.created_at ?? ''))
+                    const bTime = Date.parse(String(b?.created_at ?? ''))
+                    return bTime - aTime
+                })[0]
+
+            if (latestTask) {
+                const taskRecord = asRecord(latestTask)
+                const metadata = asRecord(taskRecord?.metadata)
+                const knativeFlag = getBoolean(metadata, ['knative']) === true
+                const knativeServiceName =
+                    getString(metadata, ['knative_service_name', 'knative_service']) ??
+                    getString(taskRecord, ['knative_service_name'])
+                const workerId =
+                    getString(metadata, ['target_worker_id', 'worker_id']) ??
+                    getString(taskRecord, ['worker_id'])
+                const sessionId =
+                    getString(metadata, ['session_id']) ??
+                    getString(taskRecord, ['session_id'])
+                const status = getString(taskRecord, ['status'])
+
+                setRuntimeContext({
+                    mode: knativeFlag || Boolean(knativeServiceName) ? 'knative' : workerId ? 'worker' : 'unknown',
+                    source: 'task',
+                    taskId: getString(taskRecord, ['id']),
+                    status,
+                    workerId,
+                    sessionId,
+                    knativeServiceName,
+                    updatedAt: Date.now(),
+                })
+            } else {
+                setRuntimeContext(null)
+            }
+
             const latestSwarmTask = tasks
                 .filter((task: Record<string, unknown>) => isSwarmAgentType(task?.agent_type))
                 .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -608,22 +845,24 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Failed to load routing snapshot from tasks:', error)
         }
-    }, [selectedCodebase, upsertRoutingSnapshot])
+    }, [activeWorkspaceId, upsertRoutingSnapshot])
 
     useEffect(() => {
         // Wait until we have an auth token before making SDK calls
         if (!session?.accessToken && !hasApiAuthToken()) return
 
-        loadCodebases()
+        loadWorkspaces()
         loadWorkers()
+        loadAgentDefinitions()
         loadRoutingFromTasks()
         const interval = setInterval(() => {
-            loadCodebases()
+            loadWorkspaces()
             loadWorkers()
+            loadAgentDefinitions()
             loadRoutingFromTasks()
         }, 10000)
         return () => clearInterval(interval)
-    }, [loadCodebases, loadWorkers, loadRoutingFromTasks, session?.accessToken])
+    }, [loadWorkspaces, loadWorkers, loadAgentDefinitions, loadRoutingFromTasks, session?.accessToken])
 
     useEffect(() => {
         const triggerWorkers = workers.filter((w) => w.is_sse_connected)
@@ -632,24 +871,30 @@ export default function DashboardPage() {
             return
         }
 
-        const selectedStillValid = triggerWorkers.some((w) => w.worker_id === selectedWorkerId)
-        if (selectedStillValid) return
+        const selectedWorkspaceWorkerId = workspaces.find((cb) => cb.id === activeWorkspaceId)?.worker_id
+        const preferredWorker = triggerWorkers.find((w) => w.worker_id === selectedWorkspaceWorkerId)?.worker_id
 
-        const selectedCodebaseWorkerId = codebases.find((cb) => cb.id === selectedCodebase)?.worker_id
-        const preferredWorker = triggerWorkers.find((w) => w.worker_id === selectedCodebaseWorkerId)
-        setSelectedWorkerId(preferredWorker?.worker_id || triggerWorkers[0]?.worker_id || '')
-    }, [codebases, selectedCodebase, selectedWorkerId, workers])
-
-    const triggerAgent = async () => {
-        if (!selectedCodebase || !prompt.trim()) return
         if (!selectedWorkerId) {
-            alert('Select a connected worker before triggering an agent.')
+            if (preferredWorker) {
+                setSelectedWorkerId(preferredWorker)
+            }
             return
         }
-        setLoading(true)
+
+        const selectedStillValid = triggerWorkers.some((w) => w.worker_id === selectedWorkerId)
+        if (!selectedStillValid) {
+            setSelectedWorkerId(preferredWorker || '')
+        }
+    }, [activeWorkspaceId, workspaces, selectedWorkerId, workers])
+
+    const runAgentTrigger = useCallback(async (workspaceId: string, promptText: string) => {
+        const trimmedPrompt = promptText.trim()
+        if (!workspaceId || !trimmedPrompt) return false
         try {
             const metadata: Record<string, unknown> = {}
-            metadata.target_worker_id = selectedWorkerId
+            if (selectedWorkerId) {
+                metadata.target_worker_id = selectedWorkerId
+            }
             if (selectedAgent === 'swarm') {
                 metadata.decomposition_strategy = swarmStrategy
                 metadata.swarm = {
@@ -659,73 +904,357 @@ export default function DashboardPage() {
                     timeout_secs: swarmTimeoutSecs,
                     parallel_enabled: swarmParallelEnabled,
                 }
-                // Swarm work is generally complex; this helps model-tier routing.
                 metadata.complexity = 'deep'
             }
 
             const body: any = {
-                prompt,
+                prompt: trimmedPrompt,
                 agent: selectedAgent,
                 ...(selectedModel && { model: selectedModel, model_ref: selectedModel }),
                 ...(workerPersonality.trim() && { worker_personality: workerPersonality.trim() }),
+                ...(session?.user?.email && { notify_email: session.user.email }),
                 ...(Object.keys(metadata).length > 0 && { metadata }),
             }
 
-            const { data, error } = await triggerAgentV1AgentCodebasesCodebaseIdTriggerPost({
-                path: { codebase_id: selectedCodebase },
-                body
+            const { data, error } = await triggerAgentV1AgentWorkspacesWorkspaceIdTriggerPost({
+                path: { workspace_id: workspaceId },
+                body,
             })
-            if (!error) {
-                setPrompt('')
-                const routing = (data as any)?.routing
-                if (routing) {
-                    const snapshot = extractRoutingSnapshot(routing)
-                    if (snapshot) {
-                        upsertRoutingSnapshot(snapshot, 'trigger')
-                    }
-                    const personalityLabel = routing.worker_personality ? `, personality: ${routing.worker_personality}` : ''
-                    alert(`Task queued (${routing.model_tier || 'balanced'} tier${personalityLabel})`)
-                } else {
-                    alert('Agent triggered successfully!')
+            if (error) return false
+
+            const response = (data as Record<string, unknown> | undefined) ?? {}
+            const responseKnative = response?.knative === true
+            const responseSessionId =
+                typeof response?.session_id === 'string' ? response.session_id : undefined
+            const workspaceWorkerId = workspaces.find((w) => w.id === workspaceId)?.worker_id
+
+            setRuntimeContext({
+                mode: responseKnative ? 'knative' : selectedWorkerId ? 'worker' : 'unknown',
+                source: 'trigger',
+                status: 'queued',
+                workerId: selectedWorkerId || workspaceWorkerId || undefined,
+                sessionId: responseSessionId,
+                knativeServiceName: responseSessionId
+                    ? `codetether-session-${responseSessionId}`
+                    : undefined,
+                updatedAt: Date.now(),
+            })
+
+            const routing = (data as any)?.routing
+            const taskStatus = (response as any)?.task_status as string | undefined
+            const workersNotified = (response as any)?.workers_notified as number | undefined
+            if (routing) {
+                const snapshot = extractRoutingSnapshot(routing)
+                if (snapshot) {
+                    upsertRoutingSnapshot(snapshot, 'trigger')
                 }
             }
+
+            if (taskStatus === 'waiting_for_worker' || workersNotified === 0) {
+                setTriggerNotification({
+                    type: 'warning',
+                    message: 'No workers online — task saved but waiting',
+                    detail: 'Connect a CodeTether worker to this workspace to start processing. '
+                        + 'The task will run automatically when a worker comes online. '
+                        + (responseSessionId ? `Task ID: ${responseSessionId}` : ''),
+                })
+            } else if (routing) {
+                const personalityLabel = routing.worker_personality ? `, personality: ${routing.worker_personality}` : ''
+                const tierLabel = routing.model_tier || 'balanced'
+                setTriggerNotification({
+                    type: 'success',
+                    message: `Task dispatched to worker (${tierLabel} tier${personalityLabel})`,
+                    detail: responseSessionId
+                        ? `Session ${responseSessionId} — watch the Swarm Monitor panel for live output.`
+                        : 'Watch the Swarm Monitor panel on the right for live output.',
+                })
+            } else {
+                setTriggerNotification({
+                    type: 'success',
+                    message: 'Task dispatched to worker',
+                    detail: responseSessionId
+                        ? `Session ${responseSessionId} — watch the Swarm Monitor panel for live output.`
+                        : 'Watch the Swarm Monitor panel on the right for live output.',
+                })
+            }
+
+            if (triggerNotificationTimer.current) clearTimeout(triggerNotificationTimer.current)
+            triggerNotificationTimer.current = setTimeout(() => setTriggerNotification(null), 30000)
+            return true
         } catch (error) {
             console.error('Failed to trigger agent:', error)
-            alert('Failed to trigger agent')
+            setTriggerNotification({
+                type: 'error',
+                message: 'Failed to trigger agent',
+                detail: error instanceof Error ? error.message : 'Check your connection and try again.',
+            })
+            if (triggerNotificationTimer.current) clearTimeout(triggerNotificationTimer.current)
+            triggerNotificationTimer.current = setTimeout(() => setTriggerNotification(null), 10000)
+            return false
+        }
+    }, [
+        selectedWorkerId,
+        selectedAgent,
+        swarmStrategy,
+        swarmMaxSubagents,
+        swarmMaxSteps,
+        swarmTimeoutSecs,
+        swarmParallelEnabled,
+        selectedModel,
+        workerPersonality,
+        workspaces,
+        upsertRoutingSnapshot,
+    ])
+
+    const triggerAgent = async () => {
+        if (!activeWorkspaceId || !prompt.trim()) return
+        setLoading(true)
+        try {
+            const ok = await runAgentTrigger(activeWorkspaceId, prompt)
+            if (ok) setPrompt('')
         } finally {
             setLoading(false)
         }
     }
 
-    const registerCodebase = async () => {
-        if (!registerForm.name || !registerForm.path) return
+    const registerWorkspace = async () => {
+        const trimmedName = registerForm.name.trim()
+        const trimmedPath = registerForm.path.trim()
+        const trimmedGitUrl = registerForm.git_url.trim()
+        const trimmedGitBranch = registerForm.git_branch.trim() || 'main'
+        const trimmedExternalProvider = registerForm.external_provider.trim()
+        const trimmedExternalReference = registerForm.external_reference.trim()
+        const effectiveRegisterRuntime: 'container' | 'vm' =
+            registerMode === 'local' ? registerRuntime : 'container'
+        const parsedVmCpu = Number.parseInt(vmRegistrationForm.cpu_cores, 10)
+
+        if (!trimmedName) return
+        if (registerMode === 'local' && effectiveRegisterRuntime !== 'vm' && !trimmedPath) return
+        if (registerMode === 'git' && !trimmedGitUrl) return
+        if (registerMode === 'external' && (!trimmedExternalProvider || !registerForm.worker_id)) return
         try {
-            const { error } = await registerCodebaseV1AgentCodebasesPost({
-                body: {
-                    name: registerForm.name,
-                    path: registerForm.path,
-                    ...(registerForm.description && { description: registerForm.description }),
-                    ...(registerForm.worker_id && { worker_id: registerForm.worker_id })
+            const body: Record<string, unknown> = {
+                name: trimmedName,
+                ...(registerForm.description && { description: registerForm.description }),
+                ...(effectiveRegisterRuntime !== 'vm' && registerForm.worker_id && { worker_id: registerForm.worker_id }),
+            }
+            if (registerMode === 'local') {
+                if (effectiveRegisterRuntime === 'vm') {
+                    body.runtime = 'vm'
+                    if (trimmedPath) {
+                        body.path = trimmedPath
+                    }
+                    body.vm = {
+                        cpu_cores: Number.isFinite(parsedVmCpu) && parsedVmCpu > 0 ? parsedVmCpu : 2,
+                        memory: vmRegistrationForm.memory.trim() || '8Gi',
+                        disk_size: vmRegistrationForm.disk_size.trim() || '30Gi',
+                        ...(vmRegistrationForm.image.trim() && { image: vmRegistrationForm.image.trim() }),
+                        ...(vmRegistrationForm.ssh_public_key.trim() && { ssh_public_key: vmRegistrationForm.ssh_public_key.trim() }),
+                    }
+                } else {
+                    body.path = trimmedPath
                 }
+            } else if (registerMode === 'git') {
+                body.git_url = trimmedGitUrl
+                body.git_branch = trimmedGitBranch
+                if (trimmedPath) body.path = trimmedPath
+            } else {
+                const providerSlug = trimmedExternalProvider
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '') || 'external'
+                const referenceSlug = (trimmedExternalReference || trimmedName)
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '') || 'workspace'
+                body.path = trimmedPath || `external://${providerSlug}/${referenceSlug}`
+                body.agent_config = {
+                    source_type: 'external',
+                    source_provider: trimmedExternalProvider,
+                    ...(trimmedExternalReference && { source_reference: trimmedExternalReference }),
+                }
+            }
+            const { error } = await registerWorkspaceV1AgentWorkspacesPost({
+                body: body as any
             })
             if (!error) {
                 setShowRegisterModal(false)
-                setRegisterForm({ name: '', path: '', description: '', worker_id: '' })
-                loadCodebases()
+                setShowWorkspaceWizard(false)
+                setRegisterMode('local')
+                setRegisterRuntime('container')
+                setVmRegistrationForm({
+                    cpu_cores: '2',
+                    memory: '8Gi',
+                    disk_size: '30Gi',
+                    image: '',
+                    ssh_public_key: '',
+                })
+                setRegisterForm({
+                    name: '',
+                    path: '',
+                    description: '',
+                    worker_id: '',
+                    git_url: '',
+                    git_branch: 'main',
+                    external_provider: '',
+                    external_reference: '',
+                })
+                loadWorkspaces()
             }
         } catch (error) {
-            console.error('Failed to register codebase:', error)
+            console.error('Failed to register workspace:', error)
         }
     }
 
-    const deleteCodebase = async (id: string) => {
-        if (!confirm('Delete this codebase?')) return
-        try {
-            await unregisterCodebaseV1AgentCodebasesCodebaseIdDelete({ path: { codebase_id: id } })
-            loadCodebases()
-        } catch (error) {
-            console.error('Failed to delete codebase:', error)
+    const createQuickWorkspace = async (opts?: { silent?: boolean }) => {
+        if (quickCreating) return null
+        setQuickCreating(true)
+        if (!opts?.silent) {
+            setQuickCreateMessage(null)
         }
+        try {
+            const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 12)
+            const workspaceName = `workspace-${timestamp}`
+            const body: Record<string, unknown> = {
+                name: workspaceName,
+                description: 'Quick-start workspace',
+            }
+
+            if (quickRuntime === 'vm') {
+                body.runtime = 'vm'
+                body.vm = {
+                    cpu_cores: 2,
+                    memory: '8Gi',
+                    disk_size: '30Gi',
+                }
+            } else {
+                const connectedWorker = workers.find((worker) => worker.is_sse_connected)
+                if (!connectedWorker?.worker_id) {
+                    if (!opts?.silent) {
+                        setQuickCreateMessage('No connected worker found for container mode. Switch to VM or connect a worker.')
+                    }
+                    return null
+                }
+                body.path = '/tmp'
+                body.worker_id = connectedWorker.worker_id
+            }
+
+            const { data, error } = await registerWorkspaceV1AgentWorkspacesPost({
+                body: body as any,
+            })
+            if (error) {
+                if (!opts?.silent) {
+                    setQuickCreateMessage('Workspace creation failed. Open full form for details.')
+                }
+                return null
+            }
+
+            const response = (data as Record<string, unknown> | undefined) ?? {}
+            const responseWorkspace = asRecord(response.workspace)
+            const workspaceId =
+                getString(response, ['workspace_id']) ??
+                getString(responseWorkspace, ['id'])
+
+            await loadWorkspaces()
+            if (workspaceId) {
+                setSelectedCodebase(workspaceId)
+            }
+            if (!opts?.silent) {
+                setQuickCreateMessage(
+                    quickRuntime === 'vm'
+                        ? 'VM workspace created and selected. Type your prompt, then click Trigger Agent.'
+                        : 'Container workspace created and selected. Type your prompt, then click Trigger Agent.'
+                )
+            }
+            return workspaceId || null
+        } catch (error) {
+            console.error('Failed to create quick workspace:', error)
+            if (!opts?.silent) {
+                setQuickCreateMessage('Workspace creation failed. Open full form for manual setup.')
+            }
+            return null
+        } finally {
+            setQuickCreating(false)
+        }
+    }
+
+    const launchOsCommand = async () => {
+        const trimmedPrompt = osPrompt.trim()
+        if (!trimmedPrompt) return
+
+        setOsLaunching(true)
+        try {
+            let workspaceId: string | null = activeWorkspaceId || null
+            if (!workspaceId) {
+                workspaceId = await createQuickWorkspace({ silent: true })
+            }
+
+            if (!workspaceId) {
+                setTriggerNotification({
+                    type: 'error',
+                    message: 'No workspace available',
+                    detail: quickRuntime === 'container'
+                        ? 'Container quick-start needs at least one connected worker. Switch to VM or connect a worker.'
+                        : 'Unable to create a VM workspace right now.',
+                })
+                return
+            }
+
+            const ok = await runAgentTrigger(workspaceId, trimmedPrompt)
+            if (ok) {
+                setOsPrompt('')
+                setPrompt('')
+                setQuickCreateMessage('Workspace ready. Command launched successfully.')
+            }
+        } finally {
+            setOsLaunching(false)
+        }
+    }
+
+    const deleteWorkspace = async (id: string) => {
+        if (!confirm('Delete this workspace?')) return
+        try {
+            await unregisterWorkspaceV1AgentWorkspacesWorkspaceIdDelete({ path: { workspace_id: id } })
+            loadWorkspaces()
+        } catch (error) {
+            console.error('Failed to delete workspace:', error)
+        }
+    }
+
+    const openRegisterWorkspaceModal = (mode: 'local' | 'git' | 'external' = 'local') => {
+        setRegisterMode(mode)
+        setRegisterRuntime('container')
+        setVmRegistrationForm({
+            cpu_cores: '2',
+            memory: '8Gi',
+            disk_size: '30Gi',
+            image: '',
+            ssh_public_key: '',
+        })
+        setRegisterForm({
+            name: '',
+            path: '',
+            description: '',
+            worker_id: '',
+            git_url: '',
+            git_branch: 'main',
+            external_provider: '',
+            external_reference: '',
+        })
+        setShowRegisterModal(true)
+    }
+
+    const dismissWorkspaceWizard = (remember: boolean) => {
+        setShowWorkspaceWizard(false)
+        if (remember && typeof window !== 'undefined') {
+            window.localStorage.setItem(WORKSPACE_WIZARD_DISMISSED_KEY, '1')
+            setWorkspaceWizardDismissed(true)
+        }
+    }
+
+    const launchWorkspaceSetupFromWizard = () => {
+        setShowWorkspaceWizard(false)
+        openRegisterWorkspaceModal(workspaceWizardMode)
     }
 
     const isWorkerOnline = (worker: Worker) => {
@@ -743,9 +1272,30 @@ export default function DashboardPage() {
             watching: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
             completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
             failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-            pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+            pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+            cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
         }
         return classes[status] || classes.idle
+    }
+
+    const getStatusLabel = (status: string) => {
+        if (status === 'pending') return 'waiting for worker'
+        return status
+    }
+
+    const getRuntimeBadgeClasses = (runtime: Workspace['runtime']) => {
+        if (runtime === 'vm') {
+            return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200'
+        }
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+    }
+
+    const getVmStatusClasses = (status?: string) => {
+        const normalized = (status || '').toLowerCase()
+        if (normalized.includes('running')) return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+        if (normalized.includes('provision') || normalized.includes('pending')) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+        if (normalized.includes('failed') || normalized.includes('error')) return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
     }
 
     const swarmSubtasks = Object.values(swarmMonitor.subtasks).sort((a, b) => b.updatedAt - a.updatedAt)
@@ -761,36 +1311,258 @@ export default function DashboardPage() {
     )
     const recentSwarmLines = swarmMonitor.recentLines.slice(-16)
     const routingSnapshot = swarmMonitor.routing
+    const effectiveRuntimeMode: WorkspaceRuntimeContext['mode'] = runtimeContext?.mode ?? (selectedWorker ? 'worker' : 'unknown')
+    const runtimeModeLabel =
+        effectiveRuntimeMode === 'knative'
+            ? 'Knative Session Worker'
+            : effectiveRuntimeMode === 'worker'
+                ? 'Direct Connected Worker'
+                : 'Not yet resolved'
+    const activeWorkspaceRuntime: Workspace['runtime'] = activeWorkspace?.runtime ?? 'container'
+    const activeWorkspaceIsVm = activeWorkspaceRuntime === 'vm'
+    const osWorkspaceLabel = activeWorkspace?.name || activeWorkspaceId || 'Auto-create on Launch'
+    const canLaunchOs = Boolean(osPrompt.trim()) && !osLaunching && !loading
+    const effectiveRegisterRuntime: 'container' | 'vm' =
+        registerMode === 'local' ? registerRuntime : 'container'
+    const registerVmEnabled = registerMode === 'local' && registerRuntime === 'vm'
+    const canRegisterWorkspace =
+        Boolean(registerForm.name.trim()) &&
+        (
+            (registerMode === 'local' && (registerRuntime === 'vm' || Boolean(registerForm.path.trim()))) ||
+            (registerMode === 'git' && Boolean(registerForm.git_url.trim())) ||
+            (registerMode === 'external' && Boolean(registerForm.external_provider.trim()) && Boolean(registerForm.worker_id))
+        )
 
     return (
         <div className="space-y-6">
             {/* Tenant Status Banner */}
             <TenantStatusBanner />
 
+            {showWorkspaceWizard && workspaces.length === 0 && (
+                <div className="fixed inset-0 z-50">
+                    <div className="fixed inset-0 bg-gray-900/50" />
+                    <div className="fixed inset-0 z-10 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                                <div className="border-b border-gray-200 p-5 dark:border-gray-700">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                                                First-Time Setup
+                                            </p>
+                                            <h2 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
+                                                Create your first workspace
+                                            </h2>
+                                        </div>
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                            Step {workspaceWizardStep + 1} / 3
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="p-6">
+                                    {workspaceWizardStep === 0 && (
+                                        <div className="space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                                            <p>
+                                                A workspace is a durable context boundary.
+                                            </p>
+                                            <p>
+                                                It binds source material, runtime configuration, routing, and history under one stable ID.
+                                            </p>
+                                            <p>
+                                                Every task, session, and artifact in this dashboard is anchored to a selected workspace.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {workspaceWizardStep === 1 && (
+                                        <div className="space-y-4">
+                                            <p className="text-sm text-gray-700 dark:text-gray-200">
+                                                Choose how you want to attach source material to this workspace:
+                                            </p>
+                                            <div className="grid gap-3 sm:grid-cols-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceWizardMode('local')}
+                                                    className={`rounded-lg border p-4 text-left ${workspaceWizardMode === 'local'
+                                                        ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
+                                                        : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                >
+                                                    <p className="font-semibold text-gray-900 dark:text-white">Directory</p>
+                                                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                        Attach an existing folder already available in your runtime.
+                                                    </p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceWizardMode('git')}
+                                                    className={`rounded-lg border p-4 text-left ${workspaceWizardMode === 'git'
+                                                        ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
+                                                        : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                >
+                                                    <p className="font-semibold text-gray-900 dark:text-white">Repository URL</p>
+                                                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                        Attach a remote source URL and materialize it into workspace storage.
+                                                    </p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceWizardMode('external')}
+                                                    className={`rounded-lg border p-4 text-left ${workspaceWizardMode === 'external'
+                                                        ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
+                                                        : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                >
+                                                    <p className="font-semibold text-gray-900 dark:text-white">External App</p>
+                                                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                        Create a workspace identity for non-repo systems and connected tools.
+                                                    </p>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {workspaceWizardStep === 2 && (
+                                        <div className="space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                                            <p>
+                                                Runtime mapping:
+                                            </p>
+                                            <p>
+                                                Direct mode routes work to an active connected runtime.
+                                            </p>
+                                            <p>
+                                                Knative mode creates a per-session service/pod while keeping the same workspace identity.
+                                            </p>
+                                            <p>
+                                                External app workspaces use the same identity model, so tasks, permissions, and activity stay consistent across systems.
+                                            </p>
+                                            <p className="rounded-md bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+                                                Workspace details remain editable after setup.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between border-t border-gray-200 p-4 dark:border-gray-700">
+                                    <button
+                                        onClick={() => dismissWorkspaceWizard(true)}
+                                        className="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    >
+                                        Dismiss tips
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setWorkspaceWizardStep((step) => Math.max(0, step - 1))}
+                                            disabled={workspaceWizardStep === 0}
+                                            className="rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-200 dark:hover:bg-gray-700"
+                                        >
+                                            Back
+                                        </button>
+                                        {workspaceWizardStep < 2 ? (
+                                            <button
+                                                onClick={() => setWorkspaceWizardStep((step) => Math.min(2, step + 1))}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                            >
+                                                Next
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={launchWorkspaceSetupFromWizard}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                            >
+                                                Open Workspace Form
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-                {/* Left sidebar - Codebases */}
+                {/* Left sidebar - Workspaces */}
                 <div className="lg:col-span-1">
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Codebases</h2>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Workspaces</h2>
                                 <button
-                                    onClick={() => setShowRegisterModal(true)}
+                                    onClick={() => openRegisterWorkspaceModal()}
                                     className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
                                 >
                                     <PlusIcon className="h-4 w-4 inline mr-1" />
                                     Add
                                 </button>
                             </div>
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                VM workspaces keep a dedicated persistent machine. Container workspaces run on shared workers.
+                            </p>
+                            <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50/70 p-3 dark:border-indigo-800 dark:bg-indigo-900/20">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+                                    3-Click Quick Start
+                                </p>
+                                <p className="mt-1 text-xs text-indigo-900 dark:text-indigo-200">
+                                    1) Pick runtime, 2) Create workspace, 3) Trigger agent.
+                                </p>
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuickRuntime('vm')}
+                                        className={`rounded-md px-2 py-1.5 text-xs font-medium border ${quickRuntime === 'vm'
+                                            ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-900/30 dark:text-cyan-200'
+                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                            }`}
+                                    >
+                                        VM
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuickRuntime('container')}
+                                        className={`rounded-md px-2 py-1.5 text-xs font-medium border ${quickRuntime === 'container'
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                            }`}
+                                    >
+                                        Container
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        void createQuickWorkspace()
+                                    }}
+                                    disabled={quickCreating}
+                                    className="mt-2 w-full rounded-md bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {quickCreating ? 'Creating...' : `Create ${quickRuntime === 'vm' ? 'VM' : 'Container'} Workspace`}
+                                </button>
+                                {quickCreateMessage && (
+                                    <p className="mt-2 text-xs text-indigo-900 dark:text-indigo-200">{quickCreateMessage}</p>
+                                )}
+                            </div>
                         </div>
                         <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-300px)] overflow-y-auto">
-                            {codebases.length === 0 ? (
+                            {workspaces.length === 0 ? (
                                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                                     <FolderIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                    <p className="mt-2 text-sm">No codebases registered</p>
+                                    <p className="mt-3 font-medium text-gray-700 dark:text-gray-300">No workspaces yet</p>
+                                    <p className="mt-1 text-sm max-w-xs mx-auto">A workspace connects to your codebase. Create one to start running agents on your code.</p>
+                                    <button
+                                        onClick={() => {
+                                            setWorkspaceWizardStep(0)
+                                            setShowWorkspaceWizard(true)
+                                        }}
+                                        className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+                                    >
+                                        Create Your First Workspace
+                                    </button>
+                                    <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">Or run <code className="text-cyan-500">codetether</code> in any directory to auto-register.</p>
                                 </div>
                             ) : (
-                                codebases.map((cb) => (
+                                workspaces.map((cb) => (
                                     <div
                                         key={cb.id}
                                         className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
@@ -800,17 +1572,32 @@ export default function DashboardPage() {
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{cb.name}</p>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{cb.path}</p>
+                                                <div className="mt-1 flex items-center gap-1.5">
+                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getRuntimeBadgeClasses(cb.runtime)}`}>
+                                                        {cb.runtime === 'vm' ? 'VM Workspace' : 'Container Workspace'}
+                                                    </span>
+                                                    {cb.runtime === 'vm' && cb.vm_status && (
+                                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getVmStatusClasses(cb.vm_status)}`}>
+                                                            {cb.vm_status}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClasses(cb.status)}`}>
-                                                {cb.status}
+                                                {getStatusLabel(cb.status)}
                                             </span>
                                         </div>
                                         {cb.worker_id && (
                                             <p className="mt-1 text-xs text-gray-400">Worker: {cb.worker_id}</p>
                                         )}
+                                        {cb.runtime === 'vm' && cb.vm_ssh_host && (
+                                            <p className="mt-1 text-xs text-gray-400 break-all">
+                                                SSH: {cb.vm_ssh_host}{cb.vm_ssh_port ? `:${cb.vm_ssh_port}` : ''}
+                                            </p>
+                                        )}
                                         <div className="mt-2 flex gap-2">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); deleteCodebase(cb.id) }}
+                                                onClick={(e) => { e.stopPropagation(); deleteWorkspace(cb.id) }}
                                                 className="text-xs text-red-600 dark:text-red-400 hover:underline"
                                             >
                                                 🗑️ Delete
@@ -828,173 +1615,496 @@ export default function DashboardPage() {
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trigger Agent</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Select a codebase and run an AI agent</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Run work in any workspace. If none is selected, direct/global workspace is used.
+                            </p>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Codebase
-                                </label>
-                                <select
-                                    value={selectedCodebase}
-                                    onChange={(e) => setSelectedCodebase(e.target.value)}
-                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                >
-                                    <option value="">Select a codebase...</option>
-                                    {codebases.map((cb) => (
-                                        <option key={cb.id} value={cb.id}>{cb.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Worker
-                                </label>
-                                <WorkerSelector
-                                    value={selectedWorkerId}
-                                    onChange={setSelectedWorkerId}
-                                    workers={workers}
-                                    onlyConnected
-                                    includeAutoOption
-                                    autoOptionLabel="Select a connected worker..."
-                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-cyan-50 p-4 dark:border-indigo-800 dark:from-indigo-900/25 dark:to-cyan-900/20">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+                                            CodeTether OS Launcher
+                                        </p>
+                                        <p className="mt-1 text-sm text-indigo-900 dark:text-indigo-100">
+                                            One command, one launch. If no workspace is selected, we auto-create one.
+                                        </p>
+                                    </div>
+                                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-indigo-700 dark:bg-gray-900/40 dark:text-indigo-200">
+                                        Workspace: {osWorkspaceLabel}
+                                    </span>
+                                </div>
+                                <textarea
+                                    value={osPrompt}
+                                    onChange={(e) => setOsPrompt(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                                            e.preventDefault()
+                                            launchOsCommand()
+                                        }
+                                    }}
+                                    rows={3}
+                                    placeholder="Tell CodeTether what to build, fix, or deploy..."
+                                    className="mt-3 w-full rounded-md border-indigo-200 dark:border-indigo-700 dark:bg-gray-900/60 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
                                 />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Required. Tasks from this form are routed to the selected connected worker.
-                                </p>
+                                <div className="mt-3 grid grid-cols-2 gap-2 sm:w-64">
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuickRuntime('vm')}
+                                        className={`rounded-md px-2 py-1.5 text-xs font-medium border ${quickRuntime === 'vm'
+                                            ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-900/30 dark:text-cyan-200'
+                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                            }`}
+                                    >
+                                        Auto-Create VM
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuickRuntime('container')}
+                                        className={`rounded-md px-2 py-1.5 text-xs font-medium border ${quickRuntime === 'container'
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                            }`}
+                                    >
+                                        Auto-Create Container
+                                    </button>
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <button
+                                        onClick={launchOsCommand}
+                                        disabled={!canLaunchOs}
+                                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {osLaunching ? 'Launching...' : 'Launch'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAdvancedControls((v) => !v)}
+                                        className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                    >
+                                        {showAdvancedControls ? 'Hide Advanced Controls' : 'Show Advanced Controls'}
+                                    </button>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Agent Type
-                                </label>
-                                <select
-                                    value={selectedAgent}
-                                    onChange={(e) => setSelectedAgent(e.target.value)}
-                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                >
-                                    <option value="build">🔧 Build - Full access agent</option>
-                                    <option value="plan">📋 Plan - Read-only analysis</option>
-                                    <option value="coder">💻 Coder - Code writing focused</option>
-                                    <option value="explore">🔍 Explore - Codebase search</option>
-                                    <option value="swarm">🕸️ Swarm - Parallel sub-agents</option>
-                                </select>
-                            </div>
-                            <ModelSelector label="Model" showSelectedInfo showCountBadge />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Worker Personality (optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={workerPersonality}
-                                    onChange={(e) => setWorkerPersonality(e.target.value)}
-                                    placeholder="e.g. deep-research, fast-fix, backend-specialist"
-                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
-                                />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Used by orchestration to route tasks to the right worker profile.
-                                </p>
-                            </div>
-                            {selectedAgent === 'swarm' && (
-                                <div className="rounded-md border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-700 dark:bg-indigo-900/20 space-y-3">
-                                    <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
-                                        Swarm Configuration
-                                    </h3>
-                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Decomposition Strategy
-                                            </label>
-                                            <select
-                                                value={swarmStrategy}
-                                                onChange={(e) => setSwarmStrategy(e.target.value as 'auto' | 'domain' | 'data' | 'stage' | 'none')}
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            >
-                                                <option value="auto">Automatic</option>
-                                                <option value="domain">By Domain</option>
-                                                <option value="data">By Data</option>
-                                                <option value="stage">By Stage</option>
-                                                <option value="none">No Decomposition</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Max Subagents
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                max={100}
-                                                value={swarmMaxSubagents}
-                                                onChange={(e) => setSwarmMaxSubagents(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Max Steps / Subagent
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                max={200}
-                                                value={swarmMaxSteps}
-                                                onChange={(e) => setSwarmMaxSteps(Math.min(200, Math.max(1, Number(e.target.value) || 1)))}
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Timeout (seconds)
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min={30}
-                                                max={3600}
-                                                value={swarmTimeoutSecs}
-                                                onChange={(e) => setSwarmTimeoutSecs(Math.min(3600, Math.max(30, Number(e.target.value) || 30)))}
-                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
+                            <div className={showAdvancedControls ? 'space-y-4' : 'hidden'}>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Workspace
+                                    </label>
+                                    <select
+                                        value={selectedCodebase}
+                                        onChange={(e) => setSelectedCodebase(e.target.value)}
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    >
+                                        <option value="">
+                                            {fallbackWorkspaceId ? 'Auto (Direct / Global Workspace)' : 'Select a workspace...'}
+                                        </option>
+                                        {workspaces.map((cb) => (
+                                            <option key={cb.id} value={cb.id}>
+                                                {cb.name} {cb.runtime === 'vm' ? '(VM)' : '(Container)'}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="mt-2 rounded-md border border-blue-200 bg-blue-50/70 p-2 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+                                        <p className="font-medium">Workspace = context identity + source path + runtime owner</p>
+                                        <p className="mt-1">
+                                            Set a runtime-accessible path for this workspace. With Knative enabled, the same workspace ID maps to session pods without changing context.
+                                        </p>
+                                    </div>
+                                    <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200">
+                                        <p className="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400">
+                                            Execution Topology
+                                        </p>
+                                        <div className="mt-2 space-y-1">
+                                            <p>
+                                                <span className="font-medium">Workspace:</span>{' '}
+                                                {activeWorkspace?.name || activeWorkspaceId || 'None'}
+                                            </p>
+                                            <p className="break-all">
+                                                <span className="font-medium">Path:</span>{' '}
+                                                {activeWorkspace?.path || 'Not set'}
+                                            </p>
+                                            <p>
+                                                <span className="font-medium">Owner Worker:</span>{' '}
+                                                {activeWorkspaceOwner?.name || activeWorkspace?.worker_id || 'Auto'}
+                                            </p>
+                                            <p>
+                                                <span className="font-medium">Runtime Mode:</span>{' '}
+                                                {runtimeModeLabel}
+                                            </p>
+                                            <p>
+                                                <span className="font-medium">Workspace Runtime:</span>{' '}
+                                                {activeWorkspaceRuntime === 'vm' ? 'VM (persistent)' : 'Container'}
+                                            </p>
+                                            {activeWorkspaceIsVm && (
+                                                <p className="break-all">
+                                                    <span className="font-medium">VM:</span>{' '}
+                                                    {activeWorkspace?.vm_name || 'Provisioned VM'}
+                                                    {activeWorkspace?.vm_status ? ` (${activeWorkspace.vm_status})` : ''}
+                                                </p>
+                                            )}
+                                            {activeWorkspaceIsVm && activeWorkspace?.vm_ssh_host && (
+                                                <p className="break-all">
+                                                    <span className="font-medium">SSH Endpoint:</span>{' '}
+                                                    {activeWorkspace.vm_ssh_host}
+                                                    {activeWorkspace.vm_ssh_port ? `:${activeWorkspace.vm_ssh_port}` : ''}
+                                                </p>
+                                            )}
+                                            {runtimeContext?.sessionId && (
+                                                <p>
+                                                    <span className="font-medium">Session:</span> {runtimeContext.sessionId}
+                                                </p>
+                                            )}
+                                            {runtimeContext?.knativeServiceName && (
+                                                <p className="break-all">
+                                                    <span className="font-medium">Knative Service:</span>{' '}
+                                                    {runtimeContext.knativeServiceName}
+                                                </p>
+                                            )}
+                                            {runtimeContext?.workerId && (
+                                                <p>
+                                                    <span className="font-medium">Target Worker:</span>{' '}
+                                                    {runtimeContext.workerId}
+                                                </p>
+                                            )}
+                                            {runtimeContext?.status && (
+                                                <p>
+                                                    <span className="font-medium">Latest Task Status:</span>{' '}
+                                                    {runtimeContext.status}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
-                                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                        <input
-                                            type="checkbox"
-                                            checked={swarmParallelEnabled}
-                                            onChange={(e) => setSwarmParallelEnabled(e.target.checked)}
-                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
-                                        />
-                                        Enable parallel execution
+                                    {activeWorkspaceIsVm && (
+                                        <div className="mt-2 rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-900 dark:border-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-100">
+                                            <p className="font-semibold">How to use VM workspaces</p>
+                                            <p className="mt-1">
+                                                Trigger tasks as usual with this workspace ID. The runtime resolves to a dedicated VM with persistent storage.
+                                                {activeWorkspace?.vm_ssh_host ? ` Use SSH at ${activeWorkspace.vm_ssh_host}${activeWorkspace.vm_ssh_port ? `:${activeWorkspace.vm_ssh_port}` : ''} for direct access.` : ''}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Worker
                                     </label>
+                                    <WorkerSelector
+                                        value={selectedWorkerId}
+                                        onChange={setSelectedWorkerId}
+                                        workers={workers}
+                                        onlyConnected
+                                        includeAutoOption
+                                        autoOptionLabel="Auto routing (recommended)"
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Optional override. Leave blank to use workspace owner or platform routing (including Knative when enabled).
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Agent Type
+                                    </label>
+                                    <select
+                                        value={selectedAgent}
+                                        onChange={(e) => setSelectedAgent(e.target.value)}
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    >
+                                        {agentDefinitions.length > 0 ? (
+                                            <>
+                                                {agentDefinitions.filter((a) => a.native).length > 0 && (
+                                                    <optgroup label="Built-in Agents">
+                                                        {agentDefinitions.filter((a) => a.native).map((a) => (
+                                                            <option key={a.id} value={a.name}>
+                                                                {a.name} {a.description ? `- ${a.description}` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {agentDefinitions.filter((a) => !a.native).length > 0 && (
+                                                    <optgroup label="Custom Agents">
+                                                        {agentDefinitions.filter((a) => !a.native).map((a) => (
+                                                            <option key={a.id} value={a.name}>
+                                                                {a.name} {a.description ? `- ${a.description}` : ''}
+                                                                {a.worker_id ? ` (${a.worker_id})` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <option value="build">build - Full access agent</option>
+                                                <option value="plan">plan - Read-only analysis</option>
+                                                <option value="coder">coder - Code writing focused</option>
+                                                <option value="explore">explore - Workspace search</option>
+                                                <option value="swarm">swarm - Parallel sub-agents</option>
+                                            </>
+                                        )}
+                                    </select>
+                                </div>
+                                <ModelSelector label="Model" showSelectedInfo showCountBadge />
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Worker Personality (optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={workerPersonality}
+                                        onChange={(e) => setWorkerPersonality(e.target.value)}
+                                        placeholder="e.g. deep-research, fast-fix, backend-specialist"
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Used by orchestration to route tasks to the right worker profile.
+                                    </p>
+                                </div>
+                                {selectedAgent === 'swarm' && (
+                                    <div className="rounded-md border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-700 dark:bg-indigo-900/20 space-y-3">
+                                        <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+                                            Swarm Configuration
+                                        </h3>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                    Decomposition Strategy
+                                                </label>
+                                                <select
+                                                    value={swarmStrategy}
+                                                    onChange={(e) => setSwarmStrategy(e.target.value as 'auto' | 'domain' | 'data' | 'stage' | 'none')}
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                >
+                                                    <option value="auto">Automatic</option>
+                                                    <option value="domain">By Domain</option>
+                                                    <option value="data">By Data</option>
+                                                    <option value="stage">By Stage</option>
+                                                    <option value="none">No Decomposition</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                    Max Subagents
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={100}
+                                                    value={swarmMaxSubagents}
+                                                    onChange={(e) => setSwarmMaxSubagents(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                    Max Steps / Subagent
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={200}
+                                                    value={swarmMaxSteps}
+                                                    onChange={(e) => setSwarmMaxSteps(Math.min(200, Math.max(1, Number(e.target.value) || 1)))}
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                    Timeout (seconds)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min={30}
+                                                    max={3600}
+                                                    value={swarmTimeoutSecs}
+                                                    onChange={(e) => setSwarmTimeoutSecs(Math.min(3600, Math.max(30, Number(e.target.value) || 30)))}
+                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                        </div>
+                                        <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={swarmParallelEnabled}
+                                                onChange={(e) => setSwarmParallelEnabled(e.target.checked)}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                                            />
+                                            Enable parallel execution
+                                        </label>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Prompt
+                                    </label>
+                                    <textarea
+                                        value={prompt}
+                                        onChange={(e) => setPrompt(e.target.value)}
+                                        rows={4}
+                                        placeholder="Enter your instructions for the AI agent..."
+                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
+                                    />
+                                </div>
+                                <button
+                                    onClick={triggerAgent}
+                                    disabled={loading || !activeWorkspaceId || !prompt.trim()}
+                                    className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? '⏳ Running...' : '🚀 Run Agent'}
+                                </button>
+                            </div>
+                            {triggerNotification && (
+                                <div className={`rounded-lg p-4 ${triggerNotification.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                                    : triggerNotification.type === 'warning' ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                                        : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                                    }`}>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-sm font-medium ${triggerNotification.type === 'success' ? 'text-green-800 dark:text-green-200'
+                                                : triggerNotification.type === 'warning' ? 'text-amber-800 dark:text-amber-200'
+                                                    : 'text-red-800 dark:text-red-200'
+                                                }`}>
+                                                {triggerNotification.type === 'success' ? '✅' : triggerNotification.type === 'warning' ? '⚠️' : '❌'} {triggerNotification.message}
+                                            </p>
+                                            {triggerNotification.detail && (
+                                                <p className={`mt-1 text-xs ${triggerNotification.type === 'success' ? 'text-green-700 dark:text-green-300'
+                                                    : triggerNotification.type === 'warning' ? 'text-amber-700 dark:text-amber-300'
+                                                        : 'text-red-700 dark:text-red-300'
+                                                    }`}>
+                                                    {triggerNotification.detail}
+                                                </p>
+                                            )}
+                                            {triggerNotification.type === 'warning' && (
+                                                <div className="mt-3 space-y-2">
+                                                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">How to connect a worker:</p>
+                                                    <div className="rounded-md bg-amber-100 dark:bg-amber-900/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-200 font-mono">
+                                                        codetether run --server {typeof window !== 'undefined' ? window.location.origin : 'https://your-server'}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Link
+                                                            href="/dashboard/workers"
+                                                            className="flex items-center gap-1 rounded-md border border-amber-200 dark:border-amber-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                                                        >
+                                                            <span>🔌</span> Workers Page
+                                                        </Link>
+                                                        <Link
+                                                            href="/dashboard/tasks"
+                                                            className="flex items-center gap-1 rounded-md border border-amber-200 dark:border-amber-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                                                        >
+                                                            <span>📋</span> View Pending Task
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {triggerNotification.type === 'success' && (
+                                                <div className="mt-3 space-y-2">
+                                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Where to find your results:</p>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const el = document.getElementById('swarm-monitor')
+                                                                if (el) {
+                                                                    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                                                    el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2')
+                                                                    setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2'), 3000)
+                                                                }
+                                                            }}
+                                                            className="flex items-center gap-2 rounded-md border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-gray-800 px-3 py-2 text-left hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                                        >
+                                                            <span className="text-base">📡</span>
+                                                            <div>
+                                                                <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Live Monitor</p>
+                                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Real-time progress →</p>
+                                                            </div>
+                                                        </button>
+                                                        <Link
+                                                            href="/dashboard/output"
+                                                            className="flex items-center gap-2 rounded-md border border-cyan-200 dark:border-cyan-700 bg-white dark:bg-gray-800 px-3 py-2 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 transition-colors"
+                                                        >
+                                                            <span className="text-base">📺</span>
+                                                            <div>
+                                                                <p className="text-xs font-medium text-cyan-700 dark:text-cyan-300">Output</p>
+                                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Full streaming log</p>
+                                                            </div>
+                                                        </Link>
+                                                        <Link
+                                                            href="/dashboard/tasks"
+                                                            className="flex items-center gap-2 rounded-md border border-amber-200 dark:border-amber-700 bg-white dark:bg-gray-800 px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                                                        >
+                                                            <span className="text-base">📋</span>
+                                                            <div>
+                                                                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Tasks</p>
+                                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Track all tasks</p>
+                                                            </div>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => setTriggerNotification(null)}
+                                            className={`shrink-0 text-sm font-medium ${triggerNotification.type === 'success' ? 'text-green-600 dark:text-green-400 hover:text-green-500'
+                                                : triggerNotification.type === 'warning' ? 'text-amber-600 dark:text-amber-400 hover:text-amber-500'
+                                                    : 'text-red-600 dark:text-red-400 hover:text-red-500'
+                                                }`}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
                                 </div>
                             )}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Prompt
-                                </label>
-                                <textarea
-                                    value={prompt}
-                                    onChange={(e) => setPrompt(e.target.value)}
-                                    rows={4}
-                                    placeholder="Enter your instructions for the AI agent..."
-                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
-                                />
-                            </div>
-                            <button
-                                onClick={triggerAgent}
-                                disabled={loading || !selectedCodebase || !selectedWorkerId || !prompt.trim()}
-                                className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? '⏳ Running...' : '🚀 Run Agent'}
-                            </button>
                         </div>
                     </div>
+
+                    {/* Inline Live Output — shows SSE stream right here so users don't have to navigate away */}
+                    {(recentSwarmLines.length > 0 || (swarmMonitor.connected && triggerNotification?.type === 'success')) && (
+                        <div className="rounded-lg bg-gray-900 dark:bg-gray-950 shadow-sm border border-gray-700 dark:border-gray-600 overflow-hidden">
+                            <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className={`inline-block h-2 w-2 rounded-full ${swarmMonitor.connected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+                                    <h4 className="text-xs font-semibold text-gray-300">Live Output</h4>
+                                    {swarmMonitor.status !== 'idle' && (
+                                        <span className="text-[10px] text-gray-500 uppercase">{swarmMonitor.status}</span>
+                                    )}
+                                </div>
+                                <Link
+                                    href="/dashboard/output"
+                                    className="text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors"
+                                >
+                                    Open full output →
+                                </Link>
+                            </div>
+                            <div className="p-3 max-h-48 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-0.5 scroll-smooth" ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
+                                {recentSwarmLines.length === 0 ? (
+                                    <p className="text-gray-500 italic">Waiting for output from agent...</p>
+                                ) : (
+                                    recentSwarmLines.map((line, i) => (
+                                        <p
+                                            key={`inline-${i}`}
+                                            className={
+                                                line.includes('[error]') || line.includes('ERROR')
+                                                    ? 'text-red-400'
+                                                    : line.includes('[swarm]') || line.includes('SWARM')
+                                                        ? 'text-cyan-400'
+                                                        : line.includes('[done]') || line.includes('COMPLETE')
+                                                            ? 'text-green-400'
+                                                            : 'text-gray-300'
+                                            }
+                                        >
+                                            {line}
+                                        </p>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right sidebar - Quick Actions & Workers */}
                 <div className="lg:col-span-1 space-y-6">
                     {/* Swarm Monitor */}
-                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                    <div id="swarm-monitor" className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Swarm Monitor</h3>
@@ -1003,16 +2113,17 @@ export default function DashboardPage() {
                                 </span>
                             </div>
                             <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                                {selectedCodebase
-                                    ? `Streaming from ${selectedCodebase}`
-                                    : 'Select a codebase to watch swarm execution'}
+                                {activeWorkspaceId
+                                    ? `Streaming from ${activeWorkspaceId}`
+                                    : 'Select a workspace on the left to start monitoring'}
                             </p>
                         </div>
                         <div className="p-4 space-y-3">
-                            {!selectedCodebase ? (
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    No codebase selected.
-                                </p>
+                            {!activeWorkspaceId ? (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                                    <p>Select a workspace from the left panel to see live agent output here.</p>
+                                    <p className="mt-1">Or <button onClick={() => { setWorkspaceWizardStep(0); setShowWorkspaceWizard(true) }} className="text-cyan-500 hover:underline">create a workspace</button> to get started.</p>
+                                </div>
                             ) : (
                                 <>
                                     <div className="grid grid-cols-4 gap-2">
@@ -1076,7 +2187,7 @@ export default function DashboardPage() {
                                                     <div className="flex items-center justify-between gap-2">
                                                         <span className="font-mono text-[11px] text-gray-700 dark:text-gray-200">{task.id}</span>
                                                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getSwarmSubtaskStatusClasses(task.status)}`}>
-                                                            {task.status}
+                                                            {getSwarmSubtaskStatusLabel(task.status)}
                                                         </span>
                                                     </div>
                                                     {task.tool && (
@@ -1093,7 +2204,7 @@ export default function DashboardPage() {
                                     <div className="rounded bg-gray-50 dark:bg-gray-900/40 p-2 max-h-36 overflow-y-auto space-y-1">
                                         {recentSwarmLines.length === 0 ? (
                                             <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                                                Waiting for swarm output...
+                                                Waiting for output... Type a prompt above and click &quot;Run Agent&quot; to start.
                                             </p>
                                         ) : (
                                             recentSwarmLines.map((line, index) => (
@@ -1116,7 +2227,9 @@ export default function DashboardPage() {
                         <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[300px] overflow-y-auto">
                             {workers.filter(isWorkerOnline).length === 0 ? (
                                 <div className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
-                                    No workers connected
+                                    <p className="font-medium text-gray-600 dark:text-gray-300">No workers connected</p>
+                                    <p className="mt-1">Run <code className="text-cyan-500">codetether</code> to connect a worker.</p>
+                                    <Link href="/dashboard/getting-started" className="mt-2 inline-block text-cyan-600 dark:text-cyan-400 hover:underline">Setup guide →</Link>
                                 </div>
                             ) : (
                                 workers.filter(isWorkerOnline).map((w) => (
@@ -1128,12 +2241,12 @@ export default function DashboardPage() {
                                             </div>
                                             <span className="ml-2 h-2 w-2 rounded-full bg-green-500" />
                                         </div>
-                                        {w.global_codebase_id && (
+                                        {(w.global_workspace_id || w.global_codebase_id) && (
                                             <button
-                                                onClick={() => setSelectedCodebase(w.global_codebase_id!)}
+                                                onClick={() => setSelectedCodebase((w.global_workspace_id || w.global_codebase_id)!)}
                                                 className="mt-2 w-full rounded bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center justify-center gap-1"
                                             >
-                                                💬 Chat Directly
+                                                💬 Use Global Workspace
                                             </button>
                                         )}
                                     </div>
@@ -1147,21 +2260,32 @@ export default function DashboardPage() {
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
                         </div>
                         <div className="p-4 space-y-2">
+                            {workspaces.length === 0 && (
+                                <button
+                                    onClick={() => {
+                                        setWorkspaceWizardStep(0)
+                                        setShowWorkspaceWizard(true)
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-md text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 flex items-center gap-2"
+                                >
+                                    <span>🧭</span> First Workspace Wizard
+                                </button>
+                            )}
                             <div className="mb-3">
                                 <VoiceAgentButton
-                                    codebaseId={selectedCodebase || undefined}
+                                    codebaseId={activeWorkspaceId || undefined}
                                     workers={workers}
                                     onWorkerDeployed={loadWorkers}
                                 />
                             </div>
                             <button
-                                onClick={() => setShowRegisterModal(true)}
+                                onClick={() => openRegisterWorkspaceModal()}
                                 className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                             >
-                                <span>📁</span> Register Codebase
+                                <span>📁</span> Register Workspace
                             </button>
                             <button
-                                onClick={loadCodebases}
+                                onClick={loadWorkspaces}
                                 className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                             >
                                 <RefreshIcon className="h-4 w-4" /> Refresh All
@@ -1184,28 +2308,248 @@ export default function DashboardPage() {
                             <div className="flex min-h-full items-center justify-center p-4">
                                 <div className="relative w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
                                     <div className="p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Codebase</h3>
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Register Workspace</h3>
                                         <div className="space-y-4">
+                                            <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-900 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-200">
+                                                <p className="font-semibold">What this is</p>
+                                                <p className="mt-1">
+                                                    A workspace is the identity your tasks run under. Choose container runtime for shared workers, or VM runtime for a dedicated persistent machine.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRegisterMode('local')}
+                                                        className={`rounded-md px-3 py-2 text-sm font-medium border ${registerMode === 'local'
+                                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        Directory
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setRegisterMode('git')
+                                                            setRegisterRuntime('container')
+                                                        }}
+                                                        className={`rounded-md px-3 py-2 text-sm font-medium border ${registerMode === 'git'
+                                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        Repository URL
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setRegisterMode('external')
+                                                            setRegisterRuntime('container')
+                                                        }}
+                                                        className={`rounded-md px-3 py-2 text-sm font-medium border ${registerMode === 'external'
+                                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                            : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        External App
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Runtime</label>
+                                                {registerMode === 'local' ? (
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRegisterRuntime('container')}
+                                                            className={`rounded-md px-3 py-2 text-sm font-medium border ${registerRuntime === 'container'
+                                                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
+                                                                : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                                }`}
+                                                        >
+                                                            Container
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRegisterRuntime('vm')}
+                                                            className={`rounded-md px-3 py-2 text-sm font-medium border ${registerRuntime === 'vm'
+                                                                ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-900/30 dark:text-cyan-200'
+                                                                : 'border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300'
+                                                                }`}
+                                                        >
+                                                            VM (Persistent)
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+                                                        {registerMode === 'external'
+                                                            ? 'External app workspaces currently use container runtime routing.'
+                                                            : 'Repository cloning currently uses container runtime routing.'}
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                                                 <input
                                                     type="text"
                                                     value={registerForm.name}
                                                     onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                                                    placeholder="my-project"
+                                                    placeholder="workspace-name"
                                                     className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                 />
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Path</label>
-                                                <input
-                                                    type="text"
-                                                    value={registerForm.path}
-                                                    onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
-                                                    placeholder="/home/user/projects/my-project"
-                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                />
-                                            </div>
+                                            {registerMode === 'local' ? (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                        {registerVmEnabled ? 'Workspace Path in VM (optional)' : 'Directory'}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={registerForm.path}
+                                                        onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                        placeholder={registerVmEnabled ? '/workspace (default)' : '/absolute/path/on-worker-or-mounted-volume'}
+                                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                        {registerVmEnabled
+                                                            ? 'A VM is provisioned for this workspace. Leave blank to use /workspace.'
+                                                            : 'Required. This path must exist in the selected runtime environment.'}
+                                                    </p>
+                                                    {registerVmEnabled && (
+                                                        <div className="mt-3 space-y-3 rounded-md border border-cyan-200 bg-cyan-50 p-3 dark:border-cyan-800 dark:bg-cyan-900/20">
+                                                            <p className="text-xs font-semibold text-cyan-900 dark:text-cyan-200">
+                                                                VM sizing
+                                                            </p>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                <div>
+                                                                    <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">CPU Cores</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={vmRegistrationForm.cpu_cores}
+                                                                        onChange={(e) => setVmRegistrationForm({ ...vmRegistrationForm, cpu_cores: e.target.value })}
+                                                                        placeholder="2"
+                                                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Memory</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={vmRegistrationForm.memory}
+                                                                        onChange={(e) => setVmRegistrationForm({ ...vmRegistrationForm, memory: e.target.value })}
+                                                                        placeholder="8Gi"
+                                                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Disk</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={vmRegistrationForm.disk_size}
+                                                                        onChange={(e) => setVmRegistrationForm({ ...vmRegistrationForm, disk_size: e.target.value })}
+                                                                        placeholder="30Gi"
+                                                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">VM Image (optional)</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={vmRegistrationForm.image}
+                                                                    onChange={(e) => setVmRegistrationForm({ ...vmRegistrationForm, image: e.target.value })}
+                                                                    placeholder="quay.io/containerdisks/ubuntu:22.04"
+                                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">SSH Public Key (optional)</label>
+                                                                <textarea
+                                                                    value={vmRegistrationForm.ssh_public_key}
+                                                                    onChange={(e) => setVmRegistrationForm({ ...vmRegistrationForm, ssh_public_key: e.target.value })}
+                                                                    rows={3}
+                                                                    placeholder="ssh-ed25519 AAAA..."
+                                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : registerMode === 'git' ? (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Git URL</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.git_url}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, git_url: e.target.value })}
+                                                            placeholder="https://github.com/org/repo.git"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Git Branch</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.git_branch}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, git_branch: e.target.value })}
+                                                            placeholder="main"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Directory Override (optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.path}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                            placeholder="/var/lib/codetether/repos/my-repo"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        The source is materialized and bound to this workspace ID.
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">External Provider</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.external_provider}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, external_provider: e.target.value })}
+                                                            placeholder="Canva, HubSpot, Mailchimp, Salesforce..."
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">External Reference (optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.external_reference}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, external_reference: e.target.value })}
+                                                            placeholder="campaign-2026-q1, brand-kit-main, legal-case-42"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Directory Override (optional)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={registerForm.path}
+                                                            onChange={(e) => setRegisterForm({ ...registerForm, path: e.target.value })}
+                                                            placeholder="/mounted/sync/path/if-available"
+                                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        Use this mode to anchor workspace identity to non-repository systems while keeping routing, permissions, and history unified.
+                                                    </p>
+                                                </>
+                                            )}
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
                                                 <input
@@ -1217,16 +2561,28 @@ export default function DashboardPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Worker (optional)</label>
-                                                <WorkerSelector
-                                                    value={registerForm.worker_id}
-                                                    onChange={(worker_id) => setRegisterForm({ ...registerForm, worker_id })}
-                                                    workers={workers}
-                                                    onlyConnected
-                                                    includeAutoOption
-                                                    autoOptionLabel="Auto-assign (default)"
-                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                />
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                    {effectiveRegisterRuntime === 'vm'
+                                                        ? 'Worker'
+                                                        : registerMode === 'external'
+                                                            ? 'Worker (required for external app)'
+                                                            : 'Worker (optional)'}
+                                                </label>
+                                                {effectiveRegisterRuntime === 'vm' ? (
+                                                    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+                                                        Not required for VM workspaces. The platform provisions and routes to the VM directly.
+                                                    </div>
+                                                ) : (
+                                                    <WorkerSelector
+                                                        value={registerForm.worker_id}
+                                                        onChange={(worker_id) => setRegisterForm({ ...registerForm, worker_id })}
+                                                        workers={workers}
+                                                        onlyConnected
+                                                        includeAutoOption={registerMode !== 'external'}
+                                                        autoOptionLabel="Auto-assign (default)"
+                                                        className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    />
+                                                )}
                                             </div>
                                         </div>
                                         <div className="mt-6 flex gap-3 justify-end">
@@ -1237,10 +2593,17 @@ export default function DashboardPage() {
                                                 Cancel
                                             </button>
                                             <button
-                                                onClick={registerCodebase}
-                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                                onClick={registerWorkspace}
+                                                disabled={!canRegisterWorkspace}
+                                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                Register
+                                                {effectiveRegisterRuntime === 'vm'
+                                                    ? 'Provision VM Workspace'
+                                                    : registerMode === 'git'
+                                                        ? 'Register & Queue Clone'
+                                                        : registerMode === 'external'
+                                                            ? 'Create External Workspace'
+                                                            : 'Register Workspace'}
                                             </button>
                                         </div>
                                     </div>

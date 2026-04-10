@@ -128,17 +128,17 @@ interface BudgetPolicy {
 const tierDetails: Record<string, { price: string; description: string; color: string }> = {
     free: {
         price: '$0/mo',
-        description: 'Try CodeTether with no commitment',
+        description: 'Get started with 100 tasks/month',
         color: 'gray',
     },
     pro: {
-        price: '$297/mo',
-        description: 'For builders replacing Zapier + VAs',
+        price: '$49/mo',
+        description: 'For builders who need serious throughput',
         color: 'cyan',
     },
-    agency: {
-        price: '$497/mo',
-        description: 'For teams and multi-client ops',
+    enterprise: {
+        price: '$199/mo',
+        description: 'Unlimited tasks, workers, and workspaces',
         color: 'indigo',
     },
 }
@@ -550,7 +550,7 @@ function BillingContent() {
                         </div>
                         {usagePercent >= 90 && billingStatus?.tier === 'free' && (
                             <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                                Running low on tasks. Upgrade to Pro for 300 tasks/month.
+                                Running low on tasks. Upgrade to Pro for 5,000 tasks/month.
                             </p>
                         )}
                     </div>
@@ -742,7 +742,7 @@ function BillingContent() {
             </div>
 
             {/* Upgrade Options (show if not on highest tier) */}
-            {billingStatus?.tier !== 'agency' && (
+            {billingStatus?.tier !== 'enterprise' && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
                     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                         <h2 className="text-lg font-medium text-gray-900 dark:text-white">
@@ -759,15 +759,15 @@ function BillingContent() {
                                     </span>
                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Pro</h3>
                                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                        For builders replacing Zapier + VAs
+                                        For builders who need serious throughput
                                     </p>
                                     <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
-                                        $297<span className="text-sm font-normal text-gray-500">/mo</span>
+                                        $49<span className="text-sm font-normal text-gray-500">/mo</span>
                                     </p>
                                     <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <li>300 tasks / month</li>
-                                        <li>3 concurrent tasks</li>
-                                        <li>30 min max runtime</li>
+                                        <li>5,000 tasks / month</li>
+                                        <li>5 workers</li>
+                                        <li>20 workspaces</li>
                                     </ul>
                                     <button
                                         onClick={() => handleUpgrade('pro')}
@@ -779,34 +779,34 @@ function BillingContent() {
                                 </div>
                             )}
 
-                            {/* Agency tier card */}
+                            {/* Enterprise tier card */}
                             <div className={`border border-gray-200 dark:border-gray-700 rounded-lg p-6 relative ${billingStatus?.tier === 'pro' ? 'border-2 border-indigo-500' : ''}`}>
                                 {billingStatus?.tier === 'pro' && (
                                     <span className="absolute -top-3 left-4 px-2 bg-indigo-500 text-white text-xs font-medium rounded">
                                         Next tier
                                     </span>
                                 )}
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Agency</h3>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Enterprise</h3>
                                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                    For teams and multi-client ops
+                                    Unlimited tasks, workers, and workspaces
                                 </p>
                                 <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
-                                    $497<span className="text-sm font-normal text-gray-500">/mo</span>
+                                    $199<span className="text-sm font-normal text-gray-500">/mo</span>
                                 </p>
                                 <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <li>2,000 tasks / month</li>
-                                    <li>10 concurrent tasks</li>
-                                    <li>60 min max runtime</li>
+                                    <li>Unlimited tasks / month</li>
+                                    <li>Unlimited workers</li>
+                                    <li>Unlimited workspaces</li>
                                 </ul>
                                 <button
-                                    onClick={() => handleUpgrade('agency')}
-                                    disabled={upgrading === 'agency'}
+                                    onClick={() => handleUpgrade('enterprise')}
+                                    disabled={upgrading === 'enterprise'}
                                     className={`mt-4 w-full px-4 py-2 rounded-md transition-colors disabled:opacity-50 ${billingStatus?.tier === 'pro'
                                         ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                                         : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                                         }`}
                                 >
-                                    {upgrading === 'agency' ? 'Redirecting...' : 'Upgrade to Agency'}
+                                    {upgrading === 'enterprise' ? 'Redirecting...' : 'Upgrade to Enterprise'}
                                 </button>
                             </div>
                         </div>
@@ -863,8 +863,8 @@ function BillingContent() {
                                 </div>
                                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                                     <div className={`text-2xl font-bold ${forecast.trend === 'increasing' ? 'text-red-600 dark:text-red-400' :
-                                            forecast.trend === 'decreasing' ? 'text-green-600 dark:text-green-400' :
-                                                'text-gray-900 dark:text-white'
+                                        forecast.trend === 'decreasing' ? 'text-green-600 dark:text-green-400' :
+                                            'text-gray-900 dark:text-white'
                                         }`}>
                                         {forecast.trend === 'increasing' ? '↑' : forecast.trend === 'decreasing' ? '↓' : '→'} {forecast.trend}
                                     </div>
@@ -884,8 +884,8 @@ function BillingContent() {
                         {forecast && (
                             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                 <span className={`px-2 py-0.5 rounded-full ${forecast.confidence === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
-                                        forecast.confidence === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
-                                            'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                    forecast.confidence === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                                        'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                     }`}>
                                     {forecast.confidence} confidence
                                 </span>
@@ -939,13 +939,13 @@ function BillingContent() {
                     <div className="p-6 space-y-3">
                         {anomalies.map((anomaly, i) => (
                             <div key={i} className={`rounded-lg p-4 border ${anomaly.severity === 'critical'
-                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                    : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
                                 }`}>
                                 <div className="flex items-start gap-3">
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${anomaly.severity === 'critical'
-                                            ? 'bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200'
-                                            : 'bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200'
+                                        ? 'bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200'
+                                        : 'bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200'
                                         }`}>
                                         {anomaly.anomaly_type.replace('_', ' ')}
                                     </span>
@@ -985,8 +985,8 @@ function BillingContent() {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${rec.recommendation_type === 'model_downgrade' ? 'bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200' :
-                                                    rec.recommendation_type === 'cache_optimization' ? 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200' :
-                                                        'bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200'
+                                                rec.recommendation_type === 'cache_optimization' ? 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200' :
+                                                    'bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200'
                                                 }`}>
                                                 {rec.recommendation_type.replace('_', ' ')}
                                             </span>
@@ -1026,10 +1026,10 @@ function BillingContent() {
                     <div className="p-6 space-y-3">
                         {alerts.map((alert) => (
                             <div key={alert.id} className={`flex items-start gap-3 rounded-lg p-3 border ${alert.severity === 'critical'
-                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                    : alert.severity === 'warning'
-                                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                                        : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                : alert.severity === 'warning'
+                                    ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                                 }`}>
                                 <div className="flex-1">
                                     <h4 className="text-sm font-medium text-gray-900 dark:text-white">{alert.title}</h4>
@@ -1088,8 +1088,8 @@ function BillingContent() {
                                             <td className="px-4 py-2 text-center text-gray-600 dark:text-gray-400">{policy.period}</td>
                                             <td className="px-4 py-2 text-center">
                                                 <span className={`px-2 py-0.5 rounded-full text-xs ${policy.is_active
-                                                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                                                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                                                     }`}>
                                                     {policy.is_active ? 'active' : 'paused'}
                                                 </span>
@@ -1133,6 +1133,14 @@ function BillingContent() {
                         </h4>
                         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                             Yes, use &quot;Manage billing&quot; to change or cancel your plan. Changes take effect at your next billing date.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                            Do I use my own API keys or yours?
+                        </h4>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            Bring Your Own Model (BYOM). You add your own API keys (Anthropic, OpenAI, Google, etc.) in Settings. Keys are stored securely in HashiCorp Vault. The platform tracks your token usage and applies billing based on your plan&apos;s billing model (subscription, prepaid, or metered).
                         </p>
                     </div>
                     <div>

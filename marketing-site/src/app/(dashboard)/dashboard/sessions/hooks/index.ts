@@ -1,4 +1,4 @@
-export { useCodebases } from './useCodebases'
+export { useWorkspaces, useCodebases } from './useWorkspaces'
 export { useSessions } from './useSessions'
 export { useSessionStream } from './useSessionStream'
 export { useModelStorage } from './useModelStorage'

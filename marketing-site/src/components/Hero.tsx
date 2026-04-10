@@ -82,7 +82,7 @@ export function Hero() {
             className="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto"
           >
             CodeTether breaks the context window barrier with infinite memory. 
-            Watch it read your codebase, understand requirements, and ship working code — autonomously.
+            Watch it read your workspace context, understand requirements, and ship production deliverables autonomously.
           </motion.p>
 
           {/* CTA */}

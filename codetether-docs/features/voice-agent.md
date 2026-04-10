@@ -126,7 +126,7 @@ curl https://livekit.codetether.run/health
 
 Verify model credentials:
 ```bash
-cat ~/.local/share/opencode/auth.json
+cat ~/.local/share/agent/auth.json
 ```
 
 ### Session sync issues?
@@ -140,4 +140,4 @@ kubectl rollout restart deployment/codetether-voice-agent
 
 - [Session Management](sessions.md)
 - [Real-time Streaming](streaming.md)
-- [OpenCode Integration](opencode.md)
+- [CodeTether Integration](agent.md)

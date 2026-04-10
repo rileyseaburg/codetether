@@ -31,7 +31,7 @@ graph TB
             API["FastAPI App<br/>Port 8000"]
             A2A["A2A JSON-RPC Handler<br/>POST /v1/a2a (alias: /)"]
             Monitor["Monitor API<br/>/v1/monitor/*"]
-            OpenCode["OpenCode Bridge<br/>/v1/opencode/*"]
+            CodeTether["CodeTether Bridge<br/>/v1/agent/*"]
         end
 
         MCP["MCP HTTP Server<br/>Port 9000<br/>/mcp/v1/*"]
@@ -40,16 +40,16 @@ graph TB
     end
 
     subgraph "Workers (systemd / containers)"
-        W1["Worker 1<br/>+ OpenCode"]
-        W2["Worker 2<br/>+ OpenCode"]
-        WN["Worker N<br/>+ OpenCode"]
+        W1["Worker 1<br/>+ CodeTether"]
+        W2["Worker 2<br/>+ CodeTether"]
+        WN["Worker N<br/>+ CodeTether"]
     end
 
     subgraph "External / Optional"
         DB[("PostgreSQL<br/>optional persistence")]
         S3[("S3/MinIO<br/>optional artifacts/state")]
         Auth["Keycloak / OIDC<br/>optional auth"]
-        SQLite[("SQLite (local)<br/>OpenCode session cache")]
+        SQLite[("SQLite (local)<br/>CodeTether session cache")]
     end
 
     Web --> DOCS
@@ -63,7 +63,7 @@ graph TB
 
     API --> A2A
     API --> Monitor
-    API --> OpenCode
+    API --> CodeTether
 
     API --> Redis
     Redis --> API
@@ -72,7 +72,7 @@ graph TB
     API --> S3
     S3 --> API
     API -. optional .-> Auth
-    OpenCode --> SQLite
+    CodeTether --> SQLite
 
     W1 -->|SSE /v1/worker/tasks/stream| API
     W2 -->|SSE /v1/worker/tasks/stream| API
@@ -89,7 +89,7 @@ graph TB
 The main HTTP server handling:
 
 - **A2A Protocol** (`POST /v1/a2a`, alias: `POST /`) - JSON-RPC 2.0 agent communication
-- **REST APIs** (`/v1/monitor/*`, `/v1/opencode/*`) - Management and monitoring
+- **REST APIs** (`/v1/monitor/*`, `/v1/agent/*`) - Management and monitoring
 - **Agent Card** (`/.well-known/agent-card.json`) - A2A discovery
 - **Health Check** (`/health`) - Liveness/readiness probes
 
@@ -114,12 +114,12 @@ Handles distributed communication and coordination:
 
 Note: Workers receive task notifications via **SSE (Server-Sent Events)** for real-time task distribution, with HTTP polling as a fallback.
 
-### OpenCode Bridge
+### CodeTether Bridge
 
 Integrates AI coding agents:
 
 - Register and manage codebases
-- Trigger and control OpenCode agents
+- Trigger and control CodeTether agents
 - Stream real-time agent output
 - Manage session history
 
@@ -142,9 +142,9 @@ sequenceDiagram
     participant S as CodeTether Server
     participant R as Redis
     participant W as Worker
-    participant O as OpenCode
+    participant O as CodeTether
 
-    C->>S: POST /v1/opencode/codebases/{codebase_id}/tasks
+    C->>S: POST /v1/agent/codebases/{codebase_id}/tasks
     S->>R: Persist task (pending)
     S->>R: Publish task_available event
 
@@ -152,15 +152,15 @@ sequenceDiagram
     W->>S: GET /v1/worker/tasks/stream (SSE)
     S-->>W: event: task_available
 
-    W->>S: PUT /v1/opencode/tasks/{task_id}/status (running)
-    W->>O: Execute (OpenCode / echo / noop)
+    W->>S: PUT /v1/agent/tasks/{task_id}/status (running)
+    W->>O: Execute (CodeTether / echo / noop)
 
     loop streaming output
-        W->>S: POST /v1/opencode/tasks/{task_id}/output
-        S-->>C: SSE event (/v1/opencode/codebases/{codebase_id}/events)
+        W->>S: POST /v1/agent/tasks/{task_id}/output
+        S-->>C: SSE event (/v1/agent/codebases/{codebase_id}/events)
     end
 
-    W->>S: PUT /v1/opencode/tasks/{task_id}/status (completed + result)
+    W->>S: PUT /v1/agent/tasks/{task_id}/status (completed + result)
     S-->>C: SSE event: complete
 ```
 
@@ -171,16 +171,16 @@ sequenceDiagram
     participant C as Client
     participant S as Server
     participant W as Worker
-    participant O as OpenCode
+    participant O as CodeTether
 
-    C->>S: GET /v1/opencode/codebases/{id}/events
+    C->>S: GET /v1/agent/codebases/{id}/events
     Note over C,S: SSE Connection Established
 
     W->>O: Run agent
     O->>W: Output/tool updates
-    W->>S: POST /v1/opencode/tasks/{task_id}/output
+    W->>S: POST /v1/agent/tasks/{task_id}/output
     S->>C: event: output
-    W->>S: PUT /v1/opencode/tasks/{task_id}/status
+    W->>S: PUT /v1/agent/tasks/{task_id}/status
     S->>C: event: complete
 
     Note over W,S: In single-instance mode, the worker may be co-located with the server.
@@ -196,7 +196,7 @@ Simplest deployment - everything in one process:
 ┌─────────────────────────────┐
 │     CodeTether Server        │
 │  ┌─────────┐ ┌───────────┐  │
-│  │ API     │ │ OpenCode  │  │
+│  │ API     │ │ CodeTether  │  │
 │  │ Server  │ │ Bridge    │  │
 │  └─────────┘ └───────────┘  │
 │  ┌─────────┐ ┌───────────┐  │
