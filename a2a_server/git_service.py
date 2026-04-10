@@ -10,8 +10,10 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
+
+from .github_app_auth import mint_github_app_installation_token
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,21 @@ async def store_git_credentials(
         return True
     except Exception as e:
         logger.error(f'Failed to store Git credentials: {e}')
+        return False
+
+
+async def store_git_credential_record(
+    codebase_id: str, record: Dict[str, Any]
+) -> bool:
+    """Store arbitrary git credential metadata in Vault."""
+    try:
+        from .vault_client import get_vault_client
+        client = get_vault_client()
+        await client.write_secret(f'codetether/git/{codebase_id}', record)
+        logger.info(f'Stored Git credential record for codebase {codebase_id}')
+        return True
+    except Exception as e:
+        logger.error(f'Failed to store Git credential record: {e}')
         return False
 
 
@@ -168,17 +185,65 @@ async def pull_repo(clone_dir: str, branch: str = 'main') -> str:
     return clone_dir
 
 
+def default_clone_dir(codebase_id: str) -> str:
+    """Return the default clone location for a workspace."""
+    base = os.environ.get('KNATIVE_WORKSPACE_BASE_PATH') or GIT_CLONE_BASE
+    return os.path.join(base, codebase_id)
+
+
+async def issue_git_credentials(
+    codebase_id: str,
+    requested_host: Optional[str] = None,
+    requested_path: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Resolve workspace git credentials for helper/API use."""
+    creds = await get_git_credentials(codebase_id)
+    if not creds:
+        return None
+
+    git_url = creds.get('git_url') or ''
+    parsed = urlparse(git_url)
+    stored_host = (parsed.hostname or '').strip()
+    stored_path = parsed.path.lstrip('/')
+    if requested_host and stored_host and requested_host != stored_host:
+        raise ValueError('Requested Git host does not match stored remote')
+    if requested_path and stored_path and requested_path != stored_path:
+        raise ValueError('Requested Git path does not match stored remote')
+
+    token_type = creds.get('token_type', 'pat')
+    if token_type == 'github_app':
+        token = await mint_github_app_installation_token(
+            installation_id=str(creds.get('github_installation_id') or ''),
+            owner=creds.get('github_owner'),
+            repo=creds.get('github_repo'),
+        )
+        return {
+            'username': 'x-access-token',
+            'password': token['token'],
+            'expires_at': token.get('expires_at'),
+            'token_type': 'github_app',
+            'host': requested_host or stored_host,
+            'path': requested_path or stored_path,
+        }
+
+    return {
+        'username': 'x-access-token',
+        'password': creds.get('token', ''),
+        'token_type': token_type,
+        'host': requested_host or stored_host,
+        'path': requested_path or stored_path,
+    }
+
+
 async def _build_auth_url(git_url: str, codebase_id: str) -> str:
     """Inject credentials into HTTPS Git URL."""
-    creds = await get_git_credentials(codebase_id)
+    creds = await issue_git_credentials(codebase_id)
     if not creds:
         return git_url
 
-    token = creds.get('token', '')
+    token = creds.get('password', '')
     token_type = creds.get('token_type', 'pat')
-
-    if token_type in ('pat', 'oauth'):
-        # https://github.com/... → https://x-access-token:TOKEN@github.com/...
+    if token_type in ('pat', 'oauth', 'github_app'):
         return git_url.replace('https://', f'https://x-access-token:{token}@', 1)
 
     return git_url

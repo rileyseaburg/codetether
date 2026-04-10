@@ -65,6 +65,7 @@ from .policy_middleware import PolicyAuthorizationMiddleware
 from .tenant_api import router as tenant_router
 from .billing_api import router as billing_router
 from .billing_webhooks import billing_webhook_router
+from .github_webhooks import router as github_webhook_router
 from .user_auth import router as user_auth_router
 from .token_billing_api import router as token_billing_router
 from .finops_api import router as finops_router
@@ -572,6 +573,9 @@ class A2AServer:
 
         # Include billing webhook routes for Stripe
         self.app.include_router(billing_webhook_router)
+
+        # Include GitHub App webhook routes for @codetether mentions
+        self.app.include_router(github_webhook_router)
 
         # Include token billing API routes for per-token usage tracking
         self.app.include_router(token_billing_router)

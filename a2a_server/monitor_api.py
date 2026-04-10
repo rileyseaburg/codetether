@@ -36,12 +36,42 @@ from functools import lru_cache
 
 # Import PostgreSQL persistence layer
 from . import database as db
-from .task_orchestration import orchestrate_task_route
-from .vm_workspace_provisioner import (
-    VMWorkspaceSpec,
-    vm_workspace_provisioner,
-    is_enabled as is_vm_workspaces_enabled,
+from .git_auth_models import GitAuthConfig
+from .git_service import (
+    default_clone_dir,
+    issue_git_credentials,
+    store_git_credential_record,
 )
+from .task_orchestration import orchestrate_task_route
+try:
+    from .vm_workspace_provisioner import (
+        VMWorkspaceSpec,
+        vm_workspace_provisioner,
+        is_enabled as is_vm_workspaces_enabled,
+    )
+except ImportError:
+    class VMWorkspaceSpec(BaseModel):
+        cpu_cores: int = 2
+        memory: str = '8Gi'
+        disk_size: str = '30Gi'
+        image: str = ''
+        ssh_public_key: str = ''
+        ssh_user: str = 'coder'
+
+    class _UnavailableVMWorkspaceProvisioner:
+        async def provision_workspace_vm(self, **kwargs):
+            raise RuntimeError('VM workspace provisioning is unavailable')
+
+        async def get_vm_status(self, *args, **kwargs):
+            return 'unavailable'
+
+        async def delete_workspace_vm(self, **kwargs):
+            return False
+
+    vm_workspace_provisioner = _UnavailableVMWorkspaceProvisioner()
+
+    def is_vm_workspaces_enabled() -> bool:
+        return False
 
 logger = logging.getLogger(__name__)
 
@@ -1698,8 +1728,18 @@ class WorkspaceRegistration(BaseModel):
     git_url: Optional[str] = None  # HTTPS Git URL to clone
     git_branch: str = 'main'
     git_token: Optional[str] = None  # Access token (stored in Vault, not DB)
+    git_auth: Optional[GitAuthConfig] = None
     runtime: Literal['container', 'vm'] = 'container'
     vm: Optional[Dict[str, Any]] = None
+
+
+class GitCredentialRequest(BaseModel):
+    """Request model for worker-issued git credentials."""
+
+    operation: str = 'get'
+    protocol: Optional[str] = None
+    host: Optional[str] = None
+    path: Optional[str] = None
 
 
 class AgentTrigger(BaseModel):
@@ -2737,22 +2777,57 @@ async def register_workspace(registration: WorkspaceRegistration):
             registration.git_url.encode()
         ).hexdigest()[:16]
 
+        runtime_agent_config = dict(registration.agent_config or {})
+        if registration.git_auth:
+            runtime_agent_config['git_auth'] = registration.git_auth.model_dump(
+                exclude_none=True
+            )
+
         # Store Git token in Vault if provided (never persisted in DB)
         if registration.git_token:
             await store_git_credentials(workspace_id, registration.git_token)
+        elif (
+            registration.git_auth
+            and registration.git_auth.type == 'github_app'
+            and registration.git_auth.github_app is not None
+        ):
+            github_app = registration.git_auth.github_app
+            await store_git_credential_record(
+                workspace_id,
+                {
+                    'token_type': 'github_app',
+                    'github_installation_id': github_app.installation_id,
+                    'github_owner': github_app.owner,
+                    'github_repo': github_app.repo,
+                    'github_app_id': github_app.app_id,
+                    'git_url': registration.git_url,
+                },
+            )
 
         # Register workspace with git_url (path TBD after clone)
         workspace_data = {
             'id': workspace_id,
             'name': registration.name,
-            'path': registration.path or f'/var/lib/codetether/repos/{workspace_id}',
+            'path': registration.path or default_clone_dir(workspace_id),
             'description': registration.description,
-            'agent_config': registration.agent_config,
+            'agent_config': runtime_agent_config,
             'git_url': registration.git_url,
             'git_branch': registration.git_branch,
             'status': 'cloning',
         }
         await db.db_upsert_workspace(workspace_data)
+        try:
+            await bridge.register_workspace(
+                name=registration.name,
+                path=workspace_data['path'],
+                description=registration.description,
+                agent_config=runtime_agent_config,
+                workspace_id=workspace_id,
+            )
+        except Exception as e:
+            logger.warning(
+                f'Failed to mirror git workspace {workspace_id} into bridge: {e}'
+            )
 
         # Create a clone task for workers to pick up
         task = await bridge.create_task(
@@ -3041,6 +3116,24 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
         return redis_workspace
 
     raise HTTPException(status_code=404, detail='Workspace not found')
+
+
+@agent_router_alias.post('/workspaces/{workspace_id}/git/credentials')
+async def get_workspace_git_credentials(
+    workspace_id: str,
+    raw_request: Request,
+    request: GitCredentialRequest,
+):
+    """Mint or return workspace-scoped Git credentials for helpers/workers."""
+    _require_ingest_auth(raw_request)
+    credentials = await issue_git_credentials(
+        workspace_id,
+        requested_host=request.host,
+        requested_path=request.path,
+    )
+    if not credentials:
+        raise HTTPException(status_code=404, detail='No Git credentials found')
+    return credentials
 
 
 @agent_router_alias.delete('/workspaces/{workspace_id}')
@@ -7244,12 +7337,27 @@ from .vault_client import (
     check_vault_connection,
     test_api_key as vault_test_api_key,
 )
-from .keycloak_auth import (
-    get_current_user as get_keycloak_user,
-    require_auth,
-    UserSession,
-)
-from .user_auth import get_current_user as get_self_service_user
+try:
+    from .keycloak_auth import (
+        get_current_user as get_keycloak_user,
+        require_auth,
+        UserSession,
+    )
+except ImportError:
+    async def get_keycloak_user(*args, **kwargs):
+        return None
+
+    async def require_auth(*args, **kwargs):
+        raise HTTPException(status_code=401, detail='Authentication required')
+
+    class UserSession:  # type: ignore[override]
+        pass
+
+try:
+    from .user_auth import get_current_user as get_self_service_user
+except ImportError:
+    async def get_self_service_user(*args, **kwargs):
+        return None
 
 
 @dataclass

@@ -90,6 +90,10 @@ spec:
             - secretRef:
                 name: {{ include "a2a-server.fullname" . }}-stripe
             {{- end }}
+            {{- if or .Values.githubApp.existingSecret .Values.githubApp.appId .Values.githubApp.privateKey .Values.githubApp.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.githubAppSecretName" . }}
+            {{- end }}
           env:
             {{- if .Values.opa.enabled }}
             - name: OPA_URL

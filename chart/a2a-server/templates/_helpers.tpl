@@ -154,3 +154,14 @@ Common annotations
 {{ toYaml . }}
 {{- end }}
 {{- end }}
+
+{{/*
+GitHub App secret name
+*/}}
+{{- define "a2a-server.githubAppSecretName" -}}
+{{- if .Values.githubApp.existingSecret }}
+{{- .Values.githubApp.existingSecret -}}
+{{- else -}}
+{{- printf "%s-github-app" (include "a2a-server.fullname" .) -}}
+{{- end -}}
+{{- end }}
