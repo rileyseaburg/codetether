@@ -1156,6 +1156,14 @@ async def release_task(
                 logger.info(
                     f'Task {release.task_id} status updated to {release.status} via bridge'
                 )
+                if release.status == 'completed':
+                    try:
+                        from .post_clone_followup import enqueue_post_clone_followup
+                        await enqueue_post_clone_followup(bridge, release.task_id)
+                    except Exception as e:
+                        logger.error(
+                            f'Failed to enqueue post-clone follow-up for {release.task_id}: {e}'
+                        )
             else:
                 # Fallback: direct DB update if bridge not available
                 from .database import db_update_task_status
