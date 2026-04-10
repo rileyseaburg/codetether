@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRalphStore, useAvailableModels, usePassedCount, useTotalCount } from './store'
-import { useCodebases } from '../sessions/hooks/useCodebases'
+import { useWorkspaces } from '../sessions/hooks/useWorkspaces'
 import { RalphHeader } from '@/components/Ralph/RalphHeader'
 import { RalphPRDConfigPanel } from '@/components/Ralph/RalphPRDConfigPanel'
 import { RalphSettingsPanel } from '@/components/Ralph/RalphSettingsPanel'
@@ -17,7 +17,7 @@ import { getTaskV1AgentTasksTaskIdGet, hasApiAuthToken } from '@/lib/api'
 
 export default function RalphPage() {
     const store = useRalphStore()
-    const { codebases } = useCodebases()
+    const { workspaces } = useWorkspaces()
     const availableModels = useAvailableModels()
     const passedCount = usePassedCount()
     const totalCount = useTotalCount()
@@ -41,7 +41,7 @@ export default function RalphPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-4">
                     <RalphPRDConfigPanel prdJson={store.prdJson} error={store.error} isRunning={store.isRunning} showBuilder={store.showPRDBuilder} builderMode={store.showPRDBuilder ? prdBuilderMode : 'manual'} prdBuilderMode={prdBuilderMode} resumeSession={resumeSession} onChange={handlePrdChange} onLoadExample={() => { const prd = { project: "MyApp", branchName: "ralph/new-feature", description: "Add feature", userStories: [{ id: "US-001", title: "Feature", description: "As user", acceptanceCriteria: ["Done"], priority: 1, passes: false }] }; store.setPrdJson(JSON.stringify(prd, null, 2)); store.setPrd(prd); store.setError(null) }} onBuilderComplete={handlePRDFromBuilder} onSetShowBuilder={store.setShowPRDBuilder} onSetBuilderMode={setPrdBuilderMode} onSetPrdBuilderMode={setPrdBuilderMode} onClearResumeSession={() => setResumeSession(null)} />
-                    <RalphSettingsPanel codebases={codebases} selectedCodebase={store.selectedCodebase} selectedModel={store.selectedModel} maxIterations={store.maxIterations} runMode={store.runMode} maxParallel={store.maxParallel} availableModels={availableModels} loadingAgents={store.loadingAgents} isRunning={store.isRunning} onSetSelectedCodebase={store.setSelectedCodebase} onSetSelectedModel={store.setSelectedModel} onSetMaxIterations={store.setMaxIterations} onSetRunMode={store.setRunMode} onSetMaxParallel={store.setMaxParallel} onRefreshAgents={loadAgents} />
+                    <RalphSettingsPanel workspaces={workspaces} selectedWorkspace={store.selectedCodebase} selectedModel={store.selectedModel} maxIterations={store.maxIterations} runMode={store.runMode} maxParallel={store.maxParallel} availableModels={availableModels} loadingAgents={store.loadingAgents} isRunning={store.isRunning} onSetSelectedWorkspace={store.setSelectedCodebase} onSetSelectedModel={store.setSelectedModel} onSetMaxIterations={store.setMaxIterations} onSetRunMode={store.setRunMode} onSetMaxParallel={store.setMaxParallel} onRefreshAgents={loadAgents} />
                     <PRDChatHistory onContinueSession={(sessionId, sessionTitle, messages) => {
                         setResumeSession({ sessionId, title: sessionTitle, messages })
                         setPrdBuilderMode('ai')

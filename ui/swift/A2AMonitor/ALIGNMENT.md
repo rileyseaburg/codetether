@@ -95,7 +95,7 @@ func stopAgent(codebaseId: String) async throws
 
 ## Notification Flow
 
-1. **OpenCode Worker** completes task
+1. **CodeTether Worker** completes task
 2. Worker calls `POST /v1/monitor/intervene` with message
 3. **A2A Server** broadcasts via SSE to `/v1/monitor/stream`
 4. **iOS App** receives SSE event in `A2AClient`

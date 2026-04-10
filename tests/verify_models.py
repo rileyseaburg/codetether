@@ -9,8 +9,8 @@ async def verify_models():
 
     async with aiohttp.ClientSession() as session:
         # 1. Get available models
-        print(f"Fetching models from {base_url}/v1/opencode/models...")
-        async with session.get(f"{base_url}/v1/opencode/models") as resp:
+        print(f"Fetching models from {base_url}/v1/agent/models...")
+        async with session.get(f"{base_url}/v1/agent/models") as resp:
             if resp.status != 200:
                 print(f"Error fetching models: {resp.status}")
                 print(await resp.text())
@@ -36,7 +36,7 @@ async def verify_models():
                 "model": model_id
             }
 
-            trigger_url = f"{base_url}/v1/opencode/codebases/{codebase_id}/trigger"
+            trigger_url = f"{base_url}/v1/agent/codebases/{codebase_id}/trigger"
             print(f"Triggering agent at {trigger_url}...")
 
             async with session.post(trigger_url, json=payload) as resp:
@@ -49,7 +49,7 @@ async def verify_models():
                         # Poll for completion
                         print(f"Waiting for task {task_id} to complete...")
                         while True:
-                            async with session.get(f"{base_url}/v1/opencode/tasks/{task_id}") as task_resp:
+                            async with session.get(f"{base_url}/v1/agent/tasks/{task_id}") as task_resp:
                                 if task_resp.status == 200:
                                     task_data = await task_resp.json()
                                     status = task_data.get("status")

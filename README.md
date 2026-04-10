@@ -52,7 +52,7 @@ CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that is **off
 │         ┌────────────────┼────────────────┐                      │
 │         ▼                ▼                ▼                      │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  OpenCode   │  │ MCP Tools   │  │  Your APIs  │   Actions    │
+│  │  CodeTether   │  │ MCP Tools   │  │  Your APIs  │   Actions    │
 │  │  (Coding)   │  │  (100+)     │  │             │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
@@ -74,7 +74,7 @@ Ralph implements entire PRDs with zero human intervention. Define user stories, 
 
 ### 💻 **AI Coding at Scale**
 
-Deploy AI coding agents across your infrastructure using our maintained OpenCode fork. Automated code generation, refactoring, and testing.
+Deploy AI coding agents across your infrastructure using our maintained CodeTether fork. Automated code generation, refactoring, and testing.
 
 ### 🔄 **RLM (Recursive Language Models)**
 
@@ -171,24 +171,24 @@ codetether --port 8000
 docker run -p 8000:8000 registry.quantum-forge.net/library/a2a-server-mcp:latest
 ```
 
-### OpenCode AI CLI
+### CodeTether AI CLI
 
 Download pre-built binaries from [GitHub Releases](https://github.com/rileyseaburg/A2A-Server-MCP/releases):
 
 **One-line install (Linux/macOS):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent.sh | bash
 ```
 
 **One-line install (Windows PowerShell):**
 ```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.ps1" -UseBasicParsing).Content
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent.ps1" -UseBasicParsing).Content
 ```
 
 **Or download manually:**
-- Linux: `opencode-v1.1.25-linux-x64.tar.gz`
-- macOS: `opencode-v1.1.25-darwin-arm64.tar.gz`
-- Windows: `opencode-v1.1.25-windows-x64.zip`
+- Linux: `agent-v1.1.25-linux-x64.tar.gz`
+- macOS: `agent-v1.1.25-darwin-arm64.tar.gz`
+- Windows: `agent-v1.1.25-windows-x64.zip`
 
 **Available platforms:** Linux (x64/ARM64/glibc/musl), macOS (x64/ARM64), Windows (x64) - with baseline builds for older CPUs.
 
@@ -293,19 +293,19 @@ curl -X POST http://localhost:8000/ \
 
 ```bash
 # Register a codebase
-curl -X POST http://localhost:8000/v1/opencode/codebases \
+curl -X POST http://localhost:8000/v1/agent/codebases \
   -H "Content-Type: application/json" \
   -d '{"name": "my-app", "path": "/home/user/my-app"}'
 
 # Trigger an agent task
-curl -X POST http://localhost:8000/v1/opencode/codebases/{id}/trigger \
+curl -X POST http://localhost:8000/v1/agent/codebases/{id}/trigger \
   -d '{"prompt": "Add unit tests for the auth module", "agent": "build"}'
 ```
 
 ### Stream Real-Time Output
 
 ```bash
-curl http://localhost:8000/v1/opencode/codebases/{id}/events
+curl http://localhost:8000/v1/agent/codebases/{id}/events
 ```
 
 ### 📧 Email Reply to Continue Tasks
@@ -340,36 +340,157 @@ You: "Great, now add integration tests too"
 
 ## 🏗️ Architecture
 
-CodeTether is built on **five core pillars**:
+### System Overview
 
-| Component               | Purpose                                        | Technology                        |
-| ----------------------- | ---------------------------------------------- | --------------------------------- |
-| **A2A Protocol Server** | Agent communication & orchestration            | Python, FastAPI, Redis            |
-| **Distributed Workers** | Scale agent execution across machines          | Rust (codetether worker), Systemd/K8s |
-| **MCP Integration**     | Tool access & resource management              | Model Context Protocol            |
-| **PostgreSQL Database** | Durable storage for sessions, codebases, tasks | PostgreSQL, asyncpg               |
-| **OpenCode Bridge**     | AI-powered code generation                     | Local OpenCode fork, Claude/GPT-4 |
-| **RLM Engine**          | Recursive context processing                   | Python REPL, sub-LLM calls        |
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              CodeTether Platform                             │
+│                                                                              │
+│  ┌─────────────────────┐       ┌──────────────────────────────────────────┐  │
+│  │   Dashboard (Next.js)│       │         A2A Protocol Server              │  │
+│  │   port 3001 (HTTPS)  │──────▶│         (Python / FastAPI)               │  │
+│  │                      │ proxy │                                          │  │
+│  │  • Trigger agents    │/api/v1│  ┌─────────┐ ┌───────────┐ ┌─────────┐  │  │
+│  │  • Monitor swarms    │       │  │ A2A RPC │ │ REST API  │ │ SSE     │  │  │
+│  │  • Manage codebases  │       │  │ /a2a/*  │ │ /v1/*     │ │ Push    │  │  │
+│  │  • View sessions     │       │  └────┬────┘ └─────┬─────┘ └────┬────┘  │  │
+│  └─────────────────────┘       │       │             │             │       │  │
+│                                 │       ▼             ▼             ▼       │  │
+│  ┌─────────────────────┐       │  ┌──────────────────────────────────────┐ │  │
+│  │   Keycloak SSO       │◀─────│  │         Auth & Authorization         │ │  │
+│  │   (Identity Provider)│       │  │  Keycloak JWT → OPA Policies → RLS  │ │  │
+│  └─────────────────────┘       │  └──────────────────────────────────────┘ │  │
+│                                 │                    │                      │  │
+│                                 │       ┌────────────┼────────────┐        │  │
+│                                 │       ▼            ▼            ▼        │  │
+│                                 │  ┌─────────┐ ┌──────────┐ ┌──────────┐  │  │
+│                                 │  │Orchestr.│ │ Worker   │ │ Task     │  │  │
+│                                 │  │& Routing│ │ Registry │ │ Queue    │  │  │
+│                                 │  └────┬────┘ └────┬─────┘ └────┬─────┘  │  │
+│                                 │       │           │             │        │  │
+│                                 └───────┼───────────┼─────────────┼────────┘  │
+│                                         │           │             │           │
+│  ┌──────────────────┐                   │           │             │           │
+│  │   Redis           │◀─────────────────┘           │             │           │
+│  │   (Session Sync)  │                              │             │           │
+│  └──────────────────┘                               │             │           │
+│                                                     │             │           │
+│  ┌──────────────────┐                               │             │           │
+│  │   PostgreSQL      │◀─────────────────────────────┘             │           │
+│  │   (RLS Isolation) │  workers, codebases, tasks,                │           │
+│  │                    │  sessions, tenants, OKRs                   │           │
+│  └──────────────────┘                                             │           │
+│                                                                    │           │
+│         ┌──────────────────────────────────────────────────────────┘           │
+│         │  SSE stream (tasks/stream)                                          │
+│         ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │                        Distributed Workers                              │  │
+│  │                                                                         │  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │  │
+│  │  │  Worker A     │  │  Worker B     │  │  Worker C     │   ...          │  │
+│  │  │  (Rust)       │  │  (Rust)       │  │  (Python)     │                │  │
+│  │  │              │  │              │  │              │                │  │
+│  │  │  codebases:  │  │  codebases:  │  │  codebases:  │                │  │
+│  │  │  /app-1      │  │  /app-2      │  │  /app-3      │                │  │
+│  │  │  /app-4      │  │  global      │  │              │                │  │
+│  │  │              │  │              │  │              │                │  │
+│  │  │  28+ tools   │  │  28+ tools   │  │  MCP tools   │                │  │
+│  │  │  8 LLM provs │  │  8 LLM provs │  │              │                │  │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘                  │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Core Components
+
+| Component | Purpose | Technology |
+|-----------|---------|------------|
+| **A2A Protocol Server** | Agent communication, orchestration, task routing | Python, FastAPI, Redis |
+| **Distributed Workers** | Scale agent execution across machines | Rust binary (`codetether worker`), Systemd/K8s |
+| **MCP Integration** | Tool access & resource management (29 tools) | Model Context Protocol |
+| **PostgreSQL Database** | Durable storage with Row-Level Security tenant isolation | PostgreSQL, asyncpg, RLS policies |
+| **Dashboard / Monitor UI** | Real-time agent monitoring, task triggering | Next.js, React, SSE streaming |
+| **RLM Engine** | Recursive context processing for large codebases | Python REPL, sub-LLM calls |
+| **OPA Policy Engine** | Fine-grained API authorization (160+ route rules) | Open Policy Agent, Rego |
+| **Keycloak SSO** | Identity management, JWT tokens, multi-tenant auth | Keycloak, NextAuth |
+
+### Task Lifecycle
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  submitted   │────▶│   routed     │────▶│   claimed    │────▶│   running    │────▶│  completed   │
+│              │     │              │     │              │     │              │     │  / failed    │
+│ User creates │     │ Orchestrator │     │ Worker picks │     │ Agent loop   │     │ Result sent  │
+│ task via API │     │ selects best │     │ up from SSE  │     │ with 28+     │     │ back to      │
+│ or dashboard │     │ worker match │     │ task stream   │     │ tools, LLMs  │     │ server + DB  │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+                     ▲                                                              │
+                     │  model tier routing                                          │  email notify
+                     │  codebase matching                                           │  SSE broadcast
+                     │  worker capability check                                    ▼
+```
+
+### How Workers Connect
+
+1. **Register** — Worker sends `POST /v1/agent/workers/register` with its `worker_id`, hostname, supported models, and list of codebase paths it can access
+2. **Connect** — Worker opens SSE stream at `GET /v1/worker/tasks/stream` to receive task assignments in real-time
+3. **Heartbeat** — Periodic `POST /v1/agent/workers/{id}/heartbeat` keeps the worker alive in the registry
+4. **Claim** — When a task arrives, worker calls `POST /v1/worker/tasks/{id}/claim` (atomic, prevents double-assignment)
+5. **Execute** — Worker runs its agentic loop (file I/O, git, shell, code search, etc.) with the selected LLM
+6. **Complete** — Worker posts results back via `POST /v1/agent/tasks/{id}/complete`, status updates stream to dashboard via SSE
+
+### Workspace / Codebase Routing
+
+Workers register the **codebases** (filesystem paths) they can access. When a task targets a specific codebase, the server routes it only to workers that have registered that path:
+
+```
+Task: "Add tests for auth" → codebase: /home/user/my-app
+  └─▶ Server checks WorkerRegistry
+       ├─ Worker A: [/home/user/my-app, /home/user/api] ← MATCH ✓
+       ├─ Worker B: [/home/user/frontend]               ← skip
+       └─ Worker C: [global]                            ← MATCH ✓ (global catches all)
+```
+
+Workers with `global` codebase registration can handle any task regardless of path.
+
+### Security Layers
+
+```
+Request → Keycloak JWT validation
+       → OPA policy check (160+ route rules, RBAC)
+       → PostgreSQL RLS (tenant_id enforced per-row)
+       → Response (only tenant's own data)
+```
 
 ### Platform Components
 
 ```
 codetether/
-├── 🌐 API Server          # A2A protocol + REST APIs
-├── 🖥️ Monitor UI          # Real-time agent dashboard
-├── 👷 [Agent Workers](https://docs.codetether.run/features/distributed-workers/)       # Distributed task execution
-├── 🤖 OpenCode Fork       # Maintained AI coding agent
-├── 📚 Documentation       # MkDocs Material site
-└── 🏠 Marketing Site      # Next.js landing page
+├── 🌐 a2a_server/         # A2A protocol + REST APIs (FastAPI)
+├── 🖥️ marketing-site/     # Dashboard + marketing (Next.js)
+├── 👷 codetether-agent/    # Rust worker binary (28+ tools, 8 LLM providers)
+├── 📚 codetether-docs/     # MkDocs Material documentation site
+├── 📋 policies/            # OPA Rego authorization policies
+├── ⎈ chart/               # Unified Helm chart (server + UI + docs)
+└── 🔌 integrations/       # Zapier, n8n, external connectors
 ```
 
-**Data Flow:**
+### Data Flow
 
 ```
-Worker (SSE) → A2A Server → PostgreSQL → Bridge/API → Monitor UI
+Dashboard ──proxy──▶ A2A Server ──SSE push──▶ Worker (claims task, runs agent)
+    ▲                    │   ▲                     │
+    │                    │   │                     │
+    │                    ▼   │ heartbeat            │ POST results
+    │               PostgreSQL ◀───────────────────┘
+    │               (tasks, sessions, workers, codebases)
+    │                    │
+    └────────────────────┘
+         reads tasks, sessions, routing snapshots
 ```
 
-Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode bridge and Monitor UI read from PostgreSQL, providing a consistent view across server replicas and restarts.
+Workers sync sessions from local storage to PostgreSQL. The dashboard and API read from PostgreSQL, providing a consistent view across server replicas and restarts.
 
 ## 📦 What's Included
 
@@ -378,14 +499,16 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 - ✅ Full A2A Protocol implementation
 - ✅ MCP tool integration
 - ✅ Redis message broker
-- ✅ PostgreSQL durable storage (sessions, codebases, tasks)
+- ✅ PostgreSQL durable storage (sessions, workspaces, tasks, OKRs)
 - ✅ SSE real-time streaming
-- ✅ Worker sync to PostgreSQL from OpenCode storage
+- ✅ Worker sync to PostgreSQL from CodeTether storage
 
 ### Enterprise Features
 
 - ✅ Keycloak SSO integration
-- ✅ Role-based access control
+- ✅ Role-based access control (RBAC)
+- ✅ PostgreSQL Row-Level Security (RLS) for database-level tenant isolation
+- ✅ OPA policy engine for API-level authorization
 - ✅ Audit logging
 - ✅ Network policies
 
@@ -417,6 +540,16 @@ Workers sync sessions from local OpenCode storage to PostgreSQL. The OpenCode br
 | **Docker**     | `docker-compose up`                  | Single container            |
 | **Kubernetes** | `make k8s-prod`                      | Full production stack       |
 
+### Codex MCP (Local)
+
+Codex CLI should use CodeTether over stdio via `~/.codex/config.toml` for local workspaces.
+
+```toml
+[mcp_servers.codetether]
+command = "/absolute/path/to/codetether"
+args = ["mcp", "serve", "/absolute/workspace/path"]
+```
+
 ### Production Deployment
 
 ```bash
@@ -437,8 +570,8 @@ make k8s-prod
 | `DATABASE_URL`    | PostgreSQL connection string                                    | `postgresql://user:pass@host:5432/db` | Yes (production) |
 | `A2A_REDIS_URL`   | Redis URL for message broker                                    | `redis://localhost:6379`              | No               |
 | `A2A_AUTH_TOKENS` | Comma-separated auth tokens (format: `name:token,name2:token2`) | `""`                                  | No               |
-| `OPENCODE_HOST`   | Host where OpenCode API is running (container→host)             | `localhost`                           | No               |
-| `OPENCODE_PORT`   | Default OpenCode server port                                    | `9777`                                | No               |
+| `OPENCODE_HOST`   | Host where CodeTether API is running (container→host)             | `localhost`                           | No               |
+| `OPENCODE_PORT`   | Default CodeTether server port                                    | `9777`                                | No               |
 | `A2A_SERVER_URL`  | Production server URL (for workers)                             | `http://localhost:8000`               | No               |
 
 **Setting DATABASE_URL:**
@@ -473,7 +606,7 @@ If you don't see sessions in the production API for a codebase (like "spotlessbi
 
     ```bash
     # Via API:
-    curl http://localhost:8000/v1/opencode/database/sessions
+    curl http://localhost:8000/v1/agent/database/sessions
 
     # Or via psql:
     psql -d a2a_server -c "SELECT id, codebase_id, title FROM sessions ORDER BY updated_at DESC LIMIT 10;"
@@ -486,8 +619,8 @@ If you don't see sessions in the production API for a codebase (like "spotlessbi
 
 **How it works:**
 
-- Workers read local OpenCode storage from `~/.local/share/opencode/`
-- Workers POST sessions to `/v1/opencode/codebases/{id}/sessions/sync`
+- Workers read local CodeTether storage from `~/.local/share/agent/`
+- Workers POST sessions to `/v1/agent/codebases/{id}/sessions/sync`
 - Server persists to PostgreSQL via `db_upsert_session()`
 - Monitor UI reads from PostgreSQL via `db_list_sessions()`
 - No SQLite involved! All data goes through PostgreSQL
@@ -564,7 +697,7 @@ For more troubleshooting, see [docs.codetether.run/troubleshooting](https://docs
 | 🔧 **API Reference**         | [API Docs](https://docs.codetether.run/api/overview/)                                         |
 | 🤖 **Ralph Guide**           | [Ralph Autonomous Development](https://docs.codetether.run/features/ralph/)                   |
 | 👷 **Agent Worker Guide**    | [Agent Worker](https://docs.codetether.run/features/agent-worker/)                            |
-| 🔄 **RLM Guide**             | [RLM (Recursive Language Models)](docs/opencode-integration.md#rlm-recursive-language-models) |
+| 🔄 **RLM Guide**             | [RLM (Recursive Language Models)](docs/agent-integration.md#rlm-recursive-language-models) |
 | ⚡ **Zapier Integration**    | [Zapier](https://docs.codetether.run/features/zapier/)                                        |
 | 🎤 **Voice Agent**           | [Voice Agent](https://docs.codetether.run/features/voice-agent/)                              |
 | 📊 **Marketing Tools**       | [Marketing Tools](https://docs.codetether.run/features/marketing-tools/)                      |

@@ -166,7 +166,7 @@ curl -X POST http://localhost:5002/ \
 - Processes assigned tasks
 - Has a specialty (data-processing, analytics, etc.)
 - Reports completion back
-- **OpenCode Integration**: Can register local codebases and a "Global Codebase" for direct chat.
+- **CodeTether Integration**: Can register local codebases and a "Global Codebase" for direct chat.
 
 ### Monitor Agent
 - Tracks all events across the system
@@ -197,13 +197,13 @@ curl -X POST http://localhost:5002/ \
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Agent Workers & OpenCode
+### Agent Workers & CodeTether
 
-Distributed workers can now register their local OpenCode capabilities:
+Distributed workers can now register their local CodeTether capabilities:
 
 1. **Worker Registration**: Workers send their `worker_id`, `name`, `capabilities`, and `models` to the server.
 2. **Global Codebase**: Workers automatically register a `global_codebase_id` pointing to `~` to enable Direct Chat.
-3. **Model Discovery**: Available models (e.g., Gemini 3 Flash) are reported via the `/v1/opencode/workers/register` endpoint.
+3. **Model Discovery**: Available models (e.g., Gemini 3 Flash) are reported via the `/v1/agent/workers/register` endpoint.
 
 ## 🔑 Key Differences: Local vs Distributed A2A
 

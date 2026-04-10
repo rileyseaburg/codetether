@@ -23,8 +23,8 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 |----------|---------|-------------|
 | `DATABASE_URL` | — | PostgreSQL connection URL for durable persistence. Format: `postgresql://user:password@host:port/database`. When set, workers, codebases, tasks, and sessions survive server restarts and work across replicas. |
 | `A2A_DATABASE_URL` | — | Alias for `DATABASE_URL` |
-| `A2A_REDIS_URL` | `redis://localhost:6379` | Redis URL (shared state for multi-replica deployments; used by task queues and OpenCode worker/session sync) |
-| `OPENCODE_DB_PATH` | `./data/opencode.db` | SQLite database path for OpenCode codebases/tasks registry (fallback when PostgreSQL not configured) |
+| `A2A_REDIS_URL` | `redis://localhost:6379` | Redis URL (shared state for multi-replica deployments; used by task queues and CodeTether worker/session sync) |
+| `OPENCODE_DB_PATH` | `./data/agent.db` | SQLite database path for CodeTether codebases/tasks registry (fallback when PostgreSQL not configured) |
 
 ## Authentication
 
@@ -44,12 +44,12 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 | `MCP_HTTP_ENABLED` | `true` | Enable MCP |
 | `MCP_HTTP_PORT` | `9000` | MCP port |
 
-## OpenCode Integration
+## CodeTether Integration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCODE_HOST` | `localhost` | Host where OpenCode API runs (use `host.docker.internal` in Docker) |
-| `OPENCODE_PORT` | `9777` | OpenCode API port |
+| `OPENCODE_HOST` | `localhost` | Host where CodeTether API runs (use `host.docker.internal` in Docker) |
+| `OPENCODE_PORT` | `9777` | CodeTether API port |
 
 ## Worker SSE Configuration
 
@@ -66,7 +66,7 @@ See [Configuration](../getting-started/configuration.md) for detailed documentat
 | `A2A_SERVER_URL` | — | CodeTether server URL (required) |
 | `A2A_WORKER_NAME` | hostname | Worker identifier |
 | `A2A_POLL_INTERVAL` | `5` | Task polling interval in seconds (fallback for SSE) |
-| `A2A_OPENCODE_STORAGE_PATH` | auto-detect | Override OpenCode storage directory |
+| `A2A_OPENCODE_STORAGE_PATH` | auto-detect | Override CodeTether storage directory |
 | `A2A_SESSION_MESSAGE_SYNC_MAX_SESSIONS` | `3` | Recent sessions to sync messages for |
 | `A2A_SESSION_MESSAGE_SYNC_MAX_MESSAGES` | `100` | Recent messages per session to sync |
 

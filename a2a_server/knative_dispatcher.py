@@ -89,7 +89,10 @@ class CloudEventPublisher:
 
         try:
             session = await self._get_session()
-            async with session.post(self.broker_url, json=ce_payload) as resp:
+            timeout = aiohttp.ClientTimeout(total=5, connect=2)
+            async with session.post(
+                self.broker_url, json=ce_payload, timeout=timeout
+            ) as resp:
                 if resp.status >= 200 and resp.status < 300:
                     logger.info(
                         f"Published CloudEvent {event_id} (type={event_type}) to {self.broker_url}"
@@ -101,6 +104,11 @@ class CloudEventPublisher:
                         f"Failed to publish CloudEvent: status={resp.status}, body={body}"
                     )
                     return None
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Knative publish timed out (5s) for event {event_id}, will fallback to local queue"
+            )
+            return None
         except Exception as e:
             logger.error(f"Error publishing CloudEvent: {e}")
             return None

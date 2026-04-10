@@ -11,7 +11,7 @@ export interface Worker {
     status?: string
     codebases?: string[]
     last_seen?: string
-    worker_runtime?: 'rust' | 'opencode_python'
+    worker_runtime?: 'rust' | 'python'
     worker_runtime_label?: string
     is_sse_connected?: boolean
 }
@@ -52,7 +52,7 @@ function formatWorkerLabel(worker: Worker): string {
     const runtimeLabel =
         effectiveRuntimeLabel ||
         worker.worker_runtime_label ||
-        (worker.worker_runtime === 'rust' ? 'Rust Worker' : 'OpenCode Python Worker')
+        (worker.worker_runtime === 'rust' ? 'Rust Worker' : 'CodeTether Python Worker')
     const connectionLabel = isConnected(worker) ? 'connected' : 'not connected'
     const statusValue = worker.status || connectionLabel
     return `${displayName} - ${runtimeLabel} (${statusValue})`

@@ -23,16 +23,16 @@ logger = logging.getLogger(__name__)
 
 class MCPToolServer:
     """MCP server providing tools for A2A agents."""
-    
+
     def __init__(self, host: str = "localhost", port: int = 9000):
         self.host = host
         self.port = port
         self.server = Server("a2a-tools")
         self._setup_tools()
-        
+
     def _setup_tools(self):
         """Set up available tools."""
-        
+
         @self.server.tool()
         async def calculator(
             operation: str,
@@ -41,7 +41,7 @@ class MCPToolServer:
         ) -> str:
             """
             Perform mathematical calculations.
-            
+
             Args:
                 operation: The operation to perform (add, subtract, multiply, divide, square, sqrt)
                 a: First number
@@ -74,36 +74,31 @@ class MCPToolServer:
                     result = math.sqrt(a)
                 else:
                     return json.dumps({"error": f"Unknown operation: {operation}"})
-                
+
                 return json.dumps({"result": result, "operation": operation, "inputs": {"a": a, "b": b}})
-                
+
             except Exception as e:
                 return json.dumps({"error": f"Calculation error: {str(e)}"})
-        
+
         @self.server.tool()
         async def weather_info(location: str) -> str:
             """
-            Get weather information for a location (mock implementation).
-            
+            Get weather information for a location.
+            Requires WEATHER_API_KEY environment variable to be set.
+
             Args:
                 location: The location to get weather for
             """
-            # Mock weather data
-            mock_weather = {
-                "location": location,
-                "temperature": "22°C",
-                "condition": "Partly cloudy",
-                "humidity": "65%",
-                "wind": "10 km/h SW",
-                "timestamp": datetime.now().isoformat()
-            }
-            return json.dumps(mock_weather)
-        
+            api_key = os.environ.get('WEATHER_API_KEY')
+            if not api_key:
+                return json.dumps({"error": "Weather service not configured. Set WEATHER_API_KEY environment variable."})
+            return json.dumps({"error": "Weather API integration not yet implemented. Configure a weather provider."})
+
         @self.server.tool()
         async def text_analyzer(text: str) -> str:
             """
             Analyze text and provide statistics.
-            
+
             Args:
                 text: The text to analyze
             """
@@ -111,7 +106,7 @@ class MCPToolServer:
             sentences = text.split('.')
             chars = len(text)
             chars_no_spaces = len(text.replace(' ', ''))
-            
+
             analysis = {
                 "text": text,
                 "word_count": len(words),
@@ -122,7 +117,7 @@ class MCPToolServer:
                 "timestamp": datetime.now().isoformat()
             }
             return json.dumps(analysis)
-        
+
         @self.server.tool()
         async def memory_store(
             action: str,
@@ -131,7 +126,7 @@ class MCPToolServer:
         ) -> str:
             """
             Simple key-value memory store for agents.
-            
+
             Args:
                 action: Action to perform (store, retrieve, list, delete)
                 key: Key for store/retrieve/delete operations
@@ -139,14 +134,14 @@ class MCPToolServer:
             """
             if not hasattr(self, '_memory'):
                 self._memory = {}
-            
+
             try:
                 if action == "store":
                     if key is None or value is None:
                         return json.dumps({"error": "Store action requires both key and value"})
                     self._memory[key] = value
                     return json.dumps({"action": "store", "key": key, "value": value, "success": True})
-                
+
                 elif action == "retrieve":
                     if key is None:
                         return json.dumps({"error": "Retrieve action requires a key"})
@@ -154,11 +149,11 @@ class MCPToolServer:
                     if value is None:
                         return json.dumps({"action": "retrieve", "key": key, "found": False})
                     return json.dumps({"action": "retrieve", "key": key, "value": value, "found": True})
-                
+
                 elif action == "list":
                     keys = list(self._memory.keys())
                     return json.dumps({"action": "list", "keys": keys, "count": len(keys)})
-                
+
                 elif action == "delete":
                     if key is None:
                         return json.dumps({"error": "Delete action requires a key"})
@@ -166,17 +161,17 @@ class MCPToolServer:
                         del self._memory[key]
                         return json.dumps({"action": "delete", "key": key, "success": True})
                     return json.dumps({"action": "delete", "key": key, "success": False, "error": "Key not found"})
-                
+
                 else:
                     return json.dumps({"error": f"Unknown action: {action}"})
-                    
+
             except Exception as e:
                 return json.dumps({"error": f"Memory operation error: {str(e)}"})
-    
+
     async def run(self):
         """Run the MCP server."""
         logger.info(f"Starting MCP tool server")
-        
+
         async with stdio_server() as (read_stream, write_stream):
             await self.server.run(read_stream, write_stream)
 

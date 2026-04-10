@@ -522,7 +522,8 @@ class DispatchTaskRequest(BaseModel):
         max_length=50000,
     )
     agent_type: str = Field(
-        default='build', description='Type of agent to use (build, plan, general, explore)'
+        default='build',
+        description='Type of agent to use (build, plan, general, explore, forage)',
     )
     model: Optional[str] = Field(default=None, description='Model to use for execution')
     priority: int = Field(default=0, ge=0, le=100, description='Priority (higher = more urgent)')
@@ -542,6 +543,7 @@ class DispatchTaskResponse(BaseModel):
     status: str = Field(..., description='Task status')
     title: str
     description: str
+    result: Optional[str] = Field(default=None, description='Task result text when completed')
     created_at: str
     dispatched_via_knative: bool = Field(
         ..., description='Whether task was dispatched to Knative broker'
@@ -591,8 +593,8 @@ async def dispatch_task(
 
         await conn.execute(
             """
-            INSERT INTO tasks (id, title, prompt, agent_type, status, codebase_id, metadata, tenant_id, model, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, 'pending', $5, $6::jsonb, $7, $8, NOW(), NOW())
+            INSERT INTO tasks (id, title, prompt, agent_type, status, workspace_id, metadata, tenant_id, model, priority, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, 'pending', $5, $6::jsonb, $7, $8, $9, NOW(), NOW())
             """,
             task_id,
             request.title,
@@ -602,6 +604,7 @@ async def dispatch_task(
             json.dumps(request.metadata or {}),
             tenant_id,
             request.model,
+            request.priority,
         )
 
     # Dispatch to Knative
@@ -668,7 +671,7 @@ async def get_dispatched_task(
 
         row = await conn.fetchrow(
             """
-            SELECT id, title, prompt, agent_type, status, model, created_at
+            SELECT id, title, prompt, agent_type, status, model, result, created_at
             FROM tasks
             WHERE id = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
             """,
@@ -685,6 +688,7 @@ async def get_dispatched_task(
         status=row['status'],
         title=row['title'],
         description=row['prompt'],
+        result=row['result'],
         created_at=row['created_at'].isoformat(),
         dispatched_via_knative=False,  # Would need to track this in DB
     )

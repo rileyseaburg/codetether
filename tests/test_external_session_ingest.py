@@ -1,18 +1,18 @@
-"""Tests for ingesting non-OpenCode sessions (e.g. VS Code chat transcripts)."""
+"""Tests for ingesting non-CodeTether sessions (e.g. VS Code chat transcripts)."""
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from a2a_server.monitor_api import opencode_router
+from a2a_server.monitor_api import agent_router
 import a2a_server.monitor_api as monitor_api
 
 
 @pytest_asyncio.fixture
 async def client(monkeypatch):
     app = FastAPI()
-    app.include_router(opencode_router)
+    app.include_router(agent_router)
 
     # Ensure no Redis is consulted during tests.
     monkeypatch.delenv('A2A_REDIS_URL', raising=False)
@@ -61,7 +61,7 @@ async def test_ingest_external_session_persists_session_and_messages(monkeypatch
         ],
     }
 
-    resp = await client.post('/v1/opencode/codebases/cb_1/sessions/ses_1/ingest', json=payload)
+    resp = await client.post('/v1/agent/codebases/cb_1/sessions/ses_1/ingest', json=payload)
     assert resp.status_code == 200
     body = resp.json()
     assert body['success'] is True
@@ -96,18 +96,18 @@ async def test_ingest_external_session_requires_token_when_configured(monkeypatc
 
     payload = {'source': 'vscode.chat', 'session': {'title': 't'}, 'messages': []}
 
-    resp = await client.post('/v1/opencode/codebases/cb_1/sessions/ses_1/ingest', json=payload)
+    resp = await client.post('/v1/agent/codebases/cb_1/sessions/ses_1/ingest', json=payload)
     assert resp.status_code == 401
 
     resp = await client.post(
-        '/v1/opencode/codebases/cb_1/sessions/ses_1/ingest',
+        '/v1/agent/codebases/cb_1/sessions/ses_1/ingest',
         json=payload,
         headers={'Authorization': 'Bearer wrong'},
     )
     assert resp.status_code == 403
 
     resp = await client.post(
-        '/v1/opencode/codebases/cb_1/sessions/ses_1/ingest',
+        '/v1/agent/codebases/cb_1/sessions/ses_1/ingest',
         json=payload,
         headers={'Authorization': 'Bearer secret123'},
     )
@@ -153,7 +153,7 @@ async def test_list_sessions_merges_db_sessions_into_worker_sync(monkeypatch, cl
 
     monkeypatch.setattr(monitor_api.db, 'db_list_sessions', fake_db_list_sessions)
 
-    resp = await client.get(f'/v1/opencode/codebases/{codebase_id}/sessions')
+    resp = await client.get(f'/v1/agent/codebases/{codebase_id}/sessions')
     assert resp.status_code == 200
     body = resp.json()
     assert body['source'] == 'worker_sync'

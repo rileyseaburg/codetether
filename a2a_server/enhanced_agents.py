@@ -1,16 +1,16 @@
 """
-Enhanced A2A agents that use MCP tools to perform complex tasks.
+Enhanced A2A agents that perform tasks and communicate with other agents.
 """
 
 import asyncio
 import json
 import logging
+import math
 import re
 import uuid
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timedelta
 
-from .mock_mcp import get_mock_mcp_client, MockMCPClient, cleanup_mock_mcp_client
 from .models import Part, Message, Task, TaskStatus
 from .livekit_bridge import create_livekit_bridge, LiveKitBridge
 
@@ -18,22 +18,19 @@ logger = logging.getLogger(__name__)
 
 
 class EnhancedAgent:
-    """Base class for agents that can use MCP tools and communicate with other agents."""
+    """Base class for agents that communicate with other agents."""
 
     def __init__(self, name: str, description: str, message_broker=None):
         self.name = name
         self.description = description
-        self.mcp_client: Optional[MockMCPClient] = None
         self.message_broker = message_broker
         self._message_handlers: Dict[str, List[callable]] = {}
+        self._initialized = False
 
     async def initialize(self, message_broker=None):
-        """Initialize the agent with MCP client and message broker."""
-        try:
-            self.mcp_client = await get_mock_mcp_client()
-            logger.info(f"Agent {self.name} initialized with mock MCP tools")
-        except Exception as e:
-            logger.error(f"Failed to initialize mock MCP client for {self.name}: {e}")
+        """Initialize the agent and message broker."""
+        self._initialized = True
+        logger.info(f"Agent {self.name} initialized")
 
         # Set message broker if provided
         if message_broker:
@@ -173,7 +170,7 @@ class EnhancedAgent:
 
 
 class CalculatorAgent(EnhancedAgent):
-    """Agent that performs mathematical calculations using MCP tools."""
+    """Agent that performs mathematical calculations."""
 
     def __init__(self, message_broker=None):
         super().__init__(
@@ -186,10 +183,9 @@ class CalculatorAgent(EnhancedAgent):
         """Process calculation requests."""
         text = self._extract_text_content(message)
 
-        if not self.mcp_client:
+        if not self._initialized:
             await self.initialize()
 
-        # Parse mathematical expressions
         result_text = await self._handle_calculation_request(text)
 
         return Message(parts=[Part(type="text", content=result_text)])
@@ -199,21 +195,19 @@ class CalculatorAgent(EnhancedAgent):
         text_lower = text.lower()
 
         try:
-            # Simple arithmetic patterns
             if "add" in text_lower or "+" in text:
-                return await self._handle_arithmetic(text, "add")
+                return self._arithmetic(text, "add")
             elif "subtract" in text_lower or "-" in text:
-                return await self._handle_arithmetic(text, "subtract")
+                return self._arithmetic(text, "subtract")
             elif "multiply" in text_lower or "*" in text or "times" in text_lower:
-                return await self._handle_arithmetic(text, "multiply")
+                return self._arithmetic(text, "multiply")
             elif "divide" in text_lower or "/" in text:
-                return await self._handle_arithmetic(text, "divide")
+                return self._arithmetic(text, "divide")
             elif "square root" in text_lower or "sqrt" in text_lower:
-                return await self._handle_square_root(text)
+                return self._square_root(text)
             elif "square" in text_lower:
-                return await self._handle_square(text)
+                return self._square(text)
             else:
-                # Try to detect numbers and suggest operations
                 numbers = re.findall(r'-?\d+\.?\d*', text)
                 if len(numbers) >= 2:
                     return f"I found numbers {numbers} in your message. Please specify what operation you'd like me to perform (add, subtract, multiply, divide)."
@@ -226,90 +220,47 @@ class CalculatorAgent(EnhancedAgent):
             logger.error(f"Error in calculation: {e}")
             return f"Sorry, I encountered an error while processing your calculation: {str(e)}"
 
-    async def _handle_arithmetic(self, text: str, operation: str) -> str:
+    def _arithmetic(self, text: str, operation: str) -> str:
         """Handle basic arithmetic operations."""
         numbers = re.findall(r'-?\d+\.?\d*', text)
-
         if len(numbers) < 2:
             return f"I need two numbers to perform {operation}. Please provide both numbers."
+        a, b = float(numbers[0]), float(numbers[1])
+        ops = {"add": a + b, "subtract": a - b, "multiply": a * b}
+        if operation == "divide":
+            if b == 0:
+                return "Cannot divide by zero."
+            result = a / b
+        else:
+            result = ops[operation]
+        return f"Calculation: {a} {operation} {b} = {result}"
 
-        try:
-            a = float(numbers[0])
-            b = float(numbers[1])
-
-            if self.mcp_client:
-                result = await self.mcp_client.calculator(operation, a, b)
-                if result.get("success"):
-                    calc_result = result["result"]
-                    if "error" in calc_result:
-                        return f"Calculation error: {calc_result['error']}"
-                    return f"Calculation: {a} {operation} {b} = {calc_result['result']}"
-                else:
-                    return f"Error calling calculator tool: {result.get('error', 'Unknown error')}"
-            else:
-                return "Calculator tools are not available. Please try again."
-
-        except ValueError:
-            return "Please provide valid numbers for the calculation."
-
-    async def _handle_square_root(self, text: str) -> str:
+    def _square_root(self, text: str) -> str:
         """Handle square root operations."""
         numbers = re.findall(r'-?\d+\.?\d*', text)
-
-        if len(numbers) < 1:
+        if not numbers:
             return "I need a number to find its square root."
+        a = float(numbers[0])
+        if a < 0:
+            return "Cannot take square root of a negative number."
+        return f"Square root of {a} = {math.sqrt(a)}"
 
-        try:
-            a = float(numbers[0])
-
-            if self.mcp_client:
-                result = await self.mcp_client.calculator("sqrt", a)
-                if result.get("success"):
-                    calc_result = result["result"]
-                    if "error" in calc_result:
-                        return f"Calculation error: {calc_result['error']}"
-                    return f"Square root of {a} = {calc_result['result']}"
-                else:
-                    return f"Error calling calculator tool: {result.get('error', 'Unknown error')}"
-            else:
-                return "Calculator tools are not available. Please try again."
-
-        except ValueError:
-            return "Please provide a valid number for the square root calculation."
-
-    async def _handle_square(self, text: str) -> str:
+    def _square(self, text: str) -> str:
         """Handle square operations."""
         numbers = re.findall(r'-?\d+\.?\d*', text)
-
-        if len(numbers) < 1:
+        if not numbers:
             return "I need a number to square it."
-
-        try:
-            a = float(numbers[0])
-
-            if self.mcp_client:
-                result = await self.mcp_client.calculator("square", a)
-                if result.get("success"):
-                    calc_result = result["result"]
-                    if "error" in calc_result:
-                        return f"Calculation error: {calc_result['error']}"
-                    return f"{a} squared = {calc_result['result']}"
-                else:
-                    return f"Error calling calculator tool: {result.get('error', 'Unknown error')}"
-            else:
-                return "Calculator tools are not available. Please try again."
-
-        except ValueError:
-            return "Please provide a valid number for the square calculation."
+        a = float(numbers[0])
+        return f"{a} squared = {a ** 2}"
 
 
 class AnalysisAgent(EnhancedAgent):
-    """Agent that analyzes text and provides weather information using MCP tools."""
+    """Agent that analyzes text."""
 
     def __init__(self, message_broker=None):
         super().__init__(
             name="Analysis Agent",
-            description="Analyzes text and provides weather information",
+            description="Analyzes text and provides statistics",
             message_broker=message_broker
         )
 
@@ -317,215 +268,99 @@ class AnalysisAgent(EnhancedAgent):
         """Process analysis requests."""
         text = self._extract_text_content(message)
 
-        if not self.mcp_client:
+        if not self._initialized:
             await self.initialize()
 
-        result_text = await self._handle_analysis_request(text)
-
+        result_text = self._analyze_text(text)
         return Message(parts=[Part(type="text", content=result_text)])
 
-    async def _handle_analysis_request(self, text: str) -> str:
-        """Handle various types of analysis requests."""
-        text_lower = text.lower()
-
-        try:
-            if "weather" in text_lower:
-                return await self._handle_weather_request(text)
-            elif "analyze" in text_lower or "analysis" in text_lower:
-                return await self._handle_text_analysis(text)
-            else:
-                # Default to text analysis
-                return await self._handle_text_analysis(text)
-
-        except Exception as e:
-            logger.error(f"Error in analysis: {e}")
-            return f"Sorry, I encountered an error while processing your request: {str(e)}"
-
-    async def _handle_weather_request(self, text: str) -> str:
-        """Handle weather information requests."""
-        # Extract location from text (simple pattern matching)
-        location_patterns = [
-            r"weather in (.+)",
-            r"weather for (.+)",
-            r"weather at (.+)",
-        ]
-
-        location = None
-        for pattern in location_patterns:
-            match = re.search(pattern, text.lower())
-            if match:
-                location = match.group(1).strip()
-                break
-
-        if not location:
-            location = "unknown location"
-
-        if self.mcp_client:
-            result = await self.mcp_client.get_weather(location)
-            if result.get("success"):
-                weather_data = result["result"]
-                return f"Weather for {weather_data['location']}: {weather_data['temperature']}, {weather_data['condition']}. Humidity: {weather_data['humidity']}, Wind: {weather_data['wind']}"
-            else:
-                return f"Error getting weather information: {result.get('error', 'Unknown error')}"
-        else:
-            return "Weather tools are not available. Please try again."
-
-    async def _handle_text_analysis(self, text: str) -> str:
-        """Handle text analysis requests."""
-        if self.mcp_client:
-            result = await self.mcp_client.analyze_text(text)
-            if result.get("success"):
-                analysis = result["result"]
-                return f"Text Analysis: {analysis['word_count']} words, {analysis['sentence_count']} sentences, {analysis['character_count']} characters. Average word length: {analysis['average_word_length']:.1f} characters."
-            else:
-                return f"Error analyzing text: {result.get('error', 'Unknown error')}"
-        else:
-            return "Text analysis tools are not available. Please try again."
+    def _analyze_text(self, text: str) -> str:
+        """Analyze text and return statistics."""
+        words = text.split()
+        sentences = [s for s in text.split('.') if s.strip()]
+        chars = len(text)
+        avg_word_len = sum(len(w) for w in words) / len(words) if words else 0
+        return (
+            f"Text Analysis: {len(words)} words, {len(sentences)} sentences, "
+            f"{chars} characters. Average word length: {avg_word_len:.1f} characters."
+        )
 
 
 class MemoryAgent(EnhancedAgent):
-    """Agent that manages memory and data storage using MCP tools."""
+    """Agent that manages in-memory key-value storage for other agents."""
 
     def __init__(self, message_broker=None):
         super().__init__(
             name="Memory Agent",
-            description="Manages memory and data storage for other agents",
+            description="Manages key-value storage for other agents",
             message_broker=message_broker
         )
+        self._memory: Dict[str, Any] = {}
 
     async def process_message(self, message: Message) -> Message:
         """Process memory management requests."""
         text = self._extract_text_content(message)
 
-        if not self.mcp_client:
+        if not self._initialized:
             await self.initialize()
 
-        result_text = await self._handle_memory_request(text)
-
+        result_text = self._handle_memory_request(text)
         return Message(parts=[Part(type="text", content=result_text)])
 
-    async def _handle_memory_request(self, text: str) -> str:
+    def _handle_memory_request(self, text: str) -> str:
         """Handle various types of memory requests."""
         text_lower = text.lower()
 
-        try:
-            if "store" in text_lower or "save" in text_lower or "remember" in text_lower:
-                return await self._handle_store_request(text)
-            elif "retrieve" in text_lower or "get" in text_lower or "recall" in text_lower:
-                return await self._handle_retrieve_request(text)
-            elif "list" in text_lower or "show" in text_lower:
-                return await self._handle_list_request()
-            elif "delete" in text_lower or "remove" in text_lower or "forget" in text_lower:
-                return await self._handle_delete_request(text)
-            else:
-                return "I can help you store, retrieve, list, or delete information. Please specify what you'd like me to do."
+        if "store" in text_lower or "save" in text_lower or "remember" in text_lower:
+            return self._store(text)
+        elif "retrieve" in text_lower or "get" in text_lower or "recall" in text_lower:
+            return self._retrieve(text)
+        elif "list" in text_lower or "show" in text_lower:
+            return self._list_keys()
+        elif "delete" in text_lower or "remove" in text_lower or "forget" in text_lower:
+            return self._delete(text)
+        else:
+            return "I can help you store, retrieve, list, or delete information. Please specify what you'd like me to do."
 
-        except Exception as e:
-            logger.error(f"Error in memory operation: {e}")
-            return f"Sorry, I encountered an error while processing your memory request: {str(e)}"
-
-    async def _handle_store_request(self, text: str) -> str:
+    def _store(self, text: str) -> str:
         """Handle store requests."""
-        # Simple pattern matching for key-value pairs
-        store_patterns = [
-            r"store (.+) as (.+)",
-            r"save (.+) as (.+)",
-            r"remember (.+) as (.+)",
-        ]
-
-        for pattern in store_patterns:
+        for pattern in [r"store (.+) as (.+)", r"save (.+) as (.+)", r"remember (.+) as (.+)"]:
             match = re.search(pattern, text.lower())
             if match:
-                value = match.group(1).strip()
-                key = match.group(2).strip()
-
-                if self.mcp_client:
-                    result = await self.mcp_client.memory_operation("store", key, value)
-                    if result.get("success"):
-                        mem_result = result["result"]
-                        if mem_result.get("success"):
-                            return f"Stored '{value}' with key '{key}'"
-                        else:
-                            return f"Error storing data: {mem_result.get('error', 'Unknown error')}"
-                    else:
-                        return f"Error calling memory tool: {result.get('error', 'Unknown error')}"
-                else:
-                    return "Memory tools are not available. Please try again."
-
+                value, key = match.group(1).strip(), match.group(2).strip()
+                self._memory[key] = value
+                return f"Stored '{value}' with key '{key}'"
         return "Please use the format: 'store [value] as [key]' or 'save [value] as [key]'"
 
-    async def _handle_retrieve_request(self, text: str) -> str:
+    def _retrieve(self, text: str) -> str:
         """Handle retrieve requests."""
-        # Extract key from text
-        retrieve_patterns = [
-            r"retrieve (.+)",
-            r"get (.+)",
-            r"recall (.+)",
-        ]
-
-        for pattern in retrieve_patterns:
+        for pattern in [r"retrieve (.+)", r"get (.+)", r"recall (.+)"]:
             match = re.search(pattern, text.lower())
             if match:
                 key = match.group(1).strip()
-
-                if self.mcp_client:
-                    result = await self.mcp_client.memory_operation("retrieve", key)
-                    if result.get("success"):
-                        mem_result = result["result"]
-                        if mem_result.get("found"):
-                            return f"Retrieved '{key}': {mem_result['value']}"
-                        else:
-                            return f"No data found for key '{key}'"
-                    else:
-                        return f"Error calling memory tool: {result.get('error', 'Unknown error')}"
-                else:
-                    return "Memory tools are not available. Please try again."
-
+                value = self._memory.get(key)
+                if value is not None:
+                    return f"Retrieved '{key}': {value}"
+                return f"No data found for key '{key}'"
         return "Please specify what you'd like to retrieve: 'retrieve [key]' or 'get [key]'"
 
-    async def _handle_list_request(self) -> str:
+    def _list_keys(self) -> str:
         """Handle list requests."""
-        if self.mcp_client:
-            result = await self.mcp_client.memory_operation("list")
-            if result.get("success"):
-                mem_result = result["result"]
-                keys = mem_result.get("keys", [])
-                if keys:
-                    return f"Stored keys ({len(keys)}): {', '.join(keys)}"
-                else:
-                    return "No data stored in memory"
-            else:
-                return f"Error calling memory tool: {result.get('error', 'Unknown error')}"
-        else:
-            return "Memory tools are not available. Please try again."
+        keys = list(self._memory.keys())
+        if keys:
+            return f"Stored keys ({len(keys)}): {', '.join(keys)}"
+        return "No data stored in memory"
 
-    async def _handle_delete_request(self, text: str) -> str:
+    def _delete(self, text: str) -> str:
         """Handle delete requests."""
-        # Extract key from text
-        delete_patterns = [
-            r"delete (.+)",
-            r"remove (.+)",
-            r"forget (.+)",
-        ]
-
-        for pattern in delete_patterns:
+        for pattern in [r"delete (.+)", r"remove (.+)", r"forget (.+)"]:
             match = re.search(pattern, text.lower())
             if match:
                 key = match.group(1).strip()
-
-                if self.mcp_client:
-                    result = await self.mcp_client.memory_operation("delete", key)
-                    if result.get("success"):
-                        mem_result = result["result"]
-                        if mem_result.get("success"):
-                            return f"Deleted key '{key}'"
-                        else:
-                            return f"Key '{key}' not found"
-                    else:
-                        return f"Error calling memory tool: {result.get('error', 'Unknown error')}"
-                else:
-                    return "Memory tools are not available. Please try again."
-
+                if key in self._memory:
+                    del self._memory[key]
+                    return f"Deleted key '{key}'"
+                return f"Key '{key}' not found"
         return "Please specify what you'd like to delete: 'delete [key]' or 'remove [key]'"
 
 
@@ -874,7 +709,7 @@ async def get_agent(agent_type: str, message_broker=None) -> Optional[EnhancedAg
         initialize_agent_registry(message_broker)
 
     agent = ENHANCED_AGENTS.get(agent_type)
-    if agent and not agent.mcp_client:
+    if agent and not agent._initialized:
         await agent.initialize(message_broker)
     return agent
 
@@ -916,4 +751,4 @@ async def initialize_all_agents(message_broker=None):
 
 async def cleanup_all_agents():
     """Clean up all agent resources."""
-    await cleanup_mock_mcp_client()
+    pass

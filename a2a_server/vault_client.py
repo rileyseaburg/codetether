@@ -18,7 +18,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 
@@ -335,23 +335,79 @@ async def delete_user_api_key(user_id: str, provider_id: str) -> bool:
 
 async def list_user_api_keys(user_id: str) -> List[str]:
     """List all configured provider IDs for a user."""
+    provider_ids, _, _ = await list_user_api_keys_with_diagnostics(user_id)
+    return provider_ids
+
+
+async def list_user_api_keys_with_diagnostics(
+    user_id: str,
+) -> Tuple[List[str], Optional[str], Optional[int]]:
+    """List configured provider IDs for a user with Vault error diagnostics.
+
+    Returns:
+        (provider_ids, error_message, status_code)
+    """
     client = get_vault_client()
     path = _user_api_keys_path(user_id)
-    keys = await client.list_secrets(path)
-    # Remove trailing slashes from list output
-    return [k.rstrip('/') for k in keys]
+    token = await client._get_token()
+
+    if not token:
+        return [], 'Vault authentication unavailable', 401
+
+    session = await client._get_session()
+    headers = {'X-Vault-Token': token}
+    url = f'{client.addr}/v1/{VAULT_MOUNT_PATH}/metadata/{path}'
+
+    try:
+        async with session.request('LIST', url, headers=headers) as resp:
+            if resp.status == 200:
+                payload = await resp.json()
+                keys = payload.get('data', {}).get('keys', [])
+                return [k.rstrip('/') for k in keys], None, 200
+            if resp.status == 404:
+                # Path not found means user has no keys yet.
+                return [], None, 404
+
+            error_text = await resp.text()
+            if resp.status == 403:
+                message = 'Vault token is not authorized to access API key storage'
+            elif resp.status == 401:
+                message = 'Vault authentication failed'
+            else:
+                message = f'Vault request failed ({resp.status})'
+
+            logger.error(
+                f'Vault API key list request failed: {resp.status} - {error_text}'
+            )
+            return [], message, resp.status
+    except Exception as e:
+        logger.error(f'Vault API key list request error: {e}')
+        return [], f'Vault request error: {e}', None
 
 
-async def get_all_user_api_keys(user_id: str) -> Dict[str, Dict[str, Any]]:
-    """Get all API keys for a user."""
-    provider_ids = await list_user_api_keys(user_id)
+async def get_all_user_api_keys_with_diagnostics(
+    user_id: str,
+) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], Optional[int]]:
+    """Get all API keys for a user with Vault error diagnostics."""
+    provider_ids, list_error, status_code = (
+        await list_user_api_keys_with_diagnostics(user_id)
+    )
 
-    keys = {}
+    if list_error:
+        return {}, list_error, status_code
+
+    keys: Dict[str, Dict[str, Any]] = {}
     for pid in provider_ids:
         key_data = await get_user_api_key(user_id, pid)
         if key_data:
             keys[pid] = key_data
 
+    return keys, None, status_code
+
+
+async def get_all_user_api_keys(user_id: str) -> Dict[str, Dict[str, Any]]:
+    """Get all API keys for a user."""
+    keys, _, _ = await get_all_user_api_keys_with_diagnostics(user_id)
     return keys
 
 
@@ -399,11 +455,6 @@ async def get_user_agent_provider_config(
     return provider_config
 
 
-# =============================================================================
-# Worker Sync Functions
-# =============================================================================
-
-
 async def get_worker_sync_data(user_id: str) -> Dict[str, Any]:
     """
     Get all data needed for a worker to sync a user's API keys.
@@ -430,8 +481,10 @@ async def get_worker_sync_data(user_id: str) -> Dict[str, Any]:
 # =============================================================================
 
 
-async def check_vault_connection() -> Dict[str, Any]:
-    """Check Vault connectivity and authentication status."""
+async def check_vault_connection(
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Check Vault connectivity/authentication and optional key access."""
     client = get_vault_client()
 
     try:
@@ -449,12 +502,25 @@ async def check_vault_connection() -> Dict[str, Any]:
         # Check if we can authenticate
         token = await client._get_token()
 
-        return {
+        status: Dict[str, Any] = {
             'connected': connected,
             'authenticated': token is not None,
             'vault_addr': client.addr,
             'health': health,
         }
+
+        # Optional: check whether this specific user can access API key storage.
+        if user_id and token is not None:
+            _, access_error, access_status = (
+                await list_user_api_keys_with_diagnostics(user_id)
+            )
+            status['authorized'] = access_error is None
+            if access_error:
+                status['authorization_error'] = access_error
+            if access_status is not None:
+                status['authorization_status'] = access_status
+
+        return status
     except Exception as e:
         return {
             'connected': False,

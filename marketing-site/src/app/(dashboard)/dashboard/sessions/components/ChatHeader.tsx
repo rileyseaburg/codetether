@@ -11,8 +11,8 @@ import VoiceChatButton from '../../components/voice/VoiceChatButton'
 
 interface Props {
     selectedSession: Session | null
-    selectedCodebase?: string
-    selectedCodebaseName?: string
+    selectedWorkspace?: string
+    selectedWorkspaceName?: string
     selectedMode: string
     selectedModel: string
     suggestedModels: string[]
@@ -33,7 +33,7 @@ interface Props {
 
 /**
  * ChatHeader component displays the header for a chat session.
- * Shows session title, ID, codebase info, message count, and update timestamp.
+ * Shows session title, ID, workspace info, message count, and update timestamp.
  * Provides controls for mode/model selection, session actions, RLM inspector toggle,
  * and mobile-friendly controls dialog.
  */
@@ -46,7 +46,7 @@ export function ChatHeader(p: Props) {
     const updatedLabel = sessionUpdated ? formatDate(sessionUpdated) : ''
     const sessionId = p.selectedSession?.id
     const sessionIdShort = sessionId ? sessionId.slice(0, 8) : ''
-    const codebaseLabel = p.selectedCodebaseName || (p.selectedCodebase ? 'Unnamed codebase' : 'No codebase')
+    const workspaceLabel = p.selectedWorkspaceName || (p.selectedWorkspace ? 'Unnamed workspace' : 'No workspace')
     const hasSession = !!p.selectedSession
 
     return (
@@ -82,8 +82,8 @@ export function ChatHeader(p: Props) {
                             </div>
                             <div className="mt-1 hidden flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400 sm:flex">
                                 <span className="inline-flex items-center gap-1">
-                                    <span className="text-gray-400">Codebase</span>
-                                    <span className="font-medium text-gray-700 dark:text-gray-200">{codebaseLabel}</span>
+                                    <span className="text-gray-400">Workspace</span>
+                                    <span className="font-medium text-gray-700 dark:text-gray-200">{workspaceLabel}</span>
                                 </span>
                                 {hasSession && (
                                     <>
@@ -108,7 +108,7 @@ export function ChatHeader(p: Props) {
                             {/* Mobile Resume button removed - sending a message resumes the session implicitly */}
                             {p.selectedSession && (
                                 <VoiceChatButton
-                                    codebaseId={p.selectedCodebase}
+                                    codebaseId={p.selectedWorkspace}
                                     sessionId={p.selectedSession.id}
                                     mode="chat"
                                     compact
@@ -183,7 +183,7 @@ export function ChatHeader(p: Props) {
                             onRefresh={p.onRefresh}
                             sessionTitle={sessionTitle}
                             sessionId={p.selectedSession.id}
-                            codebaseId={p.selectedCodebase}
+                            codebaseId={p.selectedWorkspace}
                         />
                     )}
                 </div>
@@ -258,7 +258,7 @@ export function ChatHeader(p: Props) {
                                     onRefresh={p.onRefresh}
                                     sessionTitle={sessionTitle}
                                     sessionId={p.selectedSession.id}
-                                    codebaseId={p.selectedCodebase}
+                                    codebaseId={p.selectedWorkspace}
                                 />
                             )}
 

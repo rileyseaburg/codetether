@@ -18,7 +18,7 @@ CodeTether Server can be installed in several ways depending on your needs.
 The pip package installs the **Agent Worker** - the component that executes tasks on machines where your code lives. The server itself is typically deployed via Docker or Kubernetes.
 
 !!! info "What's in the pip package?"
-    - `codetether-worker` — Agent worker CLI that polls for tasks and runs OpenCode
+    - `codetether-worker` — Agent worker CLI that polls for tasks and runs CodeTether
     - `codetether` — Server CLI (for local development/testing)
     - `a2a-server` — Alias for server CLI
 
@@ -156,12 +156,12 @@ Run the server:
 codetether --port 8000
 ```
 
-## OpenCode (Local Fork)
+## CodeTether (Local Fork)
 
-CodeTether includes a maintained fork of OpenCode in the `opencode/` directory. To build it:
+CodeTether includes a maintained fork of CodeTether in the `agent/` directory. To build it:
 
 ```bash
-cd opencode
+cd agent
 
 # Install dependencies
 bun install
@@ -170,18 +170,18 @@ bun install
 bun run build
 
 # Verify installation
-opencode --version
+agent --version
 ```
 
-For more details, see [OpenCode Integration](../features/opencode.md).
+For more details, see [CodeTether Integration](../features/agent.md).
 
 ## Agent Worker (systemd, Linux)
 
-The agent worker executes OpenCode tasks on machines where your code lives. It polls the server for tasks and runs them in the configured codebase directories.
+The agent worker executes CodeTether tasks on machines where your code lives. It polls the server for tasks and runs them in the configured codebase directories.
 
 ### Prerequisites
 
-1. [Build OpenCode from the local fork](#opencode-local-fork)
+1. [Build CodeTether from the local fork](#agent-local-fork)
 2. Python 3.10+ with a virtual environment
 
 ### Installation
@@ -268,4 +268,4 @@ curl http://localhost:8000/.well-known/agent-card.json
 
 - [Quick Start](quickstart.md) — Run your first agent task
 - [Configuration](configuration.md) — Configure authentication, Redis, and more
-- [OpenCode Integration](../features/opencode.md) — Set up AI coding agents
+- [CodeTether Integration](../features/agent.md) — Set up AI coding agents

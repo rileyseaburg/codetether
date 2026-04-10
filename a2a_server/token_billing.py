@@ -49,7 +49,7 @@ class TokenCounts:
                     return v
             return 0
 
-        # Handle nested 'cache' object (opencode format)
+        # Handle nested 'cache' object (agent format)
         cache = data.get('cache')
         if isinstance(cache, dict):
             cache_read = cache.get('read') or 0

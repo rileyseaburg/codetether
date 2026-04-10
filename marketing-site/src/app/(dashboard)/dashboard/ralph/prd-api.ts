@@ -59,7 +59,7 @@ export async function pollTask(taskId: string): Promise<TaskResponse> {
     return task
 }
 
-export function parseOpenCodeResult(result: string): string {
+export function parseCodeTetherResult(result: string): string {
     if (!result) return 'No response'
     if (!result.trim().startsWith('{')) return result
     const textParts: string[] = []

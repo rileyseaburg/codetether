@@ -41,7 +41,7 @@ The `scaffolds/` directory contains starter projects that PRDs operate against. 
 
 ## Results Schema
 
-Results are stored in the opencode benchmark table with this structure:
+Results are stored in the agent benchmark table with this structure:
 
 ```json
 {

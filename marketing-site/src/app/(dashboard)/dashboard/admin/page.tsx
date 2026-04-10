@@ -3,15 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
-  getAdminDashboardV1AdminDashboardGet,
-  getSystemAlertsV1AdminAlertsGet,
-  listTenantsV1AdminTenantsGet,
-  listUsersV1AdminUsersGet,
-  listK8sInstancesV1AdminInstancesGet,
-  suspendInstanceV1AdminInstancesNamespaceSuspendPost,
-  resumeInstanceV1AdminInstancesNamespaceResumePost,
-  deleteInstanceV1AdminInstancesNamespaceDelete,
+    getAdminDashboardV1AdminDashboardGet,
+    getSystemAlertsV1AdminAlertsGet,
+    listTenantsV1AdminTenantsGet,
+    listUsersV1AdminUsersGet,
+    listK8sInstancesV1AdminInstancesGet,
+    suspendInstanceV1AdminInstancesNamespaceSuspendPost,
+    resumeInstanceV1AdminInstancesNamespaceResumePost,
+    deleteInstanceV1AdminInstancesNamespaceDelete,
 } from '@/lib/api'
 
 interface UserStats {
@@ -160,9 +161,9 @@ export default function AdminDashboard() {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
     // Check if user has admin role
-    const isAdmin = (session?.user as any)?.roles?.includes('admin') || 
-                    (session?.user as any)?.roles?.includes('a2a-admin') ||
-                    (session?.user as any)?.role === 'admin'
+    const isAdmin = (session?.user as any)?.roles?.includes('admin') ||
+        (session?.user as any)?.roles?.includes('a2a-admin') ||
+        (session?.user as any)?.role === 'admin'
 
     useEffect(() => {
         if (status === 'loading') return
@@ -170,14 +171,14 @@ export default function AdminDashboard() {
             router.push('/login')
             return
         }
-        
+
         // Check if token refresh failed - force re-login
         if ((session as any)?.error === 'RefreshAccessTokenError') {
             console.error('Token refresh failed, signing out...')
             signOut({ callbackUrl: '/login?error=session_expired' })
             return
         }
-        
+
         if (!isAdmin) {
             router.push('/dashboard')
             return
@@ -194,11 +195,11 @@ export default function AdminDashboard() {
             console.log('Admin dashboard - full session:', JSON.stringify(session, null, 2))
             console.log('Admin dashboard - token:', token ? `${token.substring(0, 50)}...` : 'NO TOKEN')
             console.log('Admin dashboard - session keys:', session ? Object.keys(session) : 'no session')
-            
+
             if (!token) {
                 throw new Error('No access token available')
             }
-            
+
             const headers = {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -321,7 +322,7 @@ export default function AdminDashboard() {
         if (activeTab === 'instances') fetchInstances()
     }, [activeTab])
 
-     if (status === 'loading' || loading) {
+    if (status === 'loading' || loading) {
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
@@ -348,7 +349,7 @@ export default function AdminDashboard() {
                     <AlertIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Error Loading Dashboard</h2>
                     <p className="text-gray-600 dark:text-gray-400 mt-2">{error}</p>
-                     <button
+                    <button
                         onClick={fetchDashboardData}
                         className="mt-4 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
                     >
@@ -363,17 +364,31 @@ export default function AdminDashboard() {
         <div className="h-full flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-                 <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                     <ShieldIcon className="h-8 w-8 text-cyan-600" />
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
                 </div>
-                <button
-                    onClick={fetchDashboardData}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                    <RefreshIcon className="h-4 w-4" />
-                    Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                    <Link
+                        href="/dashboard/admin/users"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                    >
+                        User Management
+                    </Link>
+                    <Link
+                        href="/dashboard/admin/policies"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-800 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/50"
+                    >
+                        OPA Policy Editor
+                    </Link>
+                    <button
+                        onClick={fetchDashboardData}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                        <RefreshIcon className="h-4 w-4" />
+                        Refresh
+                    </button>
+                </div>
             </div>
 
             {/* Alerts */}
@@ -382,11 +397,10 @@ export default function AdminDashboard() {
                     {alerts.map((alert, idx) => (
                         <div
                             key={idx}
-                            className={`p-4 rounded-lg flex items-start gap-3 ${
-                                alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' :
-                                alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
-                                'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
-                            }`}
+                            className={`p-4 rounded-lg flex items-start gap-3 ${alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' :
+                                    alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+                                        'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+                                }`}
                         >
                             <AlertIcon className="h-5 w-5 flex-shrink-0 mt-0.5" />
                             <div>
@@ -462,12 +476,11 @@ export default function AdminDashboard() {
                     <div className="flex flex-wrap gap-4">
                         {Object.entries(dashboardData.subscriptions.subscriptions_by_tier).map(([tier, count]) => (
                             <div key={tier} className="flex items-center gap-2">
-                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                    tier === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
-                                    tier === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                                    tier === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                }`}>
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${tier === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
+                                        tier === 'enterprise' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
+                                            tier === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                    }`}>
                                     {tier}: {count}
                                 </span>
                             </div>
@@ -483,11 +496,10 @@ export default function AdminDashboard() {
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`py-2 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                                activeTab === tab
+                            className={`py-2 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === tab
                                     ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
                                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                            }`}
+                                }`}
                         >
                             {tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
@@ -534,12 +546,10 @@ export default function AdminDashboard() {
                                             <p className="font-medium text-gray-900 dark:text-white">{tenant.display_name || 'Unnamed'}</p>
                                             <p className="text-sm text-gray-500 dark:text-gray-400">{tenant.realm_name}</p>
                                         </div>
-                                        <span className={`px-2 py-1 text-xs rounded-full ${
-                                                tenant.plan === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
-                                            tenant.plan === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                                            tenant.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                        }`}>
+                                        <span className={`px-2 py-1 text-xs rounded-full ${tenant.plan === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
+                                                tenant.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}>
                                             {tenant.plan || 'free'}
                                         </span>
                                     </div>
@@ -610,12 +620,10 @@ export default function AdminDashboard() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                            tenant.plan === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
-                                                tenant.plan === 'agency' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                                                tenant.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                            }`}>
+                                            <span className={`px-2 py-1 text-xs rounded-full ${tenant.plan === 'enterprise' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300' :
+                                                    tenant.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                }`}>
                                                 {tenant.plan || 'free'}
                                             </span>
                                         </td>
@@ -625,7 +633,7 @@ export default function AdminDashboard() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             {new Date(tenant.created_at).toLocaleDateString()}
                                         </td>
-                                         <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             {tenant.k8s_external_url ? (
                                                 <a href={tenant.k8s_external_url} target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline">
                                                     {tenant.k8s_external_url}
@@ -661,11 +669,10 @@ export default function AdminDashboard() {
                                             {instance.namespace}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                                instance.status === 'running' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                                instance.status === 'suspended' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                            }`}>
+                                            <span className={`px-2 py-1 text-xs rounded-full ${instance.status === 'running' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                                                    instance.status === 'suspended' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
+                                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                }`}>
                                                 {instance.status}
                                             </span>
                                         </td>

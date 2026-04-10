@@ -622,7 +622,7 @@ export default function BenchmarksPage() {
                         <div className="mt-8 rounded-2xl bg-gray-950 border border-gray-800 p-6 text-left">
                             <pre className="text-sm text-gray-300 overflow-x-auto">
                                 <code>{`# Install CodeTether
-curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent.sh | bash
 
 # Run benchmarks with your model
 codetether benchmark \\

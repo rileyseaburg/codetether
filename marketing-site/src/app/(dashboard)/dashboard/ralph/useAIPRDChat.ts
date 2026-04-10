@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { generateUUID } from './utils'
 import { useRalphStore } from './store'
-import { useCodebases } from '../sessions/hooks/useCodebases'
 import { prdChatV1RalphChatPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 type Role = 'user' | 'assistant' | 'system'
@@ -129,13 +128,12 @@ When you have enough information, generate a PRD in this JSON format:
 
 Keep responses concise. Ask one or two questions at a time. When ready to generate the PRD, include the JSON block in your response.`
 
-export function useAIPRDChat(selectedCodebase: string) {
+export function useAIPRDChat(selectedWorkspace: string) {
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [generatedPRD, setGeneratedPRD] = useState<GeneratedPRD | null>(null)
     const { messagesEndRef, scrollToBottom } = useChatScroll()
     const { selectedModel, selectedWorker } = useRalphStore()
-    const { codebases } = useCodebases()
 
     useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
@@ -203,7 +201,8 @@ export function useAIPRDChat(selectedCodebase: string) {
                     history: history,
                     model: selectedModel || undefined,
                     worker_id: selectedWorker || undefined,
-                    codebase_id: selectedCodebase && selectedCodebase !== 'global' ? selectedCodebase : undefined,
+                    // Backend request key is still `codebase_id` for compatibility.
+                    codebase_id: selectedWorkspace && selectedWorkspace !== 'global' ? selectedWorkspace : undefined,
                 }
             })
 

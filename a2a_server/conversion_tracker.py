@@ -30,6 +30,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -433,6 +435,10 @@ class ConversionTracker:
 
             logger.debug('FunnelBrain state snapshot saved: %s', snapshot_id)
 
+        except CircuitBreakerOpenError:
+            logger.debug('FunnelBrain snapshot skipped: marketing-site circuit breaker open')
+        except httpx.RequestError as e:
+            logger.info('FunnelBrain snapshot skipped: marketing-site unavailable (%s)', e)
         except Exception as e:
             logger.warning('FunnelBrain snapshot fetch error: %s', e)
 

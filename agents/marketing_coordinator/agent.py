@@ -3,7 +3,7 @@
 Marketing Coordinator Agent
 
 Strategic marketing orchestration agent that coordinates initiatives
-by creating tasks for workers to execute via OpenCode.
+by creating tasks for workers to execute via CodeTether.
 
 Uses Azure AI Foundry with Claude Opus 4.5 for reasoning.
 Delegates work to workers through the A2A task queue.
@@ -165,7 +165,7 @@ class MarketingCoordinatorAgent:
 
         Args:
             title: Task title
-            prompt: The prompt/instructions for the worker (executed via OpenCode)
+            prompt: The prompt/instructions for the worker (executed via CodeTether)
             agent_type: Type of agent (build, plan, general, explore)
             codebase_id: Target codebase (defaults to spotlessbinco)
             priority: Task priority (higher = more urgent)
@@ -187,7 +187,7 @@ class MarketingCoordinatorAgent:
 
         try:
             async with session.post(
-                f'{self.config.a2a_server_url}/v1/opencode/tasks',
+                f'{self.config.a2a_server_url}/v1/agent/tasks',
                 json=payload,
             ) as resp:
                 if resp.status in (200, 201):
@@ -219,7 +219,7 @@ class MarketingCoordinatorAgent:
 
         try:
             async with session.get(
-                f'{self.config.a2a_server_url}/v1/opencode/tasks/{task_id}',
+                f'{self.config.a2a_server_url}/v1/agent/tasks/{task_id}',
             ) as resp:
                 if resp.status == 200:
                     return await resp.json()
@@ -285,7 +285,7 @@ class MarketingCoordinatorAgent:
         """
         Create a task to generate an ad creative.
 
-        The worker will execute this via OpenCode, which will call the
+        The worker will execute this via CodeTether, which will call the
         spotless_generate_creative MCP tool.
         """
         prompt = f"""Use the spotless_generate_creative MCP tool to generate an ad creative.

@@ -3,13 +3,13 @@
 **Windows (PowerShell):**
 
 ```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode.ps1" -UseBasicParsing).Content
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent.ps1" -UseBasicParsing).Content
 ```
 
 **Windows (Git Bash):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-opencode-windows.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/scripts/install-agent-windows.sh | bash
 ```
 
 ## What's Changed
@@ -19,4 +19,4 @@ curl -fsSL https://raw.githubusercontent.com/rileyseaburg/A2A-Server-MCP/main/sc
 - Fixed image support for Kimi K2.5 model
 - Added Windows install scripts (PowerShell & Git Bash)
 
-**Full Changelog**: https://github.com/rileyseaburg/codetether/compare/opencode-v1.1.26...opencode-v1.1.27
+**Full Changelog**: https://github.com/rileyseaburg/codetether/compare/agent-v1.1.26...codetether-v1.1.27

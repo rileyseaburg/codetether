@@ -12,6 +12,10 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch"]
+  # Workspace PVC management for persistent Knative workspaces
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
   # Knative Serving - manage Services (workers)
   - apiGroups: ["serving.knative.dev"]
     resources: ["services"]
@@ -57,6 +61,9 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["get", "list", "watch"]

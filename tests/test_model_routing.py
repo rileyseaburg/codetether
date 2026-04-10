@@ -158,8 +158,8 @@ class TestModelRefNormalization:
             assert model, f'Model is empty: {model_ref}'
 
 
-class TestModelRefToOpenCode:
-    """Test conversion from provider:model to provider/model (OpenCode format)."""
+class TestModelRefToCodeTether:
+    """Test conversion from provider:model to provider/model (CodeTether format)."""
 
     def test_colon_to_slash_conversion(self):
         """Test basic colon -> slash conversion."""
@@ -173,14 +173,14 @@ class TestModelRefToOpenCode:
             ('azure:my-deployment', 'azure/my-deployment'),
         ]
 
-        for codetether_format, opencode_format in conversions:
+        for codetether_format, agent_format in conversions:
             # Simulate the conversion
             if ':' in codetether_format:
                 result = codetether_format.replace(':', '/', 1)
             else:
                 result = codetether_format
-            assert result == opencode_format, (
-                f'Expected {opencode_format}, got {result}'
+            assert result == agent_format, (
+                f'Expected {agent_format}, got {result}'
             )
 
     def test_only_first_colon_replaced(self):

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { API_URL, Codebase, Session } from '../types'
+import { API_URL, Workspace, Session } from '../types'
 
 export interface RLMStep {
     id: string
@@ -17,8 +17,8 @@ export interface RLMStats {
 }
 
 interface Props {
-    selectedCodebase: string
-    selectedCodebaseMeta: Codebase | null
+    selectedWorkspace: string
+    selectedWorkspaceMeta: Workspace | null
     selectedSession: Session | null
     onIdle: () => void
 }
@@ -30,7 +30,7 @@ const MAX_RECONNECT_ATTEMPTS = 10
 // Note: RLM steps/stats are only populated from explicit RLM tool events (part.tool with tool_name='rlm',
 // or rlm.step/rlm.stats/rlm.routing events), NOT from parsing text deltas which could be any tool output.
 
-export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selectedSession, onIdle }: Props) {
+export function useSessionStream({ selectedWorkspace, selectedWorkspaceMeta, selectedSession, onIdle }: Props) {
     const [streamConnected, setStreamConnected] = useState(false)
     const [streamStatus, setStreamStatus] = useState('')
     const [liveDraft, setLiveDraft] = useState('')
@@ -53,13 +53,13 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
         if (timeout.current) clearTimeout(timeout.current)
         setStreamConnected(false); setStreamStatus(''); setLiveDraft('')
         attempts.current = 0
-        if (!selectedCodebase || !selectedSession || !selectedCodebaseMeta) return
-        if (!selectedCodebaseMeta.worker_id && !selectedCodebaseMeta.opencode_port) { setStreamStatus('Unavailable'); return }
+        if (!selectedWorkspace || !selectedSession || !selectedWorkspaceMeta) return
+        if (!selectedWorkspaceMeta.worker_id && !selectedWorkspaceMeta.agent_port) { setStreamStatus('Unavailable'); return }
 
         const connect = () => {
             // Handle relative API URLs by resolving against window.location
             const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
-            const es = new EventSource(`${baseApiUrl}/v1/opencode/codebases/${selectedCodebase}/events`)
+            const es = new EventSource(`${baseApiUrl}/v1/agent/workspaces/${selectedWorkspace}/events`)
             esRef.current = es
 
             es.onopen = () => {
@@ -86,7 +86,7 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
             const handler = (e: MessageEvent) => {
                 // Handle NDJSON (newline-delimited JSON) - multiple events can arrive in one message
                 const lines = (e.data || '').split('\n').filter((line: string) => line.trim())
-                
+
                 for (const line of lines) {
                     try {
                         const d = JSON.parse(line)
@@ -116,15 +116,15 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                     }
                     if (t === 'part.text' || t === 'text') {
                         // Extract text from various event formats:
-                        // 1. OpenCode format: { part: { text: "..." } }
+                        // 1. CodeTether format: { part: { text: "..." } }
                         // 2. Direct delta: { delta: "..." }
                         // 3. Direct content: { content: "..." }
                         // 4. Direct text: { text: "..." }
                         const part = d?.part as Record<string, unknown> | undefined
-                        const delta = (part && typeof part === 'object' ? part.text : null) 
-                            || d?.delta 
-                            || d?.content 
-                            || d?.text 
+                        const delta = (part && typeof part === 'object' ? part.text : null)
+                            || d?.delta
+                            || d?.content
+                            || d?.text
                             || ''
                         if (!delta) return // Skip empty deltas
                         setLiveDraft((p) => p + delta)
@@ -135,7 +135,7 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                     if (t === 'part.tool' && d?.tool_name === 'rlm') {
                         const metadata = (d?.metadata || {}) as Record<string, unknown>
                         const status = (d?.status || 'running') as string
-                        
+
                         // Extract RLM stats from tool metadata
                         if (metadata.iteration !== undefined || metadata.totalSubcalls !== undefined) {
                             setRlmStats({
@@ -151,10 +151,10 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                         // Add step based on RLM execution state
                         if (status === 'running' && metadata.iteration) {
                             const stdout = metadata.stdout as string | undefined
-                            const stepContent = stdout 
+                            const stepContent = stdout
                                 ? stdout.slice(0, 500) + (stdout.length > 500 ? '...' : '')
                                 : `Iteration ${metadata.iteration}/${metadata.maxIterations || 20}`
-                            
+
                             setRlmSteps(prev => {
                                 const exists = prev.some(s => s.id === `rlm-iter-${metadata.iteration}`)
                                 if (exists) return prev
@@ -216,13 +216,13 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                             subcalls: { completed: (d.subcalls_completed as number) || 0, total: (d.subcalls_total as number) || 0 },
                         })
                     }
-                    
+
                     // Handle RLM routing decision events
                     if (t === 'rlm.routing') {
                         const decision = d.decision as string // 'routed' or 'passthrough'
                         const reason = d.reason as string
                         const tokens = (d.estimated_tokens as number) || 0
-                        
+
                         // Add routing decision step to show in pane
                         if (decision === 'routed') {
                             setRlmSteps(prev => {
@@ -246,7 +246,7 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
                     console.error('Failed to process event:', err)
                 }
             }
-            ;['status', 'idle', 'message', 'part.text', 'part.tool', 'rlm.routing'].forEach((e) => es.addEventListener(e, handler))
+                ;['status', 'idle', 'message', 'part.text', 'part.tool', 'rlm.routing'].forEach((e) => es.addEventListener(e, handler))
         }
 
         connect()
@@ -255,8 +255,8 @@ export function useSessionStream({ selectedCodebase, selectedCodebaseMeta, selec
             esRef.current?.close()
             if (timeout.current) clearTimeout(timeout.current)
         }
-    // onIdle is accessed via ref, so not needed in deps
-    }, [selectedCodebase, selectedCodebaseMeta, selectedSession])
+        // onIdle is accessed via ref, so not needed in deps
+    }, [selectedWorkspace, selectedWorkspaceMeta, selectedSession])
 
     return {
         streamConnected,

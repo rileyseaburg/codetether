@@ -177,10 +177,46 @@ function ClockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function TargetIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0-4a8 8 0 100 16 8 8 0 000-16zm0 6a2 2 0 110 4 2 2 0 010-4z" />
+        </svg>
+    )
+}
+
+function SwarmIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+    )
+}
+
+function PlugIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+    )
+}
+
+function LockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+    )
+}
+
 const navigation = [
     { name: 'Get Started', href: '/dashboard/getting-started', icon: RocketIcon, highlight: true },
-    { name: 'Codebases', href: '/dashboard', icon: FolderIcon },
+    { name: 'Workspaces', href: '/dashboard', icon: FolderIcon },
     { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
+    { name: 'OKR', href: '/dashboard/okr', icon: TargetIcon, highlight: true },
+    { name: 'Swarm', href: '/dashboard/swarm', icon: SwarmIcon, highlight: true },
+    { name: 'MCP Tools', href: '/dashboard/mcp', icon: PlugIcon, highlight: true },
+    { name: 'Security', href: '/dashboard/security', icon: LockIcon, highlight: true },
     { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
     { name: 'Cognition', href: '/dashboard/cognition', icon: BrainIcon },
     { name: 'Avatar', href: '/dashboard/avatar', icon: AvatarIcon, highlight: true },
@@ -393,7 +429,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             <div className="grid grid-cols-2 gap-2 text-center">
                                 <div className="rounded-lg bg-white/5 p-2">
                                     <div className="text-lg font-bold text-white">0</div>
-                                    <div className="text-xs text-cyan-200">Codebases</div>
+                                    <div className="text-xs text-cyan-200">Workspaces</div>
                                 </div>
                                 <div className="rounded-lg bg-white/5 p-2">
                                     <div className="text-lg font-bold text-white">0</div>
