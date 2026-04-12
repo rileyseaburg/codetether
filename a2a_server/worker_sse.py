@@ -30,6 +30,8 @@ from fastapi import APIRouter, HTTPException, Request, Query, Header
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
+from .task_routing import is_targeted_clone_task, target_agent_mismatch
+
 logger = logging.getLogger(__name__)
 
 # Router for worker SSE endpoints
@@ -170,17 +172,28 @@ class WorkerRegistry:
                 target_worker_id = str(
                     task_metadata.get('target_worker_id') or ''
                 ).strip()
+                worker = await self.get_worker(worker_id)
                 if target_worker_id and target_worker_id != worker_id:
                     logger.debug(
                         f'Worker {worker_id} skipped task {task_id} '
                         f'(target_worker_id={target_worker_id})'
                     )
                     return False
+                task_target_agent = getattr(
+                    task, 'target_agent_name', None
+                ) or task_metadata.get('target_agent_name')
+                if target_agent_mismatch(
+                    worker.agent_name if worker else None, task_target_agent
+                ):
+                    logger.debug(
+                        f'Worker {worker_id} skipped task {task_id} '
+                        f'(target_agent_name={task_target_agent})'
+                    )
+                    return False
 
                 codebase_id = task.codebase_id
                 # Check if this is a restricted codebase (not global/__pending__)
                 if codebase_id and codebase_id not in ('global', '__pending__'):
-                    worker = await self.get_worker(worker_id)
                     if not worker:
                         # Worker not SSE-connected; allow claim anyway so
                         # polling-only / reconnecting workers aren't locked out.
@@ -353,6 +366,7 @@ class WorkerRegistry:
         target_agent_name: Optional[str] = None,
         target_worker_id: Optional[str] = None,
         required_capabilities: Optional[List[str]] = None,
+        task_agent_type: Optional[str] = None,
     ) -> List[ConnectedWorker]:
         """
         Get workers available to accept a new task.
@@ -396,6 +410,10 @@ class WorkerRegistry:
                     # Special codebase IDs that any worker can handle
                     if codebase_id in ('global', '__pending__'):
                         pass  # Any worker can handle these
+                    elif is_targeted_clone_task(
+                        task_agent_type, target_agent_name, target_worker_id
+                    ):
+                        pass
                     elif codebase_id in worker.codebases:
                         pass  # Worker explicitly registered this codebase
                     elif await self._worker_owns_codebase(
@@ -546,6 +564,7 @@ class WorkerRegistry:
             target_agent_name=target_agent_name,
             target_worker_id=target_worker_id,
             required_capabilities=required_capabilities,
+            task_agent_type=task.get('agent_type'),
         )
         notified = []
 
@@ -933,6 +952,9 @@ async def worker_task_stream(
                         can_handle = (
                             task_codebase in ('__pending__', 'global')
                             or task_codebase in worker_codebases
+                            or is_targeted_clone_task(
+                                task.agent_type, task_target_agent
+                            )
                         )
 
                         if (
@@ -1181,6 +1203,17 @@ async def release_task(
             logger.error(
                 f'Failed to update task {release.task_id} status: {e}'
             )
+        if release.status in {'completed', 'failed', 'cancelled'}:
+            try:
+                from .github_app.task_status_hook import handle_github_app_terminal_task
+
+                await handle_github_app_terminal_task(release.task_id)
+            except Exception as e:
+                logger.exception(
+                    'GitHub App terminal task hook failed for %s: %s',
+                    release.task_id,
+                    e,
+                )
 
         # Record result for perpetual loop iterations (if applicable)
         try:
