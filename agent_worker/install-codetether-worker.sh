@@ -133,6 +133,15 @@ else
     # Auto-detect: check workspace build, then cargo target, then system PATH
     FOUND=0
 
+    # Check workspace debug build first (preferred during active local development)
+    WORKSPACE_DEBUG_BIN="$SCRIPT_DIR/../codetether-agent/target/debug/codetether"
+    if [[ -f "$WORKSPACE_DEBUG_BIN" ]]; then
+        cp "$WORKSPACE_DEBUG_BIN" "$INSTALL_DIR/bin/codetether"
+        chmod +x "$INSTALL_DIR/bin/codetether"
+        log_info "Installed from workspace debug build: $WORKSPACE_DEBUG_BIN"
+        FOUND=1
+    fi
+
     # Check workspace release build
     WORKSPACE_BIN="$SCRIPT_DIR/../codetether-agent/target/release/codetether"
     if [[ -f "$WORKSPACE_BIN" ]]; then
