@@ -49,8 +49,10 @@ try:
         vm_workspace_provisioner,
         is_enabled as is_vm_workspaces_enabled,
     )
-except ImportError:
-    class VMWorkspaceSpec(BaseModel):
+except ModuleNotFoundError:
+    @dataclass
+    class VMWorkspaceSpec:
+        """Fallback VM spec used when VM workspace support is unavailable."""
         cpu_cores: int = 2
         memory: str = '8Gi'
         disk_size: str = '30Gi'
@@ -59,18 +61,21 @@ except ImportError:
         ssh_user: str = 'coder'
 
     class _UnavailableVMWorkspaceProvisioner:
-        async def provision_workspace_vm(self, **kwargs):
-            raise RuntimeError('VM workspace provisioning is unavailable')
+        """Stub provisioner for environments without VM workspace support."""
 
-        async def get_vm_status(self, *args, **kwargs):
+        async def provision_workspace_vm(self, **_: Any):
+            raise RuntimeError('VM workspace provisioning module is unavailable')
+
+        async def get_vm_status(self, *_: Any):
             return 'unavailable'
 
-        async def delete_workspace_vm(self, **kwargs):
+        async def delete_workspace_vm(self, **_: Any):
             return False
 
     vm_workspace_provisioner = _UnavailableVMWorkspaceProvisioner()
 
     def is_vm_workspaces_enabled() -> bool:
+        """Report VM workspace provisioning as disabled when the module is absent."""
         return False
 
 logger = logging.getLogger(__name__)
