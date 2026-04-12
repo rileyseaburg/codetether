@@ -6,7 +6,6 @@ from .auth import github_json
 from .context import MentionContext
 from .issue_clone_task import create_issue_clone_task
 from .issue_prompt import accepted_issue_message, issue_branch
-from .issue_watch import monitor_issue_fix
 from .prompt import accepted_message
 from .watch import monitor_pr_fix, post_issue_comment
 from .workspace import create_clone_task, ensure_workspace
@@ -31,5 +30,4 @@ async def handle_fix_request(context: MentionContext, token: str) -> dict:
     wid = await ensure_workspace(context, checkout)
     clone_task_id = await create_issue_clone_task(context, issue, repo, wid, branch)
     await post_issue_comment(context.repo_full_name, context.issue_number, token, accepted_issue_message(issue, branch))
-    asyncio.create_task(monitor_issue_fix(context, issue, repo, wid, clone_task_id, branch, token))
     return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}
