@@ -14,7 +14,7 @@ PREFERRED_AGENTS = tuple(
     part.strip()
     for part in os.environ.get(
         'GITHUB_APP_PREFERRED_AGENTS',
-        'ubuntu-dev,codetether-build,knative-worker',
+        'codetether-build,ubuntu-dev,knative-worker',
     ).split(',')
     if part.strip()
 )
