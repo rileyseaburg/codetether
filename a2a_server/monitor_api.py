@@ -6718,7 +6718,7 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
         try:
             from .github_app.task_status_hook import handle_github_app_terminal_task
 
-            await handle_github_app_terminal_task(task_id)
+            await handle_github_app_terminal_task(task_id, update.worker_id)
         except Exception as exc:
             logger.exception(
                 'GitHub App completion notification failed for task %s: %s',

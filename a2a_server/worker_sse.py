@@ -1207,7 +1207,10 @@ async def release_task(
             try:
                 from .github_app.task_status_hook import handle_github_app_terminal_task
 
-                await handle_github_app_terminal_task(release.task_id)
+                await handle_github_app_terminal_task(
+                    release.task_id,
+                    resolved_worker_id,
+                )
             except Exception as e:
                 logger.exception(
                     'GitHub App terminal task hook failed for %s: %s',
