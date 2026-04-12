@@ -1544,7 +1544,9 @@ def get_agent_bridge():
                             'id': task.id,
                             'title': task.title,
                             'description': task.prompt,
-                            'workspace_id': task.workspace_id,
+                            'workspace_id': getattr(
+                                task, 'codebase_id', None
+                            ),
                             'agent_type': task.agent_type,
                             'model': task.model,
                             'priority': task.priority,
@@ -1691,12 +1693,13 @@ class WorkspaceRegistration(BaseModel):
     """Request model for registering a workspace."""
 
     name: str
+    workspace_id: Optional[str] = None
     path: str = ''  # Can be empty when git_url is provided
     description: str = ''
     agent_config: Dict[str, Any] = {}
     worker_id: Optional[str] = None  # Associate with a specific worker
     git_url: Optional[str] = None  # HTTPS Git URL to clone
-    git_branch: str = 'main'
+    git_branch: Optional[str] = None
     git_token: Optional[str] = None  # Access token (stored in Vault, not DB)
     runtime: Literal['container', 'vm'] = 'container'
     vm: Optional[Dict[str, Any]] = None
@@ -2733,9 +2736,8 @@ async def register_workspace(registration: WorkspaceRegistration):
             )
 
         import hashlib
-        workspace_id = hashlib.sha256(
-            registration.git_url.encode()
-        ).hexdigest()[:16]
+        workspace_key = f'{registration.git_url}::{registration.git_branch or "main"}'
+        workspace_id = hashlib.sha256(workspace_key.encode()).hexdigest()[:16]
 
         # Store Git token in Vault if provided (never persisted in DB)
         if registration.git_token:
@@ -2897,16 +2899,37 @@ async def register_workspace(registration: WorkspaceRegistration):
                 _normalize_workspace_path(registration.path) or registration.path
             )
 
-            # If we've seen this path before (e.g., after a server restart), reuse
-            # the existing workspace ID from PostgreSQL to prevent duplicates.
-            existing_id: Optional[str] = None
-            try:
-                existing = await db.db_list_workspaces_by_path(normalized_path)
-                if existing:
-                    # Prefer most recently updated entry.
-                    existing_id = existing[0].get('id')
-            except Exception:
-                existing_id = None
+            desired_id: Optional[str] = registration.workspace_id
+            if not desired_id and registration.git_url:
+                import hashlib
+
+                workspace_key = (
+                    f'{registration.git_url}::{registration.git_branch or "main"}'
+                )
+                desired_id = hashlib.sha256(workspace_key.encode()).hexdigest()[:16]
+
+            if not desired_id:
+                try:
+                    existing = await db.db_list_workspaces_by_path(normalized_path)
+                    if existing:
+                        desired_id = existing[0].get('id')
+                except Exception:
+                    desired_id = None
+
+            existing_workspace = None
+            if desired_id:
+                try:
+                    existing_workspace = await db.db_get_workspace(desired_id)
+                except Exception:
+                    existing_workspace = None
+            resolved_git_branch = (
+                registration.git_branch
+                or (existing_workspace or {}).get('git_branch')
+                or 'main'
+            )
+            resolved_git_url = registration.git_url or (existing_workspace or {}).get(
+                'git_url'
+            )
 
             workspace = await bridge.register_workspace(
                 name=registration.name,
@@ -2914,16 +2937,36 @@ async def register_workspace(registration: WorkspaceRegistration):
                 description=registration.description,
                 agent_config=registration.agent_config,
                 worker_id=registration.worker_id,
-                workspace_id=existing_id,
+                workspace_id=desired_id,
             )
 
             workspace_dict = workspace.to_dict()
+            if resolved_git_url:
+                workspace_dict['git_url'] = resolved_git_url
+            if resolved_git_url or existing_workspace:
+                workspace_dict['git_branch'] = resolved_git_branch
+            workspace_dict['status'] = 'active'
 
             # Primary persistence: PostgreSQL
             await db.db_upsert_workspace(workspace_dict)
 
             # Secondary: Redis for distributed session sync
             await _redis_upsert_workspace_meta(workspace_dict)
+            try:
+                from .worker_sse import get_worker_registry
+
+                registry = get_worker_registry()
+                worker = await registry.get_worker(registration.worker_id)
+                if worker:
+                    codebases = set(worker.codebases)
+                    codebases.add(workspace.id)
+                    await registry.update_worker_codebases(
+                        registration.worker_id, codebases
+                    )
+            except Exception as e:
+                logger.debug(
+                    f'Failed to refresh worker {registration.worker_id} codebases: {e}'
+                )
 
             await monitoring_service.log_message(
                 agent_name='CodeTether Agent',
@@ -3004,6 +3047,14 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
     workspace = bridge.get_workspace(workspace_id)
     if workspace:
         workspace_dict = workspace.to_dict()
+        try:
+            db_workspace = await db.db_get_workspace(workspace_id)
+        except Exception:
+            db_workspace = None
+        if db_workspace:
+            for key in ('git_url', 'git_branch', 'status', 'description', 'agent_config'):
+                if not workspace_dict.get(key) and db_workspace.get(key) is not None:
+                    workspace_dict[key] = db_workspace[key]
         if include_runtime_status:
             runtime_meta = _extract_workspace_runtime_meta(workspace_dict)
             if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
@@ -4141,14 +4192,9 @@ def _is_recent_heartbeat(
 
 
 async def _validate_target_worker_is_available(
-    metadata: Dict[str, Any],
+    metadata: Dict[str, Any], *, strict: bool = False
 ) -> None:
-    """Validate target worker availability; fall back to auto-select if unavailable.
-
-    Instead of rejecting with 409, this removes the target_worker_id from
-    metadata so the task gets routed to any available worker.  A warning is
-    stored in metadata['_routing_warning'] for the caller to surface.
-    """
+    """Validate target worker availability for routed tasks."""
     target_worker_id = metadata.get('target_worker_id')
     if not target_worker_id:
         return
@@ -4158,24 +4204,19 @@ async def _validate_target_worker_is_available(
         return
 
     try:
-        from .worker_sse import get_worker_registry
-
-        registry = get_worker_registry()
-        sse_workers = await registry.list_workers()
+        target_worker = await db.db_get_worker(target_worker_id)
     except Exception as e:
-        # Cannot validate — fall back to auto-select rather than 503
-        logger.warning(f'Cannot validate target worker availability: {e}; falling back to auto-select')
-        metadata.pop('target_worker_id', None)
-        metadata['_routing_warning'] = f'Could not validate target worker; auto-selecting.'
-        return
+        target_worker = None
+        logger.debug(f'Failed to load target worker {target_worker_id} from DB: {e}')
 
-    target_worker = next(
-        (w for w in sse_workers if str(w.get('worker_id') or '') == target_worker_id),
-        None,
-    )
     if not target_worker:
+        if strict:
+            raise HTTPException(
+                status_code=409,
+                detail=f'Target worker "{target_worker_id}" is not connected.',
+            )
         logger.info(
-            f'Target worker "{target_worker_id}" is not connected via SSE; falling back to auto-select'
+            f'Target worker "{target_worker_id}" is not connected; falling back to auto-select'
         )
         metadata.pop('target_worker_id', None)
         metadata['_routing_warning'] = (
@@ -4183,8 +4224,13 @@ async def _validate_target_worker_is_available(
         )
         return
 
-    last_heartbeat = target_worker.get('last_heartbeat')
+    last_heartbeat = target_worker.get('last_seen') or target_worker.get('last_heartbeat')
     if not _is_recent_heartbeat(str(last_heartbeat) if last_heartbeat else None):
+        if strict:
+            raise HTTPException(
+                status_code=409,
+                detail=f'Target worker "{target_worker_id}" has a stale heartbeat.',
+            )
         logger.info(
             f'Target worker "{target_worker_id}" has stale heartbeat ({last_heartbeat}); falling back to auto-select'
         )
@@ -4298,7 +4344,10 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
         model_ref=task_data.model_ref,
         worker_personality=task_data.worker_personality,
     )
-    await _validate_target_worker_is_available(routed_metadata)
+    await _validate_target_worker_is_available(
+        routed_metadata,
+        strict=task_data.agent_type != 'clone_repo',
+    )
 
     task = await bridge.create_task(
         codebase_id=workspace_id,
@@ -7904,18 +7953,19 @@ async def get_session_worker_status(
 
 
 AVAILABLE_VOICES = [
-    {'id': 'puck', 'name': 'Puck', 'description': 'Friendly and approachable'},
-    {'id': 'charon', 'name': 'Charon', 'description': 'Deep and authoritative'},
-    {'id': 'kore', 'name': 'Kore', 'description': 'Warm and conversational'},
-    {'id': 'fenrir', 'name': 'Fenrir', 'description': 'Energetic and dynamic'},
-    {'id': 'aoede', 'name': 'Aoede', 'description': 'Calm and soothing'},
+    {
+        'id': '960f89fc',
+        'name': 'Riley',
+        'description': 'Local Qwen TTS cloned voice',
+    },
 ]
 
 
 class VoiceSessionRequest(BaseModel):
     workspace_id: Optional[str] = None
+    worker_id: Optional[str] = None
     session_id: Optional[str] = None
-    voice: str = 'puck'
+    voice: str = '960f89fc'
     mode: str = 'chat'
     playback_style: str = 'verbatim'
     user_id: Optional[str] = None
@@ -8002,14 +8052,19 @@ async def create_voice_session(request: VoiceSessionRequest):
         )
 
     room_name = f'voice-{uuid.uuid4().hex[:12]}'
+    workspace_id = request.workspace_id.strip() if request.workspace_id else None
+    worker_id = request.worker_id.strip() if request.worker_id else None
 
     metadata = {
         'voice': request.voice,
         'mode': request.mode,
         'playback_style': request.playback_style,
-        'workspace_id': request.workspace_id,
+        'workspace_id': workspace_id,
+        'codebase_id': workspace_id,
         'session_id': request.session_id,
         'user_id': request.user_id,
+        'worker_id': worker_id,
+        'target_worker_id': worker_id,
     }
 
     try:
@@ -8120,6 +8175,7 @@ async def get_voice_session(room_name: str, user_id: Optional[str] = None):
         'mode': metadata.get('mode'),
         'playback_style': metadata.get('playback_style'),
         'workspace_id': metadata.get('workspace_id'),
+        'worker_id': metadata.get('worker_id'),
         'session_id': metadata.get('session_id'),
         'livekit_url': bridge.public_url,
     }
