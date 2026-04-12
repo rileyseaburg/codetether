@@ -3081,10 +3081,16 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
             db_workspace = await db.db_get_workspace(workspace_id)
         except Exception:
             db_workspace = None
-        if db_workspace:
+        try:
+            redis_workspace = await _redis_get_workspace_meta(workspace_id)
+        except Exception:
+            redis_workspace = None
+        for source in (db_workspace, redis_workspace):
+            if not source:
+                continue
             for key in ('git_url', 'git_branch', 'status', 'description', 'agent_config'):
-                if not workspace_dict.get(key) and db_workspace.get(key) is not None:
-                    workspace_dict[key] = db_workspace[key]
+                if not workspace_dict.get(key) and source.get(key) is not None:
+                    workspace_dict[key] = source[key]
         if include_runtime_status:
             runtime_meta = _extract_workspace_runtime_meta(workspace_dict)
             if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
@@ -3098,6 +3104,11 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
     # Check PostgreSQL
     db_workspace = await db.db_get_workspace(workspace_id)
     if db_workspace:
+        redis_workspace = await _redis_get_workspace_meta(workspace_id)
+        if redis_workspace:
+            for key in ('git_url', 'git_branch', 'status', 'description', 'agent_config'):
+                if not db_workspace.get(key) and redis_workspace.get(key) is not None:
+                    db_workspace[key] = redis_workspace[key]
         if include_runtime_status:
             runtime_meta = _extract_workspace_runtime_meta(db_workspace)
             if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
