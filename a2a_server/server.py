@@ -71,6 +71,17 @@ from .finops_api import router as finops_router
 from .a2a_agent_card import a2a_agent_card_router
 from .ralph_api import ralph_router
 from .okr_api import okr_router
+try:
+    from .github_app import (
+        github_git_credentials_router,
+        github_webhook_router,
+    )
+
+    GITHUB_APP_ROUTES_AVAILABLE = True
+except ImportError:
+    github_git_credentials_router = None
+    github_webhook_router = None
+    GITHUB_APP_ROUTES_AVAILABLE = False
 
 # Import OAuth 2.1 provider for MCP protocol compliance
 try:
@@ -572,6 +583,12 @@ class A2AServer:
 
         # Include billing webhook routes for Stripe
         self.app.include_router(billing_webhook_router)
+
+        # Include GitHub App webhook + Git credential broker routes
+        if GITHUB_APP_ROUTES_AVAILABLE and github_webhook_router and github_git_credentials_router:
+            self.app.include_router(github_webhook_router)
+            self.app.include_router(github_git_credentials_router)
+            logger.info('GitHub App routes mounted at /v1/webhooks/github and /v1/agent/workspaces/*/git/credentials')
 
         # Include token billing API routes for per-token usage tracking
         self.app.include_router(token_billing_router)
