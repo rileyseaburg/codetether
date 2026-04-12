@@ -6647,19 +6647,16 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
     )
 
     if update.status in {'completed', 'failed', 'cancelled'}:
-        task_dict = task.to_dict()
-        metadata = task_dict.get('metadata') or {}
-        if metadata.get('source') == 'github-app':
-            try:
-                from .github_app.task_completion import notify_issue_task_completion
+        try:
+            from .github_app.task_status_hook import handle_github_app_terminal_task
 
-                await notify_issue_task_completion(task_dict)
-            except Exception as exc:
-                logger.exception(
-                    'GitHub App completion notification failed for task %s: %s',
-                    task_id,
-                    exc,
-                )
+            await handle_github_app_terminal_task(task_id)
+        except Exception as exc:
+            logger.exception(
+                'GitHub App completion notification failed for task %s: %s',
+                task_id,
+                exc,
+            )
 
     return {'success': True, 'task': task.to_dict()}
 
