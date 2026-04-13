@@ -486,6 +486,12 @@ format: ## Format code
 PYTHON ?= $(shell if [ -f venv/bin/python3 ]; then echo venv/bin/python3; else echo python3; fi)
 CODETETHER_RUST_BIN ?= ./codetether-agent/target/debug/codetether
 WORKER_NAME ?= local-worker
+ANNOTATION_WORKSPACE ?= /home/riley/data-annotation
+ANNOTATION_SERVER_URL ?= https://api.codetether.run
+ANNOTATION_WORKER_NAME ?= annotation-browser-worker
+ANNOTATION_AUTO_APPROVE ?= all
+ANNOTATION_BROWSERCTL_BASE ?= http://127.0.0.1:4478
+ANNOTATION_BROWSERCTL_TOKEN ?=
 
 .PHONY: run
 run: ## Run the server locally
@@ -733,6 +739,37 @@ worker: ## Run a local Rust codetether A2A worker
 	fi; \
 	echo "🚀 Starting Rust codetether worker ($(WORKER_NAME)): $$CODETETHER_CMD"; \
 	"$$CODETETHER_CMD" worker --server http://localhost:$(WORKER_PORT) --codebases . --auto-approve safe --name "$(WORKER_NAME)"
+
+.PHONY: annotation-browser-worker
+annotation-browser-worker: ## Run a browser-enabled worker for Artifact/Feather tasks
+	@if [ -x "$(CODETETHER_RUST_BIN)" ]; then \
+		CODETETHER_CMD="$(CODETETHER_RUST_BIN)"; \
+	elif command -v codetether > /dev/null 2>&1; then \
+		CODETETHER_CMD="$$(command -v codetether)"; \
+	elif command -v cargo > /dev/null 2>&1; then \
+		echo "🔧 Rust codetether binary not found. Building debug binary via cargo..."; \
+		cargo build --manifest-path codetether-agent/Cargo.toml; \
+		CODETETHER_CMD="$(CODETETHER_RUST_BIN)"; \
+	else \
+		echo "❌ Rust codetether binary not found and cargo is unavailable."; \
+		exit 1; \
+	fi; \
+	BROWSER_BASE="$${BROWSERCTL_BASE:-$(ANNOTATION_BROWSERCTL_BASE)}"; \
+	BROWSER_TOKEN="$${BROWSERCTL_TOKEN:-$(ANNOTATION_BROWSERCTL_TOKEN)}"; \
+	if [ -z "$$BROWSER_BASE" ]; then \
+		echo "❌ BROWSERCTL_BASE is required."; \
+		exit 1; \
+	fi; \
+	if [ -z "$$BROWSER_TOKEN" ]; then \
+		echo "❌ BROWSERCTL_TOKEN is required."; \
+		echo "   Example: make annotation-browser-worker BROWSERCTL_TOKEN=change-me"; \
+		exit 1; \
+	fi; \
+	echo "🚀 Starting browser-enabled Artifact worker ($(ANNOTATION_WORKER_NAME)): $$CODETETHER_CMD"; \
+	echo "   Workspace: $(ANNOTATION_WORKSPACE)"; \
+	echo "   BrowserCtl: $$BROWSER_BASE"; \
+	BROWSERCTL_BASE="$$BROWSER_BASE" BROWSERCTL_TOKEN="$$BROWSER_TOKEN" \
+	"$$CODETETHER_CMD" worker --server "$(ANNOTATION_SERVER_URL)" --codebases "$(ANNOTATION_WORKSPACE)" --auto-approve "$(ANNOTATION_AUTO_APPROVE)" --name "$(ANNOTATION_WORKER_NAME)" --no-http-server
 
 .PHONY: worker-legacy
 worker-legacy: ## [DEPRECATED] Run legacy Python worker only when ALLOW_LEGACY_PY_WORKER=1
@@ -1014,6 +1051,10 @@ k8s-prod-docs: docker-build-docs docker-push-docs ## Build and deploy Documentat
 .PHONY: local-worker-restart
 local-worker-restart: ## Restart local systemd worker (best effort). Set RESTART_LOCAL_WORKER=0 to skip.
 	@set -euo pipefail; \
+	CODETETHER_SRC="$(CODETETHER_RUST_BIN)"; \
+	if [ ! -x "$$CODETETHER_SRC" ] && [ -x "./codetether-agent/target/release/codetether" ]; then \
+		CODETETHER_SRC="./codetether-agent/target/release/codetether"; \
+	fi; \
 	if [ "$(RESTART_LOCAL_WORKER)" != "1" ]; then \
 		echo "ℹ️  RESTART_LOCAL_WORKER=$(RESTART_LOCAL_WORKER) - skipping local systemd worker restart"; \
 		exit 0; \
@@ -1074,6 +1115,30 @@ local-worker-restart: ## Restart local systemd worker (best effort). Set RESTART
 	if [ "$$unit_installed" -ne 1 ]; then \
 		echo "❌ systemd unit $$unit still not installed after install attempt."; \
 		exit 1; \
+	fi; \
+	if [ -x "$$CODETETHER_SRC" ]; then \
+		echo "📦 Syncing local worker binary from $$CODETETHER_SRC"; \
+		if [ "$$(id -u)" -eq 0 ]; then \
+			install -m 0755 "$$CODETETHER_SRC" /opt/codetether-worker/bin/codetether; \
+		else \
+			if command -v "$(SUDO)" >/dev/null 2>&1; then \
+				if "$(SUDO)" -n true 2>/dev/null; then \
+					"$(SUDO)" install -m 0755 "$$CODETETHER_SRC" /opt/codetether-worker/bin/codetether; \
+				elif [ -t 0 ]; then \
+					"$(SUDO)" install -m 0755 "$$CODETETHER_SRC" /opt/codetether-worker/bin/codetether; \
+				else \
+					echo "❌ sudo needs a password but this is a non-interactive session. Sync manually:"; \
+					echo "   sudo install -m 0755 $$CODETETHER_SRC /opt/codetether-worker/bin/codetether"; \
+					exit 1; \
+				fi; \
+			else \
+				echo "❌ Not root and sudo not available. Sync manually as root:"; \
+				echo "   install -m 0755 $$CODETETHER_SRC /opt/codetether-worker/bin/codetether"; \
+				exit 1; \
+			fi; \
+		fi; \
+	else \
+		echo "⚠️  No built worker binary found at $(CODETETHER_RUST_BIN) or ./codetether-agent/target/release/codetether; restarting installed binary as-is"; \
 	fi; \
 	echo "🔄 Restarting local worker: $$unit"; \
 	if [ "$$(id -u)" -eq 0 ]; then \
@@ -1221,6 +1286,7 @@ codetether-deploy-marketing: codetether-build-marketing codetether-restart-marke
 
 .PHONY: codetether-restart-marketing
 codetether-restart-marketing: ## Restart marketing deployment
+	kubectl set image deployment/codetether-marketing marketing=$(OCI_REGISTRY)/codetether-marketing:$(CHART_VERSION) -n $(NAMESPACE)
 	kubectl rollout restart deployment/codetether-marketing -n $(NAMESPACE)
 	kubectl rollout status deployment/codetether-marketing -n $(NAMESPACE) --timeout=120s
 
