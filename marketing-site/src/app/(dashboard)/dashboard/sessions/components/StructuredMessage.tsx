@@ -5,7 +5,34 @@ import { useState, memo, useId } from 'react'
 import { JsonNode } from './JsonNode'
 import { CopyButton } from './CopyButton'
 import type { JsonValue, ParsedJsonPayload } from './JsonHelpers'
+import type { Session, SessionMessage as Message, SessionPart as Part } from '../types'
 import { formatCost } from '../utils'
+
+interface Project {
+    id: string
+    worktree: string
+    time: Record<string, unknown>
+    vcs?: string | null
+    sandboxes: unknown[]
+}
+
+interface Diff {
+    file: string
+    before: unknown
+    after: unknown
+    additions: number
+    deletions: number
+}
+
+interface Todo {
+    id?: string
+    content: string
+    status: string
+    priority: string
+}
+
+type TodoList = Todo[]
+type SessionDiff = Diff[]
 
 type CodeTetherDataType =
     | { type: 'Project'; data: Project }
@@ -407,15 +434,15 @@ function detectCodeTetherType(data: unknown): CodeTetherDataType {
         return { type: 'Project', data: data as Project }
     }
 
-    if ('id' in obj && isSessionID(obj.id as string) && 'version' in obj && 'projectID' in obj) {
+    if ('id' in obj && 'version' in obj && 'projectID' in obj && 'directory' in obj) {
         return { type: 'Session', data: data as Session }
     }
 
-    if ('id' in obj && isMessageID(obj.id as string) && 'sessionID' in obj && 'role' in obj) {
+    if ('id' in obj && 'sessionID' in obj && 'role' in obj && 'time' in obj) {
         return { type: 'Message', data: data as Message }
     }
 
-    if ('id' in obj && isPartID(obj.id as string) && 'messageID' in obj && 'type' in obj) {
+    if ('id' in obj && 'messageID' in obj && 'type' in obj && 'sessionID' in obj) {
         return { type: 'Part', data: data as Part }
     }
 

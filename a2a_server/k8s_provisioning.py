@@ -708,6 +708,11 @@ class K8sProvisioningService:
                 annotations={
                     'cert-manager.io/cluster-issuer': 'cloudflare-issuer',
                     'nginx.ingress.kubernetes.io/ssl-redirect': 'true',
+                    'nginx.ingress.kubernetes.io/enable-cors': 'true',
+                    'nginx.ingress.kubernetes.io/cors-allow-origin': 'https://codetether.run,https://api.codetether.run,http://localhost:3000,http://localhost:3001',
+                    'nginx.ingress.kubernetes.io/cors-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+                    'nginx.ingress.kubernetes.io/cors-allow-headers': 'Authorization,Content-Type,Accept,Origin,Cache-Control,X-Requested-With,X-Tenant-ID,X-Worker-ID,X-Agent-Name,X-Workspaces',
+                    'nginx.ingress.kubernetes.io/cors-allow-credentials': 'true',
                 },
             ),
             spec=client.V1IngressSpec(

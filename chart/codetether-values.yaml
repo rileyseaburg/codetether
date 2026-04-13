@@ -52,7 +52,7 @@ marketing:
   image:
     repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
     pullPolicy: Always
-    tag: "v3.3.0"
+    tag: "1.4.2"
   replicaCount: 1
   service:
     type: ClusterIP
@@ -82,7 +82,7 @@ marketing:
       memory: 512Mi
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 128Mi
 
 # Documentation site
 docs:

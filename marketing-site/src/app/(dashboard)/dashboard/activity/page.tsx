@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+import { useTenantApi } from '@/hooks/useTenantApi'
 
 interface Message {
     type: string
@@ -26,26 +25,25 @@ function BoltIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export default function ActivityPage() {
     const { data: session } = useSession()
+    const { apiUrl, tenantFetch } = useTenantApi()
     const [messages, setMessages] = useState<Message[]>([])
     const [connected, setConnected] = useState(false)
 
     const loadMessages = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/monitor/messages?limit=50`)
-            if (response.ok) {
-                const data = await response.json()
-                setMessages(data)
+            const { data, error } = await tenantFetch<Message[] | { messages?: Message[] }>('/v1/monitor/messages?limit=50')
+            if (!error && data) {
+                setMessages(Array.isArray(data) ? data : (data.messages || []))
             }
         } catch (error) {
             console.error('Failed to load messages:', error)
         }
-    }, [])
+    }, [tenantFetch])
 
     useEffect(() => {
         loadMessages()
 
-        // Handle relative API URLs by resolving against window.location
-        const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
+        const baseApiUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl
         const sseUrl = new URL(`${baseApiUrl}/v1/monitor/stream`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
@@ -73,7 +71,7 @@ export default function ActivityPage() {
         }
 
         return () => eventSource.close()
-    }, [loadMessages])
+    }, [apiUrl, loadMessages, session?.accessToken])
 
     const getTypeIcon = (type: string) => {
         const icons: Record<string, string> = {

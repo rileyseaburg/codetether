@@ -7,7 +7,8 @@ The CodeTether Voice Agent enables real-time voice interactions with AI agents t
 The voice agent provides:
 - **Real-time voice streaming** via LiveKit
 - **Session playback** for reviewing conversations
-- **Multi-model support** (Claude, GPT-4, Gemini, Grok)
+- **GLM-5 reasoning** with OpenAI-compatible chat completions
+- **Local Qwen STT/TTS** for speech input and output
 - **Voice selector** for choosing different AI voice models
 - **Playback controls** (pause, resume, speed adjustment)
 
@@ -36,7 +37,12 @@ Environment variables:
 | `LIVEKIT_URL` | LiveKit server URL | `wss://livekit.codetether.run` |
 | `LIVEKIT_API_KEY` | LiveKit API key | - |
 | `LIVEKIT_API_SECRET` | LiveKit API secret | - |
-| `VOICE_MODEL` | Default AI voice model | `claude-opus` |
+| `VOICE_AGENT_BACKEND` | Voice runtime backend | `glm-qwen` |
+| `VOICE_AGENT_LLM_MODEL` | Chat model used for reasoning | `glm-5` |
+| `VOICE_AGENT_LLM_BASE_URL` | OpenAI-compatible chat completions base URL | `https://api.z.ai/api/paas/v4` |
+| `VOICE_AGENT_LLM_API_KEY` | API key for the configured chat model backend | - |
+| `CODETETHER_VOICE_API_URL` | Local Qwen voice API base URL | `http://127.0.0.1:8000` |
+| `VOICE_AGENT_DEFAULT_VOICE_ID` | Default Qwen voice profile ID | `960f89fc` |
 
 ## Usage
 
@@ -59,12 +65,11 @@ let voiceManager = VoiceSessionManager()
 await voiceManager.connect(sessionId: "session-123")
 ```
 
-## Supported Voice Models
+## Supported Runtime
 
-- Claude (Opus, Sonnet, Haiku)
-- GPT-4, GPT-4 Turbo
-- Gemini Pro, Gemini Flash
-- Grok 3
+- GLM-5 over an OpenAI-compatible chat-completions endpoint
+- Local Qwen `/transcribe` for STT
+- Local Qwen `/voices/{voice_id}/speak` for TTS
 
 ## Session Playback
 
@@ -88,8 +93,8 @@ Client (Web/Mobile)
 LiveKit Server
     ↓
 Voice Agent (Python)
-    ↓ (MCP)
-A2A Server → Agent LLM
+    ↓ (Qwen STT/TTS + MCP)
+A2A Server → GLM-5
 ```
 
 ## API Endpoints

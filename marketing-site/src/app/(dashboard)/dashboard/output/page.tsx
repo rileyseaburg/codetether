@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+import { useTenantApi } from '@/hooks/useTenantApi'
 
 interface Workspace {
     id: string
@@ -28,6 +27,7 @@ function TerminalIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export default function OutputPage() {
     const { data: session } = useSession()
+    const { apiUrl, tenantFetch } = useTenantApi()
     const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [selectedWorkspace, setSelectedWorkspace] = useState('')
     const [output, setOutput] = useState<OutputLine[]>([])
@@ -37,10 +37,9 @@ export default function OutputPage() {
 
     const loadWorkspaces = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/agent/workspaces/list`)
-            if (response.ok) {
-                const data = await response.json()
-                const items = Array.isArray(data) ? data : (data?.workspaces ?? data?.codebases ?? [])
+            const { data, error } = await tenantFetch<Workspace[] | { workspaces?: Workspace[]; codebases?: Workspace[] }>('/v1/agent/workspaces/list')
+            if (!error && data) {
+                const items = Array.isArray(data) ? data : (data.workspaces ?? data.codebases ?? [])
                 setWorkspaces(
                     (items as any[]).map((cb) => ({
                         id: String(cb?.id ?? ''),
@@ -53,7 +52,7 @@ export default function OutputPage() {
         } catch (error) {
             console.error('Failed to load workspaces:', error)
         }
-    }, [])
+    }, [tenantFetch])
 
     useEffect(() => {
         loadWorkspaces()
@@ -78,8 +77,7 @@ export default function OutputPage() {
 
         setOutput([{ type: 'status', content: 'Connecting to event stream...', timestamp: new Date() }])
 
-        // Handle relative API URLs by resolving against window.location
-        const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
+        const baseApiUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl
         const sseUrl = new URL(`${baseApiUrl}/v1/agent/workspaces/${workspaceId}/events`)
         if (session?.accessToken) {
             sseUrl.searchParams.set('access_token', session.accessToken)
@@ -118,7 +116,7 @@ export default function OutputPage() {
         })
 
         return () => eventSource.close()
-    }, [])
+    }, [apiUrl, session?.accessToken])
 
     useEffect(() => {
         if (selectedWorkspace) {

@@ -7,9 +7,13 @@ import VoiceChatModal from './VoiceChatModal';
 
 /**
  * Default voice for one-click experience.
- * Must match one of the Python AVAILABLE_VOICES ids: puck, charon, kore, fenrir, aoede.
+ * Must match one of the voice IDs exposed by `/v1/voice/voices`.
  */
-const DEFAULT_VOICE = { id: 'puck', name: 'Puck', description: 'Friendly and approachable' };
+const DEFAULT_VOICE = {
+    id: '960f89fc',
+    name: 'Riley',
+    description: 'Local Qwen TTS cloned voice',
+};
 
 type DeployState = 'idle' | 'deploying' | 'waiting' | 'error';
 type SessionState = 'idle' | 'creating' | 'error';
@@ -26,11 +30,13 @@ interface VoiceSessionResponse {
 
 interface VoiceAgentButtonProps {
     codebaseId?: string;
+    selectedWorkerId?: string;
     workers: Array<{
         worker_id: string;
         name: string;
         is_sse_connected?: boolean;
         last_seen?: string;
+        codebases?: string[];
     }>;
     onWorkerDeployed?: () => void;
 }
@@ -63,7 +69,12 @@ function generateUserId(): string {
     return id;
 }
 
-export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed }: VoiceAgentButtonProps) {
+export default function VoiceAgentButton({
+    codebaseId,
+    selectedWorkerId,
+    workers,
+    onWorkerDeployed,
+}: VoiceAgentButtonProps) {
     const { data: session } = useSession();
     const { tenantFetch } = useTenantApi();
 
@@ -79,7 +90,12 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
     } | null>(null);
     const [userId] = useState(generateUserId);
 
-    const hasOnlineWorker = workers.some(w => w.is_sse_connected);
+    const selectedWorker = selectedWorkerId
+        ? workers.find((worker) => worker.worker_id === selectedWorkerId) || null
+        : null;
+    const hasOnlineWorker = selectedWorkerId
+        ? Boolean(selectedWorker?.is_sse_connected)
+        : workers.some(w => w.is_sse_connected);
 
     const deployWorker = useCallback(async (): Promise<boolean> => {
         setDeployState('deploying');
@@ -132,12 +148,27 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
         setSessionState('creating');
         setError(null);
         try {
+            if (selectedWorkerId && !selectedWorker?.is_sse_connected) {
+                setError(
+                    `Selected worker "${selectedWorker?.name || selectedWorkerId}" is not connected. Choose Auto routing or a connected worker.`
+                );
+                setSessionState('error');
+                return null;
+            }
+
+            if (selectedWorkerId && !codebaseId) {
+                setError('Select a workspace registered on the chosen worker before starting voice chat.');
+                setSessionState('error');
+                return null;
+            }
+
             const resp = await tenantFetch<VoiceSessionResponse>('/v1/voice/sessions', {
                 method: 'POST',
                 body: JSON.stringify({
                     voice: DEFAULT_VOICE.id,
                     mode: 'chat',
-                    codebase_id: codebaseId ?? null,
+                    workspace_id: codebaseId ?? null,
+                    worker_id: selectedWorkerId ?? null,
                     user_id: userId,
                 }),
             });
@@ -153,7 +184,7 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
             setSessionState('error');
             return null;
         }
-    }, [codebaseId, userId, tenantFetch]);
+    }, [codebaseId, selectedWorker, selectedWorkerId, userId, tenantFetch]);
 
     const handleClick = useCallback(async () => {
         // Check for secure context (mic requires HTTPS or localhost)
@@ -162,8 +193,22 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
             return;
         }
 
+        if (selectedWorkerId && !selectedWorker?.is_sse_connected) {
+            setError(
+                `Selected worker "${selectedWorker?.name || selectedWorkerId}" is not connected. Choose Auto routing or a connected worker.`
+            );
+            return;
+        }
+
         // If no worker online, offer to deploy one
         if (!hasOnlineWorker) {
+            if (selectedWorkerId) {
+                setError(
+                    `Worker "${selectedWorker?.name || selectedWorkerId}" is offline and cannot be auto-deployed from this control.`
+                );
+                return;
+            }
+
             const shouldDeploy = confirm(
                 'No worker agents are currently online. Deploy a CodeTether worker agent to the cluster?\n\nThis will start a worker pod that can execute tasks.'
             );
@@ -183,7 +228,7 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
             voice: DEFAULT_VOICE,
         });
         setModalOpen(true);
-    }, [hasOnlineWorker, deployWorker, createVoiceSession]);
+    }, [createVoiceSession, deployWorker, hasOnlineWorker, selectedWorker, selectedWorkerId]);
 
     const handleClose = useCallback(() => {
         setModalOpen(false);
@@ -199,6 +244,7 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
         if (deployState === 'deploying') return { icon: <SpinnerIcon className="w-5 h-5" />, text: 'Deploying Worker...' };
         if (deployState === 'waiting') return { icon: <SpinnerIcon className="w-5 h-5" />, text: 'Waiting for Worker...' };
         if (sessionState === 'creating') return { icon: <SpinnerIcon className="w-5 h-5" />, text: 'Connecting...' };
+        if (selectedWorkerId && !selectedWorker?.is_sse_connected) return { icon: <MicIcon className="w-5 h-5" />, text: 'Talk to Agent (Worker Offline)' };
         if (!hasOnlineWorker) return { icon: <RocketIcon className="w-5 h-5" />, text: 'Talk to Agent (Deploy Worker)' };
         return { icon: <MicIcon className="w-5 h-5" />, text: 'Talk to Agent' };
     };
@@ -223,7 +269,7 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
                 </p>
             )}
 
-            {!hasOnlineWorker && deployState === 'idle' && (
+            {!selectedWorkerId && !hasOnlineWorker && deployState === 'idle' && (
                 <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                     No workers online — a worker will be deployed when you click.
                 </p>

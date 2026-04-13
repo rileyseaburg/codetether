@@ -44,6 +44,8 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+# Ignore a stray non-UTF8 root filename that breaks Docker build context packing.
+??@?
 
 # Git
 .git/

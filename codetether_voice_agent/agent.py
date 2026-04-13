@@ -1,8 +1,8 @@
-"""LiveKit Voice Agent with Gemini 3 Live API and CodeTether MCP Integration.
+"""LiveKit Voice Agent with selectable realtime backends.
 
-This module provides a voice-enabled AI agent that uses Google's Gemini 3 Live API
-for real-time voice conversation and integrates with CodeTether MCP tools for
-task management and agent communication.
+Supports:
+- Google Gemini realtime audio sessions
+- GLM-5 reasoning with local Qwen STT/TTS
 """
 
 import asyncio
@@ -25,9 +25,27 @@ def _validate_environment():
         'LIVEKIT_API_SECRET': 'Required for LiveKit worker registration',
     }
 
-    # At least one Google credential is required
+    backend = (
+        os.getenv('VOICE_AGENT_BACKEND')
+        or os.getenv('CODETETHER_VOICE_AGENT_BACKEND')
+        or 'google-realtime'
+    ).strip().lower()
     google_api_key = os.getenv('GOOGLE_API_KEY', '').strip()
     google_creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', '').strip()
+    llm_base_url = (
+        os.getenv('VOICE_AGENT_LLM_BASE_URL')
+        or 'https://api.z.ai/api/paas/v4'
+    ).strip()
+    llm_api_key = (
+        os.getenv('VOICE_AGENT_LLM_API_KEY')
+        or os.getenv('ZAI_API_KEY')
+        or os.getenv('OPENAI_API_KEY')
+        or ''
+    ).strip()
+    allow_empty_llm_key = any(
+        marker in llm_base_url.lower()
+        for marker in ('localhost', '127.0.0.1', '0.0.0.0', 'host.docker.internal')
+    )
 
     missing = []
     for var, description in required_vars.items():
@@ -35,10 +53,22 @@ def _validate_environment():
         if not value or value.strip() == '':
             missing.append(f'  - {var}: {description}')
 
-    if not google_api_key and not google_creds_path:
+    if backend in ('google', 'gemini', 'gemini-realtime', 'google-realtime'):
+        if not google_api_key and not google_creds_path:
+            missing.append(
+                '  - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS: '
+                'Required for Gemini Live API authentication'
+            )
+    elif backend in ('glm-qwen', 'glm5-qwen', 'glm-5-qwen', 'zai-qwen'):
+        if not llm_api_key and not allow_empty_llm_key:
+            missing.append(
+                '  - VOICE_AGENT_LLM_API_KEY or ZAI_API_KEY: '
+                'Required for GLM-5 unless VOICE_AGENT_LLM_BASE_URL points to a local OpenAI-compatible gateway'
+            )
+    else:
         missing.append(
-            '  - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS: '
-            'Required for Gemini Live API authentication'
+            f'  - VOICE_AGENT_BACKEND: Unsupported backend "{backend}". '
+            'Use "glm-qwen" or "google-realtime".'
         )
 
     if missing:
@@ -55,6 +85,7 @@ def _validate_environment():
     print(f'Environment validation passed:', file=sys.stderr)
     print(f'  - LIVEKIT_API_KEY: set', file=sys.stderr)
     print(f'  - LIVEKIT_API_SECRET: set', file=sys.stderr)
+    print(f'  - VOICE_AGENT_BACKEND: {backend}', file=sys.stderr)
     if google_api_key:
         print(
             f'  - GOOGLE_API_KEY: set (length: {len(google_api_key)})',
@@ -63,6 +94,11 @@ def _validate_environment():
     if google_creds_path:
         print(
             f'  - GOOGLE_APPLICATION_CREDENTIALS: {google_creds_path}',
+            file=sys.stderr,
+        )
+    if llm_api_key:
+        print(
+            f'  - GLM/OpenAI-compatible API key: set (length: {len(llm_api_key)})',
             file=sys.stderr,
         )
 
@@ -83,7 +119,13 @@ from livekit.plugins import google
 from livekit.rtc import Room
 
 from codetether_mcp import CodeTetherMCP
-from functiongemma_caller import FunctionGemmaCaller
+from runtime_backends import (
+    DEFAULT_QWEN_VOICE_ID,
+    OpenAICompatibleLLM,
+    QwenLocalSTT,
+    QwenLocalTTS,
+    resolve_runtime_config,
+)
 from session_playback import SessionPlayback
 
 logger = logging.getLogger(__name__)
@@ -177,7 +219,7 @@ def create_tool_wrapper(tool_name: str, tool_func, room_getter):
     return wrapper
 
 
-VOICES: Dict[str, str] = {
+GOOGLE_VOICES: Dict[str, str] = {
     'puck': 'Puck',
     'charon': 'Charon',
     'kore': 'Kore',
@@ -185,7 +227,7 @@ VOICES: Dict[str, str] = {
     'aoede': 'Aoede',
 }
 
-DEFAULT_VOICE = 'puck'
+DEFAULT_GOOGLE_VOICE = 'puck'
 
 SYSTEM_INSTRUCTIONS = """You are a voice assistant for CodeTether, an Agent-to-Agent (A2A) platform for AI agent collaboration.
 
@@ -289,7 +331,11 @@ def format_history_for_context(history: List[Dict[str, Any]]) -> str:
     return '\n'.join(formatted_parts)
 
 
-def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
+def create_tools(
+    mcp_client: CodeTetherMCP,
+    workspace_id: Optional[str] = None,
+    target_worker_id: Optional[str] = None,
+) -> List[llm.FunctionTool]:
     """Create FunctionTool objects for the voice agent.
 
     Includes A2A protocol tools (message/send, tasks/get, etc.), task queue tools,
@@ -501,10 +547,12 @@ def create_tools(mcp_client: CodeTetherMCP) -> List[llm.FunctionTool]:
             arguments: Dict[str, Any] = {
                 'title': title,
                 'description': description,
-                'codebase_id': 'global',
+                'codebase_id': workspace_id or 'global',
                 'agent_type': 'build',
                 'priority': priority,
             }
+            if target_worker_id:
+                arguments['metadata'] = {'target_worker_id': target_worker_id}
             if model:
                 arguments['model'] = model
             if model_ref:
@@ -955,7 +1003,7 @@ async def entrypoint(ctx: JobContext) -> None:
     """Main entrypoint for the voice agent.
 
     Connects to the LiveKit room, initializes all components, and starts
-    the voice agent session with Gemini 3 Live API.
+    the voice agent session with the configured runtime backend.
 
     Args:
         ctx: The job context containing room connection and metadata.
@@ -968,15 +1016,24 @@ async def entrypoint(ctx: JobContext) -> None:
     except (json.JSONDecodeError, TypeError):
         metadata = {}
 
-    voice_id = metadata.get('voice', DEFAULT_VOICE)
-    codebase_id = metadata.get('codebase_id', 'global')
+    voice_id = metadata.get(
+        'voice',
+        os.getenv('VOICE_AGENT_DEFAULT_VOICE_ID', DEFAULT_QWEN_VOICE_ID),
+    )
+    workspace_id = metadata.get('workspace_id') or metadata.get('codebase_id') or 'global'
+    target_worker_id = metadata.get('target_worker_id') or metadata.get('worker_id')
     session_id = metadata.get('session_id')
     mode = metadata.get('mode', 'interactive')
     playback_style = metadata.get('playback_style', 'verbatim')
-
-    voice_name = VOICES.get(voice_id, VOICES[DEFAULT_VOICE])
+    runtime_config = resolve_runtime_config(voice_id)
+    if runtime_config.backend == 'google-realtime':
+        voice_name = GOOGLE_VOICES.get(voice_id, GOOGLE_VOICES[DEFAULT_GOOGLE_VOICE])
+    else:
+        voice_name = runtime_config.tts_voice_id
     logger.info(
-        f'Configuration - voice: {voice_name}, codebase_id: {codebase_id}, '
+        f'Configuration - backend: {runtime_config.backend}, requested_voice: {voice_id}, '
+        f'active_voice: {voice_name}, workspace_id: {workspace_id}, '
+        f'target_worker_id: {target_worker_id}, '
         f'session_id: {session_id}, mode: {mode}, playback_style: {playback_style}'
     )
 
@@ -1026,10 +1083,17 @@ async def entrypoint(ctx: JobContext) -> None:
         try:
             await mcp_client.register_agent(
                 name=agent_name,
-                description='Voice-enabled AI agent using Gemini Live API. Provides a natural language voice interface to the CodeTether A2A network.',
+                description=(
+                    'Voice-enabled AI agent for the CodeTether A2A network. '
+                    'Uses Gemini realtime or GLM-5 with local Qwen speech depending on configuration.'
+                ),
                 url=api_url,
                 capabilities={'streaming': True, 'push_notifications': False},
-                models_supported=['google:gemini-live-2.5-flash-native-audio'],
+                models_supported=(
+                    [f'google:{runtime_config.llm_model}']
+                    if runtime_config.backend == 'google-realtime'
+                    else ['zai:glm-5', 'local:qwen-stt', 'local:qwen-tts']
+                ),
             )
             logger.info(f'Registered as A2A agent: {agent_name}')
             await publish_state(
@@ -1049,9 +1113,6 @@ async def entrypoint(ctx: JobContext) -> None:
                     logger.warning(f'Heartbeat failed: {e}')
 
         heartbeat_task = asyncio.create_task(_heartbeat_loop())
-
-        function_caller = FunctionGemmaCaller()
-        logger.info('Initialized FunctionGemmaCaller')
 
         session_playback = SessionPlayback(mcp_client=mcp_client)
         logger.info('Initialized SessionPlayback')
@@ -1074,53 +1135,95 @@ async def entrypoint(ctx: JobContext) -> None:
 
         full_instructions = SYSTEM_INSTRUCTIONS + context_string
 
-        logger.info(f'Creating Gemini RealtimeModel with voice: {voice_name}')
+        logger.info(
+            f'Initializing voice runtime backend: {runtime_config.backend}'
+        )
 
-        # Check if we have Vertex AI credentials (preferred) or fallback to API key
-        google_creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-        google_api_key = os.getenv('GOOGLE_API_KEY')
-        use_vertex = google_creds_path and os.path.exists(google_creds_path)
+        agent_session_kwargs: Dict[str, Any] = {}
+        agent_llm: Any
+        listening_voice = voice_name
 
-        if use_vertex:
+        if runtime_config.backend == 'google-realtime':
             logger.info(
-                f'Using Vertex AI with credentials from: {google_creds_path}'
-            )
-            # Get project ID from credentials file or environment
-            project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'spotlessbinco')
-            location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
-            logger.info(
-                f'Vertex AI project: {project_id}, location: {location}'
+                f'Creating Gemini RealtimeModel with model={runtime_config.llm_model} voice={voice_name}'
             )
 
-            gemini_model = google.realtime.RealtimeModel(
-                model='gemini-live-2.5-flash-native-audio',
-                voice=voice_name,
-                instructions=full_instructions,
-                vertexai=True,
-                project=project_id,
-                location=location,
+            google_creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            google_api_key = os.getenv('GOOGLE_API_KEY')
+            use_vertex = google_creds_path and os.path.exists(google_creds_path)
+
+            if use_vertex:
+                logger.info(
+                    f'Using Vertex AI with credentials from: {google_creds_path}'
+                )
+                project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'spotlessbinco')
+                location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
+                logger.info(
+                    f'Vertex AI project: {project_id}, location: {location}'
+                )
+
+                agent_llm = google.realtime.RealtimeModel(
+                    model=runtime_config.llm_model,
+                    voice=voice_name,
+                    instructions=full_instructions,
+                    vertexai=True,
+                    project=project_id,
+                    location=location,
+                )
+            elif google_api_key:
+                logger.info(
+                    f'Using Google API key (length: {len(google_api_key)})'
+                )
+                agent_llm = google.realtime.RealtimeModel(
+                    model=runtime_config.llm_model,
+                    voice=voice_name,
+                    instructions=full_instructions,
+                    api_key=google_api_key,
+                )
+            else:
+                logger.error(
+                    'No Google credentials found! Set GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_API_KEY'
+                )
+                raise ValueError('No Google credentials configured')
+            logger.info('Gemini RealtimeModel created successfully')
+        elif runtime_config.backend == 'glm-qwen':
+            logger.info(
+                'Creating GLM-5 + Qwen voice pipeline '
+                f'(model={runtime_config.llm_model}, llm_base={runtime_config.llm_base_url}, '
+                f'voice_api={runtime_config.voice_api_url}, voice_id={runtime_config.tts_voice_id})'
             )
-        elif google_api_key:
-            logger.info(f'Using Google API key (length: {len(google_api_key)})')
-            gemini_model = google.realtime.RealtimeModel(
-                model='gemini-2.0-flash-exp',
-                voice=voice_name,
-                instructions=full_instructions,
-                api_key=google_api_key,
+            agent_llm = OpenAICompatibleLLM(
+                model=runtime_config.llm_model,
+                api_key=runtime_config.llm_api_key,
+                base_url=runtime_config.llm_base_url,
+                provider=runtime_config.llm_provider,
+                strict_tool_schema=False,
             )
+            agent_session_kwargs = {
+                'stt': QwenLocalSTT(base_url=runtime_config.voice_api_url),
+                'tts': QwenLocalTTS(
+                    base_url=runtime_config.voice_api_url,
+                    voice_id=runtime_config.tts_voice_id,
+                ),
+            }
+            listening_voice = runtime_config.tts_voice_id
+            logger.info('GLM-5 + Qwen voice runtime created successfully')
         else:
-            logger.error(
-                'No Google credentials found! Set GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_API_KEY'
+            raise ValueError(
+                f'Unsupported voice runtime backend: {runtime_config.backend}'
             )
-            raise ValueError('No Google credentials configured')
-        logger.info('Gemini RealtimeModel created successfully')
+
         await publish_state(
             _current_room, 'initializing', {'step': 'model_ready'}
         )
 
         # Create tools for the agent
         try:
-            agent_tools = create_tools(mcp_client)
+            agent_tools = create_tools(
+                mcp_client,
+                workspace_id=workspace_id,
+                target_worker_id=target_worker_id,
+            )
             logger.info(f'Created {len(agent_tools)} tools for agent')
             await publish_state(
                 _current_room,
@@ -1136,7 +1239,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 {'step': 'tools_failed', 'error': str(e)},
             )
 
-        session = AgentSession()
+        session = AgentSession(**agent_session_kwargs)
         logger.info('AgentSession created')
 
         if mode == 'playback' and session_id:
@@ -1159,7 +1262,7 @@ async def entrypoint(ctx: JobContext) -> None:
         # Create the Agent with tools and instructions (canonical pattern)
         agent = Agent(
             instructions=full_instructions,
-            llm=gemini_model,
+            llm=agent_llm,
             tools=agent_tools if agent_tools else None,
         )
 
@@ -1172,7 +1275,9 @@ async def entrypoint(ctx: JobContext) -> None:
         await session.start(agent=agent, room=ctx.room)
 
         # Emit listening state after session starts
-        await publish_state(_current_room, 'listening', {'voice': voice_name})
+        await publish_state(
+            _current_room, 'listening', {'voice': listening_voice}
+        )
 
     except Exception as e:
         logger.error(f'Error in voice agent entrypoint: {e}')
@@ -1189,16 +1294,20 @@ if __name__ == '__main__':
     )
     max_retry = int(os.getenv('VOICE_WORKER_MAX_RETRY', '24'))
     agent_name = os.getenv('VOICE_AGENT_NAME', 'codetether-voice-agent')
+    health_port_raw = os.getenv('VOICE_WORKER_HEALTH_PORT', '').strip()
 
-    health_port = int(os.getenv('VOICE_WORKER_HEALTH_PORT', '0'))
+    worker_options: Dict[str, Any] = {
+        'entrypoint_fnc': entrypoint,
+        'initialize_process_timeout': init_timeout,
+        'shutdown_process_timeout': shutdown_timeout,
+        'agent_name': agent_name,
+        'max_retry': max_retry,
+    }
+    if health_port_raw:
+        worker_options['port'] = int(health_port_raw)
 
     cli.run_app(
         WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            initialize_process_timeout=init_timeout,
-            shutdown_process_timeout=shutdown_timeout,
-            agent_name=agent_name,
-            max_retry=max_retry,
-            port=health_port,
+            **worker_options,
         ),
     )

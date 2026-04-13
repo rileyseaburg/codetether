@@ -14,6 +14,10 @@ metadata:
     {{- include "codetether-voice-agent.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "codetether-voice-agent.selectorLabels" . | nindent 6 }}
@@ -47,7 +51,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.googleApiKey.secretName }}
                   key: {{ .Values.secrets.googleApiKey.key }}
-                  optional: false
+                  optional: {{ default true .Values.secrets.googleApiKey.optional }}
             - name: LIVEKIT_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -72,6 +76,12 @@ spec:
                   name: {{ .Values.secrets.keycloakClientSecret.secretName }}
                   key: {{ .Values.secrets.keycloakClientSecret.key }}
                   optional: false
+            - name: ZAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.zaiApiKey.secretName }}
+                  key: {{ .Values.secrets.zaiApiKey.key }}
+                  optional: {{ default true .Values.secrets.zaiApiKey.optional }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:

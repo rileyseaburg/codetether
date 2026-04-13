@@ -1313,6 +1313,8 @@ def _row_to_workspace(row) -> Dict[str, Any]:
         'status': row['status'],
         'session_id': row['session_id'],
         'agent_port': row['agent_port'],
+        'git_url': row.get('git_url'),
+        'git_branch': row.get('git_branch'),
         'minio_path': row.get('minio_path'),
         'last_sync_at': row['last_sync_at'].isoformat()
         if row.get('last_sync_at')

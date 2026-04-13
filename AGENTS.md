@@ -220,3 +220,68 @@ This is a monorepo. `codetether-agent/` is a git submodule with its own `Cargo.t
 - **Buf config:** `specification/grpc/buf.gen.yaml`
 
 When working in a git worktree, `cd codetether-agent/` before running `cargo check`, `cargo clippy`, `cargo test`, or `cargo build`. The worktree root is `A2A-Server-MCP/`, not the crate root.
+
+---
+
+## Browser Control Shim Context
+
+Use the browser control shim from `codetether-agent/script/browserctl/` when remote browser inspection or UI automation is needed.
+
+### Important Paths
+
+- **Shim package root:** `codetether-agent/script/browserctl/`
+- **Server module:** `codetether-agent/script/browserctl/server.py`
+- **Client module:** `codetether-agent/script/browserctl/client.py`
+- **Launcher script:** `codetether-agent/script/browserctl.sh`
+
+### Common Gotcha
+
+The package lives under `script/`, not `scripts/`. The repository name is `A2A-Server-MCP`, with that exact casing.
+
+### Remote Laptop Workflow
+
+A working setup is to run browserctl on Riley's laptop and reverse tunnel it to the Ubuntu dev host.
+
+**On the laptop, start from the repo directory, not from `~`:**
+
+```bash
+cd ~/codetether-browserctl
+BROWSERCTL_TOKEN=change-me BROWSERCTL_HOST=127.0.0.1 BROWSERCTL_PORT=4477 python3 -m script.browserctl
+```
+
+If started from the wrong directory, Python will fail with:
+
+```text
+ModuleNotFoundError: No module named 'script'
+```
+
+**Reverse tunnel from laptop to the Ubuntu dev host:**
+
+```bash
+ssh -R 4478:127.0.0.1:4477 riley@192.168.50.101
+```
+
+**From the Ubuntu dev host, use the tunneled shim with:**
+
+- **Base URL:** `http://127.0.0.1:4478`
+- **Token:** `change-me`
+
+Example:
+
+```bash
+BROWSERCTL_BASE=http://127.0.0.1:4478 BROWSERCTL_TOKEN=change-me \
+python3 -m script.browserctl.client tabs
+```
+
+### Verified Session Context
+
+A verified live session exposed these tabs through the tunneled shim:
+
+1. **Feather campaign tasks**
+   - URL: `https://msft.feather-prod.azure.com/campaigns/b709a5bb-29be-49a7-b18e-5b3e082683d4?tab=tasks&tasks-tab=unclaimed&task-batch=bc0d4d47-7e8b-473a-beec-51ae35cd0335`
+   - Title: `Surge Annotation Calibration v2 - 1000 Samples`
+2. **Annotation Platform**
+   - URL: `https://annotation-platform-henna.vercel.app/dashboard`
+   - Title: `Annotation Platform`
+
+Tab selection over the tunnel was verified to work with `/tabs` and `/tabs/select` on the laptop-hosted shim.

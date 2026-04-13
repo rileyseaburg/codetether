@@ -177,7 +177,7 @@ async def _build_auth_url(git_url: str, codebase_id: str) -> str:
     token = creds.get('token', '')
     token_type = creds.get('token_type', 'pat')
 
-    if token_type in ('pat', 'oauth'):
+    if token_type in ('pat', 'oauth', 'github_app'):
         # https://github.com/... → https://x-access-token:TOKEN@github.com/...
         return git_url.replace('https://', f'https://x-access-token:{token}@', 1)
 

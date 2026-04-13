@@ -20,6 +20,7 @@ interface VoiceSelectorProps {
   selected: { id: string; name: string; description: string } | null;
   onSelect: (voice: { id: string; name: string; description: string }) => void;
   onClose: () => void;
+  children?: React.ReactNode;
 }
 
 interface Voice {
@@ -28,7 +29,7 @@ interface Voice {
   description: string;
 }
 
-export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSelectorProps) {
+export default function VoiceSelector({ selected, onSelect, onClose, children }: VoiceSelectorProps) {
   const { data: session } = useSession();
   const [voices, setVoices] = useState<Voice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,6 +68,12 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
             <CloseIcon className="w-5 h-5" />
           </button>
         </div>
+
+        {children ? (
+          <div className="border-b px-4 py-3 dark:border-gray-700">
+            {children}
+          </div>
+        ) : null}
 
         <div className="p-4 max-h-96 overflow-y-auto">
           {isLoading ? (

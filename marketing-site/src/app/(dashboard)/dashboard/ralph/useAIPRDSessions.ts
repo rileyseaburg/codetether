@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet } from '@/lib/api'
+import { useTenantApi } from '@/hooks/useTenantApi'
 
 export interface PRDChatMessage {
   role: 'user' | 'assistant'
@@ -16,14 +17,13 @@ interface PRDChatSession {
   messageCount?: number
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
-
 export function useAIPRDSessions(workspaceId: string | undefined) {
+  const { tenantFetch } = useTenantApi()
   const [sessions, setSessions] = useState<PRDChatSession[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     // Skip loading for 'global' or undefined workspace.
     if (!workspaceId || workspaceId === 'global') {
       setSessions([])
@@ -34,17 +34,15 @@ export function useAIPRDSessions(workspaceId: string | undefined) {
     setError(null)
 
     try {
-      // Use direct fetch until SDK is regenerated with new endpoint
-      const response = await fetch(`${API_BASE}/v1/ralph/chat/sessions/${workspaceId}`)
-      
-      if (!response.ok) {
+      const { data, error: requestError } = await tenantFetch<{ sessions?: any[] }>(`/v1/ralph/chat/sessions/${workspaceId}`)
+
+      if (requestError || !data) {
         setSessions([])
         return
       }
-      
-      const sessionsData = await response.json()
+
       // Get PRD chat sessions for this workspace
-      const allSessions = (sessionsData.sessions || []).map((s: any) => ({
+      const allSessions = (data.sessions || []).map((s: any) => ({
         id: s.id,
         sessionId: s.session_id,  // The CodeTether session ID
         title: s.title || 'PRD Chat',
@@ -54,12 +52,12 @@ export function useAIPRDSessions(workspaceId: string | undefined) {
       }))
 
       setSessions(allSessions)
-    } catch (e) {
+    } catch {
       setError('Failed to load PRD sessions')
     } finally {
       setLoading(false)
     }
-  }
+  }, [tenantFetch, workspaceId])
 
   const deleteSession = async (_sessionId: string) => {
     throw new Error('Delete session not implemented')
@@ -96,7 +94,7 @@ export function useAIPRDSessions(workspaceId: string | undefined) {
 
   useEffect(() => {
     loadSessions()
-  }, [workspaceId])
+  }, [loadSessions])
 
   return { sessions, loading, error, loadSessions, deleteSession, loadSessionMessages }
 }

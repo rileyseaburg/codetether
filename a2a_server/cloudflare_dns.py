@@ -16,6 +16,8 @@ from typing import Optional, List, Dict, Any
 
 import httpx
 
+from .vault_client import get_vault_client
+
 logger = logging.getLogger(__name__)
 
 # Configuration from environment
@@ -30,11 +32,36 @@ CLOUDFLARE_TUNNEL_ID = os.environ.get(
     'CLOUDFLARE_TUNNEL_ID', 'dc7f7221-95ad-4cfb-b679-b3473cef4f1c'
 )
 BASE_DOMAIN = os.environ.get('CODETETHER_BASE_DOMAIN', 'codetether.run')
+CLOUDFLARE_VAULT_PATHS = tuple(
+    path.strip()
+    for path in os.environ.get(
+        'CLOUDFLARE_VAULT_PATHS',
+        'codetether/cloudflare,kv/codetether/cloudflare',
+    ).split(',')
+    if path.strip()
+)
 
 # Ingress controller service for tunnel routing
 INGRESS_SERVICE = (
     'https://ingress-nginx-controller.ingress-nginx.svc.cluster.local:443'
 )
+
+_TOKEN_KEYS = ('api_token', 'cloudflare_api_token', 'token')
+_ZONE_ID_KEYS = ('zone_id', 'cloudflare_zone_id')
+_ACCOUNT_ID_KEYS = ('account_id', 'cloudflare_account_id')
+_TUNNEL_ID_KEYS = ('tunnel_id', 'cloudflare_tunnel_id')
+_BASE_DOMAIN_KEYS = ('base_domain', 'codetether_base_domain')
+
+
+def _first_secret_value(
+    secret: Dict[str, Any], keys: tuple[str, ...]
+) -> Optional[str]:
+    """Return the first non-empty string value from a secret payload."""
+    for key in keys:
+        value = secret.get(key)
+        if value:
+            return str(value).strip()
+    return None
 
 
 @dataclass
@@ -59,6 +86,8 @@ class CloudflareDNSService:
         self.zone_id = CLOUDFLARE_ZONE_ID
         self.account_id = CLOUDFLARE_ACCOUNT_ID
         self.tunnel_id = CLOUDFLARE_TUNNEL_ID
+        self.base_domain = BASE_DOMAIN
+        self._credentials_checked = False
 
     def _get_headers(self) -> Dict[str, str]:
         """Get authorization headers."""
@@ -66,6 +95,63 @@ class CloudflareDNSService:
             'Authorization': f'Bearer {self.api_token}',
             'Content-Type': 'application/json',
         }
+
+    async def _ensure_credentials_loaded(self) -> None:
+        """Load Cloudflare credentials from Vault when env vars are absent."""
+        if self._credentials_checked:
+            return
+
+        self._credentials_checked = True
+        if self.api_token:
+            return
+
+        try:
+            vault = get_vault_client()
+            for path in CLOUDFLARE_VAULT_PATHS:
+                secret = await vault.read_secret(path)
+                if not secret:
+                    continue
+
+                token = _first_secret_value(secret, _TOKEN_KEYS)
+                if not token:
+                    logger.warning(
+                        'Cloudflare secret found at %s but it does not contain an API token',
+                        path,
+                    )
+                    continue
+
+                self.api_token = token
+
+                # Only override these when not explicitly set in the environment.
+                if 'CLOUDFLARE_ZONE_ID' not in os.environ:
+                    self.zone_id = (
+                        _first_secret_value(secret, _ZONE_ID_KEYS)
+                        or self.zone_id
+                    )
+                if 'CLOUDFLARE_ACCOUNT_ID' not in os.environ:
+                    self.account_id = (
+                        _first_secret_value(secret, _ACCOUNT_ID_KEYS)
+                        or self.account_id
+                    )
+                if 'CLOUDFLARE_TUNNEL_ID' not in os.environ:
+                    self.tunnel_id = (
+                        _first_secret_value(secret, _TUNNEL_ID_KEYS)
+                        or self.tunnel_id
+                    )
+                if 'CODETETHER_BASE_DOMAIN' not in os.environ:
+                    self.base_domain = (
+                        _first_secret_value(secret, _BASE_DOMAIN_KEYS)
+                        or self.base_domain
+                    )
+
+                logger.info(
+                    'Using Cloudflare credentials from Vault path %s', path
+                )
+                return
+        except Exception as e:
+            logger.error(
+                'Failed to fetch Cloudflare credentials from Vault: %s', e
+            )
 
     async def setup_tenant_subdomain(
         self,
@@ -82,23 +168,24 @@ class CloudflareDNSService:
         Returns:
             CloudflareDNSResult with operation status
         """
+        await self._ensure_credentials_loaded()
         if not self.api_token:
             logger.warning(
-                'Cloudflare API token not configured, skipping DNS setup'
+                'Cloudflare API token not configured in environment or Vault, skipping DNS setup'
             )
             return CloudflareDNSResult(
                 success=False,
-                error_message='Cloudflare API token not configured',
+                error_message='Cloudflare API token not configured in environment or Vault',
             )
 
-        hostname = f'{subdomain}.{BASE_DOMAIN}'
+        hostname = f'{subdomain}.{self.base_domain}'
         logger.info(f'Setting up DNS for tenant {tenant_id}: {hostname}')
 
         try:
             # Step 1: Create CNAME DNS record
             dns_result = await self._create_cname_record(
                 subdomain=subdomain,
-                target=BASE_DOMAIN,
+                target=self.base_domain,
                 comment=f'Tenant: {tenant_id}',
             )
 
@@ -192,7 +279,7 @@ class CloudflareDNSService:
         """Get existing DNS record ID."""
         url = f'{self.base_url}/zones/{self.zone_id}/dns_records'
         params = {
-            'name': f'{subdomain}.{BASE_DOMAIN}',
+            'name': f'{subdomain}.{self.base_domain}',
             'type': 'CNAME',
         }
 
@@ -292,11 +379,14 @@ class CloudflareDNSService:
 
         Called when deprovisioning a tenant.
         """
+        await self._ensure_credentials_loaded()
         if not self.api_token:
-            logger.warning('Cloudflare API token not configured')
+            logger.warning(
+                'Cloudflare API token not configured in environment or Vault'
+            )
             return False
 
-        hostname = f'{subdomain}.{BASE_DOMAIN}'
+        hostname = f'{subdomain}.{self.base_domain}'
         logger.info(f'Removing DNS for {hostname}')
 
         success = True

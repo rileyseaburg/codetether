@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { generateUUID } from './utils'
 import { useRalphStore } from './store'
-import { prdChatV1RalphChatPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
+import { useTenantApi } from '@/hooks/useTenantApi'
 
 type Role = 'user' | 'assistant' | 'system'
 type Status = 'sending' | 'sent' | 'error'
@@ -19,6 +20,18 @@ export interface GeneratedPRD {
     branchName: string
     description: string
     userStories: Array<{ id: string, title: string, description: string, acceptanceCriteria: string[], priority: number }>
+}
+
+interface RalphChatTaskResponse {
+    task_id?: string
+    status?: string
+}
+
+interface RalphTaskState {
+    status?: string
+    result?: string
+    output?: string
+    error?: string
 }
 
 export function useChatScroll() {
@@ -101,6 +114,31 @@ function parseStreamingResponse(response: string): string {
     return response
 }
 
+function extractOutputText(payload: unknown): string {
+    if (typeof payload === 'string') return payload
+    if (!payload || typeof payload !== 'object') return ''
+
+    const event = payload as Record<string, unknown>
+    if (typeof event.output === 'string') return event.output
+    if (typeof event.content === 'string') return event.content
+    if (typeof event.message === 'string') return event.message
+    if (typeof event.text === 'string') return event.text
+    return ''
+}
+
+function buildTaskStreamUrl(baseApiUrl: string, taskId: string, accessToken?: string): string {
+    const absoluteBaseApiUrl =
+        baseApiUrl.startsWith('/') ? `${window.location.origin}${baseApiUrl}` : baseApiUrl
+    const baseUrl = absoluteBaseApiUrl.replace(/\/+$/, '')
+    const sseUrl = new URL(`${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`)
+
+    if (accessToken) {
+        sseUrl.searchParams.set('access_token', accessToken)
+    }
+
+    return sseUrl.toString()
+}
+
 const PRD_SYSTEM_PROMPT = `You are a helpful assistant that helps users create Product Requirements Documents (PRDs) for software development.
 
 Your role is to:
@@ -129,13 +167,172 @@ When you have enough information, generate a PRD in this JSON format:
 Keep responses concise. Ask one or two questions at a time. When ready to generate the PRD, include the JSON block in your response.`
 
 export function useAIPRDChat(selectedWorkspace: string) {
+    const { data: session } = useSession()
+    const typedSession = session as any
+    const { tenantFetch, apiUrl, upstreamApiUrl } = useTenantApi()
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [generatedPRD, setGeneratedPRD] = useState<GeneratedPRD | null>(null)
     const { messagesEndRef, scrollToBottom } = useChatScroll()
     const { selectedModel, selectedWorker } = useRalphStore()
+    const streamRef = useRef<EventSource | null>(null)
 
     useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
+
+    const closeActiveStream = useCallback(() => {
+        if (!streamRef.current) return
+        streamRef.current.close()
+        streamRef.current = null
+    }, [])
+
+    useEffect(() => () => {
+        closeActiveStream()
+    }, [closeActiveStream])
+
+    const getAccessToken = useCallback(() => {
+        if (typedSession?.accessToken) return typedSession.accessToken as string
+        if (typeof window === 'undefined') return undefined
+        return (
+            localStorage.getItem('a2a_token') ||
+            localStorage.getItem('access_token') ||
+            undefined
+        )
+    }, [typedSession?.accessToken])
+
+    const fetchTaskState = useCallback(async (taskId: string): Promise<RalphTaskState> => {
+        const { data, error } = await tenantFetch<RalphTaskState>(`/v1/agent/tasks/${encodeURIComponent(taskId)}`)
+        if (error || !data) {
+            throw new Error(error || 'Failed to fetch task status')
+        }
+        return data
+    }, [tenantFetch])
+
+    const waitForTaskCompletion = useCallback(async (
+        taskId: string,
+        maxAttempts = 120,
+        intervalMs = 1000
+    ): Promise<RalphTaskState> => {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const task = await fetchTaskState(taskId)
+            const status = task.status
+
+            if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+                return task
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, intervalMs))
+        }
+
+        throw new Error('Task timed out - no workers available to process request')
+    }, [fetchTaskState])
+
+    const streamTaskResponse = useCallback(async (taskId: string, aiMsgId: string): Promise<string> => {
+        if (typeof window === 'undefined') {
+            const task = await waitForTaskCompletion(taskId)
+            return parseStreamingResponse(task.result || task.output || '')
+        }
+
+        closeActiveStream()
+
+        const accessToken = getAccessToken()
+        const streamBaseUrl =
+            process.env.NEXT_PUBLIC_API_URL ||
+            upstreamApiUrl ||
+            apiUrl ||
+            'https://api.codetether.run'
+
+        return await new Promise<string>((resolve, reject) => {
+            const source = new EventSource(buildTaskStreamUrl(streamBaseUrl, taskId, accessToken))
+            const timeoutId = window.setTimeout(() => {
+                finalizeWithTask(true, 'Task timed out - no workers available to process request')
+            }, 120000)
+            let rawOutput = ''
+            let settled = false
+
+            streamRef.current = source
+
+            const cleanup = () => {
+                window.clearTimeout(timeoutId)
+                source.close()
+                if (streamRef.current === source) {
+                    streamRef.current = null
+                }
+            }
+
+            const resolveFromTask = (task: RalphTaskState) => {
+                const status = task.status
+                if (status === 'failed') {
+                    reject(new Error(task.error || 'Task failed'))
+                    return
+                }
+                if (status === 'cancelled') {
+                    reject(new Error('Task was cancelled'))
+                    return
+                }
+
+                const rawResponse =
+                    task.result ||
+                    task.output ||
+                    rawOutput ||
+                    'Task completed but no response received.'
+                resolve(parseStreamingResponse(rawResponse))
+            }
+
+            const finalizeWithTask = async (allowPollingFallback: boolean, fallbackMessage?: string) => {
+                if (settled) return
+                settled = true
+                cleanup()
+
+                try {
+                    const task = allowPollingFallback
+                        ? await waitForTaskCompletion(taskId)
+                        : await fetchTaskState(taskId)
+                    resolveFromTask(task)
+                } catch (error) {
+                    reject(
+                        error instanceof Error
+                            ? error
+                            : new Error(fallbackMessage || 'Failed to stream task output')
+                    )
+                }
+            }
+
+            source.addEventListener('output', (rawEvent) => {
+                const event = rawEvent as MessageEvent<string>
+                if (!event.data) return
+
+                let chunk = ''
+                try {
+                    chunk = extractOutputText(JSON.parse(event.data))
+                } catch {
+                    chunk = event.data
+                }
+
+                if (!chunk) return
+
+                rawOutput += chunk
+                const parsedOutput = parseStreamingResponse(rawOutput)
+                const nextContent = parsedOutput || (!rawOutput.includes('"type"') ? rawOutput : '')
+                if (!nextContent) return
+
+                setMessages((prev) =>
+                    prev.map((msg) =>
+                        msg.id === aiMsgId
+                            ? { ...msg, content: nextContent, status: 'sent' }
+                            : msg
+                    )
+                )
+            })
+
+            source.addEventListener('done', () => {
+                void finalizeWithTask(false)
+            })
+
+            source.onerror = () => {
+                void finalizeWithTask(true, 'Live stream disconnected before completion.')
+            }
+        })
+    }, [apiUrl, closeActiveStream, fetchTaskState, getAccessToken, upstreamApiUrl, waitForTaskCompletion])
 
     const initializeChat = (customMessage?: string) => {
         setMessages([{
@@ -194,8 +391,9 @@ export function useAIPRDChat(selectedWorkspace: string) {
                 content: m.content
             }))
 
-            const { data: taskData } = await prdChatV1RalphChatPost({
-                body: {
+            const { data: taskData, error: taskError } = await tenantFetch<RalphChatTaskResponse>('/v1/ralph/chat', {
+                method: 'POST',
+                body: JSON.stringify({
                     message: userMessage,
                     conversation_id: 'prd-builder',
                     history: history,
@@ -203,50 +401,14 @@ export function useAIPRDChat(selectedWorkspace: string) {
                     worker_id: selectedWorker || undefined,
                     // Backend request key is still `codebase_id` for compatibility.
                     codebase_id: selectedWorkspace && selectedWorkspace !== 'global' ? selectedWorkspace : undefined,
-                }
+                }),
             })
 
-            const taskId = (taskData as { task_id: string }).task_id
-
-            // Poll for task completion
-            let fullResponse = ''
-            let attempts = 0
-            const maxAttempts = 120 // 2 minutes max
-
-            while (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000))
-                attempts++
-
-                const statusResult = await getTaskV1AgentTasksTaskIdGet({
-                    path: { task_id: taskId },
-                })
-
-                if (!statusResult.data) continue
-
-                const data = statusResult.data as any
-                const status = data.status
-
-                if (status === 'completed') {
-                    const rawResponse = data.result || data.output || 'Task completed but no response received.'
-                    fullResponse = parseStreamingResponse(rawResponse)
-                    break
-                } else if (status === 'failed') {
-                    throw new Error(data.error || 'Task failed')
-                } else if (status === 'cancelled') {
-                    throw new Error('Task was cancelled')
-                }
-
-                if (data.output) {
-                    const parsedOutput = parseStreamingResponse(data.output)
-                    setMessages(prev => prev.map(msg =>
-                        msg.id === aiMsgId ? { ...msg, content: parsedOutput } : msg
-                    ))
-                }
+            if (taskError || !taskData?.task_id) {
+                throw new Error(taskError || 'Failed to create PRD chat task')
             }
 
-            if (!fullResponse && attempts >= maxAttempts) {
-                throw new Error('Task timed out - no workers available to process request')
-            }
+            const fullResponse = await streamTaskResponse(taskData.task_id, aiMsgId)
 
             setMessages(prev => prev.map(msg => 
                 msg.id === aiMsgId ? { ...msg, content: fullResponse, status: 'sent' } : msg

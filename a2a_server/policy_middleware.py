@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # for backward compatibility with internal deployments.
 WORKER_AUTH_TOKEN: Optional[str] = os.environ.get('WORKER_AUTH_TOKEN')
 _WORKER_PATH = re.compile(
-    r'^/v1/agent/(workers/|tasks(/|/[^/]+/(output|status|claim|complete|cancel|requeue))?/?$)'
+    r'^/v1/agent/(workers/|tasks(/|/[^/]+/(output|status|claim|complete|cancel|requeue))?/?$|workspaces/[^/]+/git/credentials$)'
 )
 
 
@@ -80,6 +80,7 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
 
     # Billing webhooks — Stripe signature verified
     (r"^/v1/webhooks/stripe$", {"POST"}, ""),
+    (r"^/v1/webhooks/github$", {"POST"}, ""),
 
     # ── Already-protected routes (skip to avoid double auth) ─────
     # Billing, admin, tenant (non-signup), user auth (non-public),
@@ -117,6 +118,7 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/workers/register$", {"POST"}, ""),
     (r"^/v1/agent/workers/[^/]+/unregister$", {"POST"}, ""),
     (r"^/v1/agent/workers/[^/]+/heartbeat$", {"POST"}, ""),
+    (r"^/v1/agent/workspaces/[^/]+/git/credentials$", {"POST"}, ""),
     (r"^/v1/agent/tasks$", {"GET"}, ""),  # worker task polling (status=pending)
     (r"^/v1/agent/workers/[^/]+/profile$", {"POST"}, "workers:write"),
     (r"^/v1/agent/workers$", {"GET"}, ""),

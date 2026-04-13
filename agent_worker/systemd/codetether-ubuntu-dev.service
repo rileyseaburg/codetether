@@ -1,0 +1,49 @@
+[Unit]
+Description=CodeTether ubuntu-dev Worker - full-tools A2A task executor
+Documentation=https://github.com/rileyseaburg/A2A-Server-MCP
+After=network-online.target
+Wants=network-online.target
+
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=riley
+Group=riley
+
+Environment=A2A_SERVER_URL=https://api.codetether.run
+Environment=CODETETHER_LOG_LEVEL=info
+# Load API keys and overrides from env file
+EnvironmentFile=-/etc/codetether-worker/env
+
+WorkingDirectory=/home/riley/A2A-Server-MCP
+
+ExecStart=/opt/codetether-worker/bin/codetether worker \
+    --server ${A2A_SERVER_URL} \
+    --auto-approve all \
+    --name ubuntu-dev \
+    --codebases /home/riley/A2A-Server-MCP,/home/riley/family-budget
+
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=no
+ReadWritePaths=/home/riley/A2A-Server-MCP
+ReadWritePaths=/home/riley/family-budget
+ReadWritePaths=/home/riley/.config
+ReadWritePaths=/home/riley/.local
+ReadWritePaths=/opt/codetether-worker
+PrivateTmp=true
+
+MemoryMax=2G
+CPUQuota=200%
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=codetether-ubuntu-dev
+
+[Install]
+WantedBy=multi-user.target

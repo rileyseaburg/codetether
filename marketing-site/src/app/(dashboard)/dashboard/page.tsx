@@ -40,6 +40,7 @@ interface Worker {
     name: string
     hostname?: string
     status: string
+    codebases?: string[]
     global_workspace_id?: string
     // Legacy alias kept for backward compatibility in mixed deployments.
     global_codebase_id?: string
@@ -441,7 +442,24 @@ export default function DashboardPage() {
     const [runtimeContext, setRuntimeContext] = useState<WorkspaceRuntimeContext | null>(null)
     const [triggerNotification, setTriggerNotification] = useState<{ type: 'success' | 'warning' | 'error'; message: string; detail?: string } | null>(null)
     const triggerNotificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const workerScopedWorkspaces = useMemo(() => {
+        if (!selectedWorkerId) return workspaces
+
+        const selectedWorkerRecord = workers.find((worker) => worker.worker_id === selectedWorkerId)
+        if (!selectedWorkerRecord) return []
+
+        const assignedWorkspaceIds = new Set(selectedWorkerRecord.codebases || [])
+        return workspaces.filter(
+            (workspace) =>
+                workspace.worker_id === selectedWorkerId || assignedWorkspaceIds.has(workspace.id)
+        )
+    }, [selectedWorkerId, workers, workspaces])
+    const visibleWorkspaces = selectedWorkerId ? workerScopedWorkspaces : workspaces
     const fallbackWorkspaceId = useMemo(() => {
+        if (selectedWorkerId) {
+            return workerScopedWorkspaces[0]?.id || ''
+        }
+
         const connectedWorker = workers.find(
             (w) => w.is_sse_connected && (w.global_workspace_id || w.global_codebase_id)
         )
@@ -454,10 +472,10 @@ export default function DashboardPage() {
 
         if (workspaces.length === 1) return workspaces[0]?.id || ''
         return ''
-    }, [workers, workspaces])
+    }, [selectedWorkerId, workerScopedWorkspaces, workers, workspaces])
     const selectedWorkspaceExists = useMemo(
-        () => Boolean(selectedCodebase) && workspaces.some((cb) => cb.id === selectedCodebase),
-        [workspaces, selectedCodebase]
+        () => Boolean(selectedCodebase) && visibleWorkspaces.some((cb) => cb.id === selectedCodebase),
+        [selectedCodebase, visibleWorkspaces]
     )
     const activeWorkspaceId = useMemo(() => {
         if (selectedWorkspaceExists && selectedCodebase) return selectedCodebase
@@ -465,7 +483,12 @@ export default function DashboardPage() {
     }, [fallbackWorkspaceId, selectedCodebase, selectedWorkspaceExists])
 
     useEffect(() => {
-        if (!fallbackWorkspaceId) return
+        if (!fallbackWorkspaceId) {
+            if (selectedCodebase && !selectedWorkspaceExists) {
+                setSelectedCodebase('')
+            }
+            return
+        }
         if (!selectedCodebase) {
             setSelectedCodebase(fallbackWorkspaceId)
             return
@@ -533,9 +556,18 @@ export default function DashboardPage() {
         }
     }, [session])
 
-    // Redirect to dedicated instance if user has one and we're on the shared site
+    const dedicatedDashboardRedirectEnabled =
+        process.env.NEXT_PUBLIC_ENABLE_TENANT_HOST_REDIRECT === 'true'
+
+    // Cross-subdomain dashboard redirects stay opt-in until auth cookies/session sharing
+    // are configured to work on tenant hosts.
     useEffect(() => {
-        if (isAuthenticated && session?.tenantApiUrl && tenantSlug) {
+        if (
+            dedicatedDashboardRedirectEnabled &&
+            isAuthenticated &&
+            session?.tenantApiUrl &&
+            tenantSlug
+        ) {
             const currentHost = window.location.host
             const tenantHost = `${tenantSlug}.codetether.run`
 
@@ -547,7 +579,7 @@ export default function DashboardPage() {
                 window.location.href = `${session.tenantApiUrl}/dashboard`
             }
         }
-    }, [isAuthenticated, session?.tenantApiUrl, tenantSlug])
+    }, [dedicatedDashboardRedirectEnabled, isAuthenticated, session?.tenantApiUrl, tenantSlug])
 
     // Log tenant info for debugging
     useEffect(() => {
@@ -865,14 +897,8 @@ export default function DashboardPage() {
     }, [loadWorkspaces, loadWorkers, loadAgentDefinitions, loadRoutingFromTasks, session?.accessToken])
 
     useEffect(() => {
-        const triggerWorkers = workers.filter((w) => w.is_sse_connected)
-        if (triggerWorkers.length === 0) {
-            if (selectedWorkerId) setSelectedWorkerId('')
-            return
-        }
-
         const selectedWorkspaceWorkerId = workspaces.find((cb) => cb.id === activeWorkspaceId)?.worker_id
-        const preferredWorker = triggerWorkers.find((w) => w.worker_id === selectedWorkspaceWorkerId)?.worker_id
+        const preferredWorker = workers.find((w) => w.worker_id === selectedWorkspaceWorkerId)?.worker_id
 
         if (!selectedWorkerId) {
             if (preferredWorker) {
@@ -881,7 +907,7 @@ export default function DashboardPage() {
             return
         }
 
-        const selectedStillValid = triggerWorkers.some((w) => w.worker_id === selectedWorkerId)
+        const selectedStillValid = workers.some((w) => w.worker_id === selectedWorkerId)
         if (!selectedStillValid) {
             setSelectedWorkerId(preferredWorker || '')
         }
@@ -954,9 +980,13 @@ export default function DashboardPage() {
                 setTriggerNotification({
                     type: 'warning',
                     message: 'No workers online — task saved but waiting',
-                    detail: 'Connect a CodeTether worker to this workspace to start processing. '
-                        + 'The task will run automatically when a worker comes online. '
-                        + (responseSessionId ? `Task ID: ${responseSessionId}` : ''),
+                    detail: selectedWorkerId
+                        ? `The selected worker "${selectedWorker?.name || selectedWorkerId}" is registered but not online. `
+                            + 'This task will stay queued and run automatically when that worker reconnects. '
+                            + (responseSessionId ? `Task ID: ${responseSessionId}` : '')
+                        : 'Connect a CodeTether worker to this workspace to start processing. '
+                            + 'The task will run automatically when a worker comes online. '
+                            + (responseSessionId ? `Task ID: ${responseSessionId}` : ''),
                 })
             } else if (routing) {
                 const personalityLabel = routing.worker_personality ? `, personality: ${routing.worker_personality}` : ''
@@ -994,6 +1024,7 @@ export default function DashboardPage() {
         }
     }, [
         selectedWorkerId,
+        selectedWorker,
         selectedAgent,
         swarmStrategy,
         swarmMaxSubagents,
@@ -1697,18 +1728,31 @@ export default function DashboardPage() {
                                         className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     >
                                         <option value="">
-                                            {fallbackWorkspaceId ? 'Auto (Direct / Global Workspace)' : 'Select a workspace...'}
+                                            {fallbackWorkspaceId
+                                                ? selectedWorkerId
+                                                    ? 'Auto-select a workspace on this worker'
+                                                    : 'Auto (Direct / Global Workspace)'
+                                                : selectedWorkerId
+                                                    ? 'No compatible workspaces for this worker'
+                                                    : 'Select a workspace...'}
                                         </option>
-                                        {workspaces.map((cb) => (
+                                        {visibleWorkspaces.map((cb) => (
                                             <option key={cb.id} value={cb.id}>
                                                 {cb.name} {cb.runtime === 'vm' ? '(VM)' : '(Container)'}
                                             </option>
                                         ))}
                                     </select>
+                                    {selectedWorkerId && workerScopedWorkspaces.length === 0 && (
+                                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                                            The selected worker does not currently have any registered workspaces available in this dashboard.
+                                        </p>
+                                    )}
                                     <div className="mt-2 rounded-md border border-blue-200 bg-blue-50/70 p-2 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
                                         <p className="font-medium">Workspace = context identity + source path + runtime owner</p>
                                         <p className="mt-1">
-                                            Set a runtime-accessible path for this workspace. With Knative enabled, the same workspace ID maps to session pods without changing context.
+                                            {selectedWorkerId
+                                                ? 'The workspace list is filtered to workspaces registered on the selected worker.'
+                                                : 'Set a runtime-accessible path for this workspace. With Knative enabled, the same workspace ID maps to session pods without changing context.'}
                                         </p>
                                     </div>
                                     <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200">
@@ -1793,13 +1837,15 @@ export default function DashboardPage() {
                                         value={selectedWorkerId}
                                         onChange={setSelectedWorkerId}
                                         workers={workers}
-                                        onlyConnected
+                                        onlyConnected={false}
+                                        disableDisconnected={false}
                                         includeAutoOption
                                         autoOptionLabel="Auto routing (recommended)"
                                         className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        Optional override. Leave blank to use workspace owner or platform routing (including Knative when enabled).
+                                        Optional override. Registered workers appear here even when offline, including local standalone installs managed by systemd.
+                                        Choose an offline worker to queue work for that machine; choose an online worker for immediate dispatch.
                                     </p>
                                 </div>
                                 <div>
@@ -2274,6 +2320,7 @@ export default function DashboardPage() {
                             <div className="mb-3">
                                 <VoiceAgentButton
                                     codebaseId={activeWorkspaceId || undefined}
+                                    selectedWorkerId={selectedWorkerId || undefined}
                                     workers={workers}
                                     onWorkerDeployed={loadWorkers}
                                 />
@@ -2577,11 +2624,17 @@ export default function DashboardPage() {
                                                         value={registerForm.worker_id}
                                                         onChange={(worker_id) => setRegisterForm({ ...registerForm, worker_id })}
                                                         workers={workers}
-                                                        onlyConnected
+                                                        onlyConnected={false}
+                                                        disableDisconnected={false}
                                                         includeAutoOption={registerMode !== 'external'}
                                                         autoOptionLabel="Auto-assign (default)"
                                                         className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                     />
+                                                )}
+                                                {effectiveRegisterRuntime !== 'vm' && (
+                                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                        Use this to bind the workspace to a registered worker, including a standalone local worker installed as a systemd service.
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>

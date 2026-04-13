@@ -2,6 +2,11 @@
 
 import { useSession, signOut } from 'next-auth/react'
 import { useMemo, useCallback, useEffect, useRef } from 'react'
+import {
+  hasDedicatedTenantInstance,
+  getSharedTenantApiUrl,
+  normalizeTenantApiUrl,
+} from '@/lib/tenant-api'
 
 function decodeJwtPayload(token: string): Record<string, any> {
   try {
@@ -39,9 +44,10 @@ function extractTenantFromToken(token?: string): { tenantId?: string; tenantSlug
 /**
  * Hook to get tenant-aware API configuration.
  *
- * Returns the correct API URL based on the user's tenant:
- * - If user has a dedicated tenant instance: https://{slug}.codetether.run
- * - Otherwise: https://api.codetether.run (shared API)
+ * Returns the control-plane API URL used by the dashboard.
+ *
+ * Dashboard/operator flows stay on the shared API until tenant runtimes expose
+ * the same compatibility surface.
  *
  * Usage:
  * ```tsx
@@ -68,7 +74,7 @@ export function useTenantApi() {
       : undefined
 
   const tenantConfig = useMemo(() => {
-    const defaultApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+    const sharedApiUrl = getSharedTenantApiUrl()
     const sessionToken = typedSession?.accessToken as string | undefined
     const storedToken =
       typeof window !== 'undefined'
@@ -97,28 +103,32 @@ export function useTenantApi() {
 
     if (!typedSession && !authToken) {
       return {
-        apiUrl: defaultApiUrl,
+        apiUrl: sharedApiUrl,
+        upstreamApiUrl: sharedApiUrl,
         tenantId: undefined,
         tenantSlug: undefined,
         hasDedicatedInstance: false,
+        proxyingTenantApi: false,
       }
     }
 
-    // Ensure HTTPS to prevent mixed content errors
-    let tenantApiUrl = typedSession?.tenantApiUrl || defaultApiUrl
-    if (tenantApiUrl.startsWith('http://')) {
-      tenantApiUrl = tenantApiUrl.replace('http://', 'https://')
-    }
-    const hasDedicatedInstance = !!(
-      resolvedTenantSlug &&
-      tenantApiUrl.includes(resolvedTenantSlug)
+    const upstreamApiUrl =
+      normalizeTenantApiUrl(typedSession?.tenantApiUrl || sharedApiUrl) ||
+      sharedApiUrl
+    const hasDedicatedInstance = hasDedicatedTenantInstance(
+      upstreamApiUrl,
+      resolvedTenantSlug
     )
 
     return {
-      apiUrl: tenantApiUrl,
+      // Keep dashboard/control-plane calls on the shared API until tenant
+      // runtimes expose the same compatibility surface.
+      apiUrl: sharedApiUrl,
+      upstreamApiUrl,
       tenantId: resolvedTenantId,
       tenantSlug: resolvedTenantSlug,
       hasDedicatedInstance,
+      proxyingTenantApi: false,
     }
   }, [localUser?.tenantId, localUser?.tenantSlug, localUser?.tenant_id, localUser?.tenant_slug, typedSession])
 
@@ -128,7 +138,7 @@ export function useTenantApi() {
 
   /**
    * Tenant-aware fetch function.
-   * Automatically adds auth headers and routes to the correct tenant API.
+   * Automatically adds auth headers and routes to the dashboard control plane.
    */
   const tenantFetch = useCallback(async <T = unknown>(
     path: string,
@@ -155,7 +165,13 @@ export function useTenantApi() {
     }
 
     try {
-      const url = path.startsWith('http') ? path : `${tenantConfig.apiUrl}${path}`
+      const normalizedPath =
+        path.startsWith('http') || path.startsWith('/')
+          ? path
+          : `/${path}`
+      const url = normalizedPath.startsWith('http')
+        ? normalizedPath
+        : `${tenantConfig.apiUrl}${normalizedPath}`
       const response = await fetch(url, {
         ...options,
         headers,
@@ -188,9 +204,7 @@ export function useTenantApi() {
           errorText.includes('<!DOCTYPE html>')
 
         if (isHtmlResponse) {
-          const usingApiProxy =
-            tenantConfig.apiUrl === '/api' ||
-            tenantConfig.apiUrl.endsWith('/api')
+          const usingApiProxy = tenantConfig.apiUrl.startsWith('/api')
 
           if (response.status === 404 && usingApiProxy) {
             return {

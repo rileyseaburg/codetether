@@ -1,0 +1,31 @@
+{{- if and .Values.serviceAccount.create .Values.vmWorkspaces.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-vm-workspace-manager
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [{{ .Values.vmWorkspaces.apiGroup | default "kubevirt.io" | quote }}]
+    resources: [{{ .Values.vmWorkspaces.plural | default "virtualmachines" | quote }}]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-vm-workspace-manager
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "a2a-server.fullname" . }}-vm-workspace-manager
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "a2a-server.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

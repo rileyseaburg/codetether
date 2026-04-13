@@ -115,14 +115,9 @@ function extractTenantFromToken(accessToken: string): { tenantId?: string; tenan
     }
 }
 
-// Get the API URL for a tenant
-function getTenantApiUrl(tenantSlug?: string): string {
-    // If tenant has a dedicated instance, use it
-    if (tenantSlug) {
-        return `https://${tenantSlug}.codetether.run`
-    }
-    // Fall back to shared API
-    return process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+// Fall back to the shared API unless the backend explicitly returns a tenant instance URL.
+function getSharedApiUrl(): string {
+    return process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 }
 
 // Fetch tenant info from the API (for users whose JWT doesn't have tenant claims)
@@ -133,7 +128,7 @@ async function fetchTenantInfo(accessToken: string): Promise<{
 }> {
     try {
         // Server-side: use API_URL (full URL), fall back to NEXT_PUBLIC_API_URL or production
-        const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+        const apiUrl = getSharedApiUrl()
         const response = await fetch(`${apiUrl}/v1/tenants/me`, {
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -153,7 +148,10 @@ async function fetchTenantInfo(accessToken: string): Promise<{
         const tenantSlug = tenant.realm_name?.split('.')[0] || tenant.subdomain
 
         // Ensure HTTPS — k8s_external_url may be stored with http:// which causes mixed content errors
-        let tenantApiUrl = tenant.k8s_external_url || getTenantApiUrl(tenantSlug)
+        let tenantApiUrl = getSharedApiUrl()
+        if (typeof tenant.k8s_external_url === 'string' && tenant.k8s_external_url.trim()) {
+            tenantApiUrl = tenant.k8s_external_url.trim()
+        }
         if (tenantApiUrl.startsWith('http://')) {
             tenantApiUrl = tenantApiUrl.replace('http://', 'https://')
         }
@@ -253,7 +251,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // Tenant info in JWT - use it directly
                     token.tenantId = jwtTenantInfo.tenantId
                     token.tenantSlug = jwtTenantInfo.tenantSlug
-                    token.tenantApiUrl = getTenantApiUrl(jwtTenantInfo.tenantSlug)
+                    token.tenantApiUrl = getSharedApiUrl()
                 } else {
                     // No tenant in JWT - fetch from API
                     const apiTenantInfo = await fetchTenantInfo(account.access_token as string)

@@ -53,8 +53,11 @@ function formatWorkerLabel(worker: Worker): string {
         effectiveRuntimeLabel ||
         worker.worker_runtime_label ||
         (worker.worker_runtime === 'rust' ? 'Rust Worker' : 'CodeTether Python Worker')
-    const connectionLabel = isConnected(worker) ? 'connected' : 'not connected'
-    const statusValue = worker.status || connectionLabel
+    const statusValue = isConnected(worker)
+        ? 'online'
+        : worker.status && worker.status !== 'connected' && worker.status !== 'active'
+            ? worker.status
+            : 'registered'
     return `${displayName} - ${runtimeLabel} (${statusValue})`
 }
 

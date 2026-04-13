@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTenantApi } from '@/hooks/useTenantApi'
+import { useWorkers, type Worker as TargetWorker } from '@/components/WorkerSelector'
 import { createGlobalTaskV1AgentTasksPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
 // Constants
@@ -32,8 +35,131 @@ interface TaskResponse {
   description?: string
 }
 
+interface WorkspaceOption {
+  id: string
+  name: string
+  path: string
+  status?: string
+  worker_id?: string | null
+}
+
+interface CreateTaskOptions {
+  workerId?: string
+  workspaceId?: string
+  conversationId?: string
+}
+
 function getTaskId(response: TaskResponse): string {
   return response.id || response.task_id || ''
+}
+
+type RequestHeaders = Record<string, string> | undefined
+
+function normalizeWorkspaceOptions(data: unknown): WorkspaceOption[] {
+  const items = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { workspaces?: unknown[] } | undefined)?.workspaces)
+      ? (data as { workspaces: unknown[] }).workspaces
+      : Array.isArray((data as { codebases?: unknown[] } | undefined)?.codebases)
+        ? (data as { codebases: unknown[] }).codebases
+        : Array.isArray((data as { data?: unknown[] } | undefined)?.data)
+          ? (data as { data: unknown[] }).data
+          : []
+
+  return items
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((item) => ({
+      id: String(item.id ?? ''),
+      name: String(item.name ?? item.id ?? ''),
+      path: String(item.path ?? ''),
+      status: typeof item.status === 'string' ? item.status : undefined,
+      worker_id: typeof item.worker_id === 'string' ? item.worker_id : null,
+    }))
+    .filter((item) => item.id)
+}
+
+function formatWorkerLabel(worker: TargetWorker): string {
+  return (worker.name || worker.worker_id).trim()
+}
+
+function formatWorkspaceLabel(workspace: WorkspaceOption): string {
+  const leaf = workspace.path.split('/').filter(Boolean).pop()
+  const suffix = leaf && leaf !== workspace.name ? ` (${leaf})` : ''
+  return `${workspace.name}${suffix}`
+}
+
+function normalizeTaskResponse(data: any): TaskResponse {
+  const task = data?.task ?? data
+
+  return {
+    id: task?.id || task?.task_id || task?.taskId || '',
+    task_id: task?.task_id || task?.taskId || task?.id,
+    title: task?.title || '',
+    status: task?.status || '',
+    result: task?.result,
+    description: task?.description || task?.detail,
+  }
+}
+
+function extractErrorMessage(error: unknown): string | undefined {
+  if (!error) return undefined
+  if (typeof error === 'string') return error
+  if (typeof error === 'object') {
+    const value = error as Record<string, unknown>
+    if (typeof value.detail === 'string') return value.detail
+    if (typeof value.message === 'string') return value.message
+    if (Array.isArray(value.detail)) {
+      return value.detail
+        .map((item) =>
+          typeof item === 'string'
+            ? item
+            : typeof item === 'object' && item && 'msg' in item
+              ? String((item as Record<string, unknown>).msg)
+              : JSON.stringify(item)
+        )
+        .join('; ')
+    }
+  }
+  return undefined
+}
+
+async function readResultPayload(result: any): Promise<any> {
+  if (!result) return undefined
+
+  if (
+    typeof result === 'object' &&
+    !('data' in result) &&
+    !('error' in result) &&
+    !('response' in result) &&
+    !('request' in result)
+  ) {
+    return result
+  }
+
+  if (result.data !== undefined) {
+    return result.data
+  }
+
+  const response = result.response
+  if (!(response instanceof Response)) {
+    return undefined
+  }
+
+  const contentType = response.headers.get('Content-Type') || ''
+  if (contentType.includes('application/json')) {
+    return response.clone().json().catch(() => undefined)
+  }
+
+  const text = await response.clone().text().catch(() => '')
+  if (!text) {
+    return undefined
+  }
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { result: text }
+  }
 }
 
 // Shared icons
@@ -152,48 +278,76 @@ CodeTether is open source (Apache 2.0). The hosted API at api.codetether.run is 
 Answer questions helpfully and concisely based on the above documentation.`
 
 // API Functions using SDK
-async function createTask(prompt: string): Promise<TaskResponse> {
+async function createTask(
+  prompt: string,
+  headers?: RequestHeaders,
+  options: CreateTaskOptions = {}
+): Promise<TaskResponse> {
+  const metadata: Record<string, unknown> = {
+    source: 'chat_widget',
+    interactive: true,
+  }
+
+  if (options.workerId) {
+    metadata.target_worker_id = options.workerId
+  }
+
+  if (options.conversationId) {
+    metadata.conversation_id = options.conversationId
+  }
+
   const result = await createGlobalTaskV1AgentTasksPost({
     body: {
       title: `Chat: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
       prompt: `${CODETETHER_CONTEXT}\n\n---\n\nUser question: ${prompt}\n\nProvide a helpful, concise response.`,
       agent_type: 'general',
+      ...(options.workspaceId ? { workspace_id: options.workspaceId } : {}),
+      metadata,
     },
+    headers,
   })
 
-  if (!result.data) {
+  const data = await readResultPayload(result)
+  if (!data) {
+    const detail = extractErrorMessage(result.error)
+    if (detail) {
+      throw new Error(`Failed to create task: ${detail}`)
+    }
+    if (result.response?.status) {
+      throw new Error(
+        `Failed to create task: HTTP ${result.response.status} ${result.response.statusText}`.trim()
+      )
+    }
     throw new Error('Failed to create task: No data returned')
   }
 
-  const data = result.data as any
-  return {
-    id: data.id,
-    task_id: data.task_id,
-    title: data.title,
-    status: data.status,
-    result: data.result,
-    description: data.description,
-  }
+  return normalizeTaskResponse(data)
 }
 
-async function getTask(taskId: string): Promise<TaskResponse> {
+async function getTask(
+  taskId: string,
+  headers?: RequestHeaders
+): Promise<TaskResponse> {
   const result = await getTaskV1AgentTasksTaskIdGet({
     path: { task_id: taskId },
+    headers,
   })
 
-  if (!result.data) {
+  const data = await readResultPayload(result)
+  if (!data) {
+    const detail = extractErrorMessage(result.error)
+    if (detail) {
+      throw new Error(`Failed to get task: ${detail}`)
+    }
+    if (result.response?.status) {
+      throw new Error(
+        `Failed to get task: HTTP ${result.response.status} ${result.response.statusText}`.trim()
+      )
+    }
     throw new Error('Failed to get task: No data returned')
   }
 
-  const data = result.data as any
-  return {
-    id: data.id,
-    task_id: data.task_id,
-    title: data.title,
-    status: data.status,
-    result: data.result,
-    description: data.description,
-  }
+  return normalizeTaskResponse(data)
 }
 
 function parseCodeTetherResult(result: string): string {
@@ -218,10 +372,11 @@ async function pollForCompletion(
   taskId: string,
   onUpdate?: (task: TaskResponse) => void,
   maxAttempts = 60,
-  intervalMs = 1000
+  intervalMs = 1000,
+  headers?: RequestHeaders
 ): Promise<TaskResponse> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const task = await getTask(taskId)
+    const task = await getTask(taskId, headers)
 
     if (onUpdate) onUpdate(task)
 
@@ -267,12 +422,26 @@ function clearStorage(): void {
 }
 
 export function ChatWidget() {
+  const { data: session } = useSession()
+  const { tenantFetch } = useTenantApi()
+  const typedSession = session as any
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string>('')
+  const [selectedWorkerId, setSelectedWorkerId] = useState('')
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([])
+  const [workspacesLoading, setWorkspacesLoading] = useState(false)
+  const [workspacesError, setWorkspacesError] = useState<string | null>(null)
+  const [hasStoredAccessToken, setHasStoredAccessToken] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const hasRuntimeAccess = Boolean(
+    typedSession?.accessToken || hasStoredAccessToken
+  )
+  const { workers, loading: workersLoading, error: workersError } = useWorkers(isOpen && hasRuntimeAccess)
 
   useEffect(() => {
     const stored = loadFromStorage()
@@ -290,6 +459,11 @@ export function ChatWidget() {
     }
   }, [messages, conversationId])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setHasStoredAccessToken(Boolean(localStorage.getItem('a2a_token') || localStorage.getItem('access_token')))
+  }, [typedSession?.accessToken])
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -301,6 +475,91 @@ export function ChatWidget() {
     clearStorage()
     setConversationId(generateConversationId())
   }, [])
+
+  const loadWorkspaces = useCallback(async () => {
+    if (!isOpen || !hasRuntimeAccess) {
+      setWorkspaces([])
+      setWorkspacesError(null)
+      setWorkspacesLoading(false)
+      return
+    }
+
+    setWorkspacesLoading(true)
+    setWorkspacesError(null)
+
+    const { data, error } = await tenantFetch<unknown>('/v1/agent/workspaces/list')
+
+    if (error) {
+      setWorkspaces([])
+      setWorkspacesError(error)
+      setWorkspacesLoading(false)
+      return
+    }
+
+    setWorkspaces(normalizeWorkspaceOptions(data))
+    setWorkspacesLoading(false)
+  }, [hasRuntimeAccess, isOpen, tenantFetch])
+
+  useEffect(() => {
+    loadWorkspaces()
+  }, [loadWorkspaces])
+
+  const getRequestHeaders = useCallback((): RequestHeaders => {
+    const headers: Record<string, string> = {}
+    const accessToken =
+      typedSession?.accessToken ||
+      (typeof window !== 'undefined'
+        ? localStorage.getItem('a2a_token') ||
+          localStorage.getItem('access_token') ||
+          undefined
+        : undefined)
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`
+    }
+    if (typedSession?.tenantId) {
+      headers['X-Tenant-ID'] = typedSession.tenantId
+    }
+
+    return Object.keys(headers).length ? headers : undefined
+  }, [typedSession?.accessToken, typedSession?.tenantId])
+
+  const connectedWorkers = useMemo(
+    () => workers.filter((worker) => worker.is_sse_connected),
+    [workers]
+  )
+
+  const selectedWorker = useMemo(
+    () => connectedWorkers.find((worker) => worker.worker_id === selectedWorkerId) || null,
+    [connectedWorkers, selectedWorkerId]
+  )
+
+  const workerScopedWorkspaces = useMemo(() => {
+    if (!selectedWorkerId) return []
+
+    const assignedWorkspaceIds = new Set(selectedWorker?.codebases || [])
+
+    return workspaces.filter((workspace) =>
+      workspace.worker_id === selectedWorkerId || assignedWorkspaceIds.has(workspace.id)
+    )
+  }, [selectedWorker?.codebases, selectedWorkerId, workspaces])
+
+  useEffect(() => {
+    if (!selectedWorkerId) {
+      setSelectedWorkspaceId('')
+      return
+    }
+
+    if (!connectedWorkers.some((worker) => worker.worker_id === selectedWorkerId)) {
+      setSelectedWorkerId('')
+      setSelectedWorkspaceId('')
+      return
+    }
+
+    if (!workerScopedWorkspaces.some((workspace) => workspace.id === selectedWorkspaceId)) {
+      setSelectedWorkspaceId(workerScopedWorkspaces[0]?.id || '')
+    }
+  }, [connectedWorkers, selectedWorkerId, selectedWorkspaceId, workerScopedWorkspaces])
 
   const sendMessage = async (userMessage: string, isRetry = false, retryMsgId?: string) => {
     const userMsgId = isRetry ? retryMsgId! : `user-${Date.now()}`
@@ -323,7 +582,12 @@ export function ChatWidget() {
     }
 
     try {
-      const task = await createTask(userMessage)
+      const requestHeaders = getRequestHeaders()
+      const task = await createTask(userMessage, requestHeaders, {
+        workerId: selectedWorkerId || undefined,
+        workspaceId: selectedWorkspaceId || undefined,
+        conversationId,
+      })
       const taskId = getTaskId(task)
 
       if (!taskId) {
@@ -341,7 +605,13 @@ export function ChatWidget() {
       }
       setMessages(prev => [...prev, aiMsg])
 
-      const completedTask = await pollForCompletion(taskId)
+      const completedTask = await pollForCompletion(
+        taskId,
+        undefined,
+        60,
+        1000,
+        requestHeaders
+      )
       const parsedResult = parseCodeTetherResult(completedTask.result || '')
 
       setMessages(prev =>
@@ -385,11 +655,45 @@ export function ChatWidget() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (selectedWorkerId && !selectedWorkspaceId) return
     if (message.trim() && !isLoading) {
       sendMessage(message.trim())
       setMessage('')
     }
   }
+
+  const targetingSummary = useMemo(() => {
+    if (!hasRuntimeAccess) return null
+    if (!selectedWorkerId && !workersLoading && connectedWorkers.length === 0) {
+      return 'No connected workers are available yet. This widget can still send a global task.'
+    }
+    if (!selectedWorkerId) {
+      return 'Send as a global task, or choose a connected worker and one of its registered workspaces.'
+    }
+    if (workersLoading || workspacesLoading) {
+      return 'Loading connected workers and workspaces...'
+    }
+    if (!selectedWorker) {
+      return 'Selected worker is no longer connected.'
+    }
+    if (!workerScopedWorkspaces.length) {
+      return 'This worker has no registered workspaces yet.'
+    }
+    const workspace = workerScopedWorkspaces.find((item) => item.id === selectedWorkspaceId)
+    if (!workspace) {
+      return 'Select a workspace registered to this worker.'
+    }
+    return `Tasks will run on ${formatWorkerLabel(selectedWorker)} in ${workspace.name}.`
+  }, [
+    hasRuntimeAccess,
+    selectedWorkerId,
+    connectedWorkers.length,
+    workersLoading,
+    workspacesLoading,
+    selectedWorker,
+    workerScopedWorkspaces,
+    selectedWorkspaceId,
+  ])
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
@@ -400,7 +704,7 @@ export function ChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute bottom-[calc(60px+16px)] right-0 w-[400px] h-[500px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+            className="absolute bottom-[calc(60px+16px)] right-0 w-[400px] h-[560px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 py-3 bg-cyan-500 text-white">
               <h3 className="font-semibold text-base">Chat with AI</h3>
@@ -415,6 +719,64 @@ export function ChatWidget() {
                 </button>
               </div>
             </div>
+
+            {hasRuntimeAccess && (
+              <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-3 py-3">
+                <div className="space-y-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Worker
+                    </label>
+                    <select
+                      value={selectedWorkerId}
+                      onChange={(e) => setSelectedWorkerId(e.target.value)}
+                      disabled={isLoading || workersLoading}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+                    >
+                      <option value="">Auto-select worker</option>
+                      {connectedWorkers.map((worker) => (
+                        <option key={worker.worker_id} value={worker.worker_id}>
+                          {formatWorkerLabel(worker)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Workspace
+                    </label>
+                    <select
+                      value={selectedWorkspaceId}
+                      onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+                      disabled={isLoading || !selectedWorkerId || workspacesLoading || workerScopedWorkspaces.length === 0}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+                    >
+                      <option value="">
+                        {!selectedWorkerId
+                          ? 'Select a worker first'
+                          : workspacesLoading
+                            ? 'Loading workspaces...'
+                            : workerScopedWorkspaces.length === 0
+                              ? 'No registered workspaces'
+                              : 'Select workspace'}
+                      </option>
+                      {workerScopedWorkspaces.map((workspace) => (
+                        <option key={workspace.id} value={workspace.id}>
+                          {formatWorkspaceLabel(workspace)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(workersError || workspacesError || targetingSummary) && (
+                    <p className={`text-[11px] ${workersError || workspacesError ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {workersError || workspacesError || targetingSummary}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
               {messages.length === 0 ? (
@@ -457,13 +819,13 @@ export function ChatWidget() {
                   type="text"
                   value={message}
                   onChange={e => setMessage(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder={selectedWorkerId && selectedWorkspaceId ? 'Ask the selected worker...' : 'Type a message...'}
                   disabled={isLoading}
                   className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50"
                 />
                 <button
                   type="submit"
-                  disabled={!message.trim() || isLoading}
+                  disabled={!message.trim() || isLoading || Boolean(selectedWorkerId && !selectedWorkspaceId)}
                   className="p-2 rounded-full bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   aria-label="Send message"
                 >

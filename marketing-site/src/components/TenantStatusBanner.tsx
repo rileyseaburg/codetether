@@ -2,6 +2,11 @@
 
 import { useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
+import {
+  getSharedTenantApiUrl,
+  hasDedicatedTenantInstance,
+  normalizeTenantApiUrl,
+} from '@/lib/tenant-api'
 
 interface TenantHealth {
   status: 'healthy' | 'degraded' | 'offline' | 'loading'
@@ -47,12 +52,18 @@ export default function TenantStatusBanner() {
   const [expanded, setExpanded] = useState(false)
 
   const tenantSlug = session?.tenantSlug
-  const tenantApiUrl = session?.tenantApiUrl
-  const hasDedicatedInstance = !!(tenantSlug && tenantApiUrl?.includes(tenantSlug))
+  const tenantApiUrl = normalizeTenantApiUrl(session?.tenantApiUrl)
+  const controlPlaneApiUrl = getSharedTenantApiUrl()
+  const hasDedicatedInstance = hasDedicatedTenantInstance(
+    tenantApiUrl,
+    tenantSlug
+  )
+  const healthUrl = `${controlPlaneApiUrl}/health`
 
-  // Check health of tenant's API
+  // Check health of the shared dashboard control plane. Dedicated tenant hosts
+  // do not yet expose the full dashboard API surface consistently.
   useEffect(() => {
-    if (!tenantApiUrl || status !== 'authenticated') {
+    if (status !== 'authenticated') {
       setHealth({ status: 'loading' })
       return
     }
@@ -60,9 +71,8 @@ export default function TenantStatusBanner() {
     const checkHealth = async () => {
       const start = Date.now()
       try {
-        const response = await fetch(`${tenantApiUrl}/health`, {
+        const response = await fetch(healthUrl, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
         })
         const latency = Date.now() - start
         
@@ -84,7 +94,7 @@ export default function TenantStatusBanner() {
     checkHealth()
     const interval = setInterval(checkHealth, 30000) // Check every 30s
     return () => clearInterval(interval)
-  }, [tenantApiUrl, status])
+  }, [healthUrl, status])
 
   if (status === 'loading') {
     return (
