@@ -29,6 +29,8 @@ pipeline {
         NAMESPACE    = 'a2a-server'
         RELEASE      = 'codetether'
         CHART_PATH   = 'chart/a2a-server'
+        PATH         = "/var/lib/jenkins/.local/bin:/var/lib/jenkins/.local/google-cloud-sdk/bin:${env.PATH}"
+        KUBECONFIG   = '/var/lib/jenkins/.kube/config'
     }
 
     options {
