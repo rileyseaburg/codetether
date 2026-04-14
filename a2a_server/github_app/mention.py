@@ -5,6 +5,8 @@ from .settings import APP_SLUG
 _FIX_TERMS = (
     'fix', 'apply', 'address', 'implement', 'patch', 'rename', 'modify',
     'edit', 'refactor', 'resolve', 'cleanup', 'clean up', 'please fix',
+    'retry', 'continue', 'finish', 'enhance', 'improve',
+    'finish the feature', 'continue the fix', 'retry this',
     'make tests pass', 'make test pass', 'make build pass',
     'make ci pass', 'make lint pass', 'make this work', 'make it work',
     'make that work',
