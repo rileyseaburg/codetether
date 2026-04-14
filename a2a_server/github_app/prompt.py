@@ -20,6 +20,8 @@ def fix_prompt(context: MentionContext, pr: dict) -> str:
 
 Apply the requested changes directly in the checked-out repository. Do not just describe the fix.
 
+Do not stay in analysis mode. Use at most 5 discovery reads or searches before your first code edit. Prefer the files closest to the requested area, and keep moving toward an actual patch instead of repeating repo exploration.
+
 Triggering comment:
 {context.comment_body}{path_line}{hunk_line}
 

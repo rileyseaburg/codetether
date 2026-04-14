@@ -41,7 +41,7 @@ async def resolve_task_target() -> dict[str, str]:
             [worker for worker in workers if worker.get('name') == agent_name]
         )
         if match:
-            return {'target_worker_id': str(match['worker_id'])}
+            return {'target_agent_name': agent_name}
     local_match = _best_worker(
         [
             worker
@@ -51,7 +51,7 @@ async def resolve_task_target() -> dict[str, str]:
         ]
     )
     if local_match:
-        return {'target_worker_id': str(local_match['worker_id'])}
+        return {'target_agent_name': str(local_match['name'])}
     if TARGET_AGENT:
         return {'target_agent_name': TARGET_AGENT}
     return {}

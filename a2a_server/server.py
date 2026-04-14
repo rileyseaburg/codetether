@@ -584,7 +584,6 @@ class A2AServer:
         # Include billing webhook routes for Stripe
         self.app.include_router(billing_webhook_router)
 
-<<<<<<< HEAD
         # Include GitHub App webhook + Git credential broker routes
         if (
             GITHUB_APP_ROUTES_AVAILABLE
@@ -596,13 +595,6 @@ class A2AServer:
             logger.info(
                 'GitHub App routes mounted at /v1/webhooks/github and /v1/agent/workspaces/*/git/credentials'
             )
-=======
-        # Include GitHub App webhook + Git credential broker routes
-        if GITHUB_APP_ROUTES_AVAILABLE and github_webhook_router and github_git_credentials_router:
-            self.app.include_router(github_webhook_router)
-            self.app.include_router(github_git_credentials_router)
-            logger.info('GitHub App routes mounted at /v1/webhooks/github and /v1/agent/workspaces/*/git/credentials')
->>>>>>> 757be64 (fix: mount github app routes)
 
         # Include token billing API routes for per-token usage tracking
         self.app.include_router(token_billing_router)
