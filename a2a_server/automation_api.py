@@ -519,7 +519,7 @@ class DispatchTaskRequest(BaseModel):
         ...,
         description='Task description/prompt',
         min_length=10,
-        max_length=50000,
+        max_length=100000,
     )
     agent_type: str = Field(
         default='build',
