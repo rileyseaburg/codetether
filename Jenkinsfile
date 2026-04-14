@@ -88,10 +88,12 @@ pipeline {
         // ── Push ───────────────────────────────────────────────────────
         stage('Push') {
             steps {
-                withCredentials([file(credentialsId: 'gcp-artifact-registry', variable: 'GCP_KEY')]) {
+                withCredentials([usernamePassword(credentialsId: 'gcp-artifact-registry', usernameVariable: 'GCP_USER', passwordVariable: 'GCP_KEY')]) {
                     sh '''
-                        gcloud auth activate-service-account --key-file="$GCP_KEY" 2>/dev/null || true
+                        echo "$GCP_KEY" > /tmp/gcp-sa-key.json
+                        gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json 2>/dev/null || true
                         gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+                        rm -f /tmp/gcp-sa-key.json
                     '''
                 }
                 sh """
