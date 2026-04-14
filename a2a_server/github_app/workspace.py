@@ -13,16 +13,22 @@ def workspace_id(git_url: str, git_branch: str) -> str:
     return hashlib.sha256(f'{git_url}::{git_branch or "main"}'.encode()).hexdigest()[:16]
 
 
+def checkout_branch(context: MentionContext, pr: dict[str, Any]) -> str:
+    """Return the remote branch that should be cloned into the workspace."""
+    return pr['head']['ref'] if context.pr_number else pr['base']['ref']
+
+
 async def ensure_workspace(context: MentionContext, pr: dict[str, Any]) -> str:
     """Persist a GitHub App workspace so the existing agent APIs can rehydrate it."""
     from .. import database as db
     from ..monitor_api import _redis_upsert_workspace_meta
 
     git_url = pr['head']['repo']['clone_url']
-    git_branch = pr['head']['ref']
+    branch_name = pr['head']['ref']
+    git_branch = checkout_branch(context, pr)
     app_id = await get_secret('app_id', 'GITHUB_APP_ID', 'app_id', 'github_app_id')
     wid = workspace_id(git_url, git_branch)
-    workspace = {'id': wid, 'name': context.repo_full_name, 'path': f'/var/lib/codetether/repos/{wid}', 'description': f'GitHub App workspace for {context.repo_full_name}', 'git_url': git_url, 'git_branch': git_branch, 'status': 'active', 'agent_config': {'source': 'github-app', 'repo': {'full_name': context.repo_full_name}, 'github': {'repo_full_name': context.repo_full_name, 'pull_request_number': context.pr_number}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}}
+    workspace = {'id': wid, 'name': context.repo_full_name, 'path': f'/var/lib/codetether/repos/{wid}', 'description': f'GitHub App workspace for {context.repo_full_name}', 'git_url': git_url, 'git_branch': git_branch, 'status': 'active', 'agent_config': {'source': 'github-app', 'repo': {'full_name': context.repo_full_name}, 'github': {'repo_full_name': context.repo_full_name, 'pull_request_number': context.pr_number, 'branch_name': branch_name}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}}
     await db.db_upsert_workspace(workspace)
     await _redis_upsert_workspace_meta(workspace)
     return wid

@@ -26,6 +26,8 @@ def issue_fix_prompt(
 
 Work from the checked-out repository, create or reuse branch `{branch}`, apply the requested changes, run the smallest relevant validation, commit, push, and open a pull request against `{repo['default_branch']}`.
 
+Do not stay in analysis mode. Use at most 5 discovery reads or searches before your first code edit. Prefer editing the most obvious matching files first, especially files whose names or paths match the requested feature area. If a transient provider or network error occurs, continue and finish the implementation instead of restarting the task from scratch.
+
 Issue description:
 {body}
 

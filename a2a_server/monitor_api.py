@@ -6755,6 +6755,23 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
     if len(_task_output_streams[task_id]) > 1000:
         _task_output_streams[task_id] = _task_output_streams[task_id][-1000:]
 
+    try:
+        from . import database as db
+
+        pool = await db.get_pool()
+        if pool:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE tasks
+                    SET updated_at = NOW()
+                    WHERE id = $1
+                    """,
+                    task_id,
+                )
+    except Exception:
+        pass
+
     # Also broadcast to any SSE listeners
     await monitoring_service.log_message(
         agent_name='Agent Output',

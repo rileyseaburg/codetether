@@ -180,6 +180,7 @@ class TaskReaper:
                         LEFT JOIN workers w ON t.worker_id = w.worker_id
                         WHERE t.status = 'running'
                           AND t.started_at < $1
+                          AND COALESCE(t.updated_at, t.started_at) < $1
                           AND (
                             t.worker_id IS NULL
                             OR w.worker_id IS NULL
@@ -205,6 +206,7 @@ class TaskReaper:
                             LEFT JOIN workers w ON t.worker_id = w.worker_id
                             WHERE t.status = 'running'
                               AND t.started_at < $1
+                              AND COALESCE(t.updated_at, t.started_at) < $1
                               AND (
                                 t.worker_id IS NULL
                                 OR w.worker_id IS NULL
