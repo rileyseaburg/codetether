@@ -93,8 +93,9 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'gcp-artifact-registry', usernameVariable: 'GCP_USER', passwordVariable: 'GCP_KEY')]) {
                     sh '''
                         echo "$GCP_KEY" > /tmp/gcp-sa-key.json
-                        gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json 2>/dev/null || true
-                        gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+                        /var/lib/jenkins/.local/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+                        /var/lib/jenkins/.local/google-cloud-sdk/bin/gcloud auth print-access-token | \
+                            docker login us-central1-docker.pkg.dev -u oauth2accesstoken --password-stdin
                         rm -f /tmp/gcp-sa-key.json
                     '''
                 }
