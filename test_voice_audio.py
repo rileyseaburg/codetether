@@ -10,13 +10,36 @@ import httpx
 from livekit import rtc
 
 API_URL = 'https://api.codetether.run'
+KEYCLOAK_URL = 'https://auth.quantum-forge.io/realms/quantum-forge/protocol/openid-connect/token'
+KEYCLOAK_CLIENT_ID = 'a2a-monitor'
+KEYCLOAK_CLIENT_SECRET = 'Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1'
+
+
+async def get_auth_token() -> str:
+    """Get Keycloak auth token."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            KEYCLOAK_URL,
+            data={
+                'grant_type': 'client_credentials',
+                'client_id': KEYCLOAK_CLIENT_ID,
+                'client_secret': KEYCLOAK_CLIENT_SECRET,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        return response.json()['access_token']
 
 
 async def create_voice_session() -> dict:
     """Create a voice session via the API."""
+    token = await get_auth_token()
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f'{API_URL}/v1/voice/sessions', json={'voice': 'puck'}, timeout=30.0
+            f'{API_URL}/v1/voice/sessions',
+            json={'voice': '960f89fc'},
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=30.0,
         )
         response.raise_for_status()
         return response.json()
