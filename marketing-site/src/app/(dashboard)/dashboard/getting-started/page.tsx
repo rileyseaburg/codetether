@@ -80,6 +80,22 @@ const integrationMethods = [
         cta: 'View API Docs',
     },
     {
+        name: 'GitHub Actions',
+        description: 'AI-powered code review on every pull request. 2-minute setup, no LLM keys needed.',
+        icon: TerminalIcon,
+        color: 'bg-gray-900',
+        href: '/dashboard/integrations/github-actions',
+        external: false,
+        featured: true,
+        features: [
+            'Auto-review every PR for bugs, security, perf',
+            'Comment @codetether fix this to auto-fix issues',
+            'Self-hosted BYOK mode for private repos',
+            'Copy-paste workflow — ready in 2 minutes'
+        ],
+        cta: 'Set Up GitHub Actions',
+    },
+    {
         name: 'Webhooks',
         description: 'Receive real-time notifications when tasks complete, fail, or need attention.',
         icon: WebhookIcon,

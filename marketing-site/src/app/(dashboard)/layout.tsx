@@ -209,6 +209,14 @@ function LockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
+function CodeBracketIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+    )
+}
+
 const navigation = [
     { name: 'Get Started', href: '/dashboard/getting-started', icon: RocketIcon, highlight: true },
     { name: 'Workspaces', href: '/dashboard', icon: FolderIcon },
@@ -228,6 +236,7 @@ const navigation = [
     { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
     { name: 'Output', href: '/dashboard/output', icon: TerminalIcon },
     { name: 'Activity', href: '/dashboard/activity', icon: BoltIcon },
+    { name: 'GitHub Actions', href: '/dashboard/integrations/github-actions', icon: CodeBracketIcon, highlight: true },
     { name: 'Automations', href: '/dashboard/automations', icon: CogIcon },
     { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
