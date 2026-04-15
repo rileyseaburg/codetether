@@ -222,8 +222,8 @@ function WorkerCard({
                         onClick={() => onOpenChat(worker.worker_id)}
                         disabled={!worker.is_sse_connected}
                         className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${worker.is_sse_connected
-                                ? 'bg-cyan-600 text-white hover:bg-cyan-500'
-                                : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                            ? 'bg-cyan-600 text-white hover:bg-cyan-500'
+                            : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
                             }`}
                     >
                         {chatOpen ? 'Open Chat' : 'Chat via SSE'}
@@ -670,11 +670,10 @@ export default function WorkersPage() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setShowOffline(prev => !prev)}
-                        className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
-                            showOffline
+                        className={`px-3 py-2 text-sm rounded-lg border transition-colors ${showOffline
                                 ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-400'
                                 : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                        }`}
+                            }`}
                     >
                         {showOffline ? `Hide Offline (${deadWorkers.length} dead)` : `Show All (${workers.length})`}
                     </button>
@@ -763,12 +762,12 @@ export default function WorkersPage() {
                             ) : (
                                 activeChatMessages.map((message) => (
                                     <div key={message.id} className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${message.role === 'user'
-                                            ? 'ml-auto bg-cyan-600 text-white'
-                                            : message.role === 'system'
-                                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                                                : message.status === 'error'
-                                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                                    : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
+                                        ? 'ml-auto bg-cyan-600 text-white'
+                                        : message.role === 'system'
+                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                                            : message.status === 'error'
+                                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                                : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
                                         }`}>
                                         <div className="whitespace-pre-wrap break-words">
                                             {message.content || (message.status === 'streaming' ? '...' : '')}

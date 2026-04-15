@@ -1148,7 +1148,7 @@ async def get_message_count(type: Optional[str] = None):
 
 
 @monitor_router.get('/workers')
-async def monitor_list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = None):
+async def monitor_list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = 24):
     """Proxy to /v1/agent/workers for backward compatibility."""
     return await list_workers(search, online_only=online_only, exclude_offline_hours=exclude_offline_hours)
 
@@ -6082,14 +6082,14 @@ async def unregister_worker(worker_id: str):
 
 
 @agent_router_alias.get('/workers')
-async def list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = None):
+async def list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = 24):
     """List all registered workers with optional model search filter.
 
     Args:
         search: Filter by model name substring.
         online_only: If true, only return workers with SSE connection or last_seen <5min.
         exclude_offline_hours: Exclude workers whose last_seen is older than this many hours.
-                               Defaults to None (show all). Set to 24 to hide workers offline >1 day.
+                               Defaults to 24 (hide workers offline >1 day). Set to 0 or None to show all.
     """
     def _classify_worker_runtime(
         worker: Dict[str, Any],
@@ -6265,9 +6265,8 @@ async def list_workers(search: Optional[str] = None, online_only: bool = False, 
             # Workers with no last_seen are excluded when filtering by offline hours
         workers = active_workers
     elif not online_only:
-        # Default behavior: exclude workers offline >24h unless caller explicitly
-        # requests all workers (exclude_offline_hours=0 or online_only=False with no cutoff).
-        # This keeps the API response manageable without breaking existing callers.
+        # exclude_offline_hours defaults to 24, so the block above handles it.
+        # This branch is reached only when exclude_offline_hours is falsy (0 or None).
         pass
 
     if search:
