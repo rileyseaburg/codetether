@@ -102,7 +102,7 @@ export function useWorkers(enabled: boolean = true) {
         const fetchWorkers = async () => {
             try {
                 const [workersResponse, connectedResponse] = await Promise.all([
-                    tenantFetch<Worker[]>('/v1/agent/workers'),
+                    tenantFetch<Worker[]>('/v1/agent/workers?exclude_offline_hours=24'),
                     tenantFetch<{ workers?: ConnectedWorker[] }>('/v1/worker/connected'),
                 ])
 

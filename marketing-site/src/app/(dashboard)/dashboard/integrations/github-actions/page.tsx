@@ -322,9 +322,8 @@ export default function GitHubActionsPage() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <span
-                            className={`inline-block h-2.5 w-2.5 rounded-full ${
-                                apiKeys.length > 0 ? 'bg-green-500' : 'bg-yellow-500'
-                            }`}
+                            className={`inline-block h-2.5 w-2.5 rounded-full ${apiKeys.length > 0 ? 'bg-green-500' : 'bg-yellow-500'
+                                }`}
                         />
                         <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                             API Token{apiKeys.length !== 1 ? 's' : ''}
@@ -371,11 +370,10 @@ export default function GitHubActionsPage() {
                         <button
                             key={id}
                             onClick={() => setMode(id)}
-                            className={`text-left p-4 rounded-lg border-2 transition-colors ${
-                                mode === id
+                            className={`text-left p-4 rounded-lg border-2 transition-colors ${mode === id
                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="font-medium text-sm text-gray-900 dark:text-white">{label}</span>
