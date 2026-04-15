@@ -79,6 +79,20 @@ env:
     value: "15"
   - name: VOICE_WORKER_MAX_RETRY
     value: "24"
+  - name: VOICE_AGENT_BACKEND
+    value: "google-realtime"
+  - name: VOICE_AGENT_LLM_PROVIDER
+    value: "google"
+  - name: VOICE_AGENT_LLM_MODEL
+    value: "gemini-live-2.5-flash-native-audio"
+  - name: VOICE_AGENT_DEFAULT_VOICE_ID
+    value: "960f89fc"
+  - name: VOICE_AGENT_LLM_BASE_URL
+    value: "https://api.z.ai/api/paas/v4"
+  - name: GOOGLE_CLOUD_PROJECT
+    value: "spotlessbinco"
+  - name: GOOGLE_CLOUD_LOCATION
+    value: "us-central1"
   - name: FUNCTIONGEMMA_MODEL_PATH
     value: "google/functiongemma-270m-it"
 
