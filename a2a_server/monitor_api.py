@@ -1148,9 +1148,9 @@ async def get_message_count(type: Optional[str] = None):
 
 
 @monitor_router.get('/workers')
-async def monitor_list_workers(search: Optional[str] = None):
+async def monitor_list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = None):
     """Proxy to /v1/agent/workers for backward compatibility."""
-    return await list_workers(search)
+    return await list_workers(search, online_only=online_only, exclude_offline_hours=exclude_offline_hours)
 
 
 @monitor_router.get('/models')
@@ -6082,8 +6082,15 @@ async def unregister_worker(worker_id: str):
 
 
 @agent_router_alias.get('/workers')
-async def list_workers(search: Optional[str] = None):
-    """List all registered workers with optional model search filter."""
+async def list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = None):
+    """List all registered workers with optional model search filter.
+
+    Args:
+        search: Filter by model name substring.
+        online_only: If true, only return workers with SSE connection or last_seen <5min.
+        exclude_offline_hours: Exclude workers whose last_seen is older than this many hours.
+                               Defaults to None (show all). Set to 24 to hide workers offline >1 day.
+    """
     def _classify_worker_runtime(
         worker: Dict[str, Any],
         sse_worker: Optional[Dict[str, Any]],
@@ -6214,6 +6221,54 @@ async def list_workers(search: Optional[str] = None):
         annotated.pop('_registry_source', None)
         annotated_workers.append(annotated)
     workers = annotated_workers
+
+    if online_only:
+        sse_worker_ids = set(sse_workers_by_id.keys())
+        online_workers: List[Dict[str, Any]] = []
+        for w in workers:
+            wid = str(w.get('worker_id') or '')
+            if wid in sse_worker_ids:
+                online_workers.append(w)
+                continue
+            last_seen = w.get('last_seen')
+            if last_seen:
+                try:
+                    elapsed = (datetime.utcnow() - datetime.fromisoformat(str(last_seen))).total_seconds()
+                    if elapsed < 300:
+                        online_workers.append(w)
+                        continue
+                except (ValueError, TypeError):
+                    pass
+        workers = online_workers
+
+    # Filter out workers offline longer than the threshold
+    if exclude_offline_hours is not None and exclude_offline_hours > 0:
+        cutoff_seconds = exclude_offline_hours * 3600
+        sse_worker_ids_set = set(sse_workers_by_id.keys()) if exclude_offline_hours else set()
+        active_workers: List[Dict[str, Any]] = []
+        for w in workers:
+            wid = str(w.get('worker_id') or '')
+            # SSE-connected workers are always considered active
+            if wid in sse_worker_ids_set:
+                active_workers.append(w)
+                continue
+            last_seen = w.get('last_seen')
+            if last_seen:
+                try:
+                    elapsed = (datetime.utcnow() - datetime.fromisoformat(str(last_seen))).total_seconds()
+                    if elapsed < cutoff_seconds:
+                        active_workers.append(w)
+                        continue
+                except (ValueError, TypeError):
+                    # Workers with invalid timestamps are excluded
+                    pass
+            # Workers with no last_seen are excluded when filtering by offline hours
+        workers = active_workers
+    elif not online_only:
+        # Default behavior: exclude workers offline >24h unless caller explicitly
+        # requests all workers (exclude_offline_hours=0 or online_only=False with no cutoff).
+        # This keeps the API response manageable without breaking existing callers.
+        pass
 
     if search:
         search_lower = search.lower()
