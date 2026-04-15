@@ -76,8 +76,13 @@ marketing:
     NEXTAUTH_URL: "https://codetether.run"
     KEYCLOAK_CLIENT_ID: "a2a-monitor"
     KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
-    # Backend API proxy — enables /api/v1/* and /api/tenant/* rewrites in next.config.js
+    # Backend API proxy — nginx ingress routes /api/v1/* → a2a-server /v1/*
     A2A_API_BACKEND: "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
+  # API proxy ingress — routes /api/v1/* on the marketing host to the a2a-server
+  apiProxy:
+    enabled: true
+    backendService: codetether-a2a-server
+    backendPort: 8000
   resources:
     limits:
       cpu: 500m
