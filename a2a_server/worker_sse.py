@@ -30,7 +30,7 @@ from fastapi import APIRouter, HTTPException, Request, Query, Header
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
-from .task_routing import is_targeted_clone_task, target_agent_mismatch
+from .task_routing import is_clone_task, is_targeted_clone_task, target_agent_mismatch
 
 logger = logging.getLogger(__name__)
 
@@ -192,8 +192,18 @@ class WorkerRegistry:
                     return False
 
                 codebase_id = task.codebase_id
-                # Check if this is a restricted codebase (not global/__pending__)
-                if codebase_id and codebase_id not in ('global', '__pending__'):
+                # Clone/refresh tasks bypass codebase ownership — the whole
+                # point is to CREATE the workspace, so no worker owns it yet.
+                task_agent_type = getattr(task, 'agent_type', None) or (
+                    task_metadata.get('agent_type')
+                )
+                if is_clone_task(task_agent_type):
+                    logger.info(
+                        f'Clone task {task_id} (codebase {codebase_id}) — '
+                        f'skipping codebase affinity for worker {worker_id}'
+                    )
+                    # Fall through to the claim lock below
+                elif codebase_id and codebase_id not in ('global', '__pending__'):
                     if not worker:
                         # Worker not SSE-connected; allow claim anyway so
                         # polling-only / reconnecting workers aren't locked out.
