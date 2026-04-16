@@ -63,4 +63,7 @@ async def create_clone_task(context: MentionContext, pr: dict[str, Any], wid: st
         },
     }
     task = await create_agent_task(wid, AgentTaskCreate(title=f'Prepare PR workspace #{context.pr_number}', prompt=f'Clone or refresh {context.repo_full_name} on branch {pr["head"]["ref"]} for PR fix execution.', agent_type='clone_repo', metadata=metadata, model_ref=MODEL_REF))
-    return getattr(task, 'id', None) or task.get('id')
+    # create_agent_task returns {'success': True, 'task': {...}}
+    task_dict = task if isinstance(task, dict) else {}
+    task_data = task_dict.get('task', task_dict)
+    return task_data.get('id') or getattr(task, 'id', None)
