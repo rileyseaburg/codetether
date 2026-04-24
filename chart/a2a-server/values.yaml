@@ -439,9 +439,9 @@ knative:
     failureHistoryLimit: 3
     jobTtlSeconds: 600
   worker:
-    # Default uses Quantum Forge registry with versioned tag.
+    # Default uses Google Artifact Registry with versioned tag.
     # Override with --set-string knative.worker.image=<registry>/<image>:<tag>
-    image: "registry.quantum-forge.net/library/codetether-worker:latest"
+    image: "us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest"
     # ServiceAccount used by Knative session workers.
     # This ServiceAccount must be bound to the Vault Kubernetes auth role below.
     serviceAccountName: "codetether-worker"

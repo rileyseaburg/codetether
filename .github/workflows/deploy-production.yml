@@ -14,12 +14,12 @@ name: Deploy to Production (acp.quantum-forge.net)
                 default: false
 
 env:
-    REGISTRY: registry.quantum-forge.net
-    PROJECT: library
-    IMAGE_NAME: a2a-server
+    REGISTRY: us-central1-docker.pkg.dev
+    PROJECT: spotlessbinco/codetether
+    IMAGE_NAME: a2a-server-mcp
     DOMAIN: acp.quantum-forge.net
     NAMESPACE: a2a-system
-    CHART_VERSION: 0.1.0
+    CHART_VERSION: 1.4.2
 
 jobs:
     pre-deploy-tests:
@@ -63,16 +63,23 @@ jobs:
               with:
                   version: "3.14.0"
 
+            - name: Authenticate to Google Cloud
+              id: auth
+              uses: google-github-actions/auth@v2
+              with:
+                  credentials_json: ${{ secrets.GCP_SA_KEY }}
+                  token_format: access_token
+
             - name: Configure kubectl
               uses: azure/k8s-set-context@v4
               with:
                   method: kubeconfig
                   kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
-            - name: Log in to Quantum Forge Registry (Helm)
+            - name: Log in to Google Artifact Registry (Helm)
               run: |
-                  echo "${{ secrets.QUANTUM_FORGE_PASSWORD }}" | helm registry login ${{ env.REGISTRY }} \
-                    --username ${{ secrets.QUANTUM_FORGE_USERNAME }} \
+                  echo "${{ steps.auth.outputs.access_token }}" | helm registry login https://${{ env.REGISTRY }} \
+                    --username oauth2accesstoken \
                     --password-stdin
 
             - name: Create namespace
