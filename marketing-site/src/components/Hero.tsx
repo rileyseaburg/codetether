@@ -3,23 +3,26 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 
-function GridPattern() {
-  return (
-    <div className="absolute inset-0 -z-10" aria-hidden="true">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-gray-950/50" />
-    </div>
-  )
-}
+const metrics = [
+  { value: '60+', label: 'registered tool IDs' },
+  { value: '∞', label: 'workspace context via RLM' },
+  { value: '11', label: 'release targets' },
+]
 
-function Glow() {
-  return (
-    <div className="absolute -z-10" aria-hidden="true">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-cyan-500/20 blur-[100px]" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-cyan-400/10 blur-[80px]" />
-    </div>
-  )
-}
+const trust = [
+  'Rust-native runtime',
+  'OKR → PRD → Ralph',
+  'Swarm orchestration',
+  'MCP + A2A',
+  'OPA RBAC',
+]
+
+const pipeline = [
+  { step: '01', title: 'Objective', detail: 'Capture the outcome, owner, constraints, and success metric.' },
+  { step: '02', title: 'PRD', detail: 'Generate stories, acceptance criteria, dependencies, and quality gates.' },
+  { step: '03', title: 'Ralph', detail: 'Iterate in fresh contexts, edit real files, test, and commit.' },
+  { step: '04', title: 'Control', detail: 'Stream events, enforce policy, audit tools, and route workers.' },
+]
 
 function CheckIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
   return (
@@ -29,133 +32,153 @@ function CheckIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
   )
 }
 
-const stats = [
-  { label: '10M+', description: 'Token context window' },
-  { label: '91%', description: 'Retrieval accuracy' },
-  { label: 'MIT', description: 'Open source license' },
-]
+function ControlPlaneCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.6, delay: 0.25 }}
+      className="relative mx-auto mt-14 max-w-2xl lg:mt-0"
+    >
+      <div className="absolute -inset-6 rounded-[2rem] bg-cyan-500/20 blur-3xl" />
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-2xl shadow-cyan-950/40 backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-red-400" />
+            <span className="h-3 w-3 rounded-full bg-yellow-400" />
+            <span className="h-3 w-3 rounded-full bg-green-400" />
+          </div>
+          <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200 ring-1 ring-cyan-300/20">
+            live agent run
+          </span>
+        </div>
 
-const socialProof = [
-  'Built in Rust for performance',
-  'A2A Protocol compliant',
-  'Production ready',
-]
+        <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="border-b border-white/10 p-5 lg:border-r lg:border-b-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80">Objective</p>
+            <h3 className="mt-3 text-xl font-semibold text-white">Ship GitHub OAuth with policy gates</h3>
+            <div className="mt-5 space-y-3 text-sm text-gray-300">
+              {pipeline.map((item) => (
+                <div key={item.step} className="rounded-2xl border border-white/10 bg-gray-950/50 p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/10 text-xs font-bold text-cyan-200">
+                      {item.step}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-white">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-gray-400">{item.detail}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="rounded-2xl bg-gray-950 p-4 font-mono text-xs leading-6 text-gray-300 ring-1 ring-white/10">
+              <p><span className="text-cyan-300">$</span> codetether go "add OAuth login"</p>
+              <p className="mt-3 text-gray-500">creating OKR…</p>
+              <p><span className="text-green-300">✓</span> objective: secure social sign-in</p>
+              <p><span className="text-green-300">✓</span> PRD: 5 stories, 18 acceptance criteria</p>
+              <p><span className="text-green-300">✓</span> swarm: security + docs + tester</p>
+              <p><span className="text-yellow-300">↻</span> ralph: implementing story 4/5</p>
+              <p><span className="text-cyan-300">→</span> policy: OPA authz.rego passed</p>
+              <p><span className="text-cyan-300">→</span> browser: replayed /api/session smoke test</p>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {metrics.map((metric) => (
+                <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{metric.value}</div>
+                  <div className="mt-1 text-[11px] leading-4 text-gray-400">{metric.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
 
 export function Hero() {
   return (
-    <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden bg-gray-950">
-      <GridPattern />
-      <Glow />
-      
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          {/* Badge */}
+    <section className="relative isolate overflow-hidden bg-gray-950 pt-32 pb-20 sm:pt-36 lg:pt-40 lg:pb-28">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_32rem),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.16),transparent_28rem),linear-gradient(to_bottom,#030712,#020617)]" />
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:44px_44px] opacity-20" />
+
+      <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:px-8">
+        <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-8"
+            transition={{ duration: 0.45 }}
+            className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-medium text-cyan-100"
           >
-            <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs font-medium text-cyan-300">Now in v1.4 — Zapier integration live</span>
+            <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(103,232,249,0.9)]" />
+            v4.5.7 · Agent runtime today, control plane next
           </motion.div>
 
-          {/* Headline */}
           <motion.h1
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight"
+            transition={{ duration: 0.5, delay: 0.08 }}
+            className="mt-8 text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl"
           >
-            Autonomous AI that{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-cyan-300">
-              actually works
+            The control plane for{' '}
+            <span className="bg-gradient-to-r from-cyan-200 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+              autonomous engineering
             </span>
-            {' '}in production
           </motion.h1>
 
-          {/* Subheadline */}
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto"
+            transition={{ duration: 0.5, delay: 0.16 }}
+            className="mt-6 text-lg leading-8 text-gray-300 sm:text-xl"
           >
-            CodeTether breaks the context window barrier with infinite memory. 
-            Watch it read your workspace context, understand requirements, and ship production deliverables autonomously.
+            CodeTether turns objectives into PRDs, coordinates Ralph and specialized swarms,
+            edits real repositories, controls browsers and infrastructure, and keeps every tool call governed by policy.
           </motion.p>
 
-          {/* CTA */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+            transition={{ duration: 0.5, delay: 0.24 }}
+            className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
           >
             <Link
               href="/register"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-all shadow-xl shadow-white/10 hover:shadow-xl hover:shadow-white/20"
+              className="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-6 py-3 text-base font-semibold text-gray-950 shadow-xl shadow-cyan-500/20 transition hover:bg-cyan-200"
             >
               Start building free
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
             </Link>
             <a
               href="https://github.com/rileyseaburg/codetether"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold text-white bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition-all"
+              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-              </svg>
-              View on GitHub
+              View the agent runtime
             </a>
           </motion.div>
 
-          {/* Trust */}
-          <motion.p
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-6 text-sm text-gray-500"
+            transition={{ duration: 0.6, delay: 0.34 }}
+            className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm text-gray-400 lg:justify-start"
           >
-            No credit card required · MIT Licensed · Self-host or use cloud
-          </motion.p>
+            {trust.map((item) => (
+              <span key={item} className="inline-flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-cyan-300" />
+                {item}
+              </span>
+            ))}
+          </motion.div>
         </div>
 
-        {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-16 sm:mt-20"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-2xl mx-auto">
-            {stats.map((stat, index) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold text-white">{stat.label}</div>
-                <div className="mt-1 text-sm text-gray-500">{stat.description}</div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Social Proof */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500"
-        >
-          {socialProof.map((item) => (
-            <div key={item} className="flex items-center gap-2">
-              <CheckIcon className="w-4 h-4 text-cyan-400" />
-              <span>{item}</span>
-            </div>
-          ))}
-        </motion.div>
+        <ControlPlaneCard />
       </div>
     </section>
   )

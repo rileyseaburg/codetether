@@ -25,12 +25,11 @@ const plans = [
         },
         features: [
             '100 tasks / month',
-            '1 worker',
+            '1 agent',
             '3 workspaces',
             '$5 prepaid token credit',
             'Per-token usage tracking',
-            'Mandatory auth (HMAC-SHA256)',
-            'Full audit trail',
+            'HMAC-SHA256 auth + full audit trail',
             'Community Discord',
         ],
         limits: {
@@ -55,16 +54,16 @@ const plans = [
         },
         features: [
             '5,000 tasks / month',
-            '5 workers',
+            '5 concurrent agents',
             '20 workspaces',
             '$50/mo prepaid token credit',
             'Per-model cost breakdown',
             'Monthly spending limits',
-            'Mandatory auth + audit trail',
+            'OPA Rego RBAC policies',
             'Ed25519 plugin signing',
-            'OPA Rego authorization policies',
             'RLM unlimited context',
-            'Reply-to-continue',
+            'Swarm orchestration',
+            'MCP tool bridge',
         ],
         limits: {
             tasks: 5000,
@@ -88,16 +87,18 @@ const plans = [
         },
         features: [
             'Unlimited tasks / month',
-            'Unlimited workers',
+            'Unlimited agents',
             'Unlimited workspaces',
             '$150/mo prepaid token credit',
             'Per-tenant token isolation',
             'Custom spending limits & alerts',
             'Everything in Pro',
             'K8s self-deployment',
-            'Team workspaces',
+            'Team workspaces with RBAC',
+            'Relay multi-agent pipelines',
+            'Voice & media pipeline',
+            'Custom OPA security policies',
             'Dedicated support',
-            'Custom security policies (OPA)',
         ],
         limits: {
             tasks: -1,
@@ -502,19 +503,19 @@ export function Pricing() {
                     </h3>
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-gray-600 dark:text-gray-400">
                         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="text-2xl mb-2">1. Trigger</div>
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Webhook or Dashboard</div>
-                            <p>Send a POST request or start from the web interface</p>
+                            <div className="text-2xl mb-2">1. Describe</div>
+                            <div className="font-semibold text-gray-900 dark:text-white mb-1">CLI, API, or Dashboard</div>
+                            <p>Describe what you want built in plain English</p>
                         </div>
                         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="text-2xl mb-2">2. Process</div>
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">AI Agent Works</div>
-                            <p>RLM processes your task with unlimited context</p>
+                            <div className="text-2xl mb-2">2. Orchestrate</div>
+                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Autonomous AI Agents</div>
+                            <p>Ralph generates PRDs, spawns swarms, and implements stories</p>
                         </div>
                         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="text-2xl mb-2">3. Deliver</div>
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Email or Callback</div>
-                            <p>Get files in your inbox or webhook callback</p>
+                            <div className="text-2xl mb-2">3. Ship</div>
+                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Ready-to-Merge Code</div>
+                            <p>Auto-committed, auto-tested PR waiting in your branch</p>
                         </div>
                     </div>
                 </div>

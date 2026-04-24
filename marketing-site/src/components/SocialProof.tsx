@@ -7,17 +7,19 @@ export function SocialProof() {
         <section className="border-y border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 py-8">
             <Container>
                 <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500 dark:text-gray-400">
-                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">Mandatory Auth</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">60+ Registered Tools</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>OPA Rego Policies</span>
+                    <span>OKR → PRD → Ralph</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>Append-Only Audit Trail</span>
+                    <span>Swarm & Relay</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>Ed25519 Plugin Signing</span>
+                    <span>MCP Bridge</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">RLM Processing</span>
+                    <span>OPA Rego RBAC</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span>K8s Self-Deployment</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">Browser Replay + Media AI</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span>K8s Native</span>
                 </div>
             </Container>
         </section>
@@ -27,21 +29,21 @@ export function SocialProof() {
 export function Testimonials() {
     const features = [
         {
-            title: 'Trigger Once',
-            description: 'Use dashboard, iOS app, webhook API, Zapier, n8n, or Make.',
-        },
-        {
-            title: 'Process',
-            description: 'The AI decomposes the job, runs recursive work, verifies outputs, and stitches results—5-60 minutes unattended.',
+            title: 'Autonomous Coding',
+            description: 'Start with an objective. CodeTether generates the PRD, maps work to stories, runs Ralph, tests, and returns a ready-to-merge branch.',
             highlight: true,
         },
         {
-            title: 'Deliver',
-            description: 'Get results via email (with attachments), webhook callback (JSON), or dashboard download.',
+            title: 'Swarm Orchestration',
+            description: 'Spawn focused sub-agents or run best-effort swarms in parallel — security, performance, docs, QA — with shared results aggregated automatically.',
         },
         {
-            title: 'Scale Complex Tasks',
-            description: 'RLM (MIT research) processes 10M+ tokens without degradation. Handles datasets and workflows normal AI can\'t.',
+            title: 'Multi-Modal Control',
+            description: "Voice synthesis, podcasts, avatar video, YouTube upload, browser automation with network replay, and MCP bridge to any external tool server.",
+        },
+        {
+            title: 'Enterprise Security',
+            description: 'OPA Rego policy engine, RBAC across 5 roles, tenant isolation, Ed25519 plugin signing, and K8s-native deployment.',
             highlight: true,
         },
     ]
@@ -58,10 +60,10 @@ export function Testimonials() {
                         id="features-title"
                         className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white"
                     >
-                        The Three Steps
+                        The Four Pillars
                     </h2>
                     <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                        From trigger to delivery—it's that simple.
+                        Autonomous AI that codes, orchestrates, and deploys — end to end.
                     </p>
                 </div>
                 <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-4">
