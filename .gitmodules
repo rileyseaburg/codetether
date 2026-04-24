@@ -1,0 +1,3 @@
+[submodule "codetether-agent"]
+	path = codetether-agent
+	url = https://github.com/rileyseaburg/codetether-agent.git
