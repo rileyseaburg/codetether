@@ -2,7 +2,6 @@ import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
 import { Hero } from '@/components/Hero'
-import { ChatWidget } from '@/components/ChatWidget'
 
 const SocialProof = dynamic(
     () => import('@/components/SocialProof').then((m) => m.SocialProof),
@@ -119,8 +118,6 @@ export default function Home() {
             <Suspense fallback={<SectionSkeleton />}>
                 <ContactForm />
             </Suspense>
-
-            <ChatWidget />
         </>
     )
 }

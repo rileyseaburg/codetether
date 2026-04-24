@@ -3,7 +3,8 @@
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
 import clsx from 'clsx'
 
-import { Container } from '@/components/Container'
+import { CodeWindow, PreCode } from '@/components/ui/code-window'
+import { Section, SectionContainer, SectionHeader } from '@/components/ui/section'
 
 const features = [
     {
@@ -157,16 +158,9 @@ function InfraIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 function FeatureCode({ code }: { code: string }) {
     return (
-        <div className="overflow-hidden rounded-xl bg-gray-900 shadow-xl">
-            <div className="flex items-center gap-2 border-b border-gray-700 px-4 py-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-                <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-            </div>
-            <pre className="p-4 text-sm text-gray-300 overflow-x-auto">
-                <code>{code}</code>
-            </pre>
-        </div>
+        <CodeWindow>
+            <PreCode code={code} />
+        </CodeWindow>
     )
 }
 
@@ -225,26 +219,21 @@ function FeaturesMobile() {
 
 export function PrimaryFeatures() {
     return (
-        <section
-            id="how-it-works"
+        <Section
+            id="features"
             aria-label="CodeTether capabilities"
-            className="bg-white dark:bg-gray-950 py-20 sm:py-32"
+            variant="white"
         >
-            <Container>
-                <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-3xl">
-                    <h2 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white">
-                        The AI development platform
-                    </h2>
-                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        Autonomous objectives, swarm intelligence, persistent context, multi-modal tools, and production-grade infrastructure —
-                        60+ registered tools, one control plane.
-                    </p>
-                </div>
+            <SectionContainer>
+                <SectionHeader
+                    title="The AI development platform"
+                    description="Autonomous objectives, swarm intelligence, persistent context, multi-modal tools, and production-grade infrastructure — 60+ registered tools, one control plane."
+                />
                 <div className="mt-16">
                     <FeaturesDesktop />
                     <FeaturesMobile />
                 </div>
-            </Container>
-        </section>
+            </SectionContainer>
+        </Section>
     )
 }

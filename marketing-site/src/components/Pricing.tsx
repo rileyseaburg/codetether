@@ -5,109 +5,12 @@ import { useSession } from 'next-auth/react'
 import clsx from 'clsx'
 
 import { Button } from '@/components/Button'
-import { Container } from '@/components/Container'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
-const plans = [
-    {
-        id: 'free',
-        name: 'Free',
-        featured: false,
-        price: { monthly: '$0', annually: '$0' },
-        description: 'Get started free. Perfect for testing workflows.',
-        bestFor: 'Testing & experimentation',
-        tokenInfo: '$5 token credit included',
-        button: {
-            label: 'Start Free',
-            href: '/register',
-            action: 'signup',
-        },
-        features: [
-            '100 tasks / month',
-            '1 agent',
-            '3 workspaces',
-            '$5 prepaid token credit',
-            'Per-token usage tracking',
-            'HMAC-SHA256 auth + full audit trail',
-            'Community Discord',
-        ],
-        limits: {
-            tasks: 100,
-            concurrency: 1,
-            runtime: '3 workspaces',
-        },
-        logomarkClassName: 'fill-gray-500',
-    },
-    {
-        id: 'pro',
-        name: 'Pro',
-        featured: true,
-        price: { monthly: '$49', annually: '$49' },
-        description: 'For builders who need serious throughput.',
-        bestFor: 'Solopreneurs & automation builders',
-        tokenInfo: '$50 token credit / month included',
-        button: {
-            label: 'Upgrade to Pro',
-            href: '/register',
-            action: 'checkout',
-        },
-        features: [
-            '5,000 tasks / month',
-            '5 concurrent agents',
-            '20 workspaces',
-            '$50/mo prepaid token credit',
-            'Per-model cost breakdown',
-            'Monthly spending limits',
-            'OPA Rego RBAC policies',
-            'Ed25519 plugin signing',
-            'RLM unlimited context',
-            'Swarm orchestration',
-            'MCP tool bridge',
-        ],
-        limits: {
-            tasks: 5000,
-            concurrency: 5,
-            runtime: '20 workspaces',
-        },
-        logomarkClassName: 'fill-cyan-500',
-    },
-    {
-        id: 'enterprise',
-        name: 'Enterprise',
-        featured: false,
-        price: { monthly: '$199', annually: '$199' },
-        description: 'Unlimited tasks, workers, and workspaces.',
-        bestFor: 'Teams & agencies',
-        tokenInfo: '$150 token credit / month included',
-        button: {
-            label: 'Upgrade to Enterprise',
-            href: '/register',
-            action: 'checkout',
-        },
-        features: [
-            'Unlimited tasks / month',
-            'Unlimited agents',
-            'Unlimited workspaces',
-            '$150/mo prepaid token credit',
-            'Per-tenant token isolation',
-            'Custom spending limits & alerts',
-            'Everything in Pro',
-            'K8s self-deployment',
-            'Team workspaces with RBAC',
-            'Relay multi-agent pipelines',
-            'Voice & media pipeline',
-            'Custom OPA security policies',
-            'Dedicated support',
-        ],
-        limits: {
-            tasks: -1,
-            concurrency: -1,
-            runtime: 'Unlimited',
-        },
-        logomarkClassName: 'fill-gray-900',
-    },
-]
+import { billingHighlights, modelPricing, plans, pricingSteps } from '@/content/pricing'
+import { Card } from '@/components/ui/card'
+import { Section, SectionContainer, SectionHeader } from '@/components/ui/section'
 
 function CheckIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
@@ -307,7 +210,7 @@ function Plan({
 
 export function Pricing() {
     const { data: session, status } = useSession()
-    const [activePeriod, setActivePeriod] = useState<'monthly' | 'annually'>('monthly')
+    const [activePeriod] = useState<'monthly' | 'annually'>('monthly')
     const [upgrading, setUpgrading] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
@@ -359,23 +262,19 @@ export function Pricing() {
     }
 
     return (
-        <section
+        <Section
             id="pricing"
             aria-labelledby="pricing-title"
-            className="border-t border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 py-20 sm:py-32"
+            variant="muted"
+            className="border-t border-gray-200 dark:border-gray-800"
         >
-            <Container>
-                <div className="mx-auto max-w-2xl text-center">
-                    <h2
-                        id="pricing-title"
-                        className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white"
-                    >
-                        Simple Pricing. Real Results.
-                    </h2>
-                    <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        Start free. Upgrade when you&apos;re hooked. Cancel anytime.
-                    </p>
-                </div>
+            <SectionContainer>
+                <SectionHeader
+                    id="pricing-title"
+                    title="Simple Pricing. Real Results."
+                    description="Start free. Upgrade when you're hooked. Cancel anytime."
+                    align="center"
+                />
 
                 {/* Error message */}
                 {error && (
@@ -408,30 +307,12 @@ export function Pricing() {
                         tracked per-request with full model-level cost breakdowns.
                     </p>
                     <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
-                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Per-Token</div>
-                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                                Billed by actual input, output, cache &amp; reasoning tokens
-                            </div>
-                        </div>
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
-                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Per-Model</div>
-                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                                Each AI model priced at cost. No hidden markup.
-                            </div>
-                        </div>
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
-                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Prepaid</div>
-                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                                Credits included with your plan. Add more anytime.
-                            </div>
-                        </div>
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow text-center">
-                            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">Limits</div>
-                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                                Set monthly spending caps to stay in budget.
-                            </div>
-                        </div>
+                        {billingHighlights.map((highlight) => (
+                            <Card key={highlight.value} variant="elevated" className="rounded-lg p-4 text-center">
+                                <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{highlight.value}</div>
+                                <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">{highlight.label}</div>
+                            </Card>
+                        ))}
                     </div>
 
                     {/* Model pricing table */}
@@ -449,48 +330,14 @@ export function Pricing() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white font-medium">Claude Opus 4.6</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$15.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$75.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.50</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Opus 4.5</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$5.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$25.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.50</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Claude Sonnet 4</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$3.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$15.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.30</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white font-medium">GPT-5.2</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$3.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$12.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">GPT-4.1</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$2.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$8.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white font-medium">Gemini 3 Pro</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$1.50</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$12.00</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-white">Gemini 2.5 Flash</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.15</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">$0.60</td>
-                                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">&mdash;</td>
-                                </tr>
+                                {modelPricing.map((row) => (
+                                    <tr key={row.model}>
+                                        <td className={clsx('px-4 py-2 text-gray-900 dark:text-white', row.featured && 'font-medium')}>{row.model}</td>
+                                        <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.input}</td>
+                                        <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.output}</td>
+                                        <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.cacheRead}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -502,21 +349,13 @@ export function Pricing() {
                         How It Works
                     </h3>
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-gray-600 dark:text-gray-400">
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="text-2xl mb-2">1. Describe</div>
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">CLI, API, or Dashboard</div>
-                            <p>Describe what you want built in plain English</p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="text-2xl mb-2">2. Orchestrate</div>
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Autonomous AI Agents</div>
-                            <p>Ralph generates PRDs, spawns swarms, and implements stories</p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow">
-                            <div className="text-2xl mb-2">3. Ship</div>
-                            <div className="font-semibold text-gray-900 dark:text-white mb-1">Ready-to-Merge Code</div>
-                            <p>Auto-committed, auto-tested PR waiting in your branch</p>
-                        </div>
+                        {pricingSteps.map((step) => (
+                            <Card key={step.title} variant="elevated" className="rounded-lg p-4 text-center">
+                                <div className="mb-2 text-2xl">{step.icon}</div>
+                                <div className="mb-1 font-semibold text-gray-900 dark:text-white">{step.title}</div>
+                                <p>{step.description}</p>
+                            </Card>
+                        ))}
                     </div>
                 </div>
 
@@ -529,7 +368,7 @@ export function Pricing() {
                         14-day money-back guarantee. No questions asked.
                     </div>
                 </div>
-            </Container>
-        </section>
+            </SectionContainer>
+        </Section>
     )
 }

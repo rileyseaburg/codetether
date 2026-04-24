@@ -94,6 +94,7 @@ export function Header() {
               href="https://docs.codetether.run"
               className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
               target="_blank"
+              rel="noopener noreferrer"
             >
               Docs
             </a>
@@ -130,6 +131,8 @@ export function Header() {
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="lg:hidden relative z-50 p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             aria-label="Toggle menu"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="site-mobile-menu"
           >
             {isMobileMenuOpen ? (
               <XIcon className="w-6 h-6" />
@@ -147,6 +150,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            id="site-mobile-menu"
             className="lg:hidden bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800"
           >
             <div className="mx-auto max-w-7xl px-4 py-6 space-y-4">
@@ -181,6 +185,7 @@ export function Header() {
               <a
                 href="https://docs.codetether.run"
                 target="_blank"
+                rel="noopener noreferrer"
                 className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 Docs
