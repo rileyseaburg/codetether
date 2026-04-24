@@ -3,32 +3,47 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 
-const metrics = [
-  { value: '60+', label: 'registered tool IDs' },
-  { value: '∞', label: 'workspace context via RLM' },
-  { value: '11', label: 'release targets' },
-]
-
-const trust = [
-  'Rust-native runtime',
-  'OKR → PRD → Ralph',
-  'Swarm orchestration',
-  'MCP + A2A',
-  'OPA RBAC',
-]
-
-const pipeline = [
-  { step: '01', title: 'Objective', detail: 'Capture the outcome, owner, constraints, and success metric.' },
-  { step: '02', title: 'PRD', detail: 'Generate stories, acceptance criteria, dependencies, and quality gates.' },
-  { step: '03', title: 'Ralph', detail: 'Iterate in fresh contexts, edit real files, test, and commit.' },
-  { step: '04', title: 'Control', detail: 'Stream events, enforce policy, audit tools, and route workers.' },
-]
+import { heroMetrics, heroPipeline, heroTrustSignals } from '@/content/marketing'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { MetricCard } from '@/components/ui/metric-card'
 
 function CheckIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
       <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
     </svg>
+  )
+}
+
+function PipelineStepCard({ step, title, detail }: { step: string; title: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-gray-950/50 p-4">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/10 text-xs font-bold text-cyan-200">
+          {step}
+        </span>
+        <div>
+          <p className="font-semibold text-white">{title}</p>
+          <p className="mt-1 text-xs leading-5 text-gray-400">{detail}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TerminalPreview() {
+  return (
+    <div className="rounded-2xl bg-gray-950 p-4 font-mono text-xs leading-6 text-gray-300 ring-1 ring-white/10">
+      <p><span className="text-cyan-300">$</span> codetether go &quot;add OAuth login&quot;</p>
+      <p className="mt-3 text-gray-500">creating OKR…</p>
+      <p><span className="text-green-300">✓</span> objective: secure social sign-in</p>
+      <p><span className="text-green-300">✓</span> PRD: 5 stories, 18 acceptance criteria</p>
+      <p><span className="text-green-300">✓</span> swarm: security + docs + tester</p>
+      <p><span className="text-yellow-300">↻</span> ralph: implementing story 4/5</p>
+      <p><span className="text-cyan-300">→</span> policy: OPA authz.rego passed</p>
+      <p><span className="text-cyan-300">→</span> browser: replayed /api/session smoke test</p>
+    </div>
   )
 }
 
@@ -41,16 +56,14 @@ function ControlPlaneCard() {
       className="relative mx-auto mt-14 max-w-2xl lg:mt-0"
     >
       <div className="absolute -inset-6 rounded-[2rem] bg-cyan-500/20 blur-3xl" />
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-2xl shadow-cyan-950/40 backdrop-blur-xl">
+      <Card variant="glass" className="relative overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-red-400" />
             <span className="h-3 w-3 rounded-full bg-yellow-400" />
             <span className="h-3 w-3 rounded-full bg-green-400" />
           </div>
-          <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200 ring-1 ring-cyan-300/20">
-            live agent run
-          </span>
+          <Badge variant="brand" className="text-cyan-200">live agent run</Badge>
         </div>
 
         <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
@@ -58,45 +71,18 @@ function ControlPlaneCard() {
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80">Objective</p>
             <h3 className="mt-3 text-xl font-semibold text-white">Ship GitHub OAuth with policy gates</h3>
             <div className="mt-5 space-y-3 text-sm text-gray-300">
-              {pipeline.map((item) => (
-                <div key={item.step} className="rounded-2xl border border-white/10 bg-gray-950/50 p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/10 text-xs font-bold text-cyan-200">
-                      {item.step}
-                    </span>
-                    <div>
-                      <p className="font-semibold text-white">{item.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-gray-400">{item.detail}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {heroPipeline.map((item) => <PipelineStepCard key={item.step} {...item} />)}
             </div>
           </div>
 
           <div className="p-5">
-            <div className="rounded-2xl bg-gray-950 p-4 font-mono text-xs leading-6 text-gray-300 ring-1 ring-white/10">
-              <p><span className="text-cyan-300">$</span> codetether go "add OAuth login"</p>
-              <p className="mt-3 text-gray-500">creating OKR…</p>
-              <p><span className="text-green-300">✓</span> objective: secure social sign-in</p>
-              <p><span className="text-green-300">✓</span> PRD: 5 stories, 18 acceptance criteria</p>
-              <p><span className="text-green-300">✓</span> swarm: security + docs + tester</p>
-              <p><span className="text-yellow-300">↻</span> ralph: implementing story 4/5</p>
-              <p><span className="text-cyan-300">→</span> policy: OPA authz.rego passed</p>
-              <p><span className="text-cyan-300">→</span> browser: replayed /api/session smoke test</p>
-            </div>
-
+            <TerminalPreview />
             <div className="mt-5 grid grid-cols-3 gap-3">
-              {metrics.map((metric) => (
-                <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                  <div className="text-2xl font-bold text-white">{metric.value}</div>
-                  <div className="mt-1 text-[11px] leading-4 text-gray-400">{metric.label}</div>
-                </div>
-              ))}
+              {heroMetrics.map((metric) => <MetricCard key={metric.label} {...metric} invert />)}
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     </motion.div>
   )
 }
@@ -149,7 +135,7 @@ export function Hero() {
           >
             <Link
               href="/register"
-              className="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-6 py-3 text-base font-semibold text-gray-950 shadow-xl shadow-cyan-500/20 transition hover:bg-cyan-200"
+              className="inline-flex items-center justify-center rounded-xl bg-cyan-300 px-6 py-3 text-base font-semibold text-gray-950 shadow-xl shadow-cyan-500/20 transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
             >
               Start building free
             </Link>
@@ -157,7 +143,7 @@ export function Hero() {
               href="https://github.com/rileyseaburg/codetether"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
             >
               View the agent runtime
             </a>
@@ -169,7 +155,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.34 }}
             className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm text-gray-400 lg:justify-start"
           >
-            {trust.map((item) => (
+            {heroTrustSignals.map((item) => (
               <span key={item} className="inline-flex items-center gap-2">
                 <CheckIcon className="h-4 w-4 text-cyan-300" />
                 {item}
