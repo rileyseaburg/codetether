@@ -17,6 +17,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         pkg-config \
         libssl-dev \
+        libasound2-dev \
         g++ \
         protobuf-compiler \
         libprotobuf-dev \
@@ -45,6 +46,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         git \
+        libasound2 \
         && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
