@@ -105,7 +105,15 @@ jobs:
                   with open(os.environ["GITHUB_ENV"], "a") as env_file:
                       print(f"KUBECONFIG={kubeconfig}", file=env_file)
                   PY
-                  kubectl config current-context >/dev/null
+                  if ! kubectl config current-context >/dev/null 2>&1; then
+                    context="$(kubectl config get-contexts -o name | head -n 1)"
+                    if [ -z "$context" ]; then
+                      echo "No Kubernetes contexts found in KUBE_CONFIG" >&2
+                      exit 1
+                    fi
+                    kubectl config use-context "$context"
+                  fi
+                  kubectl config current-context
 
             - name: Log in to Google Artifact Registry (Helm)
               run: |
