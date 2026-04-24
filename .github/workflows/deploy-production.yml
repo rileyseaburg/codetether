@@ -63,10 +63,49 @@ jobs:
                   version: "3.14.0"
 
             - name: Configure kubectl
-              uses: azure/k8s-set-context@v4
-              with:
-                  method: kubeconfig
-                  kubeconfig: ${{ secrets.KUBE_CONFIG }}
+              env:
+                  KUBE_CONFIG_SECRET: ${{ secrets.KUBE_CONFIG }}
+              run: |
+                  python3 - <<'PY'
+                  import base64
+                  import json
+                  import os
+                  from pathlib import Path
+
+                  raw = os.environ["KUBE_CONFIG_SECRET"]
+
+                  # Some secret writers store the kubeconfig as a JSON string.
+                  # Normalize that back to the kubeconfig payload before kubectl reads it.
+                  for _ in range(2):
+                      try:
+                          decoded = json.loads(raw)
+                      except json.JSONDecodeError:
+                          break
+                      if isinstance(decoded, str):
+                          raw = decoded
+                          continue
+                      raw = json.dumps(decoded)
+                      break
+
+                  if "\\n" in raw and "\n" not in raw:
+                      raw = raw.replace("\\n", "\n")
+
+                  stripped = raw.strip()
+                  if "apiVersion:" not in stripped and not stripped.startswith("{"):
+                      try:
+                          maybe = base64.b64decode(stripped, validate=True).decode()
+                      except Exception:
+                          maybe = None
+                      if maybe and ("apiVersion:" in maybe or maybe.lstrip().startswith("{")):
+                          raw = maybe
+
+                  kubeconfig = Path(os.environ["RUNNER_TEMP"]) / "kubeconfig"
+                  kubeconfig.write_text(raw)
+
+                  with open(os.environ["GITHUB_ENV"], "a") as env_file:
+                      print(f"KUBECONFIG={kubeconfig}", file=env_file)
+                  PY
+                  kubectl config current-context >/dev/null
 
             - name: Log in to Google Artifact Registry (Helm)
               run: |
