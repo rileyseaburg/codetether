@@ -23,7 +23,7 @@ export function Footer() {
                             <Logomark className="h-10 w-10 flex-none fill-cyan-500" />
                             <div className="ml-4">
                                 <p className="text-base font-semibold">CodeTether</p>
-                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Production A2A Coordination Platform</p>
+                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Autonomous AI Engineering Agent</p>
                             </div>
                         </div>
                         <nav className="mt-11 flex flex-wrap gap-x-6 gap-y-3 sm:gap-8">

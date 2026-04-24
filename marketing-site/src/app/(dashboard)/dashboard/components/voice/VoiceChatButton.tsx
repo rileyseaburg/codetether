@@ -98,7 +98,7 @@ export default function VoiceChatButton({
       const { data } = await createVoiceSessionV1VoiceSessionsPost({
         body: {
           voice: voice.id,
-          codebase_id: codebaseId,
+          workspace_id: codebaseId,
           session_id: sessionId,
           mode: mode,
           playback_style: playbackStyle,

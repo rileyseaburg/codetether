@@ -70,13 +70,19 @@ export function Header() {
               href="#features"
               className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              Features
+              Platform
             </Link>
             <Link
               href="#use-cases"
               className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              Use Cases
+              Use cases
+            </Link>
+            <Link
+              href="#roadmap"
+              className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Roadmap
             </Link>
             <Link
               href="#pricing"
@@ -115,7 +121,7 @@ export function Header() {
               href="/register"
               className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white bg-cyan-500 hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-500/25"
             >
-              Get Started Free
+              Start free
             </Link>
           </div>
 
@@ -149,14 +155,21 @@ export function Header() {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
-                Features
+                Platform
               </Link>
               <Link
                 href="#use-cases"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
-                Use Cases
+                Use cases
+              </Link>
+              <Link
+                href="#roadmap"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              >
+                Roadmap
               </Link>
               <Link
                 href="#pricing"
@@ -185,7 +198,7 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block w-full text-center px-4 py-2.5 text-sm font-semibold text-white bg-cyan-500 hover:bg-cyan-600 rounded-lg"
                 >
-                  Get Started Free
+                  Start free
                 </Link>
               </div>
             </div>
