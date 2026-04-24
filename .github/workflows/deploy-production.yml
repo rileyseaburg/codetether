@@ -53,7 +53,6 @@ jobs:
         if: always() && (needs.pre-deploy-tests.result == 'success' || needs.pre-deploy-tests.result == 'skipped')
         permissions:
             contents: read
-            id-token: write
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -63,13 +62,6 @@ jobs:
               with:
                   version: "3.14.0"
 
-            - name: Authenticate to Google Cloud
-              id: auth
-              uses: google-github-actions/auth@v2
-              with:
-                  credentials_json: ${{ secrets.GCP_SA_KEY }}
-                  token_format: access_token
-
             - name: Configure kubectl
               uses: azure/k8s-set-context@v4
               with:
@@ -78,8 +70,8 @@ jobs:
 
             - name: Log in to Google Artifact Registry (Helm)
               run: |
-                  echo "${{ steps.auth.outputs.access_token }}" | helm registry login https://${{ env.REGISTRY }} \
-                    --username oauth2accesstoken \
+                  printf '%s' '${{ secrets.GCP_SA_KEY }}' | helm registry login https://${{ env.REGISTRY }} \
+                    --username _json_key \
                     --password-stdin
 
             - name: Create namespace

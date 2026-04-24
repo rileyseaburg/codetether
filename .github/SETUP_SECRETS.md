@@ -97,13 +97,14 @@ For production deployments, you can create a GitHub Environment:
 Test that your secrets work:
 
 ```bash
-# Test Docker login using local gcloud auth
-gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-docker pull us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing:latest
+# Test Docker login using the same JSON key method as GitHub Actions
+cat service-account-key.json | docker login https://us-central1-docker.pkg.dev \
+  --username _json_key \
+  --password-stdin
 
-# Test Helm login using local gcloud auth
-gcloud auth print-access-token | helm registry login https://us-central1-docker.pkg.dev \
-  --username oauth2accesstoken \
+# Test Helm login using the same JSON key method as GitHub Actions
+cat service-account-key.json | helm registry login https://us-central1-docker.pkg.dev \
+  --username _json_key \
   --password-stdin
 
 # Test kubectl access
@@ -127,7 +128,6 @@ kubectl get pods -n a2a-system
 The workflows need these permissions:
 
 - **contents: read** - To checkout code
-- **id-token: write** - To mint Google Cloud access tokens
 - **packages: write** - To push Docker images and Helm charts
 
 These are configured in the workflow files.
