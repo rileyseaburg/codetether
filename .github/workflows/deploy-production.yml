@@ -19,7 +19,7 @@ env:
     IMAGE_NAME: a2a-server-mcp
     DOMAIN: acp.quantum-forge.net
     NAMESPACE: a2a-system
-    CHART_VERSION: 1.4.2
+    CHART_VERSION: 1.4.3
 
 jobs:
     pre-deploy-tests:

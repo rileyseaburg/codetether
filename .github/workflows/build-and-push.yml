@@ -26,7 +26,7 @@ env:
     PROJECT: spotlessbinco/codetether
     IMAGE_NAME: a2a-server-mcp
     CHART_PATH: chart/a2a-server
-    CHART_VERSION: 1.4.2
+    CHART_VERSION: 1.4.3
 
 jobs:
     test:
@@ -270,13 +270,45 @@ jobs:
                     --password-stdin
 
             - name: Update Helm chart values
+              env:
+                  CHART_VALUES: ${{ env.CHART_PATH }}/values.yaml
+                  IMAGE_REPOSITORY: ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}
+                  IMAGE_TAG: ${{ needs.build-and-push.outputs.version }}
               run: |
-                  VERSION="${{ needs.build-and-push.outputs.version }}"
-                  sed -i "s|repository:.*a2a-server.*|repository: ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}|g" ${{ env.CHART_PATH }}/values.yaml
-                  sed -i "s|tag:.*\".*\"|tag: \"${VERSION}\"|g" ${{ env.CHART_PATH }}/values.yaml
+                  python3 - <<'PY'
+                  import os
+                  from pathlib import Path
+
+                  values_path = Path(os.environ["CHART_VALUES"])
+                  repository = os.environ["IMAGE_REPOSITORY"]
+                  tag = os.environ["IMAGE_TAG"]
+
+                  lines = values_path.read_text().splitlines()
+                  in_top_level_image = False
+                  found_image = False
+
+                  for index, line in enumerate(lines):
+                      if line == "image:":
+                          in_top_level_image = True
+                          found_image = True
+                          continue
+                      if in_top_level_image and line and not line.startswith(" "):
+                          in_top_level_image = False
+                      if not in_top_level_image:
+                          continue
+                      if line.startswith("  repository:"):
+                          lines[index] = f"  repository: {repository}"
+                      elif line.startswith("  tag:"):
+                          lines[index] = f'  tag: "{tag}"'
+
+                  if not found_image:
+                      raise SystemExit("top-level image block not found")
+
+                  values_path.write_text("\n".join(lines) + "\n")
+                  PY
 
                   echo "Updated values.yaml:"
-                  grep -A 3 "image:" ${{ env.CHART_PATH }}/values.yaml
+                  sed -n '/^image:/,/^imagePullSecrets:/p' ${{ env.CHART_PATH }}/values.yaml
 
             - name: Build Helm dependencies
               run: |
