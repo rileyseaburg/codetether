@@ -29,7 +29,12 @@ async def issue_git_credentials(workspace_id: str, request: GitCredentialRequest
     credentials = await get_git_credentials(workspace_id)
     if credentials and credentials.get('token'):
         return {'username': 'x-access-token', 'password': credentials['token'], 'expires_at': credentials.get('expires_at'), 'token_type': credentials.get('token_type', 'pat'), 'host': request.host, 'path': request.path}
-    github_app = (((workspace.get('agent_config') or {}).get('git_auth') or {}).get('github_app') or {})
+    agent_config = workspace.get('agent_config') or {}
+    github_app = (
+        ((agent_config.get('git_auth') or {}).get('github_app'))
+        or ((workspace.get('git_auth') or {}).get('github_app'))
+        or {}
+    )
     installation_id = github_app.get('installation_id')
     if not installation_id:
         raise HTTPException(status_code=404, detail='No Git credentials available for workspace')

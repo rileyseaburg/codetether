@@ -44,6 +44,7 @@ data:
                 - http://{{ include "a2a-server.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
                 - --name
                 - session-SESSION_ID
+                - --workspaces
                 - {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
               workingDir: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
               ports:
