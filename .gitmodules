@@ -2,3 +2,7 @@
 	path = codetether-agent
 	url = https://github.com/rileyseaburg/codetether-agent.git
 	branch = main
+[submodule "models.dev"]
+	path = models.dev
+	url = https://github.com/rileyseaburg/models.dev.git
+	branch = main
