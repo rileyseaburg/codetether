@@ -21,6 +21,8 @@ Autogen
 Blogs
 CAs
 CLIs
+CODETETHER
+CONFIGMAP
 Camry
 Cjava
 Cpzuhi
@@ -64,8 +66,10 @@ JWTs
 Jhb
 Jra
 KGgo
+KNATIVE
 KRW
 LHR
+LIVEKIT
 LJcvt
 LLM
 LLMs
@@ -143,6 +147,7 @@ backstory
 backticks
 bbb
 beeai
+bluegreen
 bufbuild
 bzr
 cae
@@ -150,11 +155,15 @@ ccc
 cdn
 ceee
 cfe
+claude
 cls
 coc
 codegen
 codeowner
+codetether
+configmap
 crewai
+curlimages
 datamodel
 datapart
 dbc
@@ -174,11 +183,14 @@ endblock
 endmacro
 envoyproxy
 euo
+eventing
 evt
 excinfo
 faa
 fafd
 fdebd
+fetchrow
+fetchval
 ffbb
 firewalls
 flightbook
@@ -192,7 +204,9 @@ geneknit
 genkit
 genproto
 georoute
+getpid
 gettickets
+ghs
 gitvote
 gle
 googleai
@@ -220,6 +234,7 @@ langgraph
 linenums
 linkedin
 linting
+livekit
 llm
 llms
 lng
@@ -235,6 +250,7 @@ multipage
 mydb
 myorg
 nearform
+nindent
 nlp
 notif
 npush
@@ -251,6 +267,7 @@ pqr
 prefecthq
 protoc
 protolint
+pvc
 pyguide
 pymdownx
 pypa
@@ -262,6 +279,7 @@ rcm
 repomapr
 reportgen
 reposted
+rollme
 rst
 rvelicheti
 scm
@@ -273,6 +291,7 @@ sse
 stateclass
 stephenh
 styleguide
+subcall
 svn
 systemctl
 tagwords
@@ -288,6 +307,7 @@ toolkits
 tracestate
 ugc
 undoc
+userinfo
 utm
 versioned
 vnd
@@ -298,6 +318,7 @@ webform
 webpage
 whatwg
 wikipedia
+wrk
 wsgi
 wwwwwwww
 xxxxx
