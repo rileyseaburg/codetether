@@ -44,6 +44,7 @@ data:
                 - http://{{ include "a2a-server.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
                 - --name
                 - session-SESSION_ID
+                - --workspaces
                 - {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
               workingDir: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
               ports:
@@ -150,7 +151,7 @@ data:
                       optional: true
                 {{- end }}
                 {{- if .Values.knative.worker.gcpCredentialsSecret }}
-                # GCP credentials for Vertex AI
+                # Google Cloud credentials for Vertex AI
                 - name: GOOGLE_APPLICATION_CREDENTIALS
                   value: "/secrets/gcp/credentials.json"
                 - name: GOOGLE_VERTEX_LOCATION

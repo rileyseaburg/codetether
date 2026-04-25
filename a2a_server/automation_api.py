@@ -583,7 +583,12 @@ async def dispatch_task(
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     tenant_id = user.tenant_id
     user_id = user.user_id
-    codebase_id = 'global'
+    # Dispatch API tasks are virtual/global tasks: the GitHub Action includes the
+    # full review prompt/diff, so there is no registered workspace to attach.
+    # Store NULL instead of the legacy string "global" because tasks.workspace_id
+    # is a foreign key to workspaces(id); inserting "global" breaks dispatch on
+    # databases without a synthetic global workspace row.
+    workspace_id = None
 
     # Create task in database
     async with pool.acquire() as conn:
@@ -600,7 +605,7 @@ async def dispatch_task(
             request.title,
             request.description,
             request.agent_type,
-            codebase_id,
+            workspace_id,
             json.dumps(request.metadata or {}),
             tenant_id,
             request.model,

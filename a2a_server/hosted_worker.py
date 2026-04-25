@@ -318,14 +318,31 @@ class HostedWorker:
         # First try to get from database directly (faster, more reliable)
         try:
             async with self._pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    """
-                    SELECT id, title, prompt, agent_type, codebase_id, status,
-                           metadata, created_at
-                    FROM tasks WHERE id = $1
-                    """,
-                    task_id,
-                )
+                try:
+                    row = await conn.fetchrow(
+                        """
+                        SELECT id, title, prompt, agent_type, workspace_id, status,
+                               metadata, created_at
+                        FROM tasks WHERE id = $1
+                        """,
+                        task_id,
+                    )
+                    workspace_value = row['workspace_id'] if row else None
+                except Exception as exc:
+                    # Backward compatibility for databases that have not yet
+                    # renamed codebase_id -> workspace_id.
+                    if 'workspace_id' not in str(exc).lower():
+                        raise
+                    row = await conn.fetchrow(
+                        """
+                        SELECT id, title, prompt, agent_type, codebase_id, status,
+                               metadata, created_at
+                        FROM tasks WHERE id = $1
+                        """,
+                        task_id,
+                    )
+                    workspace_value = row['codebase_id'] if row else None
+
                 if row:
                     return {
                         'id': row['id'],
@@ -333,7 +350,9 @@ class HostedWorker:
                         'description': row['prompt'],
                         'prompt': row['prompt'],
                         'agent_type': row['agent_type'],
-                        'codebase_id': row['codebase_id'],
+                        # Keep the legacy key because _run_task consumes it.
+                        'codebase_id': workspace_value,
+                        'workspace_id': workspace_value,
                         'status': row['status'],
                         'metadata': row['metadata'] or {},
                         'created_at': row['created_at'].isoformat()
@@ -485,7 +504,9 @@ class HostedWorker:
         try:
             # Use sandboxed execution if available
             from .sandbox import is_sandbox_available, execute_sandboxed
-            if is_sandbox_available():
+            sandbox_available = is_sandbox_available()
+            process_returncode = None
+            if sandbox_available:
                 returncode, stdout_str, stderr_str = await execute_sandboxed(
                     cmd=cmd,
                     cwd=str(Path.home()),
@@ -497,6 +518,7 @@ class HostedWorker:
                     logger.error(f'Agent failed for task {task_id}: {stderr_str}')
                     raise Exception(f'Agent execution failed: {stderr_str}')
                 output = stdout_str.strip()
+                process_returncode = returncode
             else:
                 process = await asyncio.create_subprocess_exec(
                     *cmd,
@@ -522,6 +544,7 @@ class HostedWorker:
                     raise Exception(f'Agent execution failed: {error_msg}')
 
                 output = stdout.decode('utf-8', errors='replace').strip()
+                process_returncode = process.returncode
             content = self._parse_agent_output(output)
 
             # Truncate for summary
@@ -531,7 +554,7 @@ class HostedWorker:
                 'summary': summary,
                 'result': content,
                 'model': agent_model,
-                'exit_code': process.returncode,
+                'exit_code': process_returncode,
             }
 
         except asyncio.TimeoutError:
@@ -699,7 +722,7 @@ class HostedWorker:
     ) -> None:
         """Mark a task run as completed or failed."""
         async with self._pool.acquire() as conn:
-            await conn.fetchval(
+            completed = await conn.fetchval(
                 'SELECT complete_task_run($1, $2, $3, $4, $5, $6)',
                 run_id,
                 self.worker_id,
@@ -708,6 +731,40 @@ class HostedWorker:
                 json.dumps(result_full) if result_full else None,
                 error,
             )
+
+            if completed:
+                # Keep the canonical tasks row in sync with task_runs. The
+                # GitHub Action polls /v1/tasks/dispatch/{task_id}, which reads
+                # tasks.status/result (not task_runs). Without this, server-mode
+                # action jobs can finish in task_runs but poll forever as
+                # pending/running and eventually report a timeout/failure.
+                task_id = self._current_task_id
+                result_text = result_summary
+                if result_full and not result_text:
+                    result_text = (
+                        result_full.get('result')
+                        or result_full.get('summary')
+                        or result_full.get('response')
+                    )
+                    if not isinstance(result_text, str):
+                        result_text = json.dumps(result_text)
+
+                if task_id:
+                    await conn.execute(
+                        """
+                        UPDATE tasks SET
+                            status = $2,
+                            result = CASE WHEN $2 = 'completed' THEN $3 ELSE result END,
+                            error = CASE WHEN $2 = 'failed' THEN $4 ELSE error END,
+                            completed_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE completed_at END,
+                            updated_at = NOW()
+                        WHERE id = $1
+                        """,
+                        task_id,
+                        status,
+                        result_text,
+                        error,
+                    )
 
         logger.info(f'Run {run_id} marked as {status}')
 
