@@ -28,6 +28,8 @@ spec:
     {{- if and .Values.blueGreen.enabled (eq .Values.blueGreen.mode "bluegreen") }}
     {{- include "a2a-server.blueGreenSelectorLabels" . | nindent 4 }}
     color: {{ .Values.blueGreen.serviceColor | quote }}
+    app.kubernetes.io/component: server
     {{- else }}
     {{- include "a2a-server.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
     {{- end }}

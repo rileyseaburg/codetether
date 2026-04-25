@@ -199,6 +199,8 @@ async def issue_git_credentials(
     """Resolve workspace git credentials for helper/API use."""
     creds = await get_git_credentials(codebase_id)
     if not creds:
+        creds = await _workspace_github_app_credentials(codebase_id)
+    if not creds:
         return None
 
     git_url = creds.get('git_url') or ''
@@ -212,6 +214,15 @@ async def issue_git_credentials(
 
     token_type = creds.get('token_type', 'pat')
     if token_type == 'github_app':
+        if creds.get('token'):
+            return {
+                'username': 'x-access-token',
+                'password': creds['token'],
+                'expires_at': creds.get('expires_at'),
+                'token_type': 'github_app',
+                'host': requested_host or stored_host,
+                'path': requested_path or stored_path,
+            }
         token = await mint_github_app_installation_token(
             installation_id=str(creds.get('github_installation_id') or ''),
             owner=creds.get('github_owner'),
@@ -233,6 +244,62 @@ async def issue_git_credentials(
         'host': requested_host or stored_host,
         'path': requested_path or stored_path,
     }
+
+
+async def _workspace_github_app_credentials(
+    workspace_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Mint GitHub App credentials from workspace metadata when Vault has none."""
+    try:
+        from . import database as db
+
+        workspace = await db.db_get_workspace(workspace_id)
+    except Exception as exc:
+        logger.debug(
+            'No workspace-backed GitHub App credentials for %s: %s',
+            workspace_id,
+            exc,
+        )
+        return None
+
+    if not workspace:
+        return None
+
+    github_app = _workspace_github_app_config(workspace)
+    installation_id = str(github_app.get('installation_id') or '').strip()
+    if not installation_id:
+        return None
+
+    from .github_app.auth import installation_token
+
+    token, expires_at = await installation_token(int(installation_id))
+    git_url = str(workspace.get('git_url') or '')
+    owner, repo = _github_owner_repo_from_url(git_url)
+    return {
+        'git_url': git_url,
+        'github_owner': owner,
+        'github_repo': repo,
+        'token': token,
+        'token_type': 'github_app',
+        'expires_at': expires_at,
+    }
+
+
+def _workspace_github_app_config(workspace: Dict[str, Any]) -> Dict[str, Any]:
+    agent_config = workspace.get('agent_config') or {}
+    return (
+        ((agent_config.get('git_auth') or {}).get('github_app'))
+        or ((workspace.get('git_auth') or {}).get('github_app'))
+        or {}
+    )
+
+
+def _github_owner_repo_from_url(git_url: str) -> tuple[Optional[str], Optional[str]]:
+    parsed = urlparse(git_url)
+    parts = parsed.path.strip('/').removesuffix('.git').split('/')
+    if len(parts) >= 2 and parsed.hostname == 'github.com':
+        return parts[0], parts[1]
+    return None, None
 
 
 async def _build_auth_url(git_url: str, codebase_id: str) -> str:
