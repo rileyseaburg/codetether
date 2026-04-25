@@ -151,7 +151,7 @@ data:
                       optional: true
                 {{- end }}
                 {{- if .Values.knative.worker.gcpCredentialsSecret }}
-                # GCP credentials for Vertex AI
+                # Google Cloud credentials for Vertex AI
                 - name: GOOGLE_APPLICATION_CREDENTIALS
                   value: "/secrets/gcp/credentials.json"
                 - name: GOOGLE_VERTEX_LOCATION

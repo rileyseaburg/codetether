@@ -18,6 +18,7 @@ AStarlette
 AUTOCOMMIT
 Agentspace
 Autogen
+Bitbucket
 Blogs
 CAs
 CLIs
@@ -77,6 +78,7 @@ Lix
 MSIs
 MWpm
 Mapr
+NDJSON
 Nszl
 OIDC
 OOa
@@ -87,6 +89,8 @@ PMEEi
 PTH
 QFdk
 Qvandrcy
+RLS
+ROWTYPE
 RPCs
 RUF
 SLAs
@@ -147,6 +151,7 @@ backstory
 backticks
 bbb
 beeai
+bitbucket
 bluegreen
 bufbuild
 bzr
@@ -207,8 +212,10 @@ georoute
 getpid
 gettickets
 ghs
+gitlab
 gitvote
 gle
+glm
 googleai
 googleapi
 googleblog
@@ -228,6 +235,7 @@ iss
 jherr
 jti
 jwks
+knative
 konami
 kty
 langgraph
@@ -261,6 +269,7 @@ ollama
 oneof
 openapis
 oreilly
+plpgsql
 postgres
 postgresql
 pqr
@@ -321,8 +330,10 @@ wikipedia
 wrk
 wsgi
 wwwwwwww
+xai
 xxxxx
 xxxxxxxx
 youtube
 yyyyyyyy
+zai
 zzzzzzzz
