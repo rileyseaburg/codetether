@@ -68,3 +68,44 @@ test_partial_provenance_denied_for_sensitive_action if {
 test_legacy_without_provenance_allows if {
     provenance.allow with input as {"action": "tasks:write", "resource": {}, "provenance": {}}
 }
+
+test_zero_spawn_depth_parent_cannot_delegate_zero_depth_child if {
+    strict := object.union(base_provenance, {
+        "ap_delegation": {
+            "chain": [
+                {"principal": "agent:parent", "capability": {"operations": ["tasks:write"], "spawn": {"max_depth": 0}}},
+                {"principal": "agent:child", "capability": {"operations": ["tasks:write"], "spawn": {"max_depth": 0}}},
+            ],
+        },
+    })
+    not provenance.allow with input as {"action": "tasks:write", "resource": {}, "provenance": strict}
+}
+
+test_child_cannot_remove_parent_budget_limit if {
+    strict := object.union(base_provenance, {
+        "ap_delegation": {
+            "chain": [
+                {"principal": "agent:parent", "capability": {"operations": ["tasks:write"], "budget": {"max_tool_calls": 10}}},
+                {"principal": "agent:child", "capability": {"operations": ["tasks:write"], "budget": {}}},
+            ],
+        },
+    })
+    not provenance.allow with input as {"action": "tasks:write", "resource": {}, "provenance": strict}
+}
+
+test_legacy_origin_hash_field_mismatch_denied if {
+    not provenance.allow with input as {
+        "action": "tasks:write",
+        "resource": {"session_origin_intent_hash": "sha384:other"},
+        "provenance": base_provenance,
+    }
+}
+
+test_legacy_session_taints_field_detects_stripping if {
+    marker := {"id": "t1", "source": "urn:ap:taint:source:web-fetch", "applied_at_turn": 3}
+    not provenance.allow with input as {
+        "action": "tasks:write",
+        "resource": {"session_taints": [marker]},
+        "provenance": base_provenance,
+    }
+}
