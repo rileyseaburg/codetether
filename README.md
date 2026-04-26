@@ -2,7 +2,7 @@
 
 # 🔗 CodeTether
 
-### **Turn AI Agents into Production Systems**
+### **The control plane for production AI agents**
 
 [![PyPI version](https://img.shields.io/pypi/v/codetether.svg)](https://pypi.org/project/codetether/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/codetether.svg)](https://pypi.org/project/codetether/)
@@ -13,11 +13,9 @@
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](https://www.docker.com/)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-ready-326CE5.svg)](https://kubernetes.io/)
 
-**The open-source platform for building, deploying, and orchestrating AI agent systems at scale.**
+**Run autonomous coding, operations, and workflow agents with real routing, policy, workers, observability, and auditability.**
 
-**🎉 v1.4.1 Production Release** - MCP-to-Ralph E2E integration: AI assistants can now autonomously create and execute PRDs via MCP tools
-
-[🚀 Quick Start](#-quick-start) • [📖 Documentation](https://docs.codetether.run) • [💬 Discord](https://discord.gg/codetether) • [🐦 Twitter](https://twitter.com/codetether)
+[🚀 Quick Start](#-quick-start) • [🏗️ Architecture](#️-architecture) • [🔐 Security](#-security-and-provenance) • [📖 Documentation](https://docs.codetether.run)
 
 ---
 
@@ -25,38 +23,55 @@
 
 ## 🎯 What is CodeTether?
 
-CodeTether is a **production-ready Agent-to-Agent (A2A) platform** that is **officially A2A Protocol v0.3 compliant**. Build AI agent systems that actually work in the real world—connect any LLM to any tool, orchestrate complex multi-agent workflows, and deploy with confidence. Our implementation uses the official `a2a-sdk` from Google, ensuring full interoperability with any A2A-compliant client or agent.
+CodeTether is an open-source **agent operations platform**: a server, worker runtime, policy layer, dashboard, and MCP/A2A integration stack for turning one-off AI agent scripts into governed production systems.
 
+Most agent demos stop at "the model called a tool." CodeTether focuses on everything around that call:
+
+- **Where does the work run?** Distributed workers claim tasks over SSE and execute close to the relevant codebase.
+- **Who is allowed to do what?** Keycloak, RBAC, tenant isolation, OPA policies, and provenance checks gate API and agent actions.
+- **How do agents coordinate?** A2A endpoints, task queues, worker routing, MCP tools, and Ralph PRD execution provide orchestration primitives.
+- **How do humans stay in control?** Dashboard streaming, email reply continuation, audit logs, and explicit task lifecycle state keep work observable.
+- **How does it scale?** PostgreSQL persistence, Redis messaging, Helm charts, worker registration, and codebase-aware routing support multi-tenant deployments.
+
+```text
+┌────────────────────────────── CodeTether ──────────────────────────────┐
+│                                                                         │
+│  Humans / Apps / A2A Clients / MCP Clients                              │
+│                  │                                                      │
+│                  ▼                                                      │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │ A2A + REST API Server                                             │  │
+│  │ tasks • agents • workers • codebases • sessions • OKRs            │  │
+│  └───────────────┬───────────────────────────────┬───────────────────┘  │
+│                  │                               │                      │
+│                  ▼                               ▼                      │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────────┐  │
+│  │ Policy + Provenance          │   │ Durable State + Routing          │  │
+│  │ Keycloak • RBAC • OPA • APF  │   │ PostgreSQL • Redis • SSE         │  │
+│  └─────────────────────────────┘   └───────────────┬─────────────────┘  │
+│                                                     │                    │
+│                                                     ▼                    │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │ Distributed Workers                                               │  │
+│  │ Rust/Python agents • MCP tools • codebase routing • model routing │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CodeTether                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │   Claude    │  │   GPT-4     │  │   Gemini    │   LLMs       │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
-│         │                │                │                      │
-│         └────────────────┼────────────────┘                      │
-│                          ▼                                       │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                 A2A Protocol v0.3 Layer                   │  │
-│  │  ┌─────────────────┐  ┌─────────────┐  ┌───────────────┐  │  │
-│  │  │ /.well-known/   │  │ /a2a/jsonrpc│  │  /a2a/rest/*  │  │  │
-│  │  │ agent-card.json │  │   (RPC)     │  │  (REST API)   │  │  │
-│  │  └─────────────────┘  └─────────────┘  └───────────────┘  │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                          │                                       │
-│              ┌───────────────────────┐                           │
-│              │    Message Broker     │   Standard Communication  │
-│              │    (Redis/Memory)     │                           │
-│              └───────────┬───────────┘                           │
-│                          │                                       │
-│         ┌────────────────┼────────────────┐                      │
-│         ▼                ▼                ▼                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  CodeTether   │  │ MCP Tools   │  │  Your APIs  │   Actions    │
-│  │  (Coding)   │  │  (100+)     │  │             │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+## 🧭 When to use CodeTether
+
+Use CodeTether when you need to run agents as part of a real system, not just a notebook or chatbot:
+
+| Need | CodeTether gives you |
+| --- | --- |
+| Autonomous development | Ralph executes PRDs end-to-end: stories → code → tests → commits. |
+| Agent tool access | MCP server/tools for files, tasks, PRDs, worker control, and integrations. |
+| Distributed execution | Workers register capabilities/codebases and claim tasks from the server. |
+| Multi-tenant production auth | Keycloak SSO, RBAC, OPA route policies, and PostgreSQL RLS. |
+| Agent action accountability | Agent Provenance Framework tracks origin, inputs, delegation, runtime, and output. |
+| Human-in-the-loop operations | Dashboard streaming, task lifecycle state, notifications, and email replies. |
+| Kubernetes deployment | Helm charts, Redis/PostgreSQL integration, health checks, and horizontal scaling. |
 
 ## ✨ Why CodeTether?
 
@@ -74,7 +89,7 @@ Ralph implements entire PRDs with zero human intervention. Define user stories, 
 
 ### 💻 **AI Coding at Scale**
 
-Deploy AI coding agents across your infrastructure using our maintained CodeTether fork. Automated code generation, refactoring, and testing.
+Deploy AI coding agents across your infrastructure using the CodeTether worker runtime. Automated code generation, refactoring, and testing with codebase-aware routing.
 
 ### 🔄 **RLM (Recursive Language Models)**
 
@@ -103,9 +118,9 @@ Watch agents think in real-time. SSE streaming for instant feedback and human in
 
 Connect workers to `https://api.codetether.run` for live task execution. Helm charts and horizontal scaling included.
 
-### 🔐 **Enterprise Ready**
+### 🔐 **Governed Agent Actions**
 
-Keycloak SSO, RBAC, audit logs, OPA policy enforcement, and Agent Provenance Framework checks. Security that enterprises demand.
+Keycloak SSO, RBAC, OPA policy enforcement, PostgreSQL RLS, audit logs, and Agent Provenance Framework checks for origin, taint, delegation, runtime, and output claims.
 
 ### ☸️ **Deploy Anywhere**
 
@@ -455,7 +470,7 @@ Task: "Add tests for auth" → codebase: /home/user/my-app
 
 Workers with `global` codebase registration can handle any task regardless of path.
 
-### Security Layers
+### Security and Provenance
 
 ```
 Request → Keycloak JWT validation
@@ -523,6 +538,7 @@ Workers sync sessions from local storage to PostgreSQL. The dashboard and API re
 - ✅ PostgreSQL Row-Level Security (RLS) for database-level tenant isolation
 - ✅ OPA policy engine for API-level authorization
 - ✅ Audit logging
+- ✅ Agent Provenance Framework for origin, taint, delegation, runtime, and output checks
 - ✅ Network policies
 
 ### DevOps Ready
