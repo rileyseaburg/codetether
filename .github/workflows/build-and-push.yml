@@ -371,7 +371,7 @@ jobs:
                   echo "  --password-stdin" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "# Deploy using local script" >> $GITHUB_STEP_SUMMARY
-                  echo "./quick-deploy-acp.sh" >> $GITHUB_STEP_SUMMARY
+                  echo "./deployment/archive/quick-deploy-acp.sh" >> $GITHUB_STEP_SUMMARY
                   echo '```' >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "### Option 2: Manual Helm Deploy" >> $GITHUB_STEP_SUMMARY
