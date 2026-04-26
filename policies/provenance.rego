@@ -100,14 +100,25 @@ valid_delegation_shape if {
 
 reasons contains "origin intent hash mismatch" if {
     has_provenance
-    expected := object.get(object.get(input.resource, "ap_session_state", {}), "origin_intent_hash", object.get(input.resource, "session_origin_intent_hash", ""))
+    expected := object.get(
+        object.get(input.resource, "ap_session_state", {}),
+        "origin_intent_hash",
+        object.get(input.resource, "session_origin_intent_hash", ""),
+    )
+    is_string(expected)
     expected != ""
     input.provenance.ap_origin.intent_hash != expected
 }
 
+session_taints := object.get(
+    object.get(input.resource, "ap_session_state", {}),
+    "taints",
+    object.get(input.resource, "session_taints", []),
+)
+
 reasons contains "taint stripping detected" if {
     has_provenance
-    some required in object.get(object.get(input.resource, "ap_session_state", {}), "taints", object.get(input.resource, "session_taints", []))
+    some required in session_taints
     not token_has_taint(required)
 }
 
@@ -123,12 +134,6 @@ reasons contains "taint blocks action: external-mcp" if {
     some marker in input.provenance.ap_inputs
     endswith(marker.source, "external-mcp-server")
     input.action in taint_blocked_actions["external-mcp"]
-}
-
-reasons contains reason if {
-    has_provenance
-    some dimension in missing_dimensions
-    reason := sprintf("missing %s provenance", [dimension])
 }
 
 reasons contains "partial provenance not permitted for sensitive action" if {
@@ -194,23 +199,13 @@ reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
     not parent.root
     some key, parent_value in parent.budget
     is_number(parent_value)
-    child_value := object.get(object.get(child, "budget", {}), key, null)
-    not is_number(child_value)
+    not budget_key_attenuated(child, key, parent_value)
 }
 
-reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
-    has_provenance
-    some i
-    chain := input.provenance.ap_delegation.chain
-    i < count(chain) - 1
-    parent := chain[i].capability
-    child := chain[i + 1].capability
-    not parent.root
-    some key, parent_value in parent.budget
-    is_number(parent_value)
-    child_value := object.get(object.get(child, "budget", {}), key, null)
+budget_key_attenuated(child, key, parent_value) if {
+    child_value := child.budget[key]
     is_number(child_value)
-    child_value > parent_value
+    child_value <= parent_value
 }
 
 token_has_taint(required) if {

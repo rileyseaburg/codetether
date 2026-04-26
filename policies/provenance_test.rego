@@ -93,10 +93,23 @@ test_child_cannot_remove_parent_budget_limit if {
     not provenance.allow with input as {"action": "tasks:write", "resource": {}, "provenance": strict}
 }
 
+test_partial_provenance_allows_non_sensitive_action if {
+    partial := {"ap_inputs": []}
+    provenance.allow with input as {"action": "tasks:read", "resource": {}, "provenance": partial}
+}
+
 test_legacy_origin_hash_field_mismatch_denied if {
     not provenance.allow with input as {
         "action": "tasks:write",
         "resource": {"session_origin_intent_hash": "sha384:other"},
+        "provenance": base_provenance,
+    }
+}
+
+test_null_origin_hash_does_not_false_mismatch if {
+    provenance.allow with input as {
+        "action": "tasks:write",
+        "resource": {"ap_session_state": {"origin_intent_hash": null}},
         "provenance": base_provenance,
     }
 }
