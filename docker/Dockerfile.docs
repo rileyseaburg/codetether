@@ -10,7 +10,7 @@ RUN pip install \
 WORKDIR /docs
 
 # Copy documentation files
-COPY codetether-mkdocs.yml /docs/mkdocs.yml
+COPY config/codetether-mkdocs.yml /docs/mkdocs.yml
 COPY codetether-docs /docs/codetether-docs
 
 # Build static site
