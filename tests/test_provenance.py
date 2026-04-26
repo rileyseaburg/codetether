@@ -92,8 +92,28 @@ class TestProvenanceVerifier:
         assert not decision.allowed_by_provenance
         assert "origin intent hash mismatch" in decision.failures
 
+    def test_malformed_origin_fails_without_crashing(self):
+        decision = verify_provenance(
+            complete_provenance(ap_origin="not-a-dict"),
+            "tasks:write",
+        )
+        assert not decision.allowed_by_provenance
+        assert "missing origin provenance" in decision.failures
+
+    def test_legacy_origin_hash_field_fails_on_mismatch(self):
+        resource = {"session_origin_intent_hash": "sha384:original"}
+        decision = verify_provenance(complete_provenance(), "tasks:write", resource)
+        assert not decision.allowed_by_provenance
+        assert "origin intent hash mismatch" in decision.failures
+
     def test_taint_stripping_fails(self):
         resource = {"ap_session_state": {"taints": [taint_marker()]}}
+        decision = verify_provenance(complete_provenance(ap_inputs=[]), "tasks:write", resource)
+        assert not decision.allowed_by_provenance
+        assert "taint stripping detected" in decision.failures
+
+    def test_legacy_session_taints_field_detects_stripping(self):
+        resource = {"session_taints": [taint_marker()]}
         decision = verify_provenance(complete_provenance(ap_inputs=[]), "tasks:write", resource)
         assert not decision.allowed_by_provenance
         assert "taint stripping detected" in decision.failures
@@ -131,6 +151,56 @@ class TestProvenanceVerifier:
         assert not decision.allowed_by_provenance
         assert "delegation operations not attenuated" in decision.failures
         assert "delegation spawn depth not attenuated" in decision.failures
+
+    def test_zero_spawn_depth_parent_cannot_delegate_zero_depth_child(self):
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {
+                        "principal": "agent:parent",
+                        "capability": {
+                            "operations": ["tasks:write"],
+                            "spawn": {"max_depth": 0},
+                        },
+                    },
+                    {
+                        "principal": "agent:child",
+                        "capability": {
+                            "operations": ["tasks:write"],
+                            "spawn": {"max_depth": 0},
+                        },
+                    },
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:write")
+        assert not decision.allowed_by_provenance
+        assert "delegation spawn depth not attenuated" in decision.failures
+
+    def test_child_cannot_remove_parent_budget_limit(self):
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {
+                        "principal": "agent:parent",
+                        "capability": {
+                            "operations": ["tasks:write"],
+                            "budget": {"max_tool_calls": 10},
+                        },
+                    },
+                    {
+                        "principal": "agent:child",
+                        "capability": {
+                            "operations": ["tasks:write"],
+                            "budget": {},
+                        },
+                    },
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:write")
+        assert not decision.allowed_by_provenance
+        assert "delegation budget not attenuated: max_tool_calls" in decision.failures
 
     def test_partial_provenance_denied_for_sensitive_action(self):
         provenance = complete_provenance(ap_runtime={}, ap_partial=True)

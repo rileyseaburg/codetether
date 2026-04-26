@@ -100,14 +100,14 @@ valid_delegation_shape if {
 
 reasons contains "origin intent hash mismatch" if {
     has_provenance
-    expected := input.resource.ap_session_state.origin_intent_hash
+    expected := object.get(object.get(input.resource, "ap_session_state", {}), "origin_intent_hash", object.get(input.resource, "session_origin_intent_hash", ""))
     expected != ""
     input.provenance.ap_origin.intent_hash != expected
 }
 
 reasons contains "taint stripping detected" if {
     has_provenance
-    some required in object.get(input.resource.ap_session_state, "taints", [])
+    some required in object.get(object.get(input.resource, "ap_session_state", {}), "taints", object.get(input.resource, "session_taints", []))
     not token_has_taint(required)
 }
 
@@ -168,7 +168,7 @@ reasons contains "delegation spawn depth not attenuated" if {
     not parent.root
     is_number(parent.spawn.max_depth)
     is_number(child.spawn.max_depth)
-    child.spawn.max_depth > max([parent.spawn.max_depth - 1, 0])
+    child.spawn.max_depth > parent.spawn.max_depth - 1
 }
 
 reasons contains "delegation spawn fanout not attenuated" if {
@@ -192,9 +192,23 @@ reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
     parent := chain[i].capability
     child := chain[i + 1].capability
     not parent.root
-    some key, child_value in child.budget
-    parent_value := parent.budget[key]
+    some key, parent_value in parent.budget
     is_number(parent_value)
+    child_value := object.get(object.get(child, "budget", {}), key, null)
+    not is_number(child_value)
+}
+
+reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
+    has_provenance
+    some i
+    chain := input.provenance.ap_delegation.chain
+    i < count(chain) - 1
+    parent := chain[i].capability
+    child := chain[i + 1].capability
+    not parent.root
+    some key, parent_value in parent.budget
+    is_number(parent_value)
+    child_value := object.get(object.get(child, "budget", {}), key, null)
     is_number(child_value)
     child_value > parent_value
 }

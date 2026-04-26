@@ -117,7 +117,7 @@ def verify_provenance(
     dimensions = {dim: False for dim in PROVENANCE_DIMENSIONS}
 
     origin = provenance.get("ap_origin")
-    if origin and origin.get("intent_hash"):
+    if isinstance(origin, dict) and origin.get("intent_hash"):
         dimensions["origin"] = True
         expected = _session_origin_hash(resource)
         if expected and origin.get("intent_hash") != expected:
@@ -158,7 +158,7 @@ def verify_provenance(
 
     missing_dimensions = [dim for dim, ok in dimensions.items() if not ok]
     partial = bool(provenance.get("ap_partial")) or bool(missing_dimensions)
-    complete = not partial and all(dimensions.values())
+    complete = not partial
 
     sensitive = set(sensitive_actions or DEFAULT_SENSITIVE_ACTIONS)
     if partial and action in sensitive:
@@ -249,18 +249,19 @@ def _attenuation_failures(parent: Dict[str, Any], child: Dict[str, Any]) -> List
 
     parent_budget = parent.get("budget") or {}
     child_budget = child.get("budget") or {}
-    for key, child_value in child_budget.items():
-        parent_value = parent_budget.get(key)
-        if isinstance(parent_value, (int, float)) and isinstance(child_value, (int, float)):
-            if child_value > parent_value:
-                failures.append(f"delegation budget not attenuated: {key}")
+    for key, parent_value in parent_budget.items():
+        if not isinstance(parent_value, (int, float)):
+            continue
+        child_value = child_budget.get(key)
+        if not isinstance(child_value, (int, float)) or child_value > parent_value:
+            failures.append(f"delegation budget not attenuated: {key}")
 
     parent_spawn = parent.get("spawn") or {}
     child_spawn = child.get("spawn") or {}
     parent_depth = parent_spawn.get("max_depth")
     child_depth = child_spawn.get("max_depth")
     if isinstance(parent_depth, int) and isinstance(child_depth, int):
-        if child_depth > max(parent_depth - 1, 0):
+        if child_depth > parent_depth - 1:
             failures.append("delegation spawn depth not attenuated")
     parent_fanout = parent_spawn.get("max_fanout")
     child_fanout = child_spawn.get("max_fanout")
