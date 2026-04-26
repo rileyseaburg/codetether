@@ -8,6 +8,7 @@ from .auth import installation_token, verify_signature
 from .mention import is_fix_request
 from .payload import extract_context
 from .handler import handle_fix_request
+from .settings import APP_SLUG
 from .watch import post_issue_comment
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
@@ -38,8 +39,8 @@ async def handle_github_webhook(request: Request):
             "comment explicitly asks me to fix, apply, implement, handle, or otherwise "
             "change code.\n\n"
             "For issues, I can create a branch and open a PR; for pull requests, I can "
-            "push to the PR branch. Try `@codetether handle this issue` or "
-            "`@codetether implement this`.",
+            f"push to the PR branch. Try `@{APP_SLUG} handle this issue` or "
+            f"`@{APP_SLUG} implement this`.",
         )
         return {'accepted': False, 'reason': 'non-fix mention'}
     return await handle_fix_request(context, token)

@@ -8,6 +8,7 @@ from a2a_server.github_app import router
 @pytest.mark.asyncio
 async def test_non_fix_mention_posts_actionable_issue_and_pr_guidance(monkeypatch):
     calls = []
+    app_slug = router.APP_SLUG
 
     class FakeRequest:
         headers = {
@@ -21,7 +22,7 @@ async def test_non_fix_mention_posts_actionable_issue_and_pr_guidance(monkeypatc
                 'installation': {'id': 123},
                 'repository': {'full_name': 'owner/repo'},
                 'issue': {'number': 7},
-                'comment': {'id': 99, 'body': '@codetether thanks for looking'},
+                'comment': {'id': 99, 'body': f'@{app_slug} thanks for looking'},
             }).encode()
 
     async def fake_verify(signature, body):
@@ -49,6 +50,6 @@ async def test_non_fix_mention_posts_actionable_issue_and_pr_guidance(monkeypatc
     assert 'I only start repository-changing work' in body
     assert 'For issues, I can create a branch and open a PR' in body
     assert 'for pull requests, I can push to the PR branch' in body
-    assert '@codetether handle this issue' in body
-    assert '@codetether implement this' in body
+    assert f'@{app_slug} handle this issue' in body
+    assert f'@{app_slug} implement this' in body
     assert 'only mutate PR branches' not in body
