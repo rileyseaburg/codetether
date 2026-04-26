@@ -105,7 +105,7 @@ Connect workers to `https://api.codetether.run` for live task execution. Helm ch
 
 ### 🔐 **Enterprise Ready**
 
-Keycloak SSO, RBAC, audit logs, and network policies. Security that enterprises demand.
+Keycloak SSO, RBAC, audit logs, OPA policy enforcement, and Agent Provenance Framework checks. Security that enterprises demand.
 
 ### ☸️ **Deploy Anywhere**
 
@@ -413,6 +413,7 @@ You: "Great, now add integration tests too"
 | **Dashboard / Monitor UI** | Real-time agent monitoring, task triggering | Next.js, React, SSE streaming |
 | **RLM Engine** | Recursive context processing for large codebases | Python REPL, sub-LLM calls |
 | **OPA Policy Engine** | Fine-grained API authorization (160+ route rules) | Open Policy Agent, Rego |
+| **Agent Provenance Framework** | Verifiable causal history for autonomous agent actions | Python verifier, OPA/Rego policies |
 | **Keycloak SSO** | Identity management, JWT tokens, multi-tenant auth | Keycloak, NextAuth |
 
 ### Task Lifecycle
@@ -459,9 +460,20 @@ Workers with `global` codebase registration can handle any task regardless of pa
 ```
 Request → Keycloak JWT validation
        → OPA policy check (160+ route rules, RBAC)
+       → Agent Provenance Framework check (origin, inputs, delegation, runtime, output)
        → PostgreSQL RLS (tenant_id enforced per-row)
        → Response (only tenant's own data)
 ```
+
+CodeTether now includes an **Agent Provenance Framework (APF)** policy layer for autonomous multi-agent systems. When provenance claims are present, APF validates five dimensions of causal history before sensitive actions are authorized:
+
+- **Origin** — locks action requests to the original session intent hash.
+- **Inputs** — propagates taint markers and detects taint stripping.
+- **Delegation** — enforces capability attenuation for operations, budgets, and spawn limits.
+- **Runtime** — records runtime and attestation metadata for the executing agent.
+- **Output** — records output-context and tool-call attestations.
+
+APF is implemented in both Python (`a2a_server/provenance.py`) and OPA/Rego (`policies/provenance.rego`) so local policy checks and deployed OPA sidecars enforce the same rules. See the RFC draft at [`rfc/Agent-Provenance-Framework_for_Autonomous-Multi-Agent-Systems.txt`](rfc/Agent-Provenance-Framework_for_Autonomous-Multi-Agent-Systems.txt).
 
 ### Platform Components
 
@@ -471,7 +483,8 @@ codetether/
 ├── 🖥️ marketing-site/     # Dashboard + marketing (Next.js)
 ├── 👷 codetether-agent/    # Rust worker binary (28+ tools, 8 LLM providers)
 ├── 📚 codetether-docs/     # MkDocs Material documentation site
-├── 📋 policies/            # OPA Rego authorization policies
+├── 📋 policies/            # OPA Rego authorization + provenance policies
+├── 🧾 rfc/                 # Agent Provenance Framework RFC draft
 ├── ⎈ chart/               # Unified Helm chart (server + UI + docs)
 └── 🔌 integrations/       # Zapier, n8n, external connectors
 ```
