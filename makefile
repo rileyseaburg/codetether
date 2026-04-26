@@ -303,7 +303,7 @@ docker-build-marketing: ## Build marketing site Docker image
 
 .PHONY: docker-build-docs
 docker-build-docs: ## Build docs site Docker image
-	docker build -t $(DOCS_IMAGE_NAME):$(DOCKER_TAG) -f Dockerfile.docs . --network=host
+	docker build -t $(DOCS_IMAGE_NAME):$(DOCKER_TAG) -f docker/Dockerfile.docs . --network=host
 
 .PHONY: docker-build-voice-agent
 docker-build-voice-agent: ## Build voice agent Docker image
@@ -802,15 +802,15 @@ docs-deploy: ## Deploy documentation
 
 .PHONY: codetether-docs-serve
 codetether-docs-serve: ## Serve CodeTether documentation locally
-	mkdocs serve -f codetether-mkdocs.yml
+	mkdocs serve -f config/codetether-mkdocs.yml
 
 .PHONY: codetether-docs-build
 codetether-docs-build: ## Build CodeTether documentation
-	mkdocs build -f codetether-mkdocs.yml
+	mkdocs build -f config/codetether-mkdocs.yml
 
 .PHONY: codetether-docs-deploy
 codetether-docs-deploy: ## Deploy CodeTether documentation
-	mkdocs gh-deploy -f codetether-mkdocs.yml
+	mkdocs gh-deploy -f config/codetether-mkdocs.yml
 
 # Cleanup targets
 .PHONY: clean
@@ -1274,7 +1274,7 @@ codetether-build-marketing: ## Build and push marketing site
 
 .PHONY: codetether-build-docs
 codetether-build-docs: ## Build and push docs site
-	docker build -t $(OCI_REGISTRY)/codetether-docs:latest -t $(OCI_REGISTRY)/codetether-docs:$(CHART_VERSION) -f Dockerfile.docs .
+	docker build -t $(OCI_REGISTRY)/codetether-docs:latest -t $(OCI_REGISTRY)/codetether-docs:$(CHART_VERSION) -f docker/Dockerfile.docs .
 	docker push $(OCI_REGISTRY)/codetether-docs:latest
 	docker push $(OCI_REGISTRY)/codetether-docs:$(CHART_VERSION)
 
@@ -1466,7 +1466,7 @@ build-codetether-worker: ## Build codetether worker binary from Rust source
 
 .PHONY: docker-build-worker
 docker-build-worker: ## Build codetether worker Docker image
-	docker build -f Dockerfile.worker -t codetether-worker:$(DOCKER_TAG) .
+	docker build -f docker/Dockerfile.worker -t codetether-worker:$(DOCKER_TAG) .
 
 .PHONY: docker-push-worker
 docker-push-worker: ## Push codetether worker Docker image to OCI registry

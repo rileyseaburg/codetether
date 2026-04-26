@@ -83,7 +83,7 @@
 ^\.github/actions/spelling/
 ^\Q.github/workflows/spelling.yaml\E$
 ^\Q.github/workflows/linter.yaml\E$
-^\Qlychee.toml\E$
+^\Qconfig/lychee.toml\E$
 \.vscode/
 ^\Qdocs/partners.md\E$
 ^\Qspecification/json/a2a.json\E$

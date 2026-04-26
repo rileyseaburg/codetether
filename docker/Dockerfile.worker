@@ -4,7 +4,7 @@
 # Builds the codetether-agent Rust binary and runs it as an A2A SSE worker.
 #
 # Usage:
-#   docker build -f Dockerfile.worker -t codetether-worker .
+#   docker build -f docker/Dockerfile.worker -t codetether-worker .
 #   docker run -e A2A_SERVER_URL=https://api.codetether.run \
 #              -e ANTHROPIC_API_KEY=sk-ant-... \
 #              codetether-worker

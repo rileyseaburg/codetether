@@ -15,7 +15,7 @@ New worker setup:
 
 See: agent_worker/install-codetether-worker.sh
 See: agent_worker/systemd/codetether-worker.service
-See: Dockerfile.worker
+See: docker/Dockerfile.worker
 
 This file is kept for reference during the migration period.
 It will be removed in a future release.

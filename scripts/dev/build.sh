@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build script for A2A Server components
-# Usage: ./build.sh [service-name] [tag]
+# Usage: ./scripts/dev/build.sh [service-name] [tag]
 # Services: a2a-server, docs, marketing, worker, all
 
 set -e
@@ -21,16 +21,16 @@ build_service() {
     echo "Building ${target} as ${full_tag}"
 
     if [ "$target" = "docs" ]; then
-        docker build --target docs -f Dockerfile.unified -t $full_tag .
+        docker build --target docs -f docker/Dockerfile.unified -t $full_tag .
     elif [ "$target" = "marketing" ]; then
-        docker build --target marketing -f Dockerfile.unified \
+        docker build --target marketing -f docker/Dockerfile.unified \
             --build-arg AUTH_SECRET="Gzez2UkA76TcFpnUEXUmT16+/G3UX2RmoGxyByfAJO4=" \
             --build-arg KEYCLOAK_CLIENT_SECRET="Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1" \
             -t $full_tag .
     elif [ "$target" = "worker" ]; then
-        docker build -f Dockerfile.worker -t $full_tag .
+        docker build -f docker/Dockerfile.worker -t $full_tag .
     else
-        docker build --target $target -f Dockerfile.unified -t $full_tag .
+        docker build --target $target -f docker/Dockerfile.unified -t $full_tag .
     fi
 
     echo "Pushing $full_tag"

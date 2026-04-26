@@ -67,7 +67,7 @@ htmlcov/
 .editorconfig
 .prettierrc
 .ruff.toml
-lychee.toml
+config/lychee.toml
 requirements-docs.txt
 requirements-test.txt
 
@@ -89,7 +89,7 @@ types/
 chart/
 
 # NOTE: Do not exclude marketing-site/, opencode/, codetether-docs/, or ui/
-# when building with Dockerfile.unified. For the standard Dockerfile (API server
+# when building with docker/Dockerfile.unified. For the standard Dockerfile (API server
 # only), these large dirs are excluded below for fast builds.
 
 # Large directories not needed by API server Dockerfile

@@ -38,7 +38,7 @@ RUN pip install \
     mkdocs-macros-plugin \
     mkdocs-redirects
 WORKDIR /docs
-COPY codetether-mkdocs.yml /docs/mkdocs.yml
+COPY config/codetether-mkdocs.yml /docs/mkdocs.yml
 COPY codetether-docs /docs/codetether-docs
 RUN mkdocs build -f mkdocs.yml -d /site
 
@@ -84,7 +84,7 @@ USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]
 
-# Worker image (codetether-agent) is built separately via Dockerfile.worker
-# See: docker build -f Dockerfile.worker -t codetether-worker .
+# Worker image (codetether-agent) is built separately via docker/Dockerfile.worker
+# See: docker build -f docker/Dockerfile.worker -t codetether-worker .
 # The Rust-based codetether-agent binary connects to the A2A server via SSE
 # and autonomously executes tasks — no OpenCode dependency required.
