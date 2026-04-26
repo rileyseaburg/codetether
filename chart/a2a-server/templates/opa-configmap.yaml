@@ -12,6 +12,8 @@ data:
 {{ .Files.Get "policies/authz.rego" | indent 4 }}
   api_keys.rego: |-
 {{ .Files.Get "policies/api_keys.rego" | indent 4 }}
+  provenance.rego: |-
+{{ .Files.Get "policies/provenance.rego" | indent 4 }}
   tenants.rego: |-
 {{ .Files.Get "policies/tenants.rego" | indent 4 }}
 {{- end }}

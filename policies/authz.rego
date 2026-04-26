@@ -11,10 +11,13 @@
 #   input.resource.id       - string|null: resource ID
 #   input.resource.owner_id - string|null: resource owner's user ID
 #   input.resource.tenant_id- string|null: resource's tenant ID
+#   input.provenance       - object: optional Agent Provenance Framework claims
 
 package authz
 
 import rego.v1
+
+import data.provenance
 
 default allow := false
 
@@ -43,11 +46,13 @@ role_permissions contains perm if {
 # Rule 1: Public endpoints are always allowed.
 allow if {
     input.action in data.public_endpoints
+    provenance.allow
 }
 
 # Rule 2: Role-based access — user's roles grant the requested permission.
 allow if {
     input.action in role_permissions
+    provenance.allow
 }
 
 # ── Deny reasons (for decision logging) ─────────────────────────
@@ -61,4 +66,8 @@ reasons contains "tenant mismatch" if {
     input.resource.tenant_id
     input.user.tenant_id
     input.resource.tenant_id != input.user.tenant_id
+}
+
+reasons contains reason if {
+    some reason in provenance.reasons
 }
