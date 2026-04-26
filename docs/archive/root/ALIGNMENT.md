@@ -9,14 +9,14 @@ This document is the single source of truth for all agents working in this repos
 ```
 A2A-Server-MCP/
 ├── a2a_server/           # Python FastAPI server (the brain)
-├── agent_worker/         # DEPRECATED Python worker (replaced by codetether-agent)
+├── legacy/agent_worker/         # DEPRECATED Python worker (replaced by codetether-agent)
 ├── codetether-agent/     # Rust worker binary - PRODUCTION (codetether worker)
 ├── agent/             # CodeTether fork (git submodule - DO NOT MODIFY HERE)
 ├── agent-a2a-integration/  # TypeScript integration for CodeTether CLI
 ├── marketing-site/       # Next.js web dashboard
 │   └── src/app/(dashboard)/dashboard/ralph/  # Ralph autonomous development UI
 ├── ui/swift/A2AMonitor/  # iOS monitoring app
-├── zapier-app/           # Zapier CLI integration
+├── integrations/zapier/app/           # Zapier CLI integration
 └── agents/               # Agent definitions and configs
 ```
 
@@ -26,12 +26,12 @@ A2A-Server-MCP/
 
 - Built from the `codetether-agent/` Rust crate
 - Run via: `codetether worker --server <URL> --codebases <PATH> --auto-approve safe`
-- Installed as systemd service via `agent_worker/install-codetether-worker.sh`
+- Installed as systemd service via `legacy/agent_worker/install-codetether-worker.sh`
 - Connects to A2A server via SSE
 - Has built-in LLM provider support (no subprocess spawning)
 - THIS IS WHAT RUNS IN PRODUCTION
 
-### 2. Python Worker (`agent_worker/worker.py`) - ⚠️ DEPRECATED
+### 2. Python Worker (`legacy/agent_worker/worker.py`) - ⚠️ DEPRECATED
 
 - **DEPRECATED**: Will be removed in a future release
 - Was the original production worker that spawned CodeTether as a subprocess
@@ -108,7 +108,7 @@ Ralph is a fully autonomous development agent that implements entire PRDs:
 
 **Dashboard URL**: `/dashboard/ralph`
 
-### Zapier Integration (`/zapier-app`)
+### Zapier Integration (`/integrations/zapier/app`)
 
 Native Zapier integration (v1.2.0) for no-code automation — 18 components:
 
@@ -309,7 +309,7 @@ make worker
 agent a2a -s http://localhost:8000 -t secret123 -n dev-worker --auto-approve all
 
 # DEPRECATED: Python worker (will be removed)
-# python agent_worker/worker.py
+# python legacy/agent_worker/worker.py
 ```
 
 ### Check Health
@@ -372,7 +372,7 @@ tail -f /tmp/a2a-worker.log  # If running manually
 │  - Has built-in LLM provider support                                 │
 │  - Reports results back to server                                    │
 │  - Sends notifications                                               │
-│  - Replaces deprecated Python worker (agent_worker/)                 │
+│  - Replaces deprecated Python worker (legacy/agent_worker/)                 │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │
                                ▼ subprocess

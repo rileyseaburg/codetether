@@ -28,7 +28,7 @@ LOCAL_WORKER_CODEBASES ?= /home/riley/A2A-Server-MCP
 LOCAL_WORKER_AUTO_APPROVE ?= all
 RESTART_LOCAL_WORKER ?= 1
 AUTO_INSTALL_LOCAL_WORKER ?= 1
-LOCAL_WORKER_INSTALL_SCRIPT ?= agent_worker/install-codetether-worker.sh
+LOCAL_WORKER_INSTALL_SCRIPT ?= legacy/agent_worker/install-codetether-worker.sh
 SUDO ?= sudo
 
 # Additional image names for full platform
@@ -307,7 +307,7 @@ docker-build-docs: ## Build docs site Docker image
 
 .PHONY: docker-build-voice-agent
 docker-build-voice-agent: ## Build voice agent Docker image
-	docker build -t $(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG) ./codetether_voice_agent --network=host
+	docker build -t $(VOICE_AGENT_IMAGE_NAME):$(DOCKER_TAG) ./apps/voice-agent --network=host
 
 .PHONY: docker-build-all
 docker-build-all: docker-build docker-build-marketing docker-build-docs docker-build-voice-agent docker-build-worker ## Build all Docker images (server, marketing, docs, voice-agent, worker)
@@ -779,7 +779,7 @@ worker-legacy: ## [DEPRECATED] Run legacy Python worker only when ALLOW_LEGACY_P
 		echo "   To force legacy worker once: make worker-legacy ALLOW_LEGACY_PY_WORKER=1"; \
 		exit 1; \
 	fi
-	$(PYTHON) agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
+	$(PYTHON) legacy/agent_worker/worker.py --server http://localhost:$(PORT) --mcp-url http://localhost:$(PORT) --name "local-worker" --worker-id "local-worker-1" --codebase A2A-Server-MCP:.
 
 # Keycloak utilities
 .PHONY: keycloak-client
@@ -1172,7 +1172,7 @@ local-worker-restart: ## Restart local systemd worker (best effort). Set RESTART
 local-worker-install: ## Install codetether-ubuntu-dev as a systemd service (requires sudo)
 	@echo "Installing codetether-ubuntu-dev systemd service..."
 	@CODETETHER_BIN="$$(command -v codetether 2>/dev/null || echo $(CODETETHER_RUST_BIN))"; \
-	$(SUDO) cp agent_worker/systemd/codetether-ubuntu-dev.service /etc/systemd/system/codetether-ubuntu-dev.service; \
+	$(SUDO) cp legacy/agent_worker/systemd/codetether-ubuntu-dev.service /etc/systemd/system/codetether-ubuntu-dev.service; \
 	$(SUDO) sed -i "s|/opt/codetether-worker/bin/codetether|$$CODETETHER_BIN|g" /etc/systemd/system/codetether-ubuntu-dev.service; \
 	$(SUDO) systemctl daemon-reload; \
 	$(SUDO) systemctl enable codetether-ubuntu-dev; \

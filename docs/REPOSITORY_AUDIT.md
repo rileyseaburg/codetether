@@ -7,10 +7,10 @@ This audit describes the story the repository currently tells, what each top-lev
 The repository is a monorepo for a production AI-agent operations platform. The strongest story is:
 
 1. **Control plane / API** — `a2a_server/`, `policies/`, `run_server.py`, `codetether/`.
-2. **Execution plane** — `codetether-agent/` Rust worker submodule plus `agent_worker/` legacy/Python worker support.
+2. **Execution plane** — `codetether-agent/` Rust worker submodule plus `legacy/agent_worker/` legacy/Python worker support.
 3. **Product/UI plane** — `marketing-site/`, `ui/`, and docs sites.
 4. **Deployment plane** — `chart/`, `docker/`, `Dockerfile`, `scripts/`, `.github/`.
-5. **Protocol/integration plane** — `specification/`, `examples/`, `integrations/`, `zapier-app/`, `vscode-codetether-chat/`, `types/`.
+5. **Protocol/integration plane** — `specification/`, `examples/`, `integrations/`, `integrations/zapier/app/`, `integrations/vscode/codetether-chat/`, `types/`.
 6. **Governance/security plane** — `policies/`, `rfc/`, `SECURITY.md`, `GOVERNANCE.md`, APF provenance implementation.
 
 That story is coherent, but the repository still mixes product code, generated outputs, experiments, built documentation, local caches, and historical artifacts in one checkout. A newcomer can tell CodeTether is broad, but not immediately what is essential vs. legacy/experimental/generated.
@@ -41,14 +41,14 @@ That story is coherent, but the repository still mixes product code, generated o
 | `ui/` | Additional UI clients/templates | Secondary | Contains Swift app, monitor HTML, pocket template. Consider splitting to `clients/` or `apps/`. |
 | `examples/` | Example clients/agents | Important for adoption | Keep. |
 | `integrations/` | n8n integration | Important | Keep. |
-| `zapier-app/` | Zapier integration | Important, but independent app | Consider under `integrations/zapier/` eventually. |
-| `vscode-codetether-chat/` | VS Code extension | Secondary/experimental | Consider under `integrations/vscode/` or `apps/vscode-extension/`. |
+| `integrations/zapier/app/` | Zapier integration | Important, but independent app | Consider under `integrations/zapier/` eventually. |
+| `integrations/vscode/codetether-chat/` | VS Code extension | Secondary/experimental | Consider under `integrations/vscode/` or `apps/vscode-extension/`. |
 | `types/` | TypeScript type package | Secondary/SDK | Consider `sdk/typescript/` if building an SDK story. |
-| `agent_worker/` | Legacy/Python worker and systemd installer | Secondary/legacy | README says Rust worker is primary. Mark as legacy or move under `legacy/agent_worker/` if not active. |
-| `codetether_voice_agent/` | Voice agent service | Secondary product module | Could live under `apps/voice-agent/` or `services/voice-agent/`. |
+| `legacy/agent_worker/` | Legacy/Python worker and systemd installer | Secondary/legacy | README says Rust worker is primary. Mark as legacy or move under `legacy/agent_worker/` if not active. |
+| `apps/voice-agent/` | Voice agent service | Secondary product module | Could live under `apps/voice-agent/` or `services/voice-agent/`. |
 | `agents/` | Marketing coordinator agent | Secondary | Could be `examples/agents/` or `services/agents/` depending on production status. |
 | `benchmarks/` | Benchmark task definitions | Secondary | Keep if active; otherwise `experiments/benchmarks/`. |
-| `quantumhead/` | Experimental notebook/server | Non-critical/experimental | Candidate for `experiments/quantumhead/` or separate repo. |
+| `experiments/quantumhead/` | Experimental notebook/server | Non-critical/experimental | Moved under `experiments/quantumhead/`; consider separate repo if it grows. |
 | `artifacts/` | Archived releases/audio/misc/generated outputs | Non-critical source | Useful cleanup target, but should not grow indefinitely. Consider Git LFS or external storage for binaries/audio. |
 | `deployment/archive/` | Historical manifests/scripts/kubeconfigs | Non-critical/archive | Kubeconfig files should be audited for secrets; archive is better than root but still sensitive if real. |
 | `migrations/` | One SQL migration | Ambiguous | Most migrations are in `a2a_server/migrations/`; consolidate this into the canonical migrations folder if active. |
@@ -61,14 +61,14 @@ That story is coherent, but the repository still mixes product code, generated o
 
 These do not appear essential to understanding or operating CodeTether's core platform:
 
-- `quantumhead/` — experimental research/prototype area.
+- `experiments/quantumhead/` — experimental research/prototype area.
 - `artifacts/audio/`, `artifacts/downloads/`, `artifacts/misc/` — generated/local artifacts, not source.
 - `artifacts/releases/` — packaged outputs; useful for history but not source.
 - `deployment/archive/` — historical deployment assets; not main deployment path.
 - `codetether-site/` — built docs output; source seems to be `codetether-docs/` and/or `docs/`.
 - `docs/archive/root/` — historical docs/reports; useful context, not onboarding path.
-- `vscode-codetether-chat/`, `zapier-app/`, `integrations/n8n-*`, `types/` — integrations/SDKs that are valuable but peripheral to the core server/worker/policy story.
-- `agent_worker/` — likely legacy now that Rust worker is primary.
+- `integrations/vscode/codetether-chat/`, `integrations/zapier/app/`, `integrations/n8n-*`, `types/` — integrations/SDKs that are valuable but peripheral to the core server/worker/policy story.
+- `legacy/agent_worker/` — likely legacy now that Rust worker is primary.
 - `benchmarks/` — useful validation material but not core runtime.
 - `ui/pocket_template/`, standalone monitor HTML — secondary UI artifacts compared with `marketing-site/`.
 
@@ -82,7 +82,7 @@ These do not appear essential to understanding or operating CodeTether's core pl
    Recommendation: designate `codetether-docs/` as source and remove or externalize `codetether-site/` generated output, or merge `codetether-docs/` into `docs/`.
 
 2. **App/service boundaries are flat**
-   - `marketing-site/`, `codetether_voice_agent/`, `zapier-app/`, `vscode-codetether-chat/`, `quantumhead/`, `ui/` all sit at root.
+   - `marketing-site/`, `apps/voice-agent/`, `integrations/zapier/app/`, `integrations/vscode/codetether-chat/`, `experiments/quantumhead/`, `ui/` all sit at root.
 
    Recommendation: introduce `apps/` or `services/` over time:
    - `apps/web/` or `apps/dashboard/`
@@ -93,9 +93,9 @@ These do not appear essential to understanding or operating CodeTether's core pl
 
 3. **Legacy vs active worker story**
    - `codetether-agent/` is core Rust worker.
-   - `agent_worker/` still exists and appears partly legacy.
+   - `legacy/agent_worker/` still exists and appears partly legacy.
 
-   Recommendation: mark `agent_worker/README.md` with status or move to `legacy/` if it is no longer a first-class worker.
+   Recommendation: mark `legacy/agent_worker/README.md` with status or keep under `legacy/` if it is no longer a first-class worker.
 
 4. **Generated/binary outputs are tracked**
    - Release tarballs, audio, built site, screenshots/test-results.
@@ -121,11 +121,11 @@ A clearer long-term structure would be:
 ├── tests/                      # Python/integration tests
 ├── apps/
 │   ├── dashboard/              # current marketing-site if dashboard is primary
-│   ├── voice-agent/            # current codetether_voice_agent
-│   └── vscode-extension/       # current vscode-codetether-chat
+│   ├── voice-agent/            # current voice agent service
+│   └── vscode-extension/       # current integrations/vscode/codetether-chat
 ├── integrations/
 │   ├── n8n/
-│   └── zapier/                 # current zapier-app
+│   └── zapier/                 # current integrations/zapier/app
 ├── docs/                       # canonical docs source
 ├── examples/
 ├── deployment/
@@ -145,10 +145,10 @@ Prioritized by value/risk:
 1. **Add archive indexes**: create `docs/archive/root/README.md`, `deployment/archive/README.md`, and `artifacts/README.md` so archived files do not look like active source.
 2. **Decide docs canonical source**: choose between `docs/` and `codetether-docs/`; document the decision in `README.md` and `DEVELOPMENT.md`.
 3. **Move built docs output**: remove `codetether-site/` from source control if deployment no longer requires it, or document why it is tracked.
-4. **Classify legacy worker**: add a status note to `agent_worker/` or move it under `legacy/`.
-5. **Consolidate integrations**: move `zapier-app/` and `vscode-codetether-chat/` under `integrations/` or `apps/`.
-6. **Move experiments**: move `quantumhead/` under `experiments/`.
-7. **Consolidate migrations**: determine whether root `migrations/V007__tenant_email_settings.sql` belongs under `a2a_server/migrations/`.
+4. **Classify legacy worker**: add a status note to `legacy/agent_worker/` or keep it under `legacy/`.
+5. **Consolidate integrations**: move `integrations/zapier/app/` and `integrations/vscode/codetether-chat/` under `integrations/` or `apps/`.
+6. **Review experiments**: decide whether `experiments/quantumhead/` should remain here or become a separate repo.
+7. **Consolidate migrations**: determine whether root `db/migrations/V007__tenant_email_settings.sql` belongs under `a2a_server/migrations/`.
 8. **Audit tracked binaries/secrets**: especially archived kubeconfigs and release/audio artifacts.
 
 ## Current root after cleanup

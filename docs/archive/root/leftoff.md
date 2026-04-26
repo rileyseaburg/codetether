@@ -25,7 +25,7 @@ This starts:
 ```bash
 make worker
 # or directly:
-python agent_worker/worker.py \
+python legacy/agent_worker/worker.py \
   --server http://localhost:8001 \
   --mcp-url http://localhost:9000 \
   --name "local-worker" \
@@ -36,7 +36,7 @@ python agent_worker/worker.py \
 **Systemd service (production):**
 ```bash
 # Install
-sudo bash agent_worker/install.sh
+sudo bash legacy/agent_worker/install.sh
 
 # Restart
 make local-worker-restart

@@ -1240,7 +1240,7 @@ a2a_server/
 ├── server.py                # Core A2A server
 └── task_manager.py          # Task lifecycle management
 
-agent_worker/
+legacy/agent_worker/
 ├── install-codetether-worker.sh  # Worker installation script (Rust binary)
 ├── systemd/codetether-worker.service  # Systemd service unit
 ├── worker.py                # DEPRECATED - legacy Python worker
@@ -1734,13 +1734,13 @@ git clone https://github.com/rileyseaburg/codetether.git
 cd A2A-Server-MCP
 
 # Run installer as root (installs codetether binary + systemd service)
-sudo ./agent_worker/install-codetether-worker.sh
+sudo ./legacy/agent_worker/install-codetether-worker.sh
 ```
 
 **Build from Source:**
 ```bash
 # Build the Rust binary and install systemd service
-sudo ./agent_worker/install-codetether-worker.sh --from-cargo
+sudo ./legacy/agent_worker/install-codetether-worker.sh --from-cargo
 ```
 
 **Run Directly (no systemd):**
@@ -1780,7 +1780,7 @@ To connect a local worker to the production CodeTether service:
 
 2. **Or install manually**:
    ```bash
-   sudo ./agent_worker/install-codetether-worker.sh --codebases /path/to/project
+   sudo ./legacy/agent_worker/install-codetether-worker.sh --codebases /path/to/project
    ```
 
 3. **Configure** (systemd only) — edit `/etc/codetether-worker/env`:

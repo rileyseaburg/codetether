@@ -252,12 +252,12 @@ To connect a local worker to the production CodeTether service:
 
 2. **Or install manually**:
     ```bash
-    sudo ./agent_worker/install-codetether-worker.sh --codebases /path/to/project
+    sudo ./legacy/agent_worker/install-codetether-worker.sh --codebases /path/to/project
     ```
 
     Build from source:
     ```bash
-    sudo ./agent_worker/install-codetether-worker.sh --from-cargo --codebases /path/to/project
+    sudo ./legacy/agent_worker/install-codetether-worker.sh --from-cargo --codebases /path/to/project
     ```
 
 3. **Configure** (if using systemd):
