@@ -8,6 +8,7 @@ from .auth import installation_token, verify_signature
 from .mention import is_fix_request
 from .payload import extract_context
 from .handler import handle_fix_request
+from .settings import APP_SLUG
 from .watch import post_issue_comment
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
@@ -29,6 +30,17 @@ async def handle_github_webhook(request: Request):
         return {'ignored': True}
     token, _ = await installation_token(context.installation_id)
     if not is_fix_request(context.comment_body):
-        await post_issue_comment(context.repo_full_name, context.issue_number, token, "## 🤖 CodeTether\n\nI saw the mention, but I only mutate PR branches when the request explicitly asks me to fix or apply changes.")
+        await post_issue_comment(
+            context.repo_full_name,
+            context.issue_number,
+            token,
+            "## 🤖 CodeTether\n\n"
+            "I saw the mention, but I only start repository-changing work when the "
+            "comment explicitly asks me to fix, apply, implement, handle, or otherwise "
+            "change code.\n\n"
+            "For issues, I can create a branch and open a PR; for pull requests, I can "
+            f"push to the PR branch. Try `@{APP_SLUG} handle this issue` or "
+            f"`@{APP_SLUG} implement this`.",
+        )
         return {'accepted': False, 'reason': 'non-fix mention'}
     return await handle_fix_request(context, token)
