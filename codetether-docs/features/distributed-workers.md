@@ -30,7 +30,7 @@ git clone https://github.com/rileyseaburg/codetether.git
 cd codetether
 
 # Run installer as root
-sudo ./agent_worker/install.sh
+sudo ./legacy/agent_worker/install.sh
 ```
 
 ### 2. Configure Worker
@@ -241,12 +241,12 @@ python3 worker.py --name dev-worker --config /etc/a2a-worker/dev.json
 
 ```bash
 # Basic usage
-python3 agent_worker/worker.py \
+python3 legacy/agent_worker/worker.py \
     --server https://api.codetether.run \
     --name my-worker
 
 # With inline codebases
-python3 agent_worker/worker.py \
+python3 legacy/agent_worker/worker.py \
     --server https://api.codetether.run \
     --codebase my-project:/home/user/my-project \
     --codebase api:/home/user/api

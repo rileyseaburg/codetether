@@ -5,7 +5,7 @@ Rust binary's built-in worker mode:
 
     codetether worker --server <URL> --codebases <PATH> --auto-approve safe
 
-This wraps `agent_worker.worker` so users can run:
+This wraps `legacy.agent_worker.worker` so users can run:
 - `codetether-worker --config /etc/a2a-worker/config.json`
 
 The worker uses argparse internally; this wrapper just bridges the
@@ -61,19 +61,19 @@ def main() -> None:
         "The `codetether-worker` Python entrypoint is DEPRECATED and will be "
         "removed in a future release. Use the codetether Rust binary instead:\n"
         "  codetether worker --server <URL> --codebases <PATH> --auto-approve safe\n"
-        "See: agent_worker/install-codetether-worker.sh",
+        "See: legacy/agent_worker/install-codetether-worker.sh",
         DeprecationWarning,
         stacklevel=2,
     )
     print(
         "⚠️  DEPRECATION WARNING: `codetether-worker` (Python) is deprecated.\n"
         "   Use `codetether worker` (Rust binary) instead.\n"
-        "   Install: sudo ./agent_worker/install-codetether-worker.sh\n"
+        "   Install: sudo ./legacy/agent_worker/install-codetether-worker.sh\n"
         "   Run:     codetether worker --server <URL> --codebases <PATH> --auto-approve safe\n",
         file=sys.stderr,
     )
 
-    from agent_worker.worker import main as async_main  # async def main()
+    from legacy.agent_worker.worker import main as async_main  # async def main()
 
     asyncio.run(async_main())
 
