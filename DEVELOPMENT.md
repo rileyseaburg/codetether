@@ -165,7 +165,7 @@ This allows the containerized A2A server to access CodeTether sessions from the 
 
 ### ☸️ Kubernetes Deployment (Production)
 
-Deploy to Kubernetes using the included Helm chart. For complete OCI registry deployment and external agent synchronization, see **[HELM_OCI_DEPLOYMENT.md](HELM_OCI_DEPLOYMENT.md)**.
+Deploy to Kubernetes using the included Helm chart. For complete OCI registry deployment and external agent synchronization, see **[docs/archive/root/HELM_OCI_DEPLOYMENT.md](docs/archive/root/HELM_OCI_DEPLOYMENT.md)**.
 
 **Quick Install (Local Chart):**
 
@@ -186,10 +186,10 @@ helm upgrade --install a2a-server ./chart/a2a-server \
 **Quantum Forge Registry (One-Command Deploy):**
 ```powershell
 # Windows - Deploy everything (Docker + Helm)
-.\deploy-to-quantum-forge.ps1 -Version "v1.0.0"
+.\deployment\archive\deploy-to-quantum-forge.ps1 -Version "v1.0.0"
 
 # Linux/Mac
-./deploy-to-quantum-forge.sh
+./deployment/archive/deploy-to-quantum-forge.sh
 ```
 
 **Manual OCI Deployment:**
@@ -218,8 +218,8 @@ kubectl port-forward -n a2a-system svc/a2a-server 9000:9000
 curl http://localhost:9000/mcp/v1/tools
 
 # Or use the test script
-./test-mcp-server.ps1  # Windows
-./test-mcp-server.sh   # Linux/Mac
+./scripts/testing/test-mcp-server.ps1  # Windows
+./scripts/testing/test-mcp-server.sh   # Linux/Mac
 ```
 
 **Configure Cline/Claude Dev to Connect:**
@@ -244,9 +244,9 @@ Add to your `cline_mcp_settings.json` (see `examples/cline_mcp_config_example.js
 ```
 
 **Full Documentation:**
-- � [Quantum Forge Deployment](QUANTUM_FORGE_DEPLOYMENT.md) - One-command deploy to Quantum Forge registry
-- �📘 [Helm OCI Deployment Guide](HELM_OCI_DEPLOYMENT.md) - Complete guide for OCI registry deployment
-- 📘 [Distributed A2A Guide](DISTRIBUTED_A2A_GUIDE.md) - Multi-agent coordination
+- � [Quantum Forge Deployment](docs/archive/root/QUANTUM_FORGE_DEPLOYMENT.md) - One-command deploy to Quantum Forge registry
+- �📘 [Helm OCI Deployment Guide](docs/archive/root/HELM_OCI_DEPLOYMENT.md) - Complete guide for OCI registry deployment
+- 📘 [Distributed A2A Guide](docs/archive/root/DISTRIBUTED_A2A_GUIDE.md) - Multi-agent coordination
 - 📘 [Chart Configuration](chart/README.md) - Helm chart values and examples
 
 ## Architecture
@@ -1929,8 +1929,8 @@ curl https://api.codetether.run/v1/agent/codebases \
 - 🧪 [Agent Messaging Tests](tests/test_agent_messaging.py)
 - 📱 [Swift Liquid Glass UI](ui/swift/README.md)
 - 🖥️ [Web Monitor UI](ui/README.md)
-- 🔄 [Distributed A2A Guide](DISTRIBUTED_A2A_GUIDE.md)
-- ⚡ [Distributed A2A Quickstart](DISTRIBUTED_A2A_QUICKSTART.md)
+- 🔄 [Distributed A2A Guide](docs/archive/root/DISTRIBUTED_A2A_GUIDE.md)
+- ⚡ [Distributed A2A Quickstart](docs/archive/root/DISTRIBUTED_A2A_QUICKSTART.md)
 - 🔐 [Keycloak Auth Integration](a2a_server/keycloak_auth.py)
 
 ## 🚀 Production Deployment
@@ -1941,10 +1941,10 @@ Full production deployment with monitoring, autoscaling, and MCP synchronization
 
 ```powershell
 # Windows PowerShell
-.\deploy-to-quantum-forge.ps1
+.\deployment\archive\deploy-to-quantum-forge.ps1
 
 # Linux/macOS
-./deploy-to-quantum-forge.sh
+./deployment/archive/deploy-to-quantum-forge.sh
 ```
 
 **Features:**
@@ -1963,11 +1963,11 @@ Full production deployment with monitoring, autoscaling, and MCP synchronization
 - ✅ Distributed worker support
 
 **Guides:**
-- 📘 [Quantum Forge Deployment](QUANTUM_FORGE_DEPLOYMENT.md) - Complete deployment documentation
-- 🚀 [Quick Start](QUANTUM_FORGE_QUICKSTART.md) - Get started in 5 minutes
+- 📘 [Quantum Forge Deployment](docs/archive/root/QUANTUM_FORGE_DEPLOYMENT.md) - Complete deployment documentation
+- 🚀 [Quick Start](docs/archive/root/QUANTUM_FORGE_QUICKSTART.md) - Get started in 5 minutes
 - 👁️ [Monitoring UI Guide](ui/README.md) - Human oversight and intervention
-- 🔧 [MCP Configuration](QUICK_REFERENCE_MCP_CONFIG.md) - Cline/external agent setup
-- 🔄 [Distributed A2A Guide](DISTRIBUTED_A2A_GUIDE.md) - Multi-worker setup
+- 🔧 [MCP Configuration](docs/archive/root/QUICK_REFERENCE_MCP_CONFIG.md) - Cline/external agent setup
+- 🔄 [Distributed A2A Guide](docs/archive/root/DISTRIBUTED_A2A_GUIDE.md) - Multi-worker setup
 
 **Access Production Services:**
 ```bash
