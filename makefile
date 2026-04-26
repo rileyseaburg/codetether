@@ -277,24 +277,9 @@ help: ## Show this help message
 	@echo "  RESTART_LOCAL_WORKER_AFTER_DEPLOY - For lightweight targets, restart local worker (0|1)"
 
 
-# Models.dev targets
-.PHONY: models-build
-models-build: ## Build models.dev api.json from TOML files
-	@echo "📦 Building models.dev api.json..."
-	cd models.dev/packages/web && bun run script/build.ts
-	mkdir -p a2a_server/static/models
-	cp models.dev/packages/web/dist/_api.json a2a_server/static/models/api.json
-	@echo "✅ models/api.json built and copied to static directory"
-
-.PHONY: models-update
-models-update: ## Pull latest from upstream models.dev and rebuild
-	@echo "🔄 Updating models.dev from upstream..."
-	cd models.dev && git fetch upstream && git merge upstream/dev --no-edit || true
-	$(MAKE) models-build
-
 # Docker targets
 .PHONY: docker-build
-docker-build: models-build ## Build Docker image (API server only)
+docker-build: ## Build Docker image (API server only)
 	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) . --network=host
 
 .PHONY: docker-build-marketing
@@ -1334,9 +1319,6 @@ codetether-status: ## Show CodeTether deployment status
 codetether-full-deploy: codetether-build-all helm-package helm-push codetether-deploy codetether-restart-marketing codetether-restart-docs ## Full build and deploy pipeline
 
 
-.PHONY: test-models
-test-models:
-	source .venv/bin/activate && pip install aiohttp && python3 tests/verify_models.py
 
 # =============================================================================
 # Voice Agent Deployment Targets
