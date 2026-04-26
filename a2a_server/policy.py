@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from .provenance import verify_provenance
+
 import httpx
 from fastapi import HTTPException, Depends, Request, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -188,6 +190,14 @@ def _evaluate_local(
             reasons.append("cross-tenant access denied")
             return False, reasons
 
+    # Agent Provenance Framework checks. Legacy users without provenance remain
+    # compatible; once provenance claims are present, failures deny the action.
+    provenance = user.get("provenance") or user.get("agent_provenance")
+    decision = verify_provenance(provenance, action, resource)
+    if provenance and not decision.allowed_by_provenance:
+        reasons.extend(decision.failures)
+        return False, reasons
+
     return True, reasons
 
 
@@ -241,6 +251,7 @@ def _build_input(
             },
             "action": action,
             "resource": resource or {},
+            "provenance": user.get("provenance") or user.get("agent_provenance") or {},
         }
     }
 
@@ -263,7 +274,11 @@ def _cache_key(user: Dict[str, Any], action: str, resource: Optional[Dict[str, A
     if resource:
         rid = resource.get("id", "")
         rtid = resource.get("tenant_id", "")
-    return f"{uid}:{action}:{tid}:{rid}:{rtid}"
+    provenance = user.get("provenance") or user.get("agent_provenance") or {}
+    ap_session = provenance.get("ap_session", {}) if isinstance(provenance, dict) else {}
+    pjti = ap_session.get("parent_jti", "") if isinstance(ap_session, dict) else ""
+    turn = ap_session.get("turn", "") if isinstance(ap_session, dict) else ""
+    return f"{uid}:{action}:{tid}:{rid}:{rtid}:{pjti}:{turn}"
 
 
 # ── Public API ───────────────────────────────────────────────────
