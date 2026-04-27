@@ -244,13 +244,6 @@ class TestPolicyIntegration:
         assert "action outside delegated capability envelope" in reasons
 
 class TestProvenanceReviewFeedback:
-    def test_malformed_origin_is_partial_not_exception(self):
-        provenance = complete_provenance(ap_origin="not-a-dict")
-        decision = verify_provenance(provenance, "tasks:write")
-        assert decision.allowed_by_provenance
-        assert decision.partial
-        assert "origin" in decision.missing_dimensions
-
     def test_partial_provenance_allowed_for_non_sensitive_action(self):
         decision = verify_provenance({"ap_inputs": []}, "tasks:read")
         assert decision.allowed_by_provenance
@@ -268,6 +261,44 @@ class TestProvenanceReviewFeedback:
         )
         decision = verify_provenance(provenance, "tasks:read")
         assert "delegation spawn depth not attenuated" in decision.failures
+
+    def test_child_missing_max_depth_rejected_when_parent_has_depth(self):
+        """Regression: child cannot bypass depth attenuation by omitting max_depth."""
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {"principal": "agent:parent", "capability": {"operations": ["tasks:read"], "spawn": {"max_depth": 2}}},
+                    {"principal": "agent:child", "capability": {"operations": ["tasks:read"]}},
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:read")
+        assert not decision.allowed_by_provenance
+        assert "delegation spawn depth not attenuated" in decision.failures
+
+    def test_child_missing_max_fanout_rejected_when_parent_has_fanout(self):
+        """Regression: child cannot bypass fanout attenuation by omitting max_fanout."""
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {"principal": "agent:parent", "capability": {"operations": ["tasks:read"], "spawn": {"max_fanout": 2}}},
+                    {"principal": "agent:child", "capability": {"operations": ["tasks:read"]}},
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:read")
+        assert not decision.allowed_by_provenance
+        assert "delegation spawn fanout not attenuated" in decision.failures
+
+    def test_malformed_origin_missing_intent_hash_is_partial(self):
+        """Distinct malformed origin shape: dict present but intent_hash key missing."""
+        decision = verify_provenance(
+            complete_provenance(ap_origin={"session_started_at": "2026-04-20T14:00:00Z"}),
+            "tasks:write",
+        )
+        assert decision.allowed_by_provenance
+        assert decision.partial
+        assert "origin" in decision.missing_dimensions
 
     def test_child_must_preserve_parent_budget_constraints(self):
         provenance = complete_provenance(

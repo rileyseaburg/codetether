@@ -280,7 +280,7 @@ def _cache_key(user: Dict[str, Any], action: str, resource: Optional[Dict[str, A
     pjti = ap_session.get("parent_jti", "") if isinstance(ap_session, dict) else ""
     turn = ap_session.get("turn", "") if isinstance(ap_session, dict) else ""
     provenance_hash = ""
-    if isinstance(provenance, dict) and provenance:
+    if OPA_CACHE_TTL > 0 and isinstance(provenance, dict) and provenance:
         serialized = json.dumps(provenance, sort_keys=True, separators=(",", ":"), default=str)
         provenance_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
     return f"{uid}:{action}:{tid}:{rid}:{rtid}:{pjti}:{turn}:{provenance_hash}"
