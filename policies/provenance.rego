@@ -100,14 +100,67 @@ valid_delegation_shape if {
 
 reasons contains "origin intent hash mismatch" if {
     has_provenance
-    expected := object.get(object.get(input.resource, "ap_session_state", {}), "origin_intent_hash", object.get(input.resource, "session_origin_intent_hash", ""))
+    ap_session_state := object.get(input.resource, "ap_session_state", {})
+    ap_hash := object.get(ap_session_state, "origin_intent_hash", null)
+    legacy_hash := object.get(input.resource, "session_origin_intent_hash", "")
+    expected := _coalesce_origin_hash(ap_hash, legacy_hash)
+    is_string(expected)
     expected != ""
     input.provenance.ap_origin.intent_hash != expected
 }
 
+# Coalesce null/empty ap_session_state.origin_intent_hash to the legacy field.
+_coalesce_origin_hash(ap_hash, legacy_hash) := legacy_hash if {
+    not is_string(ap_hash)
+}
+_coalesce_origin_hash(ap_hash, legacy_hash) := "" if {
+    is_string(ap_hash)
+    ap_hash == ""
+}
+_coalesce_origin_hash(ap_hash, _legacy_hash) := ap_hash if {
+    is_string(ap_hash)
+    ap_hash != ""
+}
+
+session_taints := _resolve_session_taints
+
+_resolve_session_taints := legacy if {
+    ap_session_state := object.get(input.resource, "ap_session_state", {})
+    raw := object.get(ap_session_state, "taints", null)
+    not _is_valid_taint_array(raw)
+    legacy := object.get(input.resource, "session_taints", [])
+    is_array(legacy)
+}
+
+_resolve_session_taints := raw if {
+    ap_session_state := object.get(input.resource, "ap_session_state", {})
+    raw := object.get(ap_session_state, "taints", null)
+    _is_valid_taint_array(raw)
+}
+
+_resolve_session_taints := [] if {
+    not _has_ap_taints
+    not _has_legacy_taints
+}
+
+_is_valid_taint_array(v) if {
+    is_array(v)
+}
+
+_has_ap_taints if {
+    ap_session_state := object.get(input.resource, "ap_session_state", {})
+    raw := object.get(ap_session_state, "taints", null)
+    _is_valid_taint_array(raw)
+}
+
+_has_legacy_taints if {
+    legacy := object.get(input.resource, "session_taints", null)
+    is_array(legacy)
+}
+
 reasons contains "taint stripping detected" if {
     has_provenance
-    some required in object.get(object.get(input.resource, "ap_session_state", {}), "taints", object.get(input.resource, "session_taints", []))
+    some required in session_taints
     not token_has_taint(required)
 }
 
@@ -123,12 +176,6 @@ reasons contains "taint blocks action: external-mcp" if {
     some marker in input.provenance.ap_inputs
     endswith(marker.source, "external-mcp-server")
     input.action in taint_blocked_actions["external-mcp"]
-}
-
-reasons contains reason if {
-    has_provenance
-    some dimension in missing_dimensions
-    reason := sprintf("missing %s provenance", [dimension])
 }
 
 reasons contains "partial provenance not permitted for sensitive action" if {
@@ -166,9 +213,19 @@ reasons contains "delegation spawn depth not attenuated" if {
     parent := chain[i].capability
     child := chain[i + 1].capability
     not parent.root
-    is_number(parent.spawn.max_depth)
-    is_number(child.spawn.max_depth)
-    child.spawn.max_depth > parent.spawn.max_depth - 1
+    parent_depth := object.get(object.get(parent, "spawn", {}), "max_depth", null)
+    child_depth := object.get(object.get(child, "spawn", {}), "max_depth", null)
+    is_number(parent_depth)
+    _child_depth_violation(parent_depth, child_depth)
+}
+
+_child_depth_violation(parent_depth, child_depth) if {
+    not is_number(child_depth)
+}
+
+_child_depth_violation(parent_depth, child_depth) if {
+    is_number(child_depth)
+    child_depth > parent_depth - 1
 }
 
 reasons contains "delegation spawn fanout not attenuated" if {
@@ -179,9 +236,15 @@ reasons contains "delegation spawn fanout not attenuated" if {
     parent := chain[i].capability
     child := chain[i + 1].capability
     not parent.root
-    is_number(parent.spawn.max_fanout)
-    is_number(child.spawn.max_fanout)
-    child.spawn.max_fanout > parent.spawn.max_fanout
+    parent_fanout := object.get(object.get(parent, "spawn", {}), "max_fanout", null)
+    child_fanout := object.get(object.get(child, "spawn", {}), "max_fanout", null)
+    is_number(parent_fanout)
+    not _fanout_attenuated(parent_fanout, child_fanout)
+}
+
+_fanout_attenuated(parent_fanout, child_fanout) if {
+    is_number(child_fanout)
+    child_fanout <= parent_fanout
 }
 
 reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
@@ -194,23 +257,14 @@ reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
     not parent.root
     some key, parent_value in parent.budget
     is_number(parent_value)
-    child_value := object.get(object.get(child, "budget", {}), key, null)
-    not is_number(child_value)
+    not budget_key_attenuated(child, key, parent_value)
 }
 
-reasons contains sprintf("delegation budget not attenuated: %s", [key]) if {
-    has_provenance
-    some i
-    chain := input.provenance.ap_delegation.chain
-    i < count(chain) - 1
-    parent := chain[i].capability
-    child := chain[i + 1].capability
-    not parent.root
-    some key, parent_value in parent.budget
-    is_number(parent_value)
-    child_value := object.get(object.get(child, "budget", {}), key, null)
+budget_key_attenuated(child, key, parent_value) if {
+    child_budget := object.get(child, "budget", {})
+    child_value := object.get(child_budget, key, null)
     is_number(child_value)
-    child_value > parent_value
+    child_value <= parent_value
 }
 
 token_has_taint(required) if {

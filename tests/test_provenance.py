@@ -92,13 +92,14 @@ class TestProvenanceVerifier:
         assert not decision.allowed_by_provenance
         assert "origin intent hash mismatch" in decision.failures
 
-    def test_malformed_origin_fails_without_crashing(self):
+    def test_malformed_origin_is_partial_without_crashing(self):
         decision = verify_provenance(
             complete_provenance(ap_origin="not-a-dict"),
             "tasks:write",
         )
-        assert not decision.allowed_by_provenance
-        assert "missing origin provenance" in decision.failures
+        assert decision.allowed_by_provenance
+        assert decision.partial
+        assert "origin" in decision.missing_dimensions
 
     def test_legacy_origin_hash_field_fails_on_mismatch(self):
         resource = {"session_origin_intent_hash": "sha384:original"}
@@ -241,3 +242,84 @@ class TestPolicyIntegration:
         allowed, reasons = _evaluate_local(agent_user(), "mcp:write")
         assert not allowed
         assert "action outside delegated capability envelope" in reasons
+
+class TestProvenanceReviewFeedback:
+    def test_partial_provenance_allowed_for_non_sensitive_action(self):
+        decision = verify_provenance({"ap_inputs": []}, "tasks:read")
+        assert decision.allowed_by_provenance
+        assert decision.partial
+        assert set(decision.missing_dimensions) == {"origin", "delegation", "runtime", "output"}
+
+    def test_parent_depth_zero_cannot_delegate_depth_zero(self):
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {"principal": "agent:parent", "capability": {"operations": ["tasks:read"], "spawn": {"max_depth": 0}}},
+                    {"principal": "agent:child", "capability": {"operations": ["tasks:read"], "spawn": {"max_depth": 0}}},
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:read")
+        assert "delegation spawn depth not attenuated" in decision.failures
+
+    def test_child_missing_max_depth_rejected_when_parent_has_depth(self):
+        """Regression: child cannot bypass depth attenuation by omitting max_depth."""
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {"principal": "agent:parent", "capability": {"operations": ["tasks:read"], "spawn": {"max_depth": 2}}},
+                    {"principal": "agent:child", "capability": {"operations": ["tasks:read"]}},
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:read")
+        assert not decision.allowed_by_provenance
+        assert "delegation spawn depth not attenuated" in decision.failures
+
+    def test_child_missing_max_fanout_rejected_when_parent_has_fanout(self):
+        """Regression: child cannot bypass fanout attenuation by omitting max_fanout."""
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {"principal": "agent:parent", "capability": {"operations": ["tasks:read"], "spawn": {"max_fanout": 2}}},
+                    {"principal": "agent:child", "capability": {"operations": ["tasks:read"]}},
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:read")
+        assert not decision.allowed_by_provenance
+        assert "delegation spawn fanout not attenuated" in decision.failures
+
+    def test_malformed_origin_missing_intent_hash_is_partial(self):
+        """Distinct malformed origin shape: dict present but intent_hash key missing."""
+        decision = verify_provenance(
+            complete_provenance(ap_origin={"session_started_at": "2026-04-20T14:00:00Z"}),
+            "tasks:write",
+        )
+        assert decision.allowed_by_provenance
+        assert decision.partial
+        assert "origin" in decision.missing_dimensions
+
+    def test_child_must_preserve_parent_budget_constraints(self):
+        provenance = complete_provenance(
+            ap_delegation={
+                "chain": [
+                    {"principal": "agent:parent", "capability": {"operations": ["tasks:read"], "budget": {"max_tool_calls": 10}}},
+                    {"principal": "agent:child", "capability": {"operations": ["tasks:read"], "budget": {}}},
+                ]
+            }
+        )
+        decision = verify_provenance(provenance, "tasks:read")
+        assert "delegation budget not attenuated: max_tool_calls" in decision.failures
+
+    @pytest.mark.asyncio
+    async def test_cache_key_includes_full_provenance_blob(self):
+        user = agent_user()
+        assert await check_policy(user, "agent:execute")
+        tainted_user = agent_user(complete_provenance(ap_inputs=[taint_marker()]))
+        assert not await check_policy(tainted_user, "agent:execute")
+
+    @pytest.mark.asyncio
+    async def test_legacy_session_taints_are_enforced_locally(self):
+        resource = {"type": "task", "id": "t1", "tenant_id": "tenant-1", "session_taints": [taint_marker()]}
+        assert not await check_policy(agent_user(), "tasks:write", resource)

@@ -155,3 +155,12 @@ test_public_endpoint_allowed_no_roles if {
 test_public_endpoint_allowed_for_login if {
     authz.allow with input as {"user": mock_no_roles, "action": "auth:login", "resource": {}}
 }
+
+test_public_endpoint_ignores_malformed_provenance if {
+    authz.allow with input as {
+        "user": {"roles": [], "tenant_id": null, "scopes": [], "auth_source": "self-service"},
+        "action": "health:read",
+        "resource": {},
+        "provenance": {"ap_partial": true},
+    } with data.public_endpoints as ["health:read"]
+}

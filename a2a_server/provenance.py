@@ -122,8 +122,6 @@ def verify_provenance(
         expected = _session_origin_hash(resource)
         if expected and origin.get("intent_hash") != expected:
             failures.append("origin intent hash mismatch")
-    else:
-        failures.append("missing origin provenance")
 
     inputs = provenance.get("ap_inputs")
     if isinstance(inputs, list):
@@ -134,27 +132,19 @@ def verify_provenance(
         blocked = _taint_blocks_action(inputs, action, taint_blocked_actions)
         if blocked:
             failures.append(f"taint blocks action: {blocked}")
-    else:
-        failures.append("missing inputs provenance")
 
     delegation = provenance.get("ap_delegation")
     if _valid_delegation_shape(delegation):
         dimensions["delegation"] = True
         failures.extend(_delegation_failures(delegation, action))
-    else:
-        failures.append("missing delegation provenance")
 
     runtime = provenance.get("ap_runtime")
     if isinstance(runtime, dict) and runtime:
         dimensions["runtime"] = True
-    else:
-        failures.append("missing runtime provenance")
 
     output = provenance.get("ap_output")
     if isinstance(output, dict) and output:
         dimensions["output"] = True
-    else:
-        failures.append("missing output provenance")
 
     missing_dimensions = [dim for dim, ok in dimensions.items() if not ok]
     partial = bool(provenance.get("ap_partial")) or bool(missing_dimensions)
@@ -199,9 +189,10 @@ def _taint_blocks_action(
     action: str,
     configured: Optional[Dict[str, Iterable[str]]],
 ) -> Optional[str]:
-    blocked_map = {
-        key: set(value) for key, value in (configured or DEFAULT_TAINT_BLOCKED_ACTIONS).items()
-    }
+    if configured is None:
+        blocked_map = DEFAULT_TAINT_BLOCKED_ACTIONS
+    else:
+        blocked_map = {key: set(value) for key, value in configured.items()}
     for marker in inputs:
         if not isinstance(marker, dict):
             continue
@@ -260,13 +251,13 @@ def _attenuation_failures(parent: Dict[str, Any], child: Dict[str, Any]) -> List
     child_spawn = child.get("spawn") or {}
     parent_depth = parent_spawn.get("max_depth")
     child_depth = child_spawn.get("max_depth")
-    if isinstance(parent_depth, int) and isinstance(child_depth, int):
-        if child_depth > parent_depth - 1:
+    if isinstance(parent_depth, int):
+        if not isinstance(child_depth, int) or child_depth > parent_depth - 1:
             failures.append("delegation spawn depth not attenuated")
     parent_fanout = parent_spawn.get("max_fanout")
     child_fanout = child_spawn.get("max_fanout")
-    if isinstance(parent_fanout, int) and isinstance(child_fanout, int):
-        if child_fanout > parent_fanout:
+    if isinstance(parent_fanout, int):
+        if not isinstance(child_fanout, int) or child_fanout > parent_fanout:
             failures.append("delegation spawn fanout not attenuated")
 
     parent_constraints = parent.get("constraints") or {}

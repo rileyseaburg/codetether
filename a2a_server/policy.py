@@ -22,6 +22,7 @@ Usage:
 
 import os
 import json
+import hashlib
 import time
 import logging
 from typing import Optional, Dict, Any, Callable, List
@@ -278,7 +279,11 @@ def _cache_key(user: Dict[str, Any], action: str, resource: Optional[Dict[str, A
     ap_session = provenance.get("ap_session", {}) if isinstance(provenance, dict) else {}
     pjti = ap_session.get("parent_jti", "") if isinstance(ap_session, dict) else ""
     turn = ap_session.get("turn", "") if isinstance(ap_session, dict) else ""
-    return f"{uid}:{action}:{tid}:{rid}:{rtid}:{pjti}:{turn}"
+    provenance_hash = ""
+    if OPA_CACHE_TTL > 0 and isinstance(provenance, dict) and provenance:
+        serialized = json.dumps(provenance, sort_keys=True, separators=(",", ":"), default=str)
+        provenance_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"{uid}:{action}:{tid}:{rid}:{rtid}:{pjti}:{turn}:{provenance_hash}"
 
 
 # ── Public API ───────────────────────────────────────────────────
