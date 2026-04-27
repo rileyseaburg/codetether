@@ -251,13 +251,13 @@ def _attenuation_failures(parent: Dict[str, Any], child: Dict[str, Any]) -> List
     child_spawn = child.get("spawn") or {}
     parent_depth = parent_spawn.get("max_depth")
     child_depth = child_spawn.get("max_depth")
-    if isinstance(parent_depth, int) and isinstance(child_depth, int):
-        if child_depth > parent_depth - 1:
+    if isinstance(parent_depth, int):
+        if not isinstance(child_depth, int) or child_depth > parent_depth - 1:
             failures.append("delegation spawn depth not attenuated")
     parent_fanout = parent_spawn.get("max_fanout")
     child_fanout = child_spawn.get("max_fanout")
-    if isinstance(parent_fanout, int) and isinstance(child_fanout, int):
-        if child_fanout > parent_fanout:
+    if isinstance(parent_fanout, int):
+        if not isinstance(child_fanout, int) or child_fanout > parent_fanout:
             failures.append("delegation spawn fanout not attenuated")
 
     parent_constraints = parent.get("constraints") or {}
