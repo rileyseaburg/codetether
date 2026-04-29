@@ -13,11 +13,11 @@ async def _verify_branch_and_commits(
     repo: str, branch: str, token: str,
 ) -> dict:
     """
-    Verify that the expected branch exists and has commits.
+    Verify that the expected branch exists and has at least one commit.
 
     Returns a dict with:
         branch_exists: bool
-        commit_count: int or None
+        has_commits: bool
         error: str or None
     """
     from .auth import github_json
@@ -31,19 +31,19 @@ async def _verify_branch_and_commits(
         if ref and isinstance(ref, list):
             return {
                 'branch_exists': True,
-                'commit_count': len(ref),
+                'has_commits': len(ref) > 0,
                 'error': None,
             }
         return {
             'branch_exists': False,
-            'commit_count': 0,
+            'has_commits': False,
             'error': f'Branch {branch} not found or has no commits',
         }
     except Exception as exc:
         logger.warning('Branch verification failed for %s/%s: %s', repo, branch, exc)
         return {
             'branch_exists': False,
-            'commit_count': 0,
+            'has_commits': False,
             'error': str(exc),
         }
 
