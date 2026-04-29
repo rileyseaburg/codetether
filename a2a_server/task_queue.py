@@ -27,8 +27,9 @@ class TaskRunStatus(str, Enum):
 
     Lifecycle:
         queued -> picked_up -> running -> pushed_branch -> opened_pr -> completed
+        queued -> running -> ...  (direct transition also allowed)
         queued -> picked_up -> running -> failed (with reason)
-        Any active state -> cancelled
+        Any non-terminal state -> cancelled
     """
 
     QUEUED = 'queued'
@@ -56,12 +57,40 @@ _TERMINAL_RUN_STATUSES = {
 
 # Valid forward transitions for state machine enforcement
 _VALID_TRANSITIONS: dict[TaskRunStatus, set[TaskRunStatus]] = {
-    TaskRunStatus.QUEUED: {TaskRunStatus.PICKED_UP, TaskRunStatus.RUNNING, TaskRunStatus.CANCELLED, TaskRunStatus.FAILED},
-    TaskRunStatus.PICKED_UP: {TaskRunStatus.RUNNING, TaskRunStatus.FAILED, TaskRunStatus.CANCELLED},
-    TaskRunStatus.RUNNING: {TaskRunStatus.PUSHED_BRANCH, TaskRunStatus.NEEDS_INPUT, TaskRunStatus.COMPLETED, TaskRunStatus.FAILED, TaskRunStatus.CANCELLED},
-    TaskRunStatus.PUSHED_BRANCH: {TaskRunStatus.OPENED_PR, TaskRunStatus.COMPLETED, TaskRunStatus.FAILED, TaskRunStatus.CANCELLED},
-    TaskRunStatus.OPENED_PR: {TaskRunStatus.COMPLETED, TaskRunStatus.FAILED, TaskRunStatus.CANCELLED},
-    TaskRunStatus.NEEDS_INPUT: {TaskRunStatus.RUNNING, TaskRunStatus.CANCELLED, TaskRunStatus.FAILED},
+    TaskRunStatus.QUEUED: {
+        TaskRunStatus.PICKED_UP,
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.CANCELLED,
+        TaskRunStatus.FAILED,
+    },
+    TaskRunStatus.PICKED_UP: {
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.RUNNING: {
+        TaskRunStatus.PUSHED_BRANCH,
+        TaskRunStatus.NEEDS_INPUT,
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.PUSHED_BRANCH: {
+        TaskRunStatus.OPENED_PR,
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.OPENED_PR: {
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.NEEDS_INPUT: {
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.CANCELLED,
+        TaskRunStatus.FAILED,
+    },
     TaskRunStatus.COMPLETED: set(),
     TaskRunStatus.FAILED: set(),
     TaskRunStatus.CANCELLED: set(),

@@ -776,6 +776,7 @@ class HostedWorker:
         # GitHub App workflows that went through the hosted worker would
         # finish in task_runs but the issue would never get its final
         # comment or PR link.  Fix: invoke the same hook here.
+        task_id = self._current_task_id
         if status in ('completed', 'failed', 'cancelled') and task_id:
             try:
                 from .github_app.task_status_hook import handle_github_app_terminal_task
