@@ -82,6 +82,7 @@ class HostedWorker:
         self._running = False
         self._current_run_id: Optional[str] = None
         self._current_task_id: Optional[str] = None
+        self._started_at: Optional[datetime] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._http_client: Optional[httpx.AsyncClient] = None
 
@@ -228,7 +229,7 @@ class HostedWorker:
 
         run_id = self._current_run_id
         task_id = self._current_task_id
-        started_at = datetime.now(timezone.utc)
+        self._started_at = datetime.now(timezone.utc)
 
         # Start heartbeat to keep lease alive
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id))
@@ -249,7 +250,7 @@ class HostedWorker:
 
             # Mark completed
             runtime = int(
-                (datetime.now(timezone.utc) - started_at).total_seconds()
+                (datetime.now(timezone.utc) - self._started_at).total_seconds()
             )
             await self._complete_run(
                 run_id,
@@ -312,6 +313,7 @@ class HostedWorker:
 
             self._current_run_id = None
             self._current_task_id = None
+            self._started_at = None
 
     async def _get_task_details(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Get task details from the API or directly from DB."""
@@ -768,7 +770,42 @@ class HostedWorker:
 
         logger.info(f'Run {run_id} marked as {status}')
 
-        # TODO: Send notification (email/webhook) if configured
+        # ── GitHub App terminal-task hook ───────────────────────────────
+        # The SSE worker path calls handle_github_app_terminal_task via
+        # worker_sse.py, but the hosted-worker path never did.  This meant
+        # GitHub App workflows that went through the hosted worker would
+        # finish in task_runs but the issue would never get its final
+        # comment or PR link.  Fix: invoke the same hook here.
+        if status in ('completed', 'failed', 'cancelled') and task_id:
+            try:
+                from .github_app.task_status_hook import handle_github_app_terminal_task
+                await handle_github_app_terminal_task(task_id, self.worker_id)
+            except Exception as e:
+                logger.warning(
+                    'GitHub App terminal hook failed for task %s (run %s): %s',
+                    task_id, run_id, e,
+                )
+
+        # ── Status audit trail ──────────────────────────────────────────
+        if task_id:
+            try:
+                from .task_status_audit import record_transition
+                await record_transition(
+                    run_id=run_id,
+                    old_status='running',
+                    new_status=status,
+                    actor=self.worker_id,
+                    reason=error if status == 'failed' else result_summary,
+                    metadata={
+                        'task_id': task_id,
+                        'runtime_seconds': int(
+                            (datetime.now(timezone.utc) - self._started_at).total_seconds()
+                        ) if self._started_at else None,
+                    },
+                )
+            except Exception:
+                pass  # Audit failure must not break completion
+
         await self._send_completion_notification(run_id, status)
 
     async def _send_completion_notification(
