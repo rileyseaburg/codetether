@@ -23,14 +23,83 @@ logger = logging.getLogger(__name__)
 
 
 class TaskRunStatus(str, Enum):
-    """Status of a task run in the queue."""
+    """Status of a task run in the queue.
+
+    Lifecycle:
+        queued -> picked_up -> running -> pushed_branch -> opened_pr -> completed
+        queued -> running -> ...  (direct transition also allowed)
+        queued -> picked_up -> running -> failed (with reason)
+        Any non-terminal state -> cancelled
+    """
 
     QUEUED = 'queued'
-    RUNNING = 'running'
+    PICKED_UP = 'picked_up'        # Worker claimed the task, preparing environment
+    RUNNING = 'running'            # Task is actively executing
+    PUSHED_BRANCH = 'pushed_branch'  # Code pushed to branch, PR not yet opened
+    OPENED_PR = 'opened_pr'        # PR successfully opened
     NEEDS_INPUT = 'needs_input'
     COMPLETED = 'completed'
     FAILED = 'failed'
     CANCELLED = 'cancelled'
+
+    def is_terminal(self) -> bool:
+        return self in _TERMINAL_RUN_STATUSES
+
+    def is_active(self) -> bool:
+        return not self.is_terminal()
+
+
+_TERMINAL_RUN_STATUSES = {
+    TaskRunStatus.COMPLETED,
+    TaskRunStatus.FAILED,
+    TaskRunStatus.CANCELLED,
+}
+
+# Valid forward transitions for state machine enforcement
+_VALID_TRANSITIONS: dict[TaskRunStatus, set[TaskRunStatus]] = {
+    TaskRunStatus.QUEUED: {
+        TaskRunStatus.PICKED_UP,
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.CANCELLED,
+        TaskRunStatus.FAILED,
+    },
+    TaskRunStatus.PICKED_UP: {
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.RUNNING: {
+        TaskRunStatus.PUSHED_BRANCH,
+        TaskRunStatus.NEEDS_INPUT,
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.PUSHED_BRANCH: {
+        TaskRunStatus.OPENED_PR,
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.OPENED_PR: {
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.NEEDS_INPUT: {
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.CANCELLED,
+        TaskRunStatus.FAILED,
+    },
+    TaskRunStatus.COMPLETED: set(),
+    TaskRunStatus.FAILED: set(),
+    TaskRunStatus.CANCELLED: set(),
+}
+
+
+def validate_transition(current: TaskRunStatus, target: TaskRunStatus) -> bool:
+    """Check whether a transition from current to target status is valid."""
+    return target in _VALID_TRANSITIONS.get(current, set())
 
 
 class TaskLimitExceeded(Exception):
