@@ -1,0 +1,114 @@
+{{- if .Values.harvester.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-harvester
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: harvester
+spec:
+  serviceName: {{ include "a2a-server.fullname" . }}-harvester
+  replicas: {{ .Values.harvester.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: harvester
+  template:
+    metadata:
+      labels:
+        {{- include "a2a-server.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: harvester
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}-harvester
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.harvester.podSecurityContext | nindent 8 }}
+      containers:
+        - name: harvester
+          securityContext:
+            {{- toYaml .Values.harvester.securityContext | nindent 12 }}
+          image: "{{ .Values.harvester.image.repository | default .Values.image.repository }}:{{ .Values.harvester.image.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.harvester.image.pullPolicy | default .Values.image.pullPolicy }}
+          command:
+            - /usr/local/bin/codetether-agent
+          args:
+            - worker
+            - --sse-url
+            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}/v1/agent/workers/sse
+            - --claim-url
+            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}/v1/agent/tasks/claim-extended
+            - --heartbeat-url
+            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}/v1/agent/tasks/heartbeat-extended
+            - --workspace-dir
+            - /var/lib/codetether/repos
+            - --agent-name
+            - {{ .Values.harvester.agentName | default "harvester" | quote }}
+            {{- with .Values.harvester.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: PERSISTENT_WORKER_ENABLED
+              value: "true"
+            - name: PERSISTENT_WORKER_LEASE_SECONDS
+              value: {{ .Values.harvester.leaseSeconds | default 3600 | quote }}
+            - name: PERSISTENT_WORKER_MAX_TIMEOUT
+              value: {{ .Values.harvester.maxTimeout | default 604800 | quote }}
+            - name: GITHUB_PROGRESS_ENABLED
+              value: "true"
+            - name: A2A_SERVER_URL
+              value: http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "a2a-server.fullname" . }}-db
+                  key: url
+            {{- with .Values.harvester.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: health
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.harvester.resources | nindent 12 }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+            {{- with .Values.harvester.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- with .Values.harvester.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.harvester.storage.className | default "standard" }}
+        resources:
+          requests:
+            storage: {{ .Values.harvester.storage.size | default "50Gi" }}
+{{- end }}
