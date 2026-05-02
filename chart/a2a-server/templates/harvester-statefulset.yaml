@@ -35,19 +35,17 @@ spec:
           image: "{{ .Values.harvester.image.repository | default .Values.image.repository }}:{{ .Values.harvester.image.tag | default .Values.image.tag }}"
           imagePullPolicy: {{ .Values.harvester.image.pullPolicy | default .Values.image.pullPolicy }}
           command:
-            - /usr/local/bin/codetether-agent
+            - /usr/local/bin/codetether
           args:
             - worker
-            - --sse-url
-            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}/v1/agent/workers/sse
-            - --claim-url
-            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}/v1/agent/tasks/claim-extended
-            - --heartbeat-url
-            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}/v1/agent/tasks/heartbeat-extended
-            - --workspace-dir
+            - --server
+            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
+            - --workspaces
             - /var/lib/codetether/repos
-            - --agent-name
+            - --name
             - {{ .Values.harvester.agentName | default "harvester" | quote }}
+            - --auto-approve
+            - safe
             {{- with .Values.harvester.extraArgs }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -60,7 +58,7 @@ spec:
               value: {{ .Values.harvester.maxTimeout | default 604800 | quote }}
             - name: GITHUB_PROGRESS_ENABLED
               value: "true"
-            - name: A2A_SERVER_URL
+            - name: CODETETHER_SERVER
               value: http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
             - name: DATABASE_URL
               valueFrom:
