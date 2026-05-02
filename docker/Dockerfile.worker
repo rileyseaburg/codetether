@@ -1,7 +1,8 @@
 # ============================================
 # CodeTether Worker Dockerfile (Rust binary)
 # ============================================
-# Builds the codetether-agent Rust binary and runs it as an A2A SSE worker.
+# Multi-stage build: compiles inside Docker so the binary's glibc matches
+# the runtime image.  Both builder and runtime use Debian bookworm (glibc 2.36).
 #
 # Usage:
 #   docker build -f docker/Dockerfile.worker -t codetether-worker .
@@ -11,7 +12,8 @@
 #
 
 # ─── Builder stage ──────────────────────────────────────────────────
-FROM rust:1.88-slim AS builder
+# rust:1.88-bookworm is based on Debian 12 (bookworm, glibc 2.36)
+FROM rust:1.88-bookworm AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -28,6 +30,9 @@ WORKDIR /build
 # Copy policies (needed at compile time via include_str! — path relative to src/server/)
 COPY policies ./policies
 
+# Copy tetherscript examples (needed at compile time via include_str! — path relative to src/)
+COPY codetether-agent/examples ./examples
+
 # Copy the Cargo workspace
 COPY codetether-agent/Cargo.toml codetether-agent/Cargo.lock ./
 COPY codetether-agent/vendor ./vendor
@@ -35,17 +40,19 @@ COPY codetether-agent/src ./src
 COPY codetether-agent/build.rs ./build.rs
 COPY codetether-agent/proto ./proto
 
-# Build release binary
+# Build release binary (linked against bookworm's glibc 2.36)
 RUN cargo build --release && \
     strip target/release/codetether
 
 # ─── Runtime stage ──────────────────────────────────────────────────
+# Same Debian bookworm → same glibc 2.36 as the builder
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         git \
+        libssl3 \
         libasound2 \
         && rm -rf /var/lib/apt/lists/*
 
@@ -54,7 +61,7 @@ RUN useradd --system --shell /bin/false --create-home worker
 USER worker
 WORKDIR /home/worker
 
-# Copy binary from builder
+# Copy binary from builder (built against matching glibc)
 COPY --from=builder /build/target/release/codetether /usr/local/bin/codetether
 
 # Environment defaults
