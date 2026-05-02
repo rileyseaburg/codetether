@@ -692,9 +692,12 @@ harvester:
   agentName: harvester
   leaseSeconds: 3600
   maxTimeout: 604800  # 7 days
+  # Defaults to the codetether-worker image (Rust binary with /usr/local/bin/codetether).
+  # If empty, falls back to .Values.image.repository (the Python server image, which
+  # does NOT contain the codetether binary).
   image:
-    repository: ""  # defaults to .Values.image.repository
-    tag: ""          # defaults to .Values.image.tag
+    repository: "us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker"
+    tag: "latest"
     pullPolicy: ""   # defaults to .Values.image.pullPolicy
   storage:
     className: ""    # defaults to cluster default StorageClass
@@ -718,6 +721,9 @@ harvester:
     readOnlyRootFilesystem: false
     runAsNonRoot: true
     runAsUser: 1000
+  # Auto-approve policy for tool calls: all, safe (read-only), none.
+  # Harvester workers edit files, commit, push, and open PRs — use "all".
+  autoApprove: "all"
   extraArgs: []
   extraEnv: []
   extraVolumeMounts: []
