@@ -814,6 +814,100 @@ class CodebaseUpdateRequest(BaseModel):
     model_config = {'extra': 'ignore'}
 
 
+class TaskHeartbeatRequest(BaseModel):
+    """
+    Heartbeat + progress checkpoint from a CI runner or ephemeral worker.
+
+    The CI runner POSTs this periodically to:
+      1. Keep the task_run lease alive (prevents reaper from reclaiming it)
+      2. Record progress so the server can observe real-time status
+      3. Persist a checkpoint so work can resume if the runner dies
+
+    Fields:
+      task_id:         The task being worked on
+      worker_id:       Identity of the CI runner (matches lease_owner)
+      progress_pct:    0-100 completion percentage (optional)
+      status_message:  Human-readable status line (e.g. "Running tests")
+      checkpoint:      Arbitrary JSON blob the next worker can resume from
+      checkpoint_seq:  Monotonically increasing integer; server rejects stale
+      log_tail:        Last few lines of output (stored in last_error for
+                       diagnostics — not an error, just the latest log)
+      runner_metadata: Extra runner-specific info (OS, arch, run number, etc.)
+    """
+
+    task_id: str
+    worker_id: str
+    progress_pct: Optional[float] = None
+    status_message: Optional[str] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    checkpoint_seq: int = 1
+    log_tail: Optional[str] = None
+    runner_metadata: Optional[Dict[str, Any]] = None
+
+
+class TaskProgressResponse(BaseModel):
+    """Response for progress retrieval."""
+    task_id: str
+    run_id: Optional[str] = None
+    status: Optional[str] = None
+    progress_pct: Optional[float] = None
+    status_message: Optional[str] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    checkpoint_seq: int = 0
+    last_heartbeat_at: Optional[str] = None
+    worker_id: Optional[str] = None
+    runner_metadata: Optional[Dict[str, Any]] = None
+
+
+class ExtendedHeartbeatRequest(BaseModel):
+    """
+    Extended heartbeat for 7-day persistent worker tasks.
+
+    Supports:
+    - Configurable lease extension (default 1 hour, up to 7 day budgets)
+    - Checkpoint persistence for task resumption
+    - Progress tracking with percentage and status message
+    - Timeout budget awareness (server tells worker if within budget)
+    """
+    task_id: str
+    worker_id: str
+    progress_pct: Optional[float] = None
+    status_message: Optional[str] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    checkpoint_seq: Optional[int] = None
+    log_tail: Optional[str] = None
+    lease_extension_seconds: Optional[int] = None
+
+
+class ExtendedHeartbeatResponse(BaseModel):
+    """Response from extended heartbeat."""
+    success: bool
+    lease_expires_at: Optional[str] = None
+    within_timeout: bool = True
+    elapsed_seconds: int = 0
+    resume_attempt: int = 0
+    message: str = 'Heartbeat accepted'
+
+
+class TaskResumeRequest(BaseModel):
+    """Request to resume a task from checkpoint."""
+    task_id: str
+    worker_id: str
+
+
+class TaskResumeResponse(BaseModel):
+    """Response with checkpoint data for resumption."""
+    success: bool
+    run_id: Optional[str] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    checkpoint_seq: int = 0
+    resume_attempt: int = 0
+    task_timeout_seconds: int = 604800
+    github_issue_url: Optional[str] = None
+    elapsed_seconds: int = 0
+    message: str = 'Task resumed from checkpoint'
+
+
 @worker_sse_router.get('/tasks/stream')
 async def worker_task_stream(
     request: Request,
@@ -1447,3 +1541,509 @@ def setup_task_creation_hook(agent_bridge) -> None:
 
     registry.add_task_listener(on_task_created)
     logger.info('Task creation hook installed for SSE worker notifications')
+
+
+# ============================================================================
+# CI Runner Heartbeat & Progress Streaming
+# ============================================================================
+#
+# These endpoints allow ephemeral CI runners (GitHub Actions, etc.) to
+# "phone home" with progress checkpoints.  The server persists these to
+# task_runs.task_progress so that:
+#
+#   1. The dashboard can show real-time progress without polling the CI runner
+#   2. The task_reaper can detect silent runners (no heartbeat = dead)
+#   3. If the runner dies, the next worker can read the checkpoint and resume
+# ============================================================================
+
+
+@worker_sse_router.post('/tasks/heartbeat')
+async def post_task_heartbeat(
+    request: Request,
+    heartbeat: TaskHeartbeatRequest,
+):
+    """
+    CI Runner Heartbeat — phone home with progress and keep lease alive.
+
+    Each call:
+      1. Renews the task_run lease (prevents reaper from reclaiming it)
+      2. Persists a progress checkpoint to task_runs.task_progress
+      3. Records the heartbeat timestamp for silence detection
+
+    The `checkpoint_seq` must be monotonically increasing.
+    Returns 200 on success, 409 if stale, 404 if task not found.
+    """
+    _verify_auth(request)
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    progress_data: Dict[str, Any] = {}
+    if heartbeat.progress_pct is not None:
+        progress_data['progress_pct'] = heartbeat.progress_pct
+    if heartbeat.status_message is not None:
+        progress_data['status_message'] = heartbeat.status_message
+    if heartbeat.checkpoint is not None:
+        progress_data['checkpoint'] = heartbeat.checkpoint
+    if heartbeat.runner_metadata is not None:
+        progress_data['runner_metadata'] = heartbeat.runner_metadata
+    progress_data['worker_id'] = heartbeat.worker_id
+    progress_data['heartbeat_at'] = datetime.now(timezone.utc).isoformat()
+    progress_json = json.dumps(progress_data)
+
+    updated = False
+    try:
+        async with pool.acquire() as conn:
+            updated = await conn.fetchval(
+                'SELECT upsert_task_progress($1, $2, $3::jsonb, $4, $5, $6)',
+                heartbeat.task_id,
+                heartbeat.worker_id,
+                progress_json,
+                heartbeat.checkpoint_seq,
+                None,
+                heartbeat.log_tail,
+            )
+    except Exception:
+        # Migration 027 not applied yet — fall back to direct UPDATE
+        try:
+            async with pool.acquire() as conn:
+                result = await conn.execute(
+                    """
+                    UPDATE task_runs SET
+                        task_progress = $3::jsonb,
+                        checkpoint_seq = $4,
+                        last_heartbeat_at = NOW(),
+                        updated_at = NOW(),
+                        last_error = COALESCE($5, last_error)
+                    WHERE task_id = $1
+                      AND lease_owner = $2
+                      AND status NOT IN ('completed', 'failed', 'cancelled')
+                    """,
+                    heartbeat.task_id,
+                    heartbeat.worker_id,
+                    progress_json,
+                    heartbeat.checkpoint_seq,
+                    heartbeat.log_tail,
+                )
+                updated = 'UPDATE 1' in result
+        except Exception as e:
+            logger.warning(f'Heartbeat update failed for task {heartbeat.task_id}: {e}')
+
+    if not updated:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f'Heartbeat rejected for task {heartbeat.task_id}. '
+                'Causes: stale checkpoint_seq, wrong worker_id, or task completed.'
+            ),
+        )
+
+    # Renew the lease so the task_reaper doesn't reclaim it
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE task_runs SET
+                    lease_expires_at = NOW() + INTERVAL '10 minutes'
+                WHERE task_id = $1 AND lease_owner = $2
+                  AND status NOT IN ('completed', 'failed', 'cancelled')
+                """,
+                heartbeat.task_id,
+                heartbeat.worker_id,
+            )
+    except Exception as e:
+        logger.debug(f'Lease renewal failed in heartbeat: {e}')
+
+    logger.info(
+        f'Heartbeat from {heartbeat.worker_id} for task {heartbeat.task_id} '
+        f'(seq={heartbeat.checkpoint_seq}, pct={heartbeat.progress_pct})'
+    )
+
+    return {
+        'success': True,
+        'task_id': heartbeat.task_id,
+        'checkpoint_seq': heartbeat.checkpoint_seq,
+        'message': 'Heartbeat accepted',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@worker_sse_router.get('/tasks/{task_id}/progress')
+async def get_task_progress(
+    request: Request,
+    task_id: str,
+):
+    """
+    Get the latest progress checkpoint for a task.
+
+    Returns progress blob including completion percentage, status message,
+    checkpoint data, last heartbeat timestamp, and worker identity.
+    """
+    _verify_auth(request)
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT id, status, task_progress, checkpoint_seq,
+                       last_heartbeat_at, lease_owner
+                FROM task_runs
+                WHERE task_id = $1
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                task_id,
+            )
+    except Exception as e:
+        logger.debug(f'Progress query failed: {e}')
+        row = None
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f'No task run found for task {task_id}')
+
+    progress = row['task_progress']
+    if isinstance(progress, str):
+        try:
+            progress = json.loads(progress)
+        except (json.JSONDecodeError, TypeError):
+            progress = {}
+    if not progress:
+        progress = {}
+
+    return TaskProgressResponse(
+        task_id=task_id,
+        run_id=row['id'],
+        status=row['status'],
+        progress_pct=progress.get('progress_pct'),
+        status_message=progress.get('status_message'),
+        checkpoint=progress.get('checkpoint'),
+        checkpoint_seq=row['checkpoint_seq'] or 0,
+        last_heartbeat_at=row['last_heartbeat_at'].isoformat() if row['last_heartbeat_at'] else None,
+        worker_id=row['lease_owner'] or progress.get('worker_id'),
+        runner_metadata=progress.get('runner_metadata'),
+    )
+
+
+@worker_sse_router.get('/tasks/silent')
+async def list_silent_runs(
+    request: Request,
+    silence_seconds: int = Query(300, description='Seconds since last heartbeat to consider silent'),
+):
+    """
+    List task runs whose CI runner has gone silent.
+
+    Used by operators or automated systems to detect dead runners.
+    Returns runs that are "running" but haven't heartbeated within the threshold.
+    """
+    _verify_auth(request)
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                'SELECT * FROM find_silent_task_runs($1)',
+                silence_seconds,
+            )
+    except Exception as e:
+        logger.debug(f'Silent runs query failed: {e}')
+        raise HTTPException(status_code=500, detail='Failed to query silent runs')
+
+    return {
+        'silent_runs': [
+            {
+                'run_id': r['run_id'],
+                'task_id': r['task_id'],
+                'last_heartbeat_at': r['last_heartbeat_at'].isoformat() if r['last_heartbeat_at'] else None,
+                'progress': r['task_progress'],
+                'worker_id': r['lease_owner'],
+            }
+            for r in rows
+        ],
+        'count': len(rows),
+        'silence_threshold_seconds': silence_seconds,
+    }
+
+
+# ============================================================================
+# 7-Day Persistent Worker Endpoints
+# ============================================================================
+
+
+@worker_sse_router.post('/tasks/heartbeat/extended')
+async def post_extended_heartbeat(
+    request: Request,
+    heartbeat: ExtendedHeartbeatRequest,
+):
+    """
+    Extended heartbeat for 7-day persistent worker tasks.
+
+    Unlike the standard heartbeat (10-min lease), this endpoint:
+    - Renews lease for configurable duration (default 1 hour)
+    - Reports timeout budget status (within_timeout)
+    - Supports checkpoint persistence for task resumption
+    - Returns elapsed time and resume attempt count
+
+    Workers should call this every 60 seconds for long-running tasks.
+    """
+    _verify_auth(request)
+
+    from .persistent_worker_pool import post_extended_heartbeat as _do_heartbeat
+
+    try:
+        result = await _do_heartbeat(
+            task_id=heartbeat.task_id,
+            worker_id=heartbeat.worker_id,
+            progress_pct=heartbeat.progress_pct,
+            status_message=heartbeat.status_message,
+            checkpoint=heartbeat.checkpoint,
+            checkpoint_seq=heartbeat.checkpoint_seq,
+            log_tail=heartbeat.log_tail,
+            lease_extension_seconds=heartbeat.lease_extension_seconds,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not result['success']:
+        raise HTTPException(
+            status_code=409,
+            detail=result.get('message', 'Heartbeat rejected'),
+        )
+
+    logger.info(
+        f'Extended heartbeat from {heartbeat.worker_id} for task {heartbeat.task_id} '
+        f'(pct={heartbeat.progress_pct}, within_timeout={result["within_timeout"]}, '
+        f'elapsed={result["elapsed_seconds"]}s)'
+    )
+
+    return ExtendedHeartbeatResponse(**result)
+
+
+@worker_sse_router.post('/tasks/claim/extended')
+async def claim_extended_task_endpoint(
+    request: Request,
+    worker_id: Optional[str] = Query(None),
+    x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
+    x_agent_name: Optional[str] = Header(None, alias='X-Agent-Name'),
+):
+    """
+    Claim the next available task including 7-day fire-and-forget tasks.
+
+    Uses claim_next_task_run_extended() which supports:
+    - Both polling and fire_and_forget dispatch modes
+    - Checkpoint resume data for resumed tasks
+    - Extended lease durations for long-running tasks
+
+    Returns checkpoint and resume info if task was previously interrupted.
+    """
+    _verify_auth(request)
+
+    resolved_worker_id = worker_id or x_worker_id
+    if not resolved_worker_id:
+        raise HTTPException(
+            status_code=400,
+            detail='worker_id is required (query param or X-Worker-ID header)',
+        )
+
+    from .persistent_worker_pool import claim_extended_task as _do_claim
+
+    result = await _do_claim(
+        worker_id=resolved_worker_id,
+        agent_name=x_agent_name,
+    )
+
+    if not result:
+        return {'success': False, 'message': 'No tasks available'}
+
+    # Update in-memory SSE registry
+    try:
+        registry = get_worker_registry()
+        await registry.claim_task(result['task_id'], resolved_worker_id)
+    except Exception:
+        pass  # Non-critical; DB claim is authoritative
+
+    return {
+        'success': True,
+        'run_id': result['run_id'],
+        'task_id': result['task_id'],
+        'priority': result.get('priority'),
+        'dispatch_mode': result.get('dispatch_mode', 'polling'),
+        'task_timeout_seconds': result.get('task_timeout_seconds', 600),
+        'checkpoint': result.get('checkpoint'),
+        'checkpoint_seq': result.get('checkpoint_seq', 0),
+        'resume_attempt': result.get('resume_attempt', 0),
+        'github_issue_url': result.get('github_issue_url'),
+        'model_ref': result.get('model_ref'),
+    }
+
+
+@worker_sse_router.post('/tasks/resume')
+async def resume_task_from_checkpoint(
+    request: Request,
+    resume: TaskResumeRequest,
+):
+    """
+    Resume a task from its last checkpoint.
+
+    Used when a worker discovers a task it's claimed has a checkpoint
+    from a previous worker (resume_attempt > 0). Returns checkpoint data
+    so the worker can continue from where the previous worker left off.
+    """
+    _verify_auth(request)
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database not available')
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT * FROM resume_task_from_checkpoint($1, $2, $3)',
+                resume.task_id,
+                resume.worker_id,
+                3600,
+            )
+
+        if not row:
+            return TaskResumeResponse(
+                success=False,
+                message='No resumable task found',
+            )
+
+        checkpoint = row['checkpoint']
+        if isinstance(checkpoint, str):
+            import json as _json
+            checkpoint = _json.loads(checkpoint)
+
+        return TaskResumeResponse(
+            success=True,
+            run_id=row['run_id'],
+            checkpoint=checkpoint,
+            checkpoint_seq=row['checkpoint_seq'] or 0,
+            resume_attempt=row['resume_attempt'] or 0,
+            task_timeout_seconds=row['task_timeout_seconds'] or 604800,
+            github_issue_url=row['github_issue_url'],
+            elapsed_seconds=row['elapsed_seconds'] or 0,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f'Failed to resume task: {e}',
+        )
+
+
+# ============================================================================
+# Extended Claim & Heartbeat for Persistent Worker (Harvester)
+# ============================================================================
+#
+# These endpoints support the persistent worker StatefulSet (harvester):
+#   - claim-extended: Claims the next available task (including fire-and-forget)
+#   - heartbeat-extended: Heartbeat with checkpoint and lease renewal for 7-day tasks
+# ============================================================================
+
+
+class ExtendedClaimRequest(BaseModel):
+    """Request model for extended task claim."""
+    worker_id: str
+    agent_name: Optional[str] = None
+    capabilities: Optional[List[str]] = None
+    models_supported: Optional[List[str]] = None
+
+
+class ExtendedClaimResponse(BaseModel):
+    """Response model for extended task claim."""
+    run_id: Optional[str] = None
+    task_id: Optional[str] = None
+    priority: Optional[int] = None
+    target_agent_name: Optional[str] = None
+    model_ref: Optional[str] = None
+    dispatch_mode: Optional[str] = None
+    task_timeout_seconds: Optional[int] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    checkpoint_seq: Optional[int] = None
+    resume_attempt: Optional[int] = None
+    github_issue_url: Optional[str] = None
+
+
+class ExtendedHeartbeatRequest(BaseModel):
+    """Request model for extended heartbeat."""
+    task_id: str
+    worker_id: str
+    progress_pct: Optional[float] = None
+    status_message: Optional[str] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    checkpoint_seq: Optional[int] = None
+    log_tail: Optional[str] = None
+    lease_extension_seconds: Optional[int] = None
+
+
+@worker_sse_router.post('/tasks/claim-extended')
+async def claim_extended_task_endpoint(
+    request: Request,
+    claim: ExtendedClaimRequest,
+):
+    """Claim the next available task for a persistent worker.
+
+    Supports fire-and-forget tasks with checkpoint resume.
+    Returns the task details or null if no tasks available.
+    """
+    _verify_auth(request)
+
+    from .persistent_worker_pool import claim_extended_task
+
+    result = await claim_extended_task(
+        worker_id=claim.worker_id,
+        agent_name=claim.agent_name,
+        capabilities=claim.capabilities,
+        models_supported=claim.models_supported,
+    )
+    if not result:
+        return ExtendedClaimResponse()
+    return ExtendedClaimResponse(**result)
+
+
+@worker_sse_router.post('/tasks/heartbeat-extended')
+async def heartbeat_extended_endpoint(
+    request: Request,
+    heartbeat: ExtendedHeartbeatRequest,
+):
+    """Extended heartbeat for 7-day tasks.
+
+    Renews the lease, stores checkpoint, and reports progress.
+    Used by persistent workers (harvester) running fire-and-forget tasks.
+    """
+    _verify_auth(request)
+
+    from .persistent_worker_pool import post_extended_heartbeat
+
+    try:
+        result = await post_extended_heartbeat(
+            task_id=heartbeat.task_id,
+            worker_id=heartbeat.worker_id,
+            progress_pct=heartbeat.progress_pct,
+            status_message=heartbeat.status_message,
+            checkpoint=heartbeat.checkpoint,
+            checkpoint_seq=heartbeat.checkpoint_seq,
+            log_tail=heartbeat.log_tail,
+            lease_extension_seconds=heartbeat.lease_extension_seconds,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f'Extended heartbeat failed: {e}',
+        )

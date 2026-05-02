@@ -117,6 +117,13 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "cloudflare-issuer"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # CORS — allow the marketing dashboard and docs site to call the API
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run, http://localhost:3000, http://localhost:8000"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
   hosts:
     - host: api.codetether.run
       paths:
@@ -447,8 +454,10 @@ knative:
     serviceAccountName: "codetether-worker"
     # Scale to 0 after 5 minutes of no activity
     idleTimeoutSeconds: 300
-    # Maximum time for a single task (Knative max is 600 seconds)
-    maxTimeoutSeconds: 600
+    # Maximum time for a single task (requires Knative config-map patch:
+    #   kubectl patch configmap config-defaults -n knative-serving
+    #   --type merge -p '{"data":{"max-revision-timeout-seconds":"1200"}}')
+    maxTimeoutSeconds: 1200
     # One task at a time (hardware-bound)
     containerConcurrency: 1
     resources:
@@ -669,3 +678,47 @@ opa:
     requests:
       cpu: 50m
       memory: 64Mi
+
+# ── Harvester: Persistent Worker StatefulSet ─────────────────────
+# The harvester is a StatefulSet of codetether-agent workers that
+# run 24/7 on our compute. They claim tasks from the webhook pipeline
+# via fire-and-forget dispatch and can run tasks up to 7 days.
+#
+# Entry point: POST /v1/webhooks/github → handle_fix_request() →
+#   create_and_dispatch_task() → SSE notification → harvester claims
+harvester:
+  enabled: false
+  replicaCount: 1
+  agentName: harvester
+  leaseSeconds: 3600
+  maxTimeout: 604800  # 7 days
+  image:
+    repository: ""  # defaults to .Values.image.repository
+    tag: ""          # defaults to .Values.image.tag
+    pullPolicy: ""   # defaults to .Values.image.pullPolicy
+  storage:
+    className: ""    # defaults to cluster default StorageClass
+    size: 50Gi
+  resources:
+    limits:
+      cpu: "4"
+      memory: 16Gi
+    requests:
+      cpu: "1"
+      memory: 4Gi
+  podSecurityContext:
+    fsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraArgs: []
+  extraEnv: []
+  extraVolumeMounts: []
+  extraVolumes: []
