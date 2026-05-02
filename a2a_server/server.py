@@ -327,6 +327,25 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Start GitHub progress reporter for fire-and-forget task comments
+        @self.app.on_event('startup')
+        async def start_github_progress():
+            try:
+                from .github_progress_service import start_github_progress_reporter
+
+                await start_github_progress_reporter()
+            except Exception as e:
+                logger.warning(f'Failed to start GitHub progress reporter: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_github_progress():
+            try:
+                from .github_progress_service import stop_github_progress_reporter
+
+                await stop_github_progress_reporter()
+            except Exception:
+                pass
+
         # Start Knative garbage collector for idle session workers
         @self.app.on_event('startup')
         async def start_knative_gc():

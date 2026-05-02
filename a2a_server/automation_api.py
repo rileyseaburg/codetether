@@ -533,6 +533,12 @@ class DispatchTaskRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         default=None, description='Additional metadata for the task'
     )
+    task_timeout_seconds: int = Field(
+        default=600,
+        ge=60,
+        le=604800,
+        description='Maximum task execution time in seconds (60-604800, default 600=10min, max 7 days)',
+    )
 
 
 class DispatchTaskResponse(BaseModel):
@@ -545,6 +551,7 @@ class DispatchTaskResponse(BaseModel):
     description: str
     result: Optional[str] = Field(default=None, description='Task result text when completed')
     created_at: str
+    task_timeout_seconds: int = Field(default=600, description='Task timeout in seconds')
     dispatched_via_knative: bool = Field(
         ..., description='Whether task was dispatched to Knative broker'
     )
@@ -651,6 +658,7 @@ async def dispatch_task(
         title=request.title,
         description=request.description,
         created_at=datetime.now(timezone.utc).isoformat(),
+        task_timeout_seconds=request.task_timeout_seconds,
         dispatched_via_knative=dispatched_via_knative,
     )
 
