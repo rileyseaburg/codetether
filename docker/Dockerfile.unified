@@ -47,42 +47,6 @@ COPY --from=docs-builder /site /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 
-# Marketing site stage
-FROM node:20-alpine as marketing-builder
-WORKDIR /app
-COPY marketing-site/package*.json ./
-RUN npm install --legacy-peer-deps
-COPY marketing-site/ .
-RUN mkdir -p public
-ARG AUTH_SECRET
-ARG KEYCLOAK_CLIENT_ID=a2a-monitor
-ARG KEYCLOAK_CLIENT_SECRET
-ARG KEYCLOAK_ISSUER=https://auth.quantum-forge.io/realms/quantum-forge
-ARG NEXTAUTH_URL=https://a2a.quantum-forge.net
-ENV AUTH_SECRET=$AUTH_SECRET
-ENV KEYCLOAK_CLIENT_ID=$KEYCLOAK_CLIENT_ID
-ENV KEYCLOAK_CLIENT_SECRET=$KEYCLOAK_CLIENT_SECRET
-ENV KEYCLOAK_ISSUER=$KEYCLOAK_ISSUER
-ENV NEXTAUTH_URL=$NEXTAUTH_URL
-RUN npm run build
-
-FROM node:20-alpine as marketing
-WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV NEXTAUTH_URL=https://a2a.quantum-forge.net
-ENV KEYCLOAK_ISSUER=https://auth.quantum-forge.io/realms/quantum-forge
-ENV KEYCLOAK_CLIENT_ID=a2a-monitor
-ENV AUTH_SECRET=Gzez2UkA76TcFpnUEXUmT16+/G3UX2RmoGxyByfAJO4=
-ENV KEYCLOAK_CLIENT_SECRET=Boog6oMQhr6dlF5tebfQ2FuLMhAOU4i1
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-COPY --from=marketing-builder /app/public ./public
-COPY --from=marketing-builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=marketing-builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-USER nextjs
-EXPOSE 3000
-CMD ["node", "server.js"]
 
 # Worker image (codetether-agent) is built separately via docker/Dockerfile.worker
 # See: docker build -f docker/Dockerfile.worker -t codetether-worker .

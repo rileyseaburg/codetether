@@ -179,6 +179,14 @@ class TaskRun:
     # Tenant isolation
     tenant_id: Optional[str] = None
 
+    # 7-day lifecycle: checkpoint/resume support
+    task_timeout_seconds: int = 600  # Max task duration (60-604800)
+    checkpoint: Optional[Dict[str, Any]] = None  # Structured resume data
+    checkpoint_at: Optional[datetime] = None
+    resume_attempt: int = 0  # How many times resumed from checkpoint
+    github_issue_url: Optional[str] = None  # For posting progress comments
+    github_last_comment_at: Optional[datetime] = None
+
     created_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -768,6 +776,13 @@ class TaskQueue:
             routing_failure_reason=row.get('routing_failure_reason'),
             # Model routing
             model_ref=row.get('model_ref'),
+            # 7-day lifecycle fields
+            task_timeout_seconds=row.get('task_timeout_seconds', 600) or 600,
+            checkpoint=row.get('checkpoint'),
+            checkpoint_at=row.get('checkpoint_at'),
+            resume_attempt=row.get('resume_attempt', 0) or 0,
+            github_issue_url=row.get('github_issue_url'),
+            github_last_comment_at=row.get('github_last_comment_at'),
             created_at=row['created_at'],
             updated_at=row['updated_at'],
         )

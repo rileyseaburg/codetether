@@ -736,10 +736,8 @@ class HostedWorker:
 
             if completed:
                 # Keep the canonical tasks row in sync with task_runs. The
-                # GitHub Action polls /v1/tasks/dispatch/{task_id}, which reads
-                # tasks.status/result (not task_runs). Without this, server-mode
-                # action jobs can finish in task_runs but poll forever as
-                # pending/running and eventually report a timeout/failure.
+                # webhook pipeline reads tasks.status/result for task status. Without
+                # this, tasks can finish in task_runs but appear as pending/running.
                 task_id = self._current_task_id
                 result_text = result_summary
                 if result_full and not result_text:

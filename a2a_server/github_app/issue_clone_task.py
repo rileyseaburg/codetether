@@ -5,14 +5,44 @@ from .issue_prompt import issue_fix_prompt
 from .routing import resolve_task_target
 from .settings import MODEL_REF
 
+DEFAULT_TASK_TIMEOUT = 604800  # 7 days
+
 
 async def create_issue_clone_task(
-    context: MentionContext, issue: dict, repo: dict, wid: str, branch: str
+    context: MentionContext,
+    issue: dict,
+    repo: dict,
+    wid: str,
+    branch: str,
+    *,
+    github_issue_url: str = '',
+    github_installation_id: int = 0,
 ) -> str:
-    """Queue the branch preparation task for an issue fix request."""
-    from ..monitor_api import AgentTaskCreate, create_agent_task
+    """Queue the branch preparation task for an issue fix request.
+
+    Dispatches as fire-and-forget with a 7-day timeout so the persistent
+    worker (harvester) can claim it and run it on our compute.
+
+    The github_issue_url is propagated into the clone and follow-up build
+    task metadata so the progress reporter can post periodic comments.
+    """
+    from ..persistent_worker_pool import create_and_dispatch_task
 
     base_branch = repo['default_branch']
+
+    followup_metadata = {
+        'workspace_id': wid,
+        'source': 'github-app',
+        'repo': context.repo_full_name,
+        'issue_number': context.issue_number,
+        'branch_name': branch,
+        'default_branch': base_branch,
+        'github_issue_url': github_issue_url,
+        'github_installation_id': github_installation_id,
+    }
+
+    routing = await resolve_task_target()
+
     metadata = {
         'workspace_id': wid,
         'git_url': repo['clone_url'],
@@ -20,22 +50,23 @@ async def create_issue_clone_task(
         'source': 'github-app',
         'repo': context.repo_full_name,
         'issue_number': context.issue_number,
-        **(await resolve_task_target()),
+        'github_issue_url': github_issue_url,
+        'github_installation_id': github_installation_id,
+        **routing,
         'post_clone_task': {
             'title': f'Work issue #{context.issue_number}',
             'prompt': issue_fix_prompt(context, issue, repo, branch),
             'agent_type': 'build',
-            'metadata': {'workspace_id': wid, 'source': 'github-app', 'repo': context.repo_full_name, 'issue_number': context.issue_number, 'branch_name': branch, 'default_branch': repo['default_branch']},
+            'metadata': followup_metadata,
         },
     }
-    task = await create_agent_task(
-        wid,
-        AgentTaskCreate(
-            title=f'Prepare issue workspace #{context.issue_number}',
-            prompt=f'Clone or refresh {context.repo_full_name} on branch {base_branch} for issue automation.',
-            agent_type='clone_repo',
-            metadata=metadata,
-            model_ref=MODEL_REF,
-        ),
+    return await create_and_dispatch_task(
+        workspace_id=wid,
+        title=f'Prepare issue workspace #{context.issue_number}',
+        prompt=f'Clone or refresh {context.repo_full_name} on branch {base_branch} for issue automation.',
+        agent_type='clone_repo',
+        model_ref=MODEL_REF,
+        metadata=metadata,
+        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        github_issue_url=github_issue_url,
     )
-    return getattr(task, 'id', None) or task.get('id')
