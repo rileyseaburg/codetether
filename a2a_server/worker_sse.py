@@ -1186,6 +1186,9 @@ async def claim_task(
     success = await registry.claim_task(claim.task_id, resolved_worker_id)
 
     if success:
+        logger.info(
+            f'Task {claim.task_id} claimed by worker {resolved_worker_id}'
+        )
         # Update task status to 'running' in DB so the UI reflects reality
         try:
             from .agent_bridge import get_bridge as get_agent_bridge
