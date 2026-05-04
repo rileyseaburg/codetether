@@ -4,17 +4,17 @@ This document is an end-to-end smoke test for the CodeTether GitHub App issue wo
 
 | Field       | Value                          |
 |-------------|--------------------------------|
-| Issue       | #39                            |
-| Date (UTC)  | 2026-04-24                     |
-| Status      | Verified via automated PR      |
+| Issue       | #58                            |
+| Date (UTC)  | 2026-05-04                     |
+| Status      | Harvester pickup smoke verified |
 
 ## Purpose
 
 Confirm that CodeTether can:
 
-1. Receive an issue trigger (`@codetether fix this please`).
-2. Create a feature branch (`codetether/issue-39`).
-3. Commit a documentation change.
-4. Open a pull request that references and closes the originating issue.
+1. Acknowledge an issue mention (`@codetether retry this smoke test...`).
+2. Queue the corresponding A2A task for a persistent harvester worker.
+3. Have a harvester worker receive and claim the task.
+4. Report the pickup status with a documentation-only PR.
 
-This is intentionally minimal — docs-only, no code changes.
+This is intentionally minimal — docs-only, no production behavior changes.
