@@ -1808,7 +1808,7 @@ async def agent_startup():
             pass
 
         if bridge:
-            await bridge._load_workspaces_from_db()
+            await bridge._load_codebases_from_db()
     except Exception as e:
         logger.warning(f'Failed to load workspaces on startup: {e}')
 
