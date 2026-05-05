@@ -4355,6 +4355,7 @@ async def list_all_tasks(
     codebase_id: Optional[str] = None,
     status: Optional[str] = None,
     worker_id: Optional[str] = None,
+    agent_name: Optional[str] = None,
 ):
     """List all agent tasks, optionally filtered by workspace, status, or worker."""
     # Use database as primary source of truth for tasks
@@ -4363,6 +4364,7 @@ async def list_all_tasks(
         codebase_id=codebase_id,
         status=status,
         worker_id=worker_id,
+        agent_name=agent_name,
     )
     return tasks
 
