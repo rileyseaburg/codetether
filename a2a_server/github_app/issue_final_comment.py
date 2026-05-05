@@ -90,9 +90,44 @@ async def notify_issue_final_comment(task: dict) -> None:
         body = str(task.get('result') or '').strip()
 
         if pr:
+            metadata = task.get('metadata') or {}
+            review_task_id = None
+            review_status = ''
+            try:
+                from .issue_review_task import create_issue_review_task, provenance_footer, issue_pr_provenance
+
+                review_task_id = await create_issue_review_task(
+                    workspace_id=str(metadata.get('workspace_id') or ''),
+                    repo=repo,
+                    issue_number=issue_number,
+                    branch=branch,
+                    pr=pr,
+                    github_issue_url=metadata.get('github_issue_url'),
+                    github_installation_id=metadata.get('github_installation_id'),
+                    parent_task_id=str(task_id),
+                )
+                if review_task_id:
+                    review_status = f"\n\nQueued CodeTether reviewer task `{review_task_id}`. If review passes, a merge-steward task will enforce policy gates before merging."
+                else:
+                    review_status = "\n\nCodeTether review automation was not queued because the local provenance/policy gate denied it."
+                provenance = issue_pr_provenance(
+                    repo=repo,
+                    issue_number=issue_number,
+                    branch=branch,
+                    pr=pr,
+                    installation_id=metadata.get('github_installation_id'),
+                    action='github:review_pr',
+                    parent_task_id=str(task_id),
+                )
+                review_status += provenance_footer(provenance, action='github:review_pr')
+            except Exception as exc:
+                logger.exception('Failed to enqueue issue PR review for task %s: %s', task_id, exc)
+                review_status = f"\n\n⚠️ CodeTether could not queue the reviewer task: `{exc}`"
+
             message = f"## 🛠️ CodeTether Fix\n\nOpened PR #{pr['number']}: {pr['html_url']}"
             if body:
                 message += f"\n\n{body}"
+            message += review_status
             await post_issue_comment(repo, issue_number, token, message)
             return
 
