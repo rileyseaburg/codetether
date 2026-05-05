@@ -1456,6 +1456,7 @@ async def db_list_tasks(
     worker_id: Optional[str] = None,
     limit: int = 100,
     tenant_id: Optional[str] = None,
+    agent_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """List tasks with optional filters including tenant isolation."""
     pool = await get_pool()
@@ -1498,6 +1499,20 @@ async def db_list_tasks(
                             "  AND tr.status IN ('queued', 'running')"
                             ' ))'
                         )
+
+                        # Exclude tasks targeted at a different agent.
+                        # Workers should only see tasks they are eligible to
+                        # claim — unscoped tasks (no target_agent_name) are
+                        # always visible.
+                        if agent_name:
+                            query += (
+                                " AND (metadata->>'target_agent_name' IS NULL"
+                                " OR metadata->>'target_agent_name' = ''"
+                                f" OR metadata->>'target_agent_name' = ${param_idx}"
+                                ')'
+                            )
+                            params.append(agent_name)
+                            param_idx += 1
 
                 if worker_id:
                     query += f' AND worker_id = ${param_idx}'
