@@ -1483,6 +1483,22 @@ async def db_list_tasks(
                     params.append(status)
                     param_idx += 1
 
+                    # Fire-and-forget tasks with active task_runs are managed
+                    # by the extended claim path (claim_next_task_run_extended),
+                    # NOT the SSE registry's basic claim.  Exclude them from the
+                    # pending list so workers using /v1/worker/tasks/claim don't
+                    # waste cycles trying (and failing with 409) on tasks they
+                    # can never claim through that endpoint.
+                    if status == 'pending':
+                        query += (
+                            ' AND (dispatch_mode IS NULL OR dispatch_mode != \'fire_and_forget\''
+                            ' OR NOT EXISTS ('
+                            '  SELECT 1 FROM task_runs tr'
+                            '  WHERE tr.task_id = tasks.id'
+                            "  AND tr.status IN ('queued', 'running')"
+                            ' ))'
+                        )
+
                 if worker_id:
                     query += f' AND worker_id = ${param_idx}'
                     params.append(worker_id)
