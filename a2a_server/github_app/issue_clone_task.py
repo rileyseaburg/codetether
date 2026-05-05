@@ -33,12 +33,27 @@ async def create_issue_clone_task(
     followup_metadata = {
         'workspace_id': wid,
         'source': 'github-app',
+        'workflow_stage': 'code',
         'repo': context.repo_full_name,
         'issue_number': context.issue_number,
         'branch_name': branch,
         'default_branch': base_branch,
         'github_issue_url': github_issue_url,
         'github_installation_id': github_installation_id,
+        'worker_personality': 'builder',
+        'personality': {
+            'name': 'CodeTether',
+            'avatar': 'codetether-avatar',
+            'tone': 'concise, implementation-focused, provenance-aware',
+        },
+        'codetether_provenance': {
+            'workflow': 'github-issue-code-pr-review-merge',
+            'stage': 'code',
+            'repo': context.repo_full_name,
+            'issue_number': context.issue_number,
+            'branch': branch,
+            'installation_id': github_installation_id,
+        },
     }
 
     routing = await resolve_task_target()
