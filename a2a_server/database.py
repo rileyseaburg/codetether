@@ -1503,7 +1503,10 @@ async def db_list_tasks(
                         # Exclude tasks targeted at a different agent.
                         # Workers should only see tasks they are eligible to
                         # claim — unscoped tasks (no target_agent_name) are
-                        # always visible.
+                        # always visible.  When agent_name is provided, only
+                        # show unscoped + matching tasks.  When agent_name is
+                        # absent (legacy workers), hide ALL targeted tasks
+                        # since they would fail the SSE claim anyway.
                         if agent_name:
                             query += (
                                 " AND (metadata->>'target_agent_name' IS NULL"
@@ -1513,6 +1516,11 @@ async def db_list_tasks(
                             )
                             params.append(agent_name)
                             param_idx += 1
+                        else:
+                            query += (
+                                " AND (metadata->>'target_agent_name' IS NULL"
+                                " OR metadata->>'target_agent_name' = '')"
+                            )
 
                 if worker_id:
                     query += f' AND worker_id = ${param_idx}'
