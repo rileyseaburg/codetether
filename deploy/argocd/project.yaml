@@ -18,6 +18,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: a2a-system
     - server: https://kubernetes.default.svc
+      namespace: a2a-server
+    - server: https://kubernetes.default.svc
       namespace: external-secrets
   clusterResourceWhitelist:
     - group: ""

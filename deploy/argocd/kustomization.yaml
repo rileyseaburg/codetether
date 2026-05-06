@@ -3,4 +3,5 @@ kind: Kustomization
 resources:
   - project.yaml
   - external-secrets-operator.yaml
+  - secrets.yaml
   - application.yaml
