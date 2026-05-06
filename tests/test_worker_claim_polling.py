@@ -47,6 +47,65 @@ async def test_pending_task_polling_hides_claimed_tasks(monkeypatch, registry):
 
 
 @pytest.mark.asyncio
+async def test_pending_task_polling_hides_targeted_tasks_from_unidentified_workers(
+    monkeypatch,
+):
+    async def _fake_list_tasks(**kwargs):
+        assert kwargs['status'] == 'pending'
+        return [
+            {
+                'id': 'task_targeted_elsewhere',
+                'status': 'pending',
+                'metadata': {'target_worker_id': 'worker_2'},
+            },
+            {'id': 'task_available', 'status': 'pending', 'metadata': {}},
+        ]
+
+    monkeypatch.setattr(monitor_api.db, 'db_list_tasks', _fake_list_tasks)
+
+    tasks = await monitor_api.list_all_tasks(status='pending')
+
+    assert tasks == [
+        {'id': 'task_available', 'status': 'pending', 'metadata': {}}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_pending_task_polling_includes_tasks_targeted_to_requesting_worker(
+    monkeypatch,
+):
+    async def _fake_list_tasks(**kwargs):
+        assert kwargs['status'] == 'pending'
+        assert kwargs['worker_id'] == 'worker_2'
+        return [
+            {
+                'id': 'task_targeted_here',
+                'status': 'pending',
+                'metadata': {'target_worker_id': 'worker_2'},
+            },
+            {
+                'id': 'task_targeted_elsewhere',
+                'status': 'pending',
+                'metadata': {'target_worker_id': 'worker_3'},
+            },
+        ]
+
+    monkeypatch.setattr(monitor_api.db, 'db_list_tasks', _fake_list_tasks)
+
+    tasks = await monitor_api.list_all_tasks(
+        status='pending', worker_id='worker_2'
+    )
+
+    assert tasks == [
+        {
+            'id': 'task_targeted_here',
+            'status': 'pending',
+            'metadata': {'target_worker_id': 'worker_2'},
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
     monkeypatch, registry
 ):

@@ -11,7 +11,7 @@ app:
 
 image:
   repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-  tag: "latest"
+  tag: "main-9767b31"
   pullPolicy: Always
 
 imagePullSecrets:
@@ -31,7 +31,7 @@ blueGreen:
   rolloutId:
     legacy: ""
     blue: ""
-    green: "argocd-initial"
+    green: "claimfix-20260506-151815"
 
 service:
   type: ClusterIP
