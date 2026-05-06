@@ -93,8 +93,10 @@ spec:
             {{- if .Values.harvester.vault.enabled }}
             - name: VAULT_ADDR
               value: {{ .Values.harvester.vault.address | quote }}
+            {{- if .Values.harvester.vault.tlsSkipVerify }}
             - name: VAULT_SKIP_VERIFY
-              value: {{ ternary "1" "0" (.Values.harvester.vault.tlsSkipVerify | default false) | quote }}
+              value: "1"
+            {{- end }}
             - name: VAULT_ROLE
               value: {{ .Values.harvester.vault.role | default "codetether-harvester" | quote }}
             - name: VAULT_AUTH_MOUNT
