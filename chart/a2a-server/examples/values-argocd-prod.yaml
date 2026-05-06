@@ -1,0 +1,149 @@
+# Argo CD production values for CodeTether.
+#
+# This file intentionally avoids plaintext secrets. Create the referenced
+# Kubernetes secrets before syncing the Argo CD Application.
+
+app:
+  name: "CodeTether Server"
+  description: "Production CodeTether A2A coordination server"
+  logLevel: "INFO"
+  enhanced: true
+
+image:
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
+  tag: "latest"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: gcp-artifact-registry
+
+# Use the deterministic blue/green chart path for GitOps. The legacy
+# non-blue/green deployment path uses a random Helm annotation, which causes
+# perpetual Argo CD drift.
+blueGreen:
+  enabled: true
+  mode: bluegreen
+  serviceColor: green
+  legacyReplicaCount: 0
+  replicas:
+    blue: 0
+    green: 2
+  rolloutId:
+    legacy: ""
+    blue: ""
+    green: "argocd-initial"
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+  hosts:
+    - host: api.codetether.run
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8000
+  tls:
+    - secretName: a2a-server-tls
+      hosts:
+        - api.codetether.run
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+redis:
+  enabled: true
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
+
+postgresql:
+  enabled: false
+
+externalPostgresql:
+  existingSecret: "a2a-server-database"
+  secretKey: "DATABASE_URL"
+
+auth:
+  enabled: true
+  tokens: {}
+
+secret:
+  create: false
+
+envFromSecret:
+  A2A_AUTH_TOKENS: a2a-server-auth-tokens
+
+env:
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+  MCP_HTTP_ENABLED: "true"
+  MCP_HTTP_HOST: "0.0.0.0"
+  MCP_HTTP_PORT: "9000"
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production CodeTether A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+  WORKER_INFRA_CACHE_TTL_SECONDS: "30"
+  WORKER_INFRA_NODE_MAP: ""
+
+# Optional integrations. Enable these after their referenced secrets and CRDs
+# exist in the destination cluster.
+livekit:
+  enabled: false
+
+knative:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+networkPolicy:
+  enabled: false
+
+marketing:
+  enabled: false
+
+docs:
+  enabled: false
+
+opa:
+  enabled: false
+
+harvester:
+  enabled: false
+
+commonLabels:
+  app.kubernetes.io/part-of: codetether
+  app.kubernetes.io/managed-by: argocd

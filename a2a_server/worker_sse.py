@@ -488,6 +488,11 @@ class WorkerRegistry:
         async with self._lock:
             return self._workers.get(worker_id)
 
+    async def claimed_task_ids(self) -> Set[str]:
+        """Return task IDs currently held by the in-memory claim registry."""
+        async with self._lock:
+            return set(self._claimed_tasks)
+
     async def list_workers(self) -> List[Dict[str, Any]]:
         """List all connected workers."""
         async with self._lock:
@@ -1193,25 +1198,29 @@ async def claim_task(
         try:
             from .agent_bridge import get_bridge as get_agent_bridge
             from .agent_bridge import AgentTaskStatus
+            from .database import db_update_task_status
+
             bridge = get_agent_bridge()
             if bridge:
-                await bridge.update_task_status(
+                updated_task = await bridge.update_task_status(
                     task_id=claim.task_id,
                     status=AgentTaskStatus.RUNNING,
                     worker_id=resolved_worker_id,
                 )
-            else:
-                from . import database as db
-                pool = await db.get_pool()
-                if pool:
-                    async with pool.acquire() as conn:
-                        await conn.execute(
-                            "UPDATE tasks SET status = 'running', worker_id = $2, "
-                            'started_at = NOW(), updated_at = NOW() '
-                            'WHERE id = $1',
-                            claim.task_id,
-                            resolved_worker_id,
-                        )
+                if updated_task is None:
+                    logger.debug(
+                        f'Bridge missed task {claim.task_id}; using DB status update fallback'
+                    )
+
+            updated = await db_update_task_status(
+                task_id=claim.task_id,
+                status=AgentTaskStatus.RUNNING.value,
+                worker_id=resolved_worker_id,
+            )
+            if not updated:
+                logger.warning(
+                    f'Claimed task {claim.task_id} but could not persist running status'
+                )
         except Exception as e:
             logger.warning(f'Failed to update task {claim.task_id} to running: {e}')
 

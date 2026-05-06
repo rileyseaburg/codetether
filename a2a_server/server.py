@@ -69,6 +69,7 @@ from .user_auth import router as user_auth_router
 from .token_billing_api import router as token_billing_router
 from .finops_api import router as finops_router
 from .a2a_agent_card import a2a_agent_card_router
+from .opencode_deprecated import router as opencode_deprecated_router
 from .ralph_api import ralph_router
 from .okr_api import okr_router
 try:
@@ -587,6 +588,10 @@ class A2AServer:
 
         # Include worker SSE routes for push-based task distribution
         self.app.include_router(worker_sse_router)
+
+        # Explicit tombstone for deprecated OpenCode compatibility routes.
+        self.app.include_router(opencode_deprecated_router)
+        logger.info('Deprecated OpenCode API tombstone mounted at /v1/opencode')
 
         # Include email inbound webhook routes for reply-based task continuation
         self.app.include_router(email_router)
