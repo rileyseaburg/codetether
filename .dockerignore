@@ -104,6 +104,13 @@ agents/
 assets/
 docs/
 scripts/
+artifacts/
+integrations/
+untracked-backup-*/
+.codetether-agent/
+codetether-site/
+MARKETING_SITE.md
+.codetether-todos.json
 
 # Helm packages
 *.tgz

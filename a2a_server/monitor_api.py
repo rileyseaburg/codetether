@@ -4366,6 +4366,19 @@ async def list_all_tasks(
         worker_id=worker_id,
         agent_name=agent_name,
     )
+    if status == 'pending':
+        try:
+            from .worker_sse import get_worker_registry
+
+            claimed = await get_worker_registry().claimed_task_ids()
+            if claimed:
+                tasks = [
+                    task
+                    for task in tasks
+                    if (task.get('id') or task.get('task_id')) not in claimed
+                ]
+        except Exception as e:
+            logger.debug(f'Failed to filter claimed pending tasks: {e}')
     return tasks
 
 
