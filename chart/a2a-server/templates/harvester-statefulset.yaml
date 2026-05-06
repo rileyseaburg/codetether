@@ -64,6 +64,13 @@ spec:
               value: "true"
             - name: CODETETHER_SERVER
               value: http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
+            {{- if .Values.harvester.tokenSecret.name }}
+            - name: CODETETHER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harvester.tokenSecret.name | quote }}
+                  key: {{ .Values.harvester.tokenSecret.key | default "CODETETHER_TOKEN" | quote }}
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

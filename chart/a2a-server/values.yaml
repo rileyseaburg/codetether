@@ -726,6 +726,9 @@ harvester:
   # Auto-approve policy for tool calls: all, safe (read-only), none.
   # Harvester workers edit files, commit, push, and open PRs — use "all".
   autoApprove: "all"
+  tokenSecret:
+    name: ""
+    key: CODETETHER_TOKEN
   extraArgs: []
   extraEnv: []
   extraVolumeMounts: []
