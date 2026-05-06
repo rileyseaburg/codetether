@@ -76,6 +76,36 @@ spec:
                 secretKeyRef:
                   name: {{ include "a2a-server.fullname" . }}-db
                   key: url
+            {{- if .Values.harvester.homePath }}
+            - name: HOME
+              value: {{ .Values.harvester.homePath | quote }}
+            - name: XDG_CONFIG_HOME
+              value: {{ printf "%s/.config" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: XDG_DATA_HOME
+              value: {{ printf "%s/.local/share" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: XDG_CACHE_HOME
+              value: {{ printf "%s/.cache" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: CODETETHER_AGENT_HOME
+              value: {{ printf "%s/.codetether-agent" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: CODETETHER_HOME
+              value: {{ printf "%s/.codetether-agent" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            {{- end }}
+            {{- if .Values.harvester.vault.enabled }}
+            - name: VAULT_ADDR
+              value: {{ .Values.harvester.vault.address | quote }}
+            - name: VAULT_SKIP_VERIFY
+              value: {{ ternary "1" "0" (.Values.harvester.vault.tlsSkipVerify | default false) | quote }}
+            - name: VAULT_ROLE
+              value: {{ .Values.harvester.vault.role | default "codetether-harvester" | quote }}
+            - name: VAULT_AUTH_MOUNT
+              value: {{ .Values.harvester.vault.authMount | default "kubernetes" | quote }}
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
+            - name: VAULT_MOUNT
+              value: {{ .Values.harvester.vault.mount | default "secret" | quote }}
+            - name: VAULT_SECRETS_PATH
+              value: {{ .Values.harvester.vault.secretsPath | default "codetether/providers" | quote }}
+            {{- end }}
             {{- with .Values.harvester.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -103,13 +133,34 @@ spec:
           volumeMounts:
             - name: workspace
               mountPath: /var/lib/codetether/repos
+            {{- if .Values.harvester.homePath }}
+            - name: workspace
+              mountPath: /home/worker
+              subPath: .worker-home
+            {{- end }}
+            {{- if .Values.harvester.vault.enabled }}
+            - name: vault-sa-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+            {{- end }}
             {{- with .Values.harvester.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+      {{- if or .Values.harvester.vault.enabled .Values.harvester.extraVolumes }}
       volumes:
+        {{- if .Values.harvester.vault.enabled }}
+        - name: vault-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: {{ .Values.harvester.vault.audience | default "vault" | quote }}
+                  expirationSeconds: {{ .Values.harvester.vault.tokenExpirationSeconds | default 3600 }}
+                  path: token
+        {{- end }}
         {{- with .Values.harvester.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: workspace
