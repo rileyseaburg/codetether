@@ -726,6 +726,22 @@ harvester:
   # Auto-approve policy for tool calls: all, safe (read-only), none.
   # Harvester workers edit files, commit, push, and open PRs — use "all".
   autoApprove: "all"
+  # Keep codetether state and telemetry on the workspace PVC so the worker's
+  # install ID survives restarts and the non-root user has a writable home.
+  homePath: "/var/lib/codetether/repos/.codetether-home"
+  # Native Kubernetes auth configuration for the harvester worker.
+  # The worker binary uses the projected service account JWT below, so no
+  # static Vault token is mounted in the pod.
+  vault:
+    enabled: false
+    role: "codetether-harvester"
+    address: "http://vault.vault.svc.cluster.local:8200"
+    authMount: "kubernetes"
+    audience: "vault"
+    tokenExpirationSeconds: 3600
+    tlsSkipVerify: false
+    mount: "secret"
+    secretsPath: "codetether/providers"
   tokenSecret:
     name: ""
     key: CODETETHER_TOKEN
