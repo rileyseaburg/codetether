@@ -106,6 +106,8 @@ securityContext:
 # No separate MCP port needed - this simplifies deployment and networking
 service:
   type: ClusterIP
+  # Required only when type is ExternalName.
+  externalName: ""
   port: 8000
   targetPort: 8000
   annotations: {}
