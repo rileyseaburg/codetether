@@ -74,11 +74,11 @@ spec:
             {{- end }}
           ports:
             - name: health
-              containerPort: 9090
+              containerPort: 8080
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: health
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -86,7 +86,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /health
               port: health
             initialDelaySeconds: 10
             periodSeconds: 10
