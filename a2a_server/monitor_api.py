@@ -42,6 +42,7 @@ from .git_service import (
     issue_git_credentials,
     store_git_credential_record,
 )
+from .task_routing import target_agent_mismatch
 from .task_orchestration import orchestrate_task_route
 try:
     from .vm_workspace_provisioner import (
@@ -139,6 +140,42 @@ class AgentTaskResponse(BaseModel):
     session_id: Optional[str] = None
     metadata: Dict[str, Any] = {}
     target_agent_name: Optional[str] = None
+
+
+def _task_metadata(task: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = task.get('metadata') or {}
+    if isinstance(metadata, str):
+        try:
+            parsed = json.loads(metadata)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _pending_task_visible_to_worker(
+    task: Dict[str, Any],
+    worker_id: Optional[str],
+    agent_name: Optional[str],
+) -> bool:
+    """Hide targeted pending tasks from legacy pollers that cannot claim them."""
+    metadata = _task_metadata(task)
+
+    target_worker_id = str(metadata.get('target_worker_id') or '').strip()
+    if target_worker_id and target_worker_id != (worker_id or ''):
+        return False
+
+    target_agent_name = str(
+        task.get('target_agent_name')
+        or metadata.get('target_agent_name')
+        or ''
+    ).strip()
+    if target_agent_name and target_agent_mismatch(
+        agent_name, target_agent_name
+    ):
+        return False
+
+    return True
 
 
 class PersistentMessageStore:
@@ -4377,6 +4414,13 @@ async def list_all_tasks(
                     for task in tasks
                     if (task.get('id') or task.get('task_id')) not in claimed
                 ]
+            tasks = [
+                task
+                for task in tasks
+                if _pending_task_visible_to_worker(
+                    task, worker_id=worker_id, agent_name=agent_name
+                )
+            ]
         except Exception as e:
             logger.debug(f'Failed to filter claimed pending tasks: {e}')
     return tasks
