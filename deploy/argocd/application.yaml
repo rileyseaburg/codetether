@@ -27,7 +27,7 @@ spec:
           enhanced: true
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: main-9767b31
+          tag: main-d518d97
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
@@ -42,7 +42,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: claimfix-20260506-151815
+            green: claimfix-20260506-152900
         service:
           type: ClusterIP
           port: 8000
