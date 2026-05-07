@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -72,3 +73,141 @@ async def test_git_workspace_registration_dispatches_persistent_clone(
             'task_timeout_seconds': 604800,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_workspace_clone_task_endpoint_dispatches_persistent_clone(
+    monkeypatch,
+):
+    dispatched = []
+    log_messages = []
+
+    class FakeBridge:
+        def get_workspace(self, workspace_id):
+            return SimpleNamespace(id=workspace_id, name='spotlessbinco')
+
+        async def create_task(self, **kwargs):
+            raise AssertionError('clone_repo endpoint must not create polling task')
+
+    async def _fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task_456'
+
+    async def _fake_db_get_task(task_id):
+        return {'id': task_id, 'agent_type': 'clone_repo'}
+
+    async def _fake_log_message(**kwargs):
+        log_messages.append(kwargs)
+
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: FakeBridge())
+    monkeypatch.setattr(
+        persistent_worker_pool, 'create_and_dispatch_task', _fake_dispatch
+    )
+    monkeypatch.setattr(monitor_api.db, 'db_get_task', _fake_db_get_task)
+    monkeypatch.setattr(
+        monitor_api.monitoring_service, 'log_message', _fake_log_message
+    )
+
+    response = await monitor_api.create_agent_task(
+        'ws_123',
+        monitor_api.AgentTaskCreate(
+            title='Clone repository: rileyseaburg/spotlessbinco',
+            prompt=(
+                'Clone Git repo '
+                'https://github.com/rileyseaburg/spotlessbinco.git '
+                '(branch: feature/upsell-tripwire-enhancements)'
+            ),
+            agent_type='clone_repo',
+            metadata={
+                'git_url': 'https://github.com/rileyseaburg/spotlessbinco.git',
+                'git_branch': 'feature/upsell-tripwire-enhancements',
+                'workspace_id': 'ws_123',
+            },
+        ),
+    )
+
+    assert response == {
+        'success': True,
+        'task': {'id': 'task_456', 'agent_type': 'clone_repo'},
+    }
+    assert len(dispatched) == 1
+    dispatch = dispatched[0]
+    assert dispatch['workspace_id'] == 'ws_123'
+    assert dispatch['title'] == 'Clone repository: rileyseaburg/spotlessbinco'
+    assert dispatch['prompt'] == (
+        'Clone Git repo '
+        'https://github.com/rileyseaburg/spotlessbinco.git '
+        '(branch: feature/upsell-tripwire-enhancements)'
+    )
+    assert dispatch['agent_type'] == 'clone_repo'
+    assert dispatch['priority'] == 0
+    assert dispatch['model_ref'] is None
+    assert dispatch['task_timeout_seconds'] == 604800
+    assert dispatch['metadata']['git_url'] == (
+        'https://github.com/rileyseaburg/spotlessbinco.git'
+    )
+    assert (
+        dispatch['metadata']['git_branch']
+        == 'feature/upsell-tripwire-enhancements'
+    )
+    assert dispatch['metadata']['workspace_id'] == 'ws_123'
+    assert dispatch['metadata']['routing']['policy'] == 'a2a.task_orchestration.v1'
+    assert [message['message_type'] for message in log_messages] == [
+        'human',
+        'system',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_global_clone_task_endpoint_dispatches_persistent_clone(
+    monkeypatch,
+):
+    dispatched = []
+
+    class FakeBridge:
+        async def create_task(self, **kwargs):
+            raise AssertionError('clone_repo endpoint must not create polling task')
+
+    async def _fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task_789'
+
+    async def _fake_db_get_task(task_id):
+        return {'id': task_id, 'agent_type': 'clone_repo'}
+
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: FakeBridge())
+    monkeypatch.setattr(
+        persistent_worker_pool, 'create_and_dispatch_task', _fake_dispatch
+    )
+    monkeypatch.setattr(monitor_api.db, 'db_get_task', _fake_db_get_task)
+
+    response = await monitor_api.create_global_task(
+        monitor_api.AgentTaskCreate(
+            title='Clone repository: rileyseaburg/spotlessbinco',
+            prompt='Clone Git repo https://github.com/rileyseaburg/spotlessbinco.git',
+            agent_type='clone_repo',
+            workspace_id='ws_global',
+            metadata={
+                'git_url': 'https://github.com/rileyseaburg/spotlessbinco.git',
+                'workspace_id': 'ws_global',
+            },
+        ),
+    )
+
+    assert response == {'id': 'task_789', 'agent_type': 'clone_repo'}
+    assert len(dispatched) == 1
+    dispatch = dispatched[0]
+    assert dispatch['workspace_id'] == 'ws_global'
+    assert dispatch['title'] == 'Clone repository: rileyseaburg/spotlessbinco'
+    assert dispatch['prompt'] == (
+        'Clone Git repo https://github.com/rileyseaburg/spotlessbinco.git'
+    )
+    assert dispatch['agent_type'] == 'clone_repo'
+    assert dispatch['priority'] == 0
+    assert dispatch['model_ref'] is None
+    assert dispatch['task_timeout_seconds'] == 604800
+    assert dispatch['metadata']['git_url'] == (
+        'https://github.com/rileyseaburg/spotlessbinco.git'
+    )
+    assert dispatch['metadata']['workspace_id'] == 'ws_global'
+    assert dispatch['metadata']['routing']['policy'] == 'a2a.task_orchestration.v1'
