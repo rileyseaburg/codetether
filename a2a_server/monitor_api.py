@@ -4465,6 +4465,27 @@ async def create_global_task(task_data: AgentTaskCreate):
     )
     await _validate_target_worker_is_available(routed_metadata)
 
+    if task_data.agent_type == 'clone_repo':
+        from .persistent_worker_pool import (
+            DEFAULT_TASK_TIMEOUT,
+            create_and_dispatch_task,
+        )
+
+        task_id = await create_and_dispatch_task(
+            workspace_id=effective_workspace_id,
+            title=task_data.title,
+            prompt=task_data.prompt,
+            agent_type=task_data.agent_type,
+            priority=task_data.priority,
+            model_ref=routing_decision.model_ref,
+            metadata=routed_metadata,
+            task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        )
+        task = await db.db_get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=500, detail='Failed to create task')
+        return task
+
     # Create task with the specified workspace context
     task = await bridge.create_task(
         codebase_id=effective_workspace_id,
@@ -4522,6 +4543,72 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
         routed_metadata,
         strict=task_data.agent_type != 'clone_repo',
     )
+
+    if task_data.agent_type == 'clone_repo':
+        from .persistent_worker_pool import (
+            DEFAULT_TASK_TIMEOUT,
+            create_and_dispatch_task,
+        )
+
+        task_id = await create_and_dispatch_task(
+            workspace_id=workspace_id,
+            title=task_data.title,
+            prompt=task_data.prompt,
+            agent_type=task_data.agent_type,
+            priority=task_data.priority,
+            model_ref=routing_decision.model_ref,
+            metadata=routed_metadata,
+            task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        )
+        task_dict = await db.db_get_task(task_id)
+        if not task_dict:
+            raise HTTPException(status_code=500, detail='Failed to create task')
+
+        # Log the task prompt as a human message so UIs don't attribute it to the agent.
+        try:
+            await monitoring_service.log_message(
+                agent_name='User',
+                content=task_data.prompt,
+                message_type='human',
+                metadata={
+                    'action': 'agent.task.create',
+                    'task_id': task_id,
+                    'workspace_id': workspace_id,
+                    'workspace_name': workspace.name,
+                    'agent_type': task_data.agent_type,
+                    'priority': task_data.priority,
+                    'title': task_data.title,
+                    'routing': {
+                        'complexity': routing_decision.complexity,
+                        'model_tier': routing_decision.model_tier,
+                        'model_ref': routing_decision.model_ref,
+                        'target_agent_name': routing_decision.target_agent_name,
+                        'worker_personality': routing_decision.worker_personality,
+                    },
+                },
+            )
+        except Exception as e:
+            logger.debug(f'Failed to log user task prompt: {e}')
+
+        # Log the task creation
+        await monitoring_service.log_message(
+            agent_name='CodeTether Agent',
+            content=f'Task created: {task_data.title}',
+            message_type='system',
+            metadata={
+                'task_id': task_id,
+                'workspace_id': workspace_id,
+                'routing': {
+                    'complexity': routing_decision.complexity,
+                    'model_tier': routing_decision.model_tier,
+                    'model_ref': routing_decision.model_ref,
+                    'target_agent_name': routing_decision.target_agent_name,
+                    'worker_personality': routing_decision.worker_personality,
+                },
+            },
+        )
+
+        return {'success': True, 'task': task_dict}
 
     task = await bridge.create_task(
         codebase_id=workspace_id,
