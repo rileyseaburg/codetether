@@ -1,9 +1,11 @@
 import asyncio
 import os
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from starlette.requests import Request
 
 os.environ.setdefault(
     'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
@@ -126,6 +128,9 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
     monkeypatch.setattr(
         database, 'db_update_task_status', _fake_update_task_status
     )
+    monkeypatch.setattr(
+        worker_sse, '_claim_task_run_for_worker', AsyncMock(return_value={})
+    )
 
     await registry.register_worker(
         worker_id='worker_1',
@@ -154,3 +159,136 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
             'worker_id': 'worker_1',
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_claim_task_returns_attached_task_run_metadata(
+    monkeypatch, registry
+):
+    class BridgeMiss:
+        async def get_task(self, task_id):
+            return None
+
+        async def update_task_status(self, **kwargs):
+            return None
+
+    async def _fake_update_task_status(**kwargs):
+        return True
+
+    async def _fake_claim_task_run(task_id, worker_id):
+        assert task_id == 'task_claimed'
+        assert worker_id == 'worker_1'
+        return {
+            'run_id': 'run_1',
+            'task_timeout_seconds': 604800,
+        }
+
+    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: BridgeMiss())
+    monkeypatch.setattr(
+        database, 'db_update_task_status', _fake_update_task_status
+    )
+    monkeypatch.setattr(
+        worker_sse, '_claim_task_run_for_worker', _fake_claim_task_run
+    )
+
+    await registry.register_worker(
+        worker_id='worker_1',
+        agent_name='agent-alpha',
+        queue=asyncio.Queue(),
+    )
+
+    app = FastAPI()
+    app.include_router(worker_sse_router)
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport, base_url='http://test'
+    ) as client:
+        response = await client.post(
+            '/v1/worker/tasks/claim',
+            headers={'X-Worker-ID': 'worker_1'},
+            json={'task_id': 'task_claimed'},
+        )
+
+    assert response.status_code == 200
+    assert response.json()['run_id'] == 'run_1'
+    assert response.json()['task_timeout_seconds'] == 604800
+
+
+@pytest.mark.asyncio
+async def test_claim_task_run_helper_matches_deployed_schema(monkeypatch):
+    seen = {}
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    class FakeConnection:
+        async def fetchrow(self, sql, *params):
+            seen['sql'] = sql
+            seen['params'] = params
+            return {
+                'run_id': 'run_1',
+                'task_id': 'task_claimed',
+                'user_id': 'user_1',
+                'tenant_id': 'tenant_1',
+                'dispatch_mode': 'fire_and_forget',
+                'task_timeout_seconds': 604800,
+                'github_issue_url': None,
+                'checkpoint': None,
+                'checkpoint_seq': 0,
+                'resume_attempt': 0,
+            }
+
+    async def _fake_get_pool():
+        return FakePool()
+
+    monkeypatch.setattr(database, 'get_pool', _fake_get_pool)
+
+    result = await worker_sse._claim_task_run_for_worker(
+        'task_claimed',
+        'worker_1',
+    )
+
+    assert result['run_id'] == 'run_1'
+    assert result['task_timeout_seconds'] == 604800
+    assert seen['params'][:2] == ('task_claimed', 'worker_1')
+    assert "t.metadata->>'target_worker_id'" in seen['sql']
+    assert 'provider_keys' not in seen['sql']
+    assert 'provider_key_source' not in seen['sql']
+
+
+@pytest.mark.asyncio
+async def test_worker_stream_headers_disable_proxy_transforms(registry):
+    request = Request(
+        {
+            'type': 'http',
+            'method': 'GET',
+            'path': '/v1/worker/tasks/stream',
+            'headers': [],
+            'query_string': b'',
+            'client': ('testclient', 50000),
+            'server': ('testserver', 80),
+            'scheme': 'http',
+        }
+    )
+
+    response = await worker_sse.worker_task_stream(
+        request,
+        agent_name='agent-alpha',
+        worker_id='worker_1',
+        x_agent_name=None,
+        x_worker_id=None,
+        x_capabilities=None,
+        x_codebases=None,
+    )
+
+    assert response.headers['cache-control'] == 'no-cache, no-transform'
+    assert response.headers['x-accel-buffering'] == 'no'

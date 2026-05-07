@@ -797,6 +797,75 @@ class TaskClaimRequest(BaseModel):
     task_id: str
 
 
+async def _claim_task_run_for_worker(
+    task_id: str,
+    worker_id: str,
+) -> Dict[str, Any]:
+    """Best-effort lease of the task_runs row for a specific SSE task claim."""
+    try:
+        from . import database as db
+        from .persistent_worker_pool import PERSISTENT_WORKER_LEASE_SECONDS
+
+        pool = await db.get_pool()
+        if not pool:
+            return {}
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                WITH candidate AS (
+                    SELECT tr.id
+                    FROM task_runs tr
+                    JOIN tasks t ON t.id = tr.task_id
+                    WHERE tr.task_id = $1
+                      AND tr.status IN ('queued', 'running')
+                      AND (
+                          tr.lease_owner IS NULL
+                          OR tr.lease_owner = $2
+                          OR tr.lease_expires_at < NOW()
+                      )
+                      AND (
+                          t.metadata->>'target_worker_id' IS NULL
+                          OR t.metadata->>'target_worker_id' = $2
+                      )
+                    ORDER BY
+                        CASE WHEN tr.lease_owner = $2 THEN 0 ELSE 1 END,
+                        tr.created_at DESC
+                    LIMIT 1
+                    FOR UPDATE OF tr SKIP LOCKED
+                )
+                UPDATE task_runs tr
+                SET lease_owner = $2,
+                    lease_expires_at = NOW() + ($3 || ' seconds')::INTERVAL,
+                    status = 'running',
+                    started_at = COALESCE(started_at, NOW()),
+                    last_heartbeat_at = NOW(),
+                    updated_at = NOW()
+                FROM candidate
+                WHERE tr.id = candidate.id
+                RETURNING
+                    tr.id AS run_id,
+                    tr.task_id,
+                    tr.user_id,
+                    tr.tenant_id,
+                    tr.dispatch_mode,
+                    tr.task_timeout_seconds,
+                    tr.github_issue_url,
+                    tr.checkpoint,
+                    COALESCE(tr.checkpoint_seq, 0) AS checkpoint_seq,
+                    COALESCE(tr.resume_attempt, 0) AS resume_attempt
+                """,
+                task_id,
+                worker_id,
+                PERSISTENT_WORKER_LEASE_SECONDS,
+            )
+
+        return dict(row) if row else {}
+    except Exception as e:
+        logger.debug(f'No task_run lease attached to claim {task_id}: {e}')
+        return {}
+
+
 class TaskReleaseRequest(BaseModel):
     """Request to release a task."""
 
@@ -1154,7 +1223,7 @@ async def worker_task_stream(
         event_generator(),
         media_type='text/event-stream',
         headers={
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-transform',
             'Connection': 'keep-alive',
             'X-Accel-Buffering': 'no',
         },
@@ -1224,12 +1293,19 @@ async def claim_task(
         except Exception as e:
             logger.warning(f'Failed to update task {claim.task_id} to running: {e}')
 
-        return {
+        run_claim = await _claim_task_run_for_worker(
+            claim.task_id,
+            resolved_worker_id,
+        )
+
+        response = {
             'success': True,
             'task_id': claim.task_id,
             'worker_id': resolved_worker_id,
             'message': 'Task claimed successfully',
         }
+        response.update(run_claim)
+        return response
     else:
         raise HTTPException(
             status_code=409,
