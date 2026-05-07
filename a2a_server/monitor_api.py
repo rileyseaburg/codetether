@@ -2873,9 +2873,14 @@ async def register_workspace(registration: WorkspaceRegistration):
                 f'Failed to mirror git workspace {workspace_id} into bridge: {e}'
             )
 
-        # Create a clone task for workers to pick up
-        task = await bridge.create_task(
-            codebase_id=workspace_id,
+        # Dispatch clone through the persistent worker path so harvester claims
+        # carry task_run metadata, long timeouts, and resumable leases.
+        from .persistent_worker_pool import (
+            DEFAULT_TASK_TIMEOUT,
+            create_and_dispatch_task,
+        )
+        task_id = await create_and_dispatch_task(
+            workspace_id=workspace_id,
             title=f'Clone repository: {registration.name}',
             prompt=f'Clone Git repo {registration.git_url} (branch: {registration.git_branch})',
             agent_type='clone_repo',
@@ -2884,13 +2889,14 @@ async def register_workspace(registration: WorkspaceRegistration):
                 'git_branch': registration.git_branch,
                 'workspace_id': workspace_id,
             },
+            task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         )
 
         return {
             'success': True,
             'workspace_id': workspace_id,
             'pending': True,
-            'task_id': task.id if task else None,
+            'task_id': task_id,
             'message': f'Repository registration created. A worker will clone {registration.git_url}.',
         }
 
