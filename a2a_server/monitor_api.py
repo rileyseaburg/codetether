@@ -5749,7 +5749,7 @@ async def resume_session(
 
         # Persist the user prompt so chat history feels like a normal chat app.
         message_id = f'msg_{uuid.uuid4().hex}'
-        part_id = f'prt_{uuid.uuid4().hex}'
+        part_id = f"prt_{uuid.uuid4().hex}"
         created_at = datetime.utcnow().isoformat()
         user_message = {
             'id': message_id,

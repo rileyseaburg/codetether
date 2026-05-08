@@ -300,6 +300,7 @@ prd
 prefecthq
 protoc
 protolint
+prt
 pvc
 pyguide
 pymdownx
