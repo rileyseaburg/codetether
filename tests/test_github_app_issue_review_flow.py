@@ -377,6 +377,81 @@ async def test_create_merge_task_auto_merges_when_feedback_addressed(monkeypatch
     assert 'Merged PR #77 using `squash`' in comments[0]
 
 
+@pytest.mark.asyncio
+async def test_create_merge_task_enables_github_auto_merge_when_direct_merge_blocked(monkeypatch, pr_payload):
+    decisions = []
+    comments = []
+    graphql_calls = []
+    pr_with_node = dict(pr_payload)
+    pr_with_node['node_id'] = 'PR_kwDOAutoMerge'
+
+    async def fake_github_json(method, path, token, payload=None):
+        if path == '/repos/acme/widgets/pulls/77':
+            return pr_with_node
+        if path == '/repos/acme/widgets':
+            return {
+                'allow_squash_merge': True,
+                'allow_rebase_merge': True,
+                'allow_merge_commit': True,
+            }
+        if method == 'PUT' and path == '/repos/acme/widgets/pulls/77/merge':
+            raise RuntimeError('Repository rule violations found: Cannot update this protected ref.')
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    async def fake_github_graphql(query, variables, token):
+        graphql_calls.append(variables)
+        return {
+            'enablePullRequestAutoMerge': {
+                'pullRequest': {
+                    'number': 77,
+                    'autoMergeRequest': {
+                        'enabledAt': '2026-05-08T15:50:00Z',
+                        'mergeMethod': 'SQUASH',
+                    },
+                },
+            },
+        }
+
+    async def fake_feedback_status(repo, pr_number, token):
+        return {'feedback_addressed': True, 'blockers': []}
+
+    async def fake_record(**kwargs):
+        decisions.append(kwargs)
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr('a2a_server.github_app.auth.github_graphql', fake_github_graphql)
+    monkeypatch.setattr(issue_review_task, 'review_feedback_status', fake_feedback_status)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+
+    result = await issue_review_task.create_issue_merge_task(
+        review_task={
+            'id': 'task-review-1',
+            'result': '## Final Verdict: **APPROVED**',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'issue_number': 12,
+                'pr_number': 77,
+                'branch_name': 'codetether/issue-12',
+                'pr_head_sha': 'abc123',
+                'github_installation_id': 123,
+            },
+        },
+        token='token',
+    )
+
+    assert result == 'auto_merge_enabled'
+    assert graphql_calls[0]['pullRequestId'] == 'PR_kwDOAutoMerge'
+    assert graphql_calls[0]['mergeMethod'] == 'SQUASH'
+    assert graphql_calls[0]['expectedHeadOid'] == 'abc123'
+    assert decisions[-1]['decision']['allowed'] is True
+    assert 'Enabled GitHub auto-merge for PR #77 using `squash`' in comments[0]
+
+
 def test_merge_provenance_uses_merge_steward_actor(pr_payload):
     provenance = issue_review_task.issue_pr_provenance(
         repo='acme/widgets',
