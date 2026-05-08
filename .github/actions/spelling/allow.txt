@@ -9,6 +9,7 @@ ADK
 AError
 AExecutor
 AIP
+APF
 ARequest
 ASED
 ASGI
@@ -81,6 +82,7 @@ Mapr
 NDJSON
 Nszl
 OIDC
+Oid
 OOa
 Ollama
 PLE
@@ -258,6 +260,7 @@ multipage
 mydb
 myorg
 nearform
+newsha
 nindent
 nlp
 notif
