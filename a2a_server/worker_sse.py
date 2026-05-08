@@ -1346,20 +1346,26 @@ async def release_task(
         # Persist status/result/error to in-memory cache AND database
         try:
             from .agent_bridge import get_bridge as get_agent_bridge
-            from .agent_bridge import AgentTaskStatus
             bridge = get_agent_bridge()
+            updated_task = None
             if bridge:
+                from .agent_bridge import AgentTaskStatus
                 status_enum = AgentTaskStatus(release.status)
-                await bridge.update_task_status(
+                updated_task = await bridge.update_task_status(
                     task_id=release.task_id,
                     status=status_enum,
                     result=release.result,
                     error=release.error,
                     worker_id=resolved_worker_id,
                 )
-                logger.info(
-                    f'Task {release.task_id} status updated to {release.status} via bridge'
-                )
+                if updated_task:
+                    logger.info(
+                        f'Task {release.task_id} status updated to {release.status} via bridge'
+                    )
+                else:
+                    logger.warning(
+                        f'Bridge missed released task {release.task_id}; using DB status update fallback'
+                    )
                 if release.status == 'completed':
                     try:
                         from .post_clone_followup import enqueue_post_clone_followup
@@ -1368,19 +1374,25 @@ async def release_task(
                         logger.error(
                             f'Failed to enqueue post-clone follow-up for {release.task_id}: {e}'
                         )
-            else:
-                # Fallback: direct DB update if bridge not available
+            if not updated_task:
+                # Fallback: direct DB update if bridge is unavailable or missed
+                # a task created through the DB-backed worker polling path.
                 from .database import db_update_task_status
-                await db_update_task_status(
+                updated = await db_update_task_status(
                     task_id=release.task_id,
                     status=release.status,
                     worker_id=resolved_worker_id,
                     result=release.result,
                     error=release.error,
                 )
-                logger.info(
-                    f'Task {release.task_id} status updated to {release.status} in DB (no bridge)'
-                )
+                if updated:
+                    logger.info(
+                        f'Task {release.task_id} status updated to {release.status} via DB fallback'
+                    )
+                else:
+                    logger.warning(
+                        f'Released task {release.task_id} but could not persist {release.status} status'
+                    )
         except Exception as e:
             logger.error(
                 f'Failed to update task {release.task_id} status: {e}'
