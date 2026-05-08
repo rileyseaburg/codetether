@@ -189,7 +189,7 @@ async def test_db_list_tasks_exposes_targeted_fire_and_forget_to_polling_worker(
         agent_name='agent-alpha',
     )
 
-    assert "tasks.id" in seen['sql']
+    assert 'tasks.id' in seen['sql']
     assert "metadata->>'target_worker_id'" in seen['sql']
     assert "metadata->>'target_agent_name'" in seen['sql']
     assert 'FROM workers w' in seen['sql']
@@ -234,9 +234,10 @@ async def test_db_list_tasks_exposes_unscoped_fire_and_forget_to_polling_worker(
 
     await database.db_list_tasks(status='pending')
 
-    assert "dispatch_mode IS NULL OR dispatch_mode != 'fire_and_forget'" in seen[
-        'sql'
-    ]
+    assert (
+        "dispatch_mode IS NULL OR dispatch_mode != 'fire_and_forget'"
+        in seen['sql']
+    )
     assert 'NOT EXISTS (  SELECT 1 FROM task_runs tr' in seen['sql']
     assert "metadata->>'target_worker_id' IS NULL" in seen['sql']
     assert "metadata->>'target_agent_name' IS NULL" in seen['sql']
