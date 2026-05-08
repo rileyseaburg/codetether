@@ -193,6 +193,8 @@ async def test_db_list_tasks_exposes_targeted_fire_and_forget_to_polling_worker(
     assert "metadata->>'target_worker_id'" in seen['sql']
     assert "metadata->>'target_agent_name'" in seen['sql']
     assert 'FROM workers w' in seen['sql']
+    assert "metadata->>'target_worker_id' IS NULL" in seen['sql']
+    assert "metadata->>'target_agent_name' IS NULL" in seen['sql']
     assert 'NOT EXISTS ( OR' not in seen['sql']
     assert 'EXISTS ( OR' not in seen['sql']
     assert 'NOT EXISTS (  SELECT 1 FROM task_runs tr' in seen['sql']
@@ -200,6 +202,48 @@ async def test_db_list_tasks_exposes_targeted_fire_and_forget_to_polling_worker(
     assert 'AND worker_id =' not in seen['sql']
     assert 'worker_2' in seen['params']
     assert 'agent-alpha' in seen['params']
+
+
+@pytest.mark.asyncio
+async def test_db_list_tasks_exposes_unscoped_fire_and_forget_to_polling_worker(
+    monkeypatch,
+):
+    seen = {}
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    class FakeConnection:
+        async def fetch(self, sql, *params):
+            seen['sql'] = sql
+            seen['params'] = params
+            return []
+
+    async def _fake_get_pool():
+        return FakePool()
+
+    monkeypatch.setattr(database, 'get_pool', _fake_get_pool)
+
+    await database.db_list_tasks(status='pending')
+
+    assert "dispatch_mode IS NULL OR dispatch_mode != 'fire_and_forget'" in seen[
+        'sql'
+    ]
+    assert 'NOT EXISTS (  SELECT 1 FROM task_runs tr' in seen['sql']
+    assert "metadata->>'target_worker_id' IS NULL" in seen['sql']
+    assert "metadata->>'target_agent_name' IS NULL" in seen['sql']
+    assert "metadata->>'target_worker_id' = ''" in seen['sql']
+    assert "metadata->>'target_agent_name' = ''" in seen['sql']
+    assert 'AND worker_id =' not in seen['sql']
+    assert seen['params'] == ('pending', 100)
 
 
 @pytest.mark.asyncio
