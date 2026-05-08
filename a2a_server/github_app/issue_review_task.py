@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -228,10 +229,31 @@ async def record_automation_decision(
 
 def reviewer_allows_merge(review_task: dict[str, Any]) -> bool:
     """Return True only when the reviewer explicitly approved the PR."""
-    result = str(review_task.get('result') or '').upper()
-    if 'CHANGES_REQUESTED' in result or 'BLOCKED' in result:
+    result = str(review_task.get('result') or '')
+    upper_result = result.upper()
+
+    verdict_matches = re.findall(
+        r'(?:FINAL\s+(?:VERDICT|RESPONSE|STATUS)|VERDICT|STATUS)\s*:?\s*\**\s*'
+        r'(APPROVED|CHANGES_REQUESTED|BLOCKED)\b',
+        upper_result,
+    )
+    if verdict_matches:
+        return verdict_matches[-1] == 'APPROVED'
+
+    line_verdicts = [
+        match.group(1)
+        for match in re.finditer(
+            r'^\s*\**\s*(APPROVED|CHANGES_REQUESTED|BLOCKED)\b',
+            upper_result,
+            flags=re.MULTILINE,
+        )
+    ]
+    if line_verdicts:
+        return line_verdicts[-1] == 'APPROVED'
+
+    if 'CHANGES_REQUESTED' in upper_result or re.search(r'\bBLOCKED\s*:', upper_result):
         return False
-    return 'APPROVED' in result
+    return 'APPROVED' in upper_result
 
 
 def feedback_blockers_from_pull_request(pull_request: dict[str, Any] | None) -> list[str]:

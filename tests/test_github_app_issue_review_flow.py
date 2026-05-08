@@ -215,6 +215,16 @@ async def test_create_merge_task_requires_explicit_approval(monkeypatch, review_
     assert called is False
 
 
+def test_reviewer_approval_ignores_blocked_prose():
+    assert issue_review_task.reviewer_allows_merge({
+        'result': (
+            'Self-approval is blocked by GitHub, so I left an approving comment instead.\n'
+            '## Final Verdict: **APPROVED**\n\n'
+            'Validation passed.'
+        )
+    }) is True
+
+
 @pytest.mark.asyncio
 async def test_create_merge_task_records_sha_mismatch(monkeypatch, pr_payload):
     decisions = []
