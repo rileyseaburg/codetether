@@ -190,13 +190,18 @@ async def test_create_review_task_records_deny_decision(monkeypatch, pr_payload)
 @pytest.mark.parametrize('review_result', ['CHANGES_REQUESTED: tests failed', 'BLOCKED: provenance mismatch', 'completed without verdict'])
 async def test_create_merge_task_requires_explicit_approval(monkeypatch, review_result):
     called = False
+    comments = []
 
     async def fake_github_json(*args, **kwargs):
         nonlocal called
         called = True
         return {}
 
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
     monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
 
     task_id = await issue_review_task.create_issue_merge_task(
         review_task={
@@ -215,6 +220,38 @@ async def test_create_merge_task_requires_explicit_approval(monkeypatch, review_
 
     assert task_id is None
     assert called is False
+    if review_result.startswith(('CHANGES_REQUESTED', 'BLOCKED')):
+        assert '@codetether please address the requested PR changes' in comments[0]
+    else:
+        assert comments == []
+
+
+@pytest.mark.asyncio
+async def test_change_request_followup_skips_duplicate_tag(monkeypatch):
+    comments = []
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+
+    task_id = await issue_review_task.create_issue_merge_task(
+        review_task={
+            'id': 'task-review-1',
+            'result': 'CHANGES_REQUESTED: @codetether please address tests',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'issue_number': 12,
+                'pr_number': 77,
+                'branch_name': 'codetether/issue-12',
+            },
+        },
+        token='token',
+    )
+
+    assert task_id is None
+    assert comments == []
 
 
 def test_reviewer_approval_ignores_blocked_prose():

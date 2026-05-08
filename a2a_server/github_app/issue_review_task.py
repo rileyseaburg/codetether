@@ -171,6 +171,13 @@ def _format_blockers(blockers: list[str]) -> str:
     return '\n'.join(f'- {blocker}' for blocker in blockers[:12])
 
 
+def _truncate_for_comment(value: str, *, limit: int = 4000) -> str:
+    value = value.strip()
+    if len(value) <= limit:
+        return value
+    return value[: limit - 20].rstrip() + '\n\n...[truncated]'
+
+
 async def record_automation_decision(
     *,
     provenance: dict[str, Any],
@@ -229,8 +236,8 @@ async def record_automation_decision(
         logger.warning('Failed to record GitHub automation decision: %s', exc)
 
 
-def reviewer_allows_merge(review_task: dict[str, Any]) -> bool:
-    """Return True only when the reviewer explicitly approved the PR."""
+def reviewer_verdict(review_task: dict[str, Any]) -> str | None:
+    """Return the reviewer's terminal verdict when it can be parsed."""
     result = str(review_task.get('result') or '')
     upper_result = result.upper()
 
@@ -240,7 +247,7 @@ def reviewer_allows_merge(review_task: dict[str, Any]) -> bool:
         upper_result,
     )
     if verdict_matches:
-        return verdict_matches[-1] == 'APPROVED'
+        return verdict_matches[-1]
 
     line_verdicts = [
         match.group(1)
@@ -251,11 +258,58 @@ def reviewer_allows_merge(review_task: dict[str, Any]) -> bool:
         )
     ]
     if line_verdicts:
-        return line_verdicts[-1] == 'APPROVED'
+        return line_verdicts[-1]
 
-    if 'CHANGES_REQUESTED' in upper_result or re.search(r'\bBLOCKED\s*:', upper_result):
+    if 'CHANGES_REQUESTED' in upper_result:
+        return 'CHANGES_REQUESTED'
+    if re.search(r'\bBLOCKED\s*:', upper_result):
+        return 'BLOCKED'
+    if 'APPROVED' in upper_result:
+        return 'APPROVED'
+    return None
+
+
+def reviewer_allows_merge(review_task: dict[str, Any]) -> bool:
+    """Return True only when the reviewer explicitly approved the PR."""
+    return reviewer_verdict(review_task) == 'APPROVED'
+
+
+def reviewer_needs_work(review_task: dict[str, Any]) -> bool:
+    """Return True when the reviewer explicitly requested work before merge."""
+    return reviewer_verdict(review_task) in {'CHANGES_REQUESTED', 'BLOCKED'}
+
+
+async def post_change_request_followup_if_needed(
+    *,
+    review_task: dict[str, Any],
+    token: str,
+) -> bool:
+    """Post a deterministic tagged follow-up when a reviewer forgets the tag."""
+    verdict = reviewer_verdict(review_task)
+    if verdict not in {'CHANGES_REQUESTED', 'BLOCKED'}:
         return False
-    return 'APPROVED' in upper_result
+
+    result = str(review_task.get('result') or '').strip()
+    if CHANGE_REQUEST_MENTION.lower() in result.lower():
+        return False
+
+    metadata = review_task.get('metadata') or {}
+    repo = str(metadata.get('repo') or '')
+    pr_number = int(metadata.get('pr_number') or 0)
+    if not (repo and pr_number):
+        return False
+
+    from .watch import post_issue_comment
+
+    body = (
+        "## 🛠️ CodeTether Review Follow-up\n\n"
+        f"{CHANGE_REQUEST_MENTION} please address the requested PR changes.\n\n"
+        f"Reviewer verdict: `{verdict}`."
+    )
+    if result:
+        body += f"\n\nReviewer summary:\n\n{_truncate_for_comment(result)}"
+    await post_issue_comment(repo, pr_number, token, body)
+    return True
 
 
 def feedback_blockers_from_pull_request(pull_request: dict[str, Any] | None) -> list[str]:
@@ -536,6 +590,7 @@ async def create_issue_merge_task(
     from .watch import post_issue_comment
 
     if not reviewer_allows_merge(review_task):
+        await post_change_request_followup_if_needed(review_task=review_task, token=token)
         return None
 
     metadata = review_task.get('metadata') or {}
