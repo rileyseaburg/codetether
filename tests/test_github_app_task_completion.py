@@ -1,7 +1,7 @@
 import pytest
 
 from a2a_server import git_service
-from a2a_server.github_app import task_completion
+from a2a_server.github_app import pr_final_comment, task_completion
 
 
 @pytest.mark.asyncio
@@ -101,3 +101,56 @@ async def test_git_credentials_fall_back_to_workspace_github_app(monkeypatch):
         'host': 'github.com',
         'path': 'rileyseaburg/spotlessbinco.git',
     }
+
+
+@pytest.mark.asyncio
+async def test_pr_final_comment_queues_review_after_pr_fix(monkeypatch):
+    comments = []
+    created = []
+    pr = {
+        'number': 40,
+        'html_url': 'https://github.com/acme/widgets/pull/40',
+        'head': {'sha': 'abc123', 'ref': 'feature'},
+        'base': {'sha': 'def456', 'ref': 'main'},
+    }
+
+    async def fake_context(task):
+        return 'acme/widgets', 40, 'feature', 'token'
+
+    async def fake_github_json(method, path, token):
+        assert method == 'GET'
+        assert path == '/repos/acme/widgets/pulls/40'
+        return pr
+
+    async def fake_create_review_task(**kwargs):
+        created.append(kwargs)
+        return 'task-review-40'
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr(pr_final_comment, 'github_app_task_context', fake_context)
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr('a2a_server.github_app.issue_review_task.create_issue_review_task', fake_create_review_task)
+    monkeypatch.setattr(pr_final_comment, 'post_issue_comment', fake_post)
+
+    await pr_final_comment.notify_pr_final_comment({
+        'id': 'task-pr-fix',
+        'status': 'completed',
+        'result': 'done',
+        'metadata': {
+            'workspace_id': 'ws1',
+            'repo': 'acme/widgets',
+            'pr_number': 40,
+            'pr_head': 'feature',
+            'github_issue_url': 'https://github.com/acme/widgets/pull/40',
+            'github_installation_id': 123,
+        },
+    })
+
+    assert created
+    assert created[0]['repo'] == 'acme/widgets'
+    assert created[0]['issue_number'] == 40
+    assert created[0]['branch'] == 'feature'
+    assert created[0]['parent_task_id'] == 'task-pr-fix'
+    assert 'Queued CodeTether reviewer task `task-review-40`' in comments[0]

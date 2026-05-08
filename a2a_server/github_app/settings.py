@@ -10,6 +10,8 @@ APP_SLUG = os.environ.get('GITHUB_APP_SLUG', 'codetether').strip() or 'codetethe
 MODEL_REF = os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip() or 'zai:glm-5.1'
 TARGET_AGENT = os.environ.get('GITHUB_APP_TARGET_AGENT', 'knative-worker').strip() or 'knative-worker'
 TARGET_WORKER_ID = os.environ.get('GITHUB_APP_TARGET_WORKER_ID', '').strip()
+AUTO_MERGE_ENABLED = os.environ.get('GITHUB_APP_AUTO_MERGE_ENABLED', 'true').lower() not in {'0', 'false', 'no'}
+MERGE_METHOD = os.environ.get('GITHUB_APP_MERGE_METHOD', '').strip().lower()
 PREFERRED_AGENTS = tuple(
     part.strip()
     for part in os.environ.get(

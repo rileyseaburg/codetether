@@ -107,7 +107,7 @@ async def notify_issue_final_comment(task: dict) -> None:
                     parent_task_id=str(task_id),
                 )
                 if review_task_id:
-                    review_status = f"\n\nQueued CodeTether reviewer task `{review_task_id}`. If review passes, a merge-steward task will enforce policy gates before merging."
+                    review_status = f"\n\nQueued CodeTether reviewer task `{review_task_id}`. If review passes and GitHub feedback is resolved, CodeTether will auto-merge the PR."
                 else:
                     review_status = "\n\nCodeTether review automation was not queued because the local provenance/policy gate denied it."
                 provenance = issue_pr_provenance(

@@ -11,7 +11,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from ..provenance import verify_provenance
-from .settings import MODEL_REF
+from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
@@ -150,6 +150,24 @@ def _repo_parts(repo_full_name: str) -> tuple[str, str]:
     return owner, repo
 
 
+def _failure_decision(action: str, failures: list[str]) -> dict[str, Any]:
+    return {
+        'allowed': False,
+        'action': action,
+        'provenance': {
+            'complete': True,
+            'dimensions': {},
+            'missing_dimensions': [],
+            'failures': failures,
+            'partial': False,
+        },
+    }
+
+
+def _format_blockers(blockers: list[str]) -> str:
+    return '\n'.join(f'- {blocker}' for blocker in blockers[:12])
+
+
 async def record_automation_decision(
     *,
     provenance: dict[str, Any],
@@ -214,6 +232,104 @@ def reviewer_allows_merge(review_task: dict[str, Any]) -> bool:
     if 'CHANGES_REQUESTED' in result or 'BLOCKED' in result:
         return False
     return 'APPROVED' in result
+
+
+def feedback_blockers_from_pull_request(pull_request: dict[str, Any] | None) -> list[str]:
+    """Return review-feedback blockers from GitHub GraphQL pull request state."""
+    if not pull_request:
+        return ['Pull request was not found in GitHub GraphQL response']
+
+    blockers: list[str] = []
+    if pull_request.get('state') != 'OPEN':
+        blockers.append(f"PR is not open: {pull_request.get('state') or 'unknown'}")
+    if pull_request.get('isDraft'):
+        blockers.append('PR is still marked as draft')
+
+    review_decision = str(pull_request.get('reviewDecision') or '').upper()
+    if review_decision == 'CHANGES_REQUESTED':
+        blockers.append('Latest GitHub review decision is CHANGES_REQUESTED')
+
+    threads = (pull_request.get('reviewThreads') or {}).get('nodes') or []
+    for thread in threads:
+        if thread.get('isResolved') or thread.get('isOutdated'):
+            continue
+        comments = (thread.get('comments') or {}).get('nodes') or []
+        latest = comments[-1] if comments else {}
+        author = ((latest.get('author') or {}).get('login') or 'unknown').strip()
+        path = str(latest.get('path') or thread.get('path') or '').strip()
+        line = latest.get('line') or thread.get('line')
+        location = f'{path}:{line}' if path and line else path or 'unknown location'
+        blockers.append(f'Unresolved review thread at {location} by {author}')
+
+    page_info = (pull_request.get('reviewThreads') or {}).get('pageInfo') or {}
+    if page_info.get('hasNextPage'):
+        blockers.append('More than 100 review threads exist; refusing to merge without a complete review-thread scan')
+
+    return blockers
+
+
+async def review_feedback_status(repo: str, pr_number: int, token: str) -> dict[str, Any]:
+    """Fetch GitHub review-thread state and summarize whether feedback is addressed."""
+    from .auth import github_graphql
+
+    owner, repo_name = _repo_parts(repo)
+    query = """
+    query CodeTetherPullRequestFeedback($owner: String!, $name: String!, $number: Int!) {
+      repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) {
+          state
+          isDraft
+          reviewDecision
+          mergeable
+          reviewThreads(first: 100) {
+            pageInfo { hasNextPage }
+            nodes {
+              isResolved
+              isOutdated
+              path
+              line
+              comments(first: 20) {
+                nodes {
+                  author { login }
+                  body
+                  path
+                  line
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    data = await github_graphql(
+        query,
+        {'owner': owner, 'name': repo_name, 'number': pr_number},
+        token,
+    )
+    pull_request = ((data.get('repository') or {}).get('pullRequest') or None)
+    blockers = feedback_blockers_from_pull_request(pull_request)
+    return {
+        'feedback_addressed': not blockers,
+        'blockers': blockers,
+        'pull_request': pull_request,
+    }
+
+
+def choose_merge_method(repo: dict[str, Any]) -> str | None:
+    """Choose a merge method allowed by repository settings."""
+    requested = MERGE_METHOD
+    allowed_methods = {
+        'merge': bool(repo.get('allow_merge_commit', True)),
+        'squash': bool(repo.get('allow_squash_merge', True)),
+        'rebase': bool(repo.get('allow_rebase_merge', True)),
+    }
+    if requested:
+        return requested if allowed_methods.get(requested, False) else None
+    for method in ('squash', 'rebase', 'merge'):
+        if allowed_methods.get(method, False):
+            return method
+    return None
 
 
 def review_prompt(repo: str, issue_number: int, branch: str, pr: dict[str, Any], provenance: dict[str, Any]) -> str:
@@ -331,9 +447,10 @@ async def create_issue_merge_task(
     review_task: dict[str, Any],
     token: str,
 ) -> str | None:
-    """Queue a merge-steward task after a successful review task."""
+    """Merge an approved issue/PR branch after GitHub feedback gates pass."""
     from ..persistent_worker_pool import create_and_dispatch_task
     from .auth import github_json
+    from .watch import post_issue_comment
 
     if not reviewer_allows_merge(review_task):
         return None
@@ -350,6 +467,7 @@ async def create_issue_merge_task(
     pr = await github_json('GET', f'/repos/{repo}/pulls/{pr_number}', token)
     expected_sha = str(metadata.get('pr_head_sha') or '')
     current_sha = str((pr.get('head') or {}).get('sha') or '')
+    parent_task_id = str(review_task.get('id') or '')
     if expected_sha and current_sha != expected_sha:
         stale_provenance = issue_pr_provenance(
             repo=repo,
@@ -358,22 +476,21 @@ async def create_issue_merge_task(
             pr=pr,
             installation_id=metadata.get('github_installation_id'),
             action='github:merge_pr',
-            parent_task_id=str(review_task.get('id') or ''),
+            parent_task_id=parent_task_id,
         )
+        failures = [f'PR head SHA changed: expected {expected_sha}, got {current_sha}']
         await record_automation_decision(
             provenance=stale_provenance,
-            decision={
-                'allowed': False,
-                'action': 'github:merge_pr',
-                'provenance': {
-                    'complete': True,
-                    'dimensions': {},
-                    'missing_dimensions': [],
-                    'failures': [f'PR head SHA changed: expected {expected_sha}, got {current_sha}'],
-                    'partial': False,
-                },
-            },
-            task_id=str(review_task.get('id') or ''),
+            decision=_failure_decision('github:merge_pr', failures),
+            task_id=parent_task_id,
+        )
+        await post_issue_comment(
+            repo,
+            pr_number,
+            token,
+            "## 🛠️ CodeTether Auto-Merge\n\n"
+            "Blocked because the PR changed after the approved review.\n\n"
+            f"{_format_blockers(failures)}",
         )
         return None
 
@@ -384,14 +501,32 @@ async def create_issue_merge_task(
         pr=pr,
         installation_id=metadata.get('github_installation_id'),
         action='github:merge_pr',
-        parent_task_id=str(review_task.get('id') or ''),
+        parent_task_id=parent_task_id,
     )
     decision = policy_decision(provenance, 'github:merge_pr')
     if not decision['allowed']:
         await record_automation_decision(
             provenance=provenance,
             decision=decision,
-            task_id=str(review_task.get('id') or ''),
+            task_id=parent_task_id,
+        )
+        return None
+
+    feedback_status = await review_feedback_status(repo, pr_number, token)
+    if not feedback_status['feedback_addressed']:
+        failures = list(feedback_status.get('blockers') or ['GitHub review feedback is not fully addressed'])
+        await record_automation_decision(
+            provenance=provenance,
+            decision=_failure_decision('github:merge_pr', failures),
+            task_id=parent_task_id,
+        )
+        await post_issue_comment(
+            repo,
+            pr_number,
+            token,
+            "## 🛠️ CodeTether Auto-Merge\n\n"
+            "Blocked because review feedback is not fully addressed.\n\n"
+            f"{_format_blockers(failures)}",
         )
         return None
 
@@ -403,6 +538,67 @@ async def create_issue_merge_task(
         'policy_decision': decision,
         'pr_head_sha': current_sha,
     })
+
+    if AUTO_MERGE_ENABLED:
+        repo_info = await github_json('GET', f'/repos/{repo}', token)
+        merge_method = choose_merge_method(repo_info)
+        if not merge_method:
+            failures = ['Repository does not allow merge, squash, or rebase merging for this GitHub App flow']
+            await record_automation_decision(
+                provenance=provenance,
+                decision=_failure_decision('github:merge_pr', failures),
+                task_id=parent_task_id,
+            )
+            await post_issue_comment(
+                repo,
+                pr_number,
+                token,
+                "## 🛠️ CodeTether Auto-Merge\n\n"
+                "Blocked because no allowed repository merge method is available.\n\n"
+                f"{_format_blockers(failures)}",
+            )
+            return None
+
+        try:
+            merge_result = await github_json(
+                'PUT',
+                f'/repos/{repo}/pulls/{pr_number}/merge',
+                token,
+                {
+                    'commit_title': f'Merge PR #{pr_number}: CodeTether automated fix',
+                    'commit_message': f'Approved by CodeTether reviewer task {parent_task_id}.',
+                    'sha': current_sha,
+                    'merge_method': merge_method,
+                },
+            )
+        except Exception as exc:
+            failures = [f'GitHub merge API rejected the merge: {exc}']
+            await record_automation_decision(
+                provenance=provenance,
+                decision=_failure_decision('github:merge_pr', failures),
+                task_id=parent_task_id,
+            )
+            await post_issue_comment(
+                repo,
+                pr_number,
+                token,
+                "## 🛠️ CodeTether Auto-Merge\n\n"
+                "Blocked by GitHub while attempting to merge.\n\n"
+                f"{_format_blockers(failures)}",
+            )
+            return None
+
+        merged_sha = str(merge_result.get('sha') or '').strip()
+        await record_automation_decision(provenance=provenance, decision=decision, task_id=parent_task_id)
+        message = (
+            "## 🛠️ CodeTether Auto-Merge\n\n"
+            f"Merged PR #{pr_number} using `{merge_method}` after reviewer approval and resolved-feedback checks."
+        )
+        if merged_sha:
+            message += f"\n\nMerge SHA: `{merged_sha}`"
+        message += provenance_footer(provenance, action='github:merge_pr')
+        await post_issue_comment(repo, pr_number, token, message)
+        return merged_sha or 'merged'
 
     task_id = await create_and_dispatch_task(
         workspace_id=workspace_id,
