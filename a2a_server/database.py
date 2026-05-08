@@ -1491,13 +1491,39 @@ async def db_list_tasks(
                     # waste cycles trying (and failing with 409) on tasks they
                     # can never claim through that endpoint.
                     if status == 'pending':
-                        query += (
-                            ' AND (dispatch_mode IS NULL OR dispatch_mode != \'fire_and_forget\''
-                            ' OR NOT EXISTS ('
+                        ff_visibility = [
+                            "dispatch_mode IS NULL OR dispatch_mode != 'fire_and_forget'",
+                            'NOT EXISTS ('
                             '  SELECT 1 FROM task_runs tr'
                             '  WHERE tr.task_id = tasks.id'
                             "  AND tr.status IN ('queued', 'running')"
-                            ' ))'
+                            ' )',
+                        ]
+                        if worker_id:
+                            ff_visibility.append(
+                                f"metadata->>'target_worker_id' = ${param_idx}"
+                            )
+                            params.append(worker_id)
+                            param_idx += 1
+                        if agent_name:
+                            ff_visibility.append(
+                                'EXISTS ('
+                                '  SELECT 1 FROM workers w'
+                                "  WHERE w.worker_id = metadata->>'target_worker_id'"
+                                f'  AND w.name = ${param_idx}'
+                                "  AND w.status = 'active'"
+                                ' )'
+                            )
+                            ff_visibility.append(
+                                f"metadata->>'target_agent_name' = ${param_idx}"
+                            )
+                            params.append(agent_name)
+                            param_idx += 1
+
+                        query += (
+                            ' AND ('
+                            + ' OR '.join(ff_visibility)
+                            + ')'
                         )
 
                         # Exclude tasks targeted at a different agent.
@@ -1522,7 +1548,35 @@ async def db_list_tasks(
                                 " OR metadata->>'target_agent_name' = '')"
                             )
 
-                if worker_id:
+                        if worker_id:
+                            query += (
+                                " AND (metadata->>'target_worker_id' IS NULL"
+                                " OR metadata->>'target_worker_id' = ''"
+                                f" OR metadata->>'target_worker_id' = ${param_idx}"
+                                ')'
+                            )
+                            params.append(worker_id)
+                            param_idx += 1
+                        elif agent_name:
+                            query += (
+                                " AND (metadata->>'target_worker_id' IS NULL"
+                                " OR metadata->>'target_worker_id' = ''"
+                                ' OR EXISTS ('
+                                '  SELECT 1 FROM workers w'
+                                "  WHERE w.worker_id = metadata->>'target_worker_id'"
+                                f'  AND w.name = ${param_idx}'
+                                "  AND w.status = 'active'"
+                                ' ))'
+                            )
+                            params.append(agent_name)
+                            param_idx += 1
+                        else:
+                            query += (
+                                " AND (metadata->>'target_worker_id' IS NULL"
+                                " OR metadata->>'target_worker_id' = '')"
+                            )
+
+                if worker_id and status != 'pending':
                     query += f' AND worker_id = ${param_idx}'
                     params.append(worker_id)
                     param_idx += 1

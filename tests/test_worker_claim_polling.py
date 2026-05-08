@@ -108,6 +108,95 @@ async def test_pending_task_polling_includes_tasks_targeted_to_requesting_worker
 
 
 @pytest.mark.asyncio
+async def test_pending_task_polling_resolves_worker_id_from_agent_name(
+    monkeypatch,
+):
+    async def _fake_list_tasks(**kwargs):
+        assert kwargs['status'] == 'pending'
+        assert kwargs['agent_name'] == 'agent-alpha'
+        return [
+            {
+                'id': 'task_targeted_here',
+                'status': 'pending',
+                'metadata': {'target_worker_id': 'worker_2'},
+            },
+            {
+                'id': 'task_targeted_elsewhere',
+                'status': 'pending',
+                'metadata': {'target_worker_id': 'worker_3'},
+            },
+            {'id': 'task_available', 'status': 'pending', 'metadata': {}},
+        ]
+
+    async def _fake_list_workers(status=None, tenant_id=None):
+        assert status == 'active'
+        return [
+            {'worker_id': 'worker_2', 'name': 'agent-alpha'},
+            {'worker_id': 'worker_3', 'name': 'agent-beta'},
+        ]
+
+    monkeypatch.setattr(monitor_api.db, 'db_list_tasks', _fake_list_tasks)
+    monkeypatch.setattr(monitor_api.db, 'db_list_workers', _fake_list_workers)
+
+    tasks = await monitor_api.list_all_tasks(
+        status='pending',
+        agent_name='agent-alpha',
+    )
+
+    assert tasks == [
+        {
+            'id': 'task_targeted_here',
+            'status': 'pending',
+            'metadata': {'target_worker_id': 'worker_2'},
+        },
+        {'id': 'task_available', 'status': 'pending', 'metadata': {}},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_db_list_tasks_exposes_targeted_fire_and_forget_to_polling_worker(
+    monkeypatch,
+):
+    seen = {}
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    class FakeConnection:
+        async def fetch(self, sql, *params):
+            seen['sql'] = sql
+            seen['params'] = params
+            return []
+
+    async def _fake_get_pool():
+        return FakePool()
+
+    monkeypatch.setattr(database, 'get_pool', _fake_get_pool)
+
+    await database.db_list_tasks(
+        status='pending',
+        worker_id='worker_2',
+        agent_name='agent-alpha',
+    )
+
+    assert "tasks.id" in seen['sql']
+    assert "metadata->>'target_worker_id'" in seen['sql']
+    assert "metadata->>'target_agent_name'" in seen['sql']
+    assert 'FROM workers w' in seen['sql']
+    assert 'AND worker_id =' not in seen['sql']
+    assert 'worker_2' in seen['params']
+    assert 'agent-alpha' in seen['params']
+
+
+@pytest.mark.asyncio
 async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
     monkeypatch, registry
 ):

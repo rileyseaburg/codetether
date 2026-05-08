@@ -178,6 +178,24 @@ def _pending_task_visible_to_worker(
     return True
 
 
+async def _active_worker_id_for_agent_name(agent_name: Optional[str]) -> Optional[str]:
+    """Resolve legacy poll requests that identify the worker by agent_name only."""
+    if not agent_name:
+        return None
+    try:
+        workers = await db.db_list_workers(status='active')
+    except Exception as e:
+        logger.debug(f'Failed to resolve worker id for agent {agent_name}: {e}')
+        return None
+
+    for worker in workers:
+        if worker.get('name') == agent_name:
+            worker_id = str(worker.get('worker_id') or '').strip()
+            if worker_id:
+                return worker_id
+    return None
+
+
 class PersistentMessageStore:
     """SQLite-based persistent storage for monitor messages with fallback to in-memory."""
 
@@ -4413,6 +4431,12 @@ async def list_all_tasks(
         try:
             from .worker_sse import get_worker_registry
 
+            visible_worker_id = worker_id
+            if not visible_worker_id and agent_name:
+                visible_worker_id = await _active_worker_id_for_agent_name(
+                    agent_name
+                )
+
             claimed = await get_worker_registry().claimed_task_ids()
             if claimed:
                 tasks = [
@@ -4424,7 +4448,9 @@ async def list_all_tasks(
                 task
                 for task in tasks
                 if _pending_task_visible_to_worker(
-                    task, worker_id=worker_id, agent_name=agent_name
+                    task,
+                    worker_id=visible_worker_id,
+                    agent_name=agent_name,
                 )
             ]
         except Exception as e:
