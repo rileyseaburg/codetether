@@ -45,19 +45,37 @@ RUN cargo build --release && \
     strip target/release/codetether
 
 # ─── Runtime stage ──────────────────────────────────────────────────
-# Same Debian bookworm → same glibc 2.36 as the builder
-FROM debian:bookworm-slim
+# Use the Rust bookworm image for the worker runtime as well. The harvester runs
+# production coding tasks, so the runtime needs validation tooling, not only the
+# compiled CodeTether binary.
+FROM rust:1.88-bookworm
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
+        curl \
         git \
-        libssl3 \
-        libasound2 \
+        gh \
+        jq \
+        nodejs \
+        npm \
+        python3 \
+        ripgrep \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        libasound2-dev \
+        protobuf-compiler \
+        libprotobuf-dev \
         && rm -rf /var/lib/apt/lists/*
 
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+RUN ln -sf /usr/local/cargo/bin/cargo /usr/local/bin/cargo && \
+    ln -sf /usr/local/cargo/bin/rustc /usr/local/bin/rustc && \
+    ln -sf /usr/local/cargo/bin/rustup /usr/local/bin/rustup
+
 # Create non-root user
-RUN useradd --system --shell /bin/false --create-home worker
+RUN useradd --system --shell /bin/bash --create-home worker
 USER worker
 WORKDIR /home/worker
 
