@@ -1,0 +1,9 @@
+line-length = 80
+indent-width = 4
+target-version = "py312"
+
+[format]
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+quote-style = "single"
+indent-style = "space"
