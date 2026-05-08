@@ -401,6 +401,86 @@ async def test_claim_task_returns_attached_task_run_metadata(
 
 
 @pytest.mark.asyncio
+async def test_release_task_falls_back_to_db_when_bridge_update_misses(
+    monkeypatch, registry
+):
+    class BridgeMiss:
+        async def get_task(self, task_id):
+            return None
+
+        async def update_task_status(self, **kwargs):
+            bridge_calls.append(kwargs)
+            return None
+
+    bridge_calls = []
+    db_calls = []
+
+    async def _fake_update_task_status(**kwargs):
+        db_calls.append(kwargs)
+        return True
+
+    async def _fake_terminal_hook(task_id, worker_id=None):
+        return None
+
+    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: BridgeMiss())
+    monkeypatch.setattr(
+        database, 'db_update_task_status', _fake_update_task_status
+    )
+
+    import a2a_server.github_app.task_status_hook as task_status_hook
+
+    monkeypatch.setattr(
+        task_status_hook,
+        'handle_github_app_terminal_task',
+        _fake_terminal_hook,
+    )
+
+    await registry.register_worker(
+        worker_id='worker_1',
+        agent_name='agent-alpha',
+        queue=asyncio.Queue(),
+    )
+    assert await registry.claim_task('task_released', 'worker_1')
+
+    app = FastAPI()
+    app.include_router(worker_sse_router)
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport, base_url='http://test'
+    ) as client:
+        response = await client.post(
+            '/v1/worker/tasks/release',
+            headers={'X-Worker-ID': 'worker_1'},
+            json={
+                'task_id': 'task_released',
+                'status': 'cancelled',
+                'error': 'stopped',
+            },
+        )
+
+    assert response.status_code == 200
+    assert bridge_calls == [
+        {
+            'task_id': 'task_released',
+            'status': agent_bridge.AgentTaskStatus.CANCELLED,
+            'result': None,
+            'error': 'stopped',
+            'worker_id': 'worker_1',
+        }
+    ]
+    assert db_calls == [
+        {
+            'task_id': 'task_released',
+            'status': 'cancelled',
+            'worker_id': 'worker_1',
+            'result': None,
+            'error': 'stopped',
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_claim_task_run_helper_matches_deployed_schema(monkeypatch):
     seen = {}
 
