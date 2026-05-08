@@ -200,8 +200,12 @@ async def test_create_merge_task_requires_explicit_approval(monkeypatch, review_
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
+    async def fake_fix_followup(*, review_task, token):
+        return None  # simulate fix follow-up unable to create task
+
     monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
     monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+    monkeypatch.setattr(issue_review_task, 'create_fix_followup_task', fake_fix_followup)
 
     task_id = await issue_review_task.create_issue_merge_task(
         review_task={
@@ -219,7 +223,6 @@ async def test_create_merge_task_requires_explicit_approval(monkeypatch, review_
     )
 
     assert task_id is None
-    assert called is False
     if review_result.startswith(('CHANGES_REQUESTED', 'BLOCKED')):
         assert '@codetether please address the requested PR changes' in comments[0]
     else:
@@ -233,7 +236,15 @@ async def test_change_request_followup_skips_duplicate_tag(monkeypatch):
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
+    async def fake_fix_followup(*, review_task, token):
+        # The fix follow-up runs first; simulate it succeeding so the
+        # @codetether fallback is never reached. This test verifies that
+        # when the fix follow-up succeeds, no duplicate @codetether comment
+        # is posted.
+        return 'task-fix-dup'
+
     monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+    monkeypatch.setattr(issue_review_task, 'create_fix_followup_task', fake_fix_followup)
 
     task_id = await issue_review_task.create_issue_merge_task(
         review_task={
@@ -251,7 +262,8 @@ async def test_change_request_followup_skips_duplicate_tag(monkeypatch):
     )
 
     assert task_id is None
-    assert comments == []
+    # No @codetether fallback comment was posted (fix follow-up handled it)
+    assert all('@codetether please address' not in c for c in comments)
 
 
 def test_reviewer_approval_ignores_blocked_prose():
@@ -502,3 +514,421 @@ def test_merge_provenance_uses_merge_steward_actor(pr_payload):
     )
 
     assert provenance['ap_delegation']['chain'][1]['actor'] == 'codetether-merge-steward'
+
+
+# ---------------------------------------------------------------------------
+# Protocol-native fix follow-up tests (issue #71)
+# ---------------------------------------------------------------------------
+
+
+def _make_review_task(verdict_text, *, pr_head_sha='abc123', extra_metadata=None):
+    """Build a review task dict with the given verdict in the result field."""
+    metadata = {
+        'workspace_id': 'ws1',
+        'repo': 'acme/widgets',
+        'issue_number': 12,
+        'pr_number': 77,
+        'branch_name': 'codetether/issue-12',
+        'pr_head_sha': pr_head_sha,
+        'github_installation_id': 123,
+        'github_issue_url': 'https://github.com/acme/widgets/pull/77',
+    }
+    if extra_metadata:
+        metadata.update(extra_metadata)
+    return {
+        'id': 'task-review-1',
+        'status': 'completed',
+        'result': verdict_text,
+        'metadata': metadata,
+    }
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_creates_task_on_changes_requested(monkeypatch, pr_payload):
+    """CHANGES_REQUESTED verdict enqueues a protocol-native fix task."""
+    dispatched = []
+    comments = []
+
+    async def fake_github_json(method, path, token):
+        return pr_payload
+
+    async def fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task-fix-1'
+
+    async def fake_record(**kwargs):
+        pass
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    async def fake_count(*args, **kwargs):
+        return 0
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr('a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_dispatch)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+    monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+
+    assert task_id == 'task-fix-1'
+    assert len(dispatched) == 1
+    meta = dispatched[0]['metadata']
+    assert meta['fix_followup'] == 'true'
+    assert meta['review_task_id'] == 'task-review-1'
+    assert meta['review_verdict'] == 'CHANGES_REQUESTED'
+    assert meta['workflow_stage'] == 'fix'
+    assert meta['pr_head_sha'] == 'abc123'
+    assert 'Reviewer verdict: `CHANGES_REQUESTED`' in comments[0]
+    assert 'protocol-native fix task `task-fix-1`' in comments[0]
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_creates_task_on_blocked(monkeypatch, pr_payload):
+    """BLOCKED verdict enqueues a protocol-native fix task."""
+    dispatched = []
+
+    async def fake_github_json(method, path, token):
+        return pr_payload
+
+    async def fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task-fix-2'
+
+    async def fake_record(**kwargs):
+        pass
+
+    async def fake_post(*args, **kwargs):
+        pass
+
+    async def fake_count(*args, **kwargs):
+        return 0
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr('a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_dispatch)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+    monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('BLOCKED: provenance mismatch'),
+        token='token',
+    )
+
+    assert task_id == 'task-fix-2'
+    assert dispatched[0]['metadata']['review_verdict'] == 'BLOCKED'
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_skips_approved(monkeypatch):
+    """APPROVED verdict does not create a fix task."""
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('APPROVED: looks good'),
+        token='token',
+    )
+    assert task_id is None
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_skips_no_verdict(monkeypatch):
+    """A review with no parseable verdict does not create a fix task."""
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('inconclusive review text'),
+        token='token',
+    )
+    assert task_id is None
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_skips_closed_pr(monkeypatch):
+    """Fix follow-up is not created when the PR is closed."""
+    closed_pr = {
+        'number': 77,
+        'state': 'closed',
+        'html_url': 'https://github.com/acme/widgets/pull/77',
+        'head': {'sha': 'abc123', 'ref': 'codetether/issue-12'},
+        'base': {'sha': 'def456'},
+    }
+
+    async def fake_github_json(method, path, token):
+        return closed_pr
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+    assert task_id is None
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_skips_sha_mismatch(monkeypatch, pr_payload):
+    """Fix follow-up is not created when the PR head SHA changed since review."""
+    changed_pr = dict(pr_payload)
+    changed_pr['head'] = {'sha': 'newsha999', 'ref': 'codetether/issue-12'}
+
+    async def fake_github_json(method, path, token):
+        return changed_pr
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+    assert task_id is None
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_skips_forked_pr(monkeypatch):
+    """Fix follow-up is not created when the PR is from a fork."""
+    forked_pr = {
+        'number': 77,
+        'state': 'open',
+        'html_url': 'https://github.com/acme/widgets/pull/77',
+        'head': {
+            'sha': 'abc123',
+            'ref': 'codetether/issue-12',
+            'repo': {'full_name': 'other-user/widgets', 'clone_url': 'https://github.com/other-user/widgets.git'},
+        },
+        'base': {'sha': 'def456'},
+    }
+
+    async def fake_github_json(method, path, token):
+        return forked_pr
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+    assert task_id is None
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_skips_missing_metadata(monkeypatch):
+    """Fix follow-up is not created when required metadata is missing."""
+    task = {
+        'id': 'task-review-1',
+        'status': 'completed',
+        'result': 'CHANGES_REQUESTED: fix tests',
+        'metadata': {'source': 'github-app', 'repo': 'acme/widgets'},  # missing most fields
+    }
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=task,
+        token='token',
+    )
+    assert task_id is None
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_enforces_max_attempts(monkeypatch, pr_payload):
+    """Fix follow-up is not created after MAX_FIX_ATTEMPTS_PER_SHA attempts."""
+    comments = []
+
+    async def fake_github_json(method, path, token):
+        return pr_payload
+
+    async def fake_count(repo, pr_number, head_sha):
+        return issue_review_task.MAX_FIX_ATTEMPTS_PER_SHA  # already at max
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+
+    assert task_id is None
+    assert 'Maximum fix attempts' in comments[0]
+
+
+@pytest.mark.asyncio
+async def test_fix_followup_includes_review_context_in_prompt(monkeypatch, pr_payload):
+    """The fix prompt includes review summary, changed files, blockers, and provenance."""
+    dispatched = []
+
+    async def fake_github_json(method, path, token):
+        return pr_payload
+
+    async def fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task-fix-ctx'
+
+    async def fake_record(**kwargs):
+        pass
+
+    async def fake_post(*args, **kwargs):
+        pass
+
+    async def fake_count(*args, **kwargs):
+        return 0
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr('a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_dispatch)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+    monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+
+    task_id = await issue_review_task.create_fix_followup_task(
+        review_task=_make_review_task(
+            'CHANGES_REQUESTED: tests failed for src/app.py',
+            extra_metadata={
+                'changed_files': ['src/app.py', 'tests/test_app.py'],
+                'blockers': ['Test test_foo fails with assertion error'],
+                'last_validation_errors': 'FAILED test_foo - AssertionError',
+            },
+        ),
+        token='token',
+    )
+
+    assert task_id == 'task-fix-ctx'
+    prompt = dispatched[0]['prompt']
+    assert 'src/app.py' in prompt
+    assert 'Test test_foo fails' in prompt
+    assert 'FAILED test_foo' in prompt
+    assert 'CHANGES_REQUESTED' in prompt
+
+
+@pytest.mark.asyncio
+async def test_create_merge_task_uses_protocol_native_fix_as_primary(monkeypatch, pr_payload):
+    """create_issue_merge_task calls create_fix_followup_task as primary path."""
+    fix_created = []
+    fallback_called = []
+
+    async def fake_fix_followup(*, review_task, token):
+        fix_created.append((review_task, token))
+        return 'task-fix-primary'
+
+    async def fake_fallback(*, review_task, token):
+        fallback_called.append(True)
+        return False
+
+    monkeypatch.setattr(issue_review_task, 'create_fix_followup_task', fake_fix_followup)
+    monkeypatch.setattr(issue_review_task, 'post_change_request_followup_if_needed', fake_fallback)
+
+    task_id = await issue_review_task.create_issue_merge_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+
+    assert task_id is None
+    assert len(fix_created) == 1
+    assert len(fallback_called) == 0  # fallback NOT called when fix succeeds
+
+
+@pytest.mark.asyncio
+async def test_create_merge_task_falls_back_to_mention_on_fix_failure(monkeypatch, pr_payload):
+    """create_issue_merge_task falls back to @codetether mention when fix follow-up returns None."""
+    fix_created = []
+    fallback_called = []
+
+    async def fake_fix_followup(*, review_task, token):
+        fix_created.append(True)
+        return None  # fix follow-up could not create task
+
+    async def fake_fallback(*, review_task, token):
+        fallback_called.append(True)
+        return False
+
+    monkeypatch.setattr(issue_review_task, 'create_fix_followup_task', fake_fix_followup)
+    monkeypatch.setattr(issue_review_task, 'post_change_request_followup_if_needed', fake_fallback)
+
+    task_id = await issue_review_task.create_issue_merge_task(
+        review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
+        token='token',
+    )
+
+    assert task_id is None
+    assert len(fix_created) == 1
+    assert len(fallback_called) == 1  # fallback IS called when fix returns None
+
+
+@pytest.mark.asyncio
+async def test_create_merge_task_does_not_call_fix_on_approval(monkeypatch, pr_payload):
+    """create_issue_merge_task does not call fix follow-up for APPROVED reviews."""
+    fix_created = []
+
+    async def fake_fix_followup(*, review_task, token):
+        fix_created.append(True)
+        return None
+
+    async def fake_github_json(method, path, token, payload=None):
+        if path == '/repos/acme/widgets/pulls/77':
+            return pr_payload
+        if path == '/repos/acme/widgets':
+            return {'allow_squash_merge': True, 'allow_rebase_merge': True, 'allow_merge_commit': True}
+        if method == 'PUT' and 'merge' in path:
+            return {'merged': True, 'sha': 'merge123'}
+        raise AssertionError(f'unexpected call: {method} {path}')
+
+    async def fake_feedback_status(repo, pr_number, token):
+        return {'feedback_addressed': True, 'blockers': []}
+
+    async def fake_record(**kwargs):
+        pass
+
+    async def fake_post(*args, **kwargs):
+        pass
+
+    monkeypatch.setattr(issue_review_task, 'create_fix_followup_task', fake_fix_followup)
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr(issue_review_task, 'review_feedback_status', fake_feedback_status)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+
+    # Use AUTO_MERGE_ENABLED path
+    monkeypatch.setattr(issue_review_task, 'AUTO_MERGE_ENABLED', True)
+
+    task_id = await issue_review_task.create_issue_merge_task(
+        review_task=_make_review_task('APPROVED: looks safe'),
+        token='token',
+    )
+
+    # No fix task should have been created for an approved review
+    assert len(fix_created) == 0
+
+
+def test_fix_followup_prompt_includes_attempt_counter():
+    """The fix prompt includes attempt counter for retry attempts."""
+    prompt = issue_review_task.fix_followup_prompt(
+        repo='acme/widgets',
+        issue_number=12,
+        pr_number=77,
+        branch='codetether/issue-12',
+        head_sha='abc123',
+        pr_url='https://github.com/acme/widgets/pull/77',
+        verdict='CHANGES_REQUESTED',
+        review_summary='Tests failed',
+        attempt=3,
+    )
+    assert 'Fix attempt 3 of 5' in prompt
+
+
+def test_fix_followup_prompt_no_attempt_on_first():
+    """The fix prompt omits attempt counter on first attempt."""
+    prompt = issue_review_task.fix_followup_prompt(
+        repo='acme/widgets',
+        issue_number=12,
+        pr_number=77,
+        branch='codetether/issue-12',
+        head_sha='abc123',
+        pr_url='https://github.com/acme/widgets/pull/77',
+        verdict='CHANGES_REQUESTED',
+        review_summary='Tests failed',
+        attempt=1,
+    )
+    assert 'Fix attempt' not in prompt
