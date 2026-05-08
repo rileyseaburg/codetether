@@ -151,6 +151,8 @@ async def test_create_review_task_records_allow_decision_without_builder_target(
     assert task_id == 'task-review-1'
     assert created[0]['metadata']['worker_personality'] == 'reviewer'
     assert 'target_worker_id' not in created[0]['metadata']
+    assert '@codetether' in created[0]['prompt']
+    assert 'If anything requires changes' in created[0]['prompt']
     assert decisions[0]['decision']['allowed'] is True
     assert decisions[0]['task_id'] == 'task-review-1'
 

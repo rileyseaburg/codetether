@@ -22,6 +22,8 @@ CODETETHER_PERSONALITY = {
     'tone': 'concise, safety-first, provenance-aware',
 }
 
+CHANGE_REQUEST_MENTION = '@codetether'
+
 
 def issue_pr_provenance(
     *,
@@ -428,8 +430,9 @@ End-to-end responsibilities:
 1. Fetch the PR branch and inspect the diff.
 2. Run the smallest relevant validation for the changed files.
 3. Do not approve your own unsafe work. If tests fail, scope drifts, secrets appear, or provenance does not match the current head SHA, request changes with clear remediation.
-4. If the PR is safe, leave an approving review or success comment.
-5. Include this exact provenance footer in any GitHub review/comment you create:{footer}
+4. If anything requires changes, leave a CHANGES_REQUESTED review/comment and include `{CHANGE_REQUEST_MENTION}` in the GitHub-facing body so CodeTether gets explicitly re-engaged.
+5. If the PR is safe, leave an approving review or success comment.
+6. Include this exact provenance footer in any GitHub review/comment you create:{footer}
 
 Final response must state one of: APPROVED, CHANGES_REQUESTED, or BLOCKED, plus the PR URL and validation summary."""
 
