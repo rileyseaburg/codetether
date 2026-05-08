@@ -218,6 +218,7 @@ async def test_create_merge_task_requires_explicit_approval(monkeypatch, review_
 @pytest.mark.asyncio
 async def test_create_merge_task_records_sha_mismatch(monkeypatch, pr_payload):
     decisions = []
+    comments = []
 
     async def fake_github_json(method, path, token):
         updated = dict(pr_payload)
@@ -227,8 +228,12 @@ async def test_create_merge_task_records_sha_mismatch(monkeypatch, pr_payload):
     async def fake_record(**kwargs):
         decisions.append(kwargs)
 
+    async def fake_post(repo, issue_number, token, body):
+        comments.append((repo, issue_number, body))
+
     monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
     monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
 
     task_id = await issue_review_task.create_issue_merge_task(
         review_task={
@@ -250,6 +255,116 @@ async def test_create_merge_task_records_sha_mismatch(monkeypatch, pr_payload):
     assert task_id is None
     assert decisions[0]['decision']['allowed'] is False
     assert 'PR head SHA changed' in decisions[0]['decision']['provenance']['failures'][0]
+    assert 'Blocked because the PR changed' in comments[0][2]
+
+
+@pytest.mark.asyncio
+async def test_create_merge_task_blocks_unresolved_review_feedback(monkeypatch, pr_payload):
+    decisions = []
+    comments = []
+
+    async def fake_github_json(method, path, token):
+        if path == '/repos/acme/widgets/pulls/77':
+            return pr_payload
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    async def fake_feedback_status(repo, pr_number, token):
+        return {
+            'feedback_addressed': False,
+            'blockers': ['Unresolved review thread at src/app.py:10 by reviewer'],
+        }
+
+    async def fake_record(**kwargs):
+        decisions.append(kwargs)
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr(issue_review_task, 'review_feedback_status', fake_feedback_status)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+
+    task_id = await issue_review_task.create_issue_merge_task(
+        review_task={
+            'id': 'task-review-1',
+            'result': 'APPROVED: looks safe',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'issue_number': 12,
+                'pr_number': 77,
+                'branch_name': 'codetether/issue-12',
+                'pr_head_sha': 'abc123',
+                'github_installation_id': 123,
+            },
+        },
+        token='token',
+    )
+
+    assert task_id is None
+    assert decisions[0]['decision']['allowed'] is False
+    assert 'Unresolved review thread' in decisions[0]['decision']['provenance']['failures'][0]
+    assert 'review feedback is not fully addressed' in comments[0]
+
+
+@pytest.mark.asyncio
+async def test_create_merge_task_auto_merges_when_feedback_addressed(monkeypatch, pr_payload):
+    decisions = []
+    comments = []
+    calls = []
+
+    async def fake_github_json(method, path, token, payload=None):
+        calls.append((method, path, payload))
+        if path == '/repos/acme/widgets/pulls/77':
+            return pr_payload
+        if path == '/repos/acme/widgets':
+            return {
+                'allow_squash_merge': True,
+                'allow_rebase_merge': True,
+                'allow_merge_commit': True,
+            }
+        if method == 'PUT' and path == '/repos/acme/widgets/pulls/77/merge':
+            assert payload['sha'] == 'abc123'
+            assert payload['merge_method'] == 'squash'
+            return {'merged': True, 'sha': 'merge123'}
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    async def fake_feedback_status(repo, pr_number, token):
+        return {'feedback_addressed': True, 'blockers': []}
+
+    async def fake_record(**kwargs):
+        decisions.append(kwargs)
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+    monkeypatch.setattr(issue_review_task, 'review_feedback_status', fake_feedback_status)
+    monkeypatch.setattr(issue_review_task, 'record_automation_decision', fake_record)
+    monkeypatch.setattr('a2a_server.github_app.watch.post_issue_comment', fake_post)
+
+    result = await issue_review_task.create_issue_merge_task(
+        review_task={
+            'id': 'task-review-1',
+            'result': 'APPROVED: looks safe',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'issue_number': 12,
+                'pr_number': 77,
+                'branch_name': 'codetether/issue-12',
+                'pr_head_sha': 'abc123',
+                'github_installation_id': 123,
+            },
+        },
+        token='token',
+    )
+
+    assert result == 'merge123'
+    assert any(call[1] == '/repos/acme/widgets/pulls/77/merge' for call in calls)
+    assert decisions[-1]['decision']['allowed'] is True
+    assert 'Merged PR #77 using `squash`' in comments[0]
 
 
 def test_merge_provenance_uses_merge_steward_actor(pr_payload):
