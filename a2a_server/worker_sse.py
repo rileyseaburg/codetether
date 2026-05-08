@@ -385,7 +385,7 @@ class WorkerRegistry:
         Agent Targeting:
         - If target_agent_name is set, ONLY notify workers with that agent_name
         - If target_worker_id is set, ONLY notify the specific worker
-        - This reduces noise/wakeups for targeted tasks
+        - This reduces unnecessary notifications for targeted tasks
         - Claim-time filtering is the real enforcement; this is for efficiency
         """
         async with self._lock:
