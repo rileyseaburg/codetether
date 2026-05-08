@@ -721,6 +721,35 @@ async def db_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+async def db_get_active_worker_by_name(
+    name: str,
+    tenant_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get the most recently seen active worker for an agent name."""
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            query = (
+                "SELECT * FROM workers WHERE name = $1 AND status = 'active'"
+            )
+            params: List[Any] = [name]
+            if tenant_id:
+                query += ' AND tenant_id = $2'
+                params.append(tenant_id)
+            query += ' ORDER BY last_seen DESC LIMIT 1'
+
+            row = await conn.fetchrow(query, *params)
+            if row:
+                return _row_to_worker(row)
+        return None
+    except Exception as e:
+        logger.error(f'Failed to get active worker by name: {e}')
+        return None
+
+
 async def db_list_workers(
     status: Optional[str] = None,
     tenant_id: Optional[str] = None,

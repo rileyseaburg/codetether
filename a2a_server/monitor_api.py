@@ -183,16 +183,15 @@ async def _active_worker_id_for_agent_name(agent_name: Optional[str]) -> Optiona
     if not agent_name:
         return None
     try:
-        workers = await db.db_list_workers(status='active')
+        worker = await db.db_get_active_worker_by_name(agent_name)
     except Exception as e:
         logger.debug(f'Failed to resolve worker id for agent {agent_name}: {e}')
         return None
 
-    for worker in workers:
-        if worker.get('name') == agent_name:
-            worker_id = str(worker.get('worker_id') or '').strip()
-            if worker_id:
-                return worker_id
+    if worker:
+        worker_id = str(worker.get('worker_id') or '').strip()
+        if worker_id:
+            return worker_id
     return None
 
 

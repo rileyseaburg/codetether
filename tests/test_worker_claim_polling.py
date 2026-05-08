@@ -128,15 +128,17 @@ async def test_pending_task_polling_resolves_worker_id_from_agent_name(
             {'id': 'task_available', 'status': 'pending', 'metadata': {}},
         ]
 
-    async def _fake_list_workers(status=None, tenant_id=None):
-        assert status == 'active'
-        return [
-            {'worker_id': 'worker_2', 'name': 'agent-alpha'},
-            {'worker_id': 'worker_3', 'name': 'agent-beta'},
-        ]
+    async def _fake_get_active_worker_by_name(agent_name, tenant_id=None):
+        assert agent_name == 'agent-alpha'
+        assert tenant_id is None
+        return {'worker_id': 'worker_2', 'name': 'agent-alpha'}
 
     monkeypatch.setattr(monitor_api.db, 'db_list_tasks', _fake_list_tasks)
-    monkeypatch.setattr(monitor_api.db, 'db_list_workers', _fake_list_workers)
+    monkeypatch.setattr(
+        monitor_api.db,
+        'db_get_active_worker_by_name',
+        _fake_get_active_worker_by_name,
+    )
 
     tasks = await monitor_api.list_all_tasks(
         status='pending',
@@ -191,9 +193,59 @@ async def test_db_list_tasks_exposes_targeted_fire_and_forget_to_polling_worker(
     assert "metadata->>'target_worker_id'" in seen['sql']
     assert "metadata->>'target_agent_name'" in seen['sql']
     assert 'FROM workers w' in seen['sql']
+    assert 'NOT EXISTS ( OR' not in seen['sql']
+    assert 'EXISTS ( OR' not in seen['sql']
+    assert 'NOT EXISTS (  SELECT 1 FROM task_runs tr' in seen['sql']
+    assert 'EXISTS (  SELECT 1 FROM workers w' in seen['sql']
     assert 'AND worker_id =' not in seen['sql']
     assert 'worker_2' in seen['params']
     assert 'agent-alpha' in seen['params']
+
+
+@pytest.mark.asyncio
+async def test_db_get_active_worker_by_name_uses_targeted_lookup(monkeypatch):
+    seen = {}
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    class FakeConnection:
+        async def fetchrow(self, sql, *params):
+            seen['sql'] = sql
+            seen['params'] = params
+            return {
+                'worker_id': 'worker_2',
+                'name': 'agent-alpha',
+                'capabilities': [],
+                'hostname': 'host-a',
+                'models': [],
+                'global_workspace_id': None,
+                'registered_at': None,
+                'last_seen': None,
+                'status': 'active',
+                'tenant_id': None,
+            }
+
+    async def _fake_get_pool():
+        return FakePool()
+
+    monkeypatch.setattr(database, 'get_pool', _fake_get_pool)
+
+    worker = await database.db_get_active_worker_by_name('agent-alpha')
+
+    assert worker['worker_id'] == 'worker_2'
+    assert 'WHERE name = $1' in seen['sql']
+    assert "status = 'active'" in seen['sql']
+    assert 'ORDER BY last_seen DESC LIMIT 1' in seen['sql']
+    assert seen['params'] == ('agent-alpha',)
 
 
 @pytest.mark.asyncio
