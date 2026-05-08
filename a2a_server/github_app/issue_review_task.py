@@ -354,6 +354,64 @@ def choose_merge_method(repo: dict[str, Any]) -> str | None:
     return None
 
 
+async def enable_pull_request_auto_merge(
+    *,
+    pr: dict[str, Any],
+    merge_method: str,
+    current_sha: str,
+    parent_task_id: str,
+    token: str,
+) -> dict[str, Any]:
+    """Ask GitHub to auto-merge the PR once branch protection is satisfied."""
+    from .auth import github_graphql
+
+    pull_request_id = str(pr.get('node_id') or '').strip()
+    if not pull_request_id:
+        raise RuntimeError('GitHub pull request node_id is missing')
+
+    query = """
+    mutation EnableCodeTetherAutoMerge(
+      $pullRequestId: ID!,
+      $mergeMethod: PullRequestMergeMethod!,
+      $commitHeadline: String!,
+      $commitBody: String!,
+      $expectedHeadOid: GitObjectID!
+    ) {
+      enablePullRequestAutoMerge(input: {
+        pullRequestId: $pullRequestId,
+        mergeMethod: $mergeMethod,
+        commitHeadline: $commitHeadline,
+        commitBody: $commitBody,
+        expectedHeadOid: $expectedHeadOid
+      }) {
+        pullRequest {
+          number
+          autoMergeRequest {
+            enabledAt
+            mergeMethod
+          }
+        }
+      }
+    }
+    """
+    data = await github_graphql(
+        query,
+        {
+            'pullRequestId': pull_request_id,
+            'mergeMethod': merge_method.upper(),
+            'commitHeadline': f'Merge PR #{pr.get("number")}: CodeTether automated fix',
+            'commitBody': f'Approved by CodeTether reviewer task {parent_task_id}.',
+            'expectedHeadOid': current_sha,
+        },
+        token,
+    )
+    pull_request = (data.get('enablePullRequestAutoMerge') or {}).get('pullRequest') or {}
+    auto_merge_request = pull_request.get('autoMergeRequest')
+    if not auto_merge_request:
+        raise RuntimeError('GitHub did not return an auto-merge request')
+    return auto_merge_request
+
+
 def review_prompt(repo: str, issue_number: int, branch: str, pr: dict[str, Any], provenance: dict[str, Any]) -> str:
     pr_number = pr.get('number')
     pr_url = pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}'
@@ -594,21 +652,46 @@ async def create_issue_merge_task(
                 },
             )
         except Exception as exc:
-            failures = [f'GitHub merge API rejected the merge: {exc}']
-            await record_automation_decision(
-                provenance=provenance,
-                decision=_failure_decision('github:merge_pr', failures),
-                task_id=parent_task_id,
-            )
-            await post_issue_comment(
-                repo,
-                pr_number,
-                token,
+            merge_failure = f'GitHub merge API rejected the merge: {exc}'
+            try:
+                auto_merge_request = await enable_pull_request_auto_merge(
+                    pr=pr,
+                    merge_method=merge_method,
+                    current_sha=current_sha,
+                    parent_task_id=parent_task_id,
+                    token=token,
+                )
+            except Exception as auto_exc:
+                failures = [
+                    merge_failure,
+                    f'GitHub auto-merge could not be enabled: {auto_exc}',
+                ]
+                await record_automation_decision(
+                    provenance=provenance,
+                    decision=_failure_decision('github:merge_pr', failures),
+                    task_id=parent_task_id,
+                )
+                await post_issue_comment(
+                    repo,
+                    pr_number,
+                    token,
+                    "## 🛠️ CodeTether Auto-Merge\n\n"
+                    "Blocked by GitHub while attempting to merge.\n\n"
+                    f"{_format_blockers(failures)}",
+                )
+                return None
+
+            await record_automation_decision(provenance=provenance, decision=decision, task_id=parent_task_id)
+            enabled_at = str(auto_merge_request.get('enabledAt') or '').strip()
+            message = (
                 "## 🛠️ CodeTether Auto-Merge\n\n"
-                "Blocked by GitHub while attempting to merge.\n\n"
-                f"{_format_blockers(failures)}",
+                f"Enabled GitHub auto-merge for PR #{pr_number} using `{merge_method}` after reviewer approval and resolved-feedback checks."
             )
-            return None
+            if enabled_at:
+                message += f"\n\nEnabled at: `{enabled_at}`"
+            message += provenance_footer(provenance, action='github:merge_pr')
+            await post_issue_comment(repo, pr_number, token, message)
+            return 'auto_merge_enabled'
 
         merged_sha = str(merge_result.get('sha') or '').strip()
         await record_automation_decision(provenance=provenance, decision=decision, task_id=parent_task_id)
