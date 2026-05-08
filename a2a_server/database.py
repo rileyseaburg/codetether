@@ -721,6 +721,35 @@ async def db_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+async def db_get_active_worker_by_name(
+    name: str,
+    tenant_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get the most recently seen active worker for an agent name."""
+    pool = await get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.acquire() as conn:
+            query = (
+                "SELECT * FROM workers WHERE name = $1 AND status = 'active'"
+            )
+            params: List[Any] = [name]
+            if tenant_id:
+                query += ' AND tenant_id = $2'
+                params.append(tenant_id)
+            query += ' ORDER BY last_seen DESC LIMIT 1'
+
+            row = await conn.fetchrow(query, *params)
+            if row:
+                return _row_to_worker(row)
+        return None
+    except Exception as e:
+        logger.error(f'Failed to get active worker by name: {e}')
+        return None
+
+
 async def db_list_workers(
     status: Optional[str] = None,
     tenant_id: Optional[str] = None,
@@ -1491,13 +1520,39 @@ async def db_list_tasks(
                     # waste cycles trying (and failing with 409) on tasks they
                     # can never claim through that endpoint.
                     if status == 'pending':
-                        query += (
-                            ' AND (dispatch_mode IS NULL OR dispatch_mode != \'fire_and_forget\''
-                            ' OR NOT EXISTS ('
+                        ff_visibility = [
+                            "dispatch_mode IS NULL OR dispatch_mode != 'fire_and_forget'",
+                            'NOT EXISTS ('
                             '  SELECT 1 FROM task_runs tr'
                             '  WHERE tr.task_id = tasks.id'
                             "  AND tr.status IN ('queued', 'running')"
-                            ' ))'
+                            ' )',
+                        ]
+                        if worker_id:
+                            ff_visibility.append(
+                                f"metadata->>'target_worker_id' = ${param_idx}"
+                            )
+                            params.append(worker_id)
+                            param_idx += 1
+                        if agent_name:
+                            ff_visibility.append(
+                                'EXISTS ('
+                                '  SELECT 1 FROM workers w'
+                                "  WHERE w.worker_id = metadata->>'target_worker_id'"
+                                f'  AND w.name = ${param_idx}'
+                                "  AND w.status = 'active'"
+                                ' )'
+                            )
+                            ff_visibility.append(
+                                f"metadata->>'target_agent_name' = ${param_idx}"
+                            )
+                            params.append(agent_name)
+                            param_idx += 1
+
+                        query += (
+                            ' AND ('
+                            + ' OR '.join(ff_visibility)
+                            + ')'
                         )
 
                         # Exclude tasks targeted at a different agent.
@@ -1522,7 +1577,35 @@ async def db_list_tasks(
                                 " OR metadata->>'target_agent_name' = '')"
                             )
 
-                if worker_id:
+                        if worker_id:
+                            query += (
+                                " AND (metadata->>'target_worker_id' IS NULL"
+                                " OR metadata->>'target_worker_id' = ''"
+                                f" OR metadata->>'target_worker_id' = ${param_idx}"
+                                ')'
+                            )
+                            params.append(worker_id)
+                            param_idx += 1
+                        elif agent_name:
+                            query += (
+                                " AND (metadata->>'target_worker_id' IS NULL"
+                                " OR metadata->>'target_worker_id' = ''"
+                                ' OR EXISTS ('
+                                '  SELECT 1 FROM workers w'
+                                "  WHERE w.worker_id = metadata->>'target_worker_id'"
+                                f'  AND w.name = ${param_idx}'
+                                "  AND w.status = 'active'"
+                                ' ))'
+                            )
+                            params.append(agent_name)
+                            param_idx += 1
+                        else:
+                            query += (
+                                " AND (metadata->>'target_worker_id' IS NULL"
+                                " OR metadata->>'target_worker_id' = '')"
+                            )
+
+                if worker_id and status != 'pending':
                     query += f' AND worker_id = ${param_idx}'
                     params.append(worker_id)
                     param_idx += 1
