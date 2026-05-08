@@ -24,6 +24,8 @@ CODETETHER_PERSONALITY = {
 
 CHANGE_REQUEST_MENTION = '@codetether'
 
+MAX_FIX_ATTEMPTS_PER_SHA = 5
+
 
 def issue_pr_provenance(
     *,
@@ -279,12 +281,314 @@ def reviewer_needs_work(review_task: dict[str, Any]) -> bool:
     return reviewer_verdict(review_task) in {'CHANGES_REQUESTED', 'BLOCKED'}
 
 
+def fix_followup_prompt(
+    *,
+    repo: str,
+    issue_number: int,
+    pr_number: int,
+    branch: str,
+    head_sha: str,
+    pr_url: str,
+    verdict: str,
+    review_summary: str,
+    changed_files: list[str] | None = None,
+    blockers: list[str] | None = None,
+    last_validation_errors: str | None = None,
+    provenance: dict[str, Any] | None = None,
+    attempt: int = 1,
+) -> str:
+    """Build the worker prompt for a protocol-native PR fix follow-up task."""
+    footer = (
+        provenance_footer(provenance, action='github:fix_pr')
+        if provenance
+        else ''
+    )
+    files_section = ''
+    if changed_files:
+        files_section = '\n\nFiles changed in this PR:\n' + '\n'.join(f'- `{f}`' for f in changed_files[:30])
+    blockers_section = ''
+    if blockers:
+        blockers_section = '\n\nSpecific blockers to address:\n' + _format_blockers(blockers)
+    validation_section = ''
+    if last_validation_errors:
+        validation_section = f'\n\nLast validation errors:\n```\n{_truncate_for_comment(last_validation_errors, limit=2000)}\n```'
+    attempt_line = f'\n\nFix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}.' if attempt > 1 else ''
+    return f"""You are editing the existing PR branch for PR #{pr_number}: {pr_url}
+Branch: {branch}
+Head SHA: {head_sha}
+
+Personality/avatar: {CODETETHER_PERSONALITY['name']} using {CODETETHER_PERSONALITY['avatar']} — concise, safety-first, provenance-aware.
+
+A CodeTether reviewer returned verdict `{verdict}` for PR #{pr_number} in {repo} (issue #{issue_number}).
+Apply the requested changes directly in the checked-out repository. Do not just describe the fix.
+
+Do not stay in analysis mode. Use at most 5 discovery reads or searches before your first code edit. Prefer the files closest to the requested area, and keep moving toward an actual patch instead of repeating repo exploration.
+
+Reviewer summary:
+{_truncate_for_comment(review_summary)}{files_section}{blockers_section}{validation_section}{attempt_line}
+
+After editing files, run the smallest relevant validation needed, commit the changes, and push them back to the existing PR branch `{branch}`. Do not open a new PR. In the final response, include the commit SHA if you created one.{footer}"""
+
+
+def _fix_attempt_key(repo: str, pr_number: int, head_sha: str) -> str:
+    """Return a deterministic key for tracking fix attempts per PR/head SHA."""
+    return f'codetether:fix_followup:{repo}#{pr_number}@{head_sha}'
+
+
+async def _count_fix_attempts(repo: str, pr_number: int, head_sha: str) -> int:
+    """Count existing fix follow-up tasks for this repo/PR/head SHA combination."""
+    try:
+        from .. import database as db
+        pool = await db.get_pool()
+        if not pool:
+            return 0
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM (SELECT jsonb_array_elements(metadata->'fix_followup_history') AS entry
+                      FROM tasks
+                      WHERE metadata->>'repo' = $1
+                        AND metadata->>'pr_number' = $2
+                        AND metadata->>'pr_head_sha' = $3
+                        AND metadata->>'source' = 'github-app'
+                        AND metadata->>'fix_followup' IS NOT NULL
+                     ) sub
+                """,
+                repo, str(pr_number), head_sha,
+            )
+            return int((row or {}).get('cnt') or 0)
+    except Exception:
+        return 0
+
+
+async def create_fix_followup_task(
+    *,
+    review_task: dict[str, Any],
+    token: str,
+) -> str | None:
+    """Create a protocol-native A2A fix task when a reviewer requests changes.
+
+    This is the primary handoff path: when a review task completes with
+    CHANGES_REQUESTED or BLOCKED, we enqueue a follow-up fix task directly
+    instead of relying on a GitHub @mention webhook round-trip.
+
+    Includes idempotency (duplicate suppression) and loop guards:
+    - PR must be open
+    - Head SHA must match the reviewed commit
+    - Branch must not have changed since review
+    - Fix attempts are capped per PR/head SHA
+    - Provenance/policy gates are enforced
+    """
+    verdict = reviewer_verdict(review_task)
+    if verdict not in {'CHANGES_REQUESTED', 'BLOCKED'}:
+        return None
+
+    metadata = review_task.get('metadata') or {}
+    repo = str(metadata.get('repo') or '')
+    issue_number = int(metadata.get('issue_number') or 0)
+    pr_number = int(metadata.get('pr_number') or 0)
+    branch = str(metadata.get('branch_name') or '')
+    workspace_id = str(metadata.get('workspace_id') or '')
+    expected_sha = str(metadata.get('pr_head_sha') or '')
+    installation_id = metadata.get('github_installation_id')
+    github_issue_url = str(metadata.get('github_issue_url') or '')
+    review_task_id = str(review_task.get('id') or '')
+    review_summary = str(review_task.get('result') or '').strip()
+
+    if not (repo and issue_number and pr_number and branch and workspace_id and expected_sha):
+        logger.warning(
+            'fix_followup: skipping due to missing metadata for review task %s',
+            review_task_id,
+        )
+        return None
+
+    from ..persistent_worker_pool import create_and_dispatch_task
+    from .auth import github_json
+    from .watch import post_issue_comment
+
+    # Guard: verify PR is still open and head SHA matches
+    try:
+        pr = await github_json('GET', f'/repos/{repo}/pulls/{pr_number}', token)
+    except Exception as exc:
+        logger.warning('fix_followup: could not fetch PR %s/%s: %s', repo, pr_number, exc)
+        return None
+
+    if str(pr.get('state') or '').upper() != 'OPEN':
+        logger.info('fix_followup: PR %s/%s is not open, skipping', repo, pr_number)
+        return None
+
+    current_sha = str((pr.get('head') or {}).get('sha') or '')
+    if current_sha != expected_sha:
+        logger.info(
+            'fix_followup: PR %s/%s head SHA changed (%s -> %s), skipping',
+            repo, pr_number, expected_sha, current_sha,
+        )
+        return None
+
+    # Guard: check for forked PRs
+    head_repo = ((pr.get('head') or {}).get('repo') or {}).get('full_name') or ''
+    if head_repo and head_repo != repo:
+        logger.info('fix_followup: PR %s/%s is forked (%s), skipping', repo, pr_number, head_repo)
+        return None
+
+    # Loop guard: cap attempts per PR/head SHA
+    attempt_count = await _count_fix_attempts(repo, pr_number, expected_sha)
+    attempt = attempt_count + 1
+    if attempt > MAX_FIX_ATTEMPTS_PER_SHA:
+        logger.warning(
+            'fix_followup: max attempts (%d) reached for %s/%s @ %s, skipping',
+            MAX_FIX_ATTEMPTS_PER_SHA, repo, pr_number, expected_sha,
+        )
+        await post_issue_comment(
+            repo, pr_number, token,
+            "## 🛠️ CodeTether Fix Follow-up\n\n"
+            f"Maximum fix attempts ({MAX_FIX_ATTEMPTS_PER_SHA}) reached for this PR head SHA. "
+            "Manual intervention may be required.",
+        )
+        return None
+
+    # Build provenance for the fix action
+    provenance = issue_pr_provenance(
+        repo=repo,
+        issue_number=issue_number,
+        branch=branch,
+        pr=pr,
+        installation_id=installation_id,
+        action='github:fix_pr',
+        parent_task_id=review_task_id,
+    )
+
+    # Check policy
+    decision = policy_decision(provenance, 'github:fix_pr')
+    if not decision['allowed']:
+        await record_automation_decision(
+            provenance=provenance, decision=decision, task_id=review_task_id,
+        )
+        logger.info('fix_followup: policy denied for %s/%s', repo, pr_number)
+        return None
+
+    # Idempotency: check if a fix follow-up task already exists for this review task
+    try:
+        from .. import database as db
+        pool = await db.get_pool()
+        if pool:
+            async with pool.acquire() as conn:
+                existing = await conn.fetchval(
+                    """
+                    SELECT id FROM tasks
+                    WHERE metadata->>'review_task_id' = $1
+                      AND metadata->>'fix_followup' = 'true'
+                      AND status NOT IN ('completed', 'failed', 'cancelled')
+                    LIMIT 1
+                    """,
+                    review_task_id,
+                )
+                if existing:
+                    logger.info(
+                        'fix_followup: existing fix task %s for review %s, skipping duplicate',
+                        existing, review_task_id,
+                    )
+                    return None
+    except Exception as exc:
+        logger.warning('fix_followup: idempotency check failed: %s', exc)
+
+    # Parse review context
+    pr_url = str(pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}')
+
+    # Extract changed files from provenance or review metadata
+    changed_files = metadata.get('changed_files') or None
+    blockers = metadata.get('blockers') or None
+    last_validation_errors = metadata.get('last_validation_errors') or None
+
+    fix_prompt = fix_followup_prompt(
+        repo=repo,
+        issue_number=issue_number,
+        pr_number=pr_number,
+        branch=branch,
+        head_sha=expected_sha,
+        pr_url=pr_url,
+        verdict=verdict or '',
+        review_summary=review_summary,
+        changed_files=changed_files,
+        blockers=blockers,
+        last_validation_errors=last_validation_errors,
+        provenance=provenance,
+        attempt=attempt,
+    )
+
+    fix_metadata = {
+        'workspace_id': workspace_id,
+        'source': 'github-app',
+        'workflow_stage': 'fix',
+        'repo': repo,
+        'issue_number': issue_number,
+        'pr_number': pr_number,
+        'branch_name': branch,
+        'pr_head_sha': expected_sha,
+        'github_issue_url': github_issue_url,
+        'github_installation_id': installation_id,
+        'worker_personality': 'builder',
+        'personality': CODETETHER_PERSONALITY,
+        'codetether_provenance': provenance,
+        'policy_decision': decision,
+        'review_task_id': review_task_id,
+        'review_verdict': verdict,
+        'fix_followup': 'true',
+        'fix_attempt': attempt,
+    }
+
+    # Propagate parent_task_id from the review task metadata chain
+    parent_task_id = metadata.get('parent_task_id')
+    if parent_task_id:
+        fix_metadata['parent_task_id'] = parent_task_id
+
+    task_id = await create_and_dispatch_task(
+        workspace_id=workspace_id,
+        title=f'Apply PR fix #{pr_number}',
+        prompt=fix_prompt,
+        agent_type='build',
+        model_ref=MODEL_REF,
+        metadata=fix_metadata,
+        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        github_issue_url=github_issue_url,
+    )
+
+    await record_automation_decision(
+        provenance=provenance, decision=decision, task_id=task_id,
+    )
+
+    logger.info(
+        'fix_followup: created fix task %s for review %s (%s), attempt %d',
+        task_id, review_task_id, verdict, attempt,
+    )
+
+    # Post a comment indicating the protocol-native follow-up
+    comment_body = (
+        "## 🛠️ CodeTether Fix Follow-up\n\n"
+        f"Reviewer verdict: `{verdict}`. "
+        f"Enqueued protocol-native fix task `{task_id}` to address the requested changes.\n\n"
+        f"Fix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}."
+    )
+    if review_summary:
+        comment_body += f"\n\nReviewer summary:\n\n{_truncate_for_comment(review_summary)}"
+    comment_body += provenance_footer(provenance, action='github:fix_pr')
+    await post_issue_comment(repo, pr_number, token, comment_body)
+
+    return task_id
+
+
 async def post_change_request_followup_if_needed(
     *,
     review_task: dict[str, Any],
     token: str,
 ) -> bool:
-    """Post a deterministic tagged follow-up when a reviewer forgets the tag."""
+    """Post a deterministic tagged follow-up when a reviewer forgets the tag.
+
+    This is the **compatibility fallback** — it only fires when the reviewer's
+    result omits the `@codetether` tag. The primary protocol-native path is
+    `create_fix_followup_task()`, which does not depend on GitHub mentions.
+    """
     verdict = reviewer_verdict(review_task)
     if verdict not in {'CHANGES_REQUESTED', 'BLOCKED'}:
         return False
@@ -590,7 +894,16 @@ async def create_issue_merge_task(
     from .watch import post_issue_comment
 
     if not reviewer_allows_merge(review_task):
-        await post_change_request_followup_if_needed(review_task=review_task, token=token)
+        # Primary path: protocol-native A2A fix follow-up
+        fix_task_id = await create_fix_followup_task(review_task=review_task, token=token)
+        if fix_task_id:
+            logger.info(
+                'Protocol-native fix follow-up %s enqueued for review %s',
+                fix_task_id, review_task.get('id'),
+            )
+        else:
+            # Compatibility fallback: @codetether mention comment
+            await post_change_request_followup_if_needed(review_task=review_task, token=token)
         return None
 
     metadata = review_task.get('metadata') or {}
