@@ -43,6 +43,7 @@ Fbr
 GAPI
 GAPIC
 GBP
+GIL
 GVsb
 Gapic
 Gci
@@ -249,6 +250,7 @@ iat
 ietf
 inbox
 inmemory
+inp
 ipynb
 iss
 iterfile
@@ -303,6 +305,7 @@ opencode
 openrouter
 oreilly
 pconfig
+pjti
 plpgsql
 policyname
 postgres
@@ -328,6 +331,7 @@ reposted
 rls
 rollme
 rst
+rtid
 rvelicheti
 sadd
 schemaname
@@ -337,6 +341,7 @@ sllm
 smembers
 sourcing
 spamming
+spiffe
 squidfunk
 srcs
 srem
