@@ -53,3 +53,19 @@ async def github_json(method: str, path: str, token: str, payload: Optional[dict
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail=f'GitHub API {method} {path} failed: {response.text[:400]}')
     return response.json() if response.content else {}
+
+
+async def github_graphql(query: str, variables: dict[str, Any], token: str) -> dict[str, Any]:
+    """Call the GitHub GraphQL API with an installation token."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            'https://api.github.com/graphql',
+            headers={'Authorization': f'Bearer {token}', 'User-Agent': 'codetether-github-app'},
+            json={'query': query, 'variables': variables},
+        )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f'GitHub GraphQL failed: {response.text[:400]}')
+    data = response.json()
+    if data.get('errors'):
+        raise HTTPException(status_code=502, detail=f"GitHub GraphQL failed: {str(data['errors'])[:400]}")
+    return data.get('data') or {}
