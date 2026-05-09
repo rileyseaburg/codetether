@@ -165,8 +165,8 @@ class KnativeGarbageCollector:
                     WHERE knative_service_name IS NOT NULL
                     AND worker_status NOT IN ('terminated', 'pending')
                     AND (
-                        last_activity_at < NOW() - INTERVAL '%s hours'
-                        OR (last_activity_at IS NULL AND created_at < NOW() - INTERVAL '%s hours')
+                        last_activity_at < NOW() - $1 * INTERVAL '1 hour'
+                        OR (last_activity_at IS NULL AND created_at < NOW() - $2 * INTERVAL '1 hour')
                     )
                     """,
                     max_idle_hours,
@@ -603,7 +603,7 @@ class KnativeGarbageCollector:
                     SELECT last_activity_at
                     FROM sessions
                     WHERE id = $1
-                    AND last_activity_at > NOW() - INTERVAL '%s minutes'
+                    AND last_activity_at > NOW() - $2 * INTERVAL '1 minute'
                     """,
                     session_id,
                     minutes,

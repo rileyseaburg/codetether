@@ -31,7 +31,7 @@ data:
         spec:
           serviceAccountName: {{ .Values.knative.worker.serviceAccountName | default "codetether-worker" | quote }}
           containerConcurrency: {{ .Values.knative.worker.containerConcurrency | default 1 }}
-          timeoutSeconds: {{ .Values.knative.worker.maxTimeoutSeconds | default 600 }}
+          timeoutSeconds: {{ .Values.knative.worker.maxTimeoutSeconds | default 1200 }}
           containers:
             - name: worker
               image: {{ .Values.knative.worker.image }}

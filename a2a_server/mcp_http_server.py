@@ -35,6 +35,7 @@ from .worker_sse import (
     notify_workers_of_new_task,
     setup_task_creation_hook,
 )
+from .opencode_deprecated import router as opencode_deprecated_router
 from .task_orchestration import orchestrate_task_route
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,9 @@ class MCPHTTPServer:
 
         # Include Worker SSE router for push-based task distribution
         self.app.include_router(worker_sse_router)
+
+        # Explicit tombstone for deprecated OpenCode compatibility routes.
+        self.app.include_router(opencode_deprecated_router)
 
         # Include User Auth router for self-service registration (mid-market)
         if USER_AUTH_AVAILABLE and user_auth_router:

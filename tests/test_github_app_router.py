@@ -53,3 +53,49 @@ async def test_non_fix_mention_posts_actionable_issue_and_pr_guidance(monkeypatc
     assert f'@{app_slug} handle this issue' in body
     assert f'@{app_slug} implement this' in body
     assert 'only mutate PR branches' not in body
+
+
+@pytest.mark.asyncio
+async def test_pull_request_review_mention_routes_pr_fix(monkeypatch):
+    calls = []
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'pull_request_review',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'submitted',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'pull_request': {'number': 42},
+                'review': {'id': 555, 'body': f'@{app_slug} please fix this feedback'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 123
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fake_handle_fix_request(context, token):
+        calls.append((context, token))
+        return {'accepted': True, 'workspace_id': 'ws1', 'clone_task_id': 'task1'}
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(router, 'handle_fix_request', fake_handle_fix_request)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {'accepted': True, 'workspace_id': 'ws1', 'clone_task_id': 'task1'}
+    context, token = calls[0]
+    assert token == 'ghs_test'
+    assert context.repo_full_name == 'owner/repo'
+    assert context.issue_number == 42
+    assert context.pr_number == 42
+    assert context.comment_id == 555
