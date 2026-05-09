@@ -1,4 +1,3 @@
-/** @type {import('prettier').Options} */
 const plugins = []
 
 try {
@@ -8,9 +7,15 @@ try {
   // CI may run before dependencies are installed.
 }
 
-module.exports = {
+/** @type {import('prettier').Options} */
+const config = {
   singleQuote: true,
   semi: false,
   plugins,
-  tailwindStylesheet: './src/styles/tailwind.css',
 }
+
+if (plugins.length > 0) {
+  config.tailwindStylesheet = './src/styles/tailwind.css'
+}
+
+module.exports = config
