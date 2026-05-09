@@ -42,14 +42,21 @@ const nextConfig = {
         }
 
         if (a2aApi) {
-            rewrites.push({
+            rewrites.push(
+                {
                 source: '/api/v1/:path*',
                 destination: `${a2aApi}/v1/:path*`,
-            })
+                },
+                // Tenant API proxy - strips /tenant prefix so /api/tenant/v1/* → /v1/*
+                {
+                    source: '/api/tenant/:path*',
+                    destination: `${a2aApi}/:path*`,
+                },
+            )
         } else {
             console.warn(
                 '[next.config] A2A_API_BACKEND not set.',
-                'A2A API rewrite /api/v1/* is disabled.',
+                'A2A API rewrites /api/v1/* and /api/tenant/* are disabled.',
             )
         }
 
