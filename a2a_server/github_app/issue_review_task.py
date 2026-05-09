@@ -180,6 +180,22 @@ def _truncate_for_comment(value: str, *, limit: int = 4000) -> str:
     return value[: limit - 20].rstrip() + '\n\n...[truncated]'
 
 
+def change_request_action_line(verdict: str, *, task_id: str | None = None) -> str:
+    """Render the actionable change-request line with the worker mention.
+
+    Any CodeTether GitHub-facing review/follow-up that asks for code changes
+    must tag the app handle in the action sentence so mention-based workers can
+    pick it up. Approval and informational comments should not use this helper.
+    """
+    normalized_verdict = str(verdict or 'CHANGES_REQUESTED').strip() or 'CHANGES_REQUESTED'
+    if task_id:
+        return (
+            f"{CHANGE_REQUEST_MENTION} follow-up required: protocol-native fix task "
+            f"`{task_id}` is queued for `{normalized_verdict}`."
+        )
+    return f"{CHANGE_REQUEST_MENTION} please address the requested PR changes."
+
+
 async def record_automation_decision(
     *,
     provenance: dict[str, Any],
@@ -563,11 +579,13 @@ async def create_fix_followup_task(
         task_id, review_task_id, verdict, attempt,
     )
 
-    # Post a comment indicating the protocol-native follow-up
+    # Post a comment indicating the protocol-native follow-up. Keep the
+    # @codetether mention in the actionable sentence for compatibility with
+    # mention-based worker pickup while protocol-native follow-up rolls out.
     comment_body = (
         "## 🛠️ CodeTether Fix Follow-up\n\n"
-        f"Reviewer verdict: `{verdict}`. "
-        f"Enqueued protocol-native fix task `{task_id}` to address the requested changes.\n\n"
+        f"{change_request_action_line(verdict or '', task_id=task_id)}\n\n"
+        f"Reviewer verdict: `{verdict}`.\n\n"
         f"Fix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}."
     )
     if review_summary:
@@ -607,7 +625,7 @@ async def post_change_request_followup_if_needed(
 
     body = (
         "## 🛠️ CodeTether Review Follow-up\n\n"
-        f"{CHANGE_REQUEST_MENTION} please address the requested PR changes.\n\n"
+        f"{change_request_action_line(verdict)}\n\n"
         f"Reviewer verdict: `{verdict}`."
     )
     if result:
