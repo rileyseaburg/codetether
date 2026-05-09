@@ -585,7 +585,14 @@ async def test_fix_followup_creates_task_on_changes_requested(monkeypatch, pr_pa
     assert meta['workflow_stage'] == 'fix'
     assert meta['pr_head_sha'] == 'abc123'
     assert 'Reviewer verdict: `CHANGES_REQUESTED`' in comments[0]
-    assert 'protocol-native fix task `task-fix-1`' in comments[0]
+    assert '@codetether follow-up required: protocol-native fix task `task-fix-1`' in comments[0]
+
+
+def test_change_request_action_line_tags_only_change_requests():
+    action_line = issue_review_task.change_request_action_line('CHANGES_REQUESTED', task_id='task-fix-1')
+
+    assert action_line.startswith('@codetether follow-up required')
+    assert '`CHANGES_REQUESTED`' in action_line
 
 
 @pytest.mark.asyncio
