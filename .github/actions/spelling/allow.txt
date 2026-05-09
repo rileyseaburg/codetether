@@ -19,6 +19,7 @@ AStarlette
 AUTOCOMMIT
 Agentspace
 Autogen
+BYOK
 Bitbucket
 Blogs
 CAs
@@ -90,6 +91,7 @@ PLE
 PLW
 PMEEi
 PRD
+PRDs
 PTH
 QFdk
 Qvandrcy
@@ -104,6 +106,7 @@ Solax
 TJS
 TMDB
 Tful
+Trello
 UIs
 URLTo
 Upserting
@@ -117,12 +120,14 @@ WVw
 Witteveen
 XBs
 XDG
+XIcon
 Xca
 YQGt
 YTAKFW
 YTT
 YWFh
 YWdlbn
+ZAPIER
 ZDS
 ZKHv
 ZXhhb
@@ -135,6 +140,7 @@ aboutasha
 achat
 aconnect
 adk
+admins
 afet
 affef
 agentcard
@@ -168,6 +174,7 @@ cbs
 ccc
 cdn
 ceee
+cerebras
 cfe
 claude
 cls
@@ -178,6 +185,7 @@ codetether
 configmap
 crewai
 csrf
+cta
 curlimages
 datamodel
 datapart
@@ -267,6 +275,7 @@ marvin
 mcp
 mesop
 mindsdb
+moonshotai
 motherlode
 mozilla
 msword
@@ -281,14 +290,17 @@ nextauth
 nindent
 nlp
 notif
+novita
 npush
 objc
 octicons
 oidc
+okr
 ollama
 oneof
 openapis
 opencode
+openrouter
 oreilly
 pconfig
 plpgsql
@@ -330,6 +342,7 @@ srcs
 srem
 sse
 stateclass
+stepfun
 stephenh
 styleguide
 subcall
@@ -375,4 +388,6 @@ xxxxxxxx
 youtube
 yyyyyyyy
 zai
+zapier
+zhipuai
 zzzzzzzz
