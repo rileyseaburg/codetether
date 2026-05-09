@@ -630,7 +630,7 @@ Supported models:
 
 ### worker.py
 
-Location: `/opt/a2a-worker/worker.py` (installed) or `agent_worker/worker.py` (source)
+Location: `/opt/a2a-worker/worker.py` (installed) or `legacy/agent_worker/worker.py` (source)
 
 Main worker script containing:
 
@@ -642,19 +642,19 @@ Main worker script containing:
 
 ### config.example.json
 
-Location: `agent_worker/config.example.json`
+Location: `legacy/agent_worker/config.example.json`
 
 Example configuration file to copy and customize.
 
 ### install.sh
 
-Location: `agent_worker/install.sh`
+Location: `legacy/agent_worker/install.sh`
 
 Installation script that sets up the worker as a systemd service.
 
 ### a2a-agent-worker.service
 
-Location: `agent_worker/systemd/a2a-agent-worker.service`
+Location: `legacy/agent_worker/systemd/a2a-agent-worker.service`
 
 Systemd service unit with security hardening and resource limits.
 

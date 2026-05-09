@@ -17,6 +17,9 @@ metadata:
     {{- end }}
 spec:
   type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "ExternalName" }}
+  externalName: {{ required "service.externalName is required when service.type is ExternalName" .Values.service.externalName | quote }}
+  {{- end }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}
@@ -24,10 +27,14 @@ spec:
       name: http
     # MCP is now integrated on the same port under /mcp/* paths
     # No separate MCP port needed
+  {{- if ne .Values.service.type "ExternalName" }}
   selector:
     {{- if and .Values.blueGreen.enabled (eq .Values.blueGreen.mode "bluegreen") }}
     {{- include "a2a-server.blueGreenSelectorLabels" . | nindent 4 }}
     color: {{ .Values.blueGreen.serviceColor | quote }}
+    app.kubernetes.io/component: server
     {{- else }}
     {{- include "a2a-server.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
     {{- end }}
+  {{- end }}

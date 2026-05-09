@@ -1,9 +1,9 @@
 """Setup script for CodeTether.
 
 Distribution name: CodeTether
-Python packages: a2a_server (server implementation), agent_worker (DEPRECATED - use codetether Rust binary)
+Python packages: a2a_server (server implementation), legacy.agent_worker (DEPRECATED - use codetether Rust binary)
 
-The agent_worker package is deprecated. Use the codetether Rust binary's
+The legacy.agent_worker package is deprecated. Use the codetether Rust binary's
 built-in worker mode instead:
     codetether worker --server <URL> --codebases <PATH> --auto-approve safe
 """
@@ -29,7 +29,7 @@ setup(
     author_email='',
     url='https://github.com/rileyseaburg/codetether',
     packages=find_packages(
-        exclude=['tests', 'tests.*', 'examples', 'examples.*']
+        exclude=['tests', 'tests.*', 'examples', 'examples.*', 'apps', 'apps.*', 'experiments', 'experiments.*', 'integrations', 'integrations.*']
     ),
     # Include top-level modules used by console entrypoints.
     py_modules=['run_server'],
