@@ -4,38 +4,38 @@ const features = [
     {
         name: 'RLM: Infinite Context',
         description:
-            'Based on MIT/Harvard research. Process your entire workspace context, all your content, every spreadsheet, and connected tools with no token limits.',
+            'Recursive Language Model processing lets the agent analyze whole repositories, large histories, and sprawling docs with recursive chunking, synthesis, and verification.',
         icon: RLMIcon,
     },
     {
-        name: 'Works with Zapier',
+        name: 'Persistent Memory & Recall',
         description:
-            'Trigger agents from any Zap. New row in Google Sheets? Customer fills out a form? Agent starts working immediately, results POST back to your workflow.',
-        icon: ZapierIcon,
+            'Session recall, context browsing, curated memory, and task state keep long-running work coherent across resets, handoffs, and fresh agent iterations.',
+        icon: MCPIcon,
     },
     {
-        name: 'Works with n8n',
+        name: 'Swarm Orchestration',
         description:
-            'Self-hosted n8n users love it. HTTP Request node triggers the agent, wait for callback or poll for results. Full control, no vendor lock-in.',
-        icon: N8nIcon,
+            'Spawn parallel sub-agents with specialized roles. Security review, performance analysis, documentation, QA, and implementation can run concurrently.',
+        icon: SwarmIcon,
     },
     {
-        name: 'Works with Make',
+        name: 'Relay Task Routing',
         description:
-            'Integromat/Make scenarios connect via webhook. Complex multi-step workflows with AI in the middle. Scenarios that were impossible are now simple.',
-        icon: MakeIcon,
+            'Autonomous delegation between agents. Hand off context, chain multi-step workflows, and orchestrate complex pipelines across specialized AI instances.',
+        icon: RelayIcon,
     },
     {
-        name: 'Real File Output',
+        name: 'MCP + Browser Replay',
         description:
-            'Agents don\'t just respond—they create files. HTML pages, Python scripts, Excel reports, PDF documents. Download or auto-deploy.',
+            'Bridge external MCP servers and control real browsers. Inspect DOM, upload files, capture app traffic, and replay authenticated XHR/fetch requests safely.',
         icon: FileIcon,
     },
     {
-        name: 'Email to Continue',
+        name: 'Voice & Media Pipeline',
         description:
-            'Agent finishes? Get an email. Reply to keep the conversation going. No dashboard needed—work from your inbox.',
-        icon: EmailIcon,
+            'Built-in text-to-speech, transcription, podcast generation, YouTube upload, image input, and AI avatar video. Go from a script to a published asset.',
+        icon: VoiceIcon,
     },
 ]
 
@@ -53,52 +53,52 @@ function RLMIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
-function ZapierIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+function MCPIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#FF4A00" fillOpacity={0.2} />
+            <circle cx={16} cy={16} r={16} fill="#06B6D4" fillOpacity={0.2} />
             <path
-                d="M16 8l-8 8 8 8 8-8-8-8z"
-                stroke="#FF4A00"
+                d="M12 8h8l4 8-4 8h-8l-4-8 4-8z"
+                stroke="#06B6D4"
                 strokeWidth={2}
                 fill="none"
             />
-            <circle cx={16} cy={16} r={3} fill="#FF4A00" />
+            <circle cx={16} cy={16} r={3} fill="#06B6D4" />
         </svg>
     )
 }
 
-function N8nIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+function SwarmIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#EA4B71" fillOpacity={0.2} />
+            <circle cx={16} cy={16} r={16} fill="#F59E0B" fillOpacity={0.2} />
+            <circle cx={16} cy={10} r={3} fill="#F59E0B" />
+            <circle cx={10} cy={20} r={3} fill="#F59E0B" />
+            <circle cx={22} cy={20} r={3} fill="#F59E0B" />
             <path
-                d="M8 16h4M20 16h4M12 12v8M20 12v8"
-                stroke="#EA4B71"
+                d="M16 13v4M16 17l-6 3M16 17l6 3"
+                stroke="#F59E0B"
                 strokeWidth={2}
-                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
+function RelayIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+    return (
+        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+            <circle cx={16} cy={16} r={16} fill="#10B981" fillOpacity={0.2} />
+            <path
+                d="M8 10h6v6H8zM18 16h6v6h-6z"
+                stroke="#10B981"
+                strokeWidth={2}
+                fill="none"
             />
             <path
-                d="M12 16h8"
-                stroke="#EA4B71"
+                d="M14 13h4M14 19h4"
+                stroke="#10B981"
                 strokeWidth={2}
-                strokeLinecap="round"
                 strokeDasharray="2 2"
-            />
-        </svg>
-    )
-}
-
-function MakeIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
-    return (
-        <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#6D00CC" fillOpacity={0.2} />
-            <circle cx={10} cy={16} r={3} fill="#6D00CC" />
-            <circle cx={22} cy={16} r={3} fill="#6D00CC" />
-            <path
-                d="M13 16h6"
-                stroke="#6D00CC"
-                strokeWidth={2}
             />
         </svg>
     )
@@ -107,16 +107,16 @@ function MakeIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 function FileIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#06B6D4" fillOpacity={0.2} />
+            <circle cx={16} cy={16} r={16} fill="#3B82F6" fillOpacity={0.2} />
             <path
                 d="M10 8h8l4 4v12a2 2 0 01-2 2H10a2 2 0 01-2-2V10a2 2 0 012-2z"
-                stroke="#06B6D4"
+                stroke="#3B82F6"
                 strokeWidth={2}
                 fill="none"
             />
             <path
                 d="M18 8v4h4"
-                stroke="#06B6D4"
+                stroke="#3B82F6"
                 strokeWidth={2}
                 fill="none"
             />
@@ -124,21 +124,27 @@ function FileIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     )
 }
 
-function EmailIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+function VoiceIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
-            <circle cx={16} cy={16} r={16} fill="#10B981" fillOpacity={0.2} />
+            <circle cx={16} cy={16} r={16} fill="#EC4899" fillOpacity={0.2} />
             <path
-                d="M6 10h20v12H6z"
-                stroke="#10B981"
+                d="M12 10v12a2 2 0 004 0V10a2 2 0 00-4 0z"
+                stroke="#EC4899"
                 strokeWidth={2}
                 fill="none"
             />
             <path
-                d="M6 10l10 7 10-7"
-                stroke="#10B981"
+                d="M8 16a8 8 0 0016 0"
+                stroke="#EC4899"
                 strokeWidth={2}
                 fill="none"
+            />
+            <path
+                d="M16 24v3"
+                stroke="#EC4899"
+                strokeWidth={2}
+                strokeLinecap="round"
             />
         </svg>
     )
@@ -148,16 +154,16 @@ export function SecondaryFeatures() {
     return (
         <section
             id="secondary-features"
-            aria-label="Features for automation builders"
+            aria-label="Platform capabilities"
             className="py-20 sm:py-32 bg-gray-50 dark:bg-gray-900"
         >
             <Container>
                 <div className="mx-auto max-w-2xl sm:text-center">
                     <h2 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white">
-                        Built for Automation Builders
+                        The AI Development Platform
                     </h2>
                     <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-                        You&apos;ve mastered the automation stack. Now add the AI layer that actually gets work done.
+                        60+ registered tools, multi-modal AI, persistent context, and enterprise-grade orchestration — all from a single binary.
                     </p>
                 </div>
                 <ul

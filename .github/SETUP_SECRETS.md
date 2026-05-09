@@ -1,17 +1,13 @@
 # GitHub Actions Secrets Setup
 
-To use the GitHub Actions workflows for building and deploying to Quantum Forge, you need to configure the following secrets.
+To use the GitHub Actions workflows for building images, publishing Helm charts, and deploying to Kubernetes, configure the following secrets.
 
 ## Required Secrets
 
-### 1. Quantum Forge Registry Credentials
+### 1. Google Artifact Registry Credentials
 
-**`QUANTUM_FORGE_USERNAME`**
-- Your Quantum Forge registry username
-- Used for: Docker and Helm registry authentication
-
-**`QUANTUM_FORGE_PASSWORD`**
-- Your Quantum Forge registry password or access token
+**`GCP_SA_KEY`**
+- JSON key for a Google Cloud service account with permission to push to `us-central1-docker.pkg.dev/spotlessbinco/codetether`
 - Used for: Docker and Helm registry authentication
 
 ### 2. Kubernetes Configuration
@@ -32,9 +28,8 @@ To use the GitHub Actions workflows for building and deploying to Quantum Forge,
 ### Via GitHub CLI
 
 ```bash
-# Set Quantum Forge credentials
-gh secret set QUANTUM_FORGE_USERNAME --body "your-username"
-gh secret set QUANTUM_FORGE_PASSWORD --body "your-password"
+# Set Google Artifact Registry credentials
+gh secret set GCP_SA_KEY < service-account-key.json
 
 # Set Kubernetes config (base64 encoded)
 cat ~/.kube/config | base64 | gh secret set KUBE_CONFIG
@@ -102,14 +97,14 @@ For production deployments, you can create a GitHub Environment:
 Test that your secrets work:
 
 ```bash
-# Test Docker login
-echo "$QUANTUM_FORGE_PASSWORD" | docker login registry.quantum-forge.net \
-  --username "$QUANTUM_FORGE_USERNAME" \
+# Test Docker login using the same JSON key method as GitHub Actions
+cat service-account-key.json | docker login https://us-central1-docker.pkg.dev \
+  --username _json_key \
   --password-stdin
 
-# Test Helm login
-echo "$QUANTUM_FORGE_PASSWORD" | helm registry login registry.quantum-forge.net \
-  --username "$QUANTUM_FORGE_USERNAME" \
+# Test Helm login using the same JSON key method as GitHub Actions
+cat service-account-key.json | helm registry login https://us-central1-docker.pkg.dev \
+  --username _json_key \
   --password-stdin
 
 # Test kubectl access
@@ -121,8 +116,8 @@ kubectl get pods -n a2a-system
 
 ## Security Best Practices
 
-1. **Use Personal Access Tokens (PAT)** instead of passwords when possible
-2. **Limit token scope** to only what's needed (read/write packages)
+1. **Prefer Workload Identity Federation** over long-lived JSON keys when practical
+2. **Limit service account scope** to only what's needed for Artifact Registry and deployment
 3. **Rotate credentials regularly** (every 90 days recommended)
 4. **Use environment protection** for production deployments
 5. **Monitor secret usage** in Actions logs
@@ -140,9 +135,9 @@ These are configured in the workflow files.
 ## Troubleshooting
 
 ### "authentication required" error
-- Verify `QUANTUM_FORGE_USERNAME` and `QUANTUM_FORGE_PASSWORD` are set correctly
-- Check if credentials are expired
-- Ensure you have push access to the registry
+- Verify `GCP_SA_KEY` is set to valid service account JSON
+- Check if the service account key is expired or disabled
+- Ensure the service account has push access to the Artifact Registry repository
 
 ### "unauthorized" error in Kubernetes
 - Verify `KUBE_CONFIG` is base64-encoded correctly

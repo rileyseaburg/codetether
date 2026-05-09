@@ -199,7 +199,7 @@ source .venv/bin/activate
 pip install codetether
 
 # Run the installer (sets up systemd service)
-sudo ./agent_worker/install.sh
+sudo ./legacy/agent_worker/install.sh
 
 # Start the worker
 sudo systemctl start a2a-agent-worker

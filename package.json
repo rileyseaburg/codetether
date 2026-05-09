@@ -11,9 +11,9 @@
   "scripts": {
     "test": "cypress run",
     "test:open": "cypress open",
-    "test:a2a": "./cypress_test_runner.sh",
+    "test:a2a": "./scripts/testing/cypress_test_runner.sh",
     "test:record": "cypress run --record",
-    "validate": "./cypress_test_runner.sh"
+    "validate": "./scripts/testing/cypress_test_runner.sh"
   },
   "keywords": [],
   "author": "",

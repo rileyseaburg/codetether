@@ -264,7 +264,7 @@ When a worker registers as an agent, it gets two identities:
 
 ```bash
 # Register worker as a discoverable agent
-python -m agent_worker.worker \
+python -m legacy.agent_worker.worker \
   --agent-name code-reviewer \
   --agent-description "Python code review specialist" \
   --server https://api.codetether.run

@@ -58,7 +58,7 @@ https://api.codetether.io/v1/automation
 
 ### Zapier
 - Quick Start: [Guide](./zapier-quickstart.md)
-- App Manifest: [Manifest](./zapier-app-manifest.md)
+- App Manifest: [Manifest](./integrations/zapier/app-manifest.md)
 - Webhooks support: ✅
 - Polling support: ❌ (Webhooks only)
 

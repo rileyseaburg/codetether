@@ -147,7 +147,7 @@ else
     fi
 
     # Run the full install script with our args
-    "$SCRIPT_DIR/agent_worker/install-codetether-worker.sh" \
+    "$SCRIPT_DIR/legacy/agent_worker/install-codetether-worker.sh" \
         --binary "$BINARY" \
         --server "$SERVER_URL" \
         --codebases "$CODEBASES" \

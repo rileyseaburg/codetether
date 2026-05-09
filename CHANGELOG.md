@@ -375,7 +375,7 @@ CodeTether is now fully compliant with the official A2A Protocol v0.3 specificat
   - `test_create_task_recording.py` - Task creation with audio capture
   - Sample recordings: `agent_create_task_response.wav`, `agent_architecture_review.wav`
 
-* **Agent Worker God Object Refactor**: Major architectural improvement to `agent_worker/worker.py`
+* **Agent Worker God Object Refactor**: Major architectural improvement to `legacy/agent_worker/worker.py`
   - **`WorkerClient`** - HTTP/SSE communication with A2A server
   - **`ConfigManager`** - CodeTether binary, storage paths, API keys, models
   - **`SessionSyncService`** - Session reading and syncing from CodeTether storage

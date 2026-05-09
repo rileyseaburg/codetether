@@ -1,0 +1,12 @@
+# Worker build only needs the codetether-agent directory and policies/
+# Exclude everything else for fast builds
+
+*
+!codetether-agent/Cargo.toml
+!codetether-agent/Cargo.lock
+!codetether-agent/vendor/
+!codetether-agent/src/
+!codetether-agent/build.rs
+!codetether-agent/proto/
+!codetether-agent/examples/
+!policies/

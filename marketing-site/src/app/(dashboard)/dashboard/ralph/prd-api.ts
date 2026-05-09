@@ -13,7 +13,7 @@ export async function createTask(prompt: string, conversationContext: string, co
             title: `PRD Builder: ${prompt.substring(0, 50)}...`,
             prompt: conversationContext,
             agent_type: 'general',
-            codebase_id: codebaseId || undefined,
+            workspace_id: codebaseId || undefined,
         },
     })
 
