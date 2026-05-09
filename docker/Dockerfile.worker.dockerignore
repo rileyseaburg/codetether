@@ -8,4 +8,5 @@
 !codetether-agent/src/
 !codetether-agent/build.rs
 !codetether-agent/proto/
+!codetether-agent/examples/
 !policies/

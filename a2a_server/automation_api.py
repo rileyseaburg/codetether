@@ -533,6 +533,12 @@ class DispatchTaskRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         default=None, description='Additional metadata for the task'
     )
+    task_timeout_seconds: int = Field(
+        default=600,
+        ge=60,
+        le=604800,
+        description='Maximum task execution time in seconds (60-604800, default 600=10min, max 7 days)',
+    )
 
 
 class DispatchTaskResponse(BaseModel):
@@ -545,6 +551,7 @@ class DispatchTaskResponse(BaseModel):
     description: str
     result: Optional[str] = Field(default=None, description='Task result text when completed')
     created_at: str
+    task_timeout_seconds: int = Field(default=600, description='Task timeout in seconds')
     dispatched_via_knative: bool = Field(
         ..., description='Whether task was dispatched to Knative broker'
     )
@@ -634,15 +641,46 @@ async def dispatch_task(
         dispatched_via_knative = event_id is not None
 
     if not dispatched_via_knative:
-        # Fallback to local queue if Knative disabled or failed
-        logger.info(f"Knative dispatch failed/unavailable, falling back to local queue for {task_id}")
+        # Knative dispatch unavailable — fall back to task queue + SSE push
+        logger.info(
+            'Knative dispatch unavailable, using task queue for %s', task_id
+        )
         await enqueue_task(
             task_id=task_id,
             user_id=user_id,
             tenant_id=tenant_id,
             priority=request.priority,
-            notify_webhook_url=str(request.webhook_url) if request.webhook_url else None,
+            notify_webhook_url=(
+                str(request.webhook_url) if request.webhook_url else None
+            ),
         )
+
+        # Push the new task to SSE-connected workers immediately so
+        # they do not have to wait for the 30-second poll interval.
+        try:
+            from .worker_sse import notify_workers_of_new_task
+
+            task_data = {
+                'id': task_id,
+                'title': request.title,
+                'prompt': request.description,
+                'agent_type': request.agent_type,
+                'model': request.model,
+                'priority': request.priority,
+                'metadata': request.metadata or {},
+                'workspace_id': None,
+                'codebase_id': None,
+            }
+            notified = await notify_workers_of_new_task(task_data)
+            logger.info(
+                'Dispatch task %s pushed to %d SSE worker(s)',
+                task_id,
+                len(notified),
+            )
+        except Exception as exc:
+            logger.warning(
+                'SSE push failed for dispatch task %s: %s', task_id, exc
+            )
 
     return DispatchTaskResponse(
         task_id=task_id,
@@ -651,6 +689,7 @@ async def dispatch_task(
         title=request.title,
         description=request.description,
         created_at=datetime.now(timezone.utc).isoformat(),
+        task_timeout_seconds=request.task_timeout_seconds,
         dispatched_via_knative=dispatched_via_knative,
     )
 

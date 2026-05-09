@@ -23,8 +23,13 @@ async def handle_github_webhook(request: Request):
     if event_name == 'ping':
         return {'ok': True, 'event': 'ping'}
     payload = json.loads(body or b'{}')
-    if payload.get('action') != 'created':
+    action = payload.get('action')
+    if event_name in {'issue_comment', 'pull_request_review_comment'} and action != 'created':
         return {'ignored': True, 'reason': 'unsupported-action'}
+    if event_name == 'pull_request_review' and action != 'submitted':
+        return {'ignored': True, 'reason': 'unsupported-action'}
+    if event_name not in {'issue_comment', 'pull_request_review_comment', 'pull_request_review'}:
+        return {'ignored': True, 'reason': 'unsupported-event'}
     context = extract_context(event_name, payload)
     if not context:
         return {'ignored': True}
