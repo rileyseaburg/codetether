@@ -1,6 +1,7 @@
 import pytest
 
 from a2a_server import git_service
+from a2a_server.github_app import pr_prepare_completion
 from a2a_server.github_app import task_completion
 
 
@@ -38,6 +39,106 @@ async def test_pr_build_task_posts_pr_final_comment(monkeypatch):
     await task_completion.notify_issue_task_completion(task)
 
     assert calls == [task]
+
+
+@pytest.mark.asyncio
+async def test_pr_prepare_completion_skips_duplicate_followup(monkeypatch):
+    created = []
+
+    async def fake_context(task):
+        return ('rileyseaburg/codetether', 40, None, 'token')
+
+    async def fake_claim(task_id):
+        assert task_id == 'prepare-1'
+        return False
+
+    async def fake_create(**kwargs):
+        created.append(kwargs)
+        return 'apply-1'
+
+    monkeypatch.setattr(
+        pr_prepare_completion, 'github_app_task_context', fake_context
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_claim_pr_followup_creation', fake_claim
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+    )
+
+    task = {
+        'id': 'prepare-1',
+        'title': 'Prepare PR workspace #40',
+        'status': 'completed',
+        'metadata': {
+            'source': 'github-app',
+            'workspace_id': 'workspace-1',
+            'post_clone_task': {
+                'title': 'Apply PR fix #40',
+                'prompt': 'fix it',
+                'metadata': {'repo': 'rileyseaburg/codetether', 'pr_number': 40},
+            },
+        },
+    }
+    await pr_prepare_completion.handle_pr_prepare_completion(task, 'wrk_123')
+
+    assert created == []
+
+
+@pytest.mark.asyncio
+async def test_pr_prepare_completion_records_followup_task(monkeypatch):
+    created = []
+    recorded = []
+
+    async def fake_context(task):
+        return ('rileyseaburg/codetether', 40, None, 'token')
+
+    async def fake_claim(task_id):
+        assert task_id == 'prepare-1'
+        return True
+
+    async def fake_record(task_id, followup_task_id):
+        recorded.append((task_id, followup_task_id))
+
+    async def fake_create(**kwargs):
+        created.append(kwargs)
+        return 'apply-1'
+
+    monkeypatch.setattr(
+        pr_prepare_completion, 'github_app_task_context', fake_context
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_claim_pr_followup_creation', fake_claim
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_record_pr_followup_task', fake_record
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+    )
+
+    task = {
+        'id': 'prepare-1',
+        'title': 'Prepare PR workspace #40',
+        'status': 'completed',
+        'metadata': {
+            'source': 'github-app',
+            'workspace_id': 'workspace-1',
+            'github_issue_url': (
+                'https://github.com/rileyseaburg/codetether/pull/40'
+            ),
+            'post_clone_task': {
+                'title': 'Apply PR fix #40',
+                'prompt': 'fix it',
+                'metadata': {'repo': 'rileyseaburg/codetether', 'pr_number': 40},
+            },
+        },
+    }
+    await pr_prepare_completion.handle_pr_prepare_completion(task, 'wrk_123')
+
+    assert created[0]['title'] == 'Apply PR fix #40'
+    assert created[0]['metadata']['target_worker_id'] == 'wrk_123'
+    assert recorded == [('prepare-1', 'apply-1')]
 
 
 @pytest.mark.asyncio
