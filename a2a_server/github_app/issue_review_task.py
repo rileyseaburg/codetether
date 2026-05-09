@@ -9,10 +9,10 @@ import re
 import uuid
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from ..provenance import verify_provenance
 from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
@@ -57,7 +57,9 @@ def issue_pr_provenance(
         'action': action,
     }
     intent_hash = hashlib.sha256(
-        json.dumps(intent_material, sort_keys=True, separators=(',', ':')).encode()
+        json.dumps(
+            intent_material, sort_keys=True, separators=(',', ':')
+        ).encode()
     ).hexdigest()
     return {
         'ap_origin': {
@@ -86,13 +88,20 @@ def issue_pr_provenance(
                     'actor': 'codetether-github-app',
                     'capability': {
                         'root': False,
-                        'operations': ['github:review_pr', 'github:request_changes', 'github:merge_pr'],
+                        'operations': [
+                            'github:review_pr',
+                            'github:request_changes',
+                            'github:fix_pr',
+                            'github:merge_pr',
+                        ],
                         'spawn': {'max_depth': 2, 'max_fanout': 2},
                         'budget': {'github_api_calls': 200},
                     },
                 },
                 {
-                    'actor': 'codetether-merge-steward' if action == 'github:merge_pr' else 'codetether-reviewer',
+                    'actor': 'codetether-merge-steward'
+                    if action == 'github:merge_pr'
+                    else 'codetether-reviewer',
                     'capability': {
                         'root': False,
                         'operations': [action],
@@ -125,21 +134,23 @@ def provenance_footer(provenance: dict[str, Any], *, action: str) -> str:
     output = provenance.get('ap_output') or {}
     origin = provenance.get('ap_origin') or {}
     return (
-        "\n\n---\n"
-        "Automation provenance:\n"
-        f"- CodeTether workflow: `github-issue-review-merge`\n"
-        f"- Action: `{action}`\n"
-        f"- Intent hash: `{origin.get('intent_hash', '')}`\n"
-        f"- PR: `#{output.get('pr_number', '')}`\n"
-        f"- Head SHA: `{output.get('head_sha', '')}`\n"
-        f"- Personality/avatar: `{CODETETHER_PERSONALITY['name']}` / `{CODETETHER_PERSONALITY['avatar']}`"
+        '\n\n---\n'
+        'Automation provenance:\n'
+        f'- CodeTether workflow: `github-issue-review-merge`\n'
+        f'- Action: `{action}`\n'
+        f'- Intent hash: `{origin.get("intent_hash", "")}`\n'
+        f'- PR: `#{output.get("pr_number", "")}`\n'
+        f'- Head SHA: `{output.get("head_sha", "")}`\n'
+        f'- Personality/avatar: `{CODETETHER_PERSONALITY["name"]}` / `{CODETETHER_PERSONALITY["avatar"]}`'
     )
 
 
 def policy_decision(provenance: dict[str, Any], action: str) -> dict[str, Any]:
     """Evaluate the local provenance gate for a GitHub automation action."""
     resource = {
-        'session_origin_intent_hash': (provenance.get('ap_origin') or {}).get('intent_hash'),
+        'session_origin_intent_hash': (provenance.get('ap_origin') or {}).get(
+            'intent_hash'
+        ),
         'session_taints': provenance.get('ap_inputs') or [],
     }
     decision = verify_provenance(provenance, action, resource)
@@ -180,20 +191,24 @@ def _truncate_for_comment(value: str, *, limit: int = 4000) -> str:
     return value[: limit - 20].rstrip() + '\n\n...[truncated]'
 
 
-def change_request_action_line(verdict: str, *, task_id: str | None = None) -> str:
+def change_request_action_line(
+    verdict: str, *, task_id: str | None = None
+) -> str:
     """Render the actionable change-request line with the worker mention.
 
     Any CodeTether GitHub-facing review/follow-up that asks for code changes
     must tag the app handle in the action sentence so mention-based workers can
     pick it up. Approval and informational comments should not use this helper.
     """
-    normalized_verdict = str(verdict or 'CHANGES_REQUESTED').strip() or 'CHANGES_REQUESTED'
+    normalized_verdict = (
+        str(verdict or 'CHANGES_REQUESTED').strip() or 'CHANGES_REQUESTED'
+    )
     if task_id:
         return (
-            f"{CHANGE_REQUEST_MENTION} follow-up required: protocol-native fix task "
-            f"`{task_id}` is queued for `{normalized_verdict}`."
+            f'{CHANGE_REQUEST_MENTION} follow-up required: protocol-native fix task '
+            f'`{task_id}` is queued for `{normalized_verdict}`.'
         )
-    return f"{CHANGE_REQUEST_MENTION} please address the requested PR changes."
+    return f'{CHANGE_REQUEST_MENTION} please address the requested PR changes.'
 
 
 async def record_automation_decision(
@@ -241,7 +256,13 @@ async def record_automation_decision(
                 str(output.get('head_sha') or ''),
                 str(output.get('base_sha') or ''),
                 str(output.get('installation_id') or ''),
-                str(((provenance.get('ap_delegation') or {}).get('chain') or [{}])[-1].get('actor') or 'codetether-github-app'),
+                str(
+                    (
+                        (provenance.get('ap_delegation') or {}).get('chain')
+                        or [{}]
+                    )[-1].get('actor')
+                    or 'codetether-github-app'
+                ),
                 json.dumps(personality),
                 policy_decision_value,
                 json.dumps(policy.get('failures') or []),
@@ -321,14 +342,22 @@ def fix_followup_prompt(
     )
     files_section = ''
     if changed_files:
-        files_section = '\n\nFiles changed in this PR:\n' + '\n'.join(f'- `{f}`' for f in changed_files[:30])
+        files_section = '\n\nFiles changed in this PR:\n' + '\n'.join(
+            f'- `{f}`' for f in changed_files[:30]
+        )
     blockers_section = ''
     if blockers:
-        blockers_section = '\n\nSpecific blockers to address:\n' + _format_blockers(blockers)
+        blockers_section = (
+            '\n\nSpecific blockers to address:\n' + _format_blockers(blockers)
+        )
     validation_section = ''
     if last_validation_errors:
         validation_section = f'\n\nLast validation errors:\n```\n{_truncate_for_comment(last_validation_errors, limit=2000)}\n```'
-    attempt_line = f'\n\nFix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}.' if attempt > 1 else ''
+    attempt_line = (
+        f'\n\nFix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}.'
+        if attempt > 1
+        else ''
+    )
     return f"""You are editing the existing PR branch for PR #{pr_number}: {pr_url}
 Branch: {branch}
 Head SHA: {head_sha}
@@ -355,6 +384,7 @@ async def _count_fix_attempts(repo: str, pr_number: int, head_sha: str) -> int:
     """Count existing fix follow-up tasks for this repo/PR/head SHA combination."""
     try:
         from .. import database as db
+
         pool = await db.get_pool()
         if not pool:
             return 0
@@ -371,7 +401,9 @@ async def _count_fix_attempts(repo: str, pr_number: int, head_sha: str) -> int:
                         AND metadata->>'fix_followup' IS NOT NULL
                      ) sub
                 """,
-                repo, str(pr_number), head_sha,
+                repo,
+                str(pr_number),
+                head_sha,
             )
             return int((row or {}).get('cnt') or 0)
     except Exception:
@@ -412,7 +444,14 @@ async def create_fix_followup_task(
     review_task_id = str(review_task.get('id') or '')
     review_summary = str(review_task.get('result') or '').strip()
 
-    if not (repo and issue_number and pr_number and branch and workspace_id and expected_sha):
+    if not (
+        repo
+        and issue_number
+        and pr_number
+        and branch
+        and workspace_id
+        and expected_sha
+    ):
         logger.warning(
             'fix_followup: skipping due to missing metadata for review task %s',
             review_task_id,
@@ -427,25 +466,39 @@ async def create_fix_followup_task(
     try:
         pr = await github_json('GET', f'/repos/{repo}/pulls/{pr_number}', token)
     except Exception as exc:
-        logger.warning('fix_followup: could not fetch PR %s/%s: %s', repo, pr_number, exc)
+        logger.warning(
+            'fix_followup: could not fetch PR %s/%s: %s', repo, pr_number, exc
+        )
         return None
 
     if str(pr.get('state') or '').upper() != 'OPEN':
-        logger.info('fix_followup: PR %s/%s is not open, skipping', repo, pr_number)
+        logger.info(
+            'fix_followup: PR %s/%s is not open, skipping', repo, pr_number
+        )
         return None
 
     current_sha = str((pr.get('head') or {}).get('sha') or '')
     if current_sha != expected_sha:
         logger.info(
             'fix_followup: PR %s/%s head SHA changed (%s -> %s), skipping',
-            repo, pr_number, expected_sha, current_sha,
+            repo,
+            pr_number,
+            expected_sha,
+            current_sha,
         )
         return None
 
     # Guard: check for forked PRs
-    head_repo = ((pr.get('head') or {}).get('repo') or {}).get('full_name') or ''
+    head_repo = ((pr.get('head') or {}).get('repo') or {}).get(
+        'full_name'
+    ) or ''
     if head_repo and head_repo != repo:
-        logger.info('fix_followup: PR %s/%s is forked (%s), skipping', repo, pr_number, head_repo)
+        logger.info(
+            'fix_followup: PR %s/%s is forked (%s), skipping',
+            repo,
+            pr_number,
+            head_repo,
+        )
         return None
 
     # Loop guard: cap attempts per PR/head SHA
@@ -454,13 +507,18 @@ async def create_fix_followup_task(
     if attempt > MAX_FIX_ATTEMPTS_PER_SHA:
         logger.warning(
             'fix_followup: max attempts (%d) reached for %s/%s @ %s, skipping',
-            MAX_FIX_ATTEMPTS_PER_SHA, repo, pr_number, expected_sha,
+            MAX_FIX_ATTEMPTS_PER_SHA,
+            repo,
+            pr_number,
+            expected_sha,
         )
         await post_issue_comment(
-            repo, pr_number, token,
-            "## 🛠️ CodeTether Fix Follow-up\n\n"
-            f"Maximum fix attempts ({MAX_FIX_ATTEMPTS_PER_SHA}) reached for this PR head SHA. "
-            "Manual intervention may be required.",
+            repo,
+            pr_number,
+            token,
+            '## 🛠️ CodeTether Fix Follow-up\n\n'
+            f'Maximum fix attempts ({MAX_FIX_ATTEMPTS_PER_SHA}) reached for this PR head SHA. '
+            'Manual intervention may be required.',
         )
         return None
 
@@ -479,7 +537,9 @@ async def create_fix_followup_task(
     decision = policy_decision(provenance, 'github:fix_pr')
     if not decision['allowed']:
         await record_automation_decision(
-            provenance=provenance, decision=decision, task_id=review_task_id,
+            provenance=provenance,
+            decision=decision,
+            task_id=review_task_id,
         )
         logger.info('fix_followup: policy denied for %s/%s', repo, pr_number)
         return None
@@ -487,6 +547,7 @@ async def create_fix_followup_task(
     # Idempotency: check if a fix follow-up task already exists for this review task
     try:
         from .. import database as db
+
         pool = await db.get_pool()
         if pool:
             async with pool.acquire() as conn:
@@ -503,14 +564,17 @@ async def create_fix_followup_task(
                 if existing:
                     logger.info(
                         'fix_followup: existing fix task %s for review %s, skipping duplicate',
-                        existing, review_task_id,
+                        existing,
+                        review_task_id,
                     )
                     return None
     except Exception as exc:
         logger.warning('fix_followup: idempotency check failed: %s', exc)
 
     # Parse review context
-    pr_url = str(pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}')
+    pr_url = str(
+        pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}'
+    )
 
     # Extract changed files from provenance or review metadata
     changed_files = metadata.get('changed_files') or None
@@ -571,25 +635,32 @@ async def create_fix_followup_task(
     )
 
     await record_automation_decision(
-        provenance=provenance, decision=decision, task_id=task_id,
+        provenance=provenance,
+        decision=decision,
+        task_id=task_id,
     )
 
     logger.info(
         'fix_followup: created fix task %s for review %s (%s), attempt %d',
-        task_id, review_task_id, verdict, attempt,
+        task_id,
+        review_task_id,
+        verdict,
+        attempt,
     )
 
     # Post a comment indicating the protocol-native follow-up. Keep the
     # @codetether mention in the actionable sentence for compatibility with
     # mention-based worker pickup while protocol-native follow-up rolls out.
     comment_body = (
-        "## 🛠️ CodeTether Fix Follow-up\n\n"
-        f"{change_request_action_line(verdict or '', task_id=task_id)}\n\n"
-        f"Reviewer verdict: `{verdict}`.\n\n"
-        f"Fix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}."
+        '## 🛠️ CodeTether Fix Follow-up\n\n'
+        f'{change_request_action_line(verdict or "", task_id=task_id)}\n\n'
+        f'Reviewer verdict: `{verdict}`.\n\n'
+        f'Fix attempt {attempt} of {MAX_FIX_ATTEMPTS_PER_SHA}.'
     )
     if review_summary:
-        comment_body += f"\n\nReviewer summary:\n\n{_truncate_for_comment(review_summary)}"
+        comment_body += (
+            f'\n\nReviewer summary:\n\n{_truncate_for_comment(review_summary)}'
+        )
     comment_body += provenance_footer(provenance, action='github:fix_pr')
     await post_issue_comment(repo, pr_number, token, comment_body)
 
@@ -624,24 +695,28 @@ async def post_change_request_followup_if_needed(
     from .watch import post_issue_comment
 
     body = (
-        "## 🛠️ CodeTether Review Follow-up\n\n"
-        f"{change_request_action_line(verdict)}\n\n"
-        f"Reviewer verdict: `{verdict}`."
+        '## 🛠️ CodeTether Review Follow-up\n\n'
+        f'{change_request_action_line(verdict)}\n\n'
+        f'Reviewer verdict: `{verdict}`.'
     )
     if result:
-        body += f"\n\nReviewer summary:\n\n{_truncate_for_comment(result)}"
+        body += f'\n\nReviewer summary:\n\n{_truncate_for_comment(result)}'
     await post_issue_comment(repo, pr_number, token, body)
     return True
 
 
-def feedback_blockers_from_pull_request(pull_request: dict[str, Any] | None) -> list[str]:
+def feedback_blockers_from_pull_request(
+    pull_request: dict[str, Any] | None,
+) -> list[str]:
     """Return review-feedback blockers from GitHub GraphQL pull request state."""
     if not pull_request:
         return ['Pull request was not found in GitHub GraphQL response']
 
     blockers: list[str] = []
     if pull_request.get('state') != 'OPEN':
-        blockers.append(f"PR is not open: {pull_request.get('state') or 'unknown'}")
+        blockers.append(
+            f'PR is not open: {pull_request.get("state") or "unknown"}'
+        )
     if pull_request.get('isDraft'):
         blockers.append('PR is still marked as draft')
 
@@ -655,20 +730,28 @@ def feedback_blockers_from_pull_request(pull_request: dict[str, Any] | None) -> 
             continue
         comments = (thread.get('comments') or {}).get('nodes') or []
         latest = comments[-1] if comments else {}
-        author = ((latest.get('author') or {}).get('login') or 'unknown').strip()
+        author = (
+            (latest.get('author') or {}).get('login') or 'unknown'
+        ).strip()
         path = str(latest.get('path') or thread.get('path') or '').strip()
         line = latest.get('line') or thread.get('line')
-        location = f'{path}:{line}' if path and line else path or 'unknown location'
+        location = (
+            f'{path}:{line}' if path and line else path or 'unknown location'
+        )
         blockers.append(f'Unresolved review thread at {location} by {author}')
 
     page_info = (pull_request.get('reviewThreads') or {}).get('pageInfo') or {}
     if page_info.get('hasNextPage'):
-        blockers.append('More than 100 review threads exist; refusing to merge without a complete review-thread scan')
+        blockers.append(
+            'More than 100 review threads exist; refusing to merge without a complete review-thread scan'
+        )
 
     return blockers
 
 
-async def review_feedback_status(repo: str, pr_number: int, token: str) -> dict[str, Any]:
+async def review_feedback_status(
+    repo: str, pr_number: int, token: str
+) -> dict[str, Any]:
     """Fetch GitHub review-thread state and summarize whether feedback is addressed."""
     from .auth import github_graphql
 
@@ -707,12 +790,90 @@ async def review_feedback_status(repo: str, pr_number: int, token: str) -> dict[
         {'owner': owner, 'name': repo_name, 'number': pr_number},
         token,
     )
-    pull_request = ((data.get('repository') or {}).get('pullRequest') or None)
+    pull_request = (data.get('repository') or {}).get('pullRequest') or None
     blockers = feedback_blockers_from_pull_request(pull_request)
     return {
         'feedback_addressed': not blockers,
         'blockers': blockers,
         'pull_request': pull_request,
+    }
+
+
+def _latest_by_name(
+    items: list[dict[str, Any]], name_key: str
+) -> list[dict[str, Any]]:
+    latest: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = str(item.get(name_key) or '').strip()
+        if not name:
+            continue
+        current = latest.get(name)
+        item_time = str(
+            item.get('completed_at')
+            or item.get('started_at')
+            or item.get('updated_at')
+            or item.get('created_at')
+            or ''
+        )
+        current_time = ''
+        if current:
+            current_time = str(
+                current.get('completed_at')
+                or current.get('started_at')
+                or current.get('updated_at')
+                or current.get('created_at')
+                or ''
+            )
+        if current is None or item_time >= current_time:
+            latest[name] = item
+    return list(latest.values())
+
+
+async def status_check_status(
+    repo: str, sha: str, token: str
+) -> dict[str, Any]:
+    """Fetch commit statuses/check-runs and return blockers for non-green checks."""
+    from .auth import github_json
+
+    blockers: list[str] = []
+
+    status_payload = await github_json(
+        'GET', f'/repos/{repo}/commits/{sha}/status', token
+    )
+    statuses = _latest_by_name(status_payload.get('statuses') or [], 'context')
+    for status in statuses:
+        state = str(status.get('state') or '').lower()
+        context = str(status.get('context') or 'status').strip()
+        if state != 'success':
+            blockers.append(f'Status `{context}` is {state or "unknown"}')
+
+    check_payload = await github_json(
+        'GET', f'/repos/{repo}/commits/{sha}/check-runs?per_page=100', token
+    )
+    check_runs = _latest_by_name(check_payload.get('check_runs') or [], 'name')
+    passing_conclusions = {'success', 'neutral', 'skipped'}
+    for run in check_runs:
+        name = str(run.get('name') or 'check').strip()
+        status = str(run.get('status') or '').lower()
+        conclusion = str(run.get('conclusion') or '').lower()
+        if status != 'completed':
+            blockers.append(f'Check `{name}` is {status or "pending"}')
+        elif conclusion not in passing_conclusions:
+            blockers.append(
+                f'Check `{name}` concluded {conclusion or "unknown"}'
+            )
+
+    total_count = int(check_payload.get('total_count') or len(check_runs))
+    if total_count > len(check_payload.get('check_runs') or []):
+        blockers.append(
+            'More than 100 check runs exist; refusing to merge without a complete status scan'
+        )
+
+    return {
+        'checks_green': not blockers,
+        'blockers': blockers,
+        'statuses': statuses,
+        'check_runs': check_runs,
     }
 
 
@@ -783,14 +944,22 @@ async def enable_pull_request_auto_merge(
         },
         token,
     )
-    pull_request = (data.get('enablePullRequestAutoMerge') or {}).get('pullRequest') or {}
+    pull_request = (data.get('enablePullRequestAutoMerge') or {}).get(
+        'pullRequest'
+    ) or {}
     auto_merge_request = pull_request.get('autoMergeRequest')
     if not auto_merge_request:
         raise RuntimeError('GitHub did not return an auto-merge request')
     return auto_merge_request
 
 
-def review_prompt(repo: str, issue_number: int, branch: str, pr: dict[str, Any], provenance: dict[str, Any]) -> str:
+def review_prompt(
+    repo: str,
+    issue_number: int,
+    branch: str,
+    pr: dict[str, Any],
+    provenance: dict[str, Any],
+) -> str:
     pr_number = pr.get('number')
     pr_url = pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}'
     footer = provenance_footer(provenance, action='github:review_pr')
@@ -813,7 +982,13 @@ End-to-end responsibilities:
 Final response must state one of: APPROVED, CHANGES_REQUESTED, or BLOCKED, plus the PR URL and validation summary."""
 
 
-def merge_prompt(repo: str, issue_number: int, branch: str, pr: dict[str, Any], provenance: dict[str, Any]) -> str:
+def merge_prompt(
+    repo: str,
+    issue_number: int,
+    branch: str,
+    pr: dict[str, Any],
+    provenance: dict[str, Any],
+) -> str:
     pr_number = pr.get('number')
     pr_url = pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}'
     footer = provenance_footer(provenance, action='github:merge_pr')
@@ -864,7 +1039,9 @@ async def create_issue_review_task(
     )
     decision = policy_decision(provenance, 'github:review_pr')
     if not decision['allowed']:
-        await record_automation_decision(provenance=provenance, decision=decision, task_id=parent_task_id)
+        await record_automation_decision(
+            provenance=provenance, decision=decision, task_id=parent_task_id
+        )
         return None
 
     metadata = {
@@ -897,7 +1074,9 @@ async def create_issue_review_task(
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=github_issue_url,
     )
-    await record_automation_decision(provenance=provenance, decision=decision, task_id=task_id)
+    await record_automation_decision(
+        provenance=provenance, decision=decision, task_id=task_id
+    )
     return task_id
 
 
@@ -913,15 +1092,20 @@ async def create_issue_merge_task(
 
     if not reviewer_allows_merge(review_task):
         # Primary path: protocol-native A2A fix follow-up
-        fix_task_id = await create_fix_followup_task(review_task=review_task, token=token)
+        fix_task_id = await create_fix_followup_task(
+            review_task=review_task, token=token
+        )
         if fix_task_id:
             logger.info(
                 'Protocol-native fix follow-up %s enqueued for review %s',
-                fix_task_id, review_task.get('id'),
+                fix_task_id,
+                review_task.get('id'),
             )
         else:
             # Compatibility fallback: @codetether mention comment
-            await post_change_request_followup_if_needed(review_task=review_task, token=token)
+            await post_change_request_followup_if_needed(
+                review_task=review_task, token=token
+            )
         return None
 
     metadata = review_task.get('metadata') or {}
@@ -947,7 +1131,9 @@ async def create_issue_merge_task(
             action='github:merge_pr',
             parent_task_id=parent_task_id,
         )
-        failures = [f'PR head SHA changed: expected {expected_sha}, got {current_sha}']
+        failures = [
+            f'PR head SHA changed: expected {expected_sha}, got {current_sha}'
+        ]
         await record_automation_decision(
             provenance=stale_provenance,
             decision=_failure_decision('github:merge_pr', failures),
@@ -957,9 +1143,9 @@ async def create_issue_merge_task(
             repo,
             pr_number,
             token,
-            "## 🛠️ CodeTether Auto-Merge\n\n"
-            "Blocked because the PR changed after the approved review.\n\n"
-            f"{_format_blockers(failures)}",
+            '## 🛠️ CodeTether Auto-Merge\n\n'
+            'Blocked because the PR changed after the approved review.\n\n'
+            f'{_format_blockers(failures)}',
         )
         return None
 
@@ -983,7 +1169,10 @@ async def create_issue_merge_task(
 
     feedback_status = await review_feedback_status(repo, pr_number, token)
     if not feedback_status['feedback_addressed']:
-        failures = list(feedback_status.get('blockers') or ['GitHub review feedback is not fully addressed'])
+        failures = list(
+            feedback_status.get('blockers')
+            or ['GitHub review feedback is not fully addressed']
+        )
         await record_automation_decision(
             provenance=provenance,
             decision=_failure_decision('github:merge_pr', failures),
@@ -993,26 +1182,54 @@ async def create_issue_merge_task(
             repo,
             pr_number,
             token,
-            "## 🛠️ CodeTether Auto-Merge\n\n"
-            "Blocked because review feedback is not fully addressed.\n\n"
-            f"{_format_blockers(failures)}",
+            '## 🛠️ CodeTether Auto-Merge\n\n'
+            'Blocked because review feedback is not fully addressed.\n\n'
+            f'{_format_blockers(failures)}',
+        )
+        return None
+
+    try:
+        checks_status = await status_check_status(repo, current_sha, token)
+        checks_green = bool(checks_status.get('checks_green'))
+        check_blockers = list(checks_status.get('blockers') or [])
+    except Exception as exc:
+        checks_green = False
+        check_blockers = [f'Unable to verify PR status checks: {exc}']
+    if not checks_green:
+        failures = check_blockers or ['PR status checks are not green']
+        await record_automation_decision(
+            provenance=provenance,
+            decision=_failure_decision('github:merge_pr', failures),
+            task_id=parent_task_id,
+        )
+        await post_issue_comment(
+            repo,
+            pr_number,
+            token,
+            '## 🛠️ CodeTether Auto-Merge\n\n'
+            'Blocked because PR status checks are not green.\n\n'
+            f'{_format_blockers(failures)}',
         )
         return None
 
     merge_metadata = dict(metadata)
-    merge_metadata.update({
-        'workflow_stage': 'merge',
-        'worker_personality': 'merge-steward',
-        'codetether_provenance': provenance,
-        'policy_decision': decision,
-        'pr_head_sha': current_sha,
-    })
+    merge_metadata.update(
+        {
+            'workflow_stage': 'merge',
+            'worker_personality': 'merge-steward',
+            'codetether_provenance': provenance,
+            'policy_decision': decision,
+            'pr_head_sha': current_sha,
+        }
+    )
 
     if AUTO_MERGE_ENABLED:
         repo_info = await github_json('GET', f'/repos/{repo}', token)
         merge_method = choose_merge_method(repo_info)
         if not merge_method:
-            failures = ['Repository does not allow merge, squash, or rebase merging for this GitHub App flow']
+            failures = [
+                'Repository does not allow merge, squash, or rebase merging for this GitHub App flow'
+            ]
             await record_automation_decision(
                 provenance=provenance,
                 decision=_failure_decision('github:merge_pr', failures),
@@ -1022,9 +1239,9 @@ async def create_issue_merge_task(
                 repo,
                 pr_number,
                 token,
-                "## 🛠️ CodeTether Auto-Merge\n\n"
-                "Blocked because no allowed repository merge method is available.\n\n"
-                f"{_format_blockers(failures)}",
+                '## 🛠️ CodeTether Auto-Merge\n\n'
+                'Blocked because no allowed repository merge method is available.\n\n'
+                f'{_format_blockers(failures)}',
             )
             return None
 
@@ -1064,32 +1281,36 @@ async def create_issue_merge_task(
                     repo,
                     pr_number,
                     token,
-                    "## 🛠️ CodeTether Auto-Merge\n\n"
-                    "Blocked by GitHub while attempting to merge.\n\n"
-                    f"{_format_blockers(failures)}",
+                    '## 🛠️ CodeTether Auto-Merge\n\n'
+                    'Blocked by GitHub while attempting to merge.\n\n'
+                    f'{_format_blockers(failures)}',
                 )
                 return None
 
-            await record_automation_decision(provenance=provenance, decision=decision, task_id=parent_task_id)
+            await record_automation_decision(
+                provenance=provenance, decision=decision, task_id=parent_task_id
+            )
             enabled_at = str(auto_merge_request.get('enabledAt') or '').strip()
             message = (
-                "## 🛠️ CodeTether Auto-Merge\n\n"
-                f"Enabled GitHub auto-merge for PR #{pr_number} using `{merge_method}` after reviewer approval and resolved-feedback checks."
+                '## 🛠️ CodeTether Auto-Merge\n\n'
+                f'Enabled GitHub auto-merge for PR #{pr_number} using `{merge_method}` after reviewer approval and resolved-feedback checks.'
             )
             if enabled_at:
-                message += f"\n\nEnabled at: `{enabled_at}`"
+                message += f'\n\nEnabled at: `{enabled_at}`'
             message += provenance_footer(provenance, action='github:merge_pr')
             await post_issue_comment(repo, pr_number, token, message)
             return 'auto_merge_enabled'
 
         merged_sha = str(merge_result.get('sha') or '').strip()
-        await record_automation_decision(provenance=provenance, decision=decision, task_id=parent_task_id)
+        await record_automation_decision(
+            provenance=provenance, decision=decision, task_id=parent_task_id
+        )
         message = (
-            "## 🛠️ CodeTether Auto-Merge\n\n"
-            f"Merged PR #{pr_number} using `{merge_method}` after reviewer approval and resolved-feedback checks."
+            '## 🛠️ CodeTether Auto-Merge\n\n'
+            f'Merged PR #{pr_number} using `{merge_method}` after reviewer approval and resolved-feedback checks.'
         )
         if merged_sha:
-            message += f"\n\nMerge SHA: `{merged_sha}`"
+            message += f'\n\nMerge SHA: `{merged_sha}`'
         message += provenance_footer(provenance, action='github:merge_pr')
         await post_issue_comment(repo, pr_number, token, message)
         return merged_sha or 'merged'
@@ -1104,5 +1325,7 @@ async def create_issue_merge_task(
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=metadata.get('github_issue_url'),
     )
-    await record_automation_decision(provenance=provenance, decision=decision, task_id=task_id)
+    await record_automation_decision(
+        provenance=provenance, decision=decision, task_id=task_id
+    )
     return task_id
