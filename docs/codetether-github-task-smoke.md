@@ -2,12 +2,12 @@
 
 This document records end-to-end smoke tests for the CodeTether GitHub App issue workflow.
 
-| Field             | Value                            |
-| ----------------- | -------------------------------- |
-| Latest issue      | #58                              |
-| Latest branch     | `codetether/issue-58`            |
-| Latest date (UTC) | 2026-05-07                       |
-| Latest status     | Fresh harvester pickup verified  |
+| Field             | Value                           |
+| ----------------- | ------------------------------- |
+| Latest issue      | #58                             |
+| Latest branch     | `codetether/issue-58`           |
+| Latest date (UTC) | 2026-05-07                      |
+| Latest status     | Fresh harvester pickup verified |
 
 ## Purpose
 
