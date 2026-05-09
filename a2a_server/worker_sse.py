@@ -144,6 +144,27 @@ class WorkerRegistry:
         except Exception as e:
             logger.debug(f'Failed to persist heartbeat for {worker_id}: {e}')
 
+    async def _lookup_worker_agent_name(self, worker_id: str) -> Optional[str]:
+        """Resolve a worker's agent name from durable state.
+
+        SSE connections are stored in-memory per API replica. A polling claim can
+        land on a replica that does not hold the worker's stream, so targeted
+        claim checks must not depend exclusively on the local registry.
+        """
+        try:
+            from . import database as db
+
+            worker = await db.db_get_worker(worker_id)
+            if not worker:
+                return None
+            name = str(worker.get('name') or '').strip()
+            return name or None
+        except Exception as e:
+            logger.debug(
+                f'Failed to look up agent name for worker {worker_id}: {e}'
+            )
+            return None
+
     async def update_worker_codebases(
         self, worker_id: str, codebases: Set[str]
     ) -> bool:
@@ -174,6 +195,11 @@ class WorkerRegistry:
                     task_metadata.get('target_worker_id') or ''
                 ).strip()
                 worker = await self.get_worker(worker_id)
+                worker_agent_name = (
+                    worker.agent_name
+                    if worker
+                    else await self._lookup_worker_agent_name(worker_id)
+                )
                 if target_worker_id and target_worker_id != worker_id:
                     logger.debug(
                         f'Worker {worker_id} skipped task {task_id} '
@@ -183,12 +209,11 @@ class WorkerRegistry:
                 task_target_agent = getattr(
                     task, 'target_agent_name', None
                 ) or task_metadata.get('target_agent_name')
-                if target_agent_mismatch(
-                    worker.agent_name if worker else None, task_target_agent
-                ):
+                if target_agent_mismatch(worker_agent_name, task_target_agent):
                     logger.debug(
                         f'Worker {worker_id} skipped task {task_id} '
-                        f'(target_agent_name={task_target_agent})'
+                        f'(agent_name={worker_agent_name}, '
+                        f'target_agent_name={task_target_agent})'
                     )
                     return False
 
@@ -881,6 +906,25 @@ async def _claim_task_run_for_worker(
         return {}
 
 
+async def _db_task_claimed_by_worker(task_id: str, worker_id: str) -> bool:
+    """Return whether durable task state says this worker owns a running task."""
+    try:
+        from . import database as db
+
+        task = await db.db_get_task(task_id)
+        if not task:
+            return False
+        return (
+            str(task.get('worker_id') or '') == worker_id
+            and str(task.get('status') or '') == 'running'
+        )
+    except Exception as e:
+        logger.debug(
+            f'Failed to check DB task ownership for {task_id}/{worker_id}: {e}'
+        )
+        return False
+
+
 class TaskReleaseRequest(BaseModel):
     """Request to release a task."""
 
@@ -1362,6 +1406,14 @@ async def release_task(
     registry = get_worker_registry()
 
     success = await registry.release_task(release.task_id, resolved_worker_id)
+    if not success and await _db_task_claimed_by_worker(
+        release.task_id, resolved_worker_id
+    ):
+        logger.info(
+            f'Task {release.task_id} released by worker {resolved_worker_id} '
+            'via DB ownership fallback'
+        )
+        success = True
 
     if success:
         # Persist status/result/error to in-memory cache AND database

@@ -1,6 +1,9 @@
+from types import SimpleNamespace
+
 import pytest
 
 from a2a_server import git_service
+from a2a_server import post_clone_followup
 from a2a_server.github_app import pr_final_comment, task_completion
 
 
@@ -11,7 +14,9 @@ async def test_pr_prepare_task_creates_pr_followup(monkeypatch):
     async def fake_handle(task, worker_id=None):
         calls.append((task, worker_id))
 
-    monkeypatch.setattr(task_completion, 'handle_pr_prepare_completion', fake_handle)
+    monkeypatch.setattr(
+        task_completion, 'handle_pr_prepare_completion', fake_handle
+    )
 
     task = {
         'title': 'Prepare PR workspace #40',
@@ -47,7 +52,9 @@ async def test_issue_prepare_task_still_uses_issue_followup(monkeypatch):
     async def fake_handle(task, worker_id=None):
         calls.append((task, worker_id))
 
-    monkeypatch.setattr(task_completion, 'handle_issue_prepare_completion', fake_handle)
+    monkeypatch.setattr(
+        task_completion, 'handle_issue_prepare_completion', fake_handle
+    )
 
     task = {
         'title': 'Prepare issue workspace #39',
@@ -56,6 +63,37 @@ async def test_issue_prepare_task_still_uses_issue_followup(monkeypatch):
     await task_completion.notify_issue_task_completion(task, 'wrk_456')
 
     assert calls == [(task, 'wrk_456')]
+
+
+@pytest.mark.asyncio
+async def test_generic_post_clone_followup_skips_github_app_tasks():
+    created = []
+
+    class Bridge:
+        async def get_task(self, task_id):
+            return SimpleNamespace(
+                id=task_id,
+                agent_type='clone_repo',
+                codebase_id='ws_1',
+                metadata={
+                    'source': 'github-app',
+                    'post_clone_task': {
+                        'title': 'Work issue #76',
+                        'prompt': 'fix it',
+                    },
+                },
+            )
+
+        async def create_task(self, **kwargs):
+            created.append(kwargs)
+            return SimpleNamespace(id='task_duplicate')
+
+    queued = await post_clone_followup.enqueue_post_clone_followup(
+        Bridge(), 'task_prepare'
+    )
+
+    assert queued is None
+    assert created == []
 
 
 @pytest.mark.asyncio
@@ -83,7 +121,9 @@ async def test_git_credentials_fall_back_to_workspace_github_app(monkeypatch):
     from a2a_server import database as db
     from a2a_server.github_app import auth
 
-    monkeypatch.setattr(git_service, 'get_git_credentials', fake_get_git_credentials)
+    monkeypatch.setattr(
+        git_service, 'get_git_credentials', fake_get_git_credentials
+    )
     monkeypatch.setattr(db, 'db_get_workspace', fake_db_get_workspace)
     monkeypatch.setattr(auth, 'installation_token', fake_installation_token)
 
@@ -129,24 +169,33 @@ async def test_pr_final_comment_queues_review_after_pr_fix(monkeypatch):
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
-    monkeypatch.setattr(pr_final_comment, 'github_app_task_context', fake_context)
-    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
-    monkeypatch.setattr('a2a_server.github_app.issue_review_task.create_issue_review_task', fake_create_review_task)
+    monkeypatch.setattr(
+        pr_final_comment, 'github_app_task_context', fake_context
+    )
+    monkeypatch.setattr(
+        'a2a_server.github_app.auth.github_json', fake_github_json
+    )
+    monkeypatch.setattr(
+        'a2a_server.github_app.issue_review_task.create_issue_review_task',
+        fake_create_review_task,
+    )
     monkeypatch.setattr(pr_final_comment, 'post_issue_comment', fake_post)
 
-    await pr_final_comment.notify_pr_final_comment({
-        'id': 'task-pr-fix',
-        'status': 'completed',
-        'result': 'done',
-        'metadata': {
-            'workspace_id': 'ws1',
-            'repo': 'acme/widgets',
-            'pr_number': 40,
-            'pr_head': 'feature',
-            'github_issue_url': 'https://github.com/acme/widgets/pull/40',
-            'github_installation_id': 123,
-        },
-    })
+    await pr_final_comment.notify_pr_final_comment(
+        {
+            'id': 'task-pr-fix',
+            'status': 'completed',
+            'result': 'done',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'pr_number': 40,
+                'pr_head': 'feature',
+                'github_issue_url': 'https://github.com/acme/widgets/pull/40',
+                'github_installation_id': 123,
+            },
+        }
+    )
 
     assert created
     assert created[0]['repo'] == 'acme/widgets'
