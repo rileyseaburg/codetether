@@ -21,6 +21,7 @@ Agentspace
 Autogen
 Bitbucket
 Blogs
+BYOK
 CAs
 CLIs
 CODETETHER
@@ -90,6 +91,7 @@ PLE
 PLW
 PMEEi
 PRD
+PRDs
 PTH
 QFdk
 Qvandrcy
@@ -104,6 +106,7 @@ Solax
 TJS
 TMDB
 Tful
+Trello
 UIs
 URLTo
 Upserting
@@ -117,6 +120,7 @@ WVw
 Witteveen
 XBs
 XDG
+XIcon
 Xca
 YQGt
 YTAKFW
@@ -125,6 +129,7 @@ YWFh
 YWdlbn
 ZDS
 ZKHv
+ZAPIER
 ZXhhb
 ZXkt
 Zipkin
@@ -141,6 +146,7 @@ agentcard
 agentic
 agentskill
 agntcy
+admins
 ainvoke
 airbnb
 aldridge
@@ -176,8 +182,10 @@ codegen
 codeowner
 codetether
 configmap
+cerebras
 crewai
 csrf
+cta
 curlimages
 datamodel
 datapart
@@ -267,6 +275,7 @@ marvin
 mcp
 mesop
 mindsdb
+moonshotai
 motherlode
 mozilla
 msword
@@ -281,6 +290,7 @@ nextauth
 nindent
 nlp
 notif
+novita
 npush
 objc
 octicons
@@ -289,6 +299,7 @@ ollama
 oneof
 openapis
 opencode
+openrouter
 oreilly
 pconfig
 plpgsql
@@ -331,6 +342,7 @@ srem
 sse
 stateclass
 stephenh
+stepfun
 styleguide
 subcall
 svn
@@ -375,4 +387,6 @@ xxxxxxxx
 youtube
 yyyyyyyy
 zai
+zapier
+zhipuai
 zzzzzzzz

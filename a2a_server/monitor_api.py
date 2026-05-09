@@ -1208,9 +1208,17 @@ async def get_message_count(type: Optional[str] = None):
 
 
 @monitor_router.get('/workers')
-async def monitor_list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = 24):
+async def monitor_list_workers(
+    search: Optional[str] = None,
+    online_only: bool = False,
+    exclude_offline_hours: Optional[int] = 24,
+):
     """Proxy to /v1/agent/workers for backward compatibility."""
-    return await list_workers(search, online_only=online_only, exclude_offline_hours=exclude_offline_hours)
+    return await list_workers(
+        search,
+        online_only=online_only,
+        exclude_offline_hours=exclude_offline_hours,
+    )
 
 
 @monitor_router.get('/models')
@@ -6355,7 +6363,11 @@ async def unregister_worker(worker_id: str):
 
 
 @agent_router_alias.get('/workers')
-async def list_workers(search: Optional[str] = None, online_only: bool = False, exclude_offline_hours: Optional[int] = 24):
+async def list_workers(
+    search: Optional[str] = None,
+    online_only: bool = False,
+    exclude_offline_hours: Optional[int] = 24,
+):
     """List all registered workers with optional model search filter.
 
     Args:
@@ -6509,7 +6521,10 @@ async def list_workers(search: Optional[str] = None, online_only: bool = False, 
             last_seen = w.get('last_seen')
             if last_seen:
                 try:
-                    elapsed = (datetime.utcnow() - datetime.fromisoformat(str(last_seen))).total_seconds()
+                    elapsed = (
+                        datetime.utcnow()
+                        - datetime.fromisoformat(str(last_seen))
+                    ).total_seconds()
                     if elapsed < 300:
                         online_workers.append(w)
                         continue
@@ -6520,7 +6535,9 @@ async def list_workers(search: Optional[str] = None, online_only: bool = False, 
     # Filter out workers offline longer than the threshold
     if exclude_offline_hours is not None and exclude_offline_hours > 0:
         cutoff_seconds = exclude_offline_hours * 3600
-        sse_worker_ids_set = set(sse_workers_by_id.keys()) if exclude_offline_hours else set()
+        sse_worker_ids_set = (
+            set(sse_workers_by_id.keys()) if exclude_offline_hours else set()
+        )
         active_workers: List[Dict[str, Any]] = []
         for w in workers:
             wid = str(w.get('worker_id') or '')
@@ -6531,7 +6548,10 @@ async def list_workers(search: Optional[str] = None, online_only: bool = False, 
             last_seen = w.get('last_seen')
             if last_seen:
                 try:
-                    elapsed = (datetime.utcnow() - datetime.fromisoformat(str(last_seen))).total_seconds()
+                    elapsed = (
+                        datetime.utcnow()
+                        - datetime.fromisoformat(str(last_seen))
+                    ).total_seconds()
                     if elapsed < cutoff_seconds:
                         active_workers.append(w)
                         continue
