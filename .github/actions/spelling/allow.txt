@@ -9,6 +9,7 @@ ADK
 AError
 AExecutor
 AIP
+APF
 ARequest
 ASED
 ASGI
@@ -41,6 +42,7 @@ Fbr
 GAPI
 GAPIC
 GBP
+GIL
 GVsb
 Gapic
 Gci
@@ -230,6 +232,7 @@ iat
 ietf
 inbox
 inmemory
+inp
 ipynb
 iss
 jherr
@@ -246,6 +249,7 @@ livekit
 llm
 llms
 lng
+lru
 marvin
 mcp
 mesop
@@ -269,6 +273,7 @@ ollama
 oneof
 openapis
 oreilly
+pjti
 plpgsql
 postgres
 postgresql
@@ -290,10 +295,12 @@ reportgen
 reposted
 rollme
 rst
+rtid
 rvelicheti
 scm
 sllm
 sourcing
+spiffe
 squidfunk
 srcs
 sse
