@@ -4,10 +4,12 @@ from .settings import MODEL_REF
 from .task_context import issue_task_context
 from .watch import post_issue_comment
 
+DEFAULT_TASK_TIMEOUT = 604800  # 7 days
+
 
 async def handle_issue_prepare_completion(task: dict, worker_id: str | None = None) -> None:
     """Create the issue build task or post a prepare failure."""
-    from ..monitor_api import AgentTaskCreate, create_agent_task
+    from ..persistent_worker_pool import create_and_dispatch_task
 
     metadata = task.get('metadata') or {}
     context = await issue_task_context(task)
@@ -25,7 +27,24 @@ async def handle_issue_prepare_completion(task: dict, worker_id: str | None = No
         await post_issue_comment(repo, issue_number, token, "## 🛠️ CodeTether Fix\n\nI prepared the workspace, but the follow-up task metadata was incomplete.")
         return
     followup_metadata = dict(followup.get('metadata') or {})
+
+    # Propagate github_issue_url and github_installation_id for progress reporting
+    for key in ('github_issue_url', 'github_installation_id'):
+        if key in metadata and key not in followup_metadata:
+            followup_metadata[key] = metadata[key]
+
     target_worker_id = str(worker_id or task.get('worker_id') or '').strip()
     if target_worker_id:
         followup_metadata['target_worker_id'] = target_worker_id
-    await create_agent_task(workspace_id, AgentTaskCreate(title=str(followup.get('title') or f'Work issue #{issue_number}'), prompt=prompt, agent_type=str(followup.get('agent_type') or 'build'), metadata=followup_metadata, model_ref=MODEL_REF))
+
+    github_issue_url = followup_metadata.get('github_issue_url') or metadata.get('github_issue_url')
+    await create_and_dispatch_task(
+        workspace_id=workspace_id,
+        title=str(followup.get('title') or f'Work issue #{issue_number}'),
+        prompt=prompt,
+        agent_type=str(followup.get('agent_type') or 'build'),
+        model_ref=MODEL_REF,
+        metadata=followup_metadata,
+        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        github_issue_url=github_issue_url,
+    )

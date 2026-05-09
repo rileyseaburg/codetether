@@ -1964,7 +1964,7 @@ async def get_tenant_email_stats(
                 COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as sent_last_30d
             FROM outbound_emails 
             WHERE tenant_id = $1
-            AND created_at > NOW() - INTERVAL '%s days'
+            AND created_at > NOW() - $2 * INTERVAL '1 day'
             """,
             tenant_id,
             days,

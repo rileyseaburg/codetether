@@ -12,7 +12,14 @@ async def enqueue_post_clone_followup(bridge, task_id: str) -> Optional[str]:
     task = await bridge.get_task(task_id)
     if task is None or task.agent_type != 'clone_repo':
         return None
-    followup = (task.metadata or {}).get('post_clone_task')
+    metadata = task.metadata or {}
+    if metadata.get('source') == 'github-app':
+        logger.debug(
+            'Skipping generic post-clone follow-up for GitHub App task %s',
+            task_id,
+        )
+        return None
+    followup = metadata.get('post_clone_task')
     if not isinstance(followup, dict):
         return None
     queued = await bridge.create_task(
@@ -23,7 +30,11 @@ async def enqueue_post_clone_followup(bridge, task_id: str) -> Optional[str]:
         metadata=followup.get('metadata'),
     )
     if queued is None:
-        logger.warning('Failed to enqueue post-clone follow-up for task %s', task_id)
+        logger.warning(
+            'Failed to enqueue post-clone follow-up for task %s', task_id
+        )
         return None
-    logger.info('Queued post-clone follow-up %s for task %s', queued.id, task_id)
+    logger.info(
+        'Queued post-clone follow-up %s for task %s', queued.id, task_id
+    )
     return queued.id

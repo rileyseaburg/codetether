@@ -508,7 +508,12 @@ class AgentBridge:
         return None
 
     async def _load_codebases_from_db(self):
-        """Load all codebases from PostgreSQL and cache in memory."""
+        """Load workspaces from PostgreSQL into the in-memory cache, per-tenant.
+
+        Iterates over every tenant and uses tenant_scope() RLS context so
+        that each SELECT respects row-level security.  This avoids any
+        naked cross-tenant queries.
+        """
 
         def parse_dt(val):
             if isinstance(val, datetime):
@@ -521,33 +526,80 @@ class AgentBridge:
             return None
 
         try:
-            codebases = await db.db_list_codebases()
-            loaded_count = 0
-            for row in codebases:
-                codebase_id = row.get('id')
-                if not codebase_id:
+            # 1. Discover all tenant IDs using admin_scope (bypasses RLS).
+            pool = await db.get_pool()
+            if not pool:
+                logger.warning('Database pool unavailable, skipping workspace load')
+                return
+
+            tenant_ids: List[str] = []
+            async with db.admin_scope() as conn:
+                rows = await conn.fetch(
+                    'SELECT id FROM tenants ORDER BY created_at'
+                )
+                tenant_ids = [str(r['id']) for r in rows]
+
+            if not tenant_ids:
+                logger.info('No tenants found — nothing to load')
+                return
+
+            # 2. For each tenant, use tenant_scope RLS to load workspaces.
+            total_loaded = 0
+            for tid in tenant_ids:
+                try:
+                    async with db.tenant_scope(tid) as conn:
+                        ws_rows = await conn.fetch(
+                            'SELECT * FROM workspaces ORDER BY updated_at DESC'
+                        )
+                except Exception as te:
+                    logger.warning(
+                        f'Failed to load workspaces for tenant {tid}: {te}'
+                    )
                     continue
 
-                self._codebases[codebase_id] = RegisteredCodebase(
-                    id=codebase_id,
-                    name=row.get('name', ''),
-                    path=row.get('path', ''),
-                    description=row.get('description', ''),
-                    registered_at=parse_dt(row.get('created_at'))
-                    or datetime.utcnow(),
-                    agent_config=row.get('agent_config') or {},
-                    last_triggered=parse_dt(row.get('last_triggered')),
-                    status=AgentStatus(row.get('status', 'idle')),
-                    agent_port=row.get('agent_port'),
-                    session_id=row.get('session_id'),
-                    watch_mode=row.get('watch_mode', False),
-                    watch_interval=row.get('watch_interval', 5),
-                    worker_id=row.get('worker_id'),
-                )
-                loaded_count += 1
-            logger.info(f'Loaded {loaded_count} codebases from PostgreSQL')
+                for row in ws_rows:
+                    codebase_id = row['id']
+                    if not codebase_id or codebase_id in self._codebases:
+                        continue
+
+                    # Parse agent_config from JSON if needed.
+                    agent_config = row.get('agent_config')
+                    if isinstance(agent_config, str):
+                        try:
+                            agent_config = json.loads(agent_config)
+                        except (json.JSONDecodeError, TypeError):
+                            agent_config = {}
+                    elif not isinstance(agent_config, dict):
+                        agent_config = {}
+
+                    raw_status = row.get('status', 'idle') or 'idle'
+                    try:
+                        status = AgentStatus(raw_status)
+                    except ValueError:
+                        status = AgentStatus.IDLE
+
+                    self._codebases[codebase_id] = RegisteredCodebase(
+                        id=codebase_id,
+                        name=row.get('name', ''),
+                        path=row.get('path', ''),
+                        description=row.get('description', ''),
+                        registered_at=parse_dt(row.get('created_at'))
+                        or datetime.utcnow(),
+                        agent_config=agent_config,
+                        status=status,
+                        agent_port=row.get('agent_port'),
+                        session_id=row.get('session_id'),
+                        worker_id=row.get('worker_id'),
+                    )
+                    total_loaded += 1
+
+            logger.info(
+                f'Loaded {total_loaded} workspaces from PostgreSQL '
+                f'across {len(tenant_ids)} tenants '
+                f'({len(self._codebases)} total in memory)'
+            )
         except Exception as e:
-            logger.error(f'Failed to load codebases from PostgreSQL: {e}')
+            logger.error(f'Failed to load workspaces from PostgreSQL: {e}')
 
     async def _load_tasks_from_db(
         self,
