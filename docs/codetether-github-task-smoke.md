@@ -2,12 +2,12 @@
 
 This document records end-to-end smoke tests for the CodeTether GitHub App issue workflow.
 
-| Field       | Value                          |
-|-------------|--------------------------------|
-| Latest issue | #58                           |
-| Latest branch | `codetether/issue-58`        |
-| Latest date (UTC) | 2026-05-07               |
-| Latest status | Fresh harvester pickup verified |
+| Field             | Value                            |
+| ----------------- | -------------------------------- |
+| Latest issue      | #58                              |
+| Latest branch     | `codetether/issue-58`            |
+| Latest date (UTC) | 2026-05-07                       |
+| Latest status     | Fresh harvester pickup verified  |
 
 ## Purpose
 
@@ -23,23 +23,23 @@ Confirm that CodeTether can:
 
 ### Issue #39 — automated PR creation
 
-| Field       | Value                          |
-|-------------|--------------------------------|
-| Issue       | #39                            |
-| Branch      | `codetether/issue-39`          |
-| Date (UTC)  | 2026-04-24                     |
-| Status      | Verified via automated PR      |
+| Field      | Value                     |
+| ---------- | ------------------------- |
+| Issue      | #39                       |
+| Branch     | `codetether/issue-39`     |
+| Date (UTC) | 2026-04-24                |
+| Status     | Verified via automated PR |
 
 This smoke test confirmed that CodeTether could receive an issue trigger (`@codetether fix this please`), create the `codetether/issue-39` feature branch, commit a documentation change, and open a pull request that references and closes the originating issue.
 
 ### Issue #58 — harvester pickup retry
 
-| Field       | Value                          |
-|-------------|--------------------------------|
-| Issue       | #58                            |
-| Branch      | `codetether/issue-58`          |
-| Date (UTC)  | 2026-05-07                     |
-| Status      | Fresh harvester pickup verified |
+| Field      | Value                           |
+| ---------- | ------------------------------- |
+| Issue      | #58                             |
+| Branch     | `codetether/issue-58`           |
+| Date (UTC) | 2026-05-07                      |
+| Status     | Fresh harvester pickup verified |
 
 - The GitHub App acknowledged the fresh issue mention on issue #58.
 - The stale/unclaimed prior pickup was superseded by this run on `codetether/issue-58`.
