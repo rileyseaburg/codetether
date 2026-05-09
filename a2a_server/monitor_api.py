@@ -44,6 +44,7 @@ from .git_service import (
 )
 from .task_routing import target_agent_mismatch
 from .task_orchestration import orchestrate_task_route
+
 try:
     from .vm_workspace_provisioner import (
         VMWorkspaceSpec,
@@ -51,9 +52,11 @@ try:
         is_enabled as is_vm_workspaces_enabled,
     )
 except ModuleNotFoundError:
+
     @dataclass
     class VMWorkspaceSpec:
         """Fallback VM spec used when VM workspace support is unavailable."""
+
         cpu_cores: int = 2
         memory: str = '8Gi'
         disk_size: str = '30Gi'
@@ -65,7 +68,9 @@ except ModuleNotFoundError:
         """Stub provisioner for environments without VM workspace support."""
 
         async def provision_workspace_vm(self, **_: Any):
-            raise RuntimeError('VM workspace provisioning module is unavailable')
+            raise RuntimeError(
+                'VM workspace provisioning module is unavailable'
+            )
 
         async def get_vm_status(self, *_: Any):
             return 'unavailable'
@@ -78,6 +83,7 @@ except ModuleNotFoundError:
     def is_vm_workspaces_enabled() -> bool:
         """Report VM workspace provisioning as disabled when the module is absent."""
         return False
+
 
 logger = logging.getLogger(__name__)
 
@@ -166,9 +172,7 @@ def _pending_task_visible_to_worker(
         return False
 
     target_agent_name = str(
-        task.get('target_agent_name')
-        or metadata.get('target_agent_name')
-        or ''
+        task.get('target_agent_name') or metadata.get('target_agent_name') or ''
     ).strip()
     if target_agent_name and target_agent_mismatch(
         agent_name, target_agent_name
@@ -178,7 +182,9 @@ def _pending_task_visible_to_worker(
     return True
 
 
-async def _active_worker_id_for_agent_name(agent_name: Optional[str]) -> Optional[str]:
+async def _active_worker_id_for_agent_name(
+    agent_name: Optional[str],
+) -> Optional[str]:
     """Resolve legacy poll requests that identify the worker by agent_name only."""
     if not agent_name:
         return None
@@ -1633,9 +1639,7 @@ def get_agent_bridge():
                             'id': task.id,
                             'title': task.title,
                             'description': task.prompt,
-                            'workspace_id': getattr(
-                                task, 'codebase_id', None
-                            ),
+                            'workspace_id': getattr(task, 'codebase_id', None),
                             'agent_type': task.agent_type,
                             'model': task.model,
                             'priority': task.priority,
@@ -1757,15 +1761,22 @@ def _extract_workspace_runtime_meta(
     }
 
 
-def _build_vm_spec_from_registration(registration: 'WorkspaceRegistration') -> VMWorkspaceSpec:
+def _build_vm_spec_from_registration(
+    registration: 'WorkspaceRegistration',
+) -> VMWorkspaceSpec:
     """Create a VMWorkspaceSpec from request payload with safe defaults."""
     vm_cfg = registration.vm or {}
     cpu_cores = int(vm_cfg.get('cpu_cores', vm_cfg.get('cpuCores', 2)))
     memory = str(vm_cfg.get('memory', '8Gi'))
     disk_size = str(vm_cfg.get('disk_size', vm_cfg.get('diskSize', '30Gi')))
     image = str(vm_cfg.get('image', '')).strip()
-    ssh_public_key = str(vm_cfg.get('ssh_public_key', vm_cfg.get('sshPublicKey', ''))).strip()
-    ssh_user = str(vm_cfg.get('ssh_user', vm_cfg.get('sshUser', 'coder'))).strip() or 'coder'
+    ssh_public_key = str(
+        vm_cfg.get('ssh_public_key', vm_cfg.get('sshPublicKey', ''))
+    ).strip()
+    ssh_user = (
+        str(vm_cfg.get('ssh_user', vm_cfg.get('sshUser', 'coder'))).strip()
+        or 'coder'
+    )
 
     defaults = VMWorkspaceSpec()
     return VMWorkspaceSpec(
@@ -1966,7 +1977,9 @@ async def agent_status():
         # If Redis is configured, it may have the authoritative multi-replica
         # registry even when this instance has an empty local DB.
         redis_workspaces = await _redis_list_workspace_meta()
-        registered_workspaces = max(registered_workspaces, len(redis_workspaces))
+        registered_workspaces = max(
+            registered_workspaces, len(redis_workspaces)
+        )
     except Exception:
         pass
 
@@ -2501,7 +2514,9 @@ async def list_models():
         sse_registry = get_worker_registry()
         sse_workers = await sse_registry.list_workers()
         connected_worker_ids = {
-            str(w.get('worker_id', '')) for w in sse_workers if w.get('worker_id')
+            str(w.get('worker_id', ''))
+            for w in sse_workers
+            if w.get('worker_id')
         }
     except Exception:
         pass
@@ -2511,7 +2526,8 @@ async def list_models():
 
     all_workers = await list_workers()
     workers = [
-        w for w in all_workers
+        w
+        for w in all_workers
         if str(w.get('worker_id', '')) in connected_worker_ids
     ]
 
@@ -2600,12 +2616,14 @@ async def list_providers():
         secret = await vault.read_secret(f'codetether/providers/{pid}')
         has_api_key = bool(secret and secret.get('api_key'))
         has_base_url = bool(secret and secret.get('base_url'))
-        provider_details.append({
-            'provider_id': pid,
-            'configured': has_api_key,
-            'has_base_url': has_base_url,
-            'model_count': len(provider_model_ids.get(pid, set())),
-        })
+        provider_details.append(
+            {
+                'provider_id': pid,
+                'configured': has_api_key,
+                'has_base_url': has_base_url,
+                'model_count': len(provider_model_ids.get(pid, set())),
+            }
+        )
 
     return {
         'providers': provider_details,
@@ -2828,6 +2846,7 @@ async def register_workspace(registration: WorkspaceRegistration):
     # and create a clone task for workers. The path is resolved after cloning.
     if registration.git_url:
         from .git_service import validate_git_url, store_git_credentials
+
         if not validate_git_url(registration.git_url):
             raise HTTPException(
                 status_code=400,
@@ -2835,8 +2854,17 @@ async def register_workspace(registration: WorkspaceRegistration):
             )
 
         import hashlib
-        workspace_key = f'{registration.git_url}::{registration.git_branch or "main"}'
-        workspace_id = hashlib.sha256(workspace_key.encode()).hexdigest()[:16]
+
+        workspace_key = (
+            f'{registration.git_url}::{registration.git_branch or "main"}'
+        )
+        workspace_id = (
+            str(registration.workspace_id or '').strip()
+            or hashlib.sha256(workspace_key.encode()).hexdigest()[:16]
+        )
+        worker_local_registration = bool(
+            registration.worker_id and registration.path
+        )
 
         runtime_agent_config = dict(registration.agent_config or {})
         if registration.git_auth:
@@ -2872,9 +2900,10 @@ async def register_workspace(registration: WorkspaceRegistration):
             'path': registration.path or default_clone_dir(workspace_id),
             'description': registration.description,
             'agent_config': runtime_agent_config,
+            'worker_id': registration.worker_id,
             'git_url': registration.git_url,
             'git_branch': registration.git_branch,
-            'status': 'cloning',
+            'status': 'active' if worker_local_registration else 'cloning',
         }
         await db.db_upsert_workspace(workspace_data)
         try:
@@ -2883,6 +2912,7 @@ async def register_workspace(registration: WorkspaceRegistration):
                 path=workspace_data['path'],
                 description=registration.description,
                 agent_config=runtime_agent_config,
+                worker_id=registration.worker_id,
                 workspace_id=workspace_id,
             )
         except Exception as e:
@@ -2890,12 +2920,26 @@ async def register_workspace(registration: WorkspaceRegistration):
                 f'Failed to mirror git workspace {workspace_id} into bridge: {e}'
             )
 
+        if worker_local_registration:
+            return {
+                'success': True,
+                'workspace_id': workspace_id,
+                'worker_id': registration.worker_id,
+                'pending': False,
+                'task_id': None,
+                'message': (
+                    f'Repository workspace {registration.name} registered '
+                    f'from worker path {workspace_data["path"]}.'
+                ),
+            }
+
         # Dispatch clone through the persistent worker path so harvester claims
         # carry task_run metadata, long timeouts, and resumable leases.
         from .persistent_worker_pool import (
             DEFAULT_TASK_TIMEOUT,
             create_and_dispatch_task,
         )
+
         task_id = await create_and_dispatch_task(
             workspace_id=workspace_id,
             title=f'Clone repository: {registration.name}',
@@ -3036,21 +3080,24 @@ async def register_workspace(registration: WorkspaceRegistration):
     if registration.worker_id:
         try:
             normalized_path = (
-                _normalize_workspace_path(registration.path) or registration.path
+                _normalize_workspace_path(registration.path)
+                or registration.path
             )
 
             desired_id: Optional[str] = registration.workspace_id
             if not desired_id and registration.git_url:
                 import hashlib
 
-                workspace_key = (
-                    f'{registration.git_url}::{registration.git_branch or "main"}'
-                )
-                desired_id = hashlib.sha256(workspace_key.encode()).hexdigest()[:16]
+                workspace_key = f'{registration.git_url}::{registration.git_branch or "main"}'
+                desired_id = hashlib.sha256(workspace_key.encode()).hexdigest()[
+                    :16
+                ]
 
             if not desired_id:
                 try:
-                    existing = await db.db_list_workspaces_by_path(normalized_path)
+                    existing = await db.db_list_workspaces_by_path(
+                        normalized_path
+                    )
                     if existing:
                         desired_id = existing[0].get('id')
                 except Exception:
@@ -3067,9 +3114,9 @@ async def register_workspace(registration: WorkspaceRegistration):
                 or (existing_workspace or {}).get('git_branch')
                 or 'main'
             )
-            resolved_git_url = registration.git_url or (existing_workspace or {}).get(
-                'git_url'
-            )
+            resolved_git_url = registration.git_url or (
+                existing_workspace or {}
+            ).get('git_url')
 
             workspace = await bridge.register_workspace(
                 name=registration.name,
@@ -3175,7 +3222,9 @@ async def register_workspace(registration: WorkspaceRegistration):
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}')
-async def get_workspace(workspace_id: str, include_runtime_status: bool = False):
+async def get_workspace(
+    workspace_id: str, include_runtime_status: bool = False
+):
     """Get details of a registered workspace."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -3198,12 +3247,20 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
         for source in (db_workspace, redis_workspace):
             if not source:
                 continue
-            for key in ('git_url', 'git_branch', 'status', 'description', 'agent_config'):
+            for key in (
+                'git_url',
+                'git_branch',
+                'status',
+                'description',
+                'agent_config',
+            ):
                 if not workspace_dict.get(key) and source.get(key) is not None:
                     workspace_dict[key] = source[key]
         if include_runtime_status:
             runtime_meta = _extract_workspace_runtime_meta(workspace_dict)
-            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
+            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get(
+                'vm_name'
+            ):
                 vm_status = await vm_workspace_provisioner.get_vm_status(
                     runtime_meta['vm_name']
                 )
@@ -3216,12 +3273,23 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
     if db_workspace:
         redis_workspace = await _redis_get_workspace_meta(workspace_id)
         if redis_workspace:
-            for key in ('git_url', 'git_branch', 'status', 'description', 'agent_config'):
-                if not db_workspace.get(key) and redis_workspace.get(key) is not None:
+            for key in (
+                'git_url',
+                'git_branch',
+                'status',
+                'description',
+                'agent_config',
+            ):
+                if (
+                    not db_workspace.get(key)
+                    and redis_workspace.get(key) is not None
+                ):
                     db_workspace[key] = redis_workspace[key]
         if include_runtime_status:
             runtime_meta = _extract_workspace_runtime_meta(db_workspace)
-            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
+            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get(
+                'vm_name'
+            ):
                 vm_status = await vm_workspace_provisioner.get_vm_status(
                     runtime_meta['vm_name']
                 )
@@ -3234,7 +3302,9 @@ async def get_workspace(workspace_id: str, include_runtime_status: bool = False)
     if redis_workspace:
         if include_runtime_status:
             runtime_meta = _extract_workspace_runtime_meta(redis_workspace)
-            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get('vm_name'):
+            if runtime_meta.get('runtime') == 'vm' and runtime_meta.get(
+                'vm_name'
+            ):
                 vm_status = await vm_workspace_provisioner.get_vm_status(
                     runtime_meta['vm_name']
                 )
@@ -3280,7 +3350,9 @@ async def unregister_workspace(workspace_id: str):
     db_workspace = await db.db_get_workspace(workspace_id)
     redis_workspace = await _redis_get_workspace_meta(workspace_id)
     bridge_workspace_dict = workspace.to_dict() if workspace else None
-    workspace_snapshot = bridge_workspace_dict or db_workspace or redis_workspace
+    workspace_snapshot = (
+        bridge_workspace_dict or db_workspace or redis_workspace
+    )
 
     if workspace:
         success = await bridge.unregister_workspace(workspace_id)
@@ -3859,7 +3931,9 @@ async def stream_agent_events(workspace_id: str, request: Request):
                     if await request.is_disconnected():
                         break
 
-                    all_tasks = await bridge.list_tasks(codebase_id=workspace_id)
+                    all_tasks = await bridge.list_tasks(
+                        codebase_id=workspace_id
+                    )
                     recent_tasks = (
                         all_tasks[-25:] if len(all_tasks) > 25 else all_tasks
                     )
@@ -4073,7 +4147,9 @@ async def stream_agent_events(workspace_id: str, request: Request):
 
                     await asyncio.sleep(poll_interval_s)
             except asyncio.CancelledError:
-                logger.info(f'Offline event stream cancelled for {workspace_id}')
+                logger.info(
+                    f'Offline event stream cancelled for {workspace_id}'
+                )
             except Exception as e:
                 logger.error(f'Error streaming offline events: {e}')
                 yield f'event: error\ndata: {json.dumps({"error": str(e)})}\n\n'
@@ -4376,7 +4452,9 @@ async def _validate_target_worker_is_available(
         target_worker = await db.db_get_worker(target_worker_id)
     except Exception as e:
         target_worker = None
-        logger.debug(f'Failed to load target worker {target_worker_id} from DB: {e}')
+        logger.debug(
+            f'Failed to load target worker {target_worker_id} from DB: {e}'
+        )
 
     if not target_worker:
         if strict:
@@ -4393,8 +4471,12 @@ async def _validate_target_worker_is_available(
         )
         return
 
-    last_heartbeat = target_worker.get('last_seen') or target_worker.get('last_heartbeat')
-    if not _is_recent_heartbeat(str(last_heartbeat) if last_heartbeat else None):
+    last_heartbeat = target_worker.get('last_seen') or target_worker.get(
+        'last_heartbeat'
+    )
+    if not _is_recent_heartbeat(
+        str(last_heartbeat) if last_heartbeat else None
+    ):
         if strict:
             raise HTTPException(
                 status_code=409,
@@ -4850,7 +4932,9 @@ async def list_sessions(
     offset = max(0, offset)
 
     bridge = get_agent_bridge()
-    workspace = bridge.get_workspace(workspace_id) if bridge is not None else None
+    workspace = (
+        bridge.get_workspace(workspace_id) if bridge is not None else None
+    )
 
     def _session_matches_query(session: Dict[str, Any], query: str) -> bool:
         needle = query.strip().lower()
@@ -5065,7 +5149,9 @@ def _normalize_model_value(model: Any) -> Optional[str]:
     return None
 
 
-@agent_router_alias.post('/workspaces/{workspace_id}/sessions/{session_id}/ingest')
+@agent_router_alias.post(
+    '/workspaces/{workspace_id}/sessions/{session_id}/ingest'
+)
 async def ingest_external_session(
     workspace_id: str,
     session_id: str,
@@ -5448,7 +5534,9 @@ async def sync_session_messages(
                 tokens_raw = msg_data.get('tokens')
                 model = _extract_model(msg_data)
                 if role == 'assistant' and tokens_raw and model:
-                    tokens = TokenCounts.from_dict(tokens_raw if isinstance(tokens_raw, dict) else {})
+                    tokens = TokenCounts.from_dict(
+                        tokens_raw if isinstance(tokens_raw, dict) else {}
+                    )
                     if tokens.total > 0 or tokens.cache_read_tokens > 0:
                         # Extract provider from model string (e.g., "anthropic/claude-opus-4-5")
                         if '/' in model:
@@ -5492,7 +5580,9 @@ async def get_session(workspace_id: str, session_id: str):
     import aiohttp
 
     bridge = get_agent_bridge()
-    workspace = bridge.get_workspace(workspace_id) if bridge is not None else None
+    workspace = (
+        bridge.get_workspace(workspace_id) if bridge is not None else None
+    )
 
     # If there's a running agent instance, query its API
     if workspace and workspace.agent_port:
@@ -5526,7 +5616,9 @@ async def get_session(workspace_id: str, session_id: str):
     raise HTTPException(status_code=404, detail='Session not found')
 
 
-@agent_router_alias.get('/workspaces/{workspace_id}/sessions/{session_id}/messages')
+@agent_router_alias.get(
+    '/workspaces/{workspace_id}/sessions/{session_id}/messages'
+)
 async def get_session_messages_by_id(
     workspace_id: str, session_id: str, limit: int = 100
 ):
@@ -5687,7 +5779,9 @@ async def _get_session_messages_impl(
     return {'messages': [], 'session_id': session_id, 'source': 'local_state'}
 
 
-@agent_router_alias.post('/workspaces/{workspace_id}/sessions/{session_id}/resume')
+@agent_router_alias.post(
+    '/workspaces/{workspace_id}/sessions/{session_id}/resume'
+)
 async def resume_session(
     workspace_id: str, session_id: str, request: SessionResumeRequest
 ):
@@ -5748,7 +5842,7 @@ async def resume_session(
 
         # Persist the user prompt so chat history feels like a normal chat app.
         message_id = f'msg_{uuid.uuid4().hex}'
-        part_id = f"prt_{uuid.uuid4().hex}"
+        part_id = f'prt_{uuid.uuid4().hex}'
         created_at = datetime.utcnow().isoformat()
         user_message = {
             'id': message_id,
@@ -6156,7 +6250,9 @@ class WorkerRegistration(BaseModel):
     models: List[Dict[str, Any]] = []
     global_workspace_id: Optional[str] = None
     workspaces: List[str] = []  # List of workspace IDs this worker handles
-    agents: List[Dict[str, Any]] = []  # Custom agent definitions this worker supports
+    agents: List[
+        Dict[str, Any]
+    ] = []  # Custom agent definitions this worker supports
 
 
 class TaskStatusUpdate(BaseModel):
@@ -6261,6 +6357,7 @@ async def unregister_worker(worker_id: str):
 @agent_router_alias.get('/workers')
 async def list_workers(search: Optional[str] = None):
     """List all registered workers with optional model search filter."""
+
     def _classify_worker_runtime(
         worker: Dict[str, Any],
         sse_worker: Optional[Dict[str, Any]],
@@ -6378,7 +6475,9 @@ async def list_workers(search: Optional[str] = None):
             if wid:
                 sse_workers_by_id[str(wid)] = sse_worker
     except Exception as e:
-        logger.debug(f'Unable to load SSE worker registry for classification: {e}')
+        logger.debug(
+            f'Unable to load SSE worker registry for classification: {e}'
+        )
 
     annotated_workers: List[Dict[str, Any]] = []
     for worker in workers:
@@ -6397,10 +6496,7 @@ async def list_workers(search: Optional[str] = None):
         workers = [
             w
             for w in workers
-            if any(
-                search_lower in str(m).lower()
-                for m in w.get('models', [])
-            )
+            if any(search_lower in str(m).lower() for m in w.get('models', []))
         ]
 
     return workers
@@ -6465,10 +6561,15 @@ async def worker_heartbeat(worker_id: str):
                 # Check if worker is connected via SSE (different registry)
                 try:
                     from .worker_sse import get_worker_registry
+
                     sse_registry = get_worker_registry()
                     sse_workers = await sse_registry.list_workers()
                     sse_worker = next(
-                        (w for w in sse_workers if w.get('worker_id') == worker_id),
+                        (
+                            w
+                            for w in sse_workers
+                            if w.get('worker_id') == worker_id
+                        ),
                         None,
                     )
                     if sse_worker:
@@ -6479,7 +6580,9 @@ async def worker_heartbeat(worker_id: str):
                             'capabilities': sse_worker.get('capabilities', []),
                             'hostname': '',
                             'models': [],
-                            'workspaces': list(sse_worker.get('workspaces', [])),
+                            'workspaces': list(
+                                sse_worker.get('workspaces', [])
+                            ),
                             'registered_at': now,
                             'last_seen': now,
                             'status': 'active',
@@ -6517,8 +6620,10 @@ async def worker_heartbeat(worker_id: str):
 # Worker Profiles – Pydantic models
 # ---------------------------------------------------------------------------
 
+
 class WorkerProfileCreate(BaseModel):
     """Request body for creating a custom worker profile."""
+
     slug: str
     name: str
     description: str = ''
@@ -6533,6 +6638,7 @@ class WorkerProfileCreate(BaseModel):
 
 class WorkerProfileUpdate(BaseModel):
     """Request body for updating a custom worker profile."""
+
     slug: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
@@ -6547,12 +6653,14 @@ class WorkerProfileUpdate(BaseModel):
 
 class WorkerProfileAssign(BaseModel):
     """Assign a profile to a worker."""
+
     profile_id: Optional[str] = None  # None clears the assignment
 
 
 # ---------------------------------------------------------------------------
 # Worker Profiles – CRUD endpoints
 # ---------------------------------------------------------------------------
+
 
 @agent_router_alias.get('/worker-profiles')
 async def list_worker_profiles(
@@ -6606,7 +6714,8 @@ async def create_worker_profile(
     profile = await db.db_create_worker_profile(data)
     if not profile:
         raise HTTPException(
-            status_code=500, detail='Failed to create worker profile (slug may already exist)'
+            status_code=500,
+            detail='Failed to create worker profile (slug may already exist)',
         )
     caps = profile.get('default_capabilities')
     if isinstance(caps, str):
@@ -6660,7 +6769,11 @@ async def assign_worker_profile(worker_id: str, body: WorkerProfileAssign):
     ok = await db.db_set_worker_profile(worker_id, body.profile_id)
     if not ok:
         raise HTTPException(status_code=500, detail='Failed to assign profile')
-    return {'success': True, 'worker_id': worker_id, 'profile_id': body.profile_id}
+    return {
+        'success': True,
+        'worker_id': worker_id,
+        'profile_id': body.profile_id,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -6670,6 +6783,7 @@ async def assign_worker_profile(worker_id: str, body: WorkerProfileAssign):
 
 class AgentDefinitionCreate(BaseModel):
     """Request body for creating a custom agent definition."""
+
     name: str
     description: Optional[str] = None
     mode: str = 'primary'
@@ -6683,6 +6797,7 @@ class AgentDefinitionCreate(BaseModel):
 
 class AgentDefinitionUpdate(BaseModel):
     """Request body for updating a custom agent definition."""
+
     name: Optional[str] = None
     description: Optional[str] = None
     mode: Optional[str] = None
@@ -6720,9 +6835,19 @@ async def list_agent_definitions(
         }
         for name, desc, mode, max_steps in [
             ('build', 'Full access agent for development work', 'primary', 100),
-            ('plan', 'Read-only agent for analysis and code exploration', 'primary', 50),
+            (
+                'plan',
+                'Read-only agent for analysis and code exploration',
+                'primary',
+                50,
+            ),
             ('coder', 'Code writing focused agent', 'primary', 100),
-            ('explore', 'Fast agent for workspace search and exploration', 'subagent', 20),
+            (
+                'explore',
+                'Fast agent for workspace search and exploration',
+                'subagent',
+                20,
+            ),
             (
                 'forage',
                 'OKR-governed autonomous opportunity scanner/executor',
@@ -6759,7 +6884,9 @@ async def create_worker_agent(
 ):
     """Create a custom agent definition for a worker."""
     # Verify worker exists
-    worker = _registered_workers.get(worker_id) or await db.db_get_worker(worker_id)
+    worker = _registered_workers.get(worker_id) or await db.db_get_worker(
+        worker_id
+    )
     if not worker:
         raise HTTPException(status_code=404, detail='Worker not found')
 
@@ -6780,7 +6907,9 @@ async def create_worker_agent(
 
     ok = await db.db_upsert_agent_definition(agent_def)
     if not ok:
-        raise HTTPException(status_code=500, detail='Failed to create agent definition')
+        raise HTTPException(
+            status_code=500, detail='Failed to create agent definition'
+        )
 
     return {'success': True, 'agent': agent_def}
 
@@ -6790,7 +6919,9 @@ async def get_agent_definition(agent_id: str):
     """Get a single agent definition by ID."""
     agent = await db.db_get_agent_definition(agent_id)
     if not agent:
-        raise HTTPException(status_code=404, detail='Agent definition not found')
+        raise HTTPException(
+            status_code=404, detail='Agent definition not found'
+        )
     return agent
 
 
@@ -6803,17 +6934,25 @@ async def update_worker_agent(
     """Update a custom agent definition."""
     existing = await db.db_get_agent_definition(agent_id)
     if not existing:
-        raise HTTPException(status_code=404, detail='Agent definition not found')
+        raise HTTPException(
+            status_code=404, detail='Agent definition not found'
+        )
     if existing.get('worker_id') != worker_id:
-        raise HTTPException(status_code=403, detail='Agent belongs to a different worker')
+        raise HTTPException(
+            status_code=403, detail='Agent belongs to a different worker'
+        )
     if existing.get('native'):
-        raise HTTPException(status_code=400, detail='Cannot modify built-in agents')
+        raise HTTPException(
+            status_code=400, detail='Cannot modify built-in agents'
+        )
 
     updates = body.model_dump(exclude_none=True)
     merged = {**existing, **updates}
     ok = await db.db_upsert_agent_definition(merged)
     if not ok:
-        raise HTTPException(status_code=500, detail='Failed to update agent definition')
+        raise HTTPException(
+            status_code=500, detail='Failed to update agent definition'
+        )
 
     return {'success': True, 'agent': merged}
 
@@ -6823,15 +6962,23 @@ async def delete_worker_agent(worker_id: str, agent_id: str):
     """Delete a custom agent definition."""
     existing = await db.db_get_agent_definition(agent_id)
     if not existing:
-        raise HTTPException(status_code=404, detail='Agent definition not found')
+        raise HTTPException(
+            status_code=404, detail='Agent definition not found'
+        )
     if existing.get('worker_id') != worker_id:
-        raise HTTPException(status_code=403, detail='Agent belongs to a different worker')
+        raise HTTPException(
+            status_code=403, detail='Agent belongs to a different worker'
+        )
     if existing.get('native'):
-        raise HTTPException(status_code=400, detail='Cannot delete built-in agents')
+        raise HTTPException(
+            status_code=400, detail='Cannot delete built-in agents'
+        )
 
     ok = await db.db_delete_agent_definition(agent_id)
     if not ok:
-        raise HTTPException(status_code=500, detail='Failed to delete agent definition')
+        raise HTTPException(
+            status_code=500, detail='Failed to delete agent definition'
+        )
 
     return {'success': True}
 
@@ -6893,7 +7040,9 @@ async def update_task_status(task_id: str, update: TaskStatusUpdate):
 
     if update.status in {'completed', 'failed', 'cancelled'}:
         try:
-            from .github_app.task_status_hook import handle_github_app_terminal_task
+            from .github_app.task_status_hook import (
+                handle_github_app_terminal_task,
+            )
 
             await handle_github_app_terminal_task(task_id, update.worker_id)
         except Exception as exc:
@@ -7384,7 +7533,9 @@ async def get_user_workspaces(user_id: str):
 
 
 @auth_router.post('/user/{user_id}/workspaces')
-async def associate_user_workspace(user_id: str, request: WorkspaceAccessRequest):
+async def associate_user_workspace(
+    user_id: str, request: WorkspaceAccessRequest
+):
     """Associate a workspace with a user."""
     auth = get_keycloak_auth()
     if auth is None:
@@ -7457,7 +7608,8 @@ async def create_agent_session(
     # Verify user has access to workspace
     if not auth.can_access_workspace(user_id, workspace_id):
         raise HTTPException(
-            status_code=403, detail='User does not have access to this workspace'
+            status_code=403,
+            detail='User does not have access to this workspace',
         )
 
     session = auth.create_agent_session(
@@ -7608,6 +7760,7 @@ from .vault_client import (
     check_vault_connection,
     test_api_key as vault_test_api_key,
 )
+
 try:
     from .keycloak_auth import (
         get_current_user as get_keycloak_user,
@@ -7615,6 +7768,7 @@ try:
         UserSession,
     )
 except ImportError:
+
     async def get_keycloak_user(*args, **kwargs):
         return None
 
@@ -7624,9 +7778,11 @@ except ImportError:
     class UserSession:  # type: ignore[override]
         pass
 
+
 try:
     from .user_auth import get_current_user as get_self_service_user
 except ImportError:
+
     async def get_self_service_user(*args, **kwargs):
         return None
 
@@ -7721,9 +7877,11 @@ async def list_api_keys(
     if not user:
         raise HTTPException(status_code=401, detail='Authentication required')
 
-    all_keys, vault_error, vault_error_status = (
-        await get_all_user_api_keys_with_diagnostics(user.user_id)
-    )
+    (
+        all_keys,
+        vault_error,
+        vault_error_status,
+    ) = await get_all_user_api_keys_with_diagnostics(user.user_id)
 
     response = {
         'keys': [
@@ -8072,7 +8230,9 @@ async def download_workspace_tarball(
         )
 
     # Determine file path - prefer stored path, fall back to convention
-    minio_path = workspace.get('minio_path') or f'workspaces/{workspace_id}.tar.gz'
+    minio_path = (
+        workspace.get('minio_path') or f'workspaces/{workspace_id}.tar.gz'
+    )
 
     # Check if file exists
     try:
@@ -8382,7 +8542,9 @@ async def create_voice_session(request: VoiceSessionRequest):
         )
 
     room_name = f'voice-{uuid.uuid4().hex[:12]}'
-    workspace_id = request.workspace_id.strip() if request.workspace_id else None
+    workspace_id = (
+        request.workspace_id.strip() if request.workspace_id else None
+    )
     worker_id = request.worker_id.strip() if request.worker_id else None
 
     metadata = {

@@ -76,6 +76,63 @@ async def test_git_workspace_registration_dispatches_persistent_clone(
 
 
 @pytest.mark.asyncio
+async def test_worker_git_workspace_registration_does_not_dispatch_clone(
+    monkeypatch,
+):
+    dispatched = []
+    upserted = []
+    mirrored = []
+
+    class FakeBridge:
+        async def register_workspace(self, **kwargs):
+            mirrored.append(kwargs)
+            return {'id': kwargs['workspace_id']}
+
+    async def _fake_db_upsert_workspace(workspace):
+        upserted.append(workspace)
+
+    async def _fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task_unexpected'
+
+    monkeypatch.setattr(monitor_api, 'get_agent_bridge', lambda: FakeBridge())
+    monkeypatch.setattr(git_service, 'validate_git_url', lambda _: True)
+    monkeypatch.setattr(
+        monitor_api.db, 'db_upsert_workspace', _fake_db_upsert_workspace
+    )
+    monkeypatch.setattr(
+        persistent_worker_pool, 'create_and_dispatch_task', _fake_dispatch
+    )
+
+    response = await monitor_api.register_workspace(
+        monitor_api.WorkspaceRegistration(
+            workspace_id='ws_existing',
+            name='rileyseaburg/codetether',
+            path='/var/lib/codetether/repos/ws_existing',
+            git_url='https://github.com/rileyseaburg/codetether.git',
+            git_branch='main',
+            worker_id='worker_1',
+        )
+    )
+
+    assert response == {
+        'success': True,
+        'workspace_id': 'ws_existing',
+        'worker_id': 'worker_1',
+        'pending': False,
+        'task_id': None,
+        'message': (
+            'Repository workspace rileyseaburg/codetether registered '
+            'from worker path /var/lib/codetether/repos/ws_existing.'
+        ),
+    }
+    assert dispatched == []
+    assert upserted[0]['status'] == 'active'
+    assert upserted[0]['worker_id'] == 'worker_1'
+    assert mirrored[0]['worker_id'] == 'worker_1'
+
+
+@pytest.mark.asyncio
 async def test_workspace_clone_task_endpoint_dispatches_persistent_clone(
     monkeypatch,
 ):
@@ -87,7 +144,9 @@ async def test_workspace_clone_task_endpoint_dispatches_persistent_clone(
             return SimpleNamespace(id=workspace_id, name='spotlessbinco')
 
         async def create_task(self, **kwargs):
-            raise AssertionError('clone_repo endpoint must not create polling task')
+            raise AssertionError(
+                'clone_repo endpoint must not create polling task'
+            )
 
     async def _fake_dispatch(**kwargs):
         dispatched.append(kwargs)
@@ -151,7 +210,9 @@ async def test_workspace_clone_task_endpoint_dispatches_persistent_clone(
         == 'feature/upsell-tripwire-enhancements'
     )
     assert dispatch['metadata']['workspace_id'] == 'ws_123'
-    assert dispatch['metadata']['routing']['policy'] == 'a2a.task_orchestration.v1'
+    assert (
+        dispatch['metadata']['routing']['policy'] == 'a2a.task_orchestration.v1'
+    )
     assert [message['message_type'] for message in log_messages] == [
         'human',
         'system',
@@ -166,7 +227,9 @@ async def test_global_clone_task_endpoint_dispatches_persistent_clone(
 
     class FakeBridge:
         async def create_task(self, **kwargs):
-            raise AssertionError('clone_repo endpoint must not create polling task')
+            raise AssertionError(
+                'clone_repo endpoint must not create polling task'
+            )
 
     async def _fake_dispatch(**kwargs):
         dispatched.append(kwargs)
@@ -210,4 +273,6 @@ async def test_global_clone_task_endpoint_dispatches_persistent_clone(
         'https://github.com/rileyseaburg/spotlessbinco.git'
     )
     assert dispatch['metadata']['workspace_id'] == 'ws_global'
-    assert dispatch['metadata']['routing']['policy'] == 'a2a.task_orchestration.v1'
+    assert (
+        dispatch['metadata']['routing']['policy'] == 'a2a.task_orchestration.v1'
+    )
