@@ -7,3 +7,6 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 quote-style = "single"
 indent-style = "space"
+
+[lint.per-file-ignores]
+"a2a_server/monitor_api.py" = ["E402", "E722", "F401", "F541", "F811", "F841"]
