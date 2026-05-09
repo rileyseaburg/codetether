@@ -70,13 +70,19 @@ export function Header() {
               href="#features"
               className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              Features
+              Platform
             </Link>
             <Link
               href="#use-cases"
               className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              Use Cases
+              Use cases
+            </Link>
+            <Link
+              href="#roadmap"
+              className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Roadmap
             </Link>
             <Link
               href="#pricing"
@@ -88,6 +94,7 @@ export function Header() {
               href="https://docs.codetether.run"
               className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
               target="_blank"
+              rel="noopener noreferrer"
             >
               Docs
             </a>
@@ -115,7 +122,7 @@ export function Header() {
               href="/register"
               className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white bg-cyan-500 hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-500/25"
             >
-              Get Started Free
+              Start free
             </Link>
           </div>
 
@@ -124,6 +131,8 @@ export function Header() {
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="lg:hidden relative z-50 p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             aria-label="Toggle menu"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="site-mobile-menu"
           >
             {isMobileMenuOpen ? (
               <XIcon className="w-6 h-6" />
@@ -141,6 +150,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            id="site-mobile-menu"
             className="lg:hidden bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800"
           >
             <div className="mx-auto max-w-7xl px-4 py-6 space-y-4">
@@ -149,14 +159,21 @@ export function Header() {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
-                Features
+                Platform
               </Link>
               <Link
                 href="#use-cases"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
-                Use Cases
+                Use cases
+              </Link>
+              <Link
+                href="#roadmap"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              >
+                Roadmap
               </Link>
               <Link
                 href="#pricing"
@@ -168,6 +185,7 @@ export function Header() {
               <a
                 href="https://docs.codetether.run"
                 target="_blank"
+                rel="noopener noreferrer"
                 className="block text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 Docs
@@ -185,7 +203,7 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block w-full text-center px-4 py-2.5 text-sm font-semibold text-white bg-cyan-500 hover:bg-cyan-600 rounded-lg"
                 >
-                  Get Started Free
+                  Start free
                 </Link>
               </div>
             </div>

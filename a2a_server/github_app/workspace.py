@@ -7,6 +7,8 @@ from .context import MentionContext
 from .prompt import fix_prompt; from .routing import resolve_task_target
 from .settings import MODEL_REF, get_secret
 
+DEFAULT_TASK_TIMEOUT = 604800  # 7 days
+
 
 def workspace_id(git_url: str, git_branch: str) -> str:
     """Derive the deterministic branch-scoped workspace ID."""
@@ -34,9 +36,39 @@ async def ensure_workspace(context: MentionContext, pr: dict[str, Any]) -> str:
     return wid
 
 
-async def create_clone_task(context: MentionContext, pr: dict[str, Any], wid: str) -> str:
-    """Queue a targeted clone/refresh task for the PR branch."""
-    from ..monitor_api import AgentTaskCreate, create_agent_task
+async def create_clone_task(
+    context: MentionContext,
+    pr: dict[str, Any],
+    wid: str,
+    *,
+    github_issue_url: str = '',
+    github_installation_id: int = 0,
+) -> str:
+    """Queue a targeted clone/refresh task for the PR branch.
+
+    Dispatches as fire-and-forget with a 7-day timeout so the persistent
+    worker (harvester) can claim it and run it on our compute.
+
+    The github_issue_url is stored in the clone task's post_clone_task metadata
+    so it propagates to the follow-up build task, enabling the progress reporter
+    to post periodic comments on the GitHub issue/PR.
+    """
+    from ..persistent_worker_pool import create_and_dispatch_task
+
+    followup_metadata = {
+        'workspace_id': wid,
+        'source': 'github-app',
+        'repo': context.repo_full_name,
+        'pr_number': context.pr_number,
+        'pr_head': pr['head']['ref'],
+        'pr_base': pr['base']['ref'],
+        'comment_path': context.comment_path,
+        'comment_diff_hunk': context.comment_diff_hunk,
+        'github_issue_url': github_issue_url,
+        'github_installation_id': github_installation_id,
+    }
+
+    routing = await resolve_task_target()
 
     metadata = {
         'workspace_id': wid,
@@ -45,25 +77,23 @@ async def create_clone_task(context: MentionContext, pr: dict[str, Any], wid: st
         'source': 'github-app',
         'repo': context.repo_full_name,
         'pr_number': context.pr_number,
-        **(await resolve_task_target()),
+        'github_issue_url': github_issue_url,
+        'github_installation_id': github_installation_id,
+        **routing,
         'post_clone_task': {
             'title': f'Apply PR fix #{context.pr_number}',
             'prompt': fix_prompt(context, pr),
             'agent_type': 'build',
-            'metadata': {
-                'workspace_id': wid,
-                'source': 'github-app',
-                'repo': context.repo_full_name,
-                'pr_number': context.pr_number,
-                'pr_head': pr['head']['ref'],
-                'pr_base': pr['base']['ref'],
-                'comment_path': context.comment_path,
-                'comment_diff_hunk': context.comment_diff_hunk,
-            },
+            'metadata': followup_metadata,
         },
     }
-    task = await create_agent_task(wid, AgentTaskCreate(title=f'Prepare PR workspace #{context.pr_number}', prompt=f'Clone or refresh {context.repo_full_name} on branch {pr["head"]["ref"]} for PR fix execution.', agent_type='clone_repo', metadata=metadata, model_ref=MODEL_REF))
-    # create_agent_task returns {'success': True, 'task': {...}}
-    task_dict = task if isinstance(task, dict) else {}
-    task_data = task_dict.get('task', task_dict)
-    return task_data.get('id') or getattr(task, 'id', None)
+    return await create_and_dispatch_task(
+        workspace_id=wid,
+        title=f'Prepare PR workspace #{context.pr_number}',
+        prompt=f'Clone or refresh {context.repo_full_name} on branch {pr["head"]["ref"]} for PR fix execution.',
+        agent_type='clone_repo',
+        model_ref=MODEL_REF,
+        metadata=metadata,
+        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        github_issue_url=github_issue_url,
+    )

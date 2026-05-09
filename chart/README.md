@@ -9,9 +9,9 @@ This Helm chart deploys **[CodeTether Server](https://codetether.run)** - a prod
 ## 🚀 Quick Links
 
 - **[Documentation Site](https://docs.codetether.run)** - Complete guides, API reference, and tutorials
-- **[Complete OCI Deployment Guide](../HELM_OCI_DEPLOYMENT.md)** - Push to OCI registry and enable agent synchronization
-- **[MCP Configuration Guide](../QUICK_REFERENCE_MCP_CONFIG.md)** - Configure Cline/Claude Dev to connect
-- **[MCP Agent Sync Summary](../MCP_AGENT_SYNC_SUMMARY.md)** - Overview of MCP capabilities
+- **[Complete OCI Deployment Guide](../docs/archive/root/HELM_OCI_DEPLOYMENT.md)** - Push to OCI registry and enable agent synchronization
+- **[MCP Configuration Guide](../docs/archive/root/QUICK_REFERENCE_MCP_CONFIG.md)** - Configure Cline/Claude Dev to connect
+- **[MCP Agent Sync Summary](../docs/archive/root/MCP_AGENT_SYNC_SUMMARY.md)** - Overview of MCP capabilities
 
 ## Features
 
@@ -54,7 +54,7 @@ helm install a2a-dev ../../chart/a2a-server/ \
 
 ### Option 2: Install from OCI Registry (Recommended)
 
-See **[HELM_OCI_DEPLOYMENT.md](../HELM_OCI_DEPLOYMENT.md)** for complete instructions.
+See **[docs/archive/root/HELM_OCI_DEPLOYMENT.md](../docs/archive/root/HELM_OCI_DEPLOYMENT.md)** for complete instructions.
 
 ```bash
 # Package and push to OCI registry
@@ -97,7 +97,7 @@ curl http://localhost:9000/mcp/v1/tools
 
 **Configure External Agents:**
 
-See [QUICK_REFERENCE_MCP_CONFIG.md](../QUICK_REFERENCE_MCP_CONFIG.md) for Cline/Claude Dev configuration.
+See [docs/archive/root/QUICK_REFERENCE_MCP_CONFIG.md](../docs/archive/root/QUICK_REFERENCE_MCP_CONFIG.md) for Cline/Claude Dev configuration.
   --namespace a2a-prod \
   --create-namespace
 ```

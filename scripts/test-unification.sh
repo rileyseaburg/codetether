@@ -22,7 +22,7 @@ curl -I "http://localhost:8000" 2>/dev/null | head -n 1
 echo "=== Configuration Summary ==="
 echo "✓ Marketing site: next.config.js updated with redirects"
 echo "✓ API site: next.config.js updated with redirects"
-echo "✓ Documentation site: codetether-mkdocs.yml updated with redirects"
+echo "✓ Documentation site: config/codetether-mkdocs.yml updated with redirects"
 echo ""
 echo "Next steps:"
 echo "1. Configure DNS for subdomains (docs.codetether.run, api.codetether.run)"

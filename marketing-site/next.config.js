@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: 'standalone',
+    turbopack: {
+        root: __dirname,
+    },
     images: {
         // Enable Next.js image optimization for WebP/AVIF, lazy loading, blur placeholders
         formats: ['image/avif', 'image/webp'],

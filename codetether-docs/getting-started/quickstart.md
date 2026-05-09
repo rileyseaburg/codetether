@@ -118,7 +118,7 @@ CodeTether is designed to scale. You can run **Distributed Workers** on any mach
 1.  **Install the worker** on a remote machine:
     ```bash
     git clone https://github.com/rileyseaburg/codetether.git
-    cd codetether && sudo ./agent_worker/install.sh
+    cd codetether && sudo ./legacy/agent_worker/install.sh
     ```
 2.  **Configure** the worker to point to your server.
 3.  **Deploy Anywhere**: Whether it's a local VM, a cloud instance, or a Kubernetes cluster, CodeTether workers can run anywhere they have outbound access to the server.

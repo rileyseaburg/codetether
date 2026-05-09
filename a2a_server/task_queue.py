@@ -23,14 +23,83 @@ logger = logging.getLogger(__name__)
 
 
 class TaskRunStatus(str, Enum):
-    """Status of a task run in the queue."""
+    """Status of a task run in the queue.
+
+    Lifecycle:
+        queued -> picked_up -> running -> pushed_branch -> opened_pr -> completed
+        queued -> running -> ...  (direct transition also allowed)
+        queued -> picked_up -> running -> failed (with reason)
+        Any non-terminal state -> cancelled
+    """
 
     QUEUED = 'queued'
-    RUNNING = 'running'
+    PICKED_UP = 'picked_up'        # Worker claimed the task, preparing environment
+    RUNNING = 'running'            # Task is actively executing
+    PUSHED_BRANCH = 'pushed_branch'  # Code pushed to branch, PR not yet opened
+    OPENED_PR = 'opened_pr'        # PR successfully opened
     NEEDS_INPUT = 'needs_input'
     COMPLETED = 'completed'
     FAILED = 'failed'
     CANCELLED = 'cancelled'
+
+    def is_terminal(self) -> bool:
+        return self in _TERMINAL_RUN_STATUSES
+
+    def is_active(self) -> bool:
+        return not self.is_terminal()
+
+
+_TERMINAL_RUN_STATUSES = {
+    TaskRunStatus.COMPLETED,
+    TaskRunStatus.FAILED,
+    TaskRunStatus.CANCELLED,
+}
+
+# Valid forward transitions for state machine enforcement
+_VALID_TRANSITIONS: dict[TaskRunStatus, set[TaskRunStatus]] = {
+    TaskRunStatus.QUEUED: {
+        TaskRunStatus.PICKED_UP,
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.CANCELLED,
+        TaskRunStatus.FAILED,
+    },
+    TaskRunStatus.PICKED_UP: {
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.RUNNING: {
+        TaskRunStatus.PUSHED_BRANCH,
+        TaskRunStatus.NEEDS_INPUT,
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.PUSHED_BRANCH: {
+        TaskRunStatus.OPENED_PR,
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.OPENED_PR: {
+        TaskRunStatus.COMPLETED,
+        TaskRunStatus.FAILED,
+        TaskRunStatus.CANCELLED,
+    },
+    TaskRunStatus.NEEDS_INPUT: {
+        TaskRunStatus.RUNNING,
+        TaskRunStatus.CANCELLED,
+        TaskRunStatus.FAILED,
+    },
+    TaskRunStatus.COMPLETED: set(),
+    TaskRunStatus.FAILED: set(),
+    TaskRunStatus.CANCELLED: set(),
+}
+
+
+def validate_transition(current: TaskRunStatus, target: TaskRunStatus) -> bool:
+    """Check whether a transition from current to target status is valid."""
+    return target in _VALID_TRANSITIONS.get(current, set())
 
 
 class TaskLimitExceeded(Exception):
@@ -109,6 +178,14 @@ class TaskRun:
 
     # Tenant isolation
     tenant_id: Optional[str] = None
+
+    # 7-day lifecycle: checkpoint/resume support
+    task_timeout_seconds: int = 600  # Max task duration (60-604800)
+    checkpoint: Optional[Dict[str, Any]] = None  # Structured resume data
+    checkpoint_at: Optional[datetime] = None
+    resume_attempt: int = 0  # How many times resumed from checkpoint
+    github_issue_url: Optional[str] = None  # For posting progress comments
+    github_last_comment_at: Optional[datetime] = None
 
     created_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
@@ -699,6 +776,13 @@ class TaskQueue:
             routing_failure_reason=row.get('routing_failure_reason'),
             # Model routing
             model_ref=row.get('model_ref'),
+            # 7-day lifecycle fields
+            task_timeout_seconds=row.get('task_timeout_seconds', 600) or 600,
+            checkpoint=row.get('checkpoint'),
+            checkpoint_at=row.get('checkpoint_at'),
+            resume_attempt=row.get('resume_attempt', 0) or 0,
+            github_issue_url=row.get('github_issue_url'),
+            github_last_comment_at=row.get('github_last_comment_at'),
             created_at=row['created_at'],
             updated_at=row['updated_at'],
         )

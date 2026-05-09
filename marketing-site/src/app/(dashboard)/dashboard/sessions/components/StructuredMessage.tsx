@@ -7,6 +7,55 @@ import { CopyButton } from './CopyButton'
 import type { JsonValue, ParsedJsonPayload } from './JsonHelpers'
 import { formatCost } from '../utils'
 
+
+type Project = {
+    id: string
+    worktree: string
+    time?: unknown
+    vcs?: string | null
+    sandboxes: unknown[]
+}
+
+type Session = {
+    id: string
+    version: string | number
+    projectID: string
+    title: string
+    directory: string
+    summary?: { additions?: number; deletions?: number; files?: number } | null
+}
+
+type Message = {
+    id: string
+    sessionID: string
+    role: string
+    mode?: string | null
+    tokens?: { input?: number; output?: number } | null
+}
+
+type Part = {
+    id: string
+    messageID: string
+    type: string
+}
+
+type Diff = { file: string; before?: unknown; after?: unknown; additions: number; deletions: number }
+type Todo = { id?: string; content: string; status?: string; priority?: string }
+type TodoList = Todo[]
+type SessionDiff = Diff[]
+
+function isSessionID(value: string): boolean {
+    return value.startsWith('ses_') || value.startsWith('session')
+}
+
+function isMessageID(value: string): boolean {
+    return value.startsWith('msg_') || value.startsWith('message')
+}
+
+function isPartID(value: string): boolean {
+    return value.startsWith('part_') || value.startsWith('pt_')
+}
+
 type CodeTetherDataType =
     | { type: 'Project'; data: Project }
     | { type: 'Session'; data: Session }

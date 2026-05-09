@@ -24,7 +24,7 @@ def issue_fix_prompt(
     body = issue.get('body') or 'No issue description was provided.'
     return f"""You are implementing issue #{issue['number']}: "{issue['title']}" in {context.repo_full_name}.
 
-Work from the checked-out repository, create or reuse branch `{branch}`, apply the requested changes, run the smallest relevant validation, commit, push, and open a pull request against `{repo['default_branch']}`.
+Work from the checked-out repository, create or reuse branch `{branch}`, apply the requested changes, run the smallest relevant validation, commit, push, and open a pull request against `{repo['default_branch']}`. Add a PR body section titled `CodeTether provenance` that states the issue number, branch, validation run, and that the follow-up reviewer/merge-steward agents will enforce policy gates. Use CodeTether's concise, provenance-aware personality/avatar in GitHub-facing text.
 
 Do not stay in analysis mode. Use at most 5 discovery reads or searches before your first code edit. Prefer editing the most obvious matching files first, especially files whose names or paths match the requested feature area. If a transient provider or network error occurs, continue and finish the implementation instead of restarting the task from scratch.
 
