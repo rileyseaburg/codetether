@@ -54,6 +54,7 @@ class ReaperStats:
     checked_at: datetime = field(default_factory=datetime.utcnow)
     tasks_checked: int = 0
     tasks_requeued: int = 0
+    tasks_resumed: int = 0  # Checkpoint-based resumes
     tasks_failed: int = 0
     tasks_notified: int = 0
     errors: List[str] = field(default_factory=list)
@@ -63,6 +64,7 @@ class ReaperStats:
             'checked_at': self.checked_at.isoformat(),
             'tasks_checked': self.tasks_checked,
             'tasks_requeued': self.tasks_requeued,
+            'tasks_resumed': self.tasks_resumed,
             'tasks_failed': self.tasks_failed,
             'tasks_notified': self.tasks_notified,
             'errors': self.errors,
@@ -75,14 +77,26 @@ class TaskReaper:
 
     A task is considered "stuck" if:
     1. Status is 'running'
-    2. started_at is older than STUCK_TIMEOUT_SECONDS
-    3. No output has been received recently (if output tracking enabled)
+    2. No heartbeat received within HEARTBEAT_SILENCE_SECONDS (default 5 min)
+    3. The assigned worker is no longer heartbeating
 
-    Recovery strategy:
-    1. If attempts < MAX_ATTEMPTS: requeue task (status -> 'pending')
-    2. If attempts >= MAX_ATTEMPTS: fail task (status -> 'failed')
+    Recovery strategy (checkpoint-aware):
+    1. If task has a checkpoint AND is within task_timeout_seconds:
+       → Requeue for resume from checkpoint (increment resume_attempt)
+    2. If task has exceeded task_timeout_seconds (task timeout budget):
+       → If attempts < MAX_ATTEMPTS: requeue fresh (no checkpoint resume)
+       → If attempts >= MAX_ATTEMPTS: fail permanently
     3. Notify user if email configured
+
+    The reaper is decoupled from Knative request timeouts. A task with
+    task_timeout_seconds=604800 (7 days) can survive many Knative pod
+    lifetimes as long as workers checkpoint their progress.
     """
+
+    # How long with no heartbeat before a task is considered "silent"
+    HEARTBEAT_SILENCE_SECONDS = int(
+        os.environ.get('TASK_HEARTBEAT_SILENCE_SECONDS', '300')
+    )  # 5 minutes
 
     def __init__(
         self,
@@ -331,6 +345,14 @@ class TaskReaper:
 
         # Send failure notification
         await self._notify_task_failed(task, metadata)
+
+        # Notify GitHub App workflows so a failure comment is posted on the issue
+        try:
+            from .github_app.task_status_hook import handle_github_app_terminal_task
+
+            await handle_github_app_terminal_task(task_id, None)
+        except Exception as e:
+            logger.debug(f'GitHub App terminal hook in reaper failed for {task_id}: {e}')
 
     async def _clear_claim(self, task_id: str) -> None:
         """Remove a task from the in-memory claimed-tasks map."""

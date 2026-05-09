@@ -23,7 +23,7 @@ helm install codetether-voice-agent oci://registry.quantum-forge.net/library/cod
 ### From Source
 
 ```bash
-cd codetether_voice_agent
+cd apps/voice-agent
 pip install -r requirements.txt
 ```
 
@@ -106,12 +106,12 @@ A2A Server → Agent LLM
 The voice agent includes fine-tuning capabilities:
 
 ```bash
-cd codetether_voice_agent/finetuning
+cd apps/voice-agent/finetuning
 pip install -r requirements.txt
 python finetune.py --data training_examples.jsonl
 ```
 
-See [finetuning/README.md](https://github.com/rileyseaburg/codetether/tree/main/codetether_voice_agent/finetuning) for details.
+See [finetuning/README.md](https://github.com/rileyseaburg/codetether/tree/main/apps/voice-agent/finetuning) for details.
 
 ## Troubleshooting
 

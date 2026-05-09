@@ -150,17 +150,14 @@ async def _resolve_branch_and_prompt(event_name: str, payload: Dict[str, Any]) -
 
 
 async def queue_github_comment_task(event_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    from .monitor_api import get_agent_bridge
+    from .persistent_worker_pool import DEFAULT_TASK_TIMEOUT, create_and_dispatch_task
 
     branch, title, prompt, metadata = await _resolve_branch_and_prompt(event_name, payload)
     repo = payload['repository']
     installation_id = str(payload['installation']['id'])
     workspace_id = await _ensure_workspace(repo, installation_id, branch)
-    bridge = get_agent_bridge()
-    if bridge is None:
-        raise RuntimeError('Agent bridge not available')
-    task = await bridge.create_task(
-        codebase_id=workspace_id,
+    task_id = await create_and_dispatch_task(
+        workspace_id=workspace_id,
         title=f"Prepare repository: {repo['full_name']}",
         prompt=f"Clone or update {repo['full_name']} at branch {branch}",
         agent_type='clone_repo',
@@ -175,7 +172,6 @@ async def queue_github_comment_task(event_name: str, payload: Dict[str, Any]) ->
                 'metadata': metadata,
             },
         },
+        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
     )
-    if task is None:
-        raise RuntimeError('Failed to queue repository preparation task')
-    return {'workspace_id': workspace_id, 'task_id': task.id, 'branch': branch}
+    return {'workspace_id': workspace_id, 'task_id': task_id, 'branch': branch}
