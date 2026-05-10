@@ -216,6 +216,75 @@ async def test_claim_task_returns_attached_task_run_metadata(
 
 
 @pytest.mark.asyncio
+async def test_claim_task_uses_db_worker_name_when_registry_misses(
+    monkeypatch, registry
+):
+    class TargetedTask:
+        codebase_id = 'global'
+        target_agent_name = None
+        metadata = {'target_agent_name': 'agent-alpha'}
+
+    class Bridge:
+        async def get_task(self, task_id):
+            assert task_id == 'task_targeted'
+            return TargetedTask()
+
+    async def _fake_db_get_worker(worker_id):
+        assert worker_id == 'worker_1'
+        return {'name': 'agent-alpha'}
+
+    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: Bridge())
+    monkeypatch.setattr(database, 'db_get_worker', _fake_db_get_worker)
+
+    assert await registry.claim_task('task_targeted', 'worker_1') is True
+    assert registry._claimed_tasks['task_targeted'] == 'worker_1'
+
+
+@pytest.mark.asyncio
+async def test_release_task_accepts_db_claim_when_local_registry_misses(
+    monkeypatch, registry
+):
+    class Bridge:
+        async def update_task_status(self, **kwargs):
+            updates.append(kwargs)
+            return object()
+
+    updates = []
+
+    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: Bridge())
+    monkeypatch.setattr(
+        worker_sse,
+        '_db_claim_allows_release',
+        AsyncMock(return_value=True),
+    )
+
+    app = FastAPI()
+    app.include_router(worker_sse_router)
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport, base_url='http://test'
+    ) as client:
+        response = await client.post(
+            '/v1/worker/tasks/release',
+            headers={'X-Worker-ID': 'worker_1'},
+            json={'task_id': 'task_claimed', 'status': 'running'},
+        )
+
+    assert response.status_code == 200
+    assert response.json()['success'] is True
+    assert updates == [
+        {
+            'task_id': 'task_claimed',
+            'status': agent_bridge.AgentTaskStatus.RUNNING,
+            'result': None,
+            'error': None,
+            'worker_id': 'worker_1',
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_claim_task_run_helper_matches_deployed_schema(monkeypatch):
     seen = {}
 
@@ -263,6 +332,47 @@ async def test_claim_task_run_helper_matches_deployed_schema(monkeypatch):
     assert "t.metadata->>'target_worker_id'" in seen['sql']
     assert 'provider_keys' not in seen['sql']
     assert 'provider_key_source' not in seen['sql']
+
+
+@pytest.mark.asyncio
+async def test_pending_task_query_keeps_fire_and_forget_tasks_visible(
+    monkeypatch,
+):
+    seen = {}
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    class FakeConnection:
+        async def fetch(self, sql, *params):
+            seen['sql'] = sql
+            seen['params'] = params
+            return []
+
+    async def _fake_get_pool():
+        return FakePool()
+
+    monkeypatch.setattr(database, 'get_pool', _fake_get_pool)
+
+    tasks = await database.db_list_tasks(
+        status='pending',
+        agent_name='agent-alpha',
+        limit=25,
+    )
+
+    assert tasks == []
+    assert seen['params'] == ('pending', 'agent-alpha', 25)
+    assert "metadata->>'target_agent_name' = $2" in seen['sql']
+    assert 'dispatch_mode' not in seen['sql']
+    assert 'task_runs' not in seen['sql']
 
 
 @pytest.mark.asyncio

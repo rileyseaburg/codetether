@@ -38,6 +38,28 @@ logger = logging.getLogger(__name__)
 worker_sse_router = APIRouter(prefix='/v1/worker', tags=['worker-sse'])
 
 
+async def _db_worker_agent_name(worker_id: str) -> Optional[str]:
+    """Resolve a worker's registered agent name from durable storage.
+
+    Claim requests are load-balanced independently of the SSE stream. In a
+    multi-replica deployment the claiming API pod may not have that worker in
+    its local SSE registry, but the normal /v1/agent/workers/register path has
+    already persisted the worker name in Postgres.
+    """
+    try:
+        from .database import db_get_worker
+
+        worker = await db_get_worker(worker_id)
+    except Exception as e:
+        logger.debug(f'Failed to resolve worker {worker_id} from DB: {e}')
+        return None
+
+    if not worker:
+        return None
+
+    return str(worker.get('name') or '').strip() or None
+
+
 @dataclass
 class ConnectedWorker:
     """Represents a worker connected via SSE."""
@@ -179,11 +201,14 @@ class WorkerRegistry:
                         f'(target_worker_id={target_worker_id})'
                     )
                     return False
+                worker_agent_name = worker.agent_name if worker else None
+                if not worker_agent_name:
+                    worker_agent_name = await _db_worker_agent_name(worker_id)
                 task_target_agent = getattr(
                     task, 'target_agent_name', None
                 ) or task_metadata.get('target_agent_name')
                 if target_agent_mismatch(
-                    worker.agent_name if worker else None, task_target_agent
+                    worker_agent_name, task_target_agent
                 ):
                     logger.debug(
                         f'Worker {worker_id} skipped task {task_id} '
@@ -875,6 +900,40 @@ class TaskReleaseRequest(BaseModel):
     error: Optional[str] = None
 
 
+async def _db_claim_allows_release(task_id: str, worker_id: str) -> bool:
+    """Return true when Postgres shows this worker owns the running task.
+
+    Worker claims are tracked in-memory for fast SSE routing, but API traffic is
+    load-balanced across replicas. A worker may claim on one replica and post
+    release to another. In that case, the local registry misses the claim while
+    the database still has the authoritative worker ownership.
+    """
+    try:
+        from .database import get_pool
+
+        pool = await get_pool()
+        if not pool:
+            return False
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT status, worker_id FROM tasks WHERE id = $1',
+                task_id,
+            )
+    except Exception as e:
+        logger.warning(
+            f'Failed to verify DB claim for release of task {task_id}: {e}'
+        )
+        return False
+
+    if not row:
+        return False
+
+    return row['worker_id'] == worker_id and row['status'] in {
+        'running',
+        'working',
+    }
+
+
 class CodebaseUpdateRequest(BaseModel):
     """Request to update worker's codebase list."""
 
@@ -1341,6 +1400,15 @@ async def release_task(
     registry = get_worker_registry()
 
     success = await registry.release_task(release.task_id, resolved_worker_id)
+    if not success and await _db_claim_allows_release(
+        release.task_id,
+        resolved_worker_id,
+    ):
+        logger.warning(
+            f'Task {release.task_id} release accepted from DB claim after '
+            f'local registry miss (worker={resolved_worker_id})'
+        )
+        success = True
 
     if success:
         # Persist status/result/error to in-memory cache AND database

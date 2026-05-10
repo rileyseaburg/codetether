@@ -2809,7 +2809,7 @@ async def register_workspace(registration: WorkspaceRegistration):
     # ── Git URL registration ─────────────────────────────────────
     # If a git_url is provided, validate it, store credentials in Vault,
     # and create a clone task for workers. The path is resolved after cloning.
-    if registration.git_url:
+    if registration.git_url and not registration.worker_id:
         from .git_service import validate_git_url, store_git_credentials
         if not validate_git_url(registration.git_url):
             raise HTTPException(
@@ -4531,6 +4531,22 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
     if task_data.model_ref:
         base_metadata['model_ref'] = task_data.model_ref
 
+    if _is_github_app_worker_post_clone_followup(
+        task_data.title,
+        task_data.agent_type,
+        base_metadata,
+    ):
+        logger.info(
+            'Skipping worker-enqueued GitHub App post-clone follow-up; '
+            'terminal task hook owns follow-up dispatch '
+            f'(workspace_id={workspace_id}, title={task_data.title!r})'
+        )
+        return {
+            'success': True,
+            'skipped': True,
+            'reason': 'github_app_terminal_hook_dispatches_followup',
+        }
+
     routing_decision, routed_metadata = orchestrate_task_route(
         prompt=task_data.prompt,
         agent_type=task_data.agent_type,
@@ -4669,6 +4685,28 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
     )
 
     return {'success': True, 'task': task.to_dict()}
+
+
+def _is_github_app_worker_post_clone_followup(
+    title: str,
+    agent_type: str,
+    metadata: Dict[str, Any],
+) -> bool:
+    """Return true for legacy worker-created GitHub App follow-up tasks.
+
+    GitHub App prepare-task completion is advanced by
+    handle_github_app_terminal_task(), which creates the persistent
+    fire-and-forget build task. The worker still posts post_clone_task to this
+    endpoint for compatibility; accepting that request as a normal polling task
+    duplicates the canonical follow-up.
+    """
+    if agent_type == 'clone_repo':
+        return False
+    if metadata.get('source') != 'github-app':
+        return False
+    if not metadata.get('github_issue_url') or not metadata.get('target_worker_id'):
+        return False
+    return title.startswith(('Apply PR fix #', 'Work issue #'))
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}/tasks')
@@ -6134,6 +6172,43 @@ class WorkerRegistration(BaseModel):
     agents: List[Dict[str, Any]] = []  # Custom agent definitions this worker supports
 
 
+def _normalized_worker_capabilities(
+    name: str,
+    capabilities: Optional[List[str]],
+) -> List[str]:
+    """Return worker capabilities plus server-inferred infrastructure roles.
+
+    Older codetether-agent binaries only advertise protocol/tool capabilities.
+    Harvester workers are identified by their stable configured name prefix, so
+    the control plane annotates them with durable workspace capabilities used by
+    GitHub App clone/prep routing.
+    """
+    ordered: List[str] = []
+    seen: set[str] = set()
+
+    def add(value: str) -> None:
+        normalized = str(value or '').strip()
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            ordered.append(normalized)
+
+    for capability in capabilities or []:
+        add(capability)
+
+    worker_name = str(name or '').strip().lower()
+    if worker_name.startswith('harvester') or '-harvester-' in worker_name:
+        for capability in (
+            'harvester',
+            'persistent-workspace',
+            'persistent_workspace',
+            'git-clone',
+            'repo-cache',
+        ):
+            add(capability)
+
+    return ordered
+
+
 class TaskStatusUpdate(BaseModel):
     """Task status update from worker."""
 
@@ -6150,7 +6225,10 @@ async def register_worker(registration: WorkerRegistration):
     worker_info = {
         'worker_id': registration.worker_id,
         'name': registration.name,
-        'capabilities': registration.capabilities,
+        'capabilities': _normalized_worker_capabilities(
+            registration.name,
+            registration.capabilities,
+        ),
         'hostname': registration.hostname,
         'models': registration.models,
         'global_workspace_id': registration.global_workspace_id,
@@ -6451,7 +6529,10 @@ async def worker_heartbeat(worker_id: str):
                         worker_info = {
                             'worker_id': worker_id,
                             'name': sse_worker.get('agent_name', 'unknown'),
-                            'capabilities': sse_worker.get('capabilities', []),
+                            'capabilities': _normalized_worker_capabilities(
+                                sse_worker.get('agent_name', 'unknown'),
+                                sse_worker.get('capabilities', []),
+                            ),
                             'hostname': '',
                             'models': [],
                             'workspaces': list(sse_worker.get('workspaces', [])),
