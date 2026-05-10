@@ -162,6 +162,10 @@ async def dispatch_fire_and_forget(
             'metadata': metadata or {}, 'dispatch_mode': 'fire_and_forget',
             'task_timeout_seconds': task_timeout_seconds,
         }
+        routed_metadata = metadata or {}
+        for key in ('target_agent_name', 'target_worker_id', 'required_capabilities'):
+            if routed_metadata.get(key):
+                task_data[key] = routed_metadata[key]
         notified = await notify_workers_of_new_task(task_data)
         logger.info(
             f'FF task {task_id} dispatched (run={run_id}), '

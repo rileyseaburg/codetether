@@ -8,13 +8,29 @@ _VAULT_PATHS = ('codetether/github_app', 'codetether/github-app')
 
 APP_SLUG = os.environ.get('GITHUB_APP_SLUG', 'codetether').strip() or 'codetether'
 MODEL_REF = os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip() or 'zai:glm-5.1'
-TARGET_AGENT = os.environ.get('GITHUB_APP_TARGET_AGENT', 'knative-worker').strip() or 'knative-worker'
+# Optional hard targets for compatibility with existing deployments.
+# Leave GITHUB_APP_TARGET_AGENT unset to route by durable worker capability
+# instead of pinning GitHub App clone/prep tasks to a legacy Knative agent name.
+TARGET_AGENT = os.environ.get('GITHUB_APP_TARGET_AGENT', '').strip()
 TARGET_WORKER_ID = os.environ.get('GITHUB_APP_TARGET_WORKER_ID', '').strip()
 PREFERRED_AGENTS = tuple(
     part.strip()
     for part in os.environ.get(
+        # Existing env name retained; default includes harvester first while still
+        # allowing legacy knative-worker deployments to be selected if connected.
         'GITHUB_APP_PREFERRED_AGENTS',
-        'knative-worker',
+        'harvester,knative-worker',
+    ).split(',')
+    if part.strip()
+)
+TARGET_CAPABILITIES = tuple(
+    part.strip()
+    for part in os.environ.get(
+        'GITHUB_APP_TARGET_CAPABILITIES',
+        os.environ.get(
+            'GITHUB_APP_REQUIRED_CAPABILITIES',
+            'persistent-workspace',
+        ),
     ).split(',')
     if part.strip()
 )

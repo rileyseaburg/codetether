@@ -19,6 +19,11 @@ spec:
     path: chart/a2a-server
     helm:
       releaseName: a2a-server
+      parameters:
+        - name: image.tag
+          value: hotfix-github-harvester-routing-20260510234013
+        - name: blueGreen.rolloutId.green
+          value: github-harvester-routing-20260510-234013
       valuesObject:
         app:
           name: CodeTether Server
@@ -27,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: main-d518d97
+          tag: hotfix-github-harvester-routing-20260510234013
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
@@ -42,7 +47,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: claimfix-20260506-152900
+            green: github-harvester-routing-20260510-234013
         service:
           type: ClusterIP
           port: 8000
@@ -98,8 +103,15 @@ spec:
           tokens: {}
         secret:
           create: false
+        githubApp:
+          existingSecret: codetether-a2a-server-github-app
+          apiBaseUrl: https://api.github.com
         envFromSecret:
           A2A_AUTH_TOKENS: a2a-server-auth-tokens
+          GITHUB_APP_API_BASE_URL: codetether-a2a-server-github-app
+          GITHUB_APP_ID: codetether-a2a-server-github-app
+          GITHUB_APP_PRIVATE_KEY: codetether-a2a-server-github-app
+          GITHUB_WEBHOOK_SECRET: codetether-a2a-server-github-app
         env:
           A2A_HOST: "0.0.0.0"
           A2A_PORT: "8000"
@@ -113,6 +125,7 @@ spec:
           A2A_AGENT_ORG_URL: https://codetether.run
           A2A_AGENT_URL: https://api.codetether.run
           A2A_AGENT_DOCS_URL: https://docs.codetether.run
+          MARKETING_SITE_URL: http://codetether-marketing.a2a-server.svc.cluster.local:3000
           WORKER_INFRA_CACHE_TTL_SECONDS: "30"
           WORKER_INFRA_NODE_MAP: ""
         livekit:

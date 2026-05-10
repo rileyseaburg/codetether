@@ -1,32 +1,50 @@
 """GitHub App webhook ingress for `@codetether` comment requests."""
 
 import json
+import logging
 
 from fastapi import APIRouter, Request
 
 from .auth import installation_token, verify_signature
 from .mention import is_fix_request
-from .payload import extract_context
+from .payload import extract_context, is_supported_event_action
 from .handler import handle_fix_request
 from .settings import APP_SLUG
 from .watch import post_issue_comment
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
+logger = logging.getLogger(__name__)
 
 
 @github_webhook_router.post('/github')
 async def handle_github_webhook(request: Request):
-    """Accept GitHub App events and translate `@codetether` PR fix comments into tasks."""
+    """Accept GitHub App events and translate `@codetether` mentions into tasks."""
     body = await request.body()
     await verify_signature(request.headers.get('X-Hub-Signature-256', ''), body)
     event_name = request.headers.get('X-GitHub-Event', '')
     if event_name == 'ping':
         return {'ok': True, 'event': 'ping'}
     payload = json.loads(body or b'{}')
-    if payload.get('action') != 'created':
-        return {'ignored': True, 'reason': 'unsupported-action'}
+    if not is_supported_event_action(event_name, payload):
+        logger.info(
+            'GitHub App webhook ignored unsupported event/action: event=%s action=%s',
+            event_name,
+            payload.get('action'),
+        )
+        return {
+            'ignored': True,
+            'reason': 'unsupported-event-action',
+            'event': event_name,
+            'action': payload.get('action'),
+        }
     context = extract_context(event_name, payload)
     if not context:
+        logger.info(
+            'GitHub App webhook ignored event without @%s mention context: event=%s action=%s',
+            APP_SLUG,
+            event_name,
+            payload.get('action'),
+        )
         return {'ignored': True}
     token, _ = await installation_token(context.installation_id)
     if not is_fix_request(context.comment_body):

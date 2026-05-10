@@ -12,6 +12,8 @@ async def enqueue_post_clone_followup(bridge, task_id: str) -> Optional[str]:
     task = await bridge.get_task(task_id)
     if task is None or task.agent_type != 'clone_repo':
         return None
+    if (task.metadata or {}).get('source') == 'github-app':
+        return None
     followup = (task.metadata or {}).get('post_clone_task')
     if not isinstance(followup, dict):
         return None

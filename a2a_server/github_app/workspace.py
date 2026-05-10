@@ -69,6 +69,7 @@ async def create_clone_task(
     }
 
     routing = await resolve_task_target()
+    followup_metadata.update(routing)
 
     metadata = {
         'workspace_id': wid,
