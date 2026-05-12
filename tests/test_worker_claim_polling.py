@@ -369,10 +369,16 @@ async def test_pending_task_query_keeps_fire_and_forget_tasks_visible(
     )
 
     assert tasks == []
-    assert seen['params'] == ('pending', 'agent-alpha', 25)
-    assert "metadata->>'target_agent_name' = $2" in seen['sql']
-    assert 'dispatch_mode' not in seen['sql']
-    assert 'task_runs' not in seen['sql']
+    assert seen['params'] == (
+        'pending',
+        'agent-alpha',
+        'agent-alpha',
+        'agent-alpha',
+        25,
+    )
+    assert "metadata->>'target_agent_name' = $3" in seen['sql']
+    assert "dispatch_mode != 'fire_and_forget'" in seen['sql']
+    assert 'task_runs tr' in seen['sql']
 
 
 @pytest.mark.asyncio

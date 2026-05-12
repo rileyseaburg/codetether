@@ -1,5 +1,4 @@
-"""
-OPA Policy Engine Client for A2A Server.
+"""OPA Policy Engine Client for A2A Server.
 
 Provides centralized authorization via Open Policy Agent (OPA).
 Replaces scattered inline if-checks with declarative Rego policies.
@@ -20,57 +19,59 @@ Usage:
     await enforce_policy(user, "tasks:write", resource={"type": "task", "id": task_id, "owner_id": owner, "tenant_id": tid})
 """
 
-import os
+import hashlib
 import json
-import time
 import logging
-from typing import Optional, Dict, Any, Callable, List
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
+import os
+import time
 
-from .provenance import verify_provenance
+from pathlib import Path
+from typing import Any
 
 import httpx
-from fastapi import HTTPException, Depends, Request, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from fastapi import HTTPException, Request
+
+from a2a_server.provenance import verify_provenance
+
 
 logger = logging.getLogger(__name__)
 
 # ── Configuration ────────────────────────────────────────────────
 
-OPA_URL = os.environ.get("OPA_URL", "http://localhost:8181")
-OPA_AUTHZ_PATH = os.environ.get("OPA_AUTHZ_PATH", "v1/data/authz/allow")
-OPA_TENANT_PATH = os.environ.get("OPA_TENANT_PATH", "v1/data/tenants/allow")
-OPA_TIMEOUT = float(os.environ.get("OPA_TIMEOUT", "2.0"))
+OPA_URL = os.environ.get('OPA_URL', 'http://localhost:8181')
+OPA_AUTHZ_PATH = os.environ.get('OPA_AUTHZ_PATH', 'v1/data/authz/allow')
+OPA_TENANT_PATH = os.environ.get('OPA_TENANT_PATH', 'v1/data/tenants/allow')
+OPA_TIMEOUT = float(os.environ.get('OPA_TIMEOUT', '2.0'))
 
 # When OPA is unreachable, fail open (allow) or closed (deny).
 # Default: closed (deny) for security.
-OPA_FAIL_OPEN = os.environ.get("OPA_FAIL_OPEN", "false").lower() == "true"
+OPA_FAIL_OPEN = os.environ.get('OPA_FAIL_OPEN', 'false').lower() == 'true'
 
 # Decision cache TTL in seconds (0 = disabled).
-OPA_CACHE_TTL = float(os.environ.get("OPA_CACHE_TTL", "5.0"))
+OPA_CACHE_TTL = float(os.environ.get('OPA_CACHE_TTL', '5.0'))
 
 # For local/dev mode: evaluate policies in-process without OPA sidecar.
-OPA_LOCAL_MODE = os.environ.get("OPA_LOCAL_MODE", "false").lower() == "true"
+OPA_LOCAL_MODE = os.environ.get('OPA_LOCAL_MODE', 'false').lower() == 'true'
 
 # Master toggle: set to "false" to disable all policy enforcement.
-OPA_ENABLED = os.environ.get("OPA_ENABLED", "true").lower() == "true"
+OPA_ENABLED = os.environ.get('OPA_ENABLED', 'true').lower() == 'true'
 
 # Path to policies directory (for local mode and bundle building).
-POLICIES_DIR = Path(__file__).parent.parent / "policies"
+POLICIES_DIR = Path(__file__).parent.parent / 'policies'
 
 
 # ── Decision cache ───────────────────────────────────────────────
+
 
 class _DecisionCache:
     """Simple TTL cache for OPA decisions. Thread-safe via GIL."""
 
     def __init__(self, ttl: float):
         self._ttl = ttl
-        self._store: Dict[str, tuple] = {}  # key → (result, timestamp)
+        self._store: dict[str, tuple] = {}  # key → (result, timestamp)
 
-    def get(self, key: str) -> Optional[bool]:
+    def get(self, key: str) -> bool | None:
         if self._ttl <= 0:
             return None
         entry = self._store.get(key)
@@ -98,24 +99,24 @@ _cache = _DecisionCache(OPA_CACHE_TTL)
 
 # ── Local policy data (for local mode) ──────────────────────────
 
-_local_policy_data: Optional[Dict[str, Any]] = None
+_local_policy_data: dict[str, Any] | None = None
 
 
-def _load_local_policy_data() -> Dict[str, Any]:
+def _load_local_policy_data() -> dict[str, Any]:
     """Load data.json for local policy evaluation."""
     global _local_policy_data
     if _local_policy_data is None:
-        data_file = POLICIES_DIR / "data.json"
+        data_file = POLICIES_DIR / 'data.json'
         if data_file.exists():
             with open(data_file) as f:
                 _local_policy_data = json.load(f)
         else:
-            logger.warning(f"Policy data file not found: {data_file}")
-            _local_policy_data = {"roles": {}, "public_endpoints": []}
+            logger.warning(f'Policy data file not found: {data_file}')
+            _local_policy_data = {'roles': {}, 'public_endpoints': []}
     return _local_policy_data
 
 
-def reload_local_policy_data() -> Dict[str, Any]:
+def reload_local_policy_data() -> dict[str, Any]:
     """Force reload of local policy data from disk and clear decision cache."""
     global _local_policy_data
     _local_policy_data = None
@@ -124,9 +125,9 @@ def reload_local_policy_data() -> Dict[str, Any]:
 
 
 def _evaluate_local(
-    user: Dict[str, Any],
+    user: dict[str, Any],
     action: str,
-    resource: Optional[Dict[str, Any]] = None,
+    resource: dict[str, Any] | None = None,
 ) -> tuple:
     """Evaluate authorization locally without OPA sidecar.
 
@@ -134,20 +135,20 @@ def _evaluate_local(
     """
     data = _load_local_policy_data()
     resource = resource or {}
-    reasons: List[str] = []
+    reasons: list[str] = []
 
     # Public endpoints.
-    if action in data.get("public_endpoints", []):
+    if action in data.get('public_endpoints', []):
         return True, []
 
     # Resolve effective roles (with inheritance).
     effective_roles = set()
     user_roles = _effective_roles(user)
     for role in user_roles:
-        role_def = data.get("roles", {}).get(role)
+        role_def = data.get('roles', {}).get(role)
         if not role_def:
             continue
-        parent = role_def.get("inherits")
+        parent = role_def.get('inherits')
         if parent:
             effective_roles.add(parent)
         else:
@@ -156,43 +157,43 @@ def _evaluate_local(
     # Collect permissions from effective roles.
     role_permissions = set()
     for role in effective_roles:
-        role_def = data.get("roles", {}).get(role)
+        role_def = data.get('roles', {}).get(role)
         if role_def:
-            role_permissions.update(role_def.get("permissions", []))
+            role_permissions.update(role_def.get('permissions', []))
 
     # Check role-based access.
     if action not in role_permissions:
-        reasons.append("no matching role permission")
+        reasons.append('no matching role permission')
         return False, reasons
 
     # API key scope enforcement.
     auth_source = _detect_auth_source(user)
-    if auth_source == "api_key":
-        scopes = user.get("api_key_scopes") or user.get("scopes", [])
+    if auth_source == 'api_key':
+        scopes = user.get('api_key_scopes') or user.get('scopes', [])
         scope_ok = action in scopes
         if not scope_ok:
             # Check wildcard scopes.
-            parts = action.split(":")
+            parts = action.split(':')
             if len(parts) == 2:
-                wildcard = f"{parts[0]}:*"
+                wildcard = f'{parts[0]}:*'
                 scope_ok = wildcard in scopes
         if not scope_ok:
-            reasons.append("api key scope does not permit action")
+            reasons.append('api key scope does not permit action')
             return False, reasons
 
     # Tenant isolation.
-    resource_tenant = resource.get("tenant_id")
-    user_tenant = user.get("tenant_id")
-    is_admin = bool(effective_roles & {"admin"})
+    resource_tenant = resource.get('tenant_id')
+    user_tenant = user.get('tenant_id')
+    is_admin = bool(effective_roles & {'admin'})
 
     if resource_tenant and user_tenant and resource_tenant != user_tenant:
         if not is_admin:
-            reasons.append("cross-tenant access denied")
+            reasons.append('cross-tenant access denied')
             return False, reasons
 
     # Agent Provenance Framework checks. Legacy users without provenance remain
     # compatible; once provenance claims are present, failures deny the action.
-    provenance = user.get("provenance") or user.get("agent_provenance")
+    provenance = user.get('provenance') or user.get('agent_provenance')
     decision = verify_provenance(provenance, action, resource)
     if provenance and not decision.allowed_by_provenance:
         reasons.extend(decision.failures)
@@ -204,7 +205,7 @@ def _evaluate_local(
 # ── OPA HTTP client ──────────────────────────────────────────────
 
 # Persistent client for connection pooling.
-_http_client: Optional[httpx.AsyncClient] = None
+_http_client: httpx.AsyncClient | None = None
 
 
 async def _get_client() -> httpx.AsyncClient:
@@ -220,74 +221,90 @@ async def _get_client() -> httpx.AsyncClient:
 # Authenticated users with no explicit role assignment get "editor" by default.
 # This covers self-service registrations and API key users who sign up via
 # /v1/users/register.  Keycloak users get roles from the IdP token.
-_DEFAULT_SELF_SERVICE_ROLE = os.environ.get("DEFAULT_USER_ROLE", "editor")
+_DEFAULT_SELF_SERVICE_ROLE = os.environ.get('DEFAULT_USER_ROLE', 'editor')
 
 
-def _effective_roles(user: Dict[str, Any]) -> list:
+def _effective_roles(user: dict[str, Any]) -> list:
     """Return the user's roles, falling back to the default for self-service users."""
-    roles = user.get("roles", [])
+    roles = user.get('roles', [])
     if roles:
         return roles
     auth_source = _detect_auth_source(user)
-    if auth_source in ("self-service", "api_key"):
+    if auth_source in ('self-service', 'api_key'):
         return [_DEFAULT_SELF_SERVICE_ROLE]
     return roles
 
 
 def _build_input(
-    user: Dict[str, Any],
+    user: dict[str, Any],
     action: str,
-    resource: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    resource: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build the OPA input document from user context and request."""
     return {
-        "input": {
-            "user": {
-                "user_id": user.get("user_id") or user.get("id") or user.get("sub", ""),
-                "roles": _effective_roles(user),
-                "tenant_id": user.get("tenant_id"),
-                "scopes": user.get("api_key_scopes") or user.get("scopes", []),
-                "auth_source": _detect_auth_source(user),
+        'input': {
+            'user': {
+                'user_id': user.get('user_id')
+                or user.get('id')
+                or user.get('sub', ''),
+                'roles': _effective_roles(user),
+                'tenant_id': user.get('tenant_id'),
+                'scopes': user.get('api_key_scopes') or user.get('scopes', []),
+                'auth_source': _detect_auth_source(user),
             },
-            "action": action,
-            "resource": resource or {},
-            "provenance": user.get("provenance") or user.get("agent_provenance") or {},
+            'action': action,
+            'resource': resource or {},
+            'provenance': user.get('provenance')
+            or user.get('agent_provenance')
+            or {},
         }
     }
 
 
-def _detect_auth_source(user: Dict[str, Any]) -> str:
+def _detect_auth_source(user: dict[str, Any]) -> str:
     """Determine how the user authenticated."""
-    if user.get("api_key_scopes") is not None:
-        return "api_key"
-    if user.get("type") == "keycloak" or user.get("keycloak_sub"):
-        return "keycloak"
-    return "self-service"
+    if user.get('api_key_scopes') is not None:
+        return 'api_key'
+    if user.get('type') == 'keycloak' or user.get('keycloak_sub'):
+        return 'keycloak'
+    return 'self-service'
 
 
-def _cache_key(user: Dict[str, Any], action: str, resource: Optional[Dict[str, Any]]) -> str:
+def _cache_key(
+    user: dict[str, Any], action: str, resource: dict[str, Any] | None
+) -> str:
     """Build a deterministic cache key."""
-    uid = user.get("user_id") or user.get("id") or user.get("sub", "")
-    tid = user.get("tenant_id") or ""
-    rid = ""
-    rtid = ""
+    uid = user.get('user_id') or user.get('id') or user.get('sub', '')
+    tid = user.get('tenant_id') or ''
+    rid = ''
+    rtid = ''
     if resource:
-        rid = resource.get("id", "")
-        rtid = resource.get("tenant_id", "")
-    provenance = user.get("provenance") or user.get("agent_provenance") or {}
-    ap_session = provenance.get("ap_session", {}) if isinstance(provenance, dict) else {}
-    pjti = ap_session.get("parent_jti", "") if isinstance(ap_session, dict) else ""
-    turn = ap_session.get("turn", "") if isinstance(ap_session, dict) else ""
-    return f"{uid}:{action}:{tid}:{rid}:{rtid}:{pjti}:{turn}"
+        rid = resource.get('id', '')
+        rtid = resource.get('tenant_id', '')
+    provenance = user.get('provenance') or user.get('agent_provenance') or {}
+    ap_session = (
+        provenance.get('ap_session', {}) if isinstance(provenance, dict) else {}
+    )
+    pjti = (
+        ap_session.get('parent_jti', '') if isinstance(ap_session, dict) else ''
+    )
+    turn = ap_session.get('turn', '') if isinstance(ap_session, dict) else ''
+    provenance_hash = ''
+    if OPA_CACHE_TTL > 0 and isinstance(provenance, dict) and provenance:
+        serialized = json.dumps(
+            provenance, sort_keys=True, separators=(',', ':'), default=str
+        )
+        provenance_hash = hashlib.sha256(serialized.encode('utf-8')).hexdigest()
+    return f'{uid}:{action}:{tid}:{rid}:{rtid}:{pjti}:{turn}:{provenance_hash}'
 
 
 # ── Public API ───────────────────────────────────────────────────
 
 
 async def check_policy(
-    user: Dict[str, Any],
+    user: dict[str, Any],
     action: str,
-    resource: Optional[Dict[str, Any]] = None,
+    resource: dict[str, Any] | None = None,
 ) -> bool:
     """Check if the user is allowed to perform the action.
 
@@ -310,15 +327,24 @@ async def check_policy(
         user_id = user.get('user_id') or user.get('id')
         if not allowed:
             logger.info(
-                "policy_decision",
-                extra={"user_id": user_id, "action": action,
-                       "allowed": False, "reasons": reasons, "mode": "local"}
+                'policy_decision',
+                extra={
+                    'user_id': user_id,
+                    'action': action,
+                    'allowed': False,
+                    'reasons': reasons,
+                    'mode': 'local',
+                },
             )
         else:
             logger.debug(
-                "policy_decision",
-                extra={"user_id": user_id, "action": action,
-                       "allowed": True, "mode": "local"}
+                'policy_decision',
+                extra={
+                    'user_id': user_id,
+                    'action': action,
+                    'allowed': True,
+                    'mode': 'local',
+                },
             )
         _cache.put(ck, allowed)
         return allowed
@@ -327,41 +353,49 @@ async def check_policy(
     try:
         client = await _get_client()
         opa_input = _build_input(user, action, resource)
-        resp = await client.post(f"/{OPA_AUTHZ_PATH}", json=opa_input)
+        resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
         resp.raise_for_status()
         result = resp.json()
-        allowed = result.get("result", False)
+        allowed = result.get('result', False)
         _cache.put(ck, allowed)
         user_id = opa_input['input']['user']['user_id']
 
         if not allowed:
             logger.info(
-                "policy_decision",
-                extra={"user_id": user_id, "action": action,
-                       "allowed": False, "mode": "sidecar"}
+                'policy_decision',
+                extra={
+                    'user_id': user_id,
+                    'action': action,
+                    'allowed': False,
+                    'mode': 'sidecar',
+                },
             )
         else:
             logger.debug(
-                "policy_decision",
-                extra={"user_id": user_id, "action": action,
-                       "allowed": True, "mode": "sidecar"}
+                'policy_decision',
+                extra={
+                    'user_id': user_id,
+                    'action': action,
+                    'allowed': True,
+                    'mode': 'sidecar',
+                },
             )
 
         return allowed
 
     except httpx.HTTPError as e:
-        logger.error(f"OPA request failed: {e}")
+        logger.error(f'OPA request failed: {e}')
         if OPA_FAIL_OPEN:
-            logger.warning("OPA unreachable — failing open (ALLOW)")
+            logger.warning('OPA unreachable — failing open (ALLOW)')
             return True
-        logger.warning("OPA unreachable — failing closed (DENY)")
+        logger.warning('OPA unreachable — failing closed (DENY)')
         return False
 
 
 async def check_tenant_policy(
-    user: Dict[str, Any],
+    user: dict[str, Any],
     action: str,
-    resource: Dict[str, Any],
+    resource: dict[str, Any],
 ) -> bool:
     """Check tenant-scoped policy (includes ownership verification)."""
     if OPA_LOCAL_MODE:
@@ -370,19 +404,19 @@ async def check_tenant_policy(
     try:
         client = await _get_client()
         opa_input = _build_input(user, action, resource)
-        resp = await client.post(f"/{OPA_TENANT_PATH}", json=opa_input)
+        resp = await client.post(f'/{OPA_TENANT_PATH}', json=opa_input)
         resp.raise_for_status()
         result = resp.json()
-        return result.get("result", False)
+        return result.get('result', False)
     except httpx.HTTPError as e:
-        logger.error(f"OPA tenant policy request failed: {e}")
+        logger.error(f'OPA tenant policy request failed: {e}')
         return not OPA_FAIL_OPEN
 
 
 async def enforce_policy(
-    user: Dict[str, Any],
+    user: dict[str, Any],
     action: str,
-    resource: Optional[Dict[str, Any]] = None,
+    resource: dict[str, Any] | None = None,
 ) -> None:
     """Enforce policy — raises HTTPException 403 if denied."""
     allowed = await check_policy(user, action, resource)
@@ -394,9 +428,9 @@ async def enforce_policy(
 
 
 async def enforce_tenant_policy(
-    user: Dict[str, Any],
+    user: dict[str, Any],
     action: str,
-    resource: Dict[str, Any],
+    resource: dict[str, Any],
 ) -> None:
     """Enforce tenant-scoped policy — raises 403 on denial."""
     allowed = await check_tenant_policy(user, action, resource)
@@ -419,11 +453,13 @@ def require_permission(action: str):
             ...
     """
 
-    async def _dependency(request: Request) -> Dict[str, Any]:
+    async def _dependency(request: Request) -> dict[str, Any]:
         # Resolve user from either auth system.
         user = await _resolve_user(request)
         if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
+            raise HTTPException(
+                status_code=401, detail='Authentication required'
+            )
 
         await enforce_policy(user, action)
         return user
@@ -439,19 +475,21 @@ def require_resource_permission(action: str):
     or earlier dependency).
     """
 
-    async def _dependency(request: Request) -> Dict[str, Any]:
+    async def _dependency(request: Request) -> dict[str, Any]:
         user = await _resolve_user(request)
         if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
+            raise HTTPException(
+                status_code=401, detail='Authentication required'
+            )
 
-        resource = getattr(request.state, "policy_resource", None)
+        resource = getattr(request.state, 'policy_resource', None)
         await enforce_policy(user, action, resource)
         return user
 
     return _dependency
 
 
-async def _resolve_user(request: Request) -> Optional[Dict[str, Any]]:
+async def _resolve_user(request: Request) -> dict[str, Any] | None:
     """Resolve authenticated user from request using existing auth systems.
 
     Tries Keycloak auth first, then self-service auth.
@@ -459,22 +497,25 @@ async def _resolve_user(request: Request) -> Optional[Dict[str, Any]]:
     fallback (access_token) for SSE/EventSource connections that cannot
     set custom headers.
     """
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
         token = auth_header[7:]
     else:
         # Fallback: check query param for SSE/EventSource connections
-        token = request.query_params.get("access_token")
+        token = request.query_params.get('access_token')
 
     if not token:
         return None
 
     # Try self-service / API key auth (handles all token types)
     try:
-        from .user_auth import get_current_user as user_auth_get_current_user
         from fastapi.security import HTTPAuthorizationCredentials
 
-        creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        from a2a_server.user_auth import (
+            get_current_user as user_auth_get_current_user,
+        )
+
+        creds = HTTPAuthorizationCredentials(scheme='Bearer', credentials=token)
         user = await user_auth_get_current_user(request, creds)
         if user:
             return user
@@ -483,19 +524,22 @@ async def _resolve_user(request: Request) -> Optional[Dict[str, Any]]:
 
     # Fallback: try Keycloak-only auth
     try:
-        from .keycloak_auth import get_current_user as kc_get_current_user
         from fastapi.security import HTTPAuthorizationCredentials
 
-        creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        from a2a_server.keycloak_auth import (
+            get_current_user as kc_get_current_user,
+        )
+
+        creds = HTTPAuthorizationCredentials(scheme='Bearer', credentials=token)
         session = await kc_get_current_user(creds)
         if session:
             return {
-                "id": session.user_id,
-                "user_id": session.user_id,
-                "email": session.email,
-                "roles": session.roles,
-                "tenant_id": session.tenant_id,
-                "realm_name": session.realm_name,
+                'id': session.user_id,
+                'user_id': session.user_id,
+                'email': session.email,
+                'roles': session.roles,
+                'tenant_id': session.tenant_id,
+                'realm_name': session.realm_name,
             }
     except Exception:
         pass
@@ -506,30 +550,30 @@ async def _resolve_user(request: Request) -> Optional[Dict[str, Any]]:
 # ── OPA Health Check ─────────────────────────────────────────────
 
 
-async def opa_health() -> Dict[str, Any]:
+async def opa_health() -> dict[str, Any]:
     """Check OPA sidecar health. Returns status dict."""
     if OPA_LOCAL_MODE:
         data = _load_local_policy_data()
         return {
-            "mode": "local",
-            "healthy": True,
-            "roles_loaded": len(data.get("roles", {})),
+            'mode': 'local',
+            'healthy': True,
+            'roles_loaded': len(data.get('roles', {})),
         }
 
     try:
         client = await _get_client()
-        resp = await client.get("/health")
+        resp = await client.get('/health')
         return {
-            "mode": "sidecar",
-            "healthy": resp.status_code == 200,
-            "url": OPA_URL,
+            'mode': 'sidecar',
+            'healthy': resp.status_code == 200,
+            'url': OPA_URL,
         }
     except Exception as e:
         return {
-            "mode": "sidecar",
-            "healthy": False,
-            "url": OPA_URL,
-            "error": str(e),
+            'mode': 'sidecar',
+            'healthy': False,
+            'url': OPA_URL,
+            'error': str(e),
         }
 
 
