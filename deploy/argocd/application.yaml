@@ -43,11 +43,11 @@ spec:
           legacyReplicaCount: 0
           replicas:
             blue: 0
-            green: gitops-20260512224644-3ec55954e323
+            green: 2
           rolloutId:
             legacy: ""
             blue: ""
-            green: github-harvester-routing-20260510-234013
+            green: gitops-20260512224644-3ec55954e323
         service:
           type: ClusterIP
           port: 8000
