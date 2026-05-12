@@ -495,6 +495,24 @@ class A2AServer:
             except Exception:
                 pass
 
+        @self.app.on_event('startup')
+        async def start_github_app_terminal_reconciler():
+            try:
+                from .github_app.task_status_hook import start_github_app_terminal_reconciler
+
+                start_github_app_terminal_reconciler()
+            except Exception as e:
+                logger.warning(f'Failed to start GitHub App terminal reconciler: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_github_app_terminal_reconciler():
+            try:
+                from .github_app.task_status_hook import stop_github_app_terminal_reconciler
+
+                await stop_github_app_terminal_reconciler()
+            except Exception:
+                pass
+
         # Shutdown policy engine HTTP client
         if POLICY_ENGINE_AVAILABLE and close_policy_client:
 

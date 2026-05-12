@@ -11,6 +11,8 @@ def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
     action = payload.get('action')
     if event_name in {'issue_comment', 'pull_request_review_comment'}:
         return action == 'created'
+    if event_name == 'pull_request_review':
+        return action == 'submitted'
     if event_name in {'issues', 'pull_request'}:
         if action == 'opened':
             return True
@@ -24,6 +26,8 @@ def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
 def _body_for_event(event_name: str, payload: dict[str, Any]) -> str:
     if event_name in {'issue_comment', 'pull_request_review_comment'}:
         return payload.get('comment', {}).get('body', '') or ''
+    if event_name == 'pull_request_review':
+        return payload.get('review', {}).get('body', '') or ''
     if event_name == 'issues':
         return payload.get('issue', {}).get('body', '') or ''
     if event_name == 'pull_request':
@@ -54,6 +58,11 @@ def extract_context(event_name: str, payload: dict[str, Any]) -> Optional[Mentio
         pr_number = issue_number
         comment_path = payload.get('comment', {}).get('path', '') or ''
         comment_diff_hunk = payload.get('comment', {}).get('diff_hunk', '') or ''
+    elif event_name == 'pull_request_review':
+        issue_number = payload.get('pull_request', {}).get('number')
+        pr_number = issue_number
+        review = payload.get('review') or {}
+        comment_id = review.get('id') or issue_number
     elif event_name == 'issues':
         issue = payload.get('issue', {})
         issue_number = issue.get('number')

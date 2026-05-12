@@ -46,7 +46,6 @@ role_permissions contains perm if {
 # Rule 1: Public endpoints are always allowed.
 allow if {
     input.action in data.public_endpoints
-    provenance.allow
 }
 
 # Rule 2: Role-based access — user's roles grant the requested permission.
