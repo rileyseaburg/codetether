@@ -81,7 +81,7 @@ spec:
             memory: 2Gi
           requests:
             cpu: 500m
-            memory: 512Mi
+            memory: 128Mi
         autoscaling:
           enabled: false
         podDisruptionBudget:
