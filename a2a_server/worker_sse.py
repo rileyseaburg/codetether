@@ -27,10 +27,14 @@ from typing import Any, Callable, Dict, List, Optional, Set
 from functools import lru_cache
 
 from fastapi import APIRouter, HTTPException, Request, Query, Header
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from .task_routing import is_targeted_clone_task, target_agent_mismatch
+from .task_routing import (
+    is_clone_task,
+    is_targeted_clone_task,
+    target_agent_mismatch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,9 +165,31 @@ class WorkerRegistry:
         """Fire-and-forget DB write to keep workers.last_seen current."""
         try:
             from . import database as db
+
             await db.db_update_worker_heartbeat(worker_id)
         except Exception as e:
             logger.debug(f'Failed to persist heartbeat for {worker_id}: {e}')
+
+    async def _lookup_worker_agent_name(self, worker_id: str) -> Optional[str]:
+        """Resolve a worker's agent name from durable state.
+
+        SSE connections are stored in-memory per API replica. A polling claim can
+        land on a replica that does not hold the worker's stream, so targeted
+        claim checks must not depend exclusively on the local registry.
+        """
+        try:
+            from . import database as db
+
+            worker = await db.db_get_worker(worker_id)
+            if not worker:
+                return None
+            name = str(worker.get('name') or '').strip()
+            return name or None
+        except Exception as e:
+            logger.debug(
+                f'Failed to look up agent name for worker {worker_id}: {e}'
+            )
+            return None
 
     async def update_worker_codebases(
         self, worker_id: str, codebases: Set[str]
@@ -195,6 +221,11 @@ class WorkerRegistry:
                     task_metadata.get('target_worker_id') or ''
                 ).strip()
                 worker = await self.get_worker(worker_id)
+                worker_agent_name = (
+                    worker.agent_name
+                    if worker
+                    else await self._lookup_worker_agent_name(worker_id)
+                )
                 if target_worker_id and target_worker_id != worker_id:
                     logger.debug(
                         f'Worker {worker_id} skipped task {task_id} '
@@ -207,18 +238,30 @@ class WorkerRegistry:
                 task_target_agent = getattr(
                     task, 'target_agent_name', None
                 ) or task_metadata.get('target_agent_name')
-                if target_agent_mismatch(
-                    worker_agent_name, task_target_agent
-                ):
+                if target_agent_mismatch(worker_agent_name, task_target_agent):
                     logger.debug(
                         f'Worker {worker_id} skipped task {task_id} '
-                        f'(target_agent_name={task_target_agent})'
+                        f'(agent_name={worker_agent_name}, '
+                        f'target_agent_name={task_target_agent})'
                     )
                     return False
 
                 codebase_id = task.codebase_id
-                # Check if this is a restricted codebase (not global/__pending__)
-                if codebase_id and codebase_id not in ('global', '__pending__'):
+                # Clone/refresh tasks bypass codebase ownership — the whole
+                # point is to CREATE the workspace, so no worker owns it yet.
+                task_agent_type = getattr(task, 'agent_type', None) or (
+                    task_metadata.get('agent_type')
+                )
+                if is_clone_task(task_agent_type):
+                    logger.info(
+                        f'Clone task {task_id} (codebase {codebase_id}) — '
+                        f'skipping codebase affinity for worker {worker_id}'
+                    )
+                    # Fall through to the claim lock below
+                elif codebase_id and codebase_id not in (
+                    'global',
+                    '__pending__',
+                ):
                     if not worker:
                         # Worker not SSE-connected; allow claim anyway so
                         # polling-only / reconnecting workers aren't locked out.
@@ -244,7 +287,9 @@ class WorkerRegistry:
                                         owner_connected = True
                                         break
                             if not owner_connected:
-                                owner_connected = await self._any_connected_worker_owns_codebase(codebase_id)
+                                owner_connected = await self._any_connected_worker_owns_codebase(
+                                    codebase_id
+                                )
 
                             if owner_connected:
                                 logger.debug(
@@ -276,6 +321,7 @@ class WorkerRegistry:
                     # Also reset the task status in the DB back to pending
                     try:
                         from . import database as db
+
                         pool = await db.get_pool()
                         if pool:
                             async with pool.acquire() as conn:
@@ -286,7 +332,9 @@ class WorkerRegistry:
                                     task_id,
                                 )
                     except Exception as e:
-                        logger.debug(f'Failed to reset task {task_id} in DB: {e}')
+                        logger.debug(
+                            f'Failed to reset task {task_id} in DB: {e}'
+                        )
                     # Fall through to let the requesting worker claim it
                 else:
                     return False  # Claimed by a connected worker
@@ -410,7 +458,7 @@ class WorkerRegistry:
         Agent Targeting:
         - If target_agent_name is set, ONLY notify workers with that agent_name
         - If target_worker_id is set, ONLY notify the specific worker
-        - This reduces noise/wakeups for targeted tasks
+        - This reduces unnecessary notifications for targeted tasks
         - Claim-time filtering is the real enforcement; this is for efficiency
         """
         async with self._lock:
@@ -500,6 +548,7 @@ class WorkerRegistry:
                     return codebase.worker_id in self._workers
 
             from . import database as db
+
             codebase_data = await db.db_get_codebase(codebase_id)
             if codebase_data and codebase_data.get('worker_id'):
                 async with self._lock:
@@ -613,7 +662,9 @@ class WorkerRegistry:
         )
         return notified
 
-    async def _enrich_task_with_persona_scoping(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    async def _enrich_task_with_persona_scoping(
+        self, task: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Enrich task metadata with permission scoping from the worker_profile
         matching the task's worker_personality. This backs the marketing claim:
@@ -644,7 +695,11 @@ class WorkerRegistry:
                     return task
 
                 scoping = {}
-                for col in ('allowed_tools', 'allowed_paths', 'allowed_namespaces'):
+                for col in (
+                    'allowed_tools',
+                    'allowed_paths',
+                    'allowed_namespaces',
+                ):
                     val = row[col]
                     if val is not None:
                         if isinstance(val, str):
@@ -659,7 +714,9 @@ class WorkerRegistry:
                     task['metadata'] = task_metadata
                     logger.debug(
                         'Enriched task %s with persona scoping for %s: %s',
-                        task.get('id', '?'), personality, list(scoping.keys()),
+                        task.get('id', '?'),
+                        personality,
+                        list(scoping.keys()),
                     )
 
         except Exception as e:
@@ -891,6 +948,25 @@ async def _claim_task_run_for_worker(
         return {}
 
 
+async def _db_task_claimed_by_worker(task_id: str, worker_id: str) -> bool:
+    """Return whether durable task state says this worker owns a running task."""
+    try:
+        from . import database as db
+
+        task = await db.db_get_task(task_id)
+        if not task:
+            return False
+        return (
+            str(task.get('worker_id') or '') == worker_id
+            and str(task.get('status') or '') == 'running'
+        )
+    except Exception as e:
+        logger.debug(
+            f'Failed to check DB task ownership for {task_id}/{worker_id}: {e}'
+        )
+        return False
+
+
 class TaskReleaseRequest(BaseModel):
     """Request to release a task."""
 
@@ -980,6 +1056,7 @@ class TaskHeartbeatRequest(BaseModel):
 
 class TaskProgressResponse(BaseModel):
     """Response for progress retrieval."""
+
     task_id: str
     run_id: Optional[str] = None
     status: Optional[str] = None
@@ -1002,6 +1079,7 @@ class ExtendedHeartbeatRequest(BaseModel):
     - Progress tracking with percentage and status message
     - Timeout budget awareness (server tells worker if within budget)
     """
+
     task_id: str
     worker_id: str
     progress_pct: Optional[float] = None
@@ -1014,6 +1092,7 @@ class ExtendedHeartbeatRequest(BaseModel):
 
 class ExtendedHeartbeatResponse(BaseModel):
     """Response from extended heartbeat."""
+
     success: bool
     lease_expires_at: Optional[str] = None
     within_timeout: bool = True
@@ -1024,12 +1103,14 @@ class ExtendedHeartbeatResponse(BaseModel):
 
 class TaskResumeRequest(BaseModel):
     """Request to resume a task from checkpoint."""
+
     task_id: str
     worker_id: str
 
 
 class TaskResumeResponse(BaseModel):
     """Response with checkpoint data for resumption."""
+
     success: bool
     run_id: Optional[str] = None
     checkpoint: Optional[Dict[str, Any]] = None
@@ -1115,6 +1196,7 @@ async def worker_task_stream(
         if path_entries:
             try:
                 from . import database as _db
+
                 for path in path_entries:
                     matches = await _db.db_list_workspaces_by_path(path)
                     for ws in matches:
@@ -1200,9 +1282,7 @@ async def worker_task_stream(
                                 'priority': task.priority,
                                 'metadata': task.metadata,
                                 'model': task.model,
-                                'model_ref': getattr(
-                                    task, 'model_ref', None
-                                )
+                                'model_ref': getattr(task, 'model_ref', None)
                                 or (task.metadata or {}).get('model_ref'),
                                 'target_agent_name': task_target_agent,
                                 'created_at': task.created_at.isoformat()
@@ -1350,7 +1430,9 @@ async def claim_task(
                     f'Claimed task {claim.task_id} but could not persist running status'
                 )
         except Exception as e:
-            logger.warning(f'Failed to update task {claim.task_id} to running: {e}')
+            logger.warning(
+                f'Failed to update task {claim.task_id} to running: {e}'
+            )
 
         run_claim = await _claim_task_run_for_worker(
             claim.task_id,
@@ -1414,48 +1496,68 @@ async def release_task(
         # Persist status/result/error to in-memory cache AND database
         try:
             from .agent_bridge import get_bridge as get_agent_bridge
-            from .agent_bridge import AgentTaskStatus
+
             bridge = get_agent_bridge()
+            updated_task = None
             if bridge:
+                from .agent_bridge import AgentTaskStatus
+
                 status_enum = AgentTaskStatus(release.status)
-                await bridge.update_task_status(
+                updated_task = await bridge.update_task_status(
                     task_id=release.task_id,
                     status=status_enum,
                     result=release.result,
                     error=release.error,
                     worker_id=resolved_worker_id,
                 )
-                logger.info(
-                    f'Task {release.task_id} status updated to {release.status} via bridge'
-                )
+                if updated_task:
+                    logger.info(
+                        f'Task {release.task_id} status updated to {release.status} via bridge'
+                    )
+                else:
+                    logger.warning(
+                        f'Bridge missed released task {release.task_id}; using DB status update fallback'
+                    )
                 if release.status == 'completed':
                     try:
-                        from .post_clone_followup import enqueue_post_clone_followup
-                        await enqueue_post_clone_followup(bridge, release.task_id)
+                        from .post_clone_followup import (
+                            enqueue_post_clone_followup,
+                        )
+
+                        await enqueue_post_clone_followup(
+                            bridge, release.task_id
+                        )
                     except Exception as e:
                         logger.error(
                             f'Failed to enqueue post-clone follow-up for {release.task_id}: {e}'
                         )
-            else:
-                # Fallback: direct DB update if bridge not available
+            if not updated_task:
+                # Fallback: direct DB update if bridge is unavailable or missed
+                # a task created through the DB-backed worker polling path.
                 from .database import db_update_task_status
-                await db_update_task_status(
+
+                updated = await db_update_task_status(
                     task_id=release.task_id,
                     status=release.status,
                     worker_id=resolved_worker_id,
                     result=release.result,
                     error=release.error,
                 )
-                logger.info(
-                    f'Task {release.task_id} status updated to {release.status} in DB (no bridge)'
-                )
+                if updated:
+                    logger.info(
+                        f'Task {release.task_id} status updated to {release.status} via DB fallback'
+                    )
+                else:
+                    logger.warning(
+                        f'Released task {release.task_id} but could not persist {release.status} status'
+                    )
         except Exception as e:
-            logger.error(
-                f'Failed to update task {release.task_id} status: {e}'
-            )
+            logger.error(f'Failed to update task {release.task_id} status: {e}')
         if release.status in {'completed', 'failed', 'cancelled'}:
             try:
-                from .github_app.task_status_hook import handle_github_app_terminal_task
+                from .github_app.task_status_hook import (
+                    handle_github_app_terminal_task,
+                )
 
                 await handle_github_app_terminal_task(
                     release.task_id,
@@ -1471,6 +1573,7 @@ async def release_task(
         # Record result for perpetual loop iterations (if applicable)
         try:
             from .perpetual_loop import handle_task_completion_for_loops
+
             await handle_task_completion_for_loops(
                 task_id=release.task_id,
                 status=release.status,
@@ -1483,17 +1586,19 @@ async def release_task(
         if release.status in ('completed', 'failed'):
             try:
                 from .database import get_pool
+
                 pool = await get_pool()
                 if pool:
                     async with pool.acquire() as conn:
                         task_row = await conn.fetchrow(
-                            "SELECT title, metadata FROM tasks WHERE id = $1",
+                            'SELECT title, metadata FROM tasks WHERE id = $1',
                             release.task_id,
                         )
                     if task_row:
                         metadata = task_row['metadata']
                         if isinstance(metadata, str):
                             import json as _json
+
                             metadata = _json.loads(metadata)
                         notify_email = (metadata or {}).get('notify_email')
                         if notify_email:
@@ -1501,6 +1606,7 @@ async def release_task(
                                 is_configured,
                                 send_task_completion_email,
                             )
+
                             if is_configured():
                                 email_sent = await send_task_completion_email(
                                     to_email=notify_email,
@@ -1786,7 +1892,9 @@ async def post_task_heartbeat(
                 )
                 updated = 'UPDATE 1' in result
         except Exception as e:
-            logger.warning(f'Heartbeat update failed for task {heartbeat.task_id}: {e}')
+            logger.warning(
+                f'Heartbeat update failed for task {heartbeat.task_id}: {e}'
+            )
 
     if not updated:
         raise HTTPException(
@@ -1863,7 +1971,9 @@ async def get_task_progress(
         row = None
 
     if not row:
-        raise HTTPException(status_code=404, detail=f'No task run found for task {task_id}')
+        raise HTTPException(
+            status_code=404, detail=f'No task run found for task {task_id}'
+        )
 
     progress = row['task_progress']
     if isinstance(progress, str):
@@ -1882,7 +1992,9 @@ async def get_task_progress(
         status_message=progress.get('status_message'),
         checkpoint=progress.get('checkpoint'),
         checkpoint_seq=row['checkpoint_seq'] or 0,
-        last_heartbeat_at=row['last_heartbeat_at'].isoformat() if row['last_heartbeat_at'] else None,
+        last_heartbeat_at=row['last_heartbeat_at'].isoformat()
+        if row['last_heartbeat_at']
+        else None,
         worker_id=row['lease_owner'] or progress.get('worker_id'),
         runner_metadata=progress.get('runner_metadata'),
     )
@@ -1891,7 +2003,9 @@ async def get_task_progress(
 @worker_sse_router.get('/tasks/silent')
 async def list_silent_runs(
     request: Request,
-    silence_seconds: int = Query(300, description='Seconds since last heartbeat to consider silent'),
+    silence_seconds: int = Query(
+        300, description='Seconds since last heartbeat to consider silent'
+    ),
 ):
     """
     List task runs whose CI runner has gone silent.
@@ -1915,14 +2029,18 @@ async def list_silent_runs(
             )
     except Exception as e:
         logger.debug(f'Silent runs query failed: {e}')
-        raise HTTPException(status_code=500, detail='Failed to query silent runs')
+        raise HTTPException(
+            status_code=500, detail='Failed to query silent runs'
+        )
 
     return {
         'silent_runs': [
             {
                 'run_id': r['run_id'],
                 'task_id': r['task_id'],
-                'last_heartbeat_at': r['last_heartbeat_at'].isoformat() if r['last_heartbeat_at'] else None,
+                'last_heartbeat_at': r['last_heartbeat_at'].isoformat()
+                if r['last_heartbeat_at']
+                else None,
                 'progress': r['task_progress'],
                 'worker_id': r['lease_owner'],
             }
@@ -2083,6 +2201,7 @@ async def resume_task_from_checkpoint(
         checkpoint = row['checkpoint']
         if isinstance(checkpoint, str):
             import json as _json
+
             checkpoint = _json.loads(checkpoint)
 
         return TaskResumeResponse(
@@ -2114,6 +2233,7 @@ async def resume_task_from_checkpoint(
 
 class ExtendedClaimRequest(BaseModel):
     """Request model for extended task claim."""
+
     worker_id: str
     agent_name: Optional[str] = None
     capabilities: Optional[List[str]] = None
@@ -2122,6 +2242,7 @@ class ExtendedClaimRequest(BaseModel):
 
 class ExtendedClaimResponse(BaseModel):
     """Response model for extended task claim."""
+
     run_id: Optional[str] = None
     task_id: Optional[str] = None
     priority: Optional[int] = None
@@ -2137,6 +2258,7 @@ class ExtendedClaimResponse(BaseModel):
 
 class ExtendedHeartbeatRequest(BaseModel):
     """Request model for extended heartbeat."""
+
     task_id: str
     worker_id: str
     progress_pct: Optional[float] = None
@@ -2148,7 +2270,7 @@ class ExtendedHeartbeatRequest(BaseModel):
 
 
 @worker_sse_router.post('/tasks/claim-extended')
-async def claim_extended_task_endpoint(
+async def claim_extended_task_legacy_endpoint(
     request: Request,
     claim: ExtendedClaimRequest,
 ):
