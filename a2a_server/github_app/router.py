@@ -7,7 +7,11 @@ from fastapi import APIRouter, Request
 
 from .auth import installation_token, verify_signature
 from .mention import is_fix_request
-from .payload import extract_context, is_supported_event_action
+from .payload import (
+    extract_context,
+    is_self_authored_event,
+    is_supported_event_action,
+)
 from .handler import handle_fix_request
 from .settings import APP_SLUG
 from .watch import post_issue_comment
@@ -25,6 +29,18 @@ async def handle_github_webhook(request: Request):
     if event_name == 'ping':
         return {'ok': True, 'event': 'ping'}
     payload = json.loads(body or b'{}')
+    if is_self_authored_event(event_name, payload):
+        logger.info(
+            'GitHub App webhook ignored self-authored event: event=%s action=%s',
+            event_name,
+            payload.get('action'),
+        )
+        return {
+            'ignored': True,
+            'reason': 'self-authored-event',
+            'event': event_name,
+            'action': payload.get('action'),
+        }
     if not is_supported_event_action(event_name, payload):
         logger.info(
             'GitHub App webhook ignored unsupported event/action: event=%s action=%s',

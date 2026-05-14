@@ -4,6 +4,42 @@ from typing import Any, Optional
 
 from .context import MentionContext
 from .mention import mentions_bot
+from .settings import APP_SLUG
+
+
+def _actor_for_event(event_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Return the GitHub actor that authored the user-visible webhook text."""
+    if event_name in {'issue_comment', 'pull_request_review_comment'}:
+        return payload.get('comment', {}).get('user', {}) or {}
+    if event_name == 'pull_request_review':
+        return payload.get('review', {}).get('user', {}) or {}
+    if event_name == 'issues':
+        return payload.get('issue', {}).get('user', {}) or {}
+    if event_name == 'pull_request':
+        return payload.get('pull_request', {}).get('user', {}) or {}
+    return payload.get('sender', {}) or {}
+
+
+def is_self_authored_event(event_name: str, payload: dict[str, Any]) -> bool:
+    """Return true when this GitHub App authored the webhook text.
+
+    GitHub emits normal comment webhooks for comments posted by the App's
+    installation token. Several CodeTether status/guidance comments include
+    examples such as ``@codetether handle this issue``; without this guard the
+    App can interpret its own comment as a fresh fix request and keep replying
+    to itself.
+    """
+    app_slug = APP_SLUG.lower()
+    expected_bot_login = f'{app_slug}[bot]'
+    actors = [_actor_for_event(event_name, payload), payload.get('sender', {}) or {}]
+    for actor in actors:
+        login = str(actor.get('login', '') or '').lower()
+        actor_type = str(actor.get('type', '') or '').lower()
+        if login == expected_bot_login:
+            return True
+        if actor_type == 'bot' and login.startswith(app_slug):
+            return True
+    return False
 
 
 def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
