@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: gitops-self-authored-webhook-20260514005818-2e42f0f00638
+          value: gitops-self-authored-webhook-20260514011334-2be6b38b8bcb
         - name: blueGreen.rolloutId.green
-          value: gitops-self-authored-webhook-20260514005818-2e42f0f00638
+          value: gitops-self-authored-webhook-20260514011334-2be6b38b8bcb
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: gitops-self-authored-webhook-20260514005818-2e42f0f00638
+          tag: gitops-self-authored-webhook-20260514011334-2be6b38b8bcb
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
@@ -47,7 +47,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: gitops-self-authored-webhook-20260514005818-2e42f0f00638
+            green: gitops-self-authored-webhook-20260514011334-2be6b38b8bcb
         service:
           type: ClusterIP
           port: 8000
