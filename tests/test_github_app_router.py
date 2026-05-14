@@ -147,3 +147,91 @@ async def test_issue_edited_ignores_existing_mentions(monkeypatch):
         'event': 'issues',
         'action': 'edited',
     }
+
+
+@pytest.mark.asyncio
+async def test_self_authored_issue_comment_is_ignored(monkeypatch):
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'issue_comment',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'sender': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'issue': {'number': 7},
+                'comment': {
+                    'id': 99,
+                    'body': f'Try `@{app_slug} handle this issue`.',
+                    'user': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+                },
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('installation token should not be minted')
+
+    async def fail_handle_fix_request(context, token):
+        raise AssertionError('self-authored comments should not create tasks')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+    monkeypatch.setattr(router, 'handle_fix_request', fail_handle_fix_request)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {
+        'ignored': True,
+        'reason': 'self-authored-event',
+        'event': 'issue_comment',
+        'action': 'created',
+    }
+
+
+@pytest.mark.asyncio
+async def test_self_authored_review_comment_is_ignored(monkeypatch):
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'pull_request_review_comment',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'sender': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'pull_request': {'number': 7},
+                'comment': {
+                    'id': 99,
+                    'body': f'@{app_slug} finish this',
+                    'path': 'app.py',
+                    'diff_hunk': '@@',
+                    'user': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+                },
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('installation token should not be minted')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result['ignored'] is True
+    assert result['reason'] == 'self-authored-event'
