@@ -288,3 +288,45 @@ def test_commit_status_payload_maps_in_progress_to_pending():
     assert payload['state'] == 'pending'
     assert payload['context'] == 'CodeTether / code'
     assert payload['target_url'] == 'https://github.com/owner/repo/pull/7?token=[REDACTED]'
+
+
+@pytest.mark.asyncio
+async def test_statuses_mode_skips_checks_api(monkeypatch):
+    calls = []
+
+    async def fake_installation_token(installation_id):
+        return 'ghs_test', None
+
+    async def fake_github_json(method, path, token, payload=None):
+        calls.append((method, path, token, payload))
+        return {'id': 987}
+
+    monkeypatch.setenv('GITHUB_APP_STATUS_PUBLISHER', 'statuses')
+    monkeypatch.setattr(checks, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(checks, 'github_json', fake_github_json)
+
+    assert await checks.ensure_task_check_run(_task()) == 987
+    assert len(calls) == 1
+    assert calls[0][0] == 'POST'
+    assert calls[0][1] == '/repos/owner/repo/statuses/abc123'
+    assert calls[0][3]['state'] == 'success'
+
+
+@pytest.mark.asyncio
+async def test_off_mode_skips_installation_token(monkeypatch):
+    async def fail_installation_token(installation_id):
+        raise AssertionError('off mode should not mint an installation token')
+
+    monkeypatch.setenv('GITHUB_APP_STATUS_PUBLISHER', 'off')
+    monkeypatch.setattr(checks, 'installation_token', fail_installation_token)
+
+    assert await checks.ensure_task_check_run(_task()) is None
+
+
+def test_invalid_publisher_mode_falls_back_to_checks(monkeypatch, caplog):
+    monkeypatch.setenv('GITHUB_APP_STATUS_PUBLISHER', 'bogus')
+
+    with caplog.at_level('WARNING'):
+        assert checks._publisher_mode() == 'checks'
+
+    assert 'Invalid GITHUB_APP_STATUS_PUBLISHER' in caplog.text
