@@ -12,6 +12,20 @@ CodeTether's GitHub App uses repository-scoped installation tokens for PR and is
 | Pull requests | Write | Create review comments and run merge-steward actions. |
 | Checks | Write | Publish rich CodeTether task evidence as GitHub Check Runs. |
 
+## GitHub Actions budget note
+
+Publishing Check Runs or commit statuses through the GitHub REST API does not start GitHub Actions workflow jobs and does not consume GitHub-hosted runner minutes. GitHub Actions billing is based on workflow runner minutes plus Actions artifact/cache storage; CodeTether status publishing creates commit-attached API records only.
+
+## Runtime publishing mode
+
+Set `GITHUB_APP_STATUS_PUBLISHER` to control which commit-attached API path is used:
+
+| Value | Behavior | Required permission | Actions runner minutes |
+| --- | --- | --- | --- |
+| `checks` | Create/update rich Check Runs, then use commit statuses if Checks are not permitted. This is the default. | `Checks: write`; optionally `Commit statuses: write` for the secondary path. | No |
+| `statuses` | Skip the Checks API and publish legacy commit statuses only. | `Commit statuses: write` | No |
+| `off` | Do not publish GitHub commit-attached status records. | None for status publishing | No |
+
 ## Secondary status permission
 
 | Permission | Access | Why |

@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 import logging
+import os
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -22,6 +23,8 @@ CheckConclusion = Literal[
 StatusState = Literal['error', 'failure', 'pending', 'success']
 
 _VALID_STATUSES = {'queued', 'in_progress', 'completed'}
+_PUBLISHER_MODES = {'checks', 'statuses', 'off'}
+_DEFAULT_PUBLISHER_MODE = 'checks'
 _PERMISSION_BLOCKER_FRAGMENT = 'Resource not accessible by integration'
 _SECRET_MARKER = '[REDACTED]'
 _TRUNCATED_MARKER = '\n\n… truncated for GitHub Checks output'
@@ -234,7 +237,15 @@ async def ensure_task_check_run(task: dict[str, Any], *, status: CheckStatus = '
             logger.info('Skipping GitHub check run for task %s: missing repo, installation id, or head sha', task.get('id'))
             return None
 
+        mode = _publisher_mode()
+        if mode == 'off':
+            logger.info('Skipping GitHub status publishing for task %s: GITHUB_APP_STATUS_PUBLISHER=off', task.get('id'))
+            return None
+
         token, _ = await installation_token(int(str(installation_id)))
+        if mode == 'statuses':
+            return await _ensure_commit_status_fallback(task, repo, head_sha, token, status=status)
+
         check_run_id = metadata.get('github_check_run_id')
         if check_run_id:
             payload = build_check_run_payload(task, status=status, include_head_sha=False)
@@ -487,6 +498,22 @@ def _status_description(task: dict[str, Any]) -> str:
     task_id = _safe_str(task.get('id') or 'unknown')
     return f'CodeTether {stage} task {task_id} is {status}'
 
+
+
+def _publisher_mode() -> str:
+    raw = os.environ.get('GITHUB_APP_STATUS_PUBLISHER', _DEFAULT_PUBLISHER_MODE).strip().lower()
+    if raw in {'', 'check', 'check-runs', 'check_runs'}:
+        return 'checks'
+    if raw in {'status', 'commit-status', 'commit_status', 'commit-statuses', 'commit_statuses'}:
+        return 'statuses'
+    if raw in _PUBLISHER_MODES:
+        return raw
+    logger.warning(
+        'Invalid GITHUB_APP_STATUS_PUBLISHER=%r; using %s. Expected one of: checks, statuses, off.',
+        raw,
+        _DEFAULT_PUBLISHER_MODE,
+    )
+    return _DEFAULT_PUBLISHER_MODE
 
 def _is_permission_blocker(exc: Exception) -> bool:
     return _PERMISSION_BLOCKER_FRAGMENT in str(exc)
