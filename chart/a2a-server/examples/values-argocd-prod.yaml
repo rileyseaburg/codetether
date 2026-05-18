@@ -116,6 +116,12 @@ env:
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
   WORKER_INFRA_CACHE_TTL_SECONDS: "30"
   WORKER_INFRA_NODE_MAP: ""
+  # Approved CodeTether PRs are merged by the GitHub App after reviewer,
+  # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
+  GITHUB_APP_AUTO_MERGE_ENABLED: "true"
+  GITHUB_APP_MERGE_METHOD: "squash"
+  # Publish task evidence as GitHub Check Runs; this does not consume Actions minutes.
+  GITHUB_APP_STATUS_PUBLISHER: "checks"
 
 # Optional integrations. Enable these after their referenced secrets and CRDs
 # exist in the destination cluster.
