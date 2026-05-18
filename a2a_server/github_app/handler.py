@@ -61,6 +61,11 @@ async def handle_fix_request(context: MentionContext, token: str) -> dict:
         return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}
 
     repo = await github_json('GET', f'/repos/{context.repo_full_name}', token)
+    base_ref = await github_json(
+        'GET',
+        f"/repos/{context.repo_full_name}/git/ref/heads/{repo['default_branch']}",
+        token,
+    )
     issue = await github_json('GET', f'/repos/{context.repo_full_name}/issues/{context.issue_number}', token)
     branch = issue_branch(context)
     checkout = {'head': {'repo': {'clone_url': repo['clone_url']}, 'ref': branch}, 'base': {'ref': repo['default_branch']}}
@@ -69,6 +74,7 @@ async def handle_fix_request(context: MentionContext, token: str) -> dict:
         context, issue, repo, wid, branch,
         github_issue_url=github_issue_url,
         github_installation_id=context.installation_id,
+        github_check_head_sha=((base_ref.get('object') or {}).get('sha') or ''),
     )
     await post_issue_comment(context.repo_full_name, context.issue_number, token, accepted_issue_message(issue, branch))
     return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}

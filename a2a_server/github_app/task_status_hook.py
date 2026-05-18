@@ -12,11 +12,16 @@ _RECONCILER_TASK: asyncio.Task | None = None
 async def handle_github_app_terminal_task(task_id: str, worker_id: str | None = None) -> None:
     """Load a terminal task and run any GitHub App follow-up logic."""
     from .. import database as db
+    from .checks import ensure_task_check_run
     from .task_completion import notify_issue_task_completion
 
     task = await db.db_get_task(task_id)
     metadata = (task or {}).get('metadata') or {}
     if metadata.get('source') == 'github-app':
+        try:
+            await ensure_task_check_run(task, status='completed')
+        except Exception as exc:
+            logger.warning('GitHub Checks terminal update failed for task %s: %s', task_id, exc)
         await notify_issue_task_completion(task, worker_id)
 
 

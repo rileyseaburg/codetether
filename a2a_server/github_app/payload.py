@@ -45,6 +45,8 @@ def is_self_authored_event(event_name: str, payload: dict[str, Any]) -> bool:
 def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
     """Return true when a webhook event can carry a new actionable mention."""
     action = payload.get('action')
+    if is_self_authored_event(event_name, payload):
+        return False
     if event_name in {'issue_comment', 'pull_request_review_comment'}:
         return action == 'created'
     if event_name == 'pull_request_review':
