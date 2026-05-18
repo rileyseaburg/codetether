@@ -85,6 +85,9 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
+# Additional plain environment variables for the main server container.
+env: {}
+
 # Pod security context
 podSecurityContext:
   fsGroup: 1000

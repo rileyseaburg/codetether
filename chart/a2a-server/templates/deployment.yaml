@@ -116,6 +116,10 @@ spec:
                   name: {{ $value }}
                   key: {{ $key }}
             {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
             {{- if .Values.minio.enabled }}
             - name: MINIO_ENDPOINT
               value: {{ .Values.minio.endpoint | quote }}
@@ -409,6 +413,10 @@ spec:
                   name: {{ $value }}
                   key: {{ $key }}
             {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
             {{- if .Values.minio.enabled }}
             - name: MINIO_ENDPOINT
               value: {{ .Values.minio.endpoint | quote }}
@@ -645,6 +653,10 @@ spec:
                 secretKeyRef:
                   name: {{ $value }}
                   key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := $.Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
             {{- end }}
             {{- if $.Values.minio.enabled }}
             - name: MINIO_ENDPOINT
