@@ -6,6 +6,7 @@ export const heroMetrics = [
 
 export const heroTrustSignals = [
   'Rust-native runtime',
+  'GitHub App integration',
   'OKR → PRD → Ralph',
   'Swarm orchestration',
   'MCP + A2A',
