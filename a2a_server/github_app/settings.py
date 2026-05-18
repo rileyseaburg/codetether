@@ -13,7 +13,7 @@ MODEL_REF = os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip() or 'za
 # instead of pinning GitHub App clone/prep tasks to a legacy Knative agent name.
 TARGET_AGENT = os.environ.get('GITHUB_APP_TARGET_AGENT', '').strip()
 TARGET_WORKER_ID = os.environ.get('GITHUB_APP_TARGET_WORKER_ID', '').strip()
-AUTO_MERGE_ENABLED = os.environ.get('GITHUB_APP_AUTO_MERGE_ENABLED', 'true').lower() not in {'0', 'false', 'no'}
+AUTO_MERGE_ENABLED = os.environ.get('GITHUB_APP_AUTO_MERGE_ENABLED', 'false').lower() not in {'0', 'false', 'no'}
 MERGE_METHOD = os.environ.get('GITHUB_APP_MERGE_METHOD', '').strip().lower()
 PREFERRED_AGENTS = tuple(
     part.strip()

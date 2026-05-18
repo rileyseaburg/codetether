@@ -136,6 +136,8 @@ spec:
           # checks = rich Check Runs first, then commit-status secondary path.
           # statuses = commit statuses only; off = no commit-attached status publishing.
           GITHUB_APP_STATUS_PUBLISHER: checks
+          # Auto-merge is off by default (safe-default). Set to "true" only in dev/staging.
+          GITHUB_APP_AUTO_MERGE_ENABLED: "false"
         livekit:
           enabled: false
         knative:
