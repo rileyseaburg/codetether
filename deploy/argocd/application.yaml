@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: live-github-checks-fallback-20260518145916-2e42f0f00638
+          value: live-github-checks-final-20260518151155-ffb6ec71caee
         - name: blueGreen.rolloutId.green
-          value: live-github-checks-fallback-20260518145916-2e42f0f00638
+          value: live-github-checks-final-20260518151155-ffb6ec71caee
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: live-github-checks-fallback-20260518145916-2e42f0f00638
+          tag: live-github-checks-final-20260518151155-ffb6ec71caee
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
@@ -47,7 +47,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: live-github-checks-fallback-20260518145916-2e42f0f00638
+            green: live-github-checks-final-20260518151155-ffb6ec71caee
         service:
           type: ClusterIP
           port: 8000
