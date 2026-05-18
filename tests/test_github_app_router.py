@@ -56,6 +56,53 @@ async def test_non_fix_mention_posts_actionable_issue_and_pr_guidance(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_bot_authored_issue_comment_is_ignored(monkeypatch):
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'issue_comment',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'sender': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+                'issue': {'number': 7},
+                'comment': {
+                    'id': 99,
+                    'user': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+                    'body': f'@{app_slug} follow-up required: please address tests',
+                },
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('installation token should not be minted for bot-authored comments')
+
+    async def fail_handle_fix_request(context, token):
+        raise AssertionError('bot-authored comments must not create fix tasks')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+    monkeypatch.setattr(router, 'handle_fix_request', fail_handle_fix_request)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {
+        'ignored': True,
+        'reason': 'self-authored-event',
+        'event': 'issue_comment',
+        'action': 'created',
+    }
+
+
+@pytest.mark.asyncio
 async def test_issue_opened_mention_routes_to_fix_handler(monkeypatch):
     calls = []
     app_slug = router.APP_SLUG

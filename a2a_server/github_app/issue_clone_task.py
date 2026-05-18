@@ -17,6 +17,7 @@ async def create_issue_clone_task(
     *,
     github_issue_url: str = '',
     github_installation_id: int = 0,
+    github_check_head_sha: str = '',
 ) -> str:
     """Queue the branch preparation task for an issue fix request.
 
@@ -38,6 +39,7 @@ async def create_issue_clone_task(
         'issue_number': context.issue_number,
         'branch_name': branch,
         'default_branch': base_branch,
+        'github_check_head_sha': github_check_head_sha,
         'github_issue_url': github_issue_url,
         'github_installation_id': github_installation_id,
         'worker_personality': 'builder',
@@ -66,6 +68,7 @@ async def create_issue_clone_task(
         'source': 'github-app',
         'repo': context.repo_full_name,
         'issue_number': context.issue_number,
+        'github_check_head_sha': github_check_head_sha,
         'github_issue_url': github_issue_url,
         'github_installation_id': github_installation_id,
         **routing,

@@ -1,5 +1,10 @@
 """Follow-up creation for GitHub App issue prepare tasks."""
 
+from .pr_prepare_completion import (
+    _claim_pr_followup_creation,
+    _record_pr_followup_task,
+    _release_pr_followup_claim,
+)
 from .settings import MODEL_REF
 from .task_context import issue_task_context
 from .watch import post_issue_comment
@@ -28,23 +33,32 @@ async def handle_issue_prepare_completion(task: dict, worker_id: str | None = No
         return
     followup_metadata = dict(followup.get('metadata') or {})
 
-    # Propagate github_issue_url and github_installation_id for progress reporting
-    for key in ('github_issue_url', 'github_installation_id'):
+    # Propagate GitHub metadata for progress reporting and Checks API updates.
+    for key in ('github_issue_url', 'github_installation_id', 'github_check_head_sha', 'github_check_run_id'):
         if key in metadata and key not in followup_metadata:
             followup_metadata[key] = metadata[key]
+
+    source_task_id = str(task.get('id') or '').strip() or None
+    if not await _claim_pr_followup_creation(source_task_id):
+        return
 
     target_worker_id = str(worker_id or task.get('worker_id') or '').strip()
     if target_worker_id:
         followup_metadata['target_worker_id'] = target_worker_id
 
     github_issue_url = followup_metadata.get('github_issue_url') or metadata.get('github_issue_url')
-    await create_and_dispatch_task(
-        workspace_id=workspace_id,
-        title=str(followup.get('title') or f'Work issue #{issue_number}'),
-        prompt=prompt,
-        agent_type=str(followup.get('agent_type') or 'build'),
-        model_ref=MODEL_REF,
-        metadata=followup_metadata,
-        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
-        github_issue_url=github_issue_url,
-    )
+    try:
+        followup_task_id = await create_and_dispatch_task(
+            workspace_id=workspace_id,
+            title=str(followup.get('title') or f'Work issue #{issue_number}'),
+            prompt=prompt,
+            agent_type=str(followup.get('agent_type') or 'build'),
+            model_ref=MODEL_REF,
+            metadata=followup_metadata,
+            task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+            github_issue_url=github_issue_url,
+        )
+    except Exception as exc:
+        await _release_pr_followup_claim(source_task_id, exc)
+        raise
+    await _record_pr_followup_task(source_task_id, followup_task_id)

@@ -142,8 +142,8 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
 
     followup_metadata = dict(followup.get('metadata') or {})
 
-    # Propagate github_issue_url and github_installation_id for progress reporting
-    for key in ('github_issue_url', 'github_installation_id'):
+    # Propagate GitHub metadata for progress reporting and Checks API updates.
+    for key in ('github_issue_url', 'github_installation_id', 'github_check_head_sha', 'github_check_run_id'):
         if key in metadata and key not in followup_metadata:
             followup_metadata[key] = metadata[key]
 
