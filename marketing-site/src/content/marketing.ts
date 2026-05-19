@@ -6,6 +6,7 @@ export const heroMetrics = [
 
 export const heroTrustSignals = [
   'Rust-native runtime',
+  'GitHub App integration',
   'OKR → PRD → Ralph',
   'Swarm orchestration',
   'MCP + A2A',
@@ -13,10 +14,27 @@ export const heroTrustSignals = [
 ]
 
 export const heroPipeline = [
-  { step: '01', title: 'Objective', detail: 'Capture the outcome, owner, constraints, and success metric.' },
-  { step: '02', title: 'PRD', detail: 'Generate stories, acceptance criteria, dependencies, and quality gates.' },
-  { step: '03', title: 'Ralph', detail: 'Iterate in fresh contexts, edit real files, test, and commit.' },
-  { step: '04', title: 'Control', detail: 'Stream events, enforce policy, audit tools, and route workers.' },
+  {
+    step: '01',
+    title: 'Objective',
+    detail: 'Capture the outcome, owner, constraints, and success metric.',
+  },
+  {
+    step: '02',
+    title: 'PRD',
+    detail:
+      'Generate stories, acceptance criteria, dependencies, and quality gates.',
+  },
+  {
+    step: '03',
+    title: 'Ralph',
+    detail: 'Iterate in fresh contexts, edit real files, test, and commit.',
+  },
+  {
+    step: '04',
+    title: 'Control',
+    detail: 'Stream events, enforce policy, audit tools, and route workers.',
+  },
 ]
 
 export const ctaOutcomes = [
