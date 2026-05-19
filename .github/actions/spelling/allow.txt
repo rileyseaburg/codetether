@@ -236,6 +236,7 @@ getpid
 gettickets
 ghs
 gitlab
+gitlink
 gitvote
 gle
 glm
