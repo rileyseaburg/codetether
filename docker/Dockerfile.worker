@@ -80,8 +80,11 @@ RUN useradd --system --shell /bin/bash --create-home worker
 USER worker
 WORKDIR /home/worker
 
-# Copy binary from builder (built against matching glibc)
+# Copy binary from builder (built against matching glibc).
+# Keep both paths: historical Knative worker templates invoke /app/codetether,
+# while local Docker entrypoints resolve codetether from PATH.
 COPY --from=builder /build/target/release/codetether /usr/local/bin/codetether
+RUN mkdir -p /app && ln -sf /usr/local/bin/codetether /app/codetether
 
 # Environment defaults
 ENV A2A_SERVER_URL=https://api.codetether.run
