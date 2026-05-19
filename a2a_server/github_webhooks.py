@@ -5,7 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from .github_app_auth import github_installation_request, verify_github_webhook_signature
-from .github_comment_tasks import bot_login, has_bot_mention, queue_github_comment_task
+from .github_comment_tasks import (
+    bot_login,
+    has_bot_mention,
+    queue_github_check_failure_task,
+    queue_github_comment_task,
+    should_queue_check_failure_task,
+)
 
 router = APIRouter(prefix='/v1/webhooks', tags=['github'])
 
@@ -42,6 +48,11 @@ async def github_webhook(request: Request):
     data = await request.json()
     if event_name == 'ping':
         return {'ok': True, 'event': 'ping'}
+    if event_name in {'check_run', 'check_suite', 'workflow_run'}:
+        if not should_queue_check_failure_task(event_name, data):
+            return {'ok': True, 'ignored': f'{event_name}:not-remediable'}
+        queued = await queue_github_check_failure_task(event_name, data)
+        return {'ok': True, 'trigger': 'failed_check', **queued}
     if event_name not in {'issue_comment', 'pull_request_review_comment'}:
         return {'ok': True, 'ignored': event_name}
     if not has_bot_mention((data.get('comment') or {}).get('body') or ''):

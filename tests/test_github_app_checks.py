@@ -210,8 +210,7 @@ async def test_api_failure_swallowed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_terminal_hook_continues_when_check_update_fails(monkeypatch):
-    import sys
-    import types
+    from a2a_server import database as db
 
     calls = []
 
@@ -224,8 +223,7 @@ async def test_terminal_hook_continues_when_check_update_fails(monkeypatch):
     async def fake_notify(task, worker_id=None):
         calls.append((task['id'], worker_id))
 
-    fake_db = types.SimpleNamespace(db_get_task=fake_db_get_task)
-    monkeypatch.setitem(sys.modules, 'a2a_server.database', fake_db)
+    monkeypatch.setattr(db, 'db_get_task', fake_db_get_task)
 
     from a2a_server.github_app import task_completion
 
