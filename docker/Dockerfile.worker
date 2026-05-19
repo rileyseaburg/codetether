@@ -12,8 +12,8 @@
 #
 
 # ─── Builder stage ──────────────────────────────────────────────────
-# rust:1.88-bookworm is based on Debian 12 (bookworm, glibc 2.36)
-FROM rust:1.88-bookworm AS builder
+# rust:1.89-bookworm is based on Debian 12 (bookworm, glibc 2.36)
+FROM rust:1.89-bookworm AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -36,6 +36,7 @@ COPY codetether-agent/examples ./examples
 # Copy the Cargo workspace
 COPY codetether-agent/Cargo.toml codetether-agent/Cargo.lock ./
 COPY codetether-agent/vendor ./vendor
+COPY codetether-agent/crates ./crates
 COPY codetether-agent/src ./src
 COPY codetether-agent/build.rs ./build.rs
 COPY codetether-agent/proto ./proto
@@ -48,7 +49,7 @@ RUN cargo build --release && \
 # Use the Rust bookworm image for the worker runtime as well. The harvester runs
 # production coding tasks, so the runtime needs validation tooling, not only the
 # compiled CodeTether binary.
-FROM rust:1.88-bookworm
+FROM rust:1.89-bookworm
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

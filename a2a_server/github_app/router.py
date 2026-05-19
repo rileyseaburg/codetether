@@ -6,6 +6,7 @@ import logging
 from fastapi import APIRouter, Request
 
 from .auth import installation_token, verify_signature
+from .check_failures import context_from_failed_check, should_remediate_failed_check
 from .mention import is_fix_request
 from .payload import (
     extract_context,
@@ -41,6 +42,11 @@ async def handle_github_webhook(request: Request):
             'event': event_name,
             'action': payload.get('action'),
         }
+    if should_remediate_failed_check(event_name, payload):
+        context = context_from_failed_check(event_name, payload)
+        token, _ = await installation_token(context.installation_id)
+        result = await handle_fix_request(context, token)
+        return {'trigger': 'failed_check', **result}
     if not is_supported_event_action(event_name, payload):
         logger.info(
             'GitHub App webhook ignored unsupported event/action: event=%s action=%s',

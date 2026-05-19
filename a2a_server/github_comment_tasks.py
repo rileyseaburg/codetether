@@ -1,4 +1,4 @@
-"""Queue CodeTether work from GitHub App comment webhooks."""
+"""Queue CodeTether work from GitHub App GitHub webhooks."""
 
 from __future__ import annotations
 
@@ -175,3 +175,145 @@ async def queue_github_comment_task(event_name: str, payload: Dict[str, Any]) ->
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
     )
     return {'workspace_id': workspace_id, 'task_id': task_id, 'branch': branch}
+
+
+
+FAILED_CHECK_CONCLUSIONS = {
+    'action_required',
+    'cancelled',
+    'failure',
+    'startup_failure',
+    'timed_out',
+}
+
+
+def _first_pull_request_from_check(payload: Dict[str, Any]) -> Dict[str, Any] | None:
+    check = payload.get('check_run') or payload.get('check_suite') or payload.get('workflow_run') or {}
+    pull_requests = check.get('pull_requests') or payload.get('pull_requests') or []
+    if pull_requests:
+        return pull_requests[0]
+    return None
+
+
+def _check_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return payload.get('check_run') or payload.get('check_suite') or payload.get('workflow_run') or {}
+
+
+def should_queue_check_failure_task(event_name: str, payload: Dict[str, Any]) -> bool:
+    """Return true when a GitHub check failure should spawn remediation work."""
+    if event_name not in {'check_run', 'check_suite', 'workflow_run'}:
+        return False
+    if payload.get('action') not in {None, 'completed', 'requested_action'}:
+        return False
+    check = _check_payload(payload)
+    conclusion = str(check.get('conclusion') or '').lower()
+    if conclusion not in FAILED_CHECK_CONCLUSIONS:
+        return False
+    name = str(check.get('name') or check.get('check_suite', {}).get('app', {}).get('name') or '')
+    app_slug = str((check.get('app') or {}).get('slug') or '').lower()
+    app_name = str((check.get('app') or {}).get('name') or '').lower()
+    # Avoid recursive loops where a failing CodeTether-created Check Run spawns itself.
+    if name.lower().startswith('codetether /') or app_slug == bot_login().lower() or app_name == bot_login().lower():
+        return False
+    return _first_pull_request_from_check(payload) is not None
+
+
+async def _fetch_pull_request_for_check(payload: Dict[str, Any]) -> Dict[str, Any]:
+    repo = payload['repository']
+    installation_id = str(payload['installation']['id'])
+    pr = _first_pull_request_from_check(payload)
+    if not pr:
+        raise ValueError('check failure payload did not include a pull request')
+    pr_url = pr.get('url') or f"https://api.github.com/repos/{repo['full_name']}/pulls/{pr['number']}"
+    return (
+        await github_installation_request(
+            installation_id=installation_id,
+            owner=repo['owner']['login'],
+            repo=repo['name'],
+            method='GET',
+            url=pr_url,
+        )
+    ).json()
+
+
+def _check_failure_prompt(event_name: str, payload: Dict[str, Any], pr: Dict[str, Any]) -> tuple[str, str, Dict[str, Any]]:
+    check = _check_payload(payload)
+    repo = payload['repository']
+    installation_id = str(payload['installation']['id'])
+    pr_number = int(pr['number'])
+    branch = str(pr['head']['ref'])
+    check_name = str(check.get('name') or check.get('app', {}).get('name') or event_name)
+    conclusion = str(check.get('conclusion') or '')
+    details_url = str(check.get('details_url') or check.get('html_url') or check.get('url') or '')
+    head_sha = str(check.get('head_sha') or pr.get('head', {}).get('sha') or '')
+    title = f"Fix failing PR #{pr_number} check: {check_name}"
+    metadata: Dict[str, Any] = {
+        'source': 'github_check_failure_webhook',
+        'github_event': event_name,
+        'github_repository': repo['full_name'],
+        'github_installation_id': installation_id,
+        'pr_number': pr_number,
+        'check_name': check_name,
+        'check_conclusion': conclusion,
+        'check_details_url': details_url,
+        'check_run_id': check.get('id'),
+        'check_head_sha': head_sha,
+        'source_metadata': {
+            'actor_type': 'github_app',
+            'service_account': f'github-app:{installation_id}',
+            'repository': repo['full_name'],
+            'trigger': 'failed_check',
+        },
+    }
+    if target_agent_name():
+        metadata['target_agent_name'] = target_agent_name()
+    prompt = (
+        f"A required PR check failed on {repo['full_name']} PR #{pr_number}: {pr.get('html_url')}\n\n"
+        f"Branch: {branch}\n"
+        f"Head SHA: {pr.get('head', {}).get('sha') or head_sha}\n"
+        f"Check: {check_name}\n"
+        f"Conclusion: {conclusion}\n"
+        f"Details URL: {details_url or '(none)'}\n\n"
+        "Investigate the failing check logs, make the smallest appropriate fix on the PR branch, "
+        "commit and push to that same branch, then comment on the PR with the fix summary and validation evidence. "
+        "Do not merge the PR; leave merge to the auto-merge gate once checks are green."
+    )
+    return title, prompt, metadata
+
+
+async def queue_github_check_failure_task(event_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Queue a remediation session for a failed GitHub check on an open PR."""
+    from .persistent_worker_pool import DEFAULT_TASK_TIMEOUT, create_and_dispatch_task
+
+    repo = payload['repository']
+    installation_id = str(payload['installation']['id'])
+    pr = await _fetch_pull_request_for_check(payload)
+    branch = str(pr['head']['ref'])
+    title, prompt, metadata = _check_failure_prompt(event_name, payload, pr)
+    workspace_id = await _ensure_workspace(repo, installation_id, branch)
+    task_id = await create_and_dispatch_task(
+        workspace_id=workspace_id,
+        title=f"Prepare repository: {repo['full_name']}",
+        prompt=f"Clone or update {repo['full_name']} at branch {branch}",
+        agent_type='clone_repo',
+        metadata={
+            'git_url': repo['clone_url'],
+            'git_branch': branch,
+            'workspace_id': workspace_id,
+            'post_clone_task': {
+                'title': title,
+                'prompt': prompt,
+                'agent_type': 'build',
+                'metadata': metadata,
+            },
+        },
+        task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
+        github_issue_url=pr.get('html_url'),
+    )
+    return {
+        'workspace_id': workspace_id,
+        'task_id': task_id,
+        'branch': branch,
+        'pr_number': pr['number'],
+        'check_name': metadata['check_name'],
+    }
