@@ -75,16 +75,16 @@ RUN ln -sf /usr/local/cargo/bin/cargo /usr/local/bin/cargo && \
     ln -sf /usr/local/cargo/bin/rustc /usr/local/bin/rustc && \
     ln -sf /usr/local/cargo/bin/rustup /usr/local/bin/rustup
 
-# Create non-root user
-RUN useradd --system --shell /bin/bash --create-home worker
-USER worker
-WORKDIR /home/worker
-
 # Copy binary from builder (built against matching glibc).
 # Keep both paths: historical Knative worker templates invoke /app/codetether,
 # while local Docker entrypoints resolve codetether from PATH.
 COPY --from=builder /build/target/release/codetether /usr/local/bin/codetether
 RUN mkdir -p /app && ln -sf /usr/local/bin/codetether /app/codetether
+
+# Create non-root user
+RUN useradd --system --shell /bin/bash --create-home worker
+USER worker
+WORKDIR /home/worker
 
 # Environment defaults
 ENV A2A_SERVER_URL=https://api.codetether.run
