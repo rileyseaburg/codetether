@@ -97,7 +97,6 @@ opencode/
 marketing-site/
 codetether/
 codetether-docs/
-codetether-agent/
 models.dev/
 ui/
 agents/
@@ -119,14 +118,3 @@ MARKETING_SITE.md
 data/
 helm/
 
-# Worker Dockerfile needs the Rust agent workspace even though the API image excludes it.
-!codetether-agent/
-!codetether-agent/Cargo.toml
-!codetether-agent/Cargo.lock
-!codetether-agent/build.rs
-!codetether-agent/proto/**
-!codetether-agent/src/**
-!codetether-agent/vendor/**
-!codetether-agent/crates/**
-!codetether-agent/examples/**
-!codetether-agent/**
