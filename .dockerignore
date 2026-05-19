@@ -129,3 +129,4 @@ helm/
 !codetether-agent/vendor/**
 !codetether-agent/crates/**
 !codetether-agent/examples/**
+!codetether-agent/**
