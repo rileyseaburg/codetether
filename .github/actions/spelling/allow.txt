@@ -156,6 +156,8 @@ amannn
 aparse
 aproject
 aprotocol
+argocd
+argoproj
 arxiv
 askmarvin
 asyncclick
@@ -171,6 +173,7 @@ bluegreen
 bufbuild
 bzr
 cae
+cbcf
 cbs
 ccc
 cdn
@@ -289,6 +292,7 @@ ndata
 nearform
 newsha
 nextauth
+nginx
 nindent
 nlp
 notif
@@ -307,6 +311,7 @@ oreilly
 pconfig
 pjti
 plpgsql
+podcast
 policyname
 postgres
 postgresql

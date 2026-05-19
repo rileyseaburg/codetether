@@ -6,14 +6,21 @@ from typing import Optional
 _SECRET_CACHE: dict[str, Optional[str]] = {}
 _VAULT_PATHS = ('codetether/github_app', 'codetether/github-app')
 
-APP_SLUG = os.environ.get('GITHUB_APP_SLUG', 'codetether').strip() or 'codetether'
-MODEL_REF = os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip() or 'zai:glm-5.1'
+APP_SLUG = (
+    os.environ.get('GITHUB_APP_SLUG', 'codetether').strip() or 'codetether'
+)
+MODEL_REF = (
+    os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip()
+    or 'zai:glm-5.1'
+)
 # Optional hard targets for compatibility with existing deployments.
 # Leave GITHUB_APP_TARGET_AGENT unset to route by durable worker capability
 # instead of pinning GitHub App clone/prep tasks to a legacy Knative agent name.
 TARGET_AGENT = os.environ.get('GITHUB_APP_TARGET_AGENT', '').strip()
 TARGET_WORKER_ID = os.environ.get('GITHUB_APP_TARGET_WORKER_ID', '').strip()
-AUTO_MERGE_ENABLED = os.environ.get('GITHUB_APP_AUTO_MERGE_ENABLED', 'true').lower() not in {'0', 'false', 'no'}
+AUTO_MERGE_ENABLED = os.environ.get(
+    'GITHUB_APP_AUTO_MERGE_ENABLED', 'false'
+).lower() not in {'0', 'false', 'no'}
 MERGE_METHOD = os.environ.get('GITHUB_APP_MERGE_METHOD', '').strip().lower()
 PREFERRED_AGENTS = tuple(
     part.strip()
