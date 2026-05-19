@@ -5,3 +5,4 @@ resources:
   - external-secrets-operator.yaml
   - secrets.yaml
   - application.yaml
+  - marketing.yaml
