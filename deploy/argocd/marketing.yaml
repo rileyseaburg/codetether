@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: codetether-marketing
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: codetether-marketing
+    app.kubernetes.io/part-of: codetether
+spec:
+  project: codetether
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: a2a-server
+  source:
+    repoURL: git@github.com:rileyseaburg/codetether.git
+    targetRevision: main
+    path: chart/a2a-server/charts/marketing
+    helm:
+      releaseName: codetether
+      valuesObject:
+        enabled: true
+        replicaCount: 1
+        image:
+          repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
+          tag: v3.3.0
+          pullPolicy: Always
+        imagePullSecrets:
+          - name: gcp-artifact-registry
+        service:
+          type: ClusterIP
+          port: 3000
+          targetPort: 3000
+        ingress:
+          enabled: true
+          className: nginx
+          annotations:
+            cert-manager.io/cluster-issuer: cloudflare-issuer
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          host: codetether.run
+          tls:
+            secretName: codetether-marketing-tls
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        keycloak:
+          secretName: keycloak-client-secret
+        env:
+          A2A_API_BACKEND: http://codetether-a2a-server.a2a-server.svc.cluster.local:8000
+          AUTH_TRUST_HOST: "true"
+          AUTH_URL: https://codetether.run
+          CONTACT_NOTIFICATION_EMAIL: riley@spotlessbinco.com
+          KEYCLOAK_CLIENT_ID: a2a-monitor
+          KEYCLOAK_ISSUER: https://auth.quantum-forge.io/realms/quantum-forge
+          NEXTAUTH_URL: https://codetether.run
+          SENDGRID_API_KEY: ""
+          SENDGRID_FROM_EMAIL: noreply@codetether.run
+        apiProxy:
+          enabled: true
+          backendService: codetether-a2a-server
+          backendPort: 8000
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
