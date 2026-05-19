@@ -130,14 +130,12 @@ spec:
           WORKER_INFRA_NODE_MAP: ""
           # Approved CodeTether PRs are merged by the GitHub App after reviewer,
           # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
-          GITHUB_APP_AUTO_MERGE_ENABLED: "true"
+          GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           GITHUB_APP_MERGE_METHOD: squash
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
           # checks = rich Check Runs first, then commit-status secondary path.
           # statuses = commit statuses only; off = no commit-attached status publishing.
           GITHUB_APP_STATUS_PUBLISHER: checks
-          # Auto-merge is off by default (safe-default). Set to "true" only in dev/staging.
-          GITHUB_APP_AUTO_MERGE_ENABLED: "false"
         livekit:
           enabled: false
         knative:
