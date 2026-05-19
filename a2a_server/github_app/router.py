@@ -13,11 +13,102 @@ from .payload import (
     is_supported_event_action,
 )
 from .handler import handle_fix_request
-from .settings import APP_SLUG
+from .remediation import (
+    RemediationContext,
+    _is_codetether_authored,
+    is_duplicate,
+    mark_seen,
+    normalize_check_event,
+    remediation_prompt,
+)
+from .routing import resolve_task_target
+from .settings import APP_SLUG, MODEL_REF
 from .watch import post_issue_comment
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
 logger = logging.getLogger(__name__)
+
+_REMEDIATION_EVENTS = frozenset({'check_run', 'check_suite', 'workflow_run'})
+
+
+async def _handle_remediation_event(event_name: str, payload: dict) -> dict:
+    """Process a check failure event into a remediation task (or skip)."""
+    ctx = normalize_check_event(event_name, payload)
+    if ctx is None:
+        logger.info(
+            'Remediation: event did not produce a context (event=%s action=%s)',
+            event_name,
+            payload.get('action'),
+        )
+        return {'ignored': True, 'reason': 'ineligible-check-event'}
+
+    if _is_codetether_authored(ctx):
+        logger.info(
+            'Remediation: skipping self-authored check %r on %s@%s',
+            ctx.check_name, ctx.repo_full_name, ctx.head_sha[:12],
+        )
+        return {'ignored': True, 'reason': 'self-authored-check'}
+
+    if not ctx.pr_number:
+        logger.info(
+            'Remediation: no open PR associated with check %r on %s@%s',
+            ctx.check_name, ctx.repo_full_name, ctx.head_sha[:12],
+        )
+        return {'ignored': True, 'reason': 'no-associated-pr'}
+
+    if is_duplicate(ctx):
+        logger.info(
+            'Remediation: duplicate delivery suppressed for %r on %s@%s',
+            ctx.check_name, ctx.repo_full_name, ctx.head_sha[:12],
+        )
+        return {'ignored': True, 'reason': 'duplicate-suppressed'}
+
+    # Queue the remediation task
+    task_id = await _queue_remediation_task(ctx)
+    mark_seen(ctx)
+
+    logger.info(
+        'Remediation: queued task %s for failed check %r on %s PR #%s',
+        task_id, ctx.check_name, ctx.repo_full_name, ctx.pr_number,
+    )
+    return {
+        'accepted': True,
+        'remediation_task_id': task_id,
+        'check_name': ctx.check_name,
+        'head_sha': ctx.head_sha,
+        'pr_number': ctx.pr_number,
+    }
+
+
+async def _queue_remediation_task(ctx: RemediationContext) -> str:
+    """Create and dispatch a fire-and-forget remediation task."""
+    from ..persistent_worker_pool import create_and_dispatch_task
+
+    routing = await resolve_task_target()
+    metadata = {
+        'source': 'github-app',
+        'workflow_stage': 'remediation',
+        'repo': ctx.repo_full_name,
+        'pr_number': ctx.pr_number,
+        'pr_head': ctx.branch,
+        'head_sha': ctx.head_sha,
+        'github_installation_id': ctx.installation_id,
+        'github_issue_url': f'https://github.com/{ctx.repo_full_name}/pull/{ctx.pr_number}',
+        'failed_check_name': ctx.check_name,
+        'failed_check_conclusion': ctx.conclusion,
+        'failed_check_details_url': ctx.details_url,
+        'failed_check_event_type': ctx.event_type,
+        **routing,
+    }
+    return await create_and_dispatch_task(
+        title=f'Remediate failed check: {ctx.check_name} (PR #{ctx.pr_number})',
+        prompt=remediation_prompt(ctx),
+        agent_type='remediation',
+        model_ref=MODEL_REF,
+        metadata=metadata,
+        task_timeout_seconds=604800,
+        github_issue_url=f'https://github.com/{ctx.repo_full_name}/pull/{ctx.pr_number}',
+    )
 
 
 @github_webhook_router.post('/github')
@@ -29,6 +120,12 @@ async def handle_github_webhook(request: Request):
     if event_name == 'ping':
         return {'ok': True, 'event': 'ping'}
     payload = json.loads(body or b'{}')
+
+    # --- Failed-check remediation loop (issue #88) ---
+    if event_name in _REMEDIATION_EVENTS:
+        return await _handle_remediation_event(event_name, payload)
+
+    # --- Existing mention-driven flow ---
     if is_self_authored_event(event_name, payload):
         logger.info(
             'GitHub App webhook ignored self-authored event: event=%s action=%s',
