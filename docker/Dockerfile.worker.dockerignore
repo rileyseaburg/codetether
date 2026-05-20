@@ -6,6 +6,7 @@
 !codetether-agent/Cargo.lock
 !codetether-agent/vendor/
 !codetether-agent/src/
+!codetether-agent/crates/
 !codetether-agent/build.rs
 !codetether-agent/proto/
 !codetether-agent/examples/
