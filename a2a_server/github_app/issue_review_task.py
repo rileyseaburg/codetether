@@ -194,19 +194,20 @@ def _truncate_for_comment(value: str, *, limit: int = 4000) -> str:
 def change_request_action_line(
     verdict: str, *, task_id: str | None = None
 ) -> str:
-    """Render the actionable change-request line with the worker mention.
+    """Render the actionable change-request line.
 
-    Any CodeTether GitHub-facing review/follow-up that asks for code changes
-    must tag the app handle in the action sentence so mention-based workers can
-    pick it up. Approval and informational comments should not use this helper.
+    Protocol-native fix follow-ups must not tag the GitHub App handle because
+    the fix task is already queued and an extra mention re-enters the webhook
+    path, creating review/fix loops. The mention-based compatibility path still
+    includes the tag because it is only used when no protocol-native task exists.
     """
     normalized_verdict = (
         str(verdict or 'CHANGES_REQUESTED').strip() or 'CHANGES_REQUESTED'
     )
     if task_id:
         return (
-            f'{CHANGE_REQUEST_MENTION} follow-up required: protocol-native fix task '
-            f'`{task_id}` is queued for `{normalized_verdict}`.'
+            f'Protocol-native fix task `{task_id}` is queued for '
+            f'`{normalized_verdict}`.'
         )
     return f'{CHANGE_REQUEST_MENTION} please address the requested PR changes.'
 
@@ -649,9 +650,9 @@ async def create_fix_followup_task(
         attempt,
     )
 
-    # Post a comment indicating the protocol-native follow-up. Keep the
-    # @codetether mention in the actionable sentence for compatibility with
-    # mention-based worker pickup while protocol-native follow-up rolls out.
+    # Post a comment indicating the protocol-native follow-up without a bot
+    # mention; mentioning the app here would re-enter the webhook path and
+    # enqueue another review cycle even though the fix task already exists.
     comment_body = (
         '## 🛠️ CodeTether Fix Follow-up\n\n'
         f'{change_request_action_line(verdict or "", task_id=task_id)}\n\n'
@@ -979,7 +980,7 @@ End-to-end responsibilities:
 2. Fetch the PR branch and inspect the diff against that Definition of Done, not just generic code quality.
 3. Run the smallest relevant validation for the changed files and every issue checklist item that can be locally checked.
 4. Do not approve your own unsafe or incomplete work. If tests fail, scope drifts, secrets appear, provenance does not match the current head SHA, or any issue DoD item is missing/unproven, request changes with clear remediation.
-5. If anything requires changes, leave a CHANGES_REQUESTED review/comment and include `{CHANGE_REQUEST_MENTION}` in the GitHub-facing body so CodeTether gets explicitly re-engaged.
+5. If anything requires changes, leave a CHANGES_REQUESTED review/comment without mentioning the CodeTether bot; the review completion hook will enqueue the protocol-native fix task.
 6. If the PR is safe and feature-complete against the issue DoD, leave an approving review or success comment.
 7. Include this exact provenance footer in any GitHub review/comment you create:{footer}
 
