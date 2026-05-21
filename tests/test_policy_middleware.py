@@ -415,3 +415,7 @@ class TestOpaEnabledToggle:
             assert result is True
         finally:
             policy_mod.OPA_ENABLED = original
+
+
+def test_tetherscript_workflow_pane_requires_task_read():
+    assert _match_permission("/v1/agent/workflows/tetherscript", "GET") == "tasks:read"

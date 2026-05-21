@@ -1,6 +1,7 @@
 """Final issue comments for GitHub App build tasks."""
 
 import logging
+from urllib.parse import quote
 
 from .issue_pr import open_issue_pr
 from .task_context import issue_task_context
@@ -12,38 +13,43 @@ logger = logging.getLogger(__name__)
 async def _verify_branch_and_commits(
     repo: str, branch: str, token: str,
 ) -> dict:
-    """
-    Verify that the expected branch exists and has at least one commit.
+    """Verify that the expected branch ref exists and points at a commit.
+
+    Use the Git ref endpoint instead of ``commits?sha=<branch>`` so branch
+    names containing slashes are checked as refs and GitHub App installation
+    access failures are not conflated with an empty commit list.
 
     Returns a dict with:
         branch_exists: bool
         has_commits: bool
+        head_sha: str
         error: str or None
     """
     from .auth import github_json
 
+    encoded_branch = quote(branch, safe='')
     try:
         ref = await github_json(
             'GET',
-            f'/repos/{repo}/commits?sha={branch}&per_page=1',
+            f'/repos/{repo}/git/ref/heads/{encoded_branch}',
             token,
         )
-        if ref and isinstance(ref, list):
-            return {
-                'branch_exists': True,
-                'has_commits': len(ref) > 0,
-                'error': None,
-            }
+        obj = (ref or {}).get('object') if isinstance(ref, dict) else {}
+        head_sha = str((obj or {}).get('sha') or '')
+        object_type = str((obj or {}).get('type') or '')
+        has_commit = bool(head_sha) and object_type in ('commit', '')
         return {
-            'branch_exists': False,
-            'has_commits': False,
-            'error': f'Branch {branch} not found or has no commits',
+            'branch_exists': bool(head_sha),
+            'has_commits': has_commit,
+            'head_sha': head_sha,
+            'error': None if has_commit else f'Branch {branch} did not resolve to a commit ref',
         }
     except Exception as exc:
-        logger.warning('Branch verification failed for %s/%s: %s', repo, branch, exc)
+        logger.warning('Branch ref verification failed for %s/%s: %s', repo, branch, exc)
         return {
             'branch_exists': False,
             'has_commits': False,
+            'head_sha': '',
             'error': str(exc),
         }
 
@@ -70,13 +76,16 @@ async def notify_issue_final_comment(task: dict) -> None:
                 f"⚠️ **Task completed but branch verification failed.**\n\n"
                 f"- Task `{task_id}` status: `{task_status}`\n"
                 f"- Expected branch: `{branch}`\n"
+                f"- Verification endpoint: `GET /repos/{repo}/git/ref/heads/{quote(branch, safe='')}`\n"
                 f"- Verification error: {failure_detail}\n"
             )
             if body:
                 message += f"\n**Task output:**\n> {body[:800]}"
             message += (
-                f"\n\nThis usually means the agent finished but did not push "
-                f"commits to the expected branch. The task may need to be re-run."
+                f"\n\nThis is an infrastructure/workflow failure: the build task reached a "
+                f"terminal completed state before the expected Git ref was visible "
+                f"to the GitHub App installation. The pipeline should be retried "
+                f"or investigated for worker push/auth failures."
             )
             await post_issue_comment(repo, issue_number, token, message)
             logger.error(

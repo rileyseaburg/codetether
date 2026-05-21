@@ -963,24 +963,33 @@ def review_prompt(
 ) -> str:
     pr_number = pr.get('number')
     pr_url = pr.get('html_url') or f'https://github.com/{repo}/pull/{pr_number}'
+    issue_url = f'https://github.com/{repo}/issues/{issue_number}'
     footer = provenance_footer(provenance, action='github:review_pr')
     return f"""You are the CodeTether reviewer agent for issue #{issue_number} in {repo}.
 
 Review PR #{pr_number}: {pr_url}
+Source issue / Definition of Done: {issue_url}
 Branch: {branch}
 Head SHA: {(pr.get('head') or {}).get('sha', '')}
 
 Personality/avatar: {CODETETHER_PERSONALITY['name']} using {CODETETHER_PERSONALITY['avatar']} — concise, safety-first, provenance-aware.
 
 End-to-end responsibilities:
-1. Fetch the PR branch and inspect the diff.
-2. Run the smallest relevant validation for the changed files.
-3. Do not approve your own unsafe work. If tests fail, scope drifts, secrets appear, or provenance does not match the current head SHA, request changes with clear remediation.
-4. If anything requires changes, leave a CHANGES_REQUESTED review/comment and include `{CHANGE_REQUEST_MENTION}` in the GitHub-facing body so CodeTether gets explicitly re-engaged.
-5. If the PR is safe, leave an approving review or success comment.
-6. Include this exact provenance footer in any GitHub review/comment you create:{footer}
+1. Fetch and read issue #{issue_number}. Treat its description, checklist, acceptance criteria, linked docs, and explicit constraints as the Definition of Done.
+2. Fetch the PR branch and inspect the diff against that Definition of Done, not just generic code quality.
+3. Run the smallest relevant validation for the changed files and every issue checklist item that can be locally checked.
+4. Do not approve your own unsafe or incomplete work. If tests fail, scope drifts, secrets appear, provenance does not match the current head SHA, or any issue DoD item is missing/unproven, request changes with clear remediation.
+5. If anything requires changes, leave a CHANGES_REQUESTED review/comment and include `{CHANGE_REQUEST_MENTION}` in the GitHub-facing body so CodeTether gets explicitly re-engaged.
+6. If the PR is safe and feature-complete against the issue DoD, leave an approving review or success comment.
+7. Include this exact provenance footer in any GitHub review/comment you create:{footer}
 
-Final response must state one of: APPROVED, CHANGES_REQUESTED, or BLOCKED, plus the PR URL and validation summary."""
+Your final response must include:
+- one terminal verdict: APPROVED, CHANGES_REQUESTED, or BLOCKED;
+- the PR URL;
+- an "Issue DoD" checklist showing each relevant issue requirement as met, missing, or unproven;
+- validation evidence for the changed files.
+
+Never approve if the issue DoD checklist has any missing or unproven item."""
 
 
 def merge_prompt(

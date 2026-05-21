@@ -4499,6 +4499,22 @@ async def _validate_target_worker_is_available(
         )
 
 
+
+
+async def get_current_policy_user(request: Request) -> dict:
+    """Return the OIDC/self-service/API-key user resolved by policy middleware."""
+    user = getattr(request.state, 'policy_user', None)
+    if user:
+        return user
+
+    from .policy import _resolve_user as resolve_policy_user
+
+    user = await resolve_policy_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail='Authentication required')
+    return user
+
+
 @agent_router_alias.get('/tasks')
 async def list_all_tasks(
     workspace_id: Optional[str] = None,
@@ -4545,6 +4561,36 @@ async def list_all_tasks(
         except Exception as e:
             logger.debug(f'Failed to filter claimed pending tasks: {e}')
     return tasks
+
+
+
+@agent_router_alias.get('/workflows/tetherscript')
+async def get_tetherscript_workflows(
+    request: Request,
+    repos: Optional[str] = 'CodeTether/TetherScript,rileyseaburg/codetether-agent',
+    limit: int = 250,
+    user: dict = Depends(get_current_policy_user),
+):
+    """Single-pane workflow view for TetherScript/GitHub automation tasks.
+
+    Results are scoped to the authenticated user's tenant unless the user is an
+    admin/a2a-admin/operator. Authentication is accepted from the same OIDC,
+    OAuth, self-service JWT, and API-key paths used by the policy middleware, so
+    dashboard users and authorized agents are handled consistently.
+    """
+    from .workflow_monitor import load_tetherscript_workflows
+
+    roles = set(user.get('roles') or [])
+    tenant_id = user.get('tenant_id') or request.headers.get('X-Tenant-ID')
+    if roles.intersection({'admin', 'a2a-admin', 'operator'}):
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=403, detail='Tenant context required')
+
+    pool = await db.get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail='Database unavailable')
+    return await load_tetherscript_workflows(pool, repos, limit, tenant_id)
 
 
 @agent_router_alias.post('/tasks')
@@ -7940,6 +7986,7 @@ except ImportError:
 
     async def get_self_service_user(*args, **kwargs):
         return None
+
 
 
 @dataclass
