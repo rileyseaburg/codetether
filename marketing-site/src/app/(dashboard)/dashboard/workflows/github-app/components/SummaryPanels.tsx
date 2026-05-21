@@ -1,8 +1,8 @@
 import { CountCard } from './CountCard'
 import { JsonCounts } from './JsonCounts'
-import type { TetherScriptWorkflowResponse } from '../types'
+import type { GithubAppWorkflowResponse } from '../types'
 
-export function SummaryPanels({ data }: { data: TetherScriptWorkflowResponse | null }) {
+export function SummaryPanels({ data }: { data: GithubAppWorkflowResponse | null }) {
   const totals = data?.totals || {}
   const active = (totals.pending || 0) + (totals.running || 0) + (totals.failed || 0)
   const hasBadRoutes = Object.keys(data?.route_states || {}).some((k) => k !== 'active_worker')

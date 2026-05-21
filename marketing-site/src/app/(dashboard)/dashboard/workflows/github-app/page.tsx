@@ -5,10 +5,10 @@ import { RunsTable } from './components/RunsTable'
 import { SummaryPanels } from './components/SummaryPanels'
 import { TasksTable } from './components/TasksTable'
 import { WorkflowsTable } from './components/WorkflowsTable'
-import { useTetherScriptWorkflows } from './useTetherScriptWorkflows'
+import { useGithubAppWorkflows } from './useGithubAppWorkflows'
 
-export default function TetherScriptWorkflowsPage() {
-  const workflow = useTetherScriptWorkflows()
+export default function GithubAppWorkflowsPage() {
+  const workflow = useGithubAppWorkflows()
   const { data, error, loading } = workflow
 
   return (

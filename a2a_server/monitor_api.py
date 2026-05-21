@@ -4564,21 +4564,21 @@ async def list_all_tasks(
 
 
 
-@agent_router_alias.get('/workflows/tetherscript')
-async def get_tetherscript_workflows(
+@agent_router_alias.get('/workflows/github-app')
+async def get_github_app_workflows(
     request: Request,
-    repos: Optional[str] = 'CodeTether/TetherScript,rileyseaburg/codetether-agent',
+    repos: Optional[str] = None,
     limit: int = 250,
     user: dict = Depends(get_current_policy_user),
 ):
-    """Single-pane workflow view for TetherScript/GitHub automation tasks.
+    """Single-pane workflow view for GitHub App automation tasks.
 
     Results are scoped to the authenticated user's tenant unless the user is an
     admin/a2a-admin/operator. Authentication is accepted from the same OIDC,
     OAuth, self-service JWT, and API-key paths used by the policy middleware, so
     dashboard users and authorized agents are handled consistently.
     """
-    from .workflow_monitor import load_tetherscript_workflows
+    from .workflow_monitor import load_github_app_workflows
 
     roles = set(user.get('roles') or [])
     tenant_id = user.get('tenant_id') or request.headers.get('X-Tenant-ID')
@@ -4590,7 +4590,7 @@ async def get_tetherscript_workflows(
     pool = await db.get_pool()
     if not pool:
         raise HTTPException(status_code=503, detail='Database unavailable')
-    return await load_tetherscript_workflows(pool, repos, limit, tenant_id)
+    return await load_github_app_workflows(pool, repos, limit, tenant_id)
 
 
 @agent_router_alias.post('/tasks')

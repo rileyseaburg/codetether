@@ -1,8 +1,8 @@
 import { formatDate } from '../utils'
-import type { TetherScriptWorkflowResponse } from '../types'
+import type { GithubAppWorkflowResponse } from '../types'
 
 export function HeaderControls(props: {
-  data: TetherScriptWorkflowResponse | null
+  data: GithubAppWorkflowResponse | null
   repos: string
   setRepos: (value: string) => void
   autoRefresh: boolean
@@ -11,7 +11,7 @@ export function HeaderControls(props: {
 }) {
   return <>
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div><div className="text-sm font-semibold uppercase tracking-wide text-cyan-600">Workflow observability</div><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">TetherScript workflows</h1><p className="mt-2 max-w-3xl text-sm text-slate-600">One pane of glass for GitHub App tasks, task_runs, routing, worker freshness, and retryable failure classes across the TetherScript automation loop.</p></div>
+      <div><div className="text-sm font-semibold uppercase tracking-wide text-cyan-600">Workflow observability</div><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">GitHub App workflows</h1><p className="mt-2 max-w-3xl text-sm text-slate-600">One pane of glass for GitHub App tasks, task_runs, routing, worker freshness, and retryable failure classes across the GitHub App automation loop.</p></div>
       <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"><input type="checkbox" checked={props.autoRefresh} onChange={(e) => props.setAutoRefresh(e.target.checked)} />Auto-refresh 15s</label><button onClick={props.load} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">Refresh</button></div>
     </div>
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

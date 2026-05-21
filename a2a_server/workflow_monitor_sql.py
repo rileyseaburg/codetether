@@ -11,7 +11,7 @@ COUNTS_SQL = f"""
 SELECT {REPO_EXPR} AS repo, status, COUNT(*) AS count
 FROM tasks
 WHERE {GITHUB_TASK_PREDICATE}
-  AND {REPO_EXPR} = ANY($1::text[])
+  AND (cardinality($1::text[]) = 0 OR {REPO_EXPR} = ANY($1::text[]))
   AND ($2::text IS NULL OR tenant_id = $2::text)
 GROUP BY 1, 2
 ORDER BY 1, 2
@@ -27,7 +27,7 @@ WITH gh AS (
     w.name AS worker_name, w.status AS worker_status, w.last_seen AS worker_last_seen
   FROM tasks t LEFT JOIN workers w ON w.worker_id = t.metadata->>'target_worker_id'
   WHERE {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')}
-    AND {TASK_REPO_EXPR} = ANY($1::text[])
+    AND (cardinality($1::text[]) = 0 OR {TASK_REPO_EXPR} = ANY($1::text[]))
     AND ($2::text IS NULL OR t.tenant_id = $2::text)
 )
 SELECT repo, issue_pr, url,
@@ -61,7 +61,7 @@ SELECT t.id, t.status, t.title, t.agent_type, t.priority, t.created_at,
   w.name AS worker_name, w.status AS worker_status, w.last_seen AS worker_last_seen
 FROM tasks t LEFT JOIN workers w ON w.worker_id = t.metadata->>'target_worker_id'
 WHERE {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')}
-  AND {TASK_REPO_EXPR} = ANY($1::text[])
+  AND (cardinality($1::text[]) = 0 OR {TASK_REPO_EXPR} = ANY($1::text[]))
   AND ($2::text IS NULL OR t.tenant_id = $2::text)
   AND t.status IN ('pending', 'running', 'failed')
 ORDER BY t.updated_at DESC NULLS LAST LIMIT $3
@@ -76,7 +76,7 @@ SELECT tr.id AS run_id, tr.task_id, tr.status, tr.dispatch_mode,
   t.metadata->>'github_issue_url' AS url
 FROM task_runs tr JOIN tasks t ON t.id = tr.task_id
 WHERE {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')}
-  AND {TASK_REPO_EXPR} = ANY($1::text[])
+  AND (cardinality($1::text[]) = 0 OR {TASK_REPO_EXPR} = ANY($1::text[]))
   AND ($2::text IS NULL OR t.tenant_id = $2::text)
   AND tr.status NOT IN ('completed', 'cancelled')
 ORDER BY tr.updated_at DESC NULLS LAST LIMIT $3
