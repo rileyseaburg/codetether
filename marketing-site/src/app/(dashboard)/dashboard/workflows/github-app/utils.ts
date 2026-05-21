@@ -4,5 +4,4 @@ export function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
-export const DEFAULT_REPOS =
-  'CodeTether/TetherScript,rileyseaburg/codetether-agent'
+

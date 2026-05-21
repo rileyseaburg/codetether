@@ -46,7 +46,7 @@ export interface WorkflowRun {
   issue_pr?: string
 }
 
-export interface TetherScriptWorkflowResponse {
+export interface GithubAppWorkflowResponse {
   generated_at: string
   totals: Counts
   route_states: Counts

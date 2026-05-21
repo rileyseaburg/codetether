@@ -6,7 +6,7 @@ from . import workflow_monitor_sql as sql
 from .workflow_monitor_types import parse_repo_filters
 
 
-async def load_tetherscript_workflows(
+async def load_github_app_workflows(
     pool: Any,
     repos: str | None,
     limit: int,

@@ -1,15 +1,8 @@
 from typing import Any, Dict, Optional
 from datetime import datetime, timezone, timedelta
 
-DEFAULT_WORKFLOW_REPOS = [
-    'CodeTether/TetherScript',
-    'rileyseaburg/codetether-agent',
-]
-
-
 def parse_repo_filters(repos: Optional[str]) -> list[str]:
-    values = [repo.strip() for repo in (repos or '').split(',') if repo.strip()]
-    return values or DEFAULT_WORKFLOW_REPOS
+    return [repo.strip() for repo in (repos or '').split(',') if repo.strip()]
 
 
 def serialize_dt(value: Any) -> Any:
