@@ -113,6 +113,9 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/api-keys/test$", {"POST"}, "api_keys:write"),
     (r"^/v1/agent/api-keys/", {"DELETE"}, "api_keys:delete"),
 
+    # Workflow pane: user/agent authenticated view, not worker polling.
+    (r"^/v1/agent/workflows/tetherscript$", {"GET"}, "tasks:read"),
+
     # Worker management — registration, heartbeat, task-polling, and claiming
     # are internal infrastructure (workers run on trusted nodes), so skip auth.
     (r"^/v1/agent/workers/register$", {"POST"}, ""),

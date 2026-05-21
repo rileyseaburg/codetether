@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: check-failure-remediation-v2-20260519001846-4bb9d13e9342
+          value: workflow-pane-auth-20260521190739-4be3dc7
         - name: blueGreen.rolloutId.green
-          value: check-failure-remediation-v2-20260519001846-4bb9d13e9342
+          value: workflow-pane-auth-20260521190739-4be3dc7
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: check-failure-remediation-v2-20260519001846-4bb9d13e9342
+          tag: workflow-pane-auth-20260521190739-4be3dc7
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
@@ -47,7 +47,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: check-failure-remediation-v2-20260519001846-4bb9d13e9342
+            green: workflow-pane-auth-20260521190739-4be3dc7
         service:
           type: ClusterIP
           port: 8000

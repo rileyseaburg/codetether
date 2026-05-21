@@ -659,10 +659,12 @@ async def _get_user_from_api_key(api_key: str) -> Dict[str, Any]:
 
         return {
             'id': row['user_id'],
+            'user_id': row['user_id'],
             'email': row['email'],
             'first_name': row['first_name'],
             'last_name': row['last_name'],
             'status': row['status'],
+            'tenant_id': row['tenant_id'],
             'tasks_used_this_month': row['tasks_used_this_month'],
             'tasks_limit': row['tasks_limit'],
             'api_key_scopes': row['scopes'],

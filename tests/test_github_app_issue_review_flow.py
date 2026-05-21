@@ -179,6 +179,12 @@ async def test_create_review_task_records_allow_decision_without_builder_target(
     assert created[0]['metadata']['worker_personality'] == 'reviewer'
     assert 'target_worker_id' not in created[0]['metadata']
     assert '@codetether' in created[0]['prompt']
+    assert 'Source issue / Definition of Done' in created[0]['prompt']
+    assert 'Issue DoD' in created[0]['prompt']
+    assert (
+        'Never approve if the issue DoD checklist has any missing or unproven item'
+        in created[0]['prompt']
+    )
     assert 'If anything requires changes' in created[0]['prompt']
     assert decisions[0]['decision']['allowed'] is True
     assert decisions[0]['task_id'] == 'task-review-1'
@@ -505,6 +511,7 @@ async def test_create_merge_task_auto_merges_when_feedback_addressed(
     monkeypatch.setattr(
         'a2a_server.github_app.watch.post_issue_comment', fake_post
     )
+    monkeypatch.setattr(issue_review_task, 'AUTO_MERGE_ENABLED', True)
 
     result = await issue_review_task.create_issue_merge_task(
         review_task={
@@ -600,6 +607,7 @@ async def test_create_merge_task_enables_github_auto_merge_when_direct_merge_blo
     monkeypatch.setattr(
         'a2a_server.github_app.watch.post_issue_comment', fake_post
     )
+    monkeypatch.setattr(issue_review_task, 'AUTO_MERGE_ENABLED', True)
 
     result = await issue_review_task.create_issue_merge_task(
         review_task={
@@ -1227,3 +1235,73 @@ def test_fix_followup_prompt_no_attempt_on_first():
         attempt=1,
     )
     assert 'Fix attempt' not in prompt
+
+@pytest.mark.asyncio
+async def test_branch_verification_uses_git_ref_endpoint(monkeypatch):
+    calls = []
+
+    async def fake_github_json(method, path, token):
+        calls.append((method, path, token))
+        return {'object': {'type': 'commit', 'sha': 'abc123'}}
+
+    monkeypatch.setattr(
+        'a2a_server.github_app.auth.github_json', fake_github_json
+    )
+
+    result = await issue_final_comment._verify_branch_and_commits(
+        'CodeTether/TetherScript', 'codetether/issue-12', 'token'
+    )
+
+    assert result == {
+        'branch_exists': True,
+        'has_commits': True,
+        'head_sha': 'abc123',
+        'error': None,
+    }
+    assert calls == [
+        (
+            'GET',
+            '/repos/CodeTether/TetherScript/git/ref/heads/codetether%2Fissue-12',
+            'token',
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_issue_final_comment_reports_missing_branch_as_infra_failure(monkeypatch):
+    comments = []
+
+    async def fake_context(task):
+        return 'CodeTether/TetherScript', 12, 'codetether/issue-12', 'token'
+
+    async def fake_verify(repo, branch, token):
+        return {
+            'branch_exists': False,
+            'has_commits': False,
+            'head_sha': '',
+            'error': '404 ref not found',
+        }
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr(issue_final_comment, 'issue_task_context', fake_context)
+    monkeypatch.setattr(
+        issue_final_comment, '_verify_branch_and_commits', fake_verify
+    )
+    monkeypatch.setattr(issue_final_comment, 'post_issue_comment', fake_post)
+
+    await issue_final_comment.notify_issue_final_comment(
+        {
+            'id': 'task-code',
+            'status': 'completed',
+            'result': 'worker said done',
+            'metadata': {'source': 'github-app'},
+        }
+    )
+
+    assert len(comments) == 1
+    assert 'Task completed but branch verification failed' in comments[0]
+    assert 'Verification endpoint: `GET /repos/CodeTether/TetherScript/git/ref/heads/codetether%2Fissue-12`' in comments[0]
+    assert 'infrastructure/workflow failure' in comments[0]
+    assert 'did not push commits' not in comments[0]
