@@ -61,6 +61,7 @@ RUN apt-get update && \
         nodejs \
         npm \
         python3 \
+        python-is-python3 \
         ripgrep \
         build-essential \
         pkg-config \
@@ -71,9 +72,14 @@ RUN apt-get update && \
         && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/usr/local/cargo/bin:${PATH}"
-RUN ln -sf /usr/local/cargo/bin/cargo /usr/local/bin/cargo && \
+RUN rustup component add rustfmt clippy && \
+    ln -sf /usr/local/cargo/bin/cargo /usr/local/bin/cargo && \
     ln -sf /usr/local/cargo/bin/rustc /usr/local/bin/rustc && \
-    ln -sf /usr/local/cargo/bin/rustup /usr/local/bin/rustup
+    ln -sf /usr/local/cargo/bin/rustup /usr/local/bin/rustup && \
+    ln -sf /usr/local/cargo/bin/rustfmt /usr/local/bin/rustfmt && \
+    ln -sf /usr/local/cargo/bin/cargo-fmt /usr/local/bin/cargo-fmt && \
+    ln -sf /usr/local/cargo/bin/cargo-clippy /usr/local/bin/cargo-clippy && \
+    ln -sf /usr/local/cargo/bin/clippy-driver /usr/local/bin/clippy-driver
 
 # Copy binary from builder (built against matching glibc).
 # Keep both paths: historical Knative worker templates invoke /app/codetether,
@@ -81,8 +87,10 @@ RUN ln -sf /usr/local/cargo/bin/cargo /usr/local/bin/cargo && \
 COPY --from=builder /build/target/release/codetether /usr/local/bin/codetether
 RUN mkdir -p /app && ln -sf /usr/local/bin/codetether /app/codetether
 
-# Create non-root user
-RUN useradd --system --shell /bin/bash --create-home worker
+# Create non-root user matching the Kubernetes securityContext (runAsUser: 1000,
+# runAsGroup: 0). Several tools call getpwuid(3), so UID 1000 must exist in
+# /etc/passwd even when the pod securityContext overrides the image user.
+RUN useradd --uid 1000 --gid 0 --shell /bin/bash --create-home worker
 USER worker
 WORKDIR /home/worker
 

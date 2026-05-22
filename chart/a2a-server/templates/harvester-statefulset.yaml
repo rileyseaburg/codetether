@@ -62,6 +62,16 @@ spec:
               value: {{ .Values.harvester.maxTimeout | default 604800 | quote }}
             - name: GITHUB_PROGRESS_ENABLED
               value: "true"
+            - name: CODETETHER_HARVESTER_ENABLED
+              value: "true"
+            - name: CODETETHER_WORKER_A2A_MDNS
+              value: "true"
+            - name: CODETETHER_WORKER_PUBLIC_URL
+              value: "http://$(POD_NAME).{{ include "a2a-server.fullname" . }}-harvester.{{ .Release.Namespace }}.svc.cluster.local:8080"
+            - name: CODETETHER_WORKER_PORT
+              value: "8080"
+            - name: CODETETHER_WORKER_A2A_PORT
+              value: "8081"
             - name: CODETETHER_SERVER
               value: http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
             {{- if .Values.harvester.tokenSecret.name }}
@@ -114,6 +124,9 @@ spec:
           ports:
             - name: health
               containerPort: 8080
+              protocol: TCP
+            - name: a2a
+              containerPort: 8081
               protocol: TCP
           livenessProbe:
             httpGet:
