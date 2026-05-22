@@ -191,6 +191,37 @@ async def claim_extended_task(
     """Claim next task including fire_and_forget with checkpoint resume."""
     from . import database as db
 
+    worker_capabilities = [
+        str(cap).strip()
+        for cap in (capabilities or [])
+        if str(cap).strip()
+    ]
+
+    # Extended polling is load-balanced independently of the SSE connection.
+    # If the poll request did not include capabilities, fall back to durable
+    # worker registration so claim-time filtering still prevents Knative-only
+    # workers from claiming persistent build/review/forage jobs.
+    if not worker_capabilities:
+        try:
+            worker = await db.db_get_worker(worker_id)
+            if worker:
+                stored_capabilities = worker.get('capabilities') or []
+                worker_capabilities = [
+                    str(cap).strip()
+                    for cap in stored_capabilities
+                    if str(cap).strip()
+                ]
+        except Exception as e:
+            logger.debug(
+                f'Failed to load registered capabilities for worker {worker_id}: {e}'
+            )
+
+    if 'knative' in worker_capabilities and 'persistent' not in worker_capabilities:
+        logger.debug(
+            f'Worker {worker_id} is knative-only; skipping extended persistent claim'
+        )
+        return None
+
     pool = await db.get_pool()
     if not pool:
         return None
@@ -199,7 +230,7 @@ async def claim_extended_task(
         row = await conn.fetchrow(
             'SELECT * FROM claim_next_task_run_extended($1, $2, $3, $4, $5, $6)',
             worker_id, PERSISTENT_WORKER_LEASE_SECONDS,
-            agent_name, json.dumps(capabilities or []),
+            agent_name, json.dumps(worker_capabilities),
             models_supported or None, PERSISTENT_WORKER_MAX_TIMEOUT,
         )
 
@@ -210,6 +241,7 @@ async def claim_extended_task(
     logger.info(
         f'Worker {worker_id} claimed run {result["run_id"]} '
         f'(task={result["task_id"]}, mode={result.get("dispatch_mode")}, '
+        f'target_agent={result.get("target_agent_name")}, '
         f'resume={result.get("resume_attempt", 0)})'
     )
     return result

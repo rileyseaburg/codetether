@@ -23,6 +23,22 @@ _TIER_FAST = 'fast'
 _TIER_BALANCED = 'balanced'
 _TIER_HEAVY = 'heavy'
 
+# Runtime capability labels used by claim-time routing.  Long-running build,
+# review, swarm, ralph and forage work must run on the persistent harvester
+# runtime.  Knative services are request/response workers and are intentionally
+# excluded from those task classes at both notify-time and claim-time.
+_RUNTIME_PERSISTENT = 'persistent'
+_PERSISTENT_AGENT_TYPES = {
+    'build',
+    'review',
+    'verify',
+    'fix',
+    'forage',
+    'ralph',
+    'swarm',
+    'go',
+}
+
 _DEFAULT_TIER_BY_COMPLEXITY = {
     _COMPLEXITY_QUICK: _TIER_FAST,
     _COMPLEXITY_STANDARD: _TIER_BALANCED,
@@ -98,6 +114,36 @@ def _routing_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
+
+
+def required_runtime_capability(agent_type: Optional[str]) -> Optional[str]:
+    """Return the required worker runtime for an agent task type."""
+    normalized = (agent_type or '').strip().lower().replace('_', '-')
+    if normalized in _PERSISTENT_AGENT_TYPES:
+        return _RUNTIME_PERSISTENT
+    return None
+
+
+def ensure_required_runtime_capability(
+    metadata: Dict[str, Any], agent_type: Optional[str]
+) -> Dict[str, Any]:
+    """Add runtime required_capabilities without dropping caller-provided ones."""
+    enriched = dict(metadata or {})
+    required = enriched.get('required_capabilities')
+    if isinstance(required, str):
+        capabilities = [required]
+    elif isinstance(required, list):
+        capabilities = [str(cap) for cap in required if str(cap).strip()]
+    else:
+        capabilities = []
+
+    runtime_capability = required_runtime_capability(agent_type)
+    if runtime_capability and runtime_capability not in capabilities:
+        capabilities.append(runtime_capability)
+
+    if capabilities:
+        enriched['required_capabilities'] = capabilities
+    return enriched
 
 
 def _metadata_value(metadata: Dict[str, Any], *keys: str) -> Any:
@@ -495,7 +541,9 @@ def orchestrate_task_route(
         worker_personality=personality,
     )
 
-    enriched_metadata = dict(source_metadata)
+    enriched_metadata = ensure_required_runtime_capability(
+        source_metadata, agent_type
+    )
     routing_meta = dict(enriched_metadata.get('routing') or {})
     routing_meta.update(
         {
@@ -535,5 +583,7 @@ __all__ = [
     'TaskRoutingDecision',
     'normalize_model_ref',
     'to_provider_model',
+    'required_runtime_capability',
+    'ensure_required_runtime_capability',
     'orchestrate_task_route',
 ]
