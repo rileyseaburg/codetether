@@ -30,7 +30,7 @@ async def ensure_workspace(context: MentionContext, pr: dict[str, Any]) -> str:
     git_branch = checkout_branch(context, pr)
     app_id = await get_secret('app_id', 'GITHUB_APP_ID', 'app_id', 'github_app_id')
     wid = workspace_id(git_url, git_branch)
-    workspace = {'id': wid, 'name': context.repo_full_name, 'path': f'/var/lib/codetether/repos/{wid}', 'description': f'GitHub App workspace for {context.repo_full_name}', 'git_url': git_url, 'git_branch': git_branch, 'status': 'active', 'agent_config': {'source': 'github-app', 'repo': {'full_name': context.repo_full_name}, 'github': {'repo_full_name': context.repo_full_name, 'pull_request_number': context.pr_number, 'branch_name': branch_name}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}}
+    workspace = {'id': wid, 'name': context.repo_full_name, 'path': f'/var/lib/codetether/repos/{wid}', 'description': f'GitHub App workspace for {context.repo_full_name}', 'git_url': git_url, 'git_branch': git_branch, 'status': 'active', 'agent_config': {'source': 'github-app', 'repo': {'full_name': context.repo_full_name}, 'github': {'repo_full_name': context.repo_full_name, 'pull_request_number': context.pr_number, 'branch_name': branch_name}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}
     await db.db_upsert_workspace(workspace)
     await _redis_upsert_workspace_meta(workspace)
     return wid
