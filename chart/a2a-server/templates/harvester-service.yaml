@@ -1,0 +1,24 @@
+{{- if .Values.harvester.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-harvester
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: harvester
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "a2a-server.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: harvester
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
+    - name: a2a
+      port: 8081
+      targetPort: a2a
+      protocol: TCP
+{{- end }}
