@@ -64,6 +64,40 @@ async def _db_worker_agent_name(worker_id: str) -> Optional[str]:
     return str(worker.get('name') or '').strip() or None
 
 
+async def _db_worker_capabilities(worker_id: str) -> List[str]:
+    """Resolve a worker's registered capabilities from durable storage."""
+    try:
+        from .database import db_get_worker
+
+        worker = await db_get_worker(worker_id)
+    except Exception as e:
+        logger.debug(
+            f'Failed to resolve worker capabilities for {worker_id} from DB: {e}'
+        )
+        return []
+
+    if not worker:
+        return []
+    return _normalize_capabilities(worker.get('capabilities'))
+
+
+def _normalize_capabilities(value: Any) -> List[str]:
+    """Normalize capability payloads from headers, JSON, or DB rows."""
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    return [str(cap).strip() for cap in value if str(cap).strip()]
+
+
+def _task_required_capabilities(task: Dict[str, Any]) -> List[str]:
+    """Return required capabilities from top-level task or nested metadata."""
+    required = task.get('required_capabilities')
+    if required is None and isinstance(task.get('metadata'), dict):
+        required = task['metadata'].get('required_capabilities')
+    return _normalize_capabilities(required)
+
+
 @dataclass
 class ConnectedWorker:
     """Represents a worker connected via SSE."""
@@ -245,6 +279,27 @@ class WorkerRegistry:
                         f'target_agent_name={task_target_agent})'
                     )
                     return False
+
+                required_capabilities = _normalize_capabilities(
+                    task_metadata.get('required_capabilities')
+                    or getattr(task, 'required_capabilities', None)
+                )
+                if required_capabilities:
+                    worker_capabilities = (
+                        _normalize_capabilities(worker.capabilities)
+                        if worker
+                        else await _db_worker_capabilities(worker_id)
+                    )
+                    if not all(
+                        cap in worker_capabilities
+                        for cap in required_capabilities
+                    ):
+                        logger.debug(
+                            f'Worker {worker_id} skipped task {task_id} '
+                            f'(required_capabilities={required_capabilities}, '
+                            f'worker_capabilities={worker_capabilities})'
+                        )
+                        return False
 
                 codebase_id = task.codebase_id
                 # Clone/refresh tasks bypass codebase ownership — the whole
@@ -1768,6 +1823,8 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
     target_agent_name = task.get('target_agent_name')
     target_worker_id = task.get('target_worker_id')
     required_capabilities = task.get('required_capabilities')
+    if required_capabilities is None and isinstance(task.get('metadata'), dict):
+        required_capabilities = task['metadata'].get('required_capabilities')
     if not target_worker_id and isinstance(task.get('metadata'), dict):
         target_worker_id = task['metadata'].get('target_worker_id')
 

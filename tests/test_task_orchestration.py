@@ -58,3 +58,26 @@ def test_personality_maps_to_target_and_model(monkeypatch):
     assert decision.model_ref == 'anthropic:claude-sonnet-4'
     assert metadata['target_agent_name'] == 'builder-worker'
     assert metadata['model'] == 'anthropic/claude-sonnet-4'
+
+
+def test_build_tasks_require_persistent_runtime():
+    _, metadata = orchestrate_task_route(
+        prompt='Implement this feature end-to-end',
+        agent_type='build',
+        metadata={},
+    )
+
+    assert metadata['required_capabilities'] == ['persistent']
+
+
+def test_runtime_requirement_preserves_existing_capabilities():
+    _, metadata = orchestrate_task_route(
+        prompt='Review this change',
+        agent_type='review',
+        metadata={'required_capabilities': ['repo-write']},
+    )
+
+    assert metadata['required_capabilities'] == [
+        'repo-write',
+        'persistent',
+    ]

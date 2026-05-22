@@ -241,6 +241,63 @@ async def test_claim_task_uses_db_worker_name_when_registry_misses(
 
 
 @pytest.mark.asyncio
+async def test_claim_task_rejects_worker_missing_required_capability(
+    monkeypatch, registry
+):
+    class PersistentTask:
+        codebase_id = 'global'
+        target_agent_name = None
+        metadata = {'required_capabilities': ['persistent']}
+
+    class Bridge:
+        async def get_task(self, task_id):
+            assert task_id == 'task_persistent'
+            return PersistentTask()
+
+    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: Bridge())
+
+    await registry.register_worker(
+        worker_id='worker_knative',
+        agent_name='knative-worker',
+        queue=asyncio.Queue(),
+        capabilities=['knative'],
+    )
+
+    assert (
+        await registry.claim_task('task_persistent', 'worker_knative')
+        is False
+    )
+    assert 'task_persistent' not in registry._claimed_tasks
+
+
+@pytest.mark.asyncio
+async def test_notify_uses_metadata_required_capabilities(registry):
+    await registry.register_worker(
+        worker_id='worker_knative',
+        agent_name='knative-worker',
+        queue=asyncio.Queue(),
+        capabilities=['knative'],
+    )
+    persistent_queue = asyncio.Queue()
+    await registry.register_worker(
+        worker_id='worker_persistent',
+        agent_name='persistent-worker',
+        queue=persistent_queue,
+        capabilities=['persistent'],
+    )
+
+    notified = await worker_sse.notify_workers_of_new_task(
+        {
+            'id': 'task_persistent',
+            'codebase_id': 'global',
+            'metadata': {'required_capabilities': ['persistent']},
+        }
+    )
+
+    assert notified == ['worker_persistent']
+
+
+@pytest.mark.asyncio
 async def test_release_task_accepts_db_claim_when_local_registry_misses(
     monkeypatch, registry
 ):
