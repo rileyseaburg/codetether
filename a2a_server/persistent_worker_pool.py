@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -39,6 +40,85 @@ GITHUB_PROGRESS_INTERVAL_SECONDS = int(
 )
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
+
+
+def _github_work_key(metadata: Dict[str, Any]) -> Optional[str]:
+    """Return a stable idempotency key for active GitHub App work.
+
+    The key is intentionally scoped to one workflow stage and head SHA so a PR can
+    move from prepare -> code, and a new commit can trigger fresh work, while
+    concurrent webhook/active-work scans cannot create duplicate workers for the
+    same PR commit/stage.
+    """
+    if metadata.get('source') != 'github-app':
+        return None
+
+    repo = str(metadata.get('repo') or '').strip()
+    number = metadata.get('pr_number') or metadata.get('issue_number')
+    stage = str(metadata.get('workflow_stage') or metadata.get('agent_type') or '').strip()
+    head_sha = str(
+        metadata.get('pr_head_sha')
+        or metadata.get('github_check_head_sha')
+        or metadata.get('head_sha')
+        or ''
+    ).strip()
+
+    if not (repo and number and stage):
+        return None
+    return f'github-app:{repo}:{number}:{stage}:{head_sha}'
+
+
+@asynccontextmanager
+async def _github_work_dedupe_lock(metadata: Dict[str, Any]):
+    """Serialize GitHub App task creation for one work key across API pods."""
+    work_key = _github_work_key(metadata)
+    if not work_key:
+        yield None
+        return
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        yield work_key
+        return
+
+    conn = await pool.acquire()
+    try:
+        await conn.execute('SELECT pg_advisory_lock(hashtextextended($1, 0))', work_key)
+        yield work_key
+    finally:
+        try:
+            await conn.execute('SELECT pg_advisory_unlock(hashtextextended($1, 0))', work_key)
+        finally:
+            await pool.release(conn)
+
+
+async def _active_github_work_task_id(work_key: Optional[str]) -> Optional[str]:
+    """Return the oldest active task for a GitHub App idempotency key."""
+    if not work_key:
+        return None
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        return None
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id
+            FROM tasks
+            WHERE status IN ('pending', 'queued', 'running', 'working')
+              AND COALESCE(metadata, '{}'::jsonb)->>'source' = 'github-app'
+              AND COALESCE(metadata, '{}'::jsonb)->>'github_work_key' = $1
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            work_key,
+        )
+    return str(row['id']) if row else None
 
 
 async def create_and_dispatch_task(
@@ -80,37 +160,52 @@ async def create_and_dispatch_task(
             workspace = None
 
     effective_metadata = dict(metadata or {})
+    effective_metadata.setdefault('agent_type', agent_type)
     if model_ref:
         effective_metadata['model_ref'] = model_ref
 
-    # 1. Create the task via the bridge (standard task row in tasks table)
-    task = await bridge.create_task(
-        codebase_id=workspace_id,
-        title=title,
-        prompt=prompt,
-        agent_type=agent_type,
-        priority=priority,
-        model=effective_metadata.get('model'),
-        metadata=effective_metadata,
-        model_ref=model_ref,
-    )
-    if not task:
-        raise RuntimeError('Failed to create task')
+    work_key = _github_work_key(effective_metadata)
+    if work_key:
+        effective_metadata['github_work_key'] = work_key
 
-    task_id = task.id if hasattr(task, 'id') else task.get('id')
+    async with _github_work_dedupe_lock(effective_metadata) as locked_work_key:
+        existing_task_id = await _active_github_work_task_id(locked_work_key)
+        if existing_task_id:
+            logger.info(
+                'Reusing active GitHub App task %s for work key %s',
+                existing_task_id,
+                locked_work_key,
+            )
+            return existing_task_id
 
-    # 2. Dispatch fire-and-forget run (creates task_runs row with FF mode)
-    await dispatch_fire_and_forget(
-        task_id=task_id,
-        title=title,
-        description=prompt,
-        agent_type=agent_type,
-        model=model_ref,
-        priority=priority,
-        task_timeout_seconds=task_timeout_seconds,
-        github_issue_url=github_issue_url,
-        metadata=effective_metadata,
-    )
+        # 1. Create the task via the bridge (standard task row in tasks table)
+        task = await bridge.create_task(
+            codebase_id=workspace_id,
+            title=title,
+            prompt=prompt,
+            agent_type=agent_type,
+            priority=priority,
+            model=effective_metadata.get('model'),
+            metadata=effective_metadata,
+            model_ref=model_ref,
+        )
+        if not task:
+            raise RuntimeError('Failed to create task')
+
+        task_id = task.id if hasattr(task, 'id') else task.get('id')
+
+        # 2. Dispatch fire-and-forget run (creates task_runs row with FF mode)
+        await dispatch_fire_and_forget(
+            task_id=task_id,
+            title=title,
+            description=prompt,
+            agent_type=agent_type,
+            model=model_ref,
+            priority=priority,
+            task_timeout_seconds=task_timeout_seconds,
+            github_issue_url=github_issue_url,
+            metadata=effective_metadata,
+        )
 
     logger.info(
         f'Created and dispatched FF task {task_id} '
