@@ -69,3 +69,38 @@ async def test_dispatch_task_stores_github_action_review_as_null_workspace(monke
     enqueue.assert_awaited_once()
     assert response.task_id.startswith('task-')
     assert response.status == 'pending'
+
+
+@pytest.mark.asyncio
+async def test_dispatch_task_falls_back_to_queue_when_knative_publish_raises(monkeypatch):
+    """Knative broker errors must not surface as server-mode dispatch HTTP 500s."""
+    import httpx
+
+    pool = FakePool()
+    monkeypatch.setattr('a2a_server.automation_api.get_pool', AsyncMock(return_value=pool))
+    monkeypatch.setattr('a2a_server.automation_api.KNATIVE_ENABLED', True)
+    monkeypatch.setattr(
+        'a2a_server.automation_api.dispatch_task_to_knative',
+        AsyncMock(side_effect=httpx.ConnectError('broker unavailable')),
+    )
+    enqueue = AsyncMock(return_value=SimpleNamespace(id='run-1'))
+    monkeypatch.setattr('a2a_server.automation_api.enqueue_task', enqueue)
+
+    response = await dispatch_task(
+        DispatchTaskRequest(
+            title='PR Review: #12 Example',
+            description='Review this diff from GitHub Actions.',
+            agent_type='code-review',
+            model='openai-codex/gpt-5.5',
+            metadata={'source': 'github-actions', 'repo': 'acme/widget', 'pr_number': 12},
+        ),
+        http_request=SimpleNamespace(),
+        user=SimpleNamespace(tenant_id='tenant-1', user_id='user-1'),
+    )
+
+    enqueue.assert_awaited_once()
+    assert enqueue.await_args.kwargs['model_ref'] == 'openai-codex/gpt-5.5'
+    assert response.task_id.startswith('task-')
+    assert response.status == 'pending'
+    assert response.event_id is None
+    assert response.dispatched_via_knative is False
