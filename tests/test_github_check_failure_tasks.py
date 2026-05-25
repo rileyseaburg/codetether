@@ -6,6 +6,7 @@ import pytest
 
 from a2a_server.github_comment_tasks import (
     _check_failure_prompt,
+    _same_pr_worker_route,
     should_queue_check_failure_task,
 )
 
@@ -58,8 +59,11 @@ def test_failed_check_run_on_pr_queues_remediation(repo_payload):
     assert title == 'Fix failing PR #87 check: Lint Code Base'
     assert 'Branch: codetether/issue-86' in prompt
     assert 'Details URL: https://github.com/owner/repo/actions/runs/1/job/2' in prompt
-    assert metadata['source'] == 'github_check_failure_webhook'
+    assert metadata['source'] == 'github-app'
+    assert metadata['workflow_stage'] == 'code'
+    assert metadata['repo'] == 'owner/repo'
     assert metadata['pr_number'] == 87
+    assert metadata['pr_head_sha'] == 'abc123'
     assert metadata['check_name'] == 'Lint Code Base'
     assert metadata['source_metadata']['trigger'] == 'failed_check'
 
@@ -102,3 +106,64 @@ def test_failed_branch_check_without_pr_is_ignored(repo_payload):
     }
 
     assert not should_queue_check_failure_task('check_run', payload)
+
+
+@pytest.mark.asyncio
+async def test_same_pr_worker_route_prefers_live_existing_worker(monkeypatch):
+    class Conn:
+        async def fetchrow(self, query, repo, pr, workspace_id):
+            assert repo == 'owner/repo'
+            assert pr == '87'
+            assert workspace_id == 'workspace-1'
+            return {'worker_id': 'worker-live', 'task_id': 'task-existing'}
+
+    class Acquire:
+        async def __aenter__(self):
+            return Conn()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class Pool:
+        def acquire(self):
+            return Acquire()
+
+    import a2a_server.github_comment_tasks as tasks
+
+    async def fake_pool():
+        return Pool()
+
+    monkeypatch.setattr(tasks.db, 'get_pool', fake_pool)
+
+    assert await _same_pr_worker_route('owner/repo', 87, 'workspace-1') == {
+        'target_worker_id': 'worker-live',
+        'worker_affinity': 'same_pr_worker',
+        'worker_affinity_source_task_id': 'task-existing',
+    }
+
+
+@pytest.mark.asyncio
+async def test_same_pr_worker_route_falls_back_without_live_worker(monkeypatch):
+    class Conn:
+        async def fetchrow(self, *args):
+            return None
+
+    class Acquire:
+        async def __aenter__(self):
+            return Conn()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class Pool:
+        def acquire(self):
+            return Acquire()
+
+    import a2a_server.github_comment_tasks as tasks
+
+    async def fake_pool():
+        return Pool()
+
+    monkeypatch.setattr(tasks.db, 'get_pool', fake_pool)
+
+    assert await _same_pr_worker_route('owner/repo', 87, 'workspace-1') == {}

@@ -199,6 +199,66 @@ def _check_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return payload.get('check_run') or payload.get('check_suite') or payload.get('workflow_run') or {}
 
 
+async def _same_pr_worker_route(repo_full_name: str, pr_number: int, workspace_id: str) -> Dict[str, Any]:
+    """Prefer the live worker already associated with this PR workspace.
+
+    Failed checks usually fire after a worker has already cloned the PR branch.
+    Pinning the remediation back to that live worker avoids recloning elsewhere
+    and keeps check-fix loops on the same local workspace. If that worker is no
+    longer heartbeating, return no hard pin so normal capability routing can
+    recover the task.
+    """
+    pool = await db.get_pool()
+    if not pool:
+        return {}
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            WITH candidates AS (
+              SELECT
+                COALESCE(
+                  NULLIF(t.metadata->>'target_worker_id', ''),
+                  NULLIF(tr.lease_owner, ''),
+                  NULLIF(t.worker_id, '')
+                ) AS worker_id,
+                t.id AS task_id,
+                t.updated_at,
+                CASE WHEN t.status IN ('pending', 'queued', 'running', 'working') THEN 0 ELSE 1 END AS terminal_rank
+              FROM tasks t
+              LEFT JOIN LATERAL (
+                SELECT lease_owner
+                FROM task_runs tr
+                WHERE tr.task_id = t.id
+                  AND tr.lease_owner IS NOT NULL
+                ORDER BY tr.updated_at DESC NULLS LAST, tr.created_at DESC
+                LIMIT 1
+              ) tr ON TRUE
+              WHERE COALESCE(t.metadata, '{}'::jsonb)->>'repo' = $1
+                AND COALESCE(t.metadata, '{}'::jsonb)->>'pr_number' = $2
+                AND COALESCE(t.metadata, '{}'::jsonb)->>'workspace_id' = $3
+            )
+            SELECT c.worker_id, c.task_id
+            FROM candidates c
+            JOIN workers w ON w.worker_id = c.worker_id
+            WHERE c.worker_id IS NOT NULL
+              AND w.status = 'active'
+              AND w.last_seen > NOW() - INTERVAL '2 minutes'
+            ORDER BY c.terminal_rank ASC, c.updated_at DESC
+            LIMIT 1
+            """,
+            repo_full_name,
+            str(pr_number),
+            workspace_id,
+        )
+    if not row or not row['worker_id']:
+        return {}
+    return {
+        'target_worker_id': row['worker_id'],
+        'worker_affinity': 'same_pr_worker',
+        'worker_affinity_source_task_id': row['task_id'],
+    }
+
+
 def should_queue_check_failure_task(event_name: str, payload: Dict[str, Any]) -> bool:
     """Return true when a GitHub check failure should spawn remediation work."""
     if event_name not in {'check_run', 'check_suite', 'workflow_run'}:
@@ -248,11 +308,16 @@ def _check_failure_prompt(event_name: str, payload: Dict[str, Any], pr: Dict[str
     head_sha = str(check.get('head_sha') or pr.get('head', {}).get('sha') or '')
     title = f"Fix failing PR #{pr_number} check: {check_name}"
     metadata: Dict[str, Any] = {
-        'source': 'github_check_failure_webhook',
+        'source': 'github-app',
+        'workflow_stage': 'code',
         'github_event': event_name,
         'github_repository': repo['full_name'],
         'github_installation_id': installation_id,
+        'repo': repo['full_name'],
         'pr_number': pr_number,
+        'pr_head': branch,
+        'pr_head_sha': head_sha,
+        'github_check_head_sha': head_sha,
         'check_name': check_name,
         'check_conclusion': conclusion,
         'check_details_url': details_url,
@@ -291,22 +356,37 @@ async def queue_github_check_failure_task(event_name: str, payload: Dict[str, An
     branch = str(pr['head']['ref'])
     title, prompt, metadata = _check_failure_prompt(event_name, payload, pr)
     workspace_id = await _ensure_workspace(repo, installation_id, branch)
+    affinity = await _same_pr_worker_route(repo['full_name'], int(pr['number']), workspace_id)
+    if affinity:
+        metadata.update(affinity)
+    clone_metadata = {
+        'git_url': repo['clone_url'],
+        'git_branch': branch,
+        'workspace_id': workspace_id,
+        'source': 'github-app',
+        'workflow_stage': 'clone_repo',
+        'repo': repo['full_name'],
+        'pr_number': int(pr['number']),
+        'pr_head': branch,
+        'pr_head_sha': (pr.get('head') or {}).get('sha') or metadata.get('pr_head_sha'),
+        'github_check_head_sha': metadata.get('github_check_head_sha'),
+        'github_issue_url': pr.get('html_url'),
+        'github_installation_id': installation_id,
+        'post_clone_task': {
+            'title': title,
+            'prompt': prompt,
+            'agent_type': 'build',
+            'metadata': metadata,
+        },
+    }
+    if affinity:
+        clone_metadata.update(affinity)
     task_id = await create_and_dispatch_task(
         workspace_id=workspace_id,
         title=f"Prepare repository: {repo['full_name']}",
         prompt=f"Clone or update {repo['full_name']} at branch {branch}",
         agent_type='clone_repo',
-        metadata={
-            'git_url': repo['clone_url'],
-            'git_branch': branch,
-            'workspace_id': workspace_id,
-            'post_clone_task': {
-                'title': title,
-                'prompt': prompt,
-                'agent_type': 'build',
-                'metadata': metadata,
-            },
-        },
+        metadata=clone_metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=pr.get('html_url'),
     )
