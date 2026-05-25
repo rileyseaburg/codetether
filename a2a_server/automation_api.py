@@ -624,21 +624,31 @@ async def dispatch_task(
     event_id = None
 
     if KNATIVE_ENABLED:
-        event_id = await dispatch_task_to_knative(
-            task_id=task_id,
-            title=request.title,
-            description=request.description,
-            agent_type=request.agent_type,
-            model=request.model,
-            priority=request.priority,
-            metadata={
-                **(request.metadata or {}),
-                "tenant_id": tenant_id,
-                "user_id": user_id,
-                "webhook_url": str(request.webhook_url) if request.webhook_url else None,
-            },
-        )
-        dispatched_via_knative = event_id is not None
+        try:
+            event_id = await dispatch_task_to_knative(
+                task_id=task_id,
+                title=request.title,
+                description=request.description,
+                agent_type=request.agent_type,
+                model=request.model,
+                priority=request.priority,
+                metadata={
+                    **(request.metadata or {}),
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "webhook_url": str(request.webhook_url) if request.webhook_url else None,
+                },
+            )
+            dispatched_via_knative = event_id is not None
+        except Exception as exc:
+            logger.warning(
+                'Knative dispatch failed for %s; falling back to task queue: %s',
+                task_id,
+                exc,
+                exc_info=True,
+            )
+            event_id = None
+            dispatched_via_knative = False
 
     if not dispatched_via_knative:
         # Knative dispatch unavailable — fall back to task queue + SSE push
@@ -653,6 +663,7 @@ async def dispatch_task(
             notify_webhook_url=(
                 str(request.webhook_url) if request.webhook_url else None
             ),
+            model_ref=request.model,
         )
 
         # Push the new task to SSE-connected workers immediately so
