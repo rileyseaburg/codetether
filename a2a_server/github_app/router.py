@@ -5,6 +5,7 @@ import logging
 
 from fastapi import APIRouter, Request
 
+from .active_work import dispatch_active_work_for_installation
 from .auth import installation_token, verify_signature
 from .check_failures import context_from_failed_check, should_remediate_failed_check
 from .mention import is_fix_request
@@ -41,6 +42,14 @@ async def handle_github_webhook(request: Request):
             'reason': 'self-authored-event',
             'event': event_name,
             'action': payload.get('action'),
+        }
+    if _should_dispatch_installed_repo_active_work(event_name, payload):
+        installation_id = int(payload.get('installation', {}).get('id') or 0)
+        results = await dispatch_active_work_for_installation(installation_id)
+        return {
+            'accepted': True,
+            'trigger': event_name,
+            'dispatched': len(results),
         }
     if should_remediate_failed_check(event_name, payload):
         context = context_from_failed_check(event_name, payload)
@@ -84,3 +93,14 @@ async def handle_github_webhook(request: Request):
         )
         return {'accepted': False, 'reason': 'non-fix mention'}
     return await handle_fix_request(context, token)
+
+
+def _should_dispatch_installed_repo_active_work(event_name: str, payload: dict) -> bool:
+    """Return true when GitHub App repo scope changes need active-work backfill."""
+    action = payload.get('action')
+    return (
+        event_name == 'installation' and action == 'created'
+    ) or (
+        event_name == 'installation_repositories'
+        and action in {'added', 'created'}
+    )

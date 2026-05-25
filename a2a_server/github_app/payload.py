@@ -48,7 +48,13 @@ def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
     if is_self_authored_event(event_name, payload):
         return False
     if event_name in {'issue_comment', 'pull_request_review_comment'}:
-        return action == 'created'
+        if action == 'created':
+            return True
+        if action == 'edited':
+            old_body = (payload.get('changes', {}).get('body', {}) or {}).get('from', '')
+            new_body = _body_for_event(event_name, payload)
+            return mentions_bot(new_body) and not mentions_bot(old_body)
+        return False
     if event_name == 'pull_request_review':
         return action == 'submitted'
     if event_name in {'issues', 'pull_request'}:

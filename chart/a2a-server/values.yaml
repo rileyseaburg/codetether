@@ -745,6 +745,20 @@ harvester:
     tlsSkipVerify: false
     mount: "secret"
     secretsPath: "codetether/providers"
+    # Optional static-token mode for clusters that use a pre-provisioned Vault
+    # token Secret instead of native Kubernetes auth. When tokenSecret.name is
+    # set, VAULT_ADDR/VAULT_TOKEN are sourced from that Secret and the projected
+    # service-account JWT volume is not required.
+    tokenSecret:
+      name: ""
+      addressKey: VAULT_ADDR
+      tokenKey: VAULT_TOKEN
+  defaultProvider: ""
+  defaultModel: ""
+  providerSecrets:
+    # Mount all keys from these Secrets as environment variables for provider
+    # env resolution, for example OPENROUTER_API_KEY or ANTHROPIC_API_KEY.
+    envFrom: []
   tokenSecret:
     name: ""
     key: CODETETHER_TOKEN

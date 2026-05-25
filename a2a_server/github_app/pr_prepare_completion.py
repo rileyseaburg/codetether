@@ -74,6 +74,72 @@ async def _record_pr_followup_task(task_id: str | None, followup_task_id: str) -
         )
 
 
+async def _acquire_followup_lock(repo: str, number: int, kind: str):
+    """Acquire a DB-backed process-wide lock for one GitHub item follow-up."""
+    from .. import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        return None
+
+    key = f'github-app-followup:{kind}:{repo}:{number}'
+    conn = await pool.acquire()
+    try:
+        await conn.execute(
+            'SELECT pg_advisory_lock(hashtextextended($1, 0))',
+            key,
+        )
+        return pool, conn, key
+    except Exception:
+        await pool.release(conn)
+        raise
+
+
+async def _release_followup_lock(lock) -> None:
+    if not lock:
+        return
+    pool, conn, key = lock
+    try:
+        await conn.execute(
+            'SELECT pg_advisory_unlock(hashtextextended($1, 0))',
+            key,
+        )
+    finally:
+        await pool.release(conn)
+
+
+async def _active_followup_task_id(
+    repo: str,
+    number: int,
+    kind: str,
+) -> str | None:
+    """Return an active non-prepare GitHub App task for this issue or PR."""
+    from .. import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        return None
+
+    number_key = 'pr_number' if kind == 'pr' else 'issue_number'
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"""
+            SELECT id
+            FROM tasks
+            WHERE status IN ('pending', 'queued', 'running', 'working')
+              AND COALESCE(metadata, '{{}}'::jsonb)->>'source' = 'github-app'
+              AND COALESCE(metadata, '{{}}'::jsonb)->>'repo' = $1
+              AND COALESCE(metadata, '{{}}'::jsonb)->>'{number_key}' = $2
+              AND title NOT ILIKE 'Prepare %'
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            repo,
+            str(number),
+        )
+    return str(row['id']) if row else None
+
+
 async def _release_pr_followup_claim(task_id: str | None, error: Exception) -> None:
     if not task_id:
         return
@@ -155,14 +221,22 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
         )
         return
 
-    target_worker_id = str(worker_id or task.get('worker_id') or '').strip()
-    if target_worker_id:
-        followup_metadata['target_worker_id'] = target_worker_id
-
     github_issue_url = followup_metadata.get('github_issue_url') or metadata.get(
         'github_issue_url'
     )
+    lock = await _acquire_followup_lock(repo, pr_number, 'pr')
     try:
+        existing_task_id = await _active_followup_task_id(repo, pr_number, 'pr')
+        if existing_task_id:
+            logger.info(
+                'Skipping duplicate PR follow-up for %s#%s; active task %s exists',
+                repo,
+                pr_number,
+                existing_task_id,
+            )
+            await _record_pr_followup_task(source_task_id, existing_task_id)
+            return
+
         followup_task_id = await create_and_dispatch_task(
             workspace_id=workspace_id,
             title=str(followup.get('title') or f'Apply PR fix #{pr_number}'),
@@ -176,4 +250,6 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
     except Exception as exc:
         await _release_pr_followup_claim(source_task_id, exc)
         raise
+    finally:
+        await _release_followup_lock(lock)
     await _record_pr_followup_task(source_task_id, followup_task_id)

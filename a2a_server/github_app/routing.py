@@ -41,22 +41,39 @@ def _has_any_capability(worker: dict[str, Any], capabilities: tuple[str, ...]) -
 
 
 def clone_task_routing_metadata() -> dict[str, Any]:
-    """Return capability metadata for GitHub App durable workspace tasks.
+    """Return mandatory capability metadata for GitHub App durable tasks.
 
-    The clone/prep task is intentionally routed to persistent-workspace class
-    workers instead of a hardcoded Knative worker name. Explicit
-    GITHUB_APP_TARGET_WORKER_ID/GITHUB_APP_TARGET_AGENT settings still win for
-    existing deployments that need pinning.
+    GitHub App work now runs as the direct replacement path on one cluster, so
+    every clone/build/review/fix task must require the persistent workspace
+    capability unless it is pinned to a concrete worker id. A configured target
+    agent may narrow the agent name, but it no longer removes the capability
+    gate.
     """
-    if TARGET_WORKER_ID or TARGET_AGENT:
-        return {}
-    if TARGET_CAPABILITIES:
-        return {'required_capabilities': list(TARGET_CAPABILITIES)}
-    return {}
+    metadata: dict[str, Any] = {}
+    if TARGET_AGENT:
+        metadata['target_agent_name'] = TARGET_AGENT
+    if not TARGET_WORKER_ID and TARGET_CAPABILITIES:
+        metadata['required_capabilities'] = list(TARGET_CAPABILITIES)
+    return metadata
+
+
+def _worker_routing_metadata(worker: dict[str, Any]) -> dict[str, Any]:
+    """Route to a stable worker class instead of an ephemeral worker id."""
+    metadata = clone_task_routing_metadata()
+    name = str(worker.get('name') or '').strip()
+    if name and not metadata.get('target_agent_name'):
+        metadata['target_agent_name'] = name
+    return metadata
 
 
 async def resolve_task_target() -> dict[str, Any]:
-    """Pick a connected persistent workspace worker or configured target."""
+    """Pick a durable worker route for GitHub App tasks.
+
+    Worker IDs are generated at process start, so using a discovered worker id
+    here pins queued work to a pod lifetime. Prefer stable worker name plus
+    capability requirements; only honor target_worker_id when explicitly
+    configured as a hard operator override.
+    """
     from .. import database as db
 
     workers = [
@@ -72,14 +89,14 @@ async def resolve_task_target() -> dict[str, Any]:
         [worker for worker in workers if _has_any_capability(worker, TARGET_CAPABILITIES)]
     )
     if capable_match:
-        return {'target_worker_id': str(capable_match['worker_id'])}
+        return _worker_routing_metadata(capable_match)
 
     for agent_name in PREFERRED_AGENTS:
         match = _best_worker(
             [worker for worker in workers if worker.get('name') == agent_name]
         )
         if match:
-            return {'target_worker_id': str(match['worker_id'])}
+            return _worker_routing_metadata(match)
     local_match = _best_worker(
         [
             worker
@@ -89,7 +106,5 @@ async def resolve_task_target() -> dict[str, Any]:
         ]
     )
     if local_match:
-        return {'target_worker_id': str(local_match['worker_id'])}
-    if TARGET_AGENT:
-        return {'target_agent_name': TARGET_AGENT}
+        return _worker_routing_metadata(local_match)
     return clone_task_routing_metadata()

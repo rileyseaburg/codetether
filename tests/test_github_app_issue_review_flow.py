@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+
 import pytest
 
 from a2a_server.github_app import (
@@ -1304,7 +1308,61 @@ async def test_issue_final_comment_reports_missing_branch_as_infra_failure(monke
     )
 
     assert len(comments) == 1
-    assert 'Task completed but branch verification failed' in comments[0]
-    assert 'Verification endpoint: `GET /repos/CodeTether/TetherScript/git/ref/heads/codetether%2Fissue-12`' in comments[0]
-    assert 'infrastructure/workflow failure' in comments[0]
+    assert 'Branch verification failed after worker completion' in comments[0]
+    assert 'GET /repos/CodeTether/TetherScript/git/ref/heads/codetether%2Fissue-12' in comments[0]
+    assert 'Recovery: retry or investigate worker commit/push/auth' in comments[0]
     assert 'did not push commits' not in comments[0]
+
+
+@pytest.mark.asyncio
+async def test_issue_terminal_normalization_fails_missing_branch_before_check(monkeypatch):
+    calls = []
+
+    async def fake_db_get_task(task_id):
+        if calls and calls[-1][0] == 'update':
+            return {
+                'id': task_id,
+                'status': 'failed',
+                'error': calls[-1][2],
+                'metadata': {'source': 'github-app', 'workflow_stage': 'code'},
+            }
+        return {
+            'id': task_id,
+            'status': 'completed',
+            'metadata': {'source': 'github-app', 'workflow_stage': 'code'},
+        }
+
+    async def fake_update(task_id, status, worker_id=None, result=None, error=None):
+        calls.append(('update', status, error))
+        return True
+
+    async def fake_context(task):
+        return 'CodeTether/TetherScript', 12, 'codetether/issue-12', 'token'
+
+    async def fake_verify(repo, branch, token):
+        return {'branch_exists': False, 'has_commits': False, 'head_sha': '', 'error': '404 ref not found'}
+
+    checks = []
+
+    async def fake_check(task, *, status='completed'):
+        checks.append((task['status'], task.get('error'), status))
+        return 123
+
+    async def fake_notify(task, worker_id=None):
+        calls.append(('notify', task['status'], task.get('error')))
+
+    monkeypatch.setattr('a2a_server.database.db_get_task', fake_db_get_task)
+    monkeypatch.setattr('a2a_server.database.db_update_task_status', fake_update)
+    monkeypatch.setattr(issue_final_comment, 'issue_task_context', fake_context)
+    monkeypatch.setattr(issue_final_comment, '_verify_branch_and_commits', fake_verify)
+    monkeypatch.setattr('a2a_server.github_app.checks.ensure_task_check_run', fake_check)
+    monkeypatch.setattr('a2a_server.github_app.task_completion.notify_issue_task_completion', fake_notify)
+
+    from a2a_server.github_app.task_status_hook import handle_github_app_terminal_task
+
+    await handle_github_app_terminal_task('task-code')
+
+    assert calls[0][0:2] == ('update', 'failed')
+    assert 'Branch verification failed after worker completion' in calls[0][2]
+    assert checks == [('failed', calls[0][2], 'completed')]
+    assert calls[-1] == ('notify', 'failed', calls[0][2])

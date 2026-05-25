@@ -16,7 +16,7 @@ async def create_issue_build_task(
     branch: str,
     clone_worker_id: str | None,
 ) -> str:
-    """Queue the post-clone build task for an issue fix request.
+    """Queue the post-clone build task for the durable GitHub App worker pool.
 
     Dispatches as fire-and-forget with a 7-day timeout.
     """
@@ -34,8 +34,6 @@ async def create_issue_build_task(
         'github_installation_id': context.installation_id,
         **routing,
     }
-    if clone_worker_id:
-        metadata['target_worker_id'] = clone_worker_id
     return await create_and_dispatch_task(
         workspace_id=wid,
         title=f'Work issue #{context.issue_number}',
