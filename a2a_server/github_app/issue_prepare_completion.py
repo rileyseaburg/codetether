@@ -1,8 +1,11 @@
 """Follow-up creation for GitHub App issue prepare tasks."""
 
 from .pr_prepare_completion import (
+    _acquire_followup_lock,
+    _active_followup_task_id,
     _claim_pr_followup_creation,
     _record_pr_followup_task,
+    _release_followup_lock,
     _release_pr_followup_claim,
 )
 from .settings import MODEL_REF
@@ -42,12 +45,18 @@ async def handle_issue_prepare_completion(task: dict, worker_id: str | None = No
     if not await _claim_pr_followup_creation(source_task_id):
         return
 
-    target_worker_id = str(worker_id or task.get('worker_id') or '').strip()
-    if target_worker_id:
-        followup_metadata['target_worker_id'] = target_worker_id
-
     github_issue_url = followup_metadata.get('github_issue_url') or metadata.get('github_issue_url')
+    lock = await _acquire_followup_lock(repo, issue_number, 'issue')
     try:
+        existing_task_id = await _active_followup_task_id(
+            repo,
+            issue_number,
+            'issue',
+        )
+        if existing_task_id:
+            await _record_pr_followup_task(source_task_id, existing_task_id)
+            return
+
         followup_task_id = await create_and_dispatch_task(
             workspace_id=workspace_id,
             title=str(followup.get('title') or f'Work issue #{issue_number}'),
@@ -61,4 +70,6 @@ async def handle_issue_prepare_completion(task: dict, worker_id: str | None = No
     except Exception as exc:
         await _release_pr_followup_claim(source_task_id, exc)
         raise
+    finally:
+        await _release_followup_lock(lock)
     await _record_pr_followup_task(source_task_id, followup_task_id)

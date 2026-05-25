@@ -36,6 +36,10 @@ spec:
           imagePullPolicy: {{ .Values.harvester.image.pullPolicy | default .Values.image.pullPolicy }}
           command:
             - /usr/local/bin/codetether
+          {{- with .Values.harvester.providerSecrets.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           args:
             - worker
             - --server
@@ -100,13 +104,20 @@ spec:
             - name: CODETETHER_HOME
               value: {{ printf "%s/.codetether-agent" (.Values.harvester.homePath | trimSuffix "/") | quote }}
             {{- end }}
-            {{- if .Values.harvester.vault.enabled }}
+            {{- if and .Values.harvester.vault.enabled .Values.harvester.vault.tokenSecret.name }}
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harvester.vault.tokenSecret.name | quote }}
+                  key: {{ .Values.harvester.vault.tokenSecret.addressKey | default "VAULT_ADDR" | quote }}
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harvester.vault.tokenSecret.name | quote }}
+                  key: {{ .Values.harvester.vault.tokenSecret.tokenKey | default "VAULT_TOKEN" | quote }}
+            {{- else if .Values.harvester.vault.enabled }}
             - name: VAULT_ADDR
               value: {{ .Values.harvester.vault.address | quote }}
-            {{- if .Values.harvester.vault.tlsSkipVerify }}
-            - name: VAULT_SKIP_VERIFY
-              value: "1"
-            {{- end }}
             - name: VAULT_ROLE
               value: {{ .Values.harvester.vault.role | default "codetether-harvester" | quote }}
             - name: VAULT_AUTH_MOUNT
@@ -117,6 +128,18 @@ spec:
               value: {{ .Values.harvester.vault.mount | default "secret" | quote }}
             - name: VAULT_SECRETS_PATH
               value: {{ .Values.harvester.vault.secretsPath | default "codetether/providers" | quote }}
+            {{- end }}
+            {{- if and .Values.harvester.vault.enabled .Values.harvester.vault.tlsSkipVerify }}
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            {{- end }}
+            {{- if .Values.harvester.defaultProvider }}
+            - name: CODETETHER_DEFAULT_PROVIDER
+              value: {{ .Values.harvester.defaultProvider | quote }}
+            {{- end }}
+            {{- if .Values.harvester.defaultModel }}
+            - name: CODETETHER_DEFAULT_MODEL
+              value: {{ .Values.harvester.defaultModel | quote }}
             {{- end }}
             {{- with .Values.harvester.extraEnv }}
             {{- toYaml . | nindent 12 }}
@@ -153,7 +176,7 @@ spec:
               mountPath: /home/worker
               subPath: .worker-home
             {{- end }}
-            {{- if .Values.harvester.vault.enabled }}
+            {{- if and .Values.harvester.vault.enabled (not .Values.harvester.vault.tokenSecret.name) }}
             - name: vault-sa-token
               mountPath: /var/run/secrets/vault
               readOnly: true
@@ -163,7 +186,7 @@ spec:
             {{- end }}
       {{- if or .Values.harvester.vault.enabled .Values.harvester.extraVolumes }}
       volumes:
-        {{- if .Values.harvester.vault.enabled }}
+        {{- if and .Values.harvester.vault.enabled (not .Values.harvester.vault.tokenSecret.name) }}
         - name: vault-sa-token
           projected:
             sources:
@@ -182,7 +205,9 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+        {{- if .Values.harvester.storage.className }}
         storageClassName: {{ .Values.harvester.storage.className | default "standard" }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.harvester.storage.size | default "50Gi" }}

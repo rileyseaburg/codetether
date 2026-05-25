@@ -347,6 +347,25 @@ class A2AServer:
             except Exception:
                 pass
 
+        # Bridge durable fire-and-forget task_runs into existing worker SSE streams.
+        @self.app.on_event('startup')
+        async def start_persistent_claim_loop():
+            try:
+                from .worker_sse import start_persistent_claim_loop
+
+                start_persistent_claim_loop()
+            except Exception as e:
+                logger.warning(f'Failed to start persistent claim loop: {e}')
+
+        @self.app.on_event('shutdown')
+        async def stop_persistent_claim_loop():
+            try:
+                from .worker_sse import stop_persistent_claim_loop
+
+                await stop_persistent_claim_loop()
+            except Exception:
+                pass
+
         # Start Knative garbage collector for idle session workers
         @self.app.on_event('startup')
         async def start_knative_gc():

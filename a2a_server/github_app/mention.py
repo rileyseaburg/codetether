@@ -6,10 +6,13 @@ _FIX_TERMS = (
     'fix', 'apply', 'address', 'implement', 'patch', 'rename', 'modify',
     'edit', 'refactor', 'resolve', 'cleanup', 'clean up', 'please fix',
     'retry', 'continue', 'finish', 'enhance', 'improve', 'handle',
-    'finish the feature', 'continue the fix', 'retry this',
-    'make tests pass', 'make test pass', 'make build pass',
-    'make ci pass', 'make lint pass', 'make this work', 'make it work',
-    'make that work', 'handle this bug', 'handle this issue',
+    'change', 'changes', 'update', 'follow up', 'follow-up',
+    'make changes', 'make the changes', 'make follow up changes',
+    'address feedback', 'address review', 'address comments',
+    'requested changes', 'review changes', 'finish the feature',
+    'continue the fix', 'retry this', 'make tests pass', 'make test pass',
+    'make build pass', 'make ci pass', 'make lint pass', 'make this work',
+    'make it work', 'make that work', 'handle this bug', 'handle this issue',
 )
 
 

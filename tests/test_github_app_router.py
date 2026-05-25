@@ -282,3 +282,131 @@ async def test_self_authored_review_comment_is_ignored(monkeypatch):
 
     assert result['ignored'] is True
     assert result['reason'] == 'self-authored-event'
+
+
+@pytest.mark.asyncio
+async def test_installation_repositories_event_dispatches_active_work(monkeypatch):
+    calls = []
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'installation_repositories',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'added',
+                'installation': {'id': 123},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_dispatch_active_work_for_installation(installation_id):
+        calls.append(installation_id)
+        return [object(), object()]
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('router should dispatch through active_work only')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(
+        router,
+        'dispatch_active_work_for_installation',
+        fake_dispatch_active_work_for_installation,
+    )
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert calls == [123]
+    assert result == {
+        'accepted': True,
+        'trigger': 'installation_repositories',
+        'dispatched': 2,
+    }
+
+
+@pytest.mark.asyncio
+async def test_self_authored_installation_repositories_event_is_not_backfilled(monkeypatch):
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'installation_repositories',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'added',
+                'installation': {'id': 123},
+                'sender': {'login': f'{app_slug}[bot]', 'type': 'Bot'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fail_dispatch_active_work_for_installation(installation_id):
+        raise AssertionError('self-authored events must not trigger active-work backfill')
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('self-authored events should not mint installation tokens')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(
+        router,
+        'dispatch_active_work_for_installation',
+        fail_dispatch_active_work_for_installation,
+    )
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {
+        'ignored': True,
+        'reason': 'self-authored-event',
+        'event': 'installation_repositories',
+        'action': 'added',
+    }
+
+
+@pytest.mark.asyncio
+async def test_installation_created_event_dispatches_active_work(monkeypatch):
+    calls = []
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'installation',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'installation': {'id': 123},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_dispatch_active_work_for_installation(installation_id):
+        calls.append(installation_id)
+        return [object()]
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(
+        router,
+        'dispatch_active_work_for_installation',
+        fake_dispatch_active_work_for_installation,
+    )
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert calls == [123]
+    assert result == {
+        'accepted': True,
+        'trigger': 'installation',
+        'dispatched': 1,
+    }

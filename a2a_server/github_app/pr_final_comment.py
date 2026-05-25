@@ -8,8 +8,40 @@ from .watch import post_issue_comment
 logger = logging.getLogger(__name__)
 
 
+async def normalize_pr_fix_terminal_status(task: dict) -> dict:
+    """Fail completed PR-fix tasks that did not move the PR branch."""
+    if str(task.get('status')) != 'completed':
+        return task
+    metadata = task.get('metadata') or {}
+    if metadata.get('workflow_stage') != 'fix' and not str(task.get('title') or '').startswith('Apply PR fix #'):
+        return task
+    context = await github_app_task_context(task)
+    if context is None:
+        return task
+    repo, pr_number, _, token = context
+    try:
+        from .. import database as db
+        from .auth import github_json
+
+        pr = await github_json('GET', f'/repos/{repo}/pulls/{pr_number}', token)
+        current_sha = str((pr.get('head') or {}).get('sha') or '')
+        original_sha = str(metadata.get('pr_head_sha') or metadata.get('github_check_head_sha') or '')
+        if original_sha and current_sha == original_sha:
+            error = (
+                'GitHub fix task completed without moving '
+                f'PR #{pr_number} from head `{original_sha}`.'
+            )
+            await db.db_update_task_status(str(task.get('id')), 'failed', error=error)
+            refreshed = await db.db_get_task(str(task.get('id')))
+            return refreshed or {**task, 'status': 'failed', 'error': error}
+    except Exception as exc:
+        logger.warning('Could not verify PR fix task %s branch delta: %s', task.get('id'), exc)
+    return task
+
+
 async def notify_pr_final_comment(task: dict) -> None:
     """Post the final PR update after the branch edit task ends."""
+    task = await normalize_pr_fix_terminal_status(task)
     context = await github_app_task_context(task)
     if context is None:
         return

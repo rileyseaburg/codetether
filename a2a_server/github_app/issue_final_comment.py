@@ -54,8 +54,59 @@ async def _verify_branch_and_commits(
         }
 
 
+async def normalize_issue_task_terminal_status(task: dict) -> dict:
+    """Fail completed issue tasks when branch/PR publication proof is missing.
+
+    Internal worker completion is not the GitHub workflow terminal state. The
+    protocol gate is: expected branch ref exists and an open PR points at it.
+    """
+    if str(task.get('status')) != 'completed':
+        return task
+    context = await issue_task_context(task)
+    if context is None:
+        return task
+    repo, issue_number, branch, token = context
+    branch_info = await _verify_branch_and_commits(repo, branch, token)
+    if not branch_info['branch_exists']:
+        error = (
+            'Branch verification failed after worker completion. '
+            f'Expected branch `{branch}` for issue #{issue_number}; '
+            f"GET /repos/{repo}/git/ref/heads/{quote(branch, safe='')} failed: "
+            f"{branch_info.get('error', 'unknown reason')}. "
+            'Recovery: retry or investigate worker commit/push/auth before marking the check successful.'
+        )
+        return await _mark_task_failed(task, error)
+    pr = await open_issue_pr(repo, branch, token)
+    if not pr:
+        error = (
+            'Pull request publication verification failed after worker completion. '
+            f'Branch `{branch}` exists at `{branch_info.get("head_sha", "")}`, '
+            'but no open PR was found for that head branch. '
+            'Recovery: retry PR creation or investigate GitHub App permissions before marking the check successful.'
+        )
+        return await _mark_task_failed(task, error)
+    return task
+
+
+async def _mark_task_failed(task: dict, error: str) -> dict:
+    """Persist a failed terminal state and return the refreshed task when possible."""
+    try:
+        from .. import database as db
+
+        task_id = str(task.get('id') or '')
+        if task_id:
+            await db.db_update_task_status(task_id, 'failed', error=error)
+            refreshed = await db.db_get_task(task_id)
+            if refreshed:
+                return refreshed
+    except Exception as exc:
+        logger.warning('Could not persist GitHub issue task protocol failure for %s: %s', task.get('id'), exc)
+    return {**task, 'status': 'failed', 'error': error}
+
+
 async def notify_issue_final_comment(task: dict) -> None:
     """Post the final issue update after the build task ends."""
+    task = await normalize_issue_task_terminal_status(task)
     context = await issue_task_context(task)
     if context is None:
         return
@@ -67,32 +118,6 @@ async def notify_issue_final_comment(task: dict) -> None:
     if task_status == 'completed':
         # ── Verify branch exists and has commits ─────────────────────
         branch_info = await _verify_branch_and_commits(repo, branch, token)
-
-        if not branch_info['branch_exists']:
-            body = str(task.get('result') or '').strip()
-            failure_detail = branch_info.get('error', 'unknown reason')
-            message = (
-                f"## 🛠️ CodeTether Fix\n\n"
-                f"⚠️ **Task completed but branch verification failed.**\n\n"
-                f"- Task `{task_id}` status: `{task_status}`\n"
-                f"- Expected branch: `{branch}`\n"
-                f"- Verification endpoint: `GET /repos/{repo}/git/ref/heads/{quote(branch, safe='')}`\n"
-                f"- Verification error: {failure_detail}\n"
-            )
-            if body:
-                message += f"\n**Task output:**\n> {body[:800]}"
-            message += (
-                f"\n\nThis is an infrastructure/workflow failure: the build task reached a "
-                f"terminal completed state before the expected Git ref was visible "
-                f"to the GitHub App installation. The pipeline should be retried "
-                f"or investigated for worker push/auth failures."
-            )
-            await post_issue_comment(repo, issue_number, token, message)
-            logger.error(
-                'Task %s completed but branch %s missing in %s',
-                task_id, branch, repo,
-            )
-            return
 
         # ── Check for open PR ────────────────────────────────────────
         pr = await open_issue_pr(repo, branch, token)

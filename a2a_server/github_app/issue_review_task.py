@@ -619,7 +619,6 @@ async def create_fix_followup_task(
         'fix_followup': 'true',
         'fix_attempt': attempt,
     }
-
     # Propagate parent_task_id from the review task metadata chain
     parent_task_id = metadata.get('parent_task_id')
     if parent_task_id:

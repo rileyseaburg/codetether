@@ -328,3 +328,117 @@ def test_invalid_publisher_mode_falls_back_to_checks(monkeypatch, caplog):
         assert checks._publisher_mode() == 'checks'
 
     assert 'Invalid GITHUB_APP_STATUS_PUBLISHER' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fix_task_without_result_or_branch_delta_fails_before_green_check(monkeypatch):
+    from a2a_server import database as db
+    from a2a_server.github_app import task_completion
+    from a2a_server.github_app import pr_final_comment
+
+    calls = []
+    failed = []
+
+    task = _task(
+        result=None,
+        metadata={
+            **_task()['metadata'],
+            'workflow_stage': 'fix',
+            'pr_head_sha': 'same-sha',
+            'github_check_head_sha': 'same-sha',
+        },
+    )
+
+    async def fake_db_get_task(task_id):
+        if failed:
+            return {**task, 'status': 'failed', 'error': failed[-1][2]}
+        return task
+
+    async def fake_update(task_id, status, worker_id=None, result=None, error=None):
+        failed.append((task_id, status, error))
+        return True
+
+    async def fake_context(_task):
+        return ('owner/repo', 7, None, 'token')
+
+    async def fake_github_json(method, path, token, payload=None):
+        assert (method, path, token) == ('GET', '/repos/owner/repo/pulls/7', 'token')
+        return {'head': {'sha': 'same-sha'}}
+
+    async def fake_check(task, status='completed'):
+        calls.append(('check', task['status'], task.get('error')))
+
+    async def fake_notify(task, worker_id=None):
+        calls.append(('notify', task['status'], worker_id, task.get('error')))
+
+    monkeypatch.setattr(db, 'db_get_task', fake_db_get_task)
+    monkeypatch.setattr(db, 'db_update_task_status', fake_update)
+    monkeypatch.setattr(pr_final_comment, 'github_app_task_context', fake_context)
+    monkeypatch.setattr(task_completion, 'notify_issue_task_completion', fake_notify)
+    monkeypatch.setattr(checks, 'ensure_task_check_run', fake_check)
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+
+    await handle_github_app_terminal_task('task-1', 'worker-1')
+
+    assert failed == [('task-1', 'failed', 'GitHub fix task completed without moving PR #7 from head `same-sha`.')]
+    assert calls == [
+        ('check', 'failed', failed[0][2]),
+        ('notify', 'failed', 'worker-1', failed[0][2]),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fix_task_with_result_but_without_branch_delta_fails_before_green_check(monkeypatch):
+    from a2a_server import database as db
+    from a2a_server.github_app import task_completion
+    from a2a_server.github_app import pr_final_comment
+
+    calls = []
+    failed = []
+
+    task = _task(
+        result='I reviewed the PR and found remaining problems, but did not push a commit.',
+        metadata={
+            **_task()['metadata'],
+            'workflow_stage': 'fix',
+            'pr_head_sha': 'same-sha',
+            'github_check_head_sha': 'same-sha',
+        },
+    )
+
+    async def fake_db_get_task(task_id):
+        if failed:
+            return {**task, 'status': 'failed', 'error': failed[-1][2]}
+        return task
+
+    async def fake_update(task_id, status, worker_id=None, result=None, error=None):
+        failed.append((task_id, status, error))
+        return True
+
+    async def fake_context(_task):
+        return ('owner/repo', 7, None, 'token')
+
+    async def fake_github_json(method, path, token, payload=None):
+        assert (method, path, token) == ('GET', '/repos/owner/repo/pulls/7', 'token')
+        return {'head': {'sha': 'same-sha'}}
+
+    async def fake_check(task, status='completed'):
+        calls.append(('check', task['status'], task.get('error')))
+
+    async def fake_notify(task, worker_id=None):
+        calls.append(('notify', task['status'], worker_id, task.get('error')))
+
+    monkeypatch.setattr(db, 'db_get_task', fake_db_get_task)
+    monkeypatch.setattr(db, 'db_update_task_status', fake_update)
+    monkeypatch.setattr(pr_final_comment, 'github_app_task_context', fake_context)
+    monkeypatch.setattr(task_completion, 'notify_issue_task_completion', fake_notify)
+    monkeypatch.setattr(checks, 'ensure_task_check_run', fake_check)
+    monkeypatch.setattr('a2a_server.github_app.auth.github_json', fake_github_json)
+
+    await handle_github_app_terminal_task('task-1', 'worker-1')
+
+    assert failed == [('task-1', 'failed', 'GitHub fix task completed without moving PR #7 from head `same-sha`.')]
+    assert calls == [
+        ('check', 'failed', failed[0][2]),
+        ('notify', 'failed', 'worker-1', failed[0][2]),
+    ]

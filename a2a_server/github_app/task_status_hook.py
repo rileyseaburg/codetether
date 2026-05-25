@@ -19,6 +19,17 @@ async def handle_github_app_terminal_task(task_id: str, worker_id: str | None = 
     metadata = (task or {}).get('metadata') or {}
     if metadata.get('source') == 'github-app':
         try:
+            if metadata.get('workflow_stage') == 'fix':
+                from .pr_final_comment import normalize_pr_fix_terminal_status
+
+                task = await normalize_pr_fix_terminal_status(task)
+            elif metadata.get('workflow_stage') == 'code' and not metadata.get('pr_number'):
+                from .issue_final_comment import normalize_issue_task_terminal_status
+
+                task = await normalize_issue_task_terminal_status(task)
+        except Exception as exc:
+            logger.warning('GitHub terminal protocol normalization failed for task %s: %s', task_id, exc)
+        try:
             await ensure_task_check_run(task, status='completed')
         except Exception as exc:
             logger.warning('GitHub Checks terminal update failed for task %s: %s', task_id, exc)

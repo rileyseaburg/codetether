@@ -45,7 +45,10 @@ async def test_resolve_task_target_prefers_persistent_workspace_capability(monke
     monkeypatch.setattr(routing, 'TARGET_CAPABILITIES', ('persistent-workspace',))
     monkeypatch.setattr(routing, 'PREFERRED_AGENTS', ('knative-worker',))
 
-    assert await routing.resolve_task_target() == {'target_worker_id': 'wrk-harvester'}
+    assert await routing.resolve_task_target() == {
+        'target_agent_name': 'harvester-a',
+        'required_capabilities': ['persistent-workspace'],
+    }
 
 
 @pytest.mark.asyncio
@@ -64,7 +67,7 @@ async def test_resolve_task_target_uses_capability_metadata_when_no_worker(monke
 
 
 @pytest.mark.asyncio
-async def test_resolve_task_target_preserves_configured_target_agent(monkeypatch):
+async def test_resolve_task_target_preserves_configured_target_agent_with_capability(monkeypatch):
     async def fake_workers(status):
         return []
 
@@ -73,4 +76,7 @@ async def test_resolve_task_target_preserves_configured_target_agent(monkeypatch
     monkeypatch.setattr(routing, 'TARGET_AGENT', 'knative-worker')
     monkeypatch.setattr(routing, 'TARGET_CAPABILITIES', ('persistent-workspace',))
 
-    assert await routing.resolve_task_target() == {'target_agent_name': 'knative-worker'}
+    assert await routing.resolve_task_target() == {
+        'target_agent_name': 'knative-worker',
+        'required_capabilities': ['persistent-workspace'],
+    }

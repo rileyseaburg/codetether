@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 SQL = Path('a2a_server/migrations/032_target_worker_id_claim_filter.sql').read_text()
+SQL_033 = Path('a2a_server/migrations/033_extended_claim_capability_routing.sql').read_text()
 
 
 def test_claim_function_includes_target_worker_id_filter():
@@ -29,3 +30,13 @@ def test_claim_function_still_returns_provider_keys():
     """The provider_keys and provider_key_source columns must still be returned."""
     assert 'provider_keys JSONB' in SQL
     assert 'provider_key_source TEXT' in SQL
+
+
+def test_latest_claim_function_recovers_stale_target_worker_id():
+    """Stale process-scoped worker ids must not permanently strand tasks."""
+    assert 'CREATE OR REPLACE FUNCTION claim_next_task_run_extended' in SQL_033
+    assert "t.metadata->>'target_worker_id' = p_worker_id" in SQL_033
+    assert 'p_capabilities @> \'["persistent-workspace"]\'::jsonb' in SQL_033
+    assert 'NOT EXISTS (' in SQL_033
+    assert 'FROM workers target_worker' in SQL_033
+    assert "target_worker.last_seen > NOW() - INTERVAL '2 minutes'" in SQL_033
