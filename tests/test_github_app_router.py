@@ -56,6 +56,56 @@ async def test_non_fix_mention_posts_actionable_issue_and_pr_guidance(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_build_failed_mention_routes_to_fix_handler(monkeypatch):
+    calls = []
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'issue_comment',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'issue': {'number': 87, 'pull_request': {'url': 'https://api.github.com/repos/owner/repo/pulls/87'}},
+                'comment': {'id': 99, 'body': f'@{app_slug} the build failed'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 123
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fake_handle_fix_request(context, token):
+        calls.append((context, token))
+        return {'accepted': True, 'clone_task_id': 'task-build-failed'}
+
+    async def fail_post_issue_comment(*args, **kwargs):
+        raise AssertionError('build failed mention should not get non-fix guidance')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(router, 'handle_fix_request', fake_handle_fix_request)
+    monkeypatch.setattr(router, 'post_issue_comment', fail_post_issue_comment)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {'accepted': True, 'clone_task_id': 'task-build-failed'}
+    assert calls
+    context, token = calls[0]
+    assert token == 'ghs_test'
+    assert context.repo_full_name == 'owner/repo'
+    assert context.issue_number == 87
+    assert context.comment_body == f'@{app_slug} the build failed'
+
+
+@pytest.mark.asyncio
 async def test_bot_authored_issue_comment_is_ignored(monkeypatch):
     app_slug = router.APP_SLUG
 

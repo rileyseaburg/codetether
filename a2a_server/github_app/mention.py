@@ -13,6 +13,10 @@ _FIX_TERMS = (
     'continue the fix', 'retry this', 'make tests pass', 'make test pass',
     'make build pass', 'make ci pass', 'make lint pass', 'make this work',
     'make it work', 'make that work', 'handle this bug', 'handle this issue',
+    'build failed', 'build failure', 'failing build', 'failed build',
+    'check failed', 'checks failed', 'failing check', 'failing checks',
+    'ci failed', 'ci failure', 'failing ci', 'tests failed', 'test failed',
+    'lint failed', 'typecheck failed', 'workflow failed', 'action failed',
 )
 
 
