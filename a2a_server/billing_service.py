@@ -509,6 +509,33 @@ class BillingService:
                 f'Failed to create billing portal session: {e}'
             )
 
+    async def create_setup_intent(self, customer_id: str) -> str:
+        """
+        Create a Stripe SetupIntent for embedded payment method collection.
+
+        Args:
+            customer_id: Stripe customer ID
+
+        Returns:
+            SetupIntent client secret for Stripe Elements
+        """
+        try:
+            intent = await self._run_sync(
+                stripe.SetupIntent.create,
+                customer=customer_id,
+                payment_method_types=['card'],
+                usage='off_session',
+            )
+            logger.info(f'Created setup intent for customer {customer_id}')
+            return intent.client_secret
+        except stripe.InvalidRequestError as e:
+            if 'No such customer' in str(e):
+                raise CustomerNotFoundError(f'Customer {customer_id} not found')
+            raise BillingServiceError(f'Failed to create setup intent: {e}')
+        except stripe.StripeError as e:
+            logger.error(f'Failed to create setup intent for {customer_id}: {e}')
+            raise BillingServiceError(f'Failed to create setup intent: {e}')
+
     async def create_checkout_session(
         self,
         customer_id: str,
