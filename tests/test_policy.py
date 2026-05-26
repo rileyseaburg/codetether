@@ -165,8 +165,24 @@ class TestRoleBasedAccess:
         assert not await check_policy(viewer_user(), "agent:execute")
 
     @pytest.mark.asyncio
-    async def test_no_roles_denied(self):
-        assert not await check_policy(no_role_user(), "tasks:read")
+    async def test_keycloak_user_without_policy_roles_gets_default_editor_role(self):
+        assert await check_policy(no_role_user(), "tasks:read")
+        assert await check_policy(no_role_user(), "api_keys:read")
+        assert not await check_policy(no_role_user(), "admin:access")
+
+    @pytest.mark.asyncio
+    async def test_keycloak_utility_roles_get_default_editor_role(self):
+        keycloak_user = {
+            "id": "user-keycloak",
+            "user_id": "user-keycloak",
+            "email": "keycloak@test.com",
+            "roles": ["offline_access", "uma_authorization", "default-roles-codetether"],
+            "tenant_id": "tenant-1",
+            "keycloak_sub": "kc-utility-roles",
+        }
+        assert await check_policy(keycloak_user, "monitor:read")
+        assert await check_policy(keycloak_user, "api_keys:read")
+        assert not await check_policy(keycloak_user, "admin:access")
 
     @pytest.mark.asyncio
     async def test_self_service_user_gets_default_editor_role(self):
