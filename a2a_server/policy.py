@@ -223,14 +223,37 @@ async def _get_client() -> httpx.AsyncClient:
 # /v1/users/register.  Keycloak users get roles from the IdP token.
 _DEFAULT_SELF_SERVICE_ROLE = os.environ.get('DEFAULT_USER_ROLE', 'editor')
 
+# Keycloak access tokens often include realm/client utility roles that are not
+# CodeTether RBAC roles (for example `offline_access` or `uma_authorization`).
+# Treat an authenticated user with only those utility roles the same as a
+# self-service user: give them the default dashboard role instead of denying
+# every protected dashboard request with 403.
+_KEYCLOAK_UTILITY_ROLES = {
+    'default-roles-master',
+    'offline_access',
+    'uma_authorization',
+}
+
 
 def _effective_roles(user: dict[str, Any]) -> list:
     """Return the user's roles, falling back to the default for self-service users."""
-    roles = user.get('roles', [])
-    if roles:
-        return roles
+    roles = user.get('roles', []) or []
     auth_source = _detect_auth_source(user)
-    if auth_source in ('self-service', 'api_key'):
+
+    if roles:
+        if auth_source == 'keycloak':
+            policy_roles = set(_load_local_policy_data().get('roles', {}))
+            recognized_roles = [role for role in roles if role in policy_roles]
+            if recognized_roles:
+                return recognized_roles
+            if all(
+                role in _KEYCLOAK_UTILITY_ROLES
+                or role.startswith('default-roles-')
+                for role in roles
+            ):
+                return [_DEFAULT_SELF_SERVICE_ROLE]
+        return roles
+    if auth_source in ('self-service', 'api_key', 'keycloak'):
         return [_DEFAULT_SELF_SERVICE_ROLE]
     return roles
 
