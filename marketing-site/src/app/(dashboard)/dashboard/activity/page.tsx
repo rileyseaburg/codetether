@@ -31,7 +31,12 @@ export default function ActivityPage() {
 
     const loadMessages = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/monitor/messages?limit=50`)
+            const headers: Record<string, string> = {}
+            if (session?.accessToken) {
+                headers.Authorization = `Bearer ${session.accessToken}`
+            }
+
+            const response = await fetch(`${API_URL}/v1/monitor/messages?limit=50`, { headers })
             if (response.ok) {
                 const data = await response.json()
                 setMessages(data)
@@ -39,9 +44,11 @@ export default function ActivityPage() {
         } catch (error) {
             console.error('Failed to load messages:', error)
         }
-    }, [])
+    }, [session?.accessToken])
 
     useEffect(() => {
+        if (!session?.accessToken) return
+
         loadMessages()
 
         // Handle relative API URLs by resolving against window.location
@@ -73,7 +80,7 @@ export default function ActivityPage() {
         }
 
         return () => eventSource.close()
-    }, [loadMessages])
+    }, [loadMessages, session?.accessToken])
 
     const getTypeIcon = (type: string) => {
         const icons: Record<string, string> = {
