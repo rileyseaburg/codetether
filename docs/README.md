@@ -45,3 +45,7 @@ pip install -r ../../requirements-docs.txt
    ```
 
 2. The generated HTML files will be in the `sdk/python/api` directory. You can open `sdk/python/api/index.html` in your browser to view the documentation.
+
+## Operations
+
+- [Marketing-site GitOps image promotion](marketing-gitops-promotion.md)

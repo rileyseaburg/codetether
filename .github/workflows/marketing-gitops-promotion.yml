@@ -1,0 +1,215 @@
+name: Marketing GitOps Image Promotion
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "marketing-site/**"
+      - ".github/workflows/marketing-gitops-promotion.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag override for rollback or replay"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: marketing-gitops-promotion-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev
+  PROJECT: spotlessbinco/codetether
+  IMAGE_NAME: codetether-marketing
+  ARGO_APP: codetether-marketing
+  ARGO_MANIFEST: deploy/argocd/marketing.yaml
+  MARKETING_URL: https://codetether.run
+
+jobs:
+  marketing-image-build-and-gitops-promotion:
+    name: Marketing image build and GitOps promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source of truth
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve deterministic image tag
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA::12}"
+          branch_slug="${GITHUB_REF_NAME//\//-}"
+          tag="${{ inputs.image_tag }}"
+          if [ -z "$tag" ]; then
+            tag="${branch_slug}-${short_sha}"
+          fi
+          image="${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${tag}"
+
+          mkdir -p evidence
+          {
+            echo "image_tag=${tag}"
+            echo "image=${image}"
+            echo "git_commit=${GITHUB_SHA}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "argocd_app=${ARGO_APP}"
+          } | tee evidence/image.env
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Build and push codetether-marketing image
+        uses: docker/build-push-action@v5
+        with:
+          context: marketing-site
+          file: marketing-site/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.image }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=codetether-marketing
+          cache-from: type=gha,scope=codetether-marketing
+          cache-to: type=gha,mode=max,scope=codetether-marketing
+
+      - name: Promote image tag in ArgoCD manifest
+        env:
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          manifest = Path(os.environ["ARGO_MANIFEST"])
+          tag = os.environ["IMAGE_TAG"]
+          lines = manifest.read_text().splitlines()
+
+          in_values = False
+          in_image = False
+          updated = False
+          for index, line in enumerate(lines):
+              stripped = line.strip()
+              indent = len(line) - len(line.lstrip())
+
+              if stripped == "valuesObject:":
+                  in_values = True
+                  continue
+              if in_values and indent <= 6 and stripped and not stripped.startswith("#"):
+                  in_values = False
+                  in_image = False
+              if in_values and stripped == "image:":
+                  in_image = True
+                  continue
+              if in_image and indent <= 10 and stripped and not stripped.startswith("#"):
+                  in_image = False
+              if in_image and stripped.startswith("tag:"):
+                  lines[index] = f"{' ' * indent}tag: {tag}"
+                  updated = True
+                  break
+
+          if not updated:
+              raise SystemExit("marketing image tag not found in ArgoCD manifest")
+
+          manifest.write_text("\n".join(lines) + "\n")
+          PY
+          git diff -- "$ARGO_MANIFEST" | tee evidence/argocd-manifest.diff
+
+      - name: Commit GitOps promotion
+        env:
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "$ARGO_MANIFEST"; then
+            echo "No manifest change required for ${IMAGE_TAG}." | tee evidence/gitops-commit.txt
+            exit 0
+          fi
+
+          git config user.name "CodeTether Avatar"
+          git config user.email "codetether-avatar@users.noreply.github.com"
+          git add "$ARGO_MANIFEST"
+          git commit -m "chore(marketing): promote image ${IMAGE_TAG}" \
+            -m "CodeTether promoted codetether-marketing via GitOps; ArgoCD remains deployment authority."
+          git push origin HEAD:main
+          git rev-parse HEAD | tee evidence/gitops-commit.txt
+
+      - name: Wait for ArgoCD sync when credentials are available
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo "app=${ARGO_APP}"
+            echo "desired_tag=${{ steps.image.outputs.tag }}"
+          } > evidence/argocd-health.txt
+
+          if [ -z "${ARGOCD_SERVER}" ] || [ -z "${ARGOCD_AUTH_TOKEN}" ]; then
+            echo "ArgoCD credentials unavailable; sync evidence limited to Git promotion commit." | tee -a evidence/argocd-health.txt
+            exit 0
+          fi
+
+          curl -sSL -o /usr/local/bin/argocd "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
+          chmod +x /usr/local/bin/argocd
+          argocd app wait "$ARGO_APP" \
+            --server "$ARGOCD_SERVER" \
+            --auth-token "$ARGOCD_AUTH_TOKEN" \
+            --grpc-web \
+            --sync --health --timeout 600 | tee -a evidence/argocd-health.txt
+
+      - name: HTTP smoke codetether.run
+        run: |
+          set +e
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          status="$(curl -L --retry 12 --retry-delay 10 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            -o evidence/http-smoke-body.html \
+            -w '%{http_code}' \
+            "$MARKETING_URL")"
+          rc=$?
+          finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "url=${MARKETING_URL}"
+            echo "status=${status}"
+            echo "curl_exit=${rc}"
+            echo "started_at=${started_at}"
+            echo "finished_at=${finished_at}"
+          } | tee evidence/http-smoke.txt
+          test "$rc" -eq 0
+          test "$status" -ge 200 -a "$status" -lt 400
+
+      - name: Upload durable promotion evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketing-gitops-promotion-${{ steps.image.outputs.tag }}
+          path: evidence/
+          retention-days: 30
+
+      - name: Promotion summary
+        if: always()
+        run: |
+          echo "### CodeTether marketing GitOps promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: ${{ steps.image.outputs.image }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ArgoCD app: ${ARGO_APP}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke URL: ${MARKETING_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Evidence artifact: marketing-gitops-promotion-${{ steps.image.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
