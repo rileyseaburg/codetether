@@ -387,6 +387,12 @@ const navigation = [
     icon: CodeBracketIcon,
     highlight: true,
   },
+  {
+    name: 'GitHub App',
+    href: '/dashboard/workflows/github-app',
+    icon: CodeBracketIcon,
+    highlight: true,
+  },
   { name: 'Automations', href: '/dashboard/automations', icon: CogIcon },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
   { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
