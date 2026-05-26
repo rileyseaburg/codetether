@@ -103,46 +103,56 @@ jobs:
           tag = os.environ["IMAGE_TAG"]
           lines = manifest.read_text().splitlines()
 
-          in_values = False
+          def key_name(line):
+              stripped = line.strip()
+              if not stripped or stripped.startswith("#") or ":" not in stripped:
+                  return None
+              return stripped.split(":", 1)[0]
+
+          def indentation(line):
+              return len(line) - len(line.lstrip(" "))
+
           values_indent = None
-          in_image = False
           image_indent = None
           updated = False
+
           for index, line in enumerate(lines):
-              stripped = line.strip()
-              indent = len(line) - len(line.lstrip())
-
-              if not stripped or stripped.startswith("#"):
+              key = key_name(line)
+              if key is None:
                   continue
 
-              if stripped == "valuesObject:":
-                  in_values = True
-                  values_indent = indent
-                  in_image = False
-                  image_indent = None
+              indent = indentation(line)
+
+              if values_indent is None:
+                  if key == "valuesObject":
+                      values_indent = indent
                   continue
 
-              if in_values and values_indent is not None and indent <= values_indent:
-                  in_values = False
-                  in_image = False
+              if indent <= values_indent:
+                  values_indent = None
                   image_indent = None
-
-              if in_values and stripped == "image:":
-                  in_image = True
-                  image_indent = indent
+                  if key == "valuesObject":
+                      values_indent = indent
                   continue
 
-              if in_image and image_indent is not None and indent <= image_indent:
-                  in_image = False
-                  image_indent = None
+              if image_indent is None:
+                  if key == "image":
+                      image_indent = indent
+                  continue
 
-              if in_image and stripped.startswith("tag:"):
+              if indent <= image_indent:
+                  image_indent = indent if key == "image" else None
+                  continue
+
+              if key == "tag":
                   lines[index] = f"{' ' * indent}tag: {tag}"
                   updated = True
                   break
 
           if not updated:
-              raise SystemExit("marketing image tag not found in ArgoCD manifest")
+              raise SystemExit(
+                  "marketing image tag not found under spec.source.helm.valuesObject.image"
+              )
 
           manifest.write_text("\n".join(lines) + "\n")
           PY
@@ -222,9 +232,11 @@ jobs:
       - name: Promotion summary
         if: always()
         run: |
-          echo "### CodeTether marketing GitOps promotion" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Image: ${{ steps.image.outputs.image }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ArgoCD app: ${ARGO_APP}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Smoke URL: ${MARKETING_URL}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Evidence artifact: marketing-gitops-promotion-${{ steps.image.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### CodeTether marketing GitOps promotion"
+            echo "- Image: ${{ steps.image.outputs.image }}"
+            echo "- Source commit: ${{ github.sha }}"
+            echo "- ArgoCD app: ${ARGO_APP}"
+            echo "- Smoke URL: ${MARKETING_URL}"
+            echo "- Evidence artifact: marketing-gitops-promotion-${{ steps.image.outputs.tag }}"
+          } >> "$GITHUB_STEP_SUMMARY"
