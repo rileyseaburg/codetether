@@ -101,7 +101,9 @@ def install_billing(app, billing):
 
 
 @pytest.mark.asyncio
-async def test_create_intent_creates_first_time_customer_and_setup_intent(app, monkeypatch):
+async def test_create_intent_creates_first_time_customer_and_setup_intent(
+    app, monkeypatch
+):
     install_auth(app)
     billing = FakeBilling(
         create_customer=AsyncMock(return_value='cus_new'),
@@ -143,7 +145,12 @@ async def test_create_intent_uses_existing_customer(app, monkeypatch):
     monkeypatch.setattr(
         billing_api,
         'get_tenant_by_id',
-        AsyncMock(return_value={'id': 'tenant-1', 'stripe_customer_id': 'cus_existing'}),
+        AsyncMock(
+            return_value={
+                'id': 'tenant-1',
+                'stripe_customer_id': 'cus_existing',
+            }
+        ),
     )
     monkeypatch.setattr(billing_api, 'update_tenant_stripe', AsyncMock())
 
@@ -168,7 +175,12 @@ async def test_create_intent_customer_not_found_returns_400(app, monkeypatch):
     monkeypatch.setattr(
         billing_api,
         'get_tenant_by_id',
-        AsyncMock(return_value={'id': 'tenant-1', 'stripe_customer_id': 'cus_missing'}),
+        AsyncMock(
+            return_value={
+                'id': 'tenant-1',
+                'stripe_customer_id': 'cus_missing',
+            }
+        ),
     )
 
     response = TestClient(app).post(
@@ -190,7 +202,12 @@ async def test_create_intent_service_error_returns_500(app, monkeypatch):
     monkeypatch.setattr(
         billing_api,
         'get_tenant_by_id',
-        AsyncMock(return_value={'id': 'tenant-1', 'stripe_customer_id': 'cus_existing'}),
+        AsyncMock(
+            return_value={
+                'id': 'tenant-1',
+                'stripe_customer_id': 'cus_existing',
+            }
+        ),
     )
 
     response = TestClient(app).post(

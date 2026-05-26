@@ -16,7 +16,10 @@ export async function POST(request: NextRequest) {
   const authorization = request.headers.get('authorization')
 
   if (!authorization) {
-    return NextResponse.json({ detail: 'Missing authorization header' }, { status: 401 })
+    return NextResponse.json(
+      { detail: 'Missing authorization header' },
+      { status: 401 },
+    )
   }
 
   const upstream = await fetch(`${API_BASE_URL}/v1/billing/create-intent`, {
