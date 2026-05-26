@@ -104,23 +104,38 @@ jobs:
           lines = manifest.read_text().splitlines()
 
           in_values = False
+          values_indent = None
           in_image = False
+          image_indent = None
           updated = False
           for index, line in enumerate(lines):
               stripped = line.strip()
               indent = len(line) - len(line.lstrip())
 
+              if not stripped or stripped.startswith("#"):
+                  continue
+
               if stripped == "valuesObject:":
                   in_values = True
+                  values_indent = indent
+                  in_image = False
+                  image_indent = None
                   continue
-              if in_values and indent <= 6 and stripped and not stripped.startswith("#"):
+
+              if in_values and values_indent is not None and indent <= values_indent:
                   in_values = False
                   in_image = False
+                  image_indent = None
+
               if in_values and stripped == "image:":
                   in_image = True
+                  image_indent = indent
                   continue
-              if in_image and indent <= 10 and stripped and not stripped.startswith("#"):
+
+              if in_image and image_indent is not None and indent <= image_indent:
                   in_image = False
+                  image_indent = None
+
               if in_image and stripped.startswith("tag:"):
                   lines[index] = f"{' ' * indent}tag: {tag}"
                   updated = True
@@ -151,7 +166,7 @@ jobs:
           git push origin HEAD:main
           git rev-parse HEAD | tee evidence/gitops-commit.txt
 
-      - name: Wait for ArgoCD sync when credentials are available
+      - name: Wait for ArgoCD sync and health evidence
         env:
           ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
@@ -163,8 +178,8 @@ jobs:
           } > evidence/argocd-health.txt
 
           if [ -z "${ARGOCD_SERVER}" ] || [ -z "${ARGOCD_AUTH_TOKEN}" ]; then
-            echo "ArgoCD credentials unavailable; sync evidence limited to Git promotion commit." | tee -a evidence/argocd-health.txt
-            exit 0
+            echo "ArgoCD credentials unavailable; cannot collect required sync/health evidence." | tee -a evidence/argocd-health.txt
+            exit 1
           fi
 
           curl -sSL -o /usr/local/bin/argocd "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
