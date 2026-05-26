@@ -40,8 +40,12 @@ pip install -r ../../requirements-docs.txt
 
 1. Run the following command to build the HTML documentation:
 
-   ```bash
-   sphinx-build -b html docs/sdk/python docs/sdk/python/api
-   ```
+    ```bash
+    sphinx-build -b html docs/sdk/python docs/sdk/python/api
+    ```
 
 2. The generated HTML files will be in the `sdk/python/api` directory. You can open `sdk/python/api/index.html` in your browser to view the documentation.
+
+## Operations
+
+- [Marketing-site GitOps image promotion](marketing-gitops-promotion.md)
