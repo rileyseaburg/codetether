@@ -3,7 +3,9 @@
 from .auth import installation_token
 
 
-async def github_app_task_context(task: dict) -> tuple[str, int, str, str] | None:
+async def github_app_task_context(
+    task: dict,
+) -> tuple[str, int, str, str] | None:
     """Resolve repo, issue/PR number, branch, and installation token."""
     from .. import database as db
 
@@ -22,13 +24,22 @@ async def github_app_task_context(task: dict) -> tuple[str, int, str, str] | Non
     if not installation_id:
         return None
     token, _ = await installation_token(int(str(installation_id)))
-    issue_number = metadata.get('issue_number') or metadata.get('pr_number')
-    branch = metadata.get('branch_name') or metadata.get('pr_head') or metadata.get('git_branch')
-    if not issue_number or not branch:
+    # Generic GitHub App task context is used by both issue tasks and PR tasks.
+    # Prefer the PR number when present: review-fix tasks carry both
+    # `issue_number` (source issue) and `pr_number` (target PR), and PR final
+    # comment/review code must fetch `/pulls/{pr_number}` rather than the
+    # source issue number.
+    number = metadata.get('pr_number') or metadata.get('issue_number')
+    branch = (
+        metadata.get('branch_name')
+        or metadata.get('pr_head')
+        or metadata.get('git_branch')
+    )
+    if not number or not branch:
         return None
     return (
         str(metadata.get('repo') or '').strip(),
-        int(issue_number),
+        int(number),
         str(branch).strip(),
         token,
     )
