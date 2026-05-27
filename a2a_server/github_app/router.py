@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, Request
 
-from .active_work import dispatch_active_work_for_installation
+from .active_work import dispatch_active_work_for_installation, has_active_github_app_task
 from .auth import installation_token, verify_signature
 from .check_failures import context_from_failed_check, should_remediate_failed_check
 from .mention import is_fix_request
@@ -54,6 +54,8 @@ async def handle_github_webhook(request: Request):
     if should_remediate_failed_check(event_name, payload):
         context = context_from_failed_check(event_name, payload)
         token, _ = await installation_token(context.installation_id)
+        if await has_active_github_app_task(context.repo_full_name, context.issue_number):
+            return {'trigger': 'failed_check', 'accepted': False, 'reason': 'active-task-exists'}
         result = await handle_fix_request(context, token)
         return {'trigger': 'failed_check', **result}
     if not is_supported_event_action(event_name, payload):
@@ -79,6 +81,8 @@ async def handle_github_webhook(request: Request):
         return {'ignored': True}
     token, _ = await installation_token(context.installation_id)
     if not is_fix_request(context.comment_body):
+        if await has_active_github_app_task(context.repo_full_name, context.issue_number):
+            return {'accepted': False, 'reason': 'active-task-exists'}
         await post_issue_comment(
             context.repo_full_name,
             context.issue_number,
@@ -92,6 +96,8 @@ async def handle_github_webhook(request: Request):
             f"`@{APP_SLUG} implement this`.",
         )
         return {'accepted': False, 'reason': 'non-fix mention'}
+    if await has_active_github_app_task(context.repo_full_name, context.issue_number):
+        return {'accepted': False, 'reason': 'active-task-exists'}
     return await handle_fix_request(context, token)
 
 
