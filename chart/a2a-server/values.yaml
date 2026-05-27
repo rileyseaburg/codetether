@@ -231,7 +231,7 @@ env:
 
   # GitHub App automation model. Use a direct provider, not OpenRouter,
   # so GitHub jobs do not depend on OpenRouter credits.
-  GITHUB_APP_MODEL_REF: "openai-codex/gpt-5.5"
+  GITHUB_APP_MODEL_REF: "openai:gpt-5.1-codex"
 
   # Worker infrastructure attribution for /v1/agent/workers:
   # - WORKER_INFRA_CACHE_TTL_SECONDS: refresh cadence for pod/node lookup

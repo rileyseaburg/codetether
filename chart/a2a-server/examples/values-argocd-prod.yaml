@@ -114,6 +114,8 @@ env:
   A2A_AGENT_ORG_URL: "https://codetether.run"
   A2A_AGENT_URL: "https://api.codetether.run"
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+  # Keep GitHub App jobs on a direct provider instead of OpenRouter credits.
+  GITHUB_APP_MODEL_REF: "openai:gpt-5.1-codex"
   WORKER_INFRA_CACHE_TTL_SECONDS: "30"
   WORKER_INFRA_NODE_MAP: ""
   # Approved CodeTether PRs are merged by the GitHub App after reviewer,
