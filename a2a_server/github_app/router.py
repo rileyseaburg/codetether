@@ -5,12 +5,19 @@ import logging
 
 from fastapi import APIRouter, Request
 
-from .active_work import dispatch_active_work_for_installation, has_active_github_app_task
+from .active_work import (
+    dispatch_active_work_for_installation,
+    has_active_github_app_task,
+)
 from .auth import installation_token, verify_signature
-from .check_failures import context_from_failed_check, should_remediate_failed_check
+from .check_failures import (
+    context_from_failed_check,
+    should_remediate_failed_check,
+)
 from .mention import is_fix_request
 from .payload import (
     extract_context,
+    is_changes_requested_review,
     is_self_authored_event,
     is_supported_event_action,
 )
@@ -54,8 +61,14 @@ async def handle_github_webhook(request: Request):
     if should_remediate_failed_check(event_name, payload):
         context = context_from_failed_check(event_name, payload)
         token, _ = await installation_token(context.installation_id)
-        if await has_active_github_app_task(context.repo_full_name, context.issue_number):
-            return {'trigger': 'failed_check', 'accepted': False, 'reason': 'active-task-exists'}
+        if await has_active_github_app_task(
+            context.repo_full_name, context.issue_number
+        ):
+            return {
+                'trigger': 'failed_check',
+                'accepted': False,
+                'reason': 'active-task-exists',
+            }
         result = await handle_fix_request(context, token)
         return {'trigger': 'failed_check', **result}
     if not is_supported_event_action(event_name, payload):
@@ -80,33 +93,39 @@ async def handle_github_webhook(request: Request):
         )
         return {'ignored': True}
     token, _ = await installation_token(context.installation_id)
-    if not is_fix_request(context.comment_body):
-        if await has_active_github_app_task(context.repo_full_name, context.issue_number):
+    is_review_change_request = is_changes_requested_review(event_name, payload)
+    is_explicit_fix_request = is_fix_request(context.comment_body)
+    if not is_review_change_request and not is_explicit_fix_request:
+        if await has_active_github_app_task(
+            context.repo_full_name, context.issue_number
+        ):
             return {'accepted': False, 'reason': 'active-task-exists'}
         await post_issue_comment(
             context.repo_full_name,
             context.issue_number,
             token,
-            "## 🤖 CodeTether\n\n"
-            "I saw the mention, but I only start repository-changing work when the "
-            "comment explicitly asks me to fix, apply, implement, handle, or otherwise "
-            "change code.\n\n"
-            "For issues, I can create a branch and open a PR; for pull requests, I can "
-            f"push to the PR branch. Try `@{APP_SLUG} handle this issue` or "
-            f"`@{APP_SLUG} implement this`.",
+            '## 🤖 CodeTether\n\n'
+            'I saw the mention, but I only start repository-changing work when the '
+            'comment explicitly asks me to fix, apply, implement, handle, or otherwise '
+            'change code.\n\n'
+            'For issues, I can create a branch and open a PR; for pull requests, I can '
+            f'push to the PR branch. Try `@{APP_SLUG} handle this issue` or '
+            f'`@{APP_SLUG} implement this`.',
         )
         return {'accepted': False, 'reason': 'non-fix mention'}
-    if await has_active_github_app_task(context.repo_full_name, context.issue_number):
+    if await has_active_github_app_task(
+        context.repo_full_name, context.issue_number
+    ):
         return {'accepted': False, 'reason': 'active-task-exists'}
     return await handle_fix_request(context, token)
 
 
-def _should_dispatch_installed_repo_active_work(event_name: str, payload: dict) -> bool:
+def _should_dispatch_installed_repo_active_work(
+    event_name: str, payload: dict
+) -> bool:
     """Return true when GitHub App repo scope changes need active-work backfill."""
     action = payload.get('action')
-    return (
-        event_name == 'installation' and action == 'created'
-    ) or (
+    return (event_name == 'installation' and action == 'created') or (
         event_name == 'installation_repositories'
         and action in {'added', 'created'}
     )

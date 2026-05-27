@@ -2,7 +2,9 @@ import os
 
 import pytest
 
-os.environ.setdefault('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+os.environ.setdefault(
+    'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
+)
 
 from a2a_server import git_service
 from a2a_server.github_app import issue_prepare_completion
@@ -17,7 +19,9 @@ async def test_pr_prepare_task_creates_pr_followup(monkeypatch):
     async def fake_handle(task, worker_id=None):
         calls.append((task, worker_id))
 
-    monkeypatch.setattr(task_completion, 'handle_pr_prepare_completion', fake_handle)
+    monkeypatch.setattr(
+        task_completion, 'handle_pr_prepare_completion', fake_handle
+    )
 
     task = {
         'title': 'Prepare PR workspace #40',
@@ -68,7 +72,8 @@ async def test_pr_prepare_completion_skips_duplicate_followup(monkeypatch):
         pr_prepare_completion, '_claim_pr_followup_creation', fake_claim
     )
     monkeypatch.setattr(
-        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_create,
     )
 
     task = {
@@ -81,7 +86,10 @@ async def test_pr_prepare_completion_skips_duplicate_followup(monkeypatch):
             'post_clone_task': {
                 'title': 'Apply PR fix #40',
                 'prompt': 'fix it',
-                'metadata': {'repo': 'rileyseaburg/codetether', 'pr_number': 40},
+                'metadata': {
+                    'repo': 'rileyseaburg/codetether',
+                    'pr_number': 40,
+                },
             },
         },
     }
@@ -127,11 +135,18 @@ async def test_pr_prepare_completion_records_followup_task(monkeypatch):
     monkeypatch.setattr(
         pr_prepare_completion, '_record_pr_followup_task', fake_record
     )
-    monkeypatch.setattr(pr_prepare_completion, '_acquire_followup_lock', fake_lock)
-    monkeypatch.setattr(pr_prepare_completion, '_release_followup_lock', fake_unlock)
-    monkeypatch.setattr(pr_prepare_completion, '_active_followup_task_id', fake_active)
     monkeypatch.setattr(
-        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+        pr_prepare_completion, '_acquire_followup_lock', fake_lock
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_release_followup_lock', fake_unlock
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_active_followup_task_id', fake_active
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_create,
     )
 
     task = {
@@ -147,7 +162,10 @@ async def test_pr_prepare_completion_records_followup_task(monkeypatch):
             'post_clone_task': {
                 'title': 'Apply PR fix #40',
                 'prompt': 'fix it',
-                'metadata': {'repo': 'rileyseaburg/codetether', 'pr_number': 40},
+                'metadata': {
+                    'repo': 'rileyseaburg/codetether',
+                    'pr_number': 40,
+                },
             },
         },
     }
@@ -159,7 +177,9 @@ async def test_pr_prepare_completion_records_followup_task(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_pr_prepare_completion_skips_when_active_followup_exists(monkeypatch):
+async def test_pr_prepare_completion_skips_when_active_followup_exists(
+    monkeypatch,
+):
     created = []
     recorded = []
 
@@ -193,14 +213,21 @@ async def test_pr_prepare_completion_skips_when_active_followup_exists(monkeypat
     monkeypatch.setattr(
         pr_prepare_completion, '_claim_pr_followup_creation', fake_claim
     )
-    monkeypatch.setattr(pr_prepare_completion, '_acquire_followup_lock', fake_lock)
-    monkeypatch.setattr(pr_prepare_completion, '_release_followup_lock', fake_unlock)
-    monkeypatch.setattr(pr_prepare_completion, '_active_followup_task_id', fake_active)
+    monkeypatch.setattr(
+        pr_prepare_completion, '_acquire_followup_lock', fake_lock
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_release_followup_lock', fake_unlock
+    )
+    monkeypatch.setattr(
+        pr_prepare_completion, '_active_followup_task_id', fake_active
+    )
     monkeypatch.setattr(
         pr_prepare_completion, '_record_pr_followup_task', fake_record
     )
     monkeypatch.setattr(
-        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_create,
     )
 
     task = {
@@ -213,7 +240,10 @@ async def test_pr_prepare_completion_skips_when_active_followup_exists(monkeypat
             'post_clone_task': {
                 'title': 'Apply PR fix #40',
                 'prompt': 'fix it',
-                'metadata': {'repo': 'rileyseaburg/codetether', 'pr_number': 40},
+                'metadata': {
+                    'repo': 'rileyseaburg/codetether',
+                    'pr_number': 40,
+                },
             },
         },
     }
@@ -251,14 +281,27 @@ async def test_issue_prepare_completion_records_followup_task(monkeypatch):
         created.append(kwargs)
         return 'work-issue-1'
 
-    monkeypatch.setattr(issue_prepare_completion, 'issue_task_context', fake_context)
-    monkeypatch.setattr(issue_prepare_completion, '_claim_pr_followup_creation', fake_claim)
-    monkeypatch.setattr(issue_prepare_completion, '_record_pr_followup_task', fake_record)
-    monkeypatch.setattr(issue_prepare_completion, '_acquire_followup_lock', fake_lock)
-    monkeypatch.setattr(issue_prepare_completion, '_release_followup_lock', fake_unlock)
-    monkeypatch.setattr(issue_prepare_completion, '_active_followup_task_id', fake_active)
     monkeypatch.setattr(
-        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+        issue_prepare_completion, 'issue_task_context', fake_context
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_claim_pr_followup_creation', fake_claim
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_record_pr_followup_task', fake_record
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_acquire_followup_lock', fake_lock
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_release_followup_lock', fake_unlock
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_active_followup_task_id', fake_active
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_create,
     )
 
     task = {
@@ -272,11 +315,16 @@ async def test_issue_prepare_completion_records_followup_task(monkeypatch):
             'post_clone_task': {
                 'title': 'Work issue #39',
                 'prompt': 'fix it',
-                'metadata': {'repo': 'rileyseaburg/codetether', 'issue_number': 39},
+                'metadata': {
+                    'repo': 'rileyseaburg/codetether',
+                    'issue_number': 39,
+                },
             },
         },
     }
-    await issue_prepare_completion.handle_issue_prepare_completion(task, 'wrk_456')
+    await issue_prepare_completion.handle_issue_prepare_completion(
+        task, 'wrk_456'
+    )
 
     assert created[0]['title'] == 'Work issue #39'
     assert 'target_worker_id' not in created[0]['metadata']
@@ -284,7 +332,9 @@ async def test_issue_prepare_completion_records_followup_task(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_issue_prepare_completion_skips_when_active_followup_exists(monkeypatch):
+async def test_issue_prepare_completion_skips_when_active_followup_exists(
+    monkeypatch,
+):
     created = []
     recorded = []
 
@@ -320,14 +370,27 @@ async def test_issue_prepare_completion_skips_when_active_followup_exists(monkey
         created.append(kwargs)
         return 'work-new'
 
-    monkeypatch.setattr(issue_prepare_completion, 'issue_task_context', fake_context)
-    monkeypatch.setattr(issue_prepare_completion, '_claim_pr_followup_creation', fake_claim)
-    monkeypatch.setattr(issue_prepare_completion, '_acquire_followup_lock', fake_lock)
-    monkeypatch.setattr(issue_prepare_completion, '_release_followup_lock', fake_unlock)
-    monkeypatch.setattr(issue_prepare_completion, '_active_followup_task_id', fake_active)
-    monkeypatch.setattr(issue_prepare_completion, '_record_pr_followup_task', fake_record)
     monkeypatch.setattr(
-        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+        issue_prepare_completion, 'issue_task_context', fake_context
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_claim_pr_followup_creation', fake_claim
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_acquire_followup_lock', fake_lock
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_release_followup_lock', fake_unlock
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_active_followup_task_id', fake_active
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_record_pr_followup_task', fake_record
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_create,
     )
 
     task = {
@@ -340,11 +403,16 @@ async def test_issue_prepare_completion_skips_when_active_followup_exists(monkey
             'post_clone_task': {
                 'title': 'Work issue #39',
                 'prompt': 'fix it',
-                'metadata': {'repo': 'rileyseaburg/codetether', 'issue_number': 39},
+                'metadata': {
+                    'repo': 'rileyseaburg/codetether',
+                    'issue_number': 39,
+                },
             },
         },
     }
-    await issue_prepare_completion.handle_issue_prepare_completion(task, 'wrk_456')
+    await issue_prepare_completion.handle_issue_prepare_completion(
+        task, 'wrk_456'
+    )
 
     assert created == []
     assert recorded == [('prepare-issue-duplicate', 'work-existing')]
@@ -365,10 +433,15 @@ async def test_issue_prepare_completion_skips_duplicate_followup(monkeypatch):
         created.append(kwargs)
         return 'work-issue-1'
 
-    monkeypatch.setattr(issue_prepare_completion, 'issue_task_context', fake_context)
-    monkeypatch.setattr(issue_prepare_completion, '_claim_pr_followup_creation', fake_claim)
     monkeypatch.setattr(
-        'a2a_server.persistent_worker_pool.create_and_dispatch_task', fake_create
+        issue_prepare_completion, 'issue_task_context', fake_context
+    )
+    monkeypatch.setattr(
+        issue_prepare_completion, '_claim_pr_followup_creation', fake_claim
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_create,
     )
 
     task = {
@@ -381,11 +454,16 @@ async def test_issue_prepare_completion_skips_duplicate_followup(monkeypatch):
             'post_clone_task': {
                 'title': 'Work issue #39',
                 'prompt': 'fix it',
-                'metadata': {'repo': 'rileyseaburg/codetether', 'issue_number': 39},
+                'metadata': {
+                    'repo': 'rileyseaburg/codetether',
+                    'issue_number': 39,
+                },
             },
         },
     }
-    await issue_prepare_completion.handle_issue_prepare_completion(task, 'wrk_456')
+    await issue_prepare_completion.handle_issue_prepare_completion(
+        task, 'wrk_456'
+    )
 
     assert created == []
 
@@ -397,7 +475,9 @@ async def test_issue_prepare_task_still_uses_issue_followup(monkeypatch):
     async def fake_handle(task, worker_id=None):
         calls.append((task, worker_id))
 
-    monkeypatch.setattr(task_completion, 'handle_issue_prepare_completion', fake_handle)
+    monkeypatch.setattr(
+        task_completion, 'handle_issue_prepare_completion', fake_handle
+    )
 
     task = {
         'title': 'Prepare issue workspace #39',
@@ -433,7 +513,9 @@ async def test_git_credentials_fall_back_to_workspace_github_app(monkeypatch):
     from a2a_server import database as db
     from a2a_server.github_app import auth
 
-    monkeypatch.setattr(git_service, 'get_git_credentials', fake_get_git_credentials)
+    monkeypatch.setattr(
+        git_service, 'get_git_credentials', fake_get_git_credentials
+    )
     monkeypatch.setattr(db, 'db_get_workspace', fake_db_get_workspace)
     monkeypatch.setattr(auth, 'installation_token', fake_installation_token)
 
@@ -451,3 +533,51 @@ async def test_git_credentials_fall_back_to_workspace_github_app(monkeypatch):
         'host': 'github.com',
         'path': 'rileyseaburg/spotlessbinco.git',
     }
+
+
+@pytest.mark.asyncio
+async def test_github_app_task_context_prefers_pr_number_for_pr_tasks(
+    monkeypatch,
+):
+    from a2a_server import database as db
+    from a2a_server.github_app import task_context
+    from a2a_server.github_app.task_context import github_app_task_context
+
+    async def fake_db_get_workspace(workspace_id):
+        assert workspace_id == 'ws-pr-fix'
+        return {
+            'agent_config': {
+                'git_auth': {
+                    'github_app': {'installation_id': '12345'},
+                }
+            }
+        }
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 12345
+        return 'ghs_test_token', '2026-04-24T22:00:00Z'
+
+    monkeypatch.setattr(db, 'db_get_workspace', fake_db_get_workspace)
+    monkeypatch.setattr(
+        task_context, 'installation_token', fake_installation_token
+    )
+
+    context = await github_app_task_context(
+        {
+            'metadata': {
+                'source': 'github-app',
+                'workspace_id': 'ws-pr-fix',
+                'repo': 'rileyseaburg/spotlessbinco',
+                'issue_number': 578,
+                'pr_number': 579,
+                'branch_name': 'codetether/issue-578',
+            }
+        }
+    )
+
+    assert context == (
+        'rileyseaburg/spotlessbinco',
+        579,
+        'codetether/issue-578',
+        'ghs_test_token',
+    )
