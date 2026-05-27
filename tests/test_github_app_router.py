@@ -460,3 +460,159 @@ async def test_installation_created_event_dispatches_active_work(monkeypatch):
         'trigger': 'installation',
         'dispatched': 1,
     }
+
+@pytest.mark.asyncio
+async def test_checks_failed_mention_routes_to_fix_handler(monkeypatch):
+    calls = []
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'issue_comment',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'issue': {
+                    'number': 573,
+                    'pull_request': {'url': 'https://api.github.com/repos/owner/repo/pulls/573'},
+                },
+                'comment': {'id': 99, 'body': f'@{app_slug}, the checks failed'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 123
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fake_has_active_github_app_task(repo, number):
+        calls.append(('active-check', repo, number))
+        return False
+
+    async def fake_handle_fix_request(context, token):
+        calls.append(('fix', context, token))
+        return {'accepted': True, 'clone_task_id': 'task-1'}
+
+    async def fail_post_issue_comment(repo, issue_number, token, body):
+        raise AssertionError('checks failed mention must not post non-fix guidance')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(router, 'has_active_github_app_task', fake_has_active_github_app_task)
+    monkeypatch.setattr(router, 'handle_fix_request', fake_handle_fix_request)
+    monkeypatch.setattr(router, 'post_issue_comment', fail_post_issue_comment)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {'accepted': True, 'clone_task_id': 'task-1'}
+    fix_calls = [call for call in calls if call[0] == 'fix']
+    assert fix_calls
+    _, context, token = fix_calls[0]
+    assert token == 'ghs_test'
+    assert context.repo_full_name == 'owner/repo'
+    assert context.issue_number == 573
+    assert context.pr_number == 573
+
+
+@pytest.mark.asyncio
+async def test_failed_check_event_dedupes_when_active_task_exists(monkeypatch):
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'check_run',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'completed',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'check_run': {
+                    'id': 777,
+                    'name': 'CI',
+                    'conclusion': 'failure',
+                    'app': {'slug': 'github-actions', 'name': 'GitHub Actions'},
+                    'pull_requests': [{'number': 573}],
+                },
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 123
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fake_has_active_github_app_task(repo, number):
+        assert repo == 'owner/repo'
+        assert number == 573
+        return True
+
+    async def fail_handle_fix_request(context, token):
+        raise AssertionError('failed check remediation must dedupe active PR task')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(router, 'has_active_github_app_task', fake_has_active_github_app_task)
+    monkeypatch.setattr(router, 'handle_fix_request', fail_handle_fix_request)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {
+        'trigger': 'failed_check',
+        'accepted': False,
+        'reason': 'active-task-exists',
+    }
+
+
+@pytest.mark.asyncio
+async def test_non_fix_guidance_suppressed_when_active_task_exists(monkeypatch):
+    app_slug = router.APP_SLUG
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'issue_comment',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'created',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'issue': {
+                    'number': 573,
+                    'pull_request': {'url': 'https://api.github.com/repos/owner/repo/pulls/573'},
+                },
+                'comment': {'id': 99, 'body': f'@{app_slug} hello?'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 123
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fake_has_active_github_app_task(repo, number):
+        assert repo == 'owner/repo'
+        assert number == 573
+        return True
+
+    async def fail_post_issue_comment(repo, issue_number, token, body):
+        raise AssertionError('active PR task should suppress guidance chatter')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(router, 'has_active_github_app_task', fake_has_active_github_app_task)
+    monkeypatch.setattr(router, 'post_issue_comment', fail_post_issue_comment)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {'accepted': False, 'reason': 'active-task-exists'}
