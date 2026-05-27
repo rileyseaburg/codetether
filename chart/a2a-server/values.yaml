@@ -229,6 +229,10 @@ env:
   A2A_AGENT_URL: "https://api.codetether.run"
   A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
 
+  # GitHub App automation model. Use a direct provider, not OpenRouter,
+  # so GitHub jobs do not depend on OpenRouter credits.
+  GITHUB_APP_MODEL_REF: "openai-codex/gpt-5.5"
+
   # Worker infrastructure attribution for /v1/agent/workers:
   # - WORKER_INFRA_CACHE_TTL_SECONDS: refresh cadence for pod/node lookup
   # - WORKER_INFRA_NODE_MAP: optional node->provider overrides
