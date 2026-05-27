@@ -11,6 +11,7 @@ from .check_failures import context_from_failed_check, should_remediate_failed_c
 from .mention import is_fix_request
 from .payload import (
     extract_context,
+    is_changes_requested_review,
     is_self_authored_event,
     is_supported_event_action,
 )
@@ -80,7 +81,9 @@ async def handle_github_webhook(request: Request):
         )
         return {'ignored': True}
     token, _ = await installation_token(context.installation_id)
-    if not is_fix_request(context.comment_body):
+    is_review_change_request = is_changes_requested_review(event_name, payload)
+    is_explicit_fix_request = is_fix_request(context.comment_body)
+    if not is_review_change_request and not is_explicit_fix_request:
         if await has_active_github_app_task(context.repo_full_name, context.issue_number):
             return {'accepted': False, 'reason': 'active-task-exists'}
         await post_issue_comment(

@@ -461,6 +461,7 @@ async def test_installation_created_event_dispatches_active_work(monkeypatch):
         'dispatched': 1,
     }
 
+
 @pytest.mark.asyncio
 async def test_checks_failed_mention_routes_to_fix_handler(monkeypatch):
     calls = []
@@ -521,6 +522,71 @@ async def test_checks_failed_mention_routes_to_fix_handler(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_changes_requested_review_without_mention_creates_fix_task(monkeypatch):
+    calls = []
+
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'pull_request_review',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'submitted',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'pull_request': {'number': 7},
+                'review': {
+                    'id': 456,
+                    'state': 'changes_requested',
+                    'body': 'Please add coverage for the new edge case.',
+                    'user': {'login': 'reviewer', 'type': 'User'},
+                },
+                'sender': {'login': 'reviewer', 'type': 'User'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 123
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fake_has_active_github_app_task(repo, number):
+        assert repo == 'owner/repo'
+        assert number == 7
+        return False
+
+    async def fake_handle_fix_request(context, token):
+        calls.append((context, token))
+        return {'accepted': True, 'clone_task_id': 'task-review'}
+
+    async def fail_post_issue_comment(repo, issue_number, token, body):
+        raise AssertionError('changes-requested reviews should not be treated as non-fix mentions')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+    monkeypatch.setattr(router, 'has_active_github_app_task', fake_has_active_github_app_task)
+    monkeypatch.setattr(router, 'handle_fix_request', fake_handle_fix_request)
+    monkeypatch.setattr(router, 'post_issue_comment', fail_post_issue_comment)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {'accepted': True, 'clone_task_id': 'task-review'}
+    assert len(calls) == 1
+    context, token = calls[0]
+    assert token == 'ghs_test'
+    assert context.repo_full_name == 'owner/repo'
+    assert context.issue_number == 7
+    assert context.pr_number == 7
+    assert context.comment_id == 456
+    assert '@codetether' not in context.comment_body
+    assert 'Changes requested by reviewer reviewer' in context.comment_body
+    assert 'Please add coverage for the new edge case.' in context.comment_body
+
+
+@pytest.mark.asyncio
 async def test_failed_check_event_dedupes_when_active_task_exists(monkeypatch):
     class FakeRequest:
         headers = {
@@ -569,6 +635,47 @@ async def test_failed_check_event_dedupes_when_active_task_exists(monkeypatch):
         'accepted': False,
         'reason': 'active-task-exists',
     }
+
+
+@pytest.mark.asyncio
+async def test_non_changes_requested_review_without_mention_is_ignored(monkeypatch):
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'pull_request_review',
+        }
+
+        async def body(self):
+            return json.dumps({
+                'action': 'submitted',
+                'installation': {'id': 123},
+                'repository': {'full_name': 'owner/repo'},
+                'pull_request': {'number': 7},
+                'review': {
+                    'id': 456,
+                    'state': 'commented',
+                    'body': 'Looks okay overall.',
+                    'user': {'login': 'reviewer', 'type': 'User'},
+                },
+                'sender': {'login': 'reviewer', 'type': 'User'},
+            }).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('installation token should not be minted for unmentioned review comments')
+
+    async def fail_handle_fix_request(context, token):
+        raise AssertionError('unmentioned non-changes-requested reviews should not create tasks')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+    monkeypatch.setattr(router, 'handle_fix_request', fail_handle_fix_request)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {'ignored': True}
 
 
 @pytest.mark.asyncio

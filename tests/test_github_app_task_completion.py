@@ -451,3 +451,47 @@ async def test_git_credentials_fall_back_to_workspace_github_app(monkeypatch):
         'host': 'github.com',
         'path': 'rileyseaburg/spotlessbinco.git',
     }
+
+
+@pytest.mark.asyncio
+async def test_github_app_task_context_prefers_pr_number_for_pr_tasks(monkeypatch):
+    from a2a_server import database as db
+    from a2a_server.github_app import task_context
+    from a2a_server.github_app.task_context import github_app_task_context
+
+    async def fake_db_get_workspace(workspace_id):
+        assert workspace_id == 'ws-pr-fix'
+        return {
+            'agent_config': {
+                'git_auth': {
+                    'github_app': {'installation_id': '12345'},
+                }
+            }
+        }
+
+    async def fake_installation_token(installation_id):
+        assert installation_id == 12345
+        return 'ghs_test_token', '2026-04-24T22:00:00Z'
+
+    monkeypatch.setattr(db, 'db_get_workspace', fake_db_get_workspace)
+    monkeypatch.setattr(task_context, 'installation_token', fake_installation_token)
+
+    context = await github_app_task_context(
+        {
+            'metadata': {
+                'source': 'github-app',
+                'workspace_id': 'ws-pr-fix',
+                'repo': 'rileyseaburg/spotlessbinco',
+                'issue_number': 578,
+                'pr_number': 579,
+                'branch_name': 'codetether/issue-578',
+            }
+        }
+    )
+
+    assert context == (
+        'rileyseaburg/spotlessbinco',
+        579,
+        'codetether/issue-578',
+        'ghs_test_token',
+    )
