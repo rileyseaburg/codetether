@@ -266,8 +266,15 @@ def _known_policy_roles() -> set[str]:
     tenant-scoped dashboard session never receives the safe default role and
     read-only panes such as /v1/agent/workflows/github-app 403 before the
     tenant-scoped query can run.
+
+    Some tenant images run in OPA_LOCAL_MODE without bundling policies/data.json.
+    Keep explicit application RBAC roles authoritative in that case instead of
+    downgrading every tenant Keycloak user to the default editor role.
     """
-    return set((_load_local_policy_data().get('roles') or {}).keys())
+    roles = (_load_local_policy_data().get('roles') or {}).keys()
+    if roles:
+        return set(roles)
+    return {'admin', 'a2a-admin', 'operator', 'editor', 'viewer'}
 
 
 def _effective_roles(user: dict[str, Any]) -> list:
