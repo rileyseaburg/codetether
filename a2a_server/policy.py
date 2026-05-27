@@ -224,12 +224,74 @@ async def _get_client() -> httpx.AsyncClient:
 _DEFAULT_SELF_SERVICE_ROLE = os.environ.get('DEFAULT_USER_ROLE', 'editor')
 
 
+# Keycloak commonly adds realm roles such as default-roles-<realm>,
+# offline_access, and uma_authorization to every authenticated user.  Those are
+# identity-provider plumbing roles, not application RBAC assignments.  A
+# tenant-scoped Keycloak dashboard session with only those built-ins should get
+# the same safe default read/write app role as self-service users so DB-backed
+# dashboard panes do not 403 just because no app role has been explicitly
+# minted into the token yet.  Keycloak users with no tenant remain denied.
+_DEFAULT_KEYCLOAK_TENANT_ROLE = os.environ.get(
+    'DEFAULT_KEYCLOAK_TENANT_ROLE', _DEFAULT_SELF_SERVICE_ROLE
+)
+_DEFAULT_KEYCLOAK_REALM_ROLES = {
+    'offline_access',
+    'uma_authorization',
+    # Keycloak account-console client roles are identity/profile plumbing, not
+    # CodeTether app RBAC. Treating them as app roles prevents tenant-scoped
+    # dashboard users from receiving the safe default role and causes 403s on
+    # DB-backed panes such as /v1/agent/workflows/github-app.
+    'manage-account',
+    'manage-account-links',
+    'view-profile',
+}
+
+
+def _is_default_keycloak_realm_role(role: Any) -> bool:
+    """Return True for Keycloak built-in realm roles that are not app RBAC."""
+    if not isinstance(role, str):
+        return False
+    return role in _DEFAULT_KEYCLOAK_REALM_ROLES or role.startswith(
+        'default-roles-'
+    )
+
+
+def _known_policy_roles() -> set[str]:
+    """Return the app RBAC roles known to the policy data file.
+
+    Keycloak access tokens flatten realm roles and client roles into one list in
+    user_auth._extract_keycloak_roles().  Client/account-console roles such as
+    ``manage-consent`` or ``view-applications`` are real Keycloak roles but are
+    not CodeTether RBAC roles.  If we treat those unknown roles as app roles, a
+    tenant-scoped dashboard session never receives the safe default role and
+    read-only panes such as /v1/agent/workflows/github-app 403 before the
+    tenant-scoped query can run.
+    """
+    return set((_load_local_policy_data().get('roles') or {}).keys())
+
+
 def _effective_roles(user: dict[str, Any]) -> list:
-    """Return the user's roles, falling back to the default for self-service users."""
+    """Return app RBAC roles, applying safe defaults for dashboard sessions."""
     roles = user.get('roles', [])
-    if roles:
-        return roles
     auth_source = _detect_auth_source(user)
+
+    if roles:
+        if auth_source == 'keycloak':
+            known_roles = _known_policy_roles()
+            app_roles = [
+                role
+                for role in roles
+                if isinstance(role, str)
+                and role in known_roles
+                and not _is_default_keycloak_realm_role(role)
+            ]
+            if app_roles:
+                return app_roles
+            if user.get('tenant_id'):
+                return [_DEFAULT_KEYCLOAK_TENANT_ROLE]
+            return []
+        return roles
+
     if auth_source in ('self-service', 'api_key'):
         return [_DEFAULT_SELF_SERVICE_ROLE]
     return roles
@@ -265,7 +327,11 @@ def _detect_auth_source(user: dict[str, Any]) -> str:
     """Determine how the user authenticated."""
     if user.get('api_key_scopes') is not None:
         return 'api_key'
-    if user.get('type') == 'keycloak' or user.get('keycloak_sub'):
+    if (
+        user.get('type') == 'keycloak'
+        or user.get('keycloak_sub')
+        or user.get('realm_name')
+    ):
         return 'keycloak'
     return 'self-service'
 
@@ -539,6 +605,8 @@ async def _resolve_user(request: Request) -> dict[str, Any] | None:
                 'email': session.email,
                 'roles': session.roles,
                 'tenant_id': session.tenant_id,
+                'type': 'keycloak',
+                'keycloak_sub': session.user_id,
                 'realm_name': session.realm_name,
             }
     except Exception:

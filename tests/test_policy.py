@@ -22,6 +22,7 @@ from a2a_server.policy import (
     _evaluate_local,
     _detect_auth_source,
     _build_input,
+    _effective_roles,
 )
 from fastapi import HTTPException
 
@@ -80,14 +81,47 @@ def viewer_user():
 
 
 def no_role_user():
-    """Keycloak user with no roles assigned (should be denied)."""
+    """Keycloak user with no tenant and no roles assigned (should be denied)."""
     return {
         "id": "user-norole",
         "user_id": "user-norole",
         "email": "norole@test.com",
         "roles": [],
-        "tenant_id": "tenant-1",
+        "tenant_id": None,
         "keycloak_sub": "kc-norole",  # Keycloak user, so no default role
+    }
+
+
+def tenant_keycloak_default_roles_user():
+    """Tenant-scoped Keycloak user with only built-in/client plumbing roles."""
+    return {
+        "id": "user-kc-default",
+        "user_id": "user-kc-default",
+        "email": "kc-default@test.com",
+        "roles": [
+            "default-roles-acme",
+            "offline_access",
+            "uma_authorization",
+            "manage-account",
+            "manage-account-links",
+            "view-profile",
+            "manage-consent",
+            "view-applications",
+        ],
+        "tenant_id": "tenant-1",
+        "keycloak_sub": "kc-default",
+    }
+
+
+def tenant_keycloak_app_roles_user():
+    """Tenant-scoped Keycloak user with an app-specific role plus defaults."""
+    return {
+        "id": "user-kc-viewer",
+        "user_id": "user-kc-viewer",
+        "email": "kc-viewer@test.com",
+        "roles": ["default-roles-acme", "offline_access", "viewer"],
+        "tenant_id": "tenant-1",
+        "keycloak_sub": "kc-viewer",
     }
 
 
@@ -181,6 +215,22 @@ class TestRoleBasedAccess:
         assert await check_policy(self_service, "tasks:read")
         assert await check_policy(self_service, "mcp:write")
         assert not await check_policy(self_service, "admin:access")
+
+    @pytest.mark.asyncio
+    async def test_tenant_keycloak_default_roles_get_default_editor_role(self):
+        """Tenant Keycloak users with only built-ins can read DB workflow panes."""
+        user = tenant_keycloak_default_roles_user()
+        assert _effective_roles(user) == ["editor"]
+        assert await check_policy(user, "tasks:read")
+        assert await check_policy(user, "mcp:write")
+        assert not await check_policy(user, "admin:access")
+
+    @pytest.mark.asyncio
+    async def test_tenant_keycloak_app_roles_are_preserved(self):
+        user = tenant_keycloak_app_roles_user()
+        assert _effective_roles(user) == ["viewer"]
+        assert await check_policy(user, "tasks:read")
+        assert not await check_policy(user, "tasks:write")
 
     @pytest.mark.asyncio
     async def test_public_endpoints_always_allowed(self):
