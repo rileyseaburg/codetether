@@ -7,7 +7,9 @@ from .mention import mentions_bot
 from .settings import APP_SLUG
 
 
-def _actor_for_event(event_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _actor_for_event(
+    event_name: str, payload: dict[str, Any]
+) -> dict[str, Any]:
     """Return the GitHub actor that authored the user-visible webhook text."""
     if event_name in {'issue_comment', 'pull_request_review_comment'}:
         return payload.get('comment', {}).get('user', {}) or {}
@@ -31,7 +33,10 @@ def is_self_authored_event(event_name: str, payload: dict[str, Any]) -> bool:
     """
     app_slug = APP_SLUG.lower()
     expected_bot_login = f'{app_slug}[bot]'
-    actors = [_actor_for_event(event_name, payload), payload.get('sender', {}) or {}]
+    actors = [
+        _actor_for_event(event_name, payload),
+        payload.get('sender', {}) or {},
+    ]
     for actor in actors:
         login = str(actor.get('login', '') or '').lower()
         actor_type = str(actor.get('type', '') or '').lower()
@@ -51,7 +56,9 @@ def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
         if action == 'created':
             return True
         if action == 'edited':
-            old_body = (payload.get('changes', {}).get('body', {}) or {}).get('from', '')
+            old_body = (payload.get('changes', {}).get('body', {}) or {}).get(
+                'from', ''
+            )
             new_body = _body_for_event(event_name, payload)
             return mentions_bot(new_body) and not mentions_bot(old_body)
         return False
@@ -61,7 +68,9 @@ def is_supported_event_action(event_name: str, payload: dict[str, Any]) -> bool:
         if action == 'opened':
             return True
         if action == 'edited':
-            old_body = (payload.get('changes', {}).get('body', {}) or {}).get('from', '')
+            old_body = (payload.get('changes', {}).get('body', {}) or {}).get(
+                'from', ''
+            )
             new_body = _body_for_event(event_name, payload)
             return mentions_bot(new_body) and not mentions_bot(old_body)
     return False
@@ -79,7 +88,9 @@ def _body_for_event(event_name: str, payload: dict[str, Any]) -> str:
     return ''
 
 
-def is_changes_requested_review(event_name: str, payload: dict[str, Any]) -> bool:
+def is_changes_requested_review(
+    event_name: str, payload: dict[str, Any]
+) -> bool:
     """Return true for PR review submissions that request changes."""
     if event_name != 'pull_request_review':
         return False
@@ -97,7 +108,9 @@ def _changes_requested_review_body(payload: dict[str, Any]) -> str:
     return body
 
 
-def extract_context(event_name: str, payload: dict[str, Any]) -> Optional[MentionContext]:
+def extract_context(
+    event_name: str, payload: dict[str, Any]
+) -> Optional[MentionContext]:
     """Normalize GitHub webhook payloads that can mention the app."""
     body = _body_for_event(event_name, payload)
     installation_id = payload.get('installation', {}).get('id')
@@ -110,9 +123,10 @@ def extract_context(event_name: str, payload: dict[str, Any]) -> Optional[Mentio
 
     is_review_change_request = is_changes_requested_review(event_name, payload)
     if (
-        not is_review_change_request
-        and not mentions_bot(body)
-    ) or not installation_id or not repo_full_name:
+        (not is_review_change_request and not mentions_bot(body))
+        or not installation_id
+        or not repo_full_name
+    ):
         return None
 
     if event_name == 'issue_comment':
@@ -123,7 +137,9 @@ def extract_context(event_name: str, payload: dict[str, Any]) -> Optional[Mentio
         issue_number = payload.get('pull_request', {}).get('number')
         pr_number = issue_number
         comment_path = payload.get('comment', {}).get('path', '') or ''
-        comment_diff_hunk = payload.get('comment', {}).get('diff_hunk', '') or ''
+        comment_diff_hunk = (
+            payload.get('comment', {}).get('diff_hunk', '') or ''
+        )
     elif event_name == 'pull_request_review':
         issue_number = payload.get('pull_request', {}).get('number')
         pr_number = issue_number

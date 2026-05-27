@@ -3,7 +3,9 @@
 from .auth import installation_token
 
 
-async def github_app_task_context(task: dict) -> tuple[str, int, str, str] | None:
+async def github_app_task_context(
+    task: dict,
+) -> tuple[str, int, str, str] | None:
     """Resolve repo, issue/PR number, branch, and installation token."""
     from .. import database as db
 
@@ -28,7 +30,11 @@ async def github_app_task_context(task: dict) -> tuple[str, int, str, str] | Non
     # comment/review code must fetch `/pulls/{pr_number}` rather than the
     # source issue number.
     number = metadata.get('pr_number') or metadata.get('issue_number')
-    branch = metadata.get('branch_name') or metadata.get('pr_head') or metadata.get('git_branch')
+    branch = (
+        metadata.get('branch_name')
+        or metadata.get('pr_head')
+        or metadata.get('git_branch')
+    )
     if not number or not branch:
         return None
     return (
