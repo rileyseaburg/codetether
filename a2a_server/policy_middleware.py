@@ -157,8 +157,10 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/runtime/sessions/", {"GET"}, "sessions:read"),
     (r"^/v1/agent/sessions/[^/]+/worker-status$", {"GET"}, "sessions:read"),
 
-    # Task mutations
-    (r"^/v1/agent/tasks$", {"POST"}, "tasks:write"),
+    # Public marketing chat creates short-lived anonymous support tasks and
+    # polls the returned task id. It cannot rely on app RBAC roles, but it also
+    # does not expose task listing or mutation beyond the random id it receives.
+    (r"^/v1/agent/tasks$", {"POST"}, ""),
     (r"^/v1/agent/codebases/[^/]+/tasks$", {"POST"}, "tasks:write"),
     (r"^/v1/agent/tasks/[^/]+/cancel$", {"POST"}, "tasks:write"),
     (r"^/v1/agent/tasks/[^/]+/status$", {"PUT"}, "tasks:write"),
@@ -168,6 +170,10 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     # Codebase/task GET catch-all (AFTER specific session/task sub-paths)
     (r"^/v1/agent/codebases/[^/]+/tasks$", {"GET"}, "tasks:read"),
     (r"^/v1/agent/codebases", {"GET"}, "codebases:read"),
+
+    # Public marketing chat polls the unguessable task id it was just given.
+    # Listing remains skipped separately above only for worker polling.
+    (r"^/v1/agent/tasks/[^/]+$", {"GET"}, ""),
 
     # Task reads
     (r"^/v1/agent/tasks", {"GET"}, "tasks:read"),
