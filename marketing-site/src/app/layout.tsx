@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import clsx from 'clsx'
 
 import '@/styles/tailwind.css'
+import { ApiAuthSync } from '@/components/ApiAuthSync'
 import { AuthProvider } from '@/components/AuthProvider'
 import { ChatWidget } from '@/components/ChatWidget'
 
@@ -56,6 +57,7 @@ export default function RootLayout({
         <html lang="en" className={clsx('bg-gray-50 dark:bg-blue-950 antialiased', inter.variable)}>
             <body className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
                 <AuthProvider>
+                    <ApiAuthSync />
                     {children}
                     <ChatWidget />
                 </AuthProvider>
