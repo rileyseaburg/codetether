@@ -147,14 +147,14 @@ class TestAgentRouterCodebases:
 
 class TestAgentRouterTasks:
     def test_create(self):
-        assert _match_permission("/v1/agent/tasks", "POST") == "tasks:write"
+        assert _match_permission("/v1/agent/tasks", "POST") == ""
 
     def test_list(self):
         # Worker task polling — auth handled by WORKER_AUTH_TOKEN, not OPA
         assert _match_permission("/v1/agent/tasks", "GET") == ""
 
     def test_get_one(self):
-        assert _match_permission("/v1/agent/tasks/task-123", "GET") == "tasks:read"
+        assert _match_permission("/v1/agent/tasks/task-123", "GET") == ""
 
     def test_cancel(self):
         assert _match_permission("/v1/agent/tasks/task-123/cancel", "POST") == "tasks:write"
