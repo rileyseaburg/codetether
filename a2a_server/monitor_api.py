@@ -4580,6 +4580,7 @@ async def get_github_app_workflows(
     dashboard users and authorized agents are handled consistently.
     """
     from .workflow_monitor import load_github_app_workflows
+    from .workflow_monitor import build_response as empty_workflow_response
 
     roles = set(user.get('roles') or [])
     tenant_id = (
