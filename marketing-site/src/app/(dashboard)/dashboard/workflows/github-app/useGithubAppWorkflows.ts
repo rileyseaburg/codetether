@@ -5,6 +5,33 @@ import { useTenantApi } from '@/hooks/useTenantApi'
 
 import type { GithubAppWorkflowResponse } from './types'
 
+const emptyWorkflowResponse = (): GithubAppWorkflowResponse => ({
+  generated_at: new Date().toISOString(),
+  totals: {},
+  route_states: {},
+  failure_classes: {},
+  workflows: [],
+  tasks: [],
+  runs: [],
+})
+
+function normalizeWorkflowResponse(value: unknown): GithubAppWorkflowResponse {
+  if (!value || Array.isArray(value) || typeof value !== 'object') {
+    return emptyWorkflowResponse()
+  }
+
+  const response = value as Partial<GithubAppWorkflowResponse>
+  return {
+    generated_at: response.generated_at || new Date().toISOString(),
+    totals: response.totals || {},
+    route_states: response.route_states || {},
+    failure_classes: response.failure_classes || {},
+    workflows: Array.isArray(response.workflows) ? response.workflows : [],
+    tasks: Array.isArray(response.tasks) ? response.tasks : [],
+    runs: Array.isArray(response.runs) ? response.runs : [],
+  }
+}
+
 export function useGithubAppWorkflows() {
   const { tenantFetch, isLoading: tenantLoading } = useTenantApi()
   const [data, setData] = useState<GithubAppWorkflowResponse | null>(null)
@@ -21,7 +48,7 @@ export function useGithubAppWorkflows() {
       `/v1/agent/workflows/github-app?${query.toString()}`,
     )
     if (res.error) setError(res.error)
-    else if (res.data) setData(res.data)
+    else setData(normalizeWorkflowResponse(res.data))
     setLoading(false)
   }, [repos, tenantFetch])
 
