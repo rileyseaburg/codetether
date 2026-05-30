@@ -13,6 +13,7 @@ Supports multiple storage backends:
 import asyncio
 import json
 import logging
+import os
 import sqlite3
 import threading
 import uuid
@@ -4581,11 +4582,17 @@ async def get_github_app_workflows(
     from .workflow_monitor import load_github_app_workflows
 
     roles = set(user.get('roles') or [])
-    tenant_id = user.get('tenant_id') or request.headers.get('X-Tenant-ID')
+    tenant_id = (
+        user.get('tenant_id')
+        or request.headers.get('X-Tenant-ID')
+        or getattr(request.state, 'tenant_id', None)
+        or os.environ.get('TENANT_ID')
+    )
     if roles.intersection({'admin', 'a2a-admin', 'operator'}):
         tenant_id = None
     if tenant_id is None:
-        raise HTTPException(status_code=403, detail='Tenant context required')
+        logger.warning('github_app_workflows_missing_tenant_context')
+        return []
 
     pool = await db.get_pool()
     if not pool:
