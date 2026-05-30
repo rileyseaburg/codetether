@@ -8,6 +8,7 @@ streaming, task management, and agent discovery.
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime, timedelta
 import uuid
@@ -185,6 +186,35 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _cors_allowed_origins() -> List[str]:
+    """Return browser origins allowed to call the API.
+
+    Tenant dashboards are served from per-tenant subdomains such as
+    https://quantum-forge.codetether.run and call the shared API origin.
+    Include those known production origins by default and allow operators to
+    extend/override the list without a code change via CORS_ALLOWED_ORIGINS.
+    """
+    defaults = [
+        'https://codetether.run',
+        'https://api.codetether.run',
+        'https://docs.codetether.run',
+        'https://quantum-forge.codetether.run',
+        'http://localhost:3000',
+        'http://localhost:8000',
+    ]
+    configured = os.getenv('CORS_ALLOWED_ORIGINS') or os.getenv('A2A_CORS_ALLOWED_ORIGINS')
+    if not configured:
+        return defaults
+
+    origins = [origin.strip() for origin in configured.split(',') if origin.strip()]
+    # Preserve the safe production defaults unless explicitly disabled.
+    if os.getenv('CORS_REPLACE_DEFAULT_ORIGINS', '').lower() in {'1', 'true', 'yes'}:
+        return origins
+
+    return list(dict.fromkeys([*defaults, *origins]))
+
 security = HTTPBearer(auto_error=False)
 
 
@@ -249,13 +279,7 @@ class A2AServer:
         # 401/403 errors from auth middleware.
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=[
-                'https://codetether.run',
-                'https://api.codetether.run',
-                'https://docs.codetether.run',
-                'http://localhost:3000',
-                'http://localhost:8000',
-            ],
+            allow_origins=_cors_allowed_origins(),
             allow_credentials=True,
             allow_methods=['*'],
             allow_headers=['*'],
