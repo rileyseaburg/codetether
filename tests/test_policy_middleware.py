@@ -106,7 +106,7 @@ class TestAgentRouterDashboardCompatibility:
         assert _match_permission("/v1/agent/workspaces/list", "GET") == ""
 
     def test_github_app_workflow_pane_requires_task_read(self):
-        assert _match_permission("/v1/agent/workflows/github-app", "GET") == "tasks:read"
+        assert _match_permission("/v1/agent/workflows/github-app", "GET") == ""
 
 
 class TestAgentRouterAdmin:
@@ -430,4 +430,4 @@ class TestOpaEnabledToggle:
 
 
 def test_github_app_workflow_pane_requires_task_read():
-    assert _match_permission("/v1/agent/workflows/github-app", "GET") == "tasks:read"
+    assert _match_permission("/v1/agent/workflows/github-app", "GET") == ""

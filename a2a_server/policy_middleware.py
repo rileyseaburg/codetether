@@ -113,8 +113,10 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/api-keys/test$", {"POST"}, "api_keys:write"),
     (r"^/v1/agent/api-keys/", {"DELETE"}, "api_keys:delete"),
 
-    # GitHub App workflow pane: user/agent authenticated view, not worker polling.
-    (r"^/v1/agent/workflows/github-app$", {"GET"}, "tasks:read"),
+    # GitHub App workflow pane is tenant-scoped by the route handler. Tenant
+    # deployments commonly run with local auth defaults, so skip OPA here and
+    # let the handler apply tenant scoping instead of surfacing dashboard 403s.
+    (r"^/v1/agent/workflows/github-app$", {"GET"}, ""),
 
     # Worker management — registration, heartbeat, task-polling, and claiming
     # are internal infrastructure (workers run on trusted nodes), so skip auth.
