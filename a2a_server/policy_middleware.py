@@ -125,6 +125,7 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r"^/v1/agent/workers/[^/]+/profile$", {"POST"}, "workers:write"),
     (r"^/v1/agent/workers$", {"GET"}, ""),
     (r"^/v1/agent/workers/", {"GET"}, ""),
+    (r"^/v1/agent/workspaces/list$", {"GET"}, ""),
 
     # Worker profiles
     (r"^/v1/agent/worker-profiles$", {"POST"}, "workers:write"),

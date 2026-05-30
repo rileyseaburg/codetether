@@ -97,6 +97,18 @@ class TestMonitorRouter:
         assert _match_permission("/v1/monitor/export/csv", "GET") == "monitor:read"
 
 
+class TestAgentRouterDashboardCompatibility:
+    def test_worker_and_workspace_dashboard_reads_skip_opa(self):
+        # Browser dashboard reads are tenant-scoped by route handlers. They must
+        # not require worker/admin RBAC or preflight-safe routes become opaque.
+        assert _match_permission("/v1/agent/workers", "GET") == ""
+        assert _match_permission("/v1/agent/workers/worker-1", "GET") == ""
+        assert _match_permission("/v1/agent/workspaces/list", "GET") == ""
+
+    def test_github_app_workflow_pane_requires_task_read(self):
+        assert _match_permission("/v1/agent/workflows/github-app", "GET") == "tasks:read"
+
+
 class TestAgentRouterAdmin:
     def test_database_endpoints(self):
         assert _match_permission("/v1/agent/database/status", "GET") == "admin:access"

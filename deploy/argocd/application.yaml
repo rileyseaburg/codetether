@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: workflow-pane-auth-20260521190739-4be3dc7
+          value: cors-quantum-forge-20260530175644-de6dcbf
         - name: blueGreen.rolloutId.green
-          value: workflow-pane-auth-20260521190739-4be3dc7
+          value: cors-quantum-forge-20260530175644-de6dcbf
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: workflow-pane-auth-20260521190739-4be3dc7
+          tag: cors-quantum-forge-20260530175644-de6dcbf
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
@@ -47,7 +47,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: workflow-pane-auth-20260521190739-4be3dc7
+            green: cors-quantum-forge-20260530175644-de6dcbf
         service:
           type: ClusterIP
           port: 8000
@@ -60,7 +60,7 @@ spec:
             nginx.ingress.kubernetes.io/ssl-redirect: "true"
             nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
             nginx.ingress.kubernetes.io/enable-cors: "true"
-            nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run"
+            nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run, https://quantum-forge.codetether.run"
             nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
             nginx.ingress.kubernetes.io/cors-allow-headers: "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key"
             nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
