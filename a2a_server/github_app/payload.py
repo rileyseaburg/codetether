@@ -102,7 +102,7 @@ def _changes_requested_review_body(payload: dict[str, Any]) -> str:
     review = payload.get('review') or {}
     reviewer = (review.get('user') or {}).get('login') or 'unknown'
     review_body = str(review.get('body') or '').strip()
-    body = f'Changes requested by reviewer {reviewer}.'
+    body = f'@codetether please address the requested PR changes. Changes requested by reviewer {reviewer}.'
     if review_body:
         body = f'{body}\n\n{review_body}'
     return body
