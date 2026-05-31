@@ -645,8 +645,10 @@ async def test_changes_requested_review_without_mention_creates_fix_task(
     assert context.issue_number == 7
     assert context.pr_number == 7
     assert context.comment_id == 456
+    from a2a_server.github_app.payload import CHANGE_REQUEST_MENTION
+
     assert context.comment_body.startswith(
-        '@codetether please address the requested PR changes.'
+        f'{CHANGE_REQUEST_MENTION} please address the requested PR changes.'
     )
     assert 'Changes requested by reviewer reviewer' in context.comment_body
     assert 'Please add coverage for the new edge case.' in context.comment_body

@@ -10,7 +10,7 @@ import uuid
 from typing import Any
 
 from ..provenance import verify_provenance
-from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
+from .settings import APP_SLUG, AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ CODETETHER_PERSONALITY = {
     'tone': 'concise, safety-first, provenance-aware',
 }
 
-CHANGE_REQUEST_MENTION = '@codetether'
+CHANGE_REQUEST_MENTION = f'@{APP_SLUG}'
 
 MAX_FIX_ATTEMPTS_PER_SHA = 5
 

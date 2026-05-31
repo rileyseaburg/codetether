@@ -6,6 +6,8 @@ from .context import MentionContext
 from .mention import mentions_bot
 from .settings import APP_SLUG
 
+CHANGE_REQUEST_MENTION = f'@{APP_SLUG}'
+
 
 def _actor_for_event(
     event_name: str, payload: dict[str, Any]
@@ -102,7 +104,10 @@ def _changes_requested_review_body(payload: dict[str, Any]) -> str:
     review = payload.get('review') or {}
     reviewer = (review.get('user') or {}).get('login') or 'unknown'
     review_body = str(review.get('body') or '').strip()
-    body = f'@codetether please address the requested PR changes. Changes requested by reviewer {reviewer}.'
+    body = (
+        f'{CHANGE_REQUEST_MENTION} please address the requested PR changes. '
+        f'Changes requested by reviewer {reviewer}.'
+    )
     if review_body:
         body = f'{body}\n\n{review_body}'
     return body
