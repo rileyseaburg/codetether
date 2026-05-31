@@ -1,6 +1,8 @@
 import os
 
-os.environ.setdefault('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+os.environ.setdefault(
+    'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
+)
 
 import pytest
 
@@ -1246,6 +1248,7 @@ def test_fix_followup_prompt_no_attempt_on_first():
     )
     assert 'Fix attempt' not in prompt
 
+
 @pytest.mark.asyncio
 async def test_branch_verification_uses_git_ref_endpoint(monkeypatch):
     calls = []
@@ -1271,14 +1274,17 @@ async def test_branch_verification_uses_git_ref_endpoint(monkeypatch):
     assert calls == [
         (
             'GET',
-            '/repos/CodeTether/TetherScript/git/ref/heads/codetether%2Fissue-12',
+            '/repos/CodeTether/TetherScript/git/ref/heads/codetether%2F'
+            'issue-12',
             'token',
         )
     ]
 
 
 @pytest.mark.asyncio
-async def test_issue_final_comment_reports_missing_branch_as_infra_failure(monkeypatch):
+async def test_issue_final_comment_reports_missing_branch_as_infra_failure(
+    monkeypatch,
+):
     comments = []
 
     async def fake_context(task):
@@ -1312,13 +1318,20 @@ async def test_issue_final_comment_reports_missing_branch_as_infra_failure(monke
 
     assert len(comments) == 1
     assert 'Branch verification failed after worker completion' in comments[0]
-    assert 'GET /repos/CodeTether/TetherScript/git/ref/heads/codetether%2Fissue-12' in comments[0]
-    assert 'Recovery: retry or investigate worker commit/push/auth' in comments[0]
+    assert (
+        'GET /repos/CodeTether/TetherScript/git/ref/heads/codetether%2F'
+        'issue-12' in comments[0]
+    )
+    assert (
+        'Recovery: retry or investigate worker commit/push/auth' in comments[0]
+    )
     assert 'did not push commits' not in comments[0]
 
 
 @pytest.mark.asyncio
-async def test_issue_terminal_normalization_fails_missing_branch_before_check(monkeypatch):
+async def test_issue_terminal_normalization_fails_missing_branch_before_check(
+    monkeypatch,
+):
     calls = []
 
     async def fake_db_get_task(task_id):
@@ -1335,7 +1348,9 @@ async def test_issue_terminal_normalization_fails_missing_branch_before_check(mo
             'metadata': {'source': 'github-app', 'workflow_stage': 'code'},
         }
 
-    async def fake_update(task_id, status, worker_id=None, result=None, error=None):
+    async def fake_update(
+        task_id, status, worker_id=None, result=None, error=None
+    ):
         calls.append(('update', status, error))
         return True
 
@@ -1343,7 +1358,12 @@ async def test_issue_terminal_normalization_fails_missing_branch_before_check(mo
         return 'CodeTether/TetherScript', 12, 'codetether/issue-12', 'token'
 
     async def fake_verify(repo, branch, token):
-        return {'branch_exists': False, 'has_commits': False, 'head_sha': '', 'error': '404 ref not found'}
+        return {
+            'branch_exists': False,
+            'has_commits': False,
+            'head_sha': '',
+            'error': '404 ref not found',
+        }
 
     checks = []
 
@@ -1355,13 +1375,24 @@ async def test_issue_terminal_normalization_fails_missing_branch_before_check(mo
         calls.append(('notify', task['status'], task.get('error')))
 
     monkeypatch.setattr('a2a_server.database.db_get_task', fake_db_get_task)
-    monkeypatch.setattr('a2a_server.database.db_update_task_status', fake_update)
+    monkeypatch.setattr(
+        'a2a_server.database.db_update_task_status', fake_update
+    )
     monkeypatch.setattr(issue_final_comment, 'issue_task_context', fake_context)
-    monkeypatch.setattr(issue_final_comment, '_verify_branch_and_commits', fake_verify)
-    monkeypatch.setattr('a2a_server.github_app.checks.ensure_task_check_run', fake_check)
-    monkeypatch.setattr('a2a_server.github_app.task_completion.notify_issue_task_completion', fake_notify)
+    monkeypatch.setattr(
+        issue_final_comment, '_verify_branch_and_commits', fake_verify
+    )
+    monkeypatch.setattr(
+        'a2a_server.github_app.checks.ensure_task_check_run', fake_check
+    )
+    monkeypatch.setattr(
+        'a2a_server.github_app.task_completion.notify_issue_task_completion',
+        fake_notify,
+    )
 
-    from a2a_server.github_app.task_status_hook import handle_github_app_terminal_task
+    from a2a_server.github_app.task_status_hook import (
+        handle_github_app_terminal_task,
+    )
 
     await handle_github_app_terminal_task('task-code')
 
