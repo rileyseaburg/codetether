@@ -182,7 +182,10 @@ async def test_create_review_task_records_allow_decision_without_builder_target(
     assert task_id == 'task-review-1'
     assert created[0]['metadata']['worker_personality'] == 'reviewer'
     assert 'target_worker_id' not in created[0]['metadata']
-    assert '@codetether please address the requested PR changes' in created[0]['prompt']
+    assert (
+        '@codetether please address the requested PR changes'
+        in created[0]['prompt']
+    )
     assert 'Source issue / Definition of Done' in created[0]['prompt']
     assert 'Issue DoD' in created[0]['prompt']
     assert (
