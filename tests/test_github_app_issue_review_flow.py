@@ -182,7 +182,7 @@ async def test_create_review_task_records_allow_decision_without_builder_target(
     assert task_id == 'task-review-1'
     assert created[0]['metadata']['worker_personality'] == 'reviewer'
     assert 'target_worker_id' not in created[0]['metadata']
-    assert 'without mentioning the CodeTether bot' in created[0]['prompt']
+    assert '@codetether please address the requested PR changes' in created[0]['prompt']
     assert 'Source issue / Definition of Done' in created[0]['prompt']
     assert 'Issue DoD' in created[0]['prompt']
     assert (
@@ -328,8 +328,8 @@ async def test_change_request_followup_skips_duplicate_tag(monkeypatch):
     )
 
     assert task_id is None
-    # No @codetether fallback comment was posted (fix follow-up handled it)
-    assert all('@codetether please address' not in c for c in comments)
+    # No fallback comment was posted (fix follow-up handled it)
+    assert comments == []
 
 
 def test_reviewer_approval_ignores_blocked_prose():
@@ -807,10 +807,10 @@ async def test_fix_followup_creates_task_on_changes_requested(
     assert meta['pr_head_sha'] == 'abc123'
     assert 'Reviewer verdict: `CHANGES_REQUESTED`' in comments[0]
     assert 'Protocol-native fix task `task-fix-1`' in comments[0]
-    assert '@codetether' not in comments[0]
+    assert '@codetether please address the requested PR changes' in comments[0]
 
 
-def test_change_request_action_line_tags_only_mention_path():
+def test_change_request_action_line_tags_protocol_and_mention_paths():
     protocol_line = issue_review_task.change_request_action_line(
         'CHANGES_REQUESTED', task_id='task-fix-1'
     )
@@ -818,8 +818,8 @@ def test_change_request_action_line_tags_only_mention_path():
         'CHANGES_REQUESTED'
     )
 
-    assert protocol_line.startswith('Protocol-native fix task')
-    assert '@codetether' not in protocol_line
+    assert protocol_line.startswith('@codetether please address')
+    assert 'Protocol-native fix task `task-fix-1`' in protocol_line
     assert mention_line.startswith('@codetether please address')
     assert '`CHANGES_REQUESTED`' in protocol_line
 
