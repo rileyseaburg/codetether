@@ -979,7 +979,7 @@ End-to-end responsibilities:
 2. Fetch the PR branch and inspect the diff against that Definition of Done, not just generic code quality.
 3. Run the smallest relevant validation for the changed files and every issue checklist item that can be locally checked.
 4. Do not approve your own unsafe or incomplete work. If tests fail, scope drifts, secrets appear, provenance does not match the current head SHA, or any issue DoD item is missing/unproven, request changes with clear remediation.
-5. If anything requires changes, leave a CHANGES_REQUESTED review/comment without mentioning the CodeTether bot; the review completion hook will enqueue the protocol-native fix task.
+5. If anything requires changes, leave a CHANGES_REQUESTED review/comment that includes this exact action line near the top: `@codetether please address the requested PR changes.`
 6. If the PR is safe and feature-complete against the issue DoD, leave an approving review or success comment.
 7. Include this exact provenance footer in any GitHub review/comment you create:{footer}
 
