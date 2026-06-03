@@ -22,7 +22,7 @@ def is_human_reviewer_login(login: str | None) -> bool:
         return False
     lowered = normalized.lower()
     app_slug = APP_SLUG.lower()
-    if lowered == f'{app_slug}[bot]' or lowered.startswith(app_slug):
+    if lowered in {app_slug, f'{app_slug}[bot]'}:
         return False
     if lowered.endswith('[bot]'):
         return False

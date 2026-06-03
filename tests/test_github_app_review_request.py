@@ -10,6 +10,7 @@ def test_is_human_reviewer_login_filters_app_and_bots():
     assert is_human_reviewer_login('rileyseaburg') is True
     assert is_human_reviewer_login('codetether[bot]') is False
     assert is_human_reviewer_login('codetether') is False
+    assert is_human_reviewer_login('codetether-human') is True
     assert is_human_reviewer_login('dependabot[bot]') is False
     assert is_human_reviewer_login('') is False
 

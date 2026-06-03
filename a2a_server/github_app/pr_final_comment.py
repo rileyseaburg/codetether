@@ -61,11 +61,12 @@ async def notify_pr_final_comment(task: dict) -> None:
             from .issue_review_task import create_issue_review_task, issue_pr_provenance, provenance_footer
 
             pr = await github_json('GET', f'/repos/{repo}/pulls/{pr_number}', token)
+            branch_name = str((pr.get('head') or {}).get('ref') or metadata.get('pr_head') or '')
             review_task_id = await create_issue_review_task(
                 workspace_id=str(metadata.get('workspace_id') or ''),
                 repo=repo,
                 issue_number=int(metadata.get('issue_number') or pr_number),
-                branch=str((pr.get('head') or {}).get('ref') or metadata.get('pr_head') or branch),
+                branch=branch_name,
                 pr=pr,
                 github_issue_url=metadata.get('github_issue_url') or f'https://github.com/{repo}/pull/{pr_number}',
                 github_installation_id=metadata.get('github_installation_id'),
@@ -80,7 +81,7 @@ async def notify_pr_final_comment(task: dict) -> None:
             provenance = issue_pr_provenance(
                 repo=repo,
                 issue_number=int(metadata.get('issue_number') or pr_number),
-                branch=str((pr.get('head') or {}).get('ref') or metadata.get('pr_head') or branch),
+                branch=branch_name,
                 pr=pr,
                 installation_id=metadata.get('github_installation_id'),
                 action='github:review_pr',

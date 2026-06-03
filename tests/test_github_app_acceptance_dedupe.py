@@ -47,24 +47,27 @@ def test_within_window_handles_z_suffix_and_recent_timestamps():
 
 @pytest.mark.asyncio
 async def test_recent_app_acceptance_comment_exists_true(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    recent = (now - timedelta(seconds=10)).isoformat().replace('+00:00', 'Z')
+
     async def fake_github_json(method, path, token, payload=None):
         return [
             {
                 'user': {'login': 'codetether[bot]'},
                 'body': '## 🛠️ CodeTether Fix\n\nPicked up this request for PR #614 on branch `x`.',
-                'created_at': '2024-01-01T00:00:00Z',
+                'created_at': recent,
             }
         ]
 
     monkeypatch.setattr(
         'a2a_server.github_app.watch.github_json', fake_github_json
     )
-    from datetime import datetime, timedelta, timezone
 
-    now = datetime.now(timezone.utc)
-    recent = (now - timedelta(seconds=10)).isoformat().replace('+00:00', 'Z')
-
-    async def fake_within(ts, window):
+    def fake_within(ts, within_seconds):
+        assert ts == recent
+        assert within_seconds == 600
         return True
 
     monkeypatch.setattr(
