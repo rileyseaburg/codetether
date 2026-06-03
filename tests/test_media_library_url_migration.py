@@ -41,16 +41,16 @@ def test_list_media_projection_is_fixed_for_existing_schema_without_url():
     conn = sqlite3.connect(':memory:')
     conn.row_factory = sqlite3.Row
     conn.execute(
-        '''
+        """
         CREATE TABLE media_library (
             id TEXT PRIMARY KEY,
             path TEXT NOT NULL,
             title TEXT
         )
-        '''
+        """
     )
     conn.execute(
-        "INSERT INTO media_library (id, path, title) VALUES (?, ?, ?)",
+        'INSERT INTO media_library (id, path, title) VALUES (?, ?, ?)',
         ('media-1', 'https://cdn.example.test/media-1.mp4', 'Demo clip'),
     )
 
@@ -59,13 +59,16 @@ def test_list_media_projection_is_fixed_for_existing_schema_without_url():
     except sqlite3.OperationalError as exc:
         assert 'no such column: url' in str(exc)
     else:  # pragma: no cover - proves the pre-migration failure must exist
-        raise AssertionError('representative pre-migration schema unexpectedly has url')
+        raise AssertionError(
+            'representative pre-migration schema unexpectedly has url'
+        )
 
     # Apply the same compatibility behavior as migration 035: add url, then
     # backfill from the first optional source column present on the old schema.
     conn.execute('ALTER TABLE media_library ADD COLUMN url TEXT')
     existing_columns = {
-        row['name'] for row in conn.execute('PRAGMA table_info(media_library)').fetchall()
+        row['name']
+        for row in conn.execute('PRAGMA table_info(media_library)').fetchall()
     }
     for source_column in SOURCE_COLUMNS:
         if source_column in existing_columns:

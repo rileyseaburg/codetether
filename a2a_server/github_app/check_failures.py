@@ -27,27 +27,40 @@ def check_payload(event_name: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def first_pull_request(event_name: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+def first_pull_request(
+    event_name: str, payload: dict[str, Any]
+) -> dict[str, Any] | None:
     check = check_payload(event_name, payload)
-    pull_requests = check.get('pull_requests') or payload.get('pull_requests') or []
+    pull_requests = (
+        check.get('pull_requests') or payload.get('pull_requests') or []
+    )
     return pull_requests[0] if pull_requests else None
 
 
-def should_remediate_failed_check(event_name: str, payload: dict[str, Any]) -> bool:
+def should_remediate_failed_check(
+    event_name: str, payload: dict[str, Any]
+) -> bool:
     """Return true when a completed failed check should start a CodeTether fix session."""
     if event_name not in CHECK_FAILURE_EVENTS:
         return False
     if payload.get('action') not in {'completed', 'requested_action'}:
         return False
     check = check_payload(event_name, payload)
-    if str(check.get('conclusion') or '').lower() not in FAILED_CHECK_CONCLUSIONS:
+    if (
+        str(check.get('conclusion') or '').lower()
+        not in FAILED_CHECK_CONCLUSIONS
+    ):
         return False
     app = check.get('app') or {}
     check_name = str(check.get('name') or check.get('display_title') or '')
     app_slug = str(app.get('slug') or '').lower()
     app_name = str(app.get('name') or '').lower()
     slug = APP_SLUG.lower()
-    if check_name.lower().startswith(f'{slug} /') or app_slug == slug or app_name == slug:
+    if (
+        check_name.lower().startswith(f'{slug} /')
+        or app_slug == slug
+        or app_name == slug
+    ):
         return False
     return first_pull_request(event_name, payload) is not None
 
@@ -66,7 +79,9 @@ def check_output_excerpt(check: dict[str, Any], limit: int = 4000) -> str:
     return excerpt
 
 
-def context_from_failed_check(event_name: str, payload: dict[str, Any]) -> MentionContext:
+def context_from_failed_check(
+    event_name: str, payload: dict[str, Any]
+) -> MentionContext:
     """Convert a failed check event into the same context used by PR fix requests."""
     repo_full_name = payload.get('repository', {}).get('full_name', '')
     installation_id = int(payload.get('installation', {}).get('id') or 0)
@@ -75,8 +90,15 @@ def context_from_failed_check(event_name: str, payload: dict[str, Any]) -> Menti
         raise ValueError('failed check payload did not include a pull request')
     pr_number = int(pr['number'])
     check = check_payload(event_name, payload)
-    check_name = str(check.get('name') or check.get('display_title') or event_name)
-    details_url = str(check.get('details_url') or check.get('html_url') or check.get('url') or '')
+    check_name = str(
+        check.get('name') or check.get('display_title') or event_name
+    )
+    details_url = str(
+        check.get('details_url')
+        or check.get('html_url')
+        or check.get('url')
+        or ''
+    )
     conclusion = str(check.get('conclusion') or '')
     head_sha = str(check.get('head_sha') or check.get('head_branch') or '')
     output_excerpt = check_output_excerpt(check)

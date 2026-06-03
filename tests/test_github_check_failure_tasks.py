@@ -1,6 +1,8 @@
 import os
 
-os.environ.setdefault('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+os.environ.setdefault(
+    'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
+)
 
 import pytest
 
@@ -58,7 +60,10 @@ def test_failed_check_run_on_pr_queues_remediation(repo_payload):
 
     assert title == 'Fix failing PR #87 check: Lint Code Base'
     assert 'Branch: codetether/issue-86' in prompt
-    assert 'Details URL: https://github.com/owner/repo/actions/runs/1/job/2' in prompt
+    assert (
+        'Details URL: https://github.com/owner/repo/actions/runs/1/job/2'
+        in prompt
+    )
     assert metadata['source'] == 'github-app'
     assert metadata['workflow_stage'] == 'code'
     assert metadata['repo'] == 'owner/repo'
@@ -75,7 +80,9 @@ def test_check_failure_prompt_includes_check_output(repo_payload):
             'id': 777,
             'name': 'Playwright',
             'conclusion': 'failure',
-            'output': {'summary': '[WebServer] [listMedia] Error: column "url" does not exist'},
+            'output': {
+                'summary': '[WebServer] [listMedia] Error: column "url" does not exist'
+            },
             'pull_requests': [{'number': 87}],
         },
     }
