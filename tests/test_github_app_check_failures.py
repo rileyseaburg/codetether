@@ -6,7 +6,9 @@ from a2a_server.github_app.check_failures import (
 from a2a_server.github_app.settings import APP_SLUG
 
 
-def _payload(conclusion='failure', app_slug='github-actions', prs=None, output=None):
+def _payload(
+    conclusion='failure', app_slug='github-actions', prs=None, output=None
+):
     return {
         'action': 'completed',
         'installation': {'id': 123},
@@ -36,11 +38,18 @@ def test_failed_check_run_is_remediable_context():
     assert context.pr_number == 87
     assert f'@{APP_SLUG} fix the failing PR check' in context.comment_body
     assert 'Check: Lint Code Base' in context.comment_body
-    assert 'Details URL: https://github.com/owner/repo/actions/runs/1/job/2' in context.comment_body
+    assert (
+        'Details URL: https://github.com/owner/repo/actions/runs/1/job/2'
+        in context.comment_body
+    )
 
 
 def test_failed_check_context_includes_output_excerpt():
-    payload = _payload(output={'summary': '[WebServer] [listMedia] Error: column "url" does not exist'})
+    payload = _payload(
+        output={
+            'summary': '[WebServer] [listMedia] Error: column "url" does not exist'
+        }
+    )
 
     context = context_from_failed_check('check_run', payload)
 
@@ -55,11 +64,15 @@ def test_check_output_excerpt_truncates_large_logs():
 
 
 def test_success_check_is_not_remediable():
-    assert not should_remediate_failed_check('check_run', _payload(conclusion='success'))
+    assert not should_remediate_failed_check(
+        'check_run', _payload(conclusion='success')
+    )
 
 
 def test_codetether_check_is_not_remediable():
-    assert not should_remediate_failed_check('check_run', _payload(app_slug=APP_SLUG))
+    assert not should_remediate_failed_check(
+        'check_run', _payload(app_slug=APP_SLUG)
+    )
 
 
 def test_failed_check_without_pr_is_not_remediable():
