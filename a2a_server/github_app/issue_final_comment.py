@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 async def _verify_branch_and_commits(
-    repo: str, branch: str, token: str,
+    repo: str,
+    branch: str,
+    token: str,
 ) -> dict:
     """Verify that the expected branch ref exists and points at a commit.
 
@@ -42,10 +44,14 @@ async def _verify_branch_and_commits(
             'branch_exists': bool(head_sha),
             'has_commits': has_commit,
             'head_sha': head_sha,
-            'error': None if has_commit else f'Branch {branch} did not resolve to a commit ref',
+            'error': None
+            if has_commit
+            else f'Branch {branch} did not resolve to a commit ref',
         }
     except Exception as exc:
-        logger.warning('Branch ref verification failed for %s/%s: %s', repo, branch, exc)
+        logger.warning(
+            'Branch ref verification failed for %s/%s: %s', repo, branch, exc
+        )
         return {
             'branch_exists': False,
             'has_commits': False,
@@ -71,8 +77,8 @@ async def normalize_issue_task_terminal_status(task: dict) -> dict:
         error = (
             'Branch verification failed after worker completion. '
             f'Expected branch `{branch}` for issue #{issue_number}; '
-            f"GET /repos/{repo}/git/ref/heads/{quote(branch, safe='')} failed: "
-            f"{branch_info.get('error', 'unknown reason')}. "
+            f'GET /repos/{repo}/git/ref/heads/{quote(branch, safe="")} failed: '
+            f'{branch_info.get("error", "unknown reason")}. '
             'Recovery: retry or investigate worker commit/push/auth before marking the check successful.'
         )
         return await _mark_task_failed(task, error)
@@ -100,7 +106,11 @@ async def _mark_task_failed(task: dict, error: str) -> dict:
             if refreshed:
                 return refreshed
     except Exception as exc:
-        logger.warning('Could not persist GitHub issue task protocol failure for %s: %s', task.get('id'), exc)
+        logger.warning(
+            'Could not persist GitHub issue task protocol failure for %s: %s',
+            task.get('id'),
+            exc,
+        )
     return {**task, 'status': 'failed', 'error': error}
 
 
@@ -117,7 +127,7 @@ async def notify_issue_final_comment(task: dict) -> None:
 
     if task_status == 'completed':
         # ── Verify branch exists and has commits ─────────────────────
-        branch_info = await _verify_branch_and_commits(repo, branch, token)
+        await _verify_branch_and_commits(repo, branch, token)
 
         # ── Check for open PR ────────────────────────────────────────
         pr = await open_issue_pr(repo, branch, token)
@@ -128,7 +138,11 @@ async def notify_issue_final_comment(task: dict) -> None:
             review_task_id = None
             review_status = ''
             try:
-                from .issue_review_task import create_issue_review_task, provenance_footer, issue_pr_provenance
+                from .issue_review_task import (
+                    create_issue_review_task,
+                    provenance_footer,
+                    issue_pr_provenance,
+                )
 
                 review_task_id = await create_issue_review_task(
                     workspace_id=str(metadata.get('workspace_id') or ''),
@@ -137,15 +151,19 @@ async def notify_issue_final_comment(task: dict) -> None:
                     branch=branch,
                     pr=pr,
                     github_issue_url=metadata.get('github_issue_url'),
-                    github_installation_id=metadata.get('github_installation_id'),
+                    github_installation_id=metadata.get(
+                        'github_installation_id'
+                    ),
                     token=token,
                     parent_task_id=str(task_id),
-                    trigger_actor_login=str(metadata.get('trigger_actor_login') or ''),
+                    trigger_actor_login=str(
+                        metadata.get('trigger_actor_login') or ''
+                    ),
                 )
                 if review_task_id:
-                    review_status = f"\n\nQueued CodeTether reviewer task `{review_task_id}`. If review passes and GitHub feedback is resolved, CodeTether will auto-merge the PR."
+                    review_status = f'\n\nQueued CodeTether reviewer task `{review_task_id}`. If review passes and GitHub feedback is resolved, CodeTether will auto-merge the PR.'
                 else:
-                    review_status = "\n\nCodeTether review automation was not queued because the local provenance/policy gate denied it."
+                    review_status = '\n\nCodeTether review automation was not queued because the local provenance/policy gate denied it.'
                 provenance = issue_pr_provenance(
                     repo=repo,
                     issue_number=issue_number,
@@ -155,42 +173,55 @@ async def notify_issue_final_comment(task: dict) -> None:
                     action='github:review_pr',
                     parent_task_id=str(task_id),
                 )
-                review_status += provenance_footer(provenance, action='github:review_pr')
+                review_status += provenance_footer(
+                    provenance, action='github:review_pr'
+                )
             except Exception as exc:
-                logger.exception('Failed to enqueue issue PR review for task %s: %s', task_id, exc)
-                review_status = f"\n\n⚠️ CodeTether could not queue the reviewer task: `{exc}`"
+                logger.exception(
+                    'Failed to enqueue issue PR review for task %s: %s',
+                    task_id,
+                    exc,
+                )
+                review_status = f'\n\n⚠️ CodeTether could not queue the reviewer task: `{exc}`'
 
-            message = f"## 🛠️ CodeTether Fix\n\nOpened PR #{pr['number']}: {pr['html_url']}"
+            message = f'## 🛠️ CodeTether Fix\n\nOpened PR #{pr["number"]}: {pr["html_url"]}'
             if body:
-                message += f"\n\n{body}"
+                message += f'\n\n{body}'
             message += review_status
             await post_issue_comment(repo, issue_number, token, message)
             return
 
         # Task completed, branch has commits, but no PR was opened
         no_pr_message = (
-            f"The build task completed and branch `{branch}` has commits, "
-            f"but no pull request was opened. This may indicate the agent "
-            f"finished without creating a PR. Check the branch manually: "
-            f"https://github.com/{repo}/tree/{branch}"
+            f'The build task completed and branch `{branch}` has commits, '
+            f'but no pull request was opened. This may indicate the agent '
+            f'finished without creating a PR. Check the branch manually: '
+            f'https://github.com/{repo}/tree/{branch}'
         )
         await post_issue_comment(
-            repo, issue_number, token,
-            f"## 🛠️ CodeTether Fix\n\n{body or no_pr_message}",
+            repo,
+            issue_number,
+            token,
+            f'## 🛠️ CodeTether Fix\n\n{body or no_pr_message}',
         )
         logger.warning(
             'Task %s completed with branch %s but no PR opened in %s',
-            task_id, branch, repo,
+            task_id,
+            branch,
+            repo,
         )
         return
 
     # ── Non-completed status (failed, cancelled, etc.) ───────────────
     body = str(
-        task.get('error') or task.get('result')
-        or f"Task `{task_id}` ended with status `{task_status}`."
+        task.get('error')
+        or task.get('result')
+        or f'Task `{task_id}` ended with status `{task_status}`.'
     ).strip()
 
     await post_issue_comment(
-        repo, issue_number, token,
-        f"## 🛠️ CodeTether Fix\n\n{body}",
+        repo,
+        issue_number,
+        token,
+        f'## 🛠️ CodeTether Fix\n\n{body}',
     )

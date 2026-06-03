@@ -115,7 +115,9 @@ def extract_context(
     body = _body_for_event(event_name, payload)
     installation_id = payload.get('installation', {}).get('id')
     repo_full_name = payload.get('repository', {}).get('full_name', '')
-    actor_login = str((_actor_for_event(event_name, payload) or {}).get('login') or '')
+    actor_login = str(
+        (_actor_for_event(event_name, payload) or {}).get('login') or ''
+    )
     comment_id = payload.get('comment', {}).get('id')
     issue_number = None
     pr_number = None

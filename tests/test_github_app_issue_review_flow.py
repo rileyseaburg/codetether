@@ -278,7 +278,9 @@ async def test_create_review_task_requests_triggering_human_review(
     )
 
     assert task_id == 'task-review-1'
-    assert requests == [('acme/widgets', 77, 'ghs_installation_token', 'rileyseaburg')]
+    assert requests == [
+        ('acme/widgets', 77, 'ghs_installation_token', 'rileyseaburg')
+    ]
 
 
 @pytest.mark.asyncio

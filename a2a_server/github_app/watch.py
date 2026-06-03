@@ -19,7 +19,6 @@ worker_sse.py / hosted_worker.py / monitor_api.py when tasks go terminal.
 """
 
 import logging
-from typing import Any
 
 from .auth import github_json
 

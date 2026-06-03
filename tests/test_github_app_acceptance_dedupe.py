@@ -7,7 +7,6 @@ os.environ.setdefault(
 import pytest
 
 from a2a_server.github_app.watch import (
-    ACCEPTED_COMMENT_FINGERPRINTS,
     _looks_like_acceptance_comment,
     _within_window,
     recent_app_acceptance_comment_exists,
@@ -18,13 +17,13 @@ def test_looks_like_acceptance_comment_matches_known_messages():
     body_pr = (
         '## 🛠️ CodeTether Fix\n\n'
         'Picked up this request for PR #614 on branch `codetether/issue-613`. '
-        'I’m preparing the workspace and will push changes directly to the existing PR branch if the task succeeds. '
+        "I'm preparing the workspace and will push changes directly to the existing PR branch if the task succeeds. "
         'I will also make sure the branch is mergeable with `main`.'
     )
     body_issue = (
         '## 🛠️ CodeTether Fix\n\n'
         'Picked up issue #42 on branch `codetether/issue-42`. '
-        'I’m preparing the workspace and will open a PR if the task succeeds.'
+        "I'm preparing the workspace and will open a PR if the task succeeds."
     )
     body_other = '## 🛠️ CodeTether Fix\n\nPushed changes to this PR branch.'
     assert _looks_like_acceptance_comment(body_pr) is True
@@ -80,7 +79,9 @@ async def test_recent_app_acceptance_comment_exists_true(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_recent_app_acceptance_comment_exists_false_for_human(monkeypatch):
+async def test_recent_app_acceptance_comment_exists_false_for_human(
+    monkeypatch,
+):
     async def fake_github_json(method, path, token, payload=None):
         return [
             {

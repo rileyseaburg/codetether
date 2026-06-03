@@ -52,7 +52,12 @@ async def request_human_review(
             token,
             {'reviewers': [reviewer]},
         )
-        logger.info('Requested GitHub review from @%s on %s#%s', reviewer, repo, pr_number)
+        logger.info(
+            'Requested GitHub review from @%s on %s#%s',
+            reviewer,
+            repo,
+            pr_number,
+        )
         return True
     except Exception as exc:  # pragma: no cover - network/API failure path
         logger.warning(
