@@ -1032,11 +1032,14 @@ async def create_issue_review_task(
     pr: dict[str, Any],
     github_issue_url: str | None,
     github_installation_id: int | str | None,
+    token: str = '',
     parent_task_id: str | None = None,
     target_worker_id: str | None = None,
+    trigger_actor_login: str = '',
 ) -> str | None:
     """Queue a reviewer task for an issue PR if provenance policy allows it."""
     from ..persistent_worker_pool import create_and_dispatch_task
+    from .review_request import request_human_review
 
     provenance = issue_pr_provenance(
         repo=repo,
@@ -1056,6 +1059,7 @@ async def create_issue_review_task(
 
     metadata = {
         'workspace_id': workspace_id,
+        'trigger_actor_login': trigger_actor_login,
         'source': 'github-app',
         'workflow_stage': 'review',
         'repo': repo,
@@ -1085,6 +1089,10 @@ async def create_issue_review_task(
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=github_issue_url,
     )
+    if token:
+        await request_human_review(
+            repo, int(pr.get('number') or 0), token, trigger_actor_login
+        )
     await record_automation_decision(
         provenance=provenance, decision=decision, task_id=task_id
     )

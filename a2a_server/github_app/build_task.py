@@ -22,6 +22,7 @@ async def create_build_task(
         'workspace_id': wid,
         'source': 'github-app',
         'repo': context.repo_full_name,
+        'trigger_actor_login': context.actor_login,
         'pr_number': context.pr_number,
         'pr_head': pr['head']['ref'],
         'pr_base': pr['base']['ref'],

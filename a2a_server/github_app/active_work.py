@@ -59,6 +59,7 @@ def _context_for_item(repo: str, installation_id: int, item: dict[str, Any]) -> 
         pr_number=number if is_pr else None,
         comment_id=int(item.get('id') or number),
         comment_body=prompt,
+        actor_login=str((item.get('user') or {}).get('login') or ''),
     )
 
 

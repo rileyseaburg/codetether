@@ -138,7 +138,9 @@ async def notify_issue_final_comment(task: dict) -> None:
                     pr=pr,
                     github_issue_url=metadata.get('github_issue_url'),
                     github_installation_id=metadata.get('github_installation_id'),
+                    token=token,
                     parent_task_id=str(task_id),
+                    trigger_actor_login=str(metadata.get('trigger_actor_login') or ''),
                 )
                 if review_task_id:
                     review_status = f"\n\nQueued CodeTether reviewer task `{review_task_id}`. If review passes and GitHub feedback is resolved, CodeTether will auto-merge the PR."

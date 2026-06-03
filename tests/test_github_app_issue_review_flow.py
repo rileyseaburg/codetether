@@ -237,6 +237,51 @@ async def test_create_review_task_records_deny_decision(
 
 
 @pytest.mark.asyncio
+async def test_create_review_task_requests_triggering_human_review(
+    monkeypatch, pr_payload
+):
+    requests = []
+
+    async def fake_dispatch(**kwargs):
+        return 'task-review-1'
+
+    async def fake_record(**kwargs):
+        return None
+
+    async def fake_request_human_review(repo, pr_number, token, reviewer_login):
+        requests.append((repo, pr_number, token, reviewer_login))
+        return True
+
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_dispatch,
+    )
+    monkeypatch.setattr(
+        issue_review_task, 'record_automation_decision', fake_record
+    )
+    monkeypatch.setattr(
+        'a2a_server.github_app.review_request.request_human_review',
+        fake_request_human_review,
+    )
+
+    task_id = await issue_review_task.create_issue_review_task(
+        workspace_id='ws1',
+        repo='acme/widgets',
+        issue_number=12,
+        branch='codetether/issue-12',
+        pr=pr_payload,
+        github_issue_url='https://github.com/acme/widgets/issues/12',
+        github_installation_id=123,
+        token='ghs_installation_token',
+        parent_task_id='task-code',
+        trigger_actor_login='rileyseaburg',
+    )
+
+    assert task_id == 'task-review-1'
+    assert requests == [('acme/widgets', 77, 'ghs_installation_token', 'rileyseaburg')]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     'review_result',
     [
