@@ -1,6 +1,8 @@
 import os
 
-os.environ.setdefault('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+os.environ.setdefault(
+    'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
+)
 
 import pytest
 
@@ -58,7 +60,10 @@ def test_failed_check_run_on_pr_queues_remediation(repo_payload):
 
     assert title == 'Fix failing PR #87 check: Lint Code Base'
     assert 'Branch: codetether/issue-86' in prompt
-    assert 'Details URL: https://github.com/owner/repo/actions/runs/1/job/2' in prompt
+    assert (
+        'Details URL: https://github.com/owner/repo/actions/runs/1/job/2'
+        in prompt
+    )
     assert metadata['source'] == 'github-app'
     assert metadata['workflow_stage'] == 'code'
     assert metadata['repo'] == 'owner/repo'
@@ -66,6 +71,34 @@ def test_failed_check_run_on_pr_queues_remediation(repo_payload):
     assert metadata['pr_head_sha'] == 'abc123'
     assert metadata['check_name'] == 'Lint Code Base'
     assert metadata['source_metadata']['trigger'] == 'failed_check'
+
+
+def test_check_failure_prompt_includes_check_output(repo_payload):
+    payload = {
+        **repo_payload,
+        'check_run': {
+            'id': 777,
+            'name': 'Playwright',
+            'conclusion': 'failure',
+            'output': {
+                'summary': '[WebServer] [listMedia] Error: column "url" does not exist'
+            },
+            'pull_requests': [{'number': 87}],
+        },
+    }
+
+    _, prompt, _ = _check_failure_prompt(
+        'check_run',
+        payload,
+        {
+            'number': 87,
+            'html_url': 'https://github.com/owner/repo/pull/87',
+            'head': {'ref': 'codetether/issue-86', 'sha': 'abc123'},
+        },
+    )
+
+    assert 'Check output excerpt:' in prompt
+    assert 'column "url" does not exist' in prompt
 
 
 def test_success_check_run_does_not_queue(repo_payload):
