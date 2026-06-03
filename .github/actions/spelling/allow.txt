@@ -313,6 +313,7 @@ openapis
 opencode
 openrouter
 oreilly
+orpc
 pconfig
 pjti
 plpgsql
@@ -335,6 +336,8 @@ pytype
 pyupgrade
 qwq
 rcm
+recloning
+regclass
 repomapr
 reportgen
 reposted
