@@ -21,7 +21,8 @@ from .context import MentionContext
 from .issue_clone_task import create_issue_clone_task
 from .issue_prompt import accepted_issue_message, issue_branch
 from .prompt import accepted_message
-from .watch import post_issue_comment
+from .settings import APP_SLUG
+from .watch import post_issue_comment, recent_app_acceptance_comment_exists
 from .workspace import create_clone_task, ensure_workspace
 
 
@@ -57,7 +58,12 @@ async def handle_fix_request(context: MentionContext, token: str) -> dict:
             github_issue_url=github_issue_url,
             github_installation_id=context.installation_id,
         )
-        await post_issue_comment(context.repo_full_name, context.issue_number, token, accepted_message(pr))
+        if not await recent_app_acceptance_comment_exists(
+            context.repo_full_name, context.issue_number, token, app_slug=APP_SLUG
+        ):
+            await post_issue_comment(
+                context.repo_full_name, context.issue_number, token, accepted_message(pr)
+            )
         return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}
 
     repo = await github_json('GET', f'/repos/{context.repo_full_name}', token)
@@ -76,5 +82,10 @@ async def handle_fix_request(context: MentionContext, token: str) -> dict:
         github_installation_id=context.installation_id,
         github_check_head_sha=((base_ref.get('object') or {}).get('sha') or ''),
     )
-    await post_issue_comment(context.repo_full_name, context.issue_number, token, accepted_issue_message(issue, branch))
+    if not await recent_app_acceptance_comment_exists(
+        context.repo_full_name, context.issue_number, token, app_slug=APP_SLUG
+    ):
+        await post_issue_comment(
+            context.repo_full_name, context.issue_number, token, accepted_issue_message(issue, branch)
+        )
     return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}
