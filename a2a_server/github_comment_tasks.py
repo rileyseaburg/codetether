@@ -8,6 +8,7 @@ from typing import Any, Dict, Tuple
 
 from . import database as db
 from .git_service import default_clone_dir, store_git_credential_record
+from .github_app.check_failures import check_output_excerpt
 from .github_app_auth import github_app_id, github_installation_request
 
 
@@ -306,6 +307,7 @@ def _check_failure_prompt(event_name: str, payload: Dict[str, Any], pr: Dict[str
     conclusion = str(check.get('conclusion') or '')
     details_url = str(check.get('details_url') or check.get('html_url') or check.get('url') or '')
     head_sha = str(check.get('head_sha') or pr.get('head', {}).get('sha') or '')
+    output_excerpt = check_output_excerpt(check)
     title = f"Fix failing PR #{pr_number} check: {check_name}"
     metadata: Dict[str, Any] = {
         'source': 'github-app',
@@ -338,8 +340,12 @@ def _check_failure_prompt(event_name: str, payload: Dict[str, Any], pr: Dict[str
         f"Head SHA: {pr.get('head', {}).get('sha') or head_sha}\n"
         f"Check: {check_name}\n"
         f"Conclusion: {conclusion}\n"
-        f"Details URL: {details_url or '(none)'}\n\n"
-        "Investigate the failing check logs, make the smallest appropriate fix on the PR branch, "
+        f"Details URL: {details_url or '(none)'}\n"
+    )
+    if output_excerpt:
+        prompt += f"\nCheck output excerpt:\n```\n{output_excerpt}\n```\n"
+    prompt += (
+        "\nInvestigate the failing check logs, make the smallest appropriate fix on the PR branch, "
         "commit and push to that same branch, then comment on the PR with the fix summary and validation evidence. "
         "Do not merge the PR; leave merge to the auto-merge gate once checks are green."
     )
