@@ -77,12 +77,14 @@ try:
     from .github_app import (
         github_git_credentials_router,
         github_webhook_router,
+        rudder_incident_router,
     )
 
     GITHUB_APP_ROUTES_AVAILABLE = True
 except ImportError:
     github_git_credentials_router = None
     github_webhook_router = None
+    rudder_incident_router = None
     GITHUB_APP_ROUTES_AVAILABLE = False
 
 # Import OAuth 2.1 provider for MCP protocol compliance
@@ -674,11 +676,13 @@ class A2AServer:
             GITHUB_APP_ROUTES_AVAILABLE
             and github_webhook_router
             and github_git_credentials_router
+            and rudder_incident_router
         ):
             self.app.include_router(github_webhook_router)
             self.app.include_router(github_git_credentials_router)
+            self.app.include_router(rudder_incident_router)
             logger.info(
-                'GitHub App routes mounted at /v1/webhooks/github and /v1/agent/workspaces/*/git/credentials'
+                'GitHub App routes mounted at /v1/webhooks/github, /v1/agent/workspaces/*/git/credentials, and /v1/integrations/rudder/log-incidents'
             )
 
         # Include token billing API routes for per-token usage tracking
