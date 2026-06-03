@@ -52,6 +52,20 @@ def should_remediate_failed_check(event_name: str, payload: dict[str, Any]) -> b
     return first_pull_request(event_name, payload) is not None
 
 
+def check_output_excerpt(check: dict[str, Any], limit: int = 4000) -> str:
+    """Return a compact excerpt from GitHub check output fields, when present."""
+    output = check.get('output') or {}
+    parts = [
+        str(output.get('title') or '').strip(),
+        str(output.get('summary') or '').strip(),
+        str(output.get('text') or '').strip(),
+    ]
+    excerpt = '\n\n'.join(part for part in parts if part)
+    if len(excerpt) > limit:
+        return f'{excerpt[:limit].rstrip()}\n… [truncated]'
+    return excerpt
+
+
 def context_from_failed_check(event_name: str, payload: dict[str, Any]) -> MentionContext:
     """Convert a failed check event into the same context used by PR fix requests."""
     repo_full_name = payload.get('repository', {}).get('full_name', '')
@@ -65,12 +79,17 @@ def context_from_failed_check(event_name: str, payload: dict[str, Any]) -> Menti
     details_url = str(check.get('details_url') or check.get('html_url') or check.get('url') or '')
     conclusion = str(check.get('conclusion') or '')
     head_sha = str(check.get('head_sha') or check.get('head_branch') or '')
+    output_excerpt = check_output_excerpt(check)
     body = (
         f'@{APP_SLUG} fix the failing PR check.\n\n'
         f'Check: {check_name}\n'
         f'Conclusion: {conclusion}\n'
         f'Details URL: {details_url or "(none)"}\n'
         f'Head SHA: {head_sha or "(from PR)"}\n\n'
+    )
+    if output_excerpt:
+        body += f'Check output excerpt:\n```\n{output_excerpt}\n```\n\n'
+    body += (
         'Investigate the failing check logs, make the smallest appropriate fix on the PR branch, '
         'commit and push to the same branch, and report validation evidence. Do not merge the PR.'
     )
