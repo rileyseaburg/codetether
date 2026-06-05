@@ -14,7 +14,6 @@ from fastapi import APIRouter, Request
 from . import active_work as _active_work
 from .auth import installation_token, verify_signature
 from .handler import handle_fix_request
-from .settings import APP_SLUG
 from .watch import post_issue_comment
 from .webhook import (
     Deps,
@@ -26,12 +25,16 @@ from .webhook import (
     responses,
 )
 
+
 # Back-compat shim: install events no longer auto-dispatch; the symbol is
 # preserved for callers and tests that still import it.
 dispatch_active_work_for_installation = (
     _active_work.dispatch_active_work_for_installation
 )
 has_active_github_app_task = _active_work.has_active_github_app_task
+
+# Back-compat re-export of APP_SLUG for tests/external callers.
+from .settings import APP_SLUG  # noqa: E402  (back-compat re-export)
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
 logger = logging.getLogger(__name__)

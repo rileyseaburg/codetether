@@ -847,6 +847,7 @@ async def test_install_event_with_non_dict_installation_payload_is_ignored(
     monkeypatch,
 ):
     """Defensive: payload['installation'] may be None or non-dict."""
+
     class FakeRequest:
         headers = {
             'X-Hub-Signature-256': 'sha256=test',
@@ -879,6 +880,7 @@ async def test_install_event_with_non_dict_installation_payload_is_ignored(
 @pytest.mark.asyncio
 async def test_install_event_skips_non_dict_repo_entries(monkeypatch):
     """Defensive: repositories_added may contain non-dict entries."""
+
     class FakeRequest:
         headers = {
             'X-Hub-Signature-256': 'sha256=test',
