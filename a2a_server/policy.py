@@ -16,9 +16,20 @@ Usage:
 
     # Resource-level check:
     from a2a_server.policy import enforce_policy
-    await enforce_policy(user, "tasks:write", resource={"type": "task", "id": task_id, "owner_id": owner, "tenant_id": tid})
+
+    await enforce_policy(
+        user,
+        "tasks:write",
+        resource={
+            "type": "task",
+            "id": task_id,
+            "owner_id": owner,
+            "tenant_id": tid,
+        },
+    )
 """
 
+import functools
 import hashlib
 import json
 import logging
@@ -60,6 +71,10 @@ OPA_ENABLED = os.environ.get('OPA_ENABLED', 'true').lower() == 'true'
 # Path to policies directory (for local mode and bundle building).
 POLICIES_DIR = Path(__file__).parent.parent / 'policies'
 
+# When the decision cache grows past this size, evict entries older than the
+# TTL. Bound keeps memory predictable in long-running OPA-sidecar deployments.
+_DECISION_CACHE_EVICT_THRESHOLD = 10000
+
 
 # ── Decision cache ───────────────────────────────────────────────
 
@@ -84,7 +99,7 @@ class _DecisionCache:
             return
         self._store[key] = (result, time.monotonic())
         # Evict stale entries periodically.
-        if len(self._store) > 10000:
+        if len(self._store) > _DECISION_CACHE_EVICT_THRESHOLD:
             cutoff = time.monotonic() - self._ttl
             self._store = {
                 k: v for k, v in self._store.items() if v[1] > cutoff
@@ -99,27 +114,25 @@ _cache = _DecisionCache(OPA_CACHE_TTL)
 
 # ── Local policy data (for local mode) ──────────────────────────
 
-_local_policy_data: dict[str, Any] | None = None
 
-
+@functools.lru_cache(maxsize=1)
 def _load_local_policy_data() -> dict[str, Any]:
-    """Load data.json for local policy evaluation."""
-    global _local_policy_data
-    if _local_policy_data is None:
-        data_file = POLICIES_DIR / 'data.json'
-        if data_file.exists():
-            with open(data_file) as f:
-                _local_policy_data = json.load(f)
-        else:
-            logger.warning(f'Policy data file not found: {data_file}')
-            _local_policy_data = {'roles': {}, 'public_endpoints': []}
-    return _local_policy_data
+    """Load data.json for local policy evaluation.
+
+    Memoized via lru_cache so the file is only read on first call. Use
+    ``reload_local_policy_data()`` to invalidate after editing policies.
+    """
+    data_file = POLICIES_DIR / 'data.json'
+    if data_file.exists():
+        with data_file.open() as f:
+            return json.load(f)
+    logger.warning(f'Policy data file not found: {data_file}')
+    return {'roles': {}, 'public_endpoints': []}
 
 
 def reload_local_policy_data() -> dict[str, Any]:
     """Force reload of local policy data from disk and clear decision cache."""
-    global _local_policy_data
-    _local_policy_data = None
+    _load_local_policy_data.cache_clear()
     _cache.clear()
     return _load_local_policy_data()
 
