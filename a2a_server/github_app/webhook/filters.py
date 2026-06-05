@@ -12,7 +12,9 @@ INSTALL_CREATED_ACTIONS = {'created'}
 REPO_SCOPE_ACTIONS = {'added', 'created'}
 
 
-def is_installation_scope_event(event_name: str, payload: dict[str, Any]) -> bool:
+def is_installation_scope_event(
+    event_name: str, payload: dict[str, Any]
+) -> bool:
     """True for installation/installation_repositories scope changes."""
     action = payload.get('action')
     if event_name == INSTALLATION_EVENT and action in INSTALL_CREATED_ACTIONS:

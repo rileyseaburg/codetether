@@ -11,7 +11,11 @@ from typing import Any
 
 def ignored(event: str, reason: str, action: Any = None) -> dict[str, Any]:
     """Build a response for an event that was deliberately not actioned."""
-    response: dict[str, Any] = {'ignored': True, 'reason': reason, 'event': event}
+    response: dict[str, Any] = {
+        'ignored': True,
+        'reason': reason,
+        'event': event,
+    }
     if action is not None:
         response['action'] = action
     return response

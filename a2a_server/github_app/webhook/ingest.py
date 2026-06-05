@@ -47,7 +47,9 @@ async def read_event(
     payload = json.loads(raw_body or b'{}')
     if not isinstance(payload, Mapping):
         payload = {}
-    return IngestedEvent(event_name=event_name, payload=dict(payload), raw_body=raw_body)
+    return IngestedEvent(
+        event_name=event_name, payload=dict(payload), raw_body=raw_body
+    )
 
 
 def is_ping_response(value: IngestedEvent | dict[str, Any]) -> bool:

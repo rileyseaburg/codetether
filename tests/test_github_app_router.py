@@ -840,3 +840,75 @@ async def test_non_fix_guidance_suppressed_when_active_task_exists(monkeypatch):
     result = await router.handle_github_webhook(FakeRequest())
 
     assert result == {'accepted': False, 'reason': 'active-task-exists'}
+
+
+@pytest.mark.asyncio
+async def test_install_event_with_non_dict_installation_payload_is_ignored(
+    monkeypatch,
+):
+    """Defensive: payload['installation'] may be None or non-dict."""
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'installation',
+        }
+
+        async def body(self):
+            return json.dumps(
+                {'action': 'created', 'installation': None}
+            ).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fail_installation_token(installation_id):
+        raise AssertionError('must not mint token when id is unknown')
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result == {
+        'ignored': True,
+        'reason': 'missing-installation-id',
+        'event': 'installation',
+    }
+
+
+@pytest.mark.asyncio
+async def test_install_event_skips_non_dict_repo_entries(monkeypatch):
+    """Defensive: repositories_added may contain non-dict entries."""
+    class FakeRequest:
+        headers = {
+            'X-Hub-Signature-256': 'sha256=test',
+            'X-GitHub-Event': 'installation_repositories',
+        }
+
+        async def body(self):
+            return json.dumps(
+                {
+                    'action': 'added',
+                    'installation': {'id': 123},
+                    'repositories_added': [
+                        'not-a-dict',
+                        None,
+                        {'full_name': 'owner/valid'},
+                        {'full_name': ''},
+                    ],
+                }
+            ).encode()
+
+    async def fake_verify(signature, body):
+        assert signature == 'sha256=test'
+
+    async def fake_installation_token(installation_id):
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
+
+    result = await router.handle_github_webhook(FakeRequest())
+
+    assert result['accepted'] is True
+    assert result['welcomed_repos'] == ['owner/valid']
