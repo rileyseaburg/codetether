@@ -1,29 +1,48 @@
-"""GitHub App webhook ingress for `@codetether` comment requests."""
+"""Thin orchestrator for POST /v1/webhooks/github.
 
-import json
+Each gate delegates to a single-responsibility helper under ``webhook/``
+(signature verify, ping, self-authored guard, install welcome, failed
+check, mention dispatch, unsupported-event filter). This module owns the
+FastAPI router and the response chain.
+"""
+
+from __future__ import annotations
+
 import logging
 
 from fastapi import APIRouter, Request
 
-from .active_work import (
-    dispatch_active_work_for_installation,
-    has_active_github_app_task,
-)
 from .auth import installation_token, verify_signature
-from .check_failures import (
-    context_from_failed_check,
-    should_remediate_failed_check,
-)
-from .mention import is_fix_request
-from .payload import (
-    extract_context,
-    is_changes_requested_review,
-    is_self_authored_event,
-    is_supported_event_action,
-)
 from .handler import handle_fix_request
 from .settings import APP_SLUG
 from .watch import post_issue_comment
+from .webhook import (
+    failed_checks,
+    filters,
+    ingest,
+    install_events,
+    mention_dispatch,
+    responses,
+)
+from . import active_work as _active_work
+
+# Back-compat shim: the install-event branch used to auto-dispatch active
+# work. The new design posts opt-in guidance instead; we keep the symbol so
+# existing callers and tests don't break.
+dispatch_active_work_for_installation = _active_work.dispatch_active_work_for_installation
+has_active_github_app_task = _active_work.has_active_github_app_task
+
+__all__ = [
+    'APP_SLUG',
+    'github_webhook_router',
+    'handle_github_webhook',
+    'verify_signature',
+    'installation_token',
+    'post_issue_comment',
+    'handle_fix_request',
+    'dispatch_active_work_for_installation',
+    'has_active_github_app_task',
+]
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
 logger = logging.getLogger(__name__)
@@ -31,101 +50,21 @@ logger = logging.getLogger(__name__)
 
 @github_webhook_router.post('/github')
 async def handle_github_webhook(request: Request):
-    """Accept GitHub App events and translate `@codetether` mentions into tasks."""
-    body = await request.body()
-    await verify_signature(request.headers.get('X-Hub-Signature-256', ''), body)
-    event_name = request.headers.get('X-GitHub-Event', '')
-    if event_name == 'ping':
-        return {'ok': True, 'event': 'ping'}
-    payload = json.loads(body or b'{}')
-    if is_self_authored_event(event_name, payload):
-        logger.info(
-            'GitHub App webhook ignored self-authored event: event=%s action=%s',
-            event_name,
-            payload.get('action'),
-        )
-        return {
-            'ignored': True,
-            'reason': 'self-authored-event',
-            'event': event_name,
-            'action': payload.get('action'),
-        }
-    if _should_dispatch_installed_repo_active_work(event_name, payload):
-        installation_id = int(payload.get('installation', {}).get('id') or 0)
-        results = await dispatch_active_work_for_installation(installation_id)
-        return {
-            'accepted': True,
-            'trigger': event_name,
-            'dispatched': len(results),
-        }
-    if should_remediate_failed_check(event_name, payload):
-        context = context_from_failed_check(event_name, payload)
-        token, _ = await installation_token(context.installation_id)
-        if await has_active_github_app_task(
-            context.repo_full_name, context.issue_number
-        ):
-            return {
-                'trigger': 'failed_check',
-                'accepted': False,
-                'reason': 'active-task-exists',
-            }
-        result = await handle_fix_request(context, token)
-        return {'trigger': 'failed_check', **result}
-    if not is_supported_event_action(event_name, payload):
-        logger.info(
-            'GitHub App webhook ignored unsupported event/action: event=%s action=%s',
-            event_name,
-            payload.get('action'),
-        )
-        return {
-            'ignored': True,
-            'reason': 'unsupported-event-action',
-            'event': event_name,
-            'action': payload.get('action'),
-        }
-    context = extract_context(event_name, payload)
-    if not context:
-        logger.info(
-            'GitHub App webhook ignored event without @%s mention context: event=%s action=%s',
-            APP_SLUG,
-            event_name,
-            payload.get('action'),
-        )
-        return {'ignored': True}
-    token, _ = await installation_token(context.installation_id)
-    is_review_change_request = is_changes_requested_review(event_name, payload)
-    is_explicit_fix_request = is_fix_request(context.comment_body)
-    if not is_review_change_request and not is_explicit_fix_request:
-        if await has_active_github_app_task(
-            context.repo_full_name, context.issue_number
-        ):
-            return {'accepted': False, 'reason': 'active-task-exists'}
-        await post_issue_comment(
-            context.repo_full_name,
-            context.issue_number,
-            token,
-            '## 🤖 CodeTether\n\n'
-            'I saw the mention, but I only start repository-changing work when the '
-            'comment explicitly asks me to fix, apply, implement, handle, or otherwise '
-            'change code.\n\n'
-            'For issues, I can create a branch and open a PR; for pull requests, I can '
-            f'push to the PR branch. Try `@{APP_SLUG} handle this issue` or '
-            f'`@{APP_SLUG} implement this`.',
-        )
-        return {'accepted': False, 'reason': 'non-fix mention'}
-    if await has_active_github_app_task(
-        context.repo_full_name, context.issue_number
-    ):
-        return {'accepted': False, 'reason': 'active-task-exists'}
-    return await handle_fix_request(context, token)
-
-
-def _should_dispatch_installed_repo_active_work(
-    event_name: str, payload: dict
-) -> bool:
-    """Return true when GitHub App repo scope changes need active-work backfill."""
-    action = payload.get('action')
-    return (event_name == 'installation' and action == 'created') or (
-        event_name == 'installation_repositories'
-        and action in {'added', 'created'}
-    )
+    """Accept a GitHub App webhook and route it to the appropriate helper."""
+    event = await ingest.read_event(request, verify=verify_signature)
+    if ingest.is_ping_response(event):
+        return event
+    assert isinstance(event, ingest.IngestedEvent)
+    event_name, payload = event.event_name, event.payload
+    if filters.is_self_authored(event_name, payload):
+        logger.info('self-authored event=%s action=%s', event_name, payload.get('action'))
+        return responses.ignored(event_name, 'self-authored-event', action=payload.get('action'))
+    if filters.is_installation_scope_event(event_name, payload):
+        return await install_events.handle_installation_scope_event(event_name, payload, installation_token=installation_token)
+    failed = await failed_checks.handle_failed_check(event_name, payload, installation_token=installation_token, has_active_github_app_task=has_active_github_app_task, handle_fix_request=handle_fix_request)
+    if failed is not None:
+        return failed
+    if not filters.has_actionable_event(event_name, payload):
+        logger.info('unsupported event=%s action=%s', event_name, payload.get('action'))
+        return responses.ignored(event_name, 'unsupported-event-action', action=payload.get('action'))
+    return await mention_dispatch.handle_mention_event(event_name, payload, installation_token=installation_token, has_active_github_app_task=has_active_github_app_task, handle_fix_request=handle_fix_request, post_issue_comment=post_issue_comment)

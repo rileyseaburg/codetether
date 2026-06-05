@@ -366,10 +366,18 @@ async def test_self_authored_review_comment_is_ignored(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_installation_repositories_event_dispatches_active_work(
+async def test_installation_repositories_event_posts_opt_in_guidance(
     monkeypatch,
 ):
-    calls = []
+    """Repo scope additions must not auto-dispatch active work.
+
+    Regression: previously the install-event branch called
+    dispatch_active_work_for_installation, fanning out to every open
+    issue and PR in every installed repository. The new design returns
+    opt-in guidance text the operator can use to activate specific repos.
+    """
+    tokens = []
+    dispatched = []
 
     class FakeRequest:
         headers = {
@@ -382,35 +390,42 @@ async def test_installation_repositories_event_dispatches_active_work(
                 {
                     'action': 'added',
                     'installation': {'id': 123},
+                    'repositories_added': [
+                        {'full_name': 'owner/one'},
+                        {'full_name': 'owner/two'},
+                    ],
                 }
             ).encode()
 
     async def fake_verify(signature, body):
         assert signature == 'sha256=test'
 
-    async def fake_dispatch_active_work_for_installation(installation_id):
-        calls.append(installation_id)
-        return [object(), object()]
+    async def fake_installation_token(installation_id):
+        tokens.append(installation_id)
+        return 'ghs_test', '2026-04-24T22:00:00Z'
 
-    async def fail_installation_token(installation_id):
-        raise AssertionError('router should dispatch through active_work only')
+    async def fail_dispatch_active_work_for_installation(installation_id):
+        dispatched.append(installation_id)
+        raise AssertionError(
+            'install events must not auto-dispatch active work'
+        )
 
     monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
     monkeypatch.setattr(
         router,
         'dispatch_active_work_for_installation',
-        fake_dispatch_active_work_for_installation,
+        fail_dispatch_active_work_for_installation,
     )
-    monkeypatch.setattr(router, 'installation_token', fail_installation_token)
 
     result = await router.handle_github_webhook(FakeRequest())
 
-    assert calls == [123]
-    assert result == {
-        'accepted': True,
-        'trigger': 'installation_repositories',
-        'dispatched': 2,
-    }
+    assert dispatched == []  # regression: no auto-dispatch
+    assert tokens == [123]
+    assert result['accepted'] is True
+    assert result['trigger'] == 'installation_repositories'
+    assert result['welcomed_repos'] == ['owner/one', 'owner/two']
+    assert 'codetether.active' in result['guidance']
 
 
 @pytest.mark.asyncio
@@ -466,8 +481,14 @@ async def test_self_authored_installation_repositories_event_is_not_backfilled(
 
 
 @pytest.mark.asyncio
-async def test_installation_created_event_dispatches_active_work(monkeypatch):
-    calls = []
+async def test_installation_created_event_posts_opt_in_guidance(monkeypatch):
+    """First-time installations must not auto-dispatch active work.
+
+    Regression: the install-event branch used to fan out to every open
+    issue and PR in every installed repository. The new design returns
+    opt-in guidance text only.
+    """
+    dispatched = []
 
     class FakeRequest:
         headers = {
@@ -486,25 +507,29 @@ async def test_installation_created_event_dispatches_active_work(monkeypatch):
     async def fake_verify(signature, body):
         assert signature == 'sha256=test'
 
-    async def fake_dispatch_active_work_for_installation(installation_id):
-        calls.append(installation_id)
-        return [object()]
+    async def fake_installation_token(installation_id):
+        return 'ghs_test', '2026-04-24T22:00:00Z'
+
+    async def fail_dispatch_active_work_for_installation(installation_id):
+        dispatched.append(installation_id)
+        raise AssertionError(
+            'install events must not auto-dispatch active work'
+        )
 
     monkeypatch.setattr(router, 'verify_signature', fake_verify)
+    monkeypatch.setattr(router, 'installation_token', fake_installation_token)
     monkeypatch.setattr(
         router,
         'dispatch_active_work_for_installation',
-        fake_dispatch_active_work_for_installation,
+        fail_dispatch_active_work_for_installation,
     )
 
     result = await router.handle_github_webhook(FakeRequest())
 
-    assert calls == [123]
-    assert result == {
-        'accepted': True,
-        'trigger': 'installation',
-        'dispatched': 1,
-    }
+    assert dispatched == []  # regression: no auto-dispatch
+    assert result['accepted'] is True
+    assert result['trigger'] == 'installation'
+    assert 'codetether.active' in result['guidance']
 
 
 @pytest.mark.asyncio
@@ -758,7 +783,10 @@ async def test_non_changes_requested_review_without_mention_is_ignored(
 
     result = await router.handle_github_webhook(FakeRequest())
 
-    assert result == {'ignored': True}
+    assert result['ignored'] is True
+    assert result['reason'] == 'no-mention'
+    assert result['event'] == 'pull_request_review'
+    assert result['action'] == 'submitted'
 
 
 @pytest.mark.asyncio
