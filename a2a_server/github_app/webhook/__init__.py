@@ -14,8 +14,7 @@ Public surface re-exported for the router and any external callers:
     responses.ignored, .rejected, .accepted
 """
 
-from .deps import Deps
-from . import (
+from . import (  # noqa: TID252  (project convention: relative imports)
     failed_checks,
     filters,
     ingest,
@@ -23,6 +22,8 @@ from . import (
     mention_dispatch,
     responses,
 )
+from .deps import Deps  # noqa: TID252  (project convention: relative imports)
+
 
 __all__ = [
     'Deps',
