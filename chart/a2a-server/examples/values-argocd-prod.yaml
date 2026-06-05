@@ -147,8 +147,54 @@ docs:
 opa:
   enabled: false
 
+# GitHub App issue-mention harvester.
+#
+# When enabled, the `a2a-server-harvester` StatefulSet runs a long-lived
+# `codetether worker` that claims @codetether mention tasks dispatched by the
+# server.  Workers check out repos to a workspace PVC, run a fix, and open a
+# PR.  Push access is granted by the @codetether GitHub App — only repos
+# where the app is installed will be eligible for PRs.
+#
+# autoApprove policy:
+#   - "all"  : approve every tool call (dangerous — workers can edit, commit,
+#              push, and open PRs without prompting).
+#   - "safe" : only read-only / non-mutating tool calls are auto-approved;
+#              anything that writes, pushes, or opens a PR still requires
+#              explicit human approval via the A2A UI.  This is the
+#              recommended setting while the harvester is being smoke-tested.
+#   - "none" : every tool call requires explicit approval (manual PR review
+#              is the only way work lands).
 harvester:
-  enabled: false
+  enabled: true
+  replicaCount: 1
+  agentName: harvester
+  autoApprove: "safe"
+  # Leave storage.className empty to use the cluster's default StorageClass.
+  # Override here if the prod cluster pins a non-default class (e.g. nfs-storage
+  # or premium-rwo); the chart defaults to "standard" if unset.
+  storage:
+    className: ""
+    size: 50Gi
+  # Resource headroom matches the StatefulSet template defaults.  Tighten
+  # after observing actual worker utilization in prod.
+  resources:
+    limits:
+      cpu: "4"
+      memory: 16Gi
+    requests:
+      cpu: "1"
+      memory: 4Gi
+  # Optional: pin a specific provider/model so all harvester runs use it.
+  # Leave empty to let the A2A server's tenant defaults decide.
+  defaultProvider: ""
+  defaultModel: ""
+  # No static token — workers authenticate to the A2A server via the projected
+  # service-account JWT issued by the harvester ServiceAccount.
+  tokenSecret:
+    name: ""
+  # Optional: mount provider API keys from a Secret in this namespace.
+  providerSecrets:
+    envFrom: []
 
 commonLabels:
   app.kubernetes.io/part-of: codetether
