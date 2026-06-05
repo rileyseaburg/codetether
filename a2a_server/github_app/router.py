@@ -34,7 +34,7 @@ dispatch_active_work_for_installation = (
 has_active_github_app_task = _active_work.has_active_github_app_task
 
 # Back-compat re-export of APP_SLUG for tests/external callers.
-from .settings import APP_SLUG  # noqa: E402  (back-compat re-export)
+from .settings import APP_SLUG  # noqa: E402, F401  (back-compat re-export)
 
 github_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['github'])
 logger = logging.getLogger(__name__)
