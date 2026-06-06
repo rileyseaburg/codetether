@@ -34,6 +34,7 @@ async def create_issue_clone_task(
     followup_metadata = {
         'workspace_id': wid,
         'source': 'github-app',
+        'trigger_actor_login': context.actor_login,
         'workflow_stage': 'code',
         'repo': context.repo_full_name,
         'issue_number': context.issue_number,
@@ -67,6 +68,7 @@ async def create_issue_clone_task(
         'git_branch': base_branch,
         'source': 'github-app',
         'repo': context.repo_full_name,
+        'trigger_actor_login': context.actor_login,
         'issue_number': context.issue_number,
         'github_check_head_sha': github_check_head_sha,
         'github_issue_url': github_issue_url,

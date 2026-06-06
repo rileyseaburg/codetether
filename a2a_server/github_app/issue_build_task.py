@@ -28,6 +28,7 @@ async def create_issue_build_task(
         'source': 'github-app',
         'repo': context.repo_full_name,
         'issue_number': context.issue_number,
+        'trigger_actor_login': context.actor_login,
         'branch_name': branch,
         'default_branch': repo['default_branch'],
         'github_issue_url': f'https://github.com/{context.repo_full_name}/issues/{context.issue_number}',

@@ -21,11 +21,14 @@ from .context import MentionContext
 from .issue_clone_task import create_issue_clone_task
 from .issue_prompt import accepted_issue_message, issue_branch
 from .prompt import accepted_message
-from .watch import post_issue_comment
+from .settings import APP_SLUG
+from .watch import post_issue_comment, recent_app_acceptance_comment_exists
 from .workspace import create_clone_task, ensure_workspace
 
 
-def _build_github_issue_url(repo_full_name: str, issue_number: int, pr_number: int | None) -> str:
+def _build_github_issue_url(
+    repo_full_name: str, issue_number: int, pr_number: int | None
+) -> str:
     """Construct the GitHub issue/PR URL for progress reporter."""
     if pr_number:
         return f'https://github.com/{repo_full_name}/pull/{pr_number}'
@@ -47,34 +50,83 @@ async def handle_fix_request(context: MentionContext, token: str) -> dict:
     )
 
     if context.pr_number:
-        pr = await github_json('GET', f'/repos/{context.repo_full_name}/pulls/{context.pr_number}', token)
+        pr = await github_json(
+            'GET',
+            f'/repos/{context.repo_full_name}/pulls/{context.pr_number}',
+            token,
+        )
         if pr['head']['repo']['full_name'] != context.repo_full_name:
-            await post_issue_comment(context.repo_full_name, context.issue_number, token, f"## 🛠️ CodeTether Fix\n\nAuto-fix is not available for forked pull requests because I cannot safely push to `{pr['head']['repo']['full_name']}:{pr['head']['ref']}`.")
+            await post_issue_comment(
+                context.repo_full_name,
+                context.issue_number,
+                token,
+                f'## 🛠️ CodeTether Fix\n\nAuto-fix is not available for forked pull requests because I cannot safely push to `{pr["head"]["repo"]["full_name"]}:{pr["head"]["ref"]}`.',
+            )
             return {'accepted': False, 'reason': 'forked-pr'}
         wid = await ensure_workspace(context, pr)
         clone_task_id = await create_clone_task(
-            context, pr, wid,
+            context,
+            pr,
+            wid,
             github_issue_url=github_issue_url,
             github_installation_id=context.installation_id,
         )
-        await post_issue_comment(context.repo_full_name, context.issue_number, token, accepted_message(pr))
-        return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}
+        if not await recent_app_acceptance_comment_exists(
+            context.repo_full_name,
+            context.issue_number,
+            token,
+            app_slug=APP_SLUG,
+        ):
+            await post_issue_comment(
+                context.repo_full_name,
+                context.issue_number,
+                token,
+                accepted_message(pr),
+            )
+        return {
+            'accepted': True,
+            'workspace_id': wid,
+            'clone_task_id': clone_task_id,
+        }
 
     repo = await github_json('GET', f'/repos/{context.repo_full_name}', token)
     base_ref = await github_json(
         'GET',
-        f"/repos/{context.repo_full_name}/git/ref/heads/{repo['default_branch']}",
+        f'/repos/{context.repo_full_name}/git/ref/heads/{repo["default_branch"]}',
         token,
     )
-    issue = await github_json('GET', f'/repos/{context.repo_full_name}/issues/{context.issue_number}', token)
+    issue = await github_json(
+        'GET',
+        f'/repos/{context.repo_full_name}/issues/{context.issue_number}',
+        token,
+    )
     branch = issue_branch(context)
-    checkout = {'head': {'repo': {'clone_url': repo['clone_url']}, 'ref': branch}, 'base': {'ref': repo['default_branch']}}
+    checkout = {
+        'head': {'repo': {'clone_url': repo['clone_url']}, 'ref': branch},
+        'base': {'ref': repo['default_branch']},
+    }
     wid = await ensure_workspace(context, checkout)
     clone_task_id = await create_issue_clone_task(
-        context, issue, repo, wid, branch,
+        context,
+        issue,
+        repo,
+        wid,
+        branch,
         github_issue_url=github_issue_url,
         github_installation_id=context.installation_id,
         github_check_head_sha=((base_ref.get('object') or {}).get('sha') or ''),
     )
-    await post_issue_comment(context.repo_full_name, context.issue_number, token, accepted_issue_message(issue, branch))
-    return {'accepted': True, 'workspace_id': wid, 'clone_task_id': clone_task_id}
+    if not await recent_app_acceptance_comment_exists(
+        context.repo_full_name, context.issue_number, token, app_slug=APP_SLUG
+    ):
+        await post_issue_comment(
+            context.repo_full_name,
+            context.issue_number,
+            token,
+            accepted_issue_message(issue, branch),
+        )
+    return {
+        'accepted': True,
+        'workspace_id': wid,
+        'clone_task_id': clone_task_id,
+    }

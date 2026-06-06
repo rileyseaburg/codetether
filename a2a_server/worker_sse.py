@@ -384,6 +384,22 @@ class WorkerRegistry:
             logger.info(f'Task {task_id} claimed by worker {worker_id}')
             return True
 
+    async def note_task_claimed(self, task_id: str, worker_id: str) -> None:
+        """Record advisory in-memory claim state after durable lease success.
+
+        The database/task_runs lease is authoritative. This registry update is
+        only SSE/UI bookkeeping and must not veto a durable claim.
+        """
+        async with self._lock:
+            self._claimed_tasks[task_id] = worker_id
+            worker = self._workers.get(worker_id)
+            if worker:
+                worker.is_busy = True
+                worker.current_task_id = task_id
+        logger.info(
+            f'Task {task_id} recorded as claimed by worker {worker_id} after durable lease'
+        )
+
     async def release_task(self, task_id: str, worker_id: str) -> bool:
         """Release a task claim (on completion or failure).
 
@@ -1259,58 +1275,25 @@ async def claim_task(
 
     registry = get_worker_registry()
 
-    success = await registry.claim_task(claim.task_id, resolved_worker_id)
+    # Durable task_runs leases are authoritative. Try that path before the
+    # process-local SSE registry so stale in-memory claims cannot strand queued
+    # fire-and-forget work behind HTTP 409 conflicts.
+    run_claim = await _claim_task_run_for_worker(
+        claim.task_id,
+        resolved_worker_id,
+    )
+    durable_claimed = bool(run_claim)
 
-    if success:
+    if durable_claimed:
+        await registry.note_task_claimed(claim.task_id, resolved_worker_id)
+        success = True
         logger.info(
-            f'Task {claim.task_id} claimed by worker {resolved_worker_id}'
+            f'Task {claim.task_id} durably claimed by worker {resolved_worker_id}'
         )
-        # Update task status to 'running' in DB so the UI reflects reality
-        try:
-            from .agent_bridge import get_bridge as get_agent_bridge
-            from .agent_bridge import AgentTaskStatus
-            from .database import db_update_task_status
-
-            bridge = get_agent_bridge()
-            if bridge:
-                updated_task = await bridge.update_task_status(
-                    task_id=claim.task_id,
-                    status=AgentTaskStatus.RUNNING,
-                    worker_id=resolved_worker_id,
-                )
-                if updated_task is None:
-                    logger.debug(
-                        f'Bridge missed task {claim.task_id}; using DB status update fallback'
-                    )
-
-            updated = await db_update_task_status(
-                task_id=claim.task_id,
-                status=AgentTaskStatus.RUNNING.value,
-                worker_id=resolved_worker_id,
-            )
-            if not updated:
-                logger.warning(
-                    f'Claimed task {claim.task_id} but could not persist running status'
-                )
-        except Exception as e:
-            logger.warning(
-                f'Failed to update task {claim.task_id} to running: {e}'
-            )
-
-        run_claim = await _claim_task_run_for_worker(
-            claim.task_id,
-            resolved_worker_id,
-        )
-
-        response = {
-            'success': True,
-            'task_id': claim.task_id,
-            'worker_id': resolved_worker_id,
-            'message': 'Task claimed successfully',
-        }
-        response.update(run_claim)
-        return response
     else:
+        success = await registry.claim_task(claim.task_id, resolved_worker_id)
+
+    if not success:
         raise HTTPException(
             status_code=409,
             detail=(
@@ -1318,6 +1301,59 @@ async def claim_task(
                 '(already claimed, worker not connected, or worker not eligible for this task)'
             ),
         )
+
+    logger.info(
+        f'Task {claim.task_id} claimed by worker {resolved_worker_id}'
+    )
+    # Update task status to 'running' in DB so the UI reflects reality
+    try:
+        from .agent_bridge import get_bridge as get_agent_bridge
+        from .agent_bridge import AgentTaskStatus
+        from .database import db_update_task_status
+
+        bridge = get_agent_bridge()
+        if bridge:
+            updated_task = await bridge.update_task_status(
+                task_id=claim.task_id,
+                status=AgentTaskStatus.RUNNING,
+                worker_id=resolved_worker_id,
+            )
+            if updated_task is None:
+                logger.debug(
+                    f'Bridge missed task {claim.task_id}; using DB status update fallback'
+                )
+
+        updated = await db_update_task_status(
+            task_id=claim.task_id,
+            status=AgentTaskStatus.RUNNING.value,
+            worker_id=resolved_worker_id,
+        )
+        if not updated:
+            logger.warning(
+                f'Claimed task {claim.task_id} but could not persist running status'
+            )
+    except Exception as e:
+        logger.warning(
+            f'Failed to update task {claim.task_id} to running: {e}'
+        )
+
+    # Legacy registry claims may not have a task_runs row; try attaching one
+    # after the registry succeeds, but do not let that best-effort bridge veto
+    # the already accepted legacy claim.
+    if not durable_claimed:
+        run_claim = await _claim_task_run_for_worker(
+            claim.task_id,
+            resolved_worker_id,
+        )
+
+    response = {
+        'success': True,
+        'task_id': claim.task_id,
+        'worker_id': resolved_worker_id,
+        'message': 'Task claimed successfully',
+    }
+    response.update(run_claim)
+    return response
 
 
 @worker_sse_router.post('/tasks/release')

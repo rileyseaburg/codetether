@@ -16,6 +16,7 @@ from .settings import APP_SLUG
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass(frozen=True)
 class ActiveWorkDispatch:
     """Summary of one active issue or PR considered for dispatch."""
@@ -28,7 +29,9 @@ class ActiveWorkDispatch:
     task_id: str = ''
 
 
-async def list_installation_repositories(installation_id: int) -> list[dict[str, Any]]:
+async def list_installation_repositories(
+    installation_id: int,
+) -> list[dict[str, Any]]:
     """Return repositories visible to a GitHub App installation token."""
     token, _ = await installation_token(installation_id)
     repos: list[dict[str, Any]] = []
@@ -46,12 +49,18 @@ async def list_installation_repositories(installation_id: int) -> list[dict[str,
         page += 1
 
 
-def _context_for_item(repo: str, installation_id: int, item: dict[str, Any]) -> MentionContext:
+def _context_for_item(
+    repo: str, installation_id: int, item: dict[str, Any]
+) -> MentionContext:
     """Build the normal mention context for a discovered active item."""
     number = int(item['number'])
     is_pr = 'pull_request' in item
     body = str(item.get('body') or '')
-    prompt = body if is_fix_request(body) else f'@{APP_SLUG} handle this active work item.\n\n{body}'
+    prompt = (
+        body
+        if is_fix_request(body)
+        else f'@{APP_SLUG} handle this active work item.\n\n{body}'
+    )
     return MentionContext(
         repo_full_name=repo,
         installation_id=installation_id,
@@ -59,6 +68,7 @@ def _context_for_item(repo: str, installation_id: int, item: dict[str, Any]) -> 
         pr_number=number if is_pr else None,
         comment_id=int(item.get('id') or number),
         comment_body=prompt,
+        actor_login=str((item.get('user') or {}).get('login') or ''),
     )
 
 
@@ -81,7 +91,11 @@ async def dispatch_active_work_for_repo(
         if not items:
             return results
         for item in items:
-            results.append(await _dispatch_item(repo_full_name, installation_id, item, token))
+            results.append(
+                await _dispatch_item(
+                    repo_full_name, installation_id, item, token
+                )
+            )
         if len(items) < limit:
             return results
         page += 1
