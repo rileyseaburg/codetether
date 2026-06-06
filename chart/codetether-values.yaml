@@ -237,6 +237,12 @@ knative:
     maxTimeoutSeconds: 1200
     # One task at a time (hardware-bound)
     containerConcurrency: 1
+    capabilities:
+      - persistent
+      - persistent-workspace
+      - persistent_workspace
+      - git-clone
+      - repo-cache
     resources:
       limits:
         memory: 2Gi

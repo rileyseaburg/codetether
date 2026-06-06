@@ -465,6 +465,9 @@ knative:
     maxTimeoutSeconds: 1200
     # One task at a time (hardware-bound)
     containerConcurrency: 1
+    # Optional extra capabilities for generated Knative session workers.
+    # Leave empty unless these workers should claim persistent automation tasks.
+    capabilities: []
     resources:
       limits:
         memory: 2Gi
@@ -729,6 +732,15 @@ harvester:
   # Auto-approve policy for tool calls: all, safe (read-only), none.
   # Harvester workers edit files, commit, push, and open PRs — use "all".
   autoApprove: "all"
+  # Additional capabilities advertised by the Rust worker. Cron and GitHub
+  # automation tasks are routed to workers with these persistent-workspace caps.
+  capabilities:
+    - harvester
+    - persistent
+    - persistent-workspace
+    - persistent_workspace
+    - git-clone
+    - repo-cache
   # Keep codetether state and telemetry on the workspace PVC so the worker's
   # install ID survives restarts and the non-root user has a writable home.
   homePath: "/var/lib/codetether/repos/.codetether-home"

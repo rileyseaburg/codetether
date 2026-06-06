@@ -100,6 +100,8 @@ spec:
             # Worker runs HTTP server on port 8080 for health probes (/health, /ready) and CloudEvents (/task)
             - name: KNATIVE_SERVICE
               value: "true"
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
             - name: GIT_CLONE_BASE
               value: "/workspace/repos"
           resources:
