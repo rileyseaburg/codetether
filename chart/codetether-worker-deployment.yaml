@@ -45,6 +45,8 @@ spec:
               value: "1"
             - name: RUST_LOG
               value: "info"
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
           resources:
             requests:
               cpu: 100m

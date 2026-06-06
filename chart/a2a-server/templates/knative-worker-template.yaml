@@ -99,6 +99,10 @@ data:
                 {{- end }}
                 - name: KNATIVE_SERVICE
                   value: "true"
+                {{- with .Values.knative.worker.capabilities }}
+                - name: CODETETHER_WORKER_CAPABILITIES
+                  value: {{ join "," . | quote }}
+                {{- end }}
                 - name: GIT_CLONE_BASE
                   value: {{ printf "%s/%s" ((.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") ((.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
                 - name: DATABASE_URL

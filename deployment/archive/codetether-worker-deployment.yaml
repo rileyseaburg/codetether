@@ -63,6 +63,8 @@ spec:
             # Knative-aware mode (future: enables HTTP server for CloudEvents)
             - name: KNATIVE_SERVICE
               value: "true"
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
           resources:
             limits:
               cpu: "2"
