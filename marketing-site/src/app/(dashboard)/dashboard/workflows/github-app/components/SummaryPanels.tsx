@@ -1,13 +1,40 @@
+import { useGithubAppWorkflows } from '../GithubAppWorkflowsContext'
 import { CountCard } from './CountCard'
-import { JsonCounts } from './JsonCounts'
-import type { GithubAppWorkflowResponse } from '../types'
+import { HealthPanel } from './HealthPanel'
 
-export function SummaryPanels({ data }: { data: GithubAppWorkflowResponse | null }) {
+const badRouteStates = new Set(['missing_worker', 'stale_worker', 'unscoped_or_missing_target'])
+
+export function SummaryPanels() {
+  const { data } = useGithubAppWorkflows()
   const totals = data?.totals || {}
-  const active = (totals.pending || 0) + (totals.running || 0) + (totals.failed || 0)
-  const hasBadRoutes = Object.keys(data?.route_states || {}).some((k) => k !== 'active_worker')
-  return <>
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"><CountCard label="Active workflow tasks" value={active} hint="pending + running + failed" /><CountCard label="Pending" value={totals.pending || 0} hint="waiting to be claimed" tone="amber" /><CountCard label="Running" value={totals.running || 0} hint="currently leased/active" tone="sky" /><CountCard label="Failed" value={totals.failed || 0} hint="needs triage or retry" tone="rose" /><CountCard label="Open task runs" value={data?.runs?.length || 0} hint="non-completed task_run rows" tone="emerald" /></div>
-    <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-semibold text-slate-950">Routing health</h2><div className="mt-4"><JsonCounts counts={data?.route_states || {}} /></div>{hasBadRoutes ? <p className="mt-3 text-xs text-amber-700">Watch non-active routes first: missing targets, stale workers, or unscoped pending items are common stuck-queue causes.</p> : null}</section><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-semibold text-slate-950">Failure classes</h2><div className="mt-4"><JsonCounts counts={data?.failure_classes || {}} /></div></section></div>
-  </>
+  const pending = totals.pending || 0
+  const running = totals.running || 0
+  const failed = totals.failed || 0
+  const completed = totals.completed || 0
+  const routeStates = data?.route_states || {}
+  const failures = data?.failure_classes || {}
+  const hasBadRoutes = Object.keys(routeStates).some((k) => badRouteStates.has(k))
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <CountCard label="Working now" value={running} hint={running > 0 ? 'agents currently leased' : 'no agent lease active'} tone="sky" />
+        <CountCard label="Queued" value={pending} hint="waiting for an agent" tone="amber" />
+        <CountCard label="Active backlog" value={pending + running} hint="running + queued" tone="slate" />
+        <CountCard label="Completed" value={completed} hint="recent successful tasks" tone="emerald" />
+        <CountCard label="Needs attention" value={failed} hint="failed GitHub tasks" tone="rose" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <HealthPanel
+          title="Routing health"
+          description="Are tasks pointed at live workers?"
+          counts={routeStates}
+          badge={hasBadRoutes ? 'Check routing' : 'Healthy'}
+          tone={hasBadRoutes ? 'warn' : 'good'}
+          note={hasBadRoutes ? 'Watch non-active routes first: missing targets, stale workers, or unscoped pending items are common stuck-queue causes.' : undefined}
+        />
+        <HealthPanel title="Failure classes" description="Grouped errors from the latest GitHub tasks." counts={failures} badge={`${Object.keys(failures).length} classes`} />
+      </div>
+    </div>
+  )
 }

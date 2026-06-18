@@ -25,7 +25,14 @@ export interface WorkflowTask {
   updated_at?: string
   repo?: string
   issue_pr?: string
+  url?: string
+  pr_url?: string
+  commit_sha?: string
+  evidence_url?: string
+  session_id?: string
+  worker_id?: string
   target_worker_id?: string
+  target_agent_name?: string
   worker_name?: string
   worker_status?: string
   worker_last_seen?: string
@@ -40,10 +47,15 @@ export interface WorkflowRun {
   status: string
   lease_owner?: string
   lease_expires_at?: string
+  completed_at?: string
   last_error?: string
   error_class: string
   repo?: string
   issue_pr?: string
+  url?: string
+  pr_url?: string
+  commit_sha?: string
+  evidence_url?: string
 }
 
 export interface GithubAppWorkflowResponse {
