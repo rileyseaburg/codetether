@@ -201,8 +201,7 @@ jobs:
               --base main \
               --head "$branch" \
               --title "chore(marketing): promote image ${IMAGE_TAG}" \
-              --body "Promotes codetether-marketing to image tag \`${IMAGE_TAG}\`. Direct push to protected main was unavailable, so the GitOps promotion was opened as a PR." \
-              --json url --jq .url)"
+              --body "Promotes codetether-marketing to image tag \`${IMAGE_TAG}\`. Direct push to protected main was unavailable, so the GitOps promotion was opened as a PR.")"
           fi
           echo "Promotion PR: ${pr_url}" | tee evidence/gitops-promotion-pr.txt
           echo "mode=pr" >> "$GITHUB_OUTPUT"
