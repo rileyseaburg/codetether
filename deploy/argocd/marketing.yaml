@@ -24,7 +24,7 @@ spec:
         replicaCount: 1
         image:
           repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
-          tag: main-67467ad933b2
+          tag: main-e8f02e8e697a
           pullPolicy: Always
         imagePullSecrets:
           - name: gcp-artifact-registry
