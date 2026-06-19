@@ -1,5 +1,6 @@
 import os
 
+
 os.environ.setdefault(
     'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
 )
@@ -529,8 +530,9 @@ async def test_create_merge_task_blocks_when_approval_review_rejected(
     assert feedback_called is False
     assert decisions[-1]['decision']['allowed'] is False
     assert decisions[-1]['decision']['action'] == 'github:merge_pr'
-    assert 'approving review could not be submitted' in (
-        decisions[-1]['decision']['provenance']['failures'][0]
+    assert (
+        'approving review could not be submitted'
+        in (decisions[-1]['decision']['provenance']['failures'][0])
     )
     assert 'could not submit the approving PR review' in comments[0]
 
@@ -1432,7 +1434,6 @@ async def test_create_merge_task_falls_back_to_mention_on_fix_failure(
 
     async def fake_fix_followup(*, review_task, token):
         fix_created.append(True)
-        return None  # fix follow-up could not create task
 
     async def fake_fallback(*, review_task, token):
         fallback_called.append(True)
@@ -1466,7 +1467,6 @@ async def test_create_merge_task_does_not_call_fix_on_approval(
 
     async def fake_fix_followup(*, review_task, token):
         fix_created.append(True)
-        return None
 
     async def fake_github_json(method, path, token, payload=None):
         if path == '/repos/acme/widgets/pulls/77':

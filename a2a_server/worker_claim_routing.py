@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+
+from datetime import UTC, datetime
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +26,24 @@ def normalize_capabilities(value: Any) -> list[str]:
 
 
 _PERSISTENT_CAPABILITY_ALIASES = {
-    'persistent': {'persistent', 'persistent-workspace', 'persistent_workspace', 'harvester'},
-    'persistent-workspace': {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'},
-    'persistent_workspace': {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'},
+    'persistent': {
+        'persistent',
+        'persistent-workspace',
+        'persistent_workspace',
+        'harvester',
+    },
+    'persistent-workspace': {
+        'persistent-workspace',
+        'persistent_workspace',
+        'persistent',
+        'harvester',
+    },
+    'persistent_workspace': {
+        'persistent-workspace',
+        'persistent_workspace',
+        'persistent',
+        'harvester',
+    },
 }
 
 
@@ -60,7 +77,7 @@ def worker_satisfies_required_capabilities(
     return True
 
 
-async def db_worker_agent_name(worker_id: str) -> Optional[str]:
+async def db_worker_agent_name(worker_id: str) -> str | None:
     """Resolve a worker's registered agent name from durable storage."""
     try:
         from .database import db_get_worker
@@ -99,7 +116,9 @@ async def db_worker_recent(worker_id: str, max_age_seconds: int = 120) -> bool:
 
         worker = await db_get_worker(worker_id)
     except Exception as e:
-        logger.debug(f'Failed to resolve target worker freshness for {worker_id}: {e}')
+        logger.debug(
+            f'Failed to resolve target worker freshness for {worker_id}: {e}'
+        )
         return False
 
     if not worker or worker.get('status') != 'active':
@@ -114,5 +133,5 @@ async def db_worker_recent(worker_id: str, max_age_seconds: int = 120) -> bool:
         except ValueError:
             return False
     if last_seen.tzinfo is None:
-        last_seen = last_seen.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last_seen).total_seconds() <= max_age_seconds
+        last_seen = last_seen.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - last_seen).total_seconds() <= max_age_seconds

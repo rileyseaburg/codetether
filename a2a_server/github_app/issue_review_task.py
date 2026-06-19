@@ -7,11 +7,13 @@ import json
 import logging
 import re
 import uuid
+
 from typing import Any
 
 from ..provenance import verify_provenance
 from .routing import resolve_task_target
 from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF, get_secret
+
 
 logger = logging.getLogger(__name__)
 
@@ -1079,7 +1081,9 @@ async def ensure_pull_request_approval_review(
 
     if marker:
         try:
-            existing_reviews = await github_json('GET', reviews_path, review_token)
+            existing_reviews = await github_json(
+                'GET', reviews_path, review_token
+            )
             if isinstance(existing_reviews, list):
                 for review in existing_reviews:
                     body = str((review or {}).get('body') or '')
@@ -1102,7 +1106,10 @@ async def ensure_pull_request_approval_review(
         payload['commit_id'] = current_sha
 
     return await github_json(
-        'POST', f'/repos/{repo}/pulls/{pr_number}/reviews', review_token, payload
+        'POST',
+        f'/repos/{repo}/pulls/{pr_number}/reviews',
+        review_token,
+        payload,
     )
 
 

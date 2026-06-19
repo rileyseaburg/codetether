@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Deliveries older than this are pruned opportunistically. GitHub retries
 # within ~hours, so a few days is more than enough.
-_RETENTION = "7 days"
+_RETENTION = '7 days'
 
 
 async def _ensure_table(conn) -> None:
@@ -77,7 +77,7 @@ async def claim_delivery(delivery_id: str, event_name: str = '') -> bool:
             if won:
                 # Opportunistic prune of stale rows; cheap at low volume.
                 await conn.execute(
-                    "DELETE FROM github_webhook_deliveries "
+                    'DELETE FROM github_webhook_deliveries '
                     f"WHERE claimed_at < NOW() - INTERVAL '{_RETENTION}'"
                 )
             else:

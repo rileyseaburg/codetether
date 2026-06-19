@@ -26,9 +26,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-PERSISTENT_WORKER_ENABLED = os.environ.get(
-    'PERSISTENT_WORKER_ENABLED', 'false'
-).lower() == 'true'
+PERSISTENT_WORKER_ENABLED = (
+    os.environ.get('PERSISTENT_WORKER_ENABLED', 'false').lower() == 'true'
+)
 PERSISTENT_WORKER_LEASE_SECONDS = int(
     os.environ.get('PERSISTENT_WORKER_LEASE_SECONDS', '3600')
 )
@@ -58,7 +58,9 @@ def _github_work_key(metadata: dict[str, Any]) -> str | None:
 
     repo = str(metadata.get('repo') or '').strip()
     number = metadata.get('pr_number') or metadata.get('issue_number')
-    stage = str(metadata.get('workflow_stage') or metadata.get('agent_type') or '').strip()
+    stage = str(
+        metadata.get('workflow_stage') or metadata.get('agent_type') or ''
+    ).strip()
     head_sha = str(
         metadata.get('pr_head_sha')
         or metadata.get('github_check_head_sha')
@@ -98,7 +100,9 @@ async def _resolve_github_app_tenant_id(
 
     pool = await db.get_pool()
     if not pool:
-        raise RuntimeError('Database not available for GitHub App tenant resolution')
+        raise RuntimeError(
+            'Database not available for GitHub App tenant resolution'
+        )
     async with pool.acquire() as conn:
         if workspace_id:
             tenant_id = await conn.fetchval(
@@ -115,7 +119,9 @@ async def _resolve_github_app_tenant_id(
     raise RuntimeError('GitHub App task tenant_id is required')
 
 
-async def _bind_workspace_tenant(workspace_id: str | None, tenant_id: str) -> None:
+async def _bind_workspace_tenant(
+    workspace_id: str | None, tenant_id: str
+) -> None:
     if not workspace_id or not tenant_id:
         return
     from . import database as db
@@ -130,6 +136,7 @@ async def _bind_workspace_tenant(workspace_id: str | None, tenant_id: str) -> No
             workspace_id,
             tenant_id,
         )
+
 
 @asynccontextmanager
 async def _github_work_dedupe_lock(metadata: dict[str, Any]):
@@ -148,11 +155,15 @@ async def _github_work_dedupe_lock(metadata: dict[str, Any]):
 
     conn = await pool.acquire()
     try:
-        await conn.execute('SELECT pg_advisory_lock(hashtextextended($1, 0))', work_key)
+        await conn.execute(
+            'SELECT pg_advisory_lock(hashtextextended($1, 0))', work_key
+        )
         yield work_key
     finally:
         try:
-            await conn.execute('SELECT pg_advisory_unlock(hashtextextended($1, 0))', work_key)
+            await conn.execute(
+                'SELECT pg_advisory_unlock(hashtextextended($1, 0))', work_key
+            )
         finally:
             await pool.release(conn)
 
@@ -223,6 +234,7 @@ async def create_and_dispatch_task(
     if not workspace:
         try:
             from .monitor_api import _rehydrate_workspace_into_bridge
+
             workspace = await _rehydrate_workspace_into_bridge(workspace_id)
         except Exception:
             workspace = None
@@ -233,11 +245,15 @@ async def create_and_dispatch_task(
         effective_metadata['model_ref'] = model_ref
 
     if _is_github_app_task(effective_metadata):
-        tenant_id = await _resolve_github_app_tenant_id(effective_metadata, workspace_id)
+        tenant_id = await _resolve_github_app_tenant_id(
+            effective_metadata, workspace_id
+        )
         effective_metadata['tenant_id'] = tenant_id
         await _bind_workspace_tenant(workspace_id, tenant_id)
     else:
-        tenant_id = str(effective_metadata.get('tenant_id') or '').strip() or None
+        tenant_id = (
+            str(effective_metadata.get('tenant_id') or '').strip() or None
+        )
 
     work_key = _github_work_key(effective_metadata)
     if work_key:
@@ -252,7 +268,9 @@ async def create_and_dispatch_task(
                 existing_task_id,
                 locked_work_key,
             )
-            return (existing_task_id, False) if with_created else existing_task_id
+            return (
+                (existing_task_id, False) if with_created else existing_task_id
+            )
 
         # 1. Create the task via the bridge (standard task row in tasks table)
         task = await bridge.create_task(
@@ -314,7 +332,10 @@ async def dispatch_fire_and_forget(
     async with pool.acquire() as conn:
         run_id = await conn.fetchval(
             'SELECT create_fire_and_forget_run($1, $2, $3, $4, $5, $6)',
-            task_id, user_id, tenant_id, priority,
+            task_id,
+            user_id,
+            tenant_id,
+            priority,
             min(task_timeout_seconds, PERSISTENT_WORKER_MAX_TIMEOUT),
             github_issue_url,
         )
@@ -322,20 +343,31 @@ async def dispatch_fire_and_forget(
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE tasks SET dispatch_mode = 'fire_and_forget', updated_at = NOW() "
-            "WHERE id = $1", task_id,
+            'WHERE id = $1',
+            task_id,
         )
 
     # Notify SSE workers
     try:
         from .worker_sse import notify_workers_of_new_task
+
         task_data = {
-            'id': task_id, 'title': title, 'prompt': description,
-            'agent_type': agent_type, 'model': model, 'priority': priority,
-            'metadata': metadata or {}, 'dispatch_mode': 'fire_and_forget',
+            'id': task_id,
+            'title': title,
+            'prompt': description,
+            'agent_type': agent_type,
+            'model': model,
+            'priority': priority,
+            'metadata': metadata or {},
+            'dispatch_mode': 'fire_and_forget',
             'task_timeout_seconds': task_timeout_seconds,
         }
         routed_metadata = metadata or {}
-        for key in ('target_agent_name', 'target_worker_id', 'required_capabilities'):
+        for key in (
+            'target_agent_name',
+            'target_worker_id',
+            'required_capabilities',
+        ):
             if routed_metadata.get(key):
                 task_data[key] = routed_metadata[key]
         notified = await notify_workers_of_new_task(task_data)
@@ -347,7 +379,9 @@ async def dispatch_fire_and_forget(
         logger.warning(f'SSE notify failed for {task_id}: {e}')
 
     return {
-        'task_id': task_id, 'run_id': run_id, 'status': 'queued',
+        'task_id': task_id,
+        'run_id': run_id,
+        'status': 'queued',
         'dispatch_mode': 'fire_and_forget',
         'task_timeout_seconds': task_timeout_seconds,
         'message': 'Task dispatched. Monitor via heartbeat API or GitHub comments.',
@@ -364,9 +398,7 @@ async def claim_extended_task(
     from . import database as db
 
     worker_capabilities = [
-        str(cap).strip()
-        for cap in (capabilities or [])
-        if str(cap).strip()
+        str(cap).strip() for cap in (capabilities or []) if str(cap).strip()
     ]
 
     # Extended polling is load-balanced independently of the SSE connection.
@@ -388,7 +420,10 @@ async def claim_extended_task(
                 f'Failed to load registered capabilities for worker {worker_id}: {e}'
             )
 
-    if 'knative' in worker_capabilities and 'persistent' not in worker_capabilities:
+    if (
+        'knative' in worker_capabilities
+        and 'persistent' not in worker_capabilities
+    ):
         logger.debug(
             f'Worker {worker_id} is knative-only; skipping extended persistent claim'
         )
@@ -401,9 +436,12 @@ async def claim_extended_task(
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             'SELECT * FROM claim_next_task_run_extended($1, $2, $3, $4, $5, $6)',
-            worker_id, PERSISTENT_WORKER_LEASE_SECONDS,
-            agent_name, json.dumps(worker_capabilities),
-            models_supported or None, PERSISTENT_WORKER_MAX_TIMEOUT,
+            worker_id,
+            PERSISTENT_WORKER_LEASE_SECONDS,
+            agent_name,
+            json.dumps(worker_capabilities),
+            models_supported or None,
+            PERSISTENT_WORKER_MAX_TIMEOUT,
         )
 
     if not row or not row.get('run_id'):
@@ -438,12 +476,14 @@ async def post_extended_heartbeat(
 
     progress_json = None
     if progress_pct is not None or status_message is not None:
-        progress_json = json.dumps({
-            'progress_pct': progress_pct,
-            'status_message': status_message,
-            'worker_id': worker_id,
-            'heartbeat_at': datetime.now(UTC).isoformat(),
-        })
+        progress_json = json.dumps(
+            {
+                'progress_pct': progress_pct,
+                'status_message': status_message,
+                'worker_id': worker_id,
+                'heartbeat_at': datetime.now(UTC).isoformat(),
+            }
+        )
 
     checkpoint_json = json.dumps(checkpoint) if checkpoint else None
     lease_seconds = lease_extension_seconds or PERSISTENT_WORKER_LEASE_SECONDS
@@ -451,8 +491,13 @@ async def post_extended_heartbeat(
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             'SELECT * FROM extended_heartbeat($1, $2, $3, $4, $5, $6, $7)',
-            task_id, worker_id, progress_json, checkpoint_json,
-            checkpoint_seq, lease_seconds, log_tail,
+            task_id,
+            worker_id,
+            progress_json,
+            checkpoint_json,
+            checkpoint_seq,
+            lease_seconds,
+            log_tail,
         )
 
     if not row or not row['success']:
@@ -464,7 +509,8 @@ async def post_extended_heartbeat(
     return {
         'success': True,
         'lease_expires_at': row['lease_expires_at'].isoformat()
-            if row['lease_expires_at'] else None,
+        if row['lease_expires_at']
+        else None,
         'within_timeout': row['within_timeout'],
         'elapsed_seconds': row['elapsed_seconds'],
         'resume_attempt': row['resume_attempt'],

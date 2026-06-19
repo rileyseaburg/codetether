@@ -1,5 +1,4 @@
-"""
-Agent Bridge - Integrates CodeTether agent with A2A Server
+"""Agent Bridge - Integrates CodeTether agent with A2A Server
 
 This module provides a bridge between the A2A protocol server and the
 CodeTether agent, allowing web UI triggers to start AI agents working
@@ -24,36 +23,47 @@ import logging
 import os
 import subprocess
 import uuid
+
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any
 
 import aiohttp
 
 # Import PostgreSQL database module
 from . import database as db
+from .knative_events import (
+    KnativeEventError,
+    publish_task_event,
+)
+from .knative_events import (
+    is_enabled as is_knative_events_enabled,
+)
+from .knative_spawner import (
+    KNATIVE_ENABLED as KNATIVE_SPAWNER_ENABLED,
+)
 
 # Import Knative modules for event-driven worker spawning
 from .knative_spawner import (
-    knative_spawner,
     KnativeSpawnerError,
     WorkerStatus,
-    KNATIVE_ENABLED as KNATIVE_SPAWNER_ENABLED,
+    knative_spawner,
 )
-from .knative_events import (
-    publish_task_event,
-    is_enabled as is_knative_events_enabled,
-    KnativeEventError,
-)
+
 
 logger = logging.getLogger(__name__)
 
 # Agent host configuration - allows container to connect to host VM's agent
 # Accepts AGENT_HOST/AGENT_PORT (preferred) or legacy OPENCODE_HOST/OPENCODE_PORT
-AGENT_HOST = os.environ.get('AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost'))
-AGENT_DEFAULT_PORT = int(os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777')))
+AGENT_HOST = os.environ.get(
+    'AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost')
+)
+AGENT_DEFAULT_PORT = int(
+    os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777'))
+)
 
 # Backward-compatible aliases
 # Legacy OPENCODE_HOST removed
@@ -127,17 +137,15 @@ MODEL_SELECTOR_KEYS = list(MODEL_SELECTOR.keys())
 
 
 def is_knative_enabled() -> bool:
-    """
-    Check if Knative worker spawning is enabled.
+    """Check if Knative worker spawning is enabled.
 
     Returns True if both Knative spawning and Knative events are enabled.
     """
     return KNATIVE_SPAWNER_ENABLED and is_knative_events_enabled()
 
 
-def resolve_model(model_input: Optional[str]) -> Optional[str]:
-    """
-    Resolve a user-friendly model name to the full provider/model-id format.
+def resolve_model(model_input: str | None) -> str | None:
+    """Resolve a user-friendly model name to the full provider/model-id format.
 
     Args:
         model_input: User input like 'minimax', 'claude-sonnet', or full 'provider/model-id'
@@ -175,26 +183,24 @@ class AgentTask:
     title: str
     prompt: str
     agent_type: str = 'build'  # build, plan, general, explore
-    model: Optional[str] = (
+    model: str | None = (
         None  # Full provider/model-id (e.g., 'minimax/minimax-m2.1')
     )
     status: AgentTaskStatus = AgentTaskStatus.PENDING
     priority: int = 0  # Higher = more urgent
     created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    result: Optional[str] = None
-    error: Optional[str] = None
-    session_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    target_agent_name: Optional[str] = None  # If set, only this agent can claim
-    worker_id: Optional[str] = None  # ID of the worker that executed this task
-    model_ref: Optional[str] = None  # Requested model (provider:model format)
-    model_used: Optional[str] = (
-        None  # Actual model used (may differ if fallback)
-    )
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    result: str | None = None
+    error: str | None = None
+    session_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    target_agent_name: str | None = None  # If set, only this agent can claim
+    worker_id: str | None = None  # ID of the worker that executed this task
+    model_ref: str | None = None  # Requested model (provider:model format)
+    model_used: str | None = None  # Actual model used (may differ if fallback)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': self.id,
             'codebase_id': self.codebase_id,
@@ -231,16 +237,16 @@ class RegisteredCodebase:
     path: str
     description: str = ''
     registered_at: datetime = field(default_factory=datetime.utcnow)
-    agent_config: Dict[str, Any] = field(default_factory=dict)
-    last_triggered: Optional[datetime] = None
+    agent_config: dict[str, Any] = field(default_factory=dict)
+    last_triggered: datetime | None = None
     status: AgentStatus = AgentStatus.IDLE
-    agent_port: Optional[int] = None
-    session_id: Optional[str] = None
+    agent_port: int | None = None
+    session_id: str | None = None
     watch_mode: bool = False  # Whether agent is in watch mode
     watch_interval: int = 5  # Seconds between task checks
-    worker_id: Optional[str] = None  # ID of the worker that owns this codebase
+    worker_id: str | None = None  # ID of the worker that owns this codebase
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': self.id,
             'name': self.name,
@@ -267,9 +273,9 @@ class AgentTriggerRequest:
     codebase_id: str
     prompt: str
     agent: str = 'build'  # build, plan, general, explore
-    model: Optional[str] = None
-    files: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    model: str | None = None
+    files: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -277,13 +283,13 @@ class AgentTriggerResponse:
     """Response from triggering an agent."""
 
     success: bool
-    session_id: Optional[str] = None
+    session_id: str | None = None
     message: str = ''
-    codebase_id: Optional[str] = None
-    agent: Optional[str] = None
-    error: Optional[str] = None
+    codebase_id: str | None = None
+    agent: str | None = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'success': self.success,
             'session_id': self.session_id,
@@ -295,8 +301,7 @@ class AgentTriggerResponse:
 
 
 class AgentBridge:
-    """
-    Bridge between A2A Server and CodeTether agent.
+    """Bridge between A2A Server and CodeTether agent.
 
     Manages workspace registrations, task queues, and triggers agents
     through the CodeTether HTTP API. Supports watch mode where agents
@@ -305,13 +310,12 @@ class AgentBridge:
 
     def __init__(
         self,
-        agent_bin: Optional[str] = None,
+        agent_bin: str | None = None,
         default_port: int = None,
         auto_start: bool = True,
-        agent_host: Optional[str] = None,
+        agent_host: str | None = None,
     ):
-        """
-        Initialize the Agent bridge.
+        """Initialize the Agent bridge.
 
         Args:
             agent_bin: Path to codetether agent binary (auto-detected if None)
@@ -325,41 +329,38 @@ class AgentBridge:
         self.agent_host = agent_host or AGENT_HOST
 
         # In-memory caches (populated from PostgreSQL on demand)
-        self._codebases: Dict[str, RegisteredCodebase] = {}
-        self._tasks: Dict[str, AgentTask] = {}  # task_id -> task
-        self._codebase_tasks: Dict[
-            str, List[str]
+        self._codebases: dict[str, RegisteredCodebase] = {}
+        self._tasks: dict[str, AgentTask] = {}  # task_id -> task
+        self._codebase_tasks: dict[
+            str, list[str]
         ] = {}  # codebase_id -> [task_ids]
 
         # Watch mode background tasks
-        self._watch_tasks: Dict[
+        self._watch_tasks: dict[
             str, asyncio.Task
         ] = {}  # codebase_id -> asyncio task
 
         # Active agent processes
-        self._processes: Dict[str, subprocess.Popen] = {}
+        self._processes: dict[str, subprocess.Popen] = {}
 
         # Port allocations
-        self._port_allocations: Dict[str, int] = {}
+        self._port_allocations: dict[str, int] = {}
         self._next_port = self.default_port
 
         # Event callbacks
-        self._on_status_change: List[Callable] = []
-        self._on_message: List[Callable] = []
-        self._on_task_update: List[Callable] = []
+        self._on_status_change: list[Callable] = []
+        self._on_message: list[Callable] = []
+        self._on_task_update: list[Callable] = []
 
         # HTTP session for API calls
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
-        logger.info(
-            f'Agent bridge initialized with binary: {self.agent_bin}'
-        )
+        logger.info(f'Agent bridge initialized with binary: {self.agent_bin}')
         logger.info(f'Agent host: {self.agent_host}:{self.default_port}')
-        logger.info(f'Using PostgreSQL database for persistence')
+        logger.info('Using PostgreSQL database for persistence')
 
-    def _get_agent_base_url(self, port: Optional[int] = None) -> str:
-        """
-        Get the base URL for agent API.
+    def _get_agent_base_url(self, port: int | None = None) -> str:
+        """Get the base URL for agent API.
 
         Uses configured agent_host to allow container->host communication.
         """
@@ -438,7 +439,7 @@ class AgentBridge:
         except Exception as e:
             logger.error(f'Failed to save task to PostgreSQL: {e}')
 
-    def _task_from_db_row(self, row: Dict[str, Any]) -> AgentTask:
+    def _task_from_db_row(self, row: dict[str, Any]) -> AgentTask:
         """Convert a database row to an AgentTask object."""
 
         def parse_dt(val):
@@ -481,7 +482,7 @@ class AgentBridge:
             model_used=metadata.get('model_used'),
         )
 
-    async def _load_task_from_db(self, task_id: str) -> Optional[AgentTask]:
+    async def _load_task_from_db(self, task_id: str) -> AgentTask | None:
         """Load a task from PostgreSQL and cache it in memory.
 
         IMPORTANT: Does NOT overwrite an existing in-memory task, because the
@@ -532,10 +533,12 @@ class AgentBridge:
             # 1. Discover all tenant IDs using admin_scope (bypasses RLS).
             pool = await db.get_pool()
             if not pool:
-                logger.warning('Database pool unavailable, skipping workspace load')
+                logger.warning(
+                    'Database pool unavailable, skipping workspace load'
+                )
                 return
 
-            tenant_ids: List[str] = []
+            tenant_ids: list[str] = []
             async with db.admin_scope() as conn:
                 rows = await conn.fetch(
                     'SELECT id FROM tenants ORDER BY created_at'
@@ -554,9 +557,9 @@ class AgentBridge:
                         ws_rows = await conn.fetch(
                             'SELECT * FROM workspaces ORDER BY updated_at DESC'
                         )
-                except Exception as te:
+                except Exception as exc:
                     logger.warning(
-                        f'Failed to load workspaces for tenant {tid}: {te}'
+                        f'Failed to load workspaces for tenant {tid}: {exc}'
                     )
                     continue
 
@@ -606,10 +609,10 @@ class AgentBridge:
 
     async def _load_tasks_from_db(
         self,
-        codebase_id: Optional[str] = None,
-        status: Optional[str] = None,
+        codebase_id: str | None = None,
+        status: str | None = None,
         limit: int = 100,
-    ) -> List[AgentTask]:
+    ) -> list[AgentTask]:
         """Load tasks from PostgreSQL and cache them in memory."""
         try:
             rows = await db.db_list_tasks(
@@ -714,12 +717,11 @@ class AgentBridge:
         name: str,
         path: str,
         description: str = '',
-        agent_config: Optional[Dict[str, Any]] = None,
-        worker_id: Optional[str] = None,
-        codebase_id: Optional[str] = None,
+        agent_config: dict[str, Any] | None = None,
+        worker_id: str | None = None,
+        codebase_id: str | None = None,
     ) -> RegisteredCodebase:
-        """
-        Register a codebase for agent work.
+        """Register a codebase for agent work.
 
         Args:
             name: Display name for the codebase
@@ -839,11 +841,11 @@ class AgentBridge:
             return True
         return False
 
-    def get_codebase(self, codebase_id: str) -> Optional[RegisteredCodebase]:
+    def get_codebase(self, codebase_id: str) -> RegisteredCodebase | None:
         """Get a registered codebase by ID."""
         return self._codebases.get(codebase_id)
 
-    def list_codebases(self) -> List[RegisteredCodebase]:
+    def list_codebases(self) -> list[RegisteredCodebase]:
         """List all registered codebases."""
         return list(self._codebases.values())
 
@@ -857,9 +859,9 @@ class AgentBridge:
         name: str,
         path: str,
         description: str = '',
-        agent_config: Optional[Dict[str, Any]] = None,
-        worker_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        agent_config: dict[str, Any] | None = None,
+        worker_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> RegisteredCodebase:
         return await self.register_codebase(
             name=name,
@@ -873,10 +875,10 @@ class AgentBridge:
     async def unregister_workspace(self, workspace_id: str) -> bool:
         return await self.unregister_codebase(workspace_id)
 
-    def get_workspace(self, workspace_id: str) -> Optional[RegisteredCodebase]:
+    def get_workspace(self, workspace_id: str) -> RegisteredCodebase | None:
         return self.get_codebase(workspace_id)
 
-    def list_workspaces(self) -> List[RegisteredCodebase]:
+    def list_workspaces(self) -> list[RegisteredCodebase]:
         return self.list_codebases()
 
     def _allocate_port(self, codebase_id: str) -> int:
@@ -890,8 +892,7 @@ class AgentBridge:
         return port
 
     async def _start_agent_server(self, codebase: RegisteredCodebase) -> int:
-        """
-        Start an agent server for a codebase.
+        """Start an agent server for a codebase.
 
         Returns the port number.
         """
@@ -905,9 +906,7 @@ class AgentBridge:
             str(port),
         ]
 
-        logger.info(
-            f'Starting agent server for {codebase.name} on port {port}'
-        )
+        logger.info(f'Starting agent server for {codebase.name} on port {port}')
         logger.debug(f'Command: {" ".join(cmd)}')
 
         try:
@@ -973,8 +972,7 @@ class AgentBridge:
         self,
         request: AgentTriggerRequest,
     ) -> AgentTriggerResponse:
-        """
-        Trigger an agent to work on a codebase.
+        """Trigger an agent to work on a codebase.
 
         Args:
             request: The trigger request with prompt and configuration
@@ -1018,11 +1016,10 @@ class AgentBridge:
                     codebase_id=request.codebase_id,
                     agent=request.agent,
                 )
-            else:
-                return AgentTriggerResponse(
-                    success=False,
-                    error='Failed to create task for remote worker',
-                )
+            return AgentTriggerResponse(
+                success=False,
+                error='Failed to create task for remote worker',
+            )
 
         try:
             # Local execution: Ensure agent server is running
@@ -1125,8 +1122,7 @@ class AgentBridge:
         request: AgentTriggerRequest,
         codebase: RegisteredCodebase,
     ) -> AgentTriggerResponse:
-        """
-        Trigger an agent using Knative worker infrastructure.
+        """Trigger an agent using Knative worker infrastructure.
 
         This method:
         1. Creates a task in PostgreSQL
@@ -1143,7 +1139,6 @@ class AgentBridge:
         """
         # Generate session ID (or use existing)
         session_id = request.metadata.get('session_id') or str(uuid.uuid4())[:8]
-        task_id = str(uuid.uuid4())
 
         # Prepare model specification for CloudEvent
         model_spec = None
@@ -1334,8 +1329,7 @@ class AgentBridge:
             )
 
     async def end_session(self, session_id: str) -> bool:
-        """
-        End a session and optionally clean up its Knative worker.
+        """End a session and optionally clean up its Knative worker.
 
         This method:
         1. Marks the session as ended in PostgreSQL
@@ -1400,9 +1394,8 @@ class AgentBridge:
 
         return True
 
-    async def get_available_models(self) -> List[Dict[str, Any]]:
-        """
-        Fetch available models from agent.
+    async def get_available_models(self) -> list[dict[str, Any]]:
+        """Fetch available models from agent.
 
         Tries to query an active agent instance. If none are running,
         it may start a temporary one or fall back to reading config.
@@ -1410,10 +1403,7 @@ class AgentBridge:
         # 1. Try to find an active agent instance
         active_port = None
         for codebase in self._codebases.values():
-            if (
-                codebase.agent_port
-                and codebase.status == AgentStatus.RUNNING
-            ):
+            if codebase.agent_port and codebase.status == AgentStatus.RUNNING:
                 active_port = codebase.agent_port
                 break
 
@@ -1471,9 +1461,7 @@ class AgentBridge:
 
         return []
 
-    async def get_agent_status(
-        self, codebase_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_agent_status(self, codebase_id: str) -> dict[str, Any] | None:
         """Get the current status of an agent."""
         codebase = self._codebases.get(codebase_id)
         if not codebase:
@@ -1504,7 +1492,7 @@ class AgentBridge:
         self,
         codebase_id: str,
         message: str,
-        agent: Optional[str] = None,
+        agent: str | None = None,
     ) -> AgentTriggerResponse:
         """Send an additional message to an active agent session."""
         codebase = self._codebases.get(codebase_id)
@@ -1562,11 +1550,7 @@ class AgentBridge:
     async def interrupt_agent(self, codebase_id: str) -> bool:
         """Interrupt the current agent task."""
         codebase = self._codebases.get(codebase_id)
-        if (
-            not codebase
-            or not codebase.session_id
-            or not codebase.agent_port
-        ):
+        if not codebase or not codebase.session_id or not codebase.agent_port:
             return False
 
         try:
@@ -1613,17 +1597,16 @@ class AgentBridge:
 
     async def create_task(
         self,
-        codebase_id: Optional[str],
+        codebase_id: str | None,
         title: str,
         prompt: str,
         agent_type: str = 'build',
         priority: int = 0,
-        model: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        model_ref: Optional[str] = None,
-    ) -> Optional[AgentTask]:
-        """
-        Create a new task for an agent.
+        model: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        model_ref: str | None = None,
+    ) -> AgentTask | None:
+        """Create a new task for an agent.
 
         Special codebase_id values:
         - None: Global tasks that any worker can claim
@@ -1694,7 +1677,7 @@ class AgentBridge:
 
         return task
 
-    async def get_task(self, task_id: str) -> Optional[AgentTask]:
+    async def get_task(self, task_id: str) -> AgentTask | None:
         """Get a task by ID. Checks in-memory cache first, then database."""
         # Check in-memory cache first
         task = self._tasks.get(task_id)
@@ -1705,9 +1688,9 @@ class AgentBridge:
 
     async def list_tasks(
         self,
-        codebase_id: Optional[str] = None,
-        status: Optional[AgentTaskStatus] = None,
-    ) -> List[AgentTask]:
+        codebase_id: str | None = None,
+        status: AgentTaskStatus | None = None,
+    ) -> list[AgentTask]:
         """List tasks, optionally filtered by codebase or status. Loads from database."""
         # Load tasks from database (this also caches them in memory)
         status_str = status.value if status else None
@@ -1722,9 +1705,7 @@ class AgentBridge:
 
         return tasks
 
-    async def get_next_pending_task(
-        self, codebase_id: str
-    ) -> Optional[AgentTask]:
+    async def get_next_pending_task(self, codebase_id: str) -> AgentTask | None:
         """Get the next pending task for a codebase."""
         pending = await self.list_tasks(
             codebase_id=codebase_id, status=AgentTaskStatus.PENDING
@@ -1735,12 +1716,12 @@ class AgentBridge:
         self,
         task_id: str,
         status: AgentTaskStatus,
-        result: Optional[str] = None,
-        error: Optional[str] = None,
-        session_id: Optional[str] = None,
-        worker_id: Optional[str] = None,
-        model_used: Optional[str] = None,
-    ) -> Optional[AgentTask]:
+        result: str | None = None,
+        error: str | None = None,
+        session_id: str | None = None,
+        worker_id: str | None = None,
+        model_used: str | None = None,
+    ) -> AgentTask | None:
         """Update task status.
 
         Args:
@@ -1870,8 +1851,7 @@ class AgentBridge:
     async def start_watch_mode(
         self, codebase_id: str, interval: int = 5
     ) -> bool:
-        """
-        Start watch mode for a codebase - agent will poll for and execute tasks.
+        """Start watch mode for a codebase - agent will poll for and execute tasks.
 
         Args:
             codebase_id: ID of the codebase
@@ -2122,7 +2102,7 @@ class AgentBridge:
 
 
 # Global bridge instance
-_bridge: Optional[AgentBridge] = None
+_bridge: AgentBridge | None = None
 
 
 def get_bridge() -> AgentBridge:
@@ -2134,10 +2114,10 @@ def get_bridge() -> AgentBridge:
 
 
 def init_bridge(
-    agent_bin: Optional[str] = None,
+    agent_bin: str | None = None,
     default_port: int = None,
     auto_start: bool = True,
-    agent_host: Optional[str] = None,
+    agent_host: str | None = None,
 ) -> AgentBridge:
     """Initialize the global Agent bridge instance."""
     global _bridge
@@ -2156,10 +2136,10 @@ def get_agent_bridge() -> AgentBridge:
 
 
 def init_agent_bridge(
-    agent_bin: Optional[str] = None,
+    agent_bin: str | None = None,
     default_port: int = None,
     auto_start: bool = True,
-    agent_host: Optional[str] = None,
+    agent_host: str | None = None,
 ) -> AgentBridge:
     """Initialize the global AgentBridge instance."""
     return init_bridge(

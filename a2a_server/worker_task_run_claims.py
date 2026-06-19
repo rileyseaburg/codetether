@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+
 from typing import Any
 
 from .worker_claim_routing import db_worker_agent_name, db_worker_capabilities
+
 
 logger = logging.getLogger(__name__)
 
@@ -145,4 +147,6 @@ async def mirror_release_to_task_run(
                 error,
             )
     except Exception as exc:
-        logger.debug('Could not mirror release to task_runs for %s: %s', task_id, exc)
+        logger.debug(
+            'Could not mirror release to task_runs for %s: %s', task_id, exc
+        )

@@ -1,5 +1,4 @@
-"""
-PostgreSQL database persistence layer for A2A Server.
+"""PostgreSQL database persistence layer for A2A Server.
 
 Provides durable storage for workers, workspaces, tasks, and sessions
 that survives server restarts and works across multiple replicas.
@@ -25,15 +24,19 @@ import json
 import logging
 import os
 import uuid
+
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
 # Database URL from environment — no hardcoded fallback.
 # One of DATABASE_URL or A2A_DATABASE_URL MUST be set.
-DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('A2A_DATABASE_URL')
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get(
+    'A2A_DATABASE_URL'
+)
 if not DATABASE_URL:
     raise RuntimeError(
         'DATABASE_URL (or A2A_DATABASE_URL) environment variable is required. '
@@ -49,13 +52,12 @@ _initialized = False
 # RLS is enabled by default for multi-tenant isolation.
 RLS_ENABLED = os.environ.get('RLS_ENABLED', 'true').lower() == 'true'
 RLS_STRICT_MODE = os.environ.get('RLS_STRICT_MODE', 'false').lower() == 'true'
-SCHEMA_INIT_ON_STARTUP = (
-    os.environ.get('A2A_SCHEMA_INIT_ON_STARTUP', 'true').lower()
-    not in {'0', 'false', 'no'}
-)
+SCHEMA_INIT_ON_STARTUP = os.environ.get(
+    'A2A_SCHEMA_INIT_ON_STARTUP', 'true'
+).lower() not in {'0', 'false', 'no'}
 
 
-def _parse_timestamp(value: Union[str, datetime, None]) -> Optional[datetime]:
+def _parse_timestamp(value: str | datetime | None) -> datetime | None:
     """Parse a timestamp from string or datetime to datetime object."""
     if value is None:
         return None
@@ -100,7 +102,7 @@ async def get_pool():
                 max_size=10,
                 command_timeout=30,
             )
-            logger.info(f'✓ PostgreSQL connection pool created')
+            logger.info('✓ PostgreSQL connection pool created')
 
             # Initialize schema if needed
             if not _initialized:
@@ -241,7 +243,7 @@ async def _init_schema():
         # Migration: Add Git repo columns to workspaces
         for col_def in [
             'git_url TEXT',
-            'git_branch TEXT DEFAULT \'main\'',
+            "git_branch TEXT DEFAULT 'main'",
         ]:
             try:
                 await conn.execute(
@@ -289,8 +291,15 @@ async def _init_schema():
             pass
 
         # Migration: Rename codebase_id -> workspace_id across all tables
-        for _tbl in ['tasks', 'sessions', 'inbound_emails', 'outbound_emails',
-                      'ralph_runs', 'prd_chat_sessions', 'perpetual_loops']:
+        for _tbl in [
+            'tasks',
+            'sessions',
+            'inbound_emails',
+            'outbound_emails',
+            'ralph_runs',
+            'prd_chat_sessions',
+            'perpetual_loops',
+        ]:
             try:
                 await conn.execute(
                     f'ALTER TABLE {_tbl} RENAME COLUMN codebase_id TO workspace_id'
@@ -643,7 +652,7 @@ async def close_pool():
 
 
 async def db_upsert_worker(
-    worker_info: Dict[str, Any], tenant_id: Optional[str] = None
+    worker_info: dict[str, Any], tenant_id: str | None = None
 ) -> bool:
     """Insert or update a worker in the database.
 
@@ -711,7 +720,7 @@ async def db_delete_worker(worker_id: str) -> bool:
         return False
 
 
-async def db_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
+async def db_get_worker(worker_id: str) -> dict[str, Any] | None:
     """Get a worker by ID."""
     pool = await get_pool()
     if not pool:
@@ -732,8 +741,8 @@ async def db_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
 
 async def db_get_active_worker_by_name(
     name: str,
-    tenant_id: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+    tenant_id: str | None = None,
+) -> dict[str, Any] | None:
     """Get the most recently seen active worker for an agent name."""
     pool = await get_pool()
     if not pool:
@@ -744,7 +753,7 @@ async def db_get_active_worker_by_name(
             query = (
                 "SELECT * FROM workers WHERE name = $1 AND status = 'active'"
             )
-            params: List[Any] = [name]
+            params: list[Any] = [name]
             if tenant_id:
                 query += ' AND tenant_id = $2'
                 params.append(tenant_id)
@@ -760,9 +769,9 @@ async def db_get_active_worker_by_name(
 
 
 async def db_list_workers(
-    status: Optional[str] = None,
-    tenant_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    status: str | None = None,
+    tenant_id: str | None = None,
+) -> list[dict[str, Any]]:
     """List all workers, optionally filtered by status or tenant."""
     pool = await get_pool()
     if not pool:
@@ -817,7 +826,7 @@ async def db_update_worker_heartbeat(worker_id: str) -> bool:
 
 
 async def db_upsert_agent_definition(
-    agent: Dict[str, Any], tenant_id: Optional[str] = None
+    agent: dict[str, Any], tenant_id: str | None = None
 ) -> bool:
     """Insert or update an agent definition.
 
@@ -911,7 +920,7 @@ async def db_delete_agent_definitions_by_worker(worker_id: str) -> bool:
         return False
 
 
-async def db_get_agent_definition(agent_id: str) -> Optional[Dict[str, Any]]:
+async def db_get_agent_definition(agent_id: str) -> dict[str, Any] | None:
     """Get an agent definition by ID."""
     pool = await get_pool()
     if not pool:
@@ -932,7 +941,7 @@ async def db_get_agent_definition(agent_id: str) -> Optional[Dict[str, Any]]:
 
 async def db_get_agent_definition_by_name(
     worker_id: str, name: str
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Get an agent definition by worker ID and name."""
     pool = await get_pool()
     if not pool:
@@ -954,11 +963,11 @@ async def db_get_agent_definition_by_name(
 
 
 async def db_list_agent_definitions(
-    worker_id: Optional[str] = None,
-    tenant_id: Optional[str] = None,
+    worker_id: str | None = None,
+    tenant_id: str | None = None,
     include_hidden: bool = False,
     include_native: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List agent definitions, optionally filtered by worker or tenant."""
     pool = await get_pool()
     if not pool:
@@ -1000,7 +1009,7 @@ async def db_list_agent_definitions(
         return []
 
 
-async def db_list_all_agent_definitions() -> List[Dict[str, Any]]:
+async def db_list_all_agent_definitions() -> list[dict[str, Any]]:
     """List all agent definitions across all workers (admin endpoint)."""
     pool = await get_pool()
     if not pool:
@@ -1009,7 +1018,7 @@ async def db_list_all_agent_definitions() -> List[Dict[str, Any]]:
     try:
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT * FROM agent_definitions WHERE hidden = FALSE ORDER BY worker_id, name"
+                'SELECT * FROM agent_definitions WHERE hidden = FALSE ORDER BY worker_id, name'
             )
             return [_row_to_agent_definition(row) for row in rows]
     except Exception as e:
@@ -1017,7 +1026,7 @@ async def db_list_all_agent_definitions() -> List[Dict[str, Any]]:
         return []
 
 
-def _row_to_agent_definition(row) -> Dict[str, Any]:
+def _row_to_agent_definition(row) -> dict[str, Any]:
     """Convert a database row to an agent definition dict."""
     return {
         'id': row['id'],
@@ -1027,18 +1036,24 @@ def _row_to_agent_definition(row) -> Dict[str, Any]:
         'native': row['native'],
         'hidden': row['hidden'],
         'model': row['model'],
-        'temperature': float(row['temperature']) if row['temperature'] else None,
+        'temperature': float(row['temperature'])
+        if row['temperature']
+        else None,
         'top_p': float(row['top_p']) if row['top_p'] else None,
         'max_steps': row['max_steps'],
         'system_prompt': row['system_prompt'],
         'worker_id': row['worker_id'],
         'tenant_id': row['tenant_id'],
-        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
-        'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
+        'created_at': row['created_at'].isoformat()
+        if row['created_at']
+        else None,
+        'updated_at': row['updated_at'].isoformat()
+        if row['updated_at']
+        else None,
     }
 
 
-def _row_to_worker(row) -> Dict[str, Any]:
+def _row_to_worker(row) -> dict[str, Any]:
     """Convert a database row to a worker dict."""
     return {
         'worker_id': row['worker_id'],
@@ -1065,7 +1080,7 @@ def _row_to_worker(row) -> Dict[str, Any]:
 
 
 async def db_upsert_workspace(
-    workspace: Dict[str, Any], tenant_id: Optional[str] = None
+    workspace: dict[str, Any], tenant_id: str | None = None
 ) -> bool:
     """Insert or update a workspace in the database.
 
@@ -1079,7 +1094,9 @@ async def db_upsert_workspace(
 
     try:
         # Handle both 'created_at' and 'registered_at' field names
-        created_at = workspace.get('created_at') or workspace.get('registered_at')
+        created_at = workspace.get('created_at') or workspace.get(
+            'registered_at'
+        )
         # Use provided tenant_id or fall back to workspace dict
         effective_tenant_id = tenant_id or workspace.get('tenant_id')
 
@@ -1142,7 +1159,7 @@ async def db_delete_workspace(workspace_id: str) -> bool:
         return False
 
 
-async def db_get_workspace(workspace_id: str) -> Optional[Dict[str, Any]]:
+async def db_get_workspace(workspace_id: str) -> dict[str, Any] | None:
     """Get a workspace by ID."""
     pool = await get_pool()
     if not pool:
@@ -1162,10 +1179,10 @@ async def db_get_workspace(workspace_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def db_list_workspaces(
-    worker_id: Optional[str] = None,
-    status: Optional[str] = None,
-    tenant_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    worker_id: str | None = None,
+    status: str | None = None,
+    tenant_id: str | None = None,
+) -> list[dict[str, Any]]:
     """List all workspaces, optionally filtered by worker, status, or tenant."""
     pool = await get_pool()
     if not pool:
@@ -1201,7 +1218,7 @@ async def db_list_workspaces(
         return []
 
 
-async def db_list_workspaces_by_path(path: str) -> List[Dict[str, Any]]:
+async def db_list_workspaces_by_path(path: str) -> list[dict[str, Any]]:
     """List all workspaces matching a specific normalized path.
 
     Returns workspaces ordered by created_at ASC so the oldest (canonical) ID is first.
@@ -1223,7 +1240,7 @@ async def db_list_workspaces_by_path(path: str) -> List[Dict[str, Any]]:
         return []
 
 
-async def db_get_canonical_workspace_id(path: str) -> Optional[str]:
+async def db_get_canonical_workspace_id(path: str) -> str | None:
     """Get the canonical (oldest) workspace ID for a given path.
 
     This is the authoritative ID that should be used for task routing.
@@ -1236,7 +1253,7 @@ async def db_get_canonical_workspace_id(path: str) -> Optional[str]:
 
 
 async def db_deduplicate_workspaces(
-    path: str, keep_id: Optional[str] = None
+    path: str, keep_id: str | None = None
 ) -> int:
     """Remove duplicate workspace entries for a path, keeping only the canonical one.
 
@@ -1292,7 +1309,7 @@ async def db_deduplicate_workspaces(
         return 0
 
 
-async def db_deduplicate_all_workspaces() -> Dict[str, int]:
+async def db_deduplicate_all_workspaces() -> dict[str, int]:
     """Deduplicate all workspace entries, keeping the oldest for each path.
 
     Returns:
@@ -1327,7 +1344,7 @@ async def db_deduplicate_all_workspaces() -> Dict[str, int]:
         return results
 
 
-def _row_to_workspace(row) -> Dict[str, Any]:
+def _row_to_workspace(row) -> dict[str, Any]:
     """Convert a database row to a workspace dict."""
     agent_config = row['agent_config']
     if isinstance(agent_config, str):
@@ -1383,7 +1400,7 @@ db_list_codebases = db_list_workspaces
 
 
 async def db_upsert_task(
-    task: Dict[str, Any], tenant_id: Optional[str] = None
+    task: dict[str, Any], tenant_id: str | None = None
 ) -> bool:
     """Insert or update a task in the database.
 
@@ -1468,7 +1485,7 @@ async def db_upsert_task(
         return False
 
 
-async def db_get_task(task_id: str) -> Optional[Dict[str, Any]]:
+async def db_get_task(task_id: str) -> dict[str, Any] | None:
     """Get a task by ID."""
     pool = await get_pool()
     if not pool:
@@ -1488,14 +1505,14 @@ async def db_get_task(task_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def db_list_tasks(
-    workspace_id: Optional[str] = None,
-    codebase_id: Optional[str] = None,
-    status: Optional[str] = None,
-    worker_id: Optional[str] = None,
+    workspace_id: str | None = None,
+    codebase_id: str | None = None,
+    status: str | None = None,
+    worker_id: str | None = None,
     limit: int = 100,
-    tenant_id: Optional[str] = None,
-    agent_name: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    tenant_id: str | None = None,
+    agent_name: str | None = None,
+) -> list[dict[str, Any]]:
     """List tasks with optional filters including tenant isolation."""
     pool = await get_pool()
     if not pool:
@@ -1507,6 +1524,7 @@ async def db_list_tasks(
             workspace_id = codebase_id
 
         async with pool.acquire() as conn:
+
             def _build_query(workspace_column: str):
                 query = 'SELECT * FROM tasks WHERE 1=1'
                 params = []
@@ -1564,11 +1582,7 @@ async def db_list_tasks(
                             params.append(agent_name)
                             param_idx += 1
 
-                        query += (
-                            ' AND ('
-                            + ' OR '.join(ff_visibility)
-                            + ')'
-                        )
+                        query += ' AND (' + ' OR '.join(ff_visibility) + ')'
 
                         # Exclude tasks targeted at a different agent.
                         # Workers should only see tasks they are eligible to
@@ -1630,9 +1644,7 @@ async def db_list_tasks(
                     params.append(tenant_id)
                     param_idx += 1
 
-                query += (
-                    f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
-                )
+                query += f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
                 params.append(limit)
                 return query, params
 
@@ -1658,8 +1670,8 @@ async def db_list_tasks(
 
 
 async def db_get_next_pending_task(
-    workspace_id: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+    workspace_id: str | None = None,
+) -> dict[str, Any] | None:
     """Get the next pending task (highest priority, oldest first)."""
     pool = await get_pool()
     if not pool:
@@ -1695,9 +1707,9 @@ async def db_get_next_pending_task(
 async def db_update_task_status(
     task_id: str,
     status: str,
-    worker_id: Optional[str] = None,
-    result: Optional[str] = None,
-    error: Optional[str] = None,
+    worker_id: str | None = None,
+    result: str | None = None,
+    error: str | None = None,
 ) -> bool:
     """Update task status and optionally result/error."""
     pool = await get_pool()
@@ -1713,7 +1725,7 @@ async def db_update_task_status(
         task = await db_get_task(task_id)
         if task:
             metadata = task.get('metadata', {}) or {}
-            is_prd_chat = metadata.get('prd_chat') == True
+            is_prd_chat = bool(metadata.get('prd_chat'))
             session_id = metadata.get('session_id')
     except Exception:
         pass
@@ -1766,7 +1778,7 @@ async def db_update_task_status(
         return False
 
 
-def _row_to_task(row) -> Dict[str, Any]:
+def _row_to_task(row) -> dict[str, Any]:
     """Convert a database row to a task dict."""
     metadata = row['metadata']
     if isinstance(metadata, str):
@@ -1811,7 +1823,7 @@ def _row_to_task(row) -> Dict[str, Any]:
 
 
 async def db_upsert_session(
-    session: Dict[str, Any], tenant_id: Optional[str] = None
+    session: dict[str, Any], tenant_id: str | None = None
 ) -> bool:
     """Insert or update a session in the database.
 
@@ -1862,8 +1874,8 @@ async def db_upsert_session(
 async def db_list_sessions(
     workspace_id: str,
     limit: int = 50,
-    tenant_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    tenant_id: str | None = None,
+) -> list[dict[str, Any]]:
     """List sessions for a workspace, optionally filtered by tenant."""
     pool = await get_pool()
     if not pool:
@@ -1903,8 +1915,8 @@ async def db_list_sessions(
 async def db_list_all_sessions(
     limit: int = 100,
     offset: int = 0,
-    tenant_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    tenant_id: str | None = None,
+) -> list[dict[str, Any]]:
     """List all sessions across all workspaces, optionally filtered by tenant."""
     pool = await get_pool()
     if not pool:
@@ -1950,7 +1962,7 @@ async def db_list_all_sessions(
         return []
 
 
-async def db_get_session(session_id: str) -> Optional[Dict[str, Any]]:
+async def db_get_session(session_id: str) -> dict[str, Any] | None:
     """Get a session by ID."""
     pool = await get_pool()
     if not pool:
@@ -1969,7 +1981,7 @@ async def db_get_session(session_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _row_to_session(row) -> Dict[str, Any]:
+def _row_to_session(row) -> dict[str, Any]:
     """Convert a database row to a session dict."""
     summary = row['summary']
     if isinstance(summary, str):
@@ -2002,7 +2014,7 @@ def _row_to_session(row) -> Dict[str, Any]:
 async def db_update_session_worker_status(
     session_id: str,
     worker_status: str,
-    knative_service_name: Optional[str] = None,
+    knative_service_name: str | None = None,
 ) -> bool:
     """Update session worker status and optionally the Knative service name.
 
@@ -2151,7 +2163,7 @@ async def db_update_workspace_sync_time(workspace_id: str) -> bool:
 # ========================================
 
 
-async def db_upsert_message(message: Dict[str, Any]) -> bool:
+async def db_upsert_message(message: dict[str, Any]) -> bool:
     """Insert or update a session message."""
     pool = await get_pool()
     if not pool:
@@ -2188,7 +2200,7 @@ async def db_upsert_message(message: Dict[str, Any]) -> bool:
 
 async def db_list_messages(
     session_id: str, limit: int = 50
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List messages for a session."""
     pool = await get_pool()
     if not pool:
@@ -2212,7 +2224,7 @@ async def db_list_messages(
         return []
 
 
-def _row_to_message(row) -> Dict[str, Any]:
+def _row_to_message(row) -> dict[str, Any]:
     """Convert a database row to a message dict."""
     tokens = row['tokens']
     if isinstance(tokens, str):
@@ -2246,7 +2258,7 @@ def _row_to_message(row) -> Dict[str, Any]:
 # ========================================
 
 
-async def db_health_check() -> Dict[str, Any]:
+async def db_health_check() -> dict[str, Any]:
     """Check database health and return stats."""
     pool = await get_pool()
 
@@ -2293,7 +2305,7 @@ async def db_health_check() -> Dict[str, Any]:
 # ========================================
 
 
-async def db_save_monitor_message(message: Dict[str, Any]) -> bool:
+async def db_save_monitor_message(message: dict[str, Any]) -> bool:
     """Save a monitor message to the database."""
     pool = await get_pool()
     if not pool:
@@ -2326,9 +2338,9 @@ async def db_save_monitor_message(message: Dict[str, Any]) -> bool:
 
 async def db_list_monitor_messages(
     limit: int = 100,
-    agent_name: Optional[str] = None,
-    msg_type: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    agent_name: str | None = None,
+    msg_type: str | None = None,
+) -> list[dict[str, Any]]:
     """List monitor messages from the database."""
     pool = await get_pool()
     if not pool:
@@ -2360,7 +2372,7 @@ async def db_list_monitor_messages(
         return []
 
 
-async def db_get_monitor_stats() -> Dict[str, Any]:
+async def db_get_monitor_stats() -> dict[str, Any]:
     """Get monitor statistics from the database."""
     pool = await get_pool()
     if not pool:
@@ -2396,7 +2408,7 @@ async def db_count_monitor_messages() -> int:
         return 0
 
 
-def _row_to_monitor_message(row) -> Dict[str, Any]:
+def _row_to_monitor_message(row) -> dict[str, Any]:
     """Convert a database row to a monitor message dict."""
     metadata = row['metadata']
     if isinstance(metadata, str):
@@ -2472,7 +2484,7 @@ async def create_tenant(
         raise
 
 
-async def get_tenant_by_realm(realm_name: str) -> Optional[dict]:
+async def get_tenant_by_realm(realm_name: str) -> dict | None:
     """Get a tenant by realm name.
 
     Args:
@@ -2498,7 +2510,7 @@ async def get_tenant_by_realm(realm_name: str) -> Optional[dict]:
         return None
 
 
-async def get_tenant_by_id(tenant_id: str) -> Optional[dict]:
+async def get_tenant_by_id(tenant_id: str) -> dict | None:
     """Get a tenant by ID.
 
     Args:
@@ -2524,7 +2536,7 @@ async def get_tenant_by_id(tenant_id: str) -> Optional[dict]:
         return None
 
 
-async def list_tenants(limit: int = 100, offset: int = 0) -> List[dict]:
+async def list_tenants(limit: int = 100, offset: int = 0) -> list[dict]:
     """List all tenants with pagination.
 
     Args:
@@ -2736,7 +2748,7 @@ async def clear_tenant_context(conn) -> None:
         logger.warning(f'Failed to clear tenant context: {e}')
 
 
-async def get_tenant_context(conn) -> Optional[str]:
+async def get_tenant_context(conn) -> str | None:
     """Get the current tenant context from the database connection.
 
     Args:
@@ -2845,7 +2857,7 @@ async def db_execute_as_tenant(tenant_id: str, query: str, *args) -> Any:
         return await conn.execute(query, *args)
 
 
-async def db_fetch_as_tenant(tenant_id: str, query: str, *args) -> List[Any]:
+async def db_fetch_as_tenant(tenant_id: str, query: str, *args) -> list[Any]:
     """Fetch rows with tenant context.
 
     Convenience function for fetching rows within tenant scope.
@@ -2864,7 +2876,7 @@ async def db_fetch_as_tenant(tenant_id: str, query: str, *args) -> List[Any]:
 
 async def db_fetchrow_as_tenant(
     tenant_id: str, query: str, *args
-) -> Optional[Any]:
+) -> Any | None:
     """Fetch a single row with tenant context.
 
     Args:
@@ -2881,7 +2893,7 @@ async def db_fetchrow_as_tenant(
 
 async def db_fetchval_as_tenant(
     tenant_id: str, query: str, *args
-) -> Optional[Any]:
+) -> Any | None:
     """Fetch a single value with tenant context.
 
     Args:
@@ -2902,8 +2914,8 @@ async def db_fetchval_as_tenant(
 
 
 async def db_run_migrations(
-    migrations_dir: Optional[str] = None,
-) -> Dict[str, Any]:
+    migrations_dir: str | None = None,
+) -> dict[str, Any]:
     """Run SQL migration files from the migrations directory.
 
     Executes all .sql files in the migrations directory that haven't been
@@ -2933,7 +2945,7 @@ async def db_run_migrations(
     if not pool:
         raise RuntimeError('Database pool not available')
 
-    results: Dict[str, List[Any]] = {'applied': [], 'skipped': [], 'failed': []}
+    results: dict[str, list[Any]] = {'applied': [], 'skipped': [], 'failed': []}
 
     async with pool.acquire() as conn:
         # Ensure schema_migrations table exists
@@ -2998,7 +3010,7 @@ async def db_run_migrations(
     return results
 
 
-async def db_enable_rls() -> Dict[str, Any]:
+async def db_enable_rls() -> dict[str, Any]:
     """Enable RLS by running the enable_rls.sql migration.
 
     This enables Row-Level Security on all tenant-scoped tables:
@@ -3041,7 +3053,7 @@ async def db_enable_rls() -> Dict[str, Any]:
         return {'status': 'error', 'message': str(e)}
 
 
-async def db_disable_rls() -> Dict[str, Any]:
+async def db_disable_rls() -> dict[str, Any]:
     """Disable RLS by running the disable_rls.sql migration.
 
     This disables Row-Level Security and removes all policies.
@@ -3079,7 +3091,7 @@ async def db_disable_rls() -> Dict[str, Any]:
         return {'status': 'error', 'message': str(e)}
 
 
-async def get_rls_status() -> Dict[str, Any]:
+async def get_rls_status() -> dict[str, Any]:
     """Get the current RLS status for all tenant-scoped tables.
 
     Returns:
@@ -3122,7 +3134,7 @@ async def get_rls_status() -> Dict[str, Any]:
                 AND tablename IN ('workers', 'workspaces', 'tasks', 'sessions', 'rbac_user_roles')
             """)
 
-            policy_count: Dict[str, int] = {}
+            policy_count: dict[str, int] = {}
             for policy in policies:
                 table = policy['tablename']
                 if table not in policy_count:
@@ -3178,19 +3190,18 @@ async def db_log_inbound_email(
     to_email: str,
     subject: str,
     body_text: str,
-    body_html: Optional[str] = None,
-    session_id: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-    task_id: Optional[str] = None,
-    sender_ip: Optional[str] = None,
-    spf_result: Optional[str] = None,
+    body_html: str | None = None,
+    session_id: str | None = None,
+    workspace_id: str | None = None,
+    task_id: str | None = None,
+    sender_ip: str | None = None,
+    spf_result: str | None = None,
     status: str = 'received',
-    error: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    tenant_id: Optional[str] = None,
-) -> Optional[str]:
-    """
-    Log an inbound email to the database.
+    error: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    tenant_id: str | None = None,
+) -> str | None:
+    """Log an inbound email to the database.
 
     Args:
         from_email: Sender email address
@@ -3255,12 +3266,11 @@ async def db_log_inbound_email(
 
 async def db_update_inbound_email(
     email_id: str,
-    task_id: Optional[str] = None,
-    status: Optional[str] = None,
-    error: Optional[str] = None,
+    task_id: str | None = None,
+    status: str | None = None,
+    error: str | None = None,
 ) -> bool:
-    """
-    Update an inbound email record after processing.
+    """Update an inbound email record after processing.
 
     Args:
         email_id: The email record ID
@@ -3314,21 +3324,20 @@ async def db_log_outbound_email(
     to_email: str,
     from_email: str,
     subject: str,
-    body_html: Optional[str] = None,
-    body_text: Optional[str] = None,
-    reply_to: Optional[str] = None,
-    task_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-    worker_id: Optional[str] = None,
+    body_html: str | None = None,
+    body_text: str | None = None,
+    reply_to: str | None = None,
+    task_id: str | None = None,
+    session_id: str | None = None,
+    workspace_id: str | None = None,
+    worker_id: str | None = None,
     status: str = 'queued',
-    sendgrid_message_id: Optional[str] = None,
-    error: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    tenant_id: Optional[str] = None,
-) -> Optional[str]:
-    """
-    Log an outbound email to the database.
+    sendgrid_message_id: str | None = None,
+    error: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    tenant_id: str | None = None,
+) -> str | None:
+    """Log an outbound email to the database.
 
     Args:
         to_email: Recipient email address
@@ -3393,12 +3402,11 @@ async def db_log_outbound_email(
 
 async def db_update_outbound_email(
     email_id: str,
-    status: Optional[str] = None,
-    sendgrid_message_id: Optional[str] = None,
-    error: Optional[str] = None,
+    status: str | None = None,
+    sendgrid_message_id: str | None = None,
+    error: str | None = None,
 ) -> bool:
-    """
-    Update an outbound email record after sending.
+    """Update an outbound email record after sending.
 
     Args:
         email_id: The email record ID
@@ -3449,14 +3457,13 @@ async def db_update_outbound_email(
 
 
 async def db_list_inbound_emails(
-    session_id: Optional[str] = None,
-    from_email: Optional[str] = None,
-    status: Optional[str] = None,
+    session_id: str | None = None,
+    from_email: str | None = None,
+    status: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> List[Dict[str, Any]]:
-    """
-    List inbound emails with optional filtering.
+) -> list[dict[str, Any]]:
+    """List inbound emails with optional filtering.
 
     Args:
         session_id: Filter by session ID
@@ -3513,15 +3520,14 @@ async def db_list_inbound_emails(
 
 
 async def db_list_outbound_emails(
-    task_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    to_email: Optional[str] = None,
-    status: Optional[str] = None,
+    task_id: str | None = None,
+    session_id: str | None = None,
+    to_email: str | None = None,
+    status: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> List[Dict[str, Any]]:
-    """
-    List outbound emails with optional filtering.
+) -> list[dict[str, Any]]:
+    """List outbound emails with optional filtering.
 
     Args:
         task_id: Filter by task ID
@@ -3591,7 +3597,7 @@ async def db_list_outbound_emails(
 async def db_upsert_prd_chat_session(
     workspace_id: str,
     session_id: str,
-    title: Optional[str] = None,
+    title: str | None = None,
 ) -> bool:
     """Upsert a PRD chat session link."""
     pool = await get_pool()
@@ -3619,7 +3625,7 @@ async def db_upsert_prd_chat_session(
 
 async def db_list_prd_chat_sessions(
     workspace_id: str, limit: int = 50
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List PRD chat sessions for a workspace."""
     pool = await get_pool()
     if not pool:
@@ -3652,16 +3658,15 @@ async def db_list_prd_chat_sessions(
 
 async def db_create_ralph_run(
     run_id: str,
-    prd: Dict[str, Any],
-    workspace_id: Optional[str] = None,
-    model: Optional[str] = None,
+    prd: dict[str, Any],
+    workspace_id: str | None = None,
+    model: str | None = None,
     max_iterations: int = 10,
     run_mode: str = 'sequential',
     max_parallel: int = 3,
-    tenant_id: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
-    """
-    Create a new Ralph run in the database.
+    tenant_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Create a new Ralph run in the database.
 
     Args:
         run_id: Unique run identifier
@@ -3725,9 +3730,8 @@ async def db_create_ralph_run(
         return None
 
 
-async def db_get_ralph_run(run_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Get a Ralph run by ID.
+async def db_get_ralph_run(run_id: str) -> dict[str, Any] | None:
+    """Get a Ralph run by ID.
 
     Args:
         run_id: Run ID to retrieve
@@ -3775,16 +3779,15 @@ async def db_get_ralph_run(run_id: str) -> Optional[Dict[str, Any]]:
 
 async def db_update_ralph_run(
     run_id: str,
-    status: Optional[str] = None,
-    current_iteration: Optional[int] = None,
-    story_results: Optional[List[Dict[str, Any]]] = None,
-    logs: Optional[List[Dict[str, Any]]] = None,
-    error: Optional[str] = None,
-    started_at: Optional[datetime] = None,
-    completed_at: Optional[datetime] = None,
-) -> Optional[Dict[str, Any]]:
-    """
-    Update a Ralph run.
+    status: str | None = None,
+    current_iteration: int | None = None,
+    story_results: list[dict[str, Any]] | None = None,
+    logs: list[dict[str, Any]] | None = None,
+    error: str | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
+) -> dict[str, Any] | None:
+    """Update a Ralph run.
 
     Args:
         run_id: Run ID to update
@@ -3887,14 +3890,13 @@ async def db_update_ralph_run(
 
 
 async def db_list_ralph_runs(
-    status: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-    tenant_id: Optional[str] = None,
+    status: str | None = None,
+    workspace_id: str | None = None,
+    tenant_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> List[Dict[str, Any]]:
-    """
-    List Ralph runs with optional filtering.
+) -> list[dict[str, Any]]:
+    """List Ralph runs with optional filtering.
 
     Args:
         status: Filter by status
@@ -3973,8 +3975,7 @@ async def db_list_ralph_runs(
 
 
 async def db_delete_ralph_run(run_id: str) -> bool:
-    """
-    Delete a Ralph run.
+    """Delete a Ralph run.
 
     Args:
         run_id: Run ID to delete
@@ -4002,10 +4003,9 @@ async def db_add_ralph_log(
     run_id: str,
     log_type: str,
     message: str,
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> bool:
-    """
-    Add a log entry to a Ralph run.
+    """Add a log entry to a Ralph run.
 
     Args:
         run_id: Run ID
@@ -4049,11 +4049,12 @@ async def db_add_ralph_log(
 # Worker Profiles CRUD
 # ---------------------------------------------------------------------------
 
+
 async def db_list_worker_profiles(
-    tenant_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    tenant_id: str | None = None,
+    user_id: str | None = None,
     builtin_only: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List worker profiles visible to the caller.
 
     Returns builtin profiles + tenant/user-owned custom profiles.
@@ -4080,9 +4081,9 @@ async def db_list_worker_profiles(
                 parts.append(f'user_id = ${idx}')
                 params.append(user_id)
                 idx += 1
-            clauses.append(f"({' OR '.join(parts)})")
+            clauses.append(f'({" OR ".join(parts)})')
 
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        where = f'WHERE {" AND ".join(clauses)}' if clauses else ''
         query = f'SELECT * FROM worker_profiles {where} ORDER BY is_builtin DESC, name ASC'
 
         async with pool.acquire() as conn:
@@ -4093,7 +4094,7 @@ async def db_list_worker_profiles(
         return []
 
 
-async def db_get_worker_profile(profile_id: str) -> Optional[Dict[str, Any]]:
+async def db_get_worker_profile(profile_id: str) -> dict[str, Any] | None:
     """Get a single worker profile by ID or slug."""
     pool = await get_pool()
     if not pool:
@@ -4111,7 +4112,9 @@ async def db_get_worker_profile(profile_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def db_create_worker_profile(profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+async def db_create_worker_profile(
+    profile: dict[str, Any],
+) -> dict[str, Any] | None:
     """Create a new worker profile. Returns the created row."""
     pool = await get_pool()
     if not pool:
@@ -4151,8 +4154,8 @@ async def db_create_worker_profile(profile: Dict[str, Any]) -> Optional[Dict[str
 
 
 async def db_update_worker_profile(
-    profile_id: str, updates: Dict[str, Any]
-) -> Optional[Dict[str, Any]]:
+    profile_id: str, updates: dict[str, Any]
+) -> dict[str, Any] | None:
     """Update a worker profile. Returns the updated row.
 
     Cannot update builtin profiles except for non-critical fields.
@@ -4162,9 +4165,16 @@ async def db_update_worker_profile(
         return None
 
     allowed_fields = {
-        'name', 'slug', 'description', 'system_prompt',
-        'default_capabilities', 'default_model_tier', 'default_model_ref',
-        'default_agent_type', 'icon', 'color',
+        'name',
+        'slug',
+        'description',
+        'system_prompt',
+        'default_capabilities',
+        'default_model_tier',
+        'default_model_ref',
+        'default_agent_type',
+        'icon',
+        'color',
     }
 
     set_parts = []
@@ -4175,7 +4185,9 @@ async def db_update_worker_profile(
         if field not in allowed_fields:
             continue
         if field == 'default_capabilities':
-            value = json.dumps(value) if isinstance(value, (list, dict)) else value
+            value = (
+                json.dumps(value) if isinstance(value, (list, dict)) else value
+            )
         set_parts.append(f'{field} = ${idx}')
         params.append(value)
         idx += 1
@@ -4224,7 +4236,7 @@ async def db_delete_worker_profile(profile_id: str) -> bool:
         return False
 
 
-async def db_set_worker_profile(worker_id: str, profile_id: Optional[str]) -> bool:
+async def db_set_worker_profile(worker_id: str, profile_id: str | None) -> bool:
     """Assign (or clear) a profile on a worker."""
     pool = await get_pool()
     if not pool:

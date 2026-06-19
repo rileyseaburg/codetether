@@ -9,6 +9,7 @@ import os
 
 import asyncpg
 
+
 GITHUB_TASK_PREDICATE = """
 (metadata->>'source' = 'github-app'
  OR metadata ? 'github_installation_id'
@@ -22,18 +23,22 @@ async def main() -> None:
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
 
-    database_url = os.environ.get('DATABASE_URL') or os.environ.get('A2A_DATABASE_URL')
+    database_url = os.environ.get('DATABASE_URL') or os.environ.get(
+        'A2A_DATABASE_URL'
+    )
     if not database_url:
         raise SystemExit('DATABASE_URL or A2A_DATABASE_URL is required')
 
     conn = await asyncpg.connect(database_url)
     try:
-        tenant_exists = await conn.fetchval('SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1)', args.tenant_id)
+        tenant_exists = await conn.fetchval(
+            'SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1)', args.tenant_id
+        )
         if not tenant_exists:
             raise SystemExit(f'tenant_id not found: {args.tenant_id}')
 
         task_count = await conn.fetchval(
-            f"SELECT COUNT(*) FROM tasks WHERE tenant_id IS NULL AND {GITHUB_TASK_PREDICATE}"
+            f'SELECT COUNT(*) FROM tasks WHERE tenant_id IS NULL AND {GITHUB_TASK_PREDICATE}'
         )
         workspace_count = await conn.fetchval(
             f"""
@@ -50,7 +55,11 @@ async def main() -> None:
               AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = tr.task_id AND {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')})
             """
         )
-        counts = {'tasks': task_count, 'workspaces': workspace_count, 'runs': run_count}
+        counts = {
+            'tasks': task_count,
+            'workspaces': workspace_count,
+            'runs': run_count,
+        }
         print(counts)
         if args.dry_run:
             return
@@ -92,7 +101,7 @@ async def main() -> None:
             )
 
         remaining_tasks = await conn.fetchval(
-            f"SELECT COUNT(*) FROM tasks WHERE tenant_id IS NULL AND {GITHUB_TASK_PREDICATE}"
+            f'SELECT COUNT(*) FROM tasks WHERE tenant_id IS NULL AND {GITHUB_TASK_PREDICATE}'
         )
         remaining_runs = await conn.fetchval(
             f"""
