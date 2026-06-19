@@ -407,6 +407,7 @@ class AgentBridge:
             if task.model_used and 'model_used' not in metadata:
                 metadata['model_used'] = task.model_used
 
+            tenant_id = str(metadata.get('tenant_id') or '').strip() or None
             await db.db_upsert_task(
                 {
                     'id': task.id,
@@ -430,7 +431,9 @@ class AgentBridge:
                     'completed_at': task.completed_at.isoformat()
                     if task.completed_at
                     else None,
-                }
+                    'tenant_id': tenant_id,
+                },
+                tenant_id=tenant_id,
             )
         except Exception as e:
             logger.error(f'Failed to save task to PostgreSQL: {e}')

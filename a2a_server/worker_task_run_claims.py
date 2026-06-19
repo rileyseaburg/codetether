@@ -74,7 +74,7 @@ async def claim_task_run_for_worker(
                 )
                 UPDATE task_runs tr
                 SET lease_owner = $2,
-                    lease_expires_at = NOW() + ($3 || ' seconds')::INTERVAL,
+                    lease_expires_at = NOW() + ($3::int * INTERVAL '1 second'),
                     status = 'running',
                     started_at = COALESCE(started_at, NOW()),
                     last_heartbeat_at = NOW(),
@@ -102,7 +102,7 @@ async def claim_task_run_for_worker(
 
         return dict(row) if row else {}
     except Exception as e:
-        logger.debug(f'No task_run lease attached to claim {task_id}: {e}')
+        logger.warning(f'No task_run lease attached to claim {task_id}: {e}')
         return {}
 
 

@@ -151,19 +151,60 @@ class AgentTaskResponse(BaseModel):
 
 def _task_metadata(task: Dict[str, Any]) -> Dict[str, Any]:
     metadata = task.get('metadata') or {}
-    if isinstance(metadata, str):
+    # Some legacy rows accidentally stored JSON as a JSON string. Decode a
+    # bounded number of times so routing fields such as required_capabilities
+    # are still honored by worker polling filters.
+    for _ in range(2):
+        if not isinstance(metadata, str):
+            break
         try:
             parsed = json.loads(metadata)
         except json.JSONDecodeError:
             return {}
-        return parsed if isinstance(parsed, dict) else {}
+        metadata = parsed
     return metadata if isinstance(metadata, dict) else {}
+
+
+def _normalize_task_capabilities(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = [value]
+        value = parsed
+    if not isinstance(value, list):
+        return []
+    return [str(cap).strip() for cap in value if str(cap).strip()]
+
+
+def _worker_satisfies_required_capabilities(
+    worker_capabilities: Optional[list[str]],
+    required_capabilities: list[str],
+) -> bool:
+    if not required_capabilities:
+        return True
+    if not worker_capabilities:
+        return False
+    worker_caps = set(worker_capabilities)
+    aliases = {
+        'persistent': {'persistent', 'persistent-workspace', 'persistent_workspace', 'harvester'},
+        'persistent-workspace': {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'},
+        'persistent_workspace': {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'},
+    }
+    for required in required_capabilities:
+        accepted = aliases.get(required, {required})
+        if not worker_caps.intersection(accepted):
+            return False
+    return True
 
 
 def _pending_task_visible_to_worker(
     task: Dict[str, Any],
     worker_id: Optional[str],
     agent_name: Optional[str],
+    worker_capabilities: Optional[list[str]] = None,
 ) -> bool:
     """Hide targeted pending tasks from legacy pollers that cannot claim them."""
     metadata = _task_metadata(task)
@@ -180,21 +221,35 @@ def _pending_task_visible_to_worker(
     ):
         return False
 
+    required_capabilities = _normalize_task_capabilities(
+        task.get('required_capabilities') or metadata.get('required_capabilities')
+    )
+    if not _worker_satisfies_required_capabilities(
+        worker_capabilities, required_capabilities
+    ):
+        return False
+
     return True
 
 
-async def _active_worker_id_for_agent_name(
+async def _active_worker_for_agent_name(
     agent_name: Optional[str],
-) -> Optional[str]:
+) -> Optional[Dict[str, Any]]:
     """Resolve legacy poll requests that identify the worker by agent_name only."""
     if not agent_name:
         return None
     try:
         worker = await db.db_get_active_worker_by_name(agent_name)
     except Exception as e:
-        logger.debug(f'Failed to resolve worker id for agent {agent_name}: {e}')
+        logger.debug(f'Failed to resolve worker for agent {agent_name}: {e}')
         return None
+    return worker if isinstance(worker, dict) else None
 
+
+async def _active_worker_id_for_agent_name(
+    agent_name: Optional[str],
+) -> Optional[str]:
+    worker = await _active_worker_for_agent_name(agent_name)
     if worker:
         worker_id = str(worker.get('worker_id') or '').strip()
         if worker_id:
@@ -4538,10 +4593,17 @@ async def list_all_tasks(
             from .worker_sse import get_worker_registry
 
             visible_worker_id = worker_id
-            if not visible_worker_id and agent_name:
-                visible_worker_id = await _active_worker_id_for_agent_name(
-                    agent_name
-                )
+            worker_capabilities: list[str] = []
+            if agent_name:
+                active_worker = await _active_worker_for_agent_name(agent_name)
+                if active_worker:
+                    if not visible_worker_id:
+                        visible_worker_id = str(
+                            active_worker.get('worker_id') or ''
+                        ).strip() or None
+                    worker_capabilities = _normalize_task_capabilities(
+                        active_worker.get('capabilities')
+                    )
 
             claimed = await get_worker_registry().claimed_task_ids()
             if claimed:
@@ -4557,6 +4619,7 @@ async def list_all_tasks(
                     task,
                     worker_id=visible_worker_id,
                     agent_name=agent_name,
+                    worker_capabilities=worker_capabilities,
                 )
             ]
         except Exception as e:

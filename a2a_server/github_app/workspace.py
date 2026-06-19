@@ -1,11 +1,14 @@
 """Workspace and clone-task helpers for GitHub App comment execution."""
 
 import hashlib
+
 from typing import Any
 
 from .context import MentionContext
-from .prompt import fix_prompt; from .routing import resolve_task_target
+from .prompt import fix_prompt
+from .routing import resolve_task_target
 from .settings import MODEL_REF, get_secret
+
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
@@ -43,7 +46,7 @@ async def create_clone_task(
     *,
     github_issue_url: str = '',
     github_installation_id: int = 0,
-) -> str:
+) -> tuple[str, bool]:
     """Queue a targeted clone/refresh task for the PR branch.
 
     Dispatches as fire-and-forget with a 7-day timeout so the persistent
@@ -52,6 +55,10 @@ async def create_clone_task(
     The github_issue_url is stored in the clone task's post_clone_task metadata
     so it propagates to the follow-up build task, enabling the progress reporter
     to post periodic comments on the GitHub issue/PR.
+
+    Returns ``(task_id, created)``. ``created`` is False when an active task for
+    the same PR/commit/stage was reused (e.g. a redelivered or duplicate
+    webhook), so the caller can skip posting another acceptance comment.
     """
     from ..persistent_worker_pool import create_and_dispatch_task
 
@@ -102,4 +109,5 @@ async def create_clone_task(
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=github_issue_url,
+        with_created=True,
     )

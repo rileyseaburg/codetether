@@ -41,6 +41,13 @@ def _is_missing_branch_error(normalized: str) -> bool:
 
 
 def route_state(row: Any) -> str:
+    status = str(row.get('status') or '').lower()
+    if status in {'completed', 'cancelled'}:
+        return status
+    if status == 'failed':
+        return 'failed'
+    if not row.get('target_worker_id') and row.get('target_agent_name'):
+        return 'target_agent_name'
     if not row.get('target_worker_id'):
         return 'unscoped_or_missing_target'
     if not row.get('worker_name'):

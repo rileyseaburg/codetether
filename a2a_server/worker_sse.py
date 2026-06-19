@@ -39,6 +39,7 @@ from .worker_claim_routing import (
     db_worker_recent as _db_worker_recent,
     has_persistent_workspace_capability as _has_persistent_workspace_capability,
     normalize_capabilities as _normalize_capabilities,
+    worker_satisfies_required_capabilities as _worker_satisfies_required_capabilities,
 )
 from .worker_task_run_claims import (
     claim_task_run_for_worker as _claim_task_run_for_worker,
@@ -258,9 +259,8 @@ class WorkerRegistry:
                     or getattr(task, 'required_capabilities', None)
                 )
                 if required_capabilities:
-                    if not all(
-                        cap in worker_capabilities
-                        for cap in required_capabilities
+                    if not _worker_satisfies_required_capabilities(
+                        worker_capabilities, required_capabilities
                     ):
                         logger.debug(
                             f'Worker {worker_id} skipped task {task_id} '
@@ -547,9 +547,8 @@ class WorkerRegistry:
 
                 # Check capabilities filter
                 if required_capabilities:
-                    if not all(
-                        cap in worker.capabilities
-                        for cap in required_capabilities
+                    if not _worker_satisfies_required_capabilities(
+                        worker.capabilities, required_capabilities
                     ):
                         continue
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -12,17 +13,51 @@ logger = logging.getLogger(__name__)
 def normalize_capabilities(value: Any) -> list[str]:
     """Normalize capability payloads from headers, JSON, or DB rows."""
     if isinstance(value, str):
-        value = [value]
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = [value]
+        value = parsed
     if not isinstance(value, list):
         return []
     return [str(cap).strip() for cap in value if str(cap).strip()]
 
 
+_PERSISTENT_CAPABILITY_ALIASES = {
+    'persistent': {'persistent', 'persistent-workspace', 'persistent_workspace', 'harvester'},
+    'persistent-workspace': {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'},
+    'persistent_workspace': {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'},
+}
+
+
 def has_persistent_workspace_capability(capabilities: list[str]) -> bool:
     return any(
-        cap in {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'}
+        cap in _PERSISTENT_CAPABILITY_ALIASES['persistent']
         for cap in capabilities
     )
+
+
+def worker_satisfies_required_capabilities(
+    worker_capabilities: list[str],
+    required_capabilities: list[str],
+) -> bool:
+    """Return whether worker capabilities satisfy task requirements.
+
+    Persistent workers historically register one of several equivalent names
+    (persistent, persistent-workspace, persistent_workspace, harvester). Keep
+    claim-time eligibility aligned with polling-time eligibility so a worker is
+    not offered a task it cannot claim.
+    """
+    if not required_capabilities:
+        return True
+    if not worker_capabilities:
+        return False
+    worker_caps = set(worker_capabilities)
+    for required in required_capabilities:
+        accepted = _PERSISTENT_CAPABILITY_ALIASES.get(required, {required})
+        if not worker_caps.intersection(accepted):
+            return False
+    return True
 
 
 async def db_worker_agent_name(worker_id: str) -> Optional[str]:

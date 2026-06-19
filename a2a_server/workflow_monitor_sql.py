@@ -25,7 +25,18 @@ WITH gh AS (
     t.metadata->>'target_worker_id' AS target_worker_id,
     t.metadata->>'target_agent_name' AS target_agent_name,
     w.name AS worker_name, w.status AS worker_status, w.last_seen AS worker_last_seen
-  FROM tasks t LEFT JOIN workers w ON w.worker_id = t.metadata->>'target_worker_id'
+  FROM tasks t
+  LEFT JOIN LATERAL (
+    SELECT name, status, last_seen
+    FROM workers
+    WHERE worker_id = t.metadata->>'target_worker_id'
+      OR (
+        t.metadata->>'target_agent_name' IS NOT NULL
+        AND name = t.metadata->>'target_agent_name'
+      )
+    ORDER BY last_seen DESC NULLS LAST
+    LIMIT 1
+  ) w ON TRUE
   WHERE {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')}
     AND (cardinality($1::text[]) = 0 OR {TASK_REPO_EXPR} = ANY($1::text[]))
     AND ($2::text IS NULL OR t.tenant_id = $2::text)
@@ -46,7 +57,7 @@ SELECT repo, issue_pr, url,
   LEFT(STRING_AGG(DISTINCT COALESCE(error, ''), ' | '), 600) AS errors
 FROM (SELECT gh.*, COUNT(*) OVER (PARTITION BY repo, issue_pr, url, status) AS status_count,
   COUNT(*) OVER (PARTITION BY repo, issue_pr, url, agent_type) AS agent_count
-  FROM gh WHERE status IN ('pending', 'running', 'failed')) grouped
+  FROM gh WHERE status IN ('pending', 'running', 'failed', 'completed')) grouped
 GROUP BY repo, issue_pr, url ORDER BY MAX(updated_at) DESC NULLS LAST LIMIT $3
 """
 TASK_ROWS_SQL = f"""
@@ -59,11 +70,22 @@ SELECT t.id, t.status, t.title, t.agent_type, t.priority, t.created_at,
   t.metadata->>'target_worker_id' AS target_worker_id,
   t.metadata->>'target_agent_name' AS target_agent_name,
   w.name AS worker_name, w.status AS worker_status, w.last_seen AS worker_last_seen
-FROM tasks t LEFT JOIN workers w ON w.worker_id = t.metadata->>'target_worker_id'
+FROM tasks t
+LEFT JOIN LATERAL (
+  SELECT name, status, last_seen
+  FROM workers
+  WHERE worker_id = t.metadata->>'target_worker_id'
+    OR (
+      t.metadata->>'target_agent_name' IS NOT NULL
+      AND name = t.metadata->>'target_agent_name'
+    )
+  ORDER BY last_seen DESC NULLS LAST
+  LIMIT 1
+) w ON TRUE
 WHERE {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')}
   AND (cardinality($1::text[]) = 0 OR {TASK_REPO_EXPR} = ANY($1::text[]))
   AND ($2::text IS NULL OR t.tenant_id = $2::text)
-  AND t.status IN ('pending', 'running', 'failed')
+  AND t.status IN ('pending', 'running', 'failed', 'completed')
 ORDER BY t.updated_at DESC NULLS LAST LIMIT $3
 """
 
@@ -78,6 +100,5 @@ FROM task_runs tr JOIN tasks t ON t.id = tr.task_id
 WHERE {GITHUB_TASK_PREDICATE.replace('metadata', 't.metadata')}
   AND (cardinality($1::text[]) = 0 OR {TASK_REPO_EXPR} = ANY($1::text[]))
   AND ($2::text IS NULL OR t.tenant_id = $2::text)
-  AND tr.status NOT IN ('completed', 'cancelled')
 ORDER BY tr.updated_at DESC NULLS LAST LIMIT $3
 """

@@ -1,5 +1,4 @@
-"""
-Persistent Worker Pool — 7-Day Task Execution Infrastructure.
+"""Persistent Worker Pool — 7-Day Task Execution Infrastructure.
 
 Replaces Knative-based ephemeral model with persistent worker pool:
 - StatefulSets (not Knative) — workers stay running 24/7
@@ -16,13 +15,14 @@ Configuration:
     GITHUB_PROGRESS_INTERVAL_SECONDS: GitHub comment frequency (default: 300)
 """
 
-import asyncio
 import json
 import logging
 import os
+
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,12 @@ GITHUB_PROGRESS_INTERVAL_SECONDS = int(
 )
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
+GITHUB_APP_TENANT_EMAIL = os.environ.get(
+    'GITHUB_APP_TENANT_EMAIL', 'github-actions@codetether.run'
+)
 
 
-def _github_work_key(metadata: Dict[str, Any]) -> Optional[str]:
+def _github_work_key(metadata: dict[str, Any]) -> str | None:
     """Return a stable idempotency key for active GitHub App work.
 
     The key is intentionally scoped to one workflow stage and head SHA so a PR can
@@ -68,8 +71,68 @@ def _github_work_key(metadata: Dict[str, Any]) -> Optional[str]:
     return f'github-app:{repo}:{number}:{stage}:{head_sha}'
 
 
+def _is_github_app_task(metadata: dict[str, Any]) -> bool:
+    return bool(
+        metadata.get('source') == 'github-app'
+        or metadata.get('github_installation_id')
+        or metadata.get('github_issue_url')
+    )
+
+
+async def _resolve_github_app_tenant_id(
+    metadata: dict[str, Any], workspace_id: str | None
+) -> str:
+    tenant_id = str(metadata.get('tenant_id') or '').strip()
+    if tenant_id:
+        return tenant_id
+
+    env_tenant_id = str(
+        os.environ.get('GITHUB_APP_TENANT_ID')
+        or os.environ.get('A2A_GITHUB_APP_TENANT_ID')
+        or ''
+    ).strip()
+    if env_tenant_id:
+        return env_tenant_id
+
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        raise RuntimeError('Database not available for GitHub App tenant resolution')
+    async with pool.acquire() as conn:
+        if workspace_id:
+            tenant_id = await conn.fetchval(
+                'SELECT tenant_id FROM workspaces WHERE id = $1', workspace_id
+            )
+            if tenant_id:
+                return str(tenant_id)
+        tenant_id = await conn.fetchval(
+            'SELECT tenant_id FROM users WHERE lower(email) = lower($1) LIMIT 1',
+            GITHUB_APP_TENANT_EMAIL,
+        )
+        if tenant_id:
+            return str(tenant_id)
+    raise RuntimeError('GitHub App task tenant_id is required')
+
+
+async def _bind_workspace_tenant(workspace_id: str | None, tenant_id: str) -> None:
+    if not workspace_id or not tenant_id:
+        return
+    from . import database as db
+
+    pool = await db.get_pool()
+    if not pool:
+        return
+    async with pool.acquire() as conn:
+        await conn.execute(
+            'UPDATE workspaces SET tenant_id = $2, updated_at = NOW() '
+            'WHERE id = $1 AND tenant_id IS NULL',
+            workspace_id,
+            tenant_id,
+        )
+
 @asynccontextmanager
-async def _github_work_dedupe_lock(metadata: Dict[str, Any]):
+async def _github_work_dedupe_lock(metadata: dict[str, Any]):
     """Serialize GitHub App task creation for one work key across API pods."""
     work_key = _github_work_key(metadata)
     if not work_key:
@@ -94,7 +157,7 @@ async def _github_work_dedupe_lock(metadata: Dict[str, Any]):
             await pool.release(conn)
 
 
-async def _active_github_work_task_id(work_key: Optional[str]) -> Optional[str]:
+async def _active_github_work_task_id(work_key: str | None) -> str | None:
     """Return the oldest active task for a GitHub App idempotency key."""
     if not work_key:
         return None
@@ -127,11 +190,12 @@ async def create_and_dispatch_task(
     prompt: str,
     agent_type: str = 'build',
     priority: int = 0,
-    model_ref: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    model_ref: str | None = None,
+    metadata: dict[str, Any] | None = None,
     task_timeout_seconds: int = DEFAULT_TASK_TIMEOUT,
-    github_issue_url: Optional[str] = None,
-) -> str:
+    github_issue_url: str | None = None,
+    with_created: bool = False,
+):
     """Create a task AND dispatch it as fire-and-forget in one call.
 
     Primary entry point for the webhook flow:
@@ -142,7 +206,11 @@ async def create_and_dispatch_task(
       2. Creates a fire-and-forget run with the given timeout
       3. Notifies SSE workers that a new task is available
 
-    Returns the task ID.
+    Returns the task ID. When ``with_created`` is True, returns
+    ``(task_id, created)`` instead, where ``created`` is False if an active
+    task for the same GitHub work key was reused instead of created. Callers
+    use this to avoid posting duplicate acceptance comments on redelivered or
+    fanned-out webhook events.
     """
     from .monitor_api import get_agent_bridge
 
@@ -164,10 +232,18 @@ async def create_and_dispatch_task(
     if model_ref:
         effective_metadata['model_ref'] = model_ref
 
+    if _is_github_app_task(effective_metadata):
+        tenant_id = await _resolve_github_app_tenant_id(effective_metadata, workspace_id)
+        effective_metadata['tenant_id'] = tenant_id
+        await _bind_workspace_tenant(workspace_id, tenant_id)
+    else:
+        tenant_id = str(effective_metadata.get('tenant_id') or '').strip() or None
+
     work_key = _github_work_key(effective_metadata)
     if work_key:
         effective_metadata['github_work_key'] = work_key
 
+    created = True
     async with _github_work_dedupe_lock(effective_metadata) as locked_work_key:
         existing_task_id = await _active_github_work_task_id(locked_work_key)
         if existing_task_id:
@@ -176,7 +252,7 @@ async def create_and_dispatch_task(
                 existing_task_id,
                 locked_work_key,
             )
-            return existing_task_id
+            return (existing_task_id, False) if with_created else existing_task_id
 
         # 1. Create the task via the bridge (standard task row in tasks table)
         task = await bridge.create_task(
@@ -205,13 +281,14 @@ async def create_and_dispatch_task(
             task_timeout_seconds=task_timeout_seconds,
             github_issue_url=github_issue_url,
             metadata=effective_metadata,
+            tenant_id=tenant_id,
         )
 
     logger.info(
         f'Created and dispatched FF task {task_id} '
         f'(timeout={task_timeout_seconds}s, github={bool(github_issue_url)})'
     )
-    return task_id
+    return (task_id, created) if with_created else task_id
 
 
 async def dispatch_fire_and_forget(
@@ -219,14 +296,14 @@ async def dispatch_fire_and_forget(
     title: str,
     description: str,
     agent_type: str = 'build',
-    model: Optional[str] = None,
+    model: str | None = None,
     priority: int = 0,
     task_timeout_seconds: int = 604800,
-    github_issue_url: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    tenant_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    github_issue_url: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    tenant_id: str | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Fire-and-forget dispatch: create task + run, return immediately."""
     from . import database as db
 
@@ -279,10 +356,10 @@ async def dispatch_fire_and_forget(
 
 async def claim_extended_task(
     worker_id: str,
-    agent_name: Optional[str] = None,
-    capabilities: Optional[List[str]] = None,
-    models_supported: Optional[List[str]] = None,
-) -> Optional[Dict[str, Any]]:
+    agent_name: str | None = None,
+    capabilities: list[str] | None = None,
+    models_supported: list[str] | None = None,
+) -> dict[str, Any] | None:
     """Claim next task including fire_and_forget with checkpoint resume."""
     from . import database as db
 
@@ -345,13 +422,13 @@ async def claim_extended_task(
 async def post_extended_heartbeat(
     task_id: str,
     worker_id: str,
-    progress_pct: Optional[float] = None,
-    status_message: Optional[str] = None,
-    checkpoint: Optional[Dict[str, Any]] = None,
-    checkpoint_seq: Optional[int] = None,
-    log_tail: Optional[str] = None,
-    lease_extension_seconds: Optional[int] = None,
-) -> Dict[str, Any]:
+    progress_pct: float | None = None,
+    status_message: str | None = None,
+    checkpoint: dict[str, Any] | None = None,
+    checkpoint_seq: int | None = None,
+    log_tail: str | None = None,
+    lease_extension_seconds: int | None = None,
+) -> dict[str, Any]:
     """Extended heartbeat for 7-day tasks with checkpoint and lease renewal."""
     from . import database as db
 
@@ -365,7 +442,7 @@ async def post_extended_heartbeat(
             'progress_pct': progress_pct,
             'status_message': status_message,
             'worker_id': worker_id,
-            'heartbeat_at': datetime.now(timezone.utc).isoformat(),
+            'heartbeat_at': datetime.now(UTC).isoformat(),
         })
 
     checkpoint_json = json.dumps(checkpoint) if checkpoint else None

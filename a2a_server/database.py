@@ -49,6 +49,10 @@ _initialized = False
 # RLS is enabled by default for multi-tenant isolation.
 RLS_ENABLED = os.environ.get('RLS_ENABLED', 'true').lower() == 'true'
 RLS_STRICT_MODE = os.environ.get('RLS_STRICT_MODE', 'false').lower() == 'true'
+SCHEMA_INIT_ON_STARTUP = (
+    os.environ.get('A2A_SCHEMA_INIT_ON_STARTUP', 'true').lower()
+    not in {'0', 'false', 'no'}
+)
 
 
 def _parse_timestamp(value: Union[str, datetime, None]) -> Optional[datetime]:
@@ -100,7 +104,12 @@ async def get_pool():
 
             # Initialize schema if needed
             if not _initialized:
-                await _init_schema()
+                if SCHEMA_INIT_ON_STARTUP:
+                    await _init_schema()
+                else:
+                    logger.info(
+                        'Skipping PostgreSQL schema initialization on startup'
+                    )
                 _initialized = True
 
             # Initialize task queue for hosted workers
