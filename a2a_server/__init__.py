@@ -47,4 +47,9 @@ def __getattr__(name):
         return import_module('.a2a_agent_card', __name__).create_a2a_agent_card
     if name == 'a2a_agent_card_router':
         return import_module('.a2a_agent_card', __name__).a2a_agent_card_router
+    # Resolve any real submodule (e.g. spiffe_auth) on demand.
+    try:
+        return import_module('.' + name, __name__)
+    except ModuleNotFoundError:
+        pass
     raise AttributeError(name)
