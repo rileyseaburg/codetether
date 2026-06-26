@@ -18,42 +18,9 @@ class A2AClient: ObservableObject {
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-
-            // Python's isoformat() produces dates like "2024-01-15T10:30:00.123456" (no timezone)
-            // We need to handle multiple formats
-
-            let dateFormats = [
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",  // Python isoformat with microseconds
-                "yyyy-MM-dd'T'HH:mm:ss.SSS",      // With milliseconds
-                "yyyy-MM-dd'T'HH:mm:ss",          // Without fractional seconds
-                "yyyy-MM-dd'T'HH:mm:ssZ",         // With Z timezone
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",  // With microseconds and Z
-                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // With milliseconds and Z
-            ]
-
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-
-            for format in dateFormats {
-                formatter.dateFormat = format
-                if let date = formatter.date(from: dateString) {
-                    return date
-                }
-            }
-
-            // Also try ISO8601DateFormatter as fallback
-            let isoFormatter = ISO8601DateFormatter()
-            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = isoFormatter.date(from: dateString) {
+            if let date = ServerDateParser.shared.date(from: dateString) {
                 return date
             }
-
-            isoFormatter.formatOptions = [.withInternetDateTime]
-            if let date = isoFormatter.date(from: dateString) {
-                return date
-            }
-
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date: \(dateString)")
         }
         return decoder
@@ -73,6 +40,9 @@ class A2AClient: ObservableObject {
     private let maxReconnectAttempts = 5
     private var reconnectTask: Task<Void, Never>?
     private var sseSession: URLSession?
+
+    /// Reusable ISO8601 formatter for outgoing timestamps (avoids per-call allocation).
+    private static let iso8601Output = ISO8601DateFormatter()
 
     init(baseURL: String = "https://api.codetether.run") {
         self.baseURL = URL(string: baseURL)!
@@ -264,7 +234,7 @@ class A2AClient: ObservableObject {
         let body: [String: Any] = [
             "agent_id": agentId,
             "message": message,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
+            "timestamp": Self.iso8601Output.string(from: Date())
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -780,5 +750,64 @@ enum A2AError: LocalizedError {
         case .connectionFailed: return "Failed to connect to server"
         case .invalidResponse: return "Invalid response from server"
         }
+    }
+}
+
+// MARK: - Date Parsing
+
+/// Thread-safe server date parser that reuses cached `DateFormatter` instances
+/// and remembers the last successful format so repeated decodes of large
+/// payloads (hundreds of messages) skip re-trying every candidate format.
+final class ServerDateParser {
+    static let shared = ServerDateParser()
+
+    private static let formats = [
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",  // Python isoformat with microseconds
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",      // With milliseconds
+        "yyyy-MM-dd'T'HH:mm:ss",          // Without fractional seconds
+        "yyyy-MM-dd'T'HH:mm:ssZ",         // With Z timezone
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",  // With microseconds and Z
+        "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // With milliseconds and Z
+    ]
+
+    // Pre-built formatters, created once. Guarded by `lock` for thread safety
+    // because JSONDecoder may decode off the main thread.
+    private let lock = NSLock()
+    private let formatters: [DateFormatter]
+    private let isoFractional = ISO8601DateFormatter()
+    private let isoPlain = ISO8601DateFormatter()
+    private var lastGoodIndex = 0
+
+    private init() {
+        formatters = Self.formats.map { format in
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(secondsFromGMT: 0)
+            f.dateFormat = format
+            return f
+        }
+        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        isoPlain.formatOptions = [.withInternetDateTime]
+    }
+
+    func date(from string: String) -> Date? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        // Try the last successful format first.
+        if let date = formatters[lastGoodIndex].date(from: string) {
+            return date
+        }
+
+        for index in formatters.indices where index != lastGoodIndex {
+            if let date = formatters[index].date(from: string) {
+                lastGoodIndex = index
+                return date
+            }
+        }
+
+        if let date = isoFractional.date(from: string) { return date }
+        if let date = isoPlain.date(from: string) { return date }
+        return nil
     }
 }

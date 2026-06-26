@@ -28,9 +28,9 @@ struct Agent: Identifiable, Codable, Hashable {
         capabilities = try container.decodeIfPresent(AgentCapabilities.self, forKey: .capabilities)
         messagesCount = try container.decodeIfPresent(Int.self, forKey: .messagesCount) ?? 0
 
-        // Handle date with multiple format fallbacks
+        // Parse last-seen date using the shared cached parser.
         if let dateString = try container.decodeIfPresent(String.self, forKey: .lastSeen) {
-            lastSeen = ISO8601DateFormatter().date(from: dateString)
+            lastSeen = ServerDateParser.shared.date(from: dateString)
                 ?? DateFormatter.iso8601Full.date(from: dateString)
         } else {
             lastSeen = nil
@@ -1115,6 +1115,9 @@ class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
     private var onEvent: (AgentEvent) -> Void
     private var buffer = ""
 
+    /// Shared decoder reused across all SSE events to avoid per-event allocation.
+    private static let decoder = JSONDecoder()
+
     init(onEvent: @escaping (AgentEvent) -> Void) {
         self.onEvent = onEvent
     }
@@ -1123,6 +1126,11 @@ class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
         guard let string = String(data: data, encoding: .utf8) else { return }
         buffer += string
         processBuffer()
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        // Break the URLSession <-> delegate retain cycle once the stream ends.
+        session.finishTasksAndInvalidate()
     }
 
     private func processBuffer() {
@@ -1140,7 +1148,7 @@ class AgentEventSSEDelegate: NSObject, URLSessionDataDelegate {
 
             if !eventData.isEmpty {
                 if let data = eventData.data(using: .utf8),
-                   let event = try? JSONDecoder().decode(AgentEvent.self, from: data) {
+                   let event = try? Self.decoder.decode(AgentEvent.self, from: data) {
                     onEvent(event)
                 }
             }
