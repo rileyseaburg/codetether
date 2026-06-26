@@ -36,12 +36,14 @@ import logging
 import os
 import threading
 import time
+
 from dataclasses import dataclass
-from typing import Optional
 
 import jwt
+
 from fastapi import HTTPException, Request
 from jwt import PyJWKClient
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,23 +82,26 @@ def allow_token_legacy() -> bool:
     return os.environ.get("SPIFFE_ALLOW_TOKEN_LEGACY", "true").lower() == "true"
 
 
-_jwk_client: Optional[PyJWKClient] = None
-_jwk_client_at: float = 0.0
+# Mutable cache state held in a dict to avoid module-level `global` rebinds.
+_jwk_cache: dict = {"client": None, "at": 0.0}
 _jwk_lock = threading.Lock()
 
 
 def _get_jwk_client() -> PyJWKClient:
     """Return a cached PyJWKClient, rotating it past the configured TTL."""
-    global _jwk_client, _jwk_client_at
     url = _jwks_url()
     if not url:
-        raise HTTPException(status_code=500, detail="SPIFFE_JWKS_URL not configured")
+        raise HTTPException(
+            status_code=500, detail="SPIFFE_JWKS_URL not configured"
+        )
     now = time.monotonic()
     with _jwk_lock:
-        if _jwk_client is None or (now - _jwk_client_at) > _jwks_ttl():
-            _jwk_client = PyJWKClient(url, cache_keys=True)
-            _jwk_client_at = now
-        return _jwk_client
+        client = _jwk_cache["client"]
+        if client is None or (now - _jwk_cache["at"]) > _jwks_ttl():
+            client = PyJWKClient(url, cache_keys=True)
+            _jwk_cache["client"] = client
+            _jwk_cache["at"] = now
+        return client
 
 
 @dataclass(frozen=True)
@@ -113,7 +118,7 @@ class SpiffeIdentity:
         return [s for s in self.path.split("/") if s]
 
     @property
-    def tenant(self) -> Optional[str]:
+    def tenant(self) -> str | None:
         segs = self.segments
         for i, seg in enumerate(segs):
             if seg == "tenant" and i + 1 < len(segs):
@@ -121,7 +126,7 @@ class SpiffeIdentity:
         return None
 
     @property
-    def role(self) -> Optional[str]:
+    def role(self) -> str | None:
         segs = self.segments
         for kw in ("agent", "worker", "server", "service"):
             if kw in segs:
@@ -167,9 +172,11 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
         signing_key = _get_jwk_client().get_signing_key_from_jwt(token)
     except HTTPException:
         raise
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("SVID signing key lookup failed: %s", exc)
-        raise HTTPException(status_code=401, detail="Invalid SVID signature")
+        raise HTTPException(
+            status_code=401, detail="Invalid SVID signature"
+        ) from exc
 
     audiences = _audiences()
     decode_kwargs: dict = {
@@ -183,19 +190,23 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
 
     try:
         claims = jwt.decode(token, signing_key.key, **decode_kwargs)
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="SVID expired")
-    except jwt.InvalidAudienceError:
-        raise HTTPException(status_code=403, detail="SVID audience mismatch")
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(status_code=401, detail="SVID expired") from exc
+    except jwt.InvalidAudienceError as exc:
+        raise HTTPException(
+            status_code=403, detail="SVID audience mismatch"
+        ) from exc
     except jwt.PyJWTError as exc:
         logger.warning("SVID decode failed: %s", exc)
-        raise HTTPException(status_code=401, detail="Invalid SVID")
+        raise HTTPException(status_code=401, detail="Invalid SVID") from exc
 
     spiffe_id = claims.get("sub", "")
     try:
         trust_domain, path = parse_spiffe_id(spiffe_id)
     except ValueError as exc:
-        raise HTTPException(status_code=403, detail=f"Invalid SPIFFE ID: {exc}")
+        raise HTTPException(
+            status_code=403, detail=f"Invalid SPIFFE ID: {exc}"
+        ) from exc
 
     expected_td = _trust_domain()
     if expected_td and trust_domain != expected_td:
@@ -212,7 +223,8 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
     )
 
 
-def bearer_token(request: Request) -> Optional[str]:
+def bearer_token(request: Request) -> str | None:
+    """Extract the raw Bearer credential from the request, if present."""
     auth = (
         request.headers.get("authorization")
         or request.headers.get("Authorization")
@@ -224,7 +236,7 @@ def bearer_token(request: Request) -> Optional[str]:
     return token or None
 
 
-def verify_spiffe(request: Request) -> Optional[SpiffeIdentity]:
+def verify_spiffe(request: Request) -> SpiffeIdentity | None:
     """Validate the request's JWT-SVID; return identity or None if disabled."""
     if not _enabled():
         return None
