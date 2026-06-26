@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+
+from datetime import UTC, datetime
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -12,20 +15,69 @@ logger = logging.getLogger(__name__)
 def normalize_capabilities(value: Any) -> list[str]:
     """Normalize capability payloads from headers, JSON, or DB rows."""
     if isinstance(value, str):
-        value = [value]
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = [value]
+        value = parsed
     if not isinstance(value, list):
         return []
     return [str(cap).strip() for cap in value if str(cap).strip()]
 
 
+_PERSISTENT_CAPABILITY_ALIASES = {
+    'persistent': {
+        'persistent',
+        'persistent-workspace',
+        'persistent_workspace',
+        'harvester',
+    },
+    'persistent-workspace': {
+        'persistent-workspace',
+        'persistent_workspace',
+        'persistent',
+        'harvester',
+    },
+    'persistent_workspace': {
+        'persistent-workspace',
+        'persistent_workspace',
+        'persistent',
+        'harvester',
+    },
+}
+
+
 def has_persistent_workspace_capability(capabilities: list[str]) -> bool:
     return any(
-        cap in {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'}
+        cap in _PERSISTENT_CAPABILITY_ALIASES['persistent']
         for cap in capabilities
     )
 
 
-async def db_worker_agent_name(worker_id: str) -> Optional[str]:
+def worker_satisfies_required_capabilities(
+    worker_capabilities: list[str],
+    required_capabilities: list[str],
+) -> bool:
+    """Return whether worker capabilities satisfy task requirements.
+
+    Persistent workers historically register one of several equivalent names
+    (persistent, persistent-workspace, persistent_workspace, harvester). Keep
+    claim-time eligibility aligned with polling-time eligibility so a worker is
+    not offered a task it cannot claim.
+    """
+    if not required_capabilities:
+        return True
+    if not worker_capabilities:
+        return False
+    worker_caps = set(worker_capabilities)
+    for required in required_capabilities:
+        accepted = _PERSISTENT_CAPABILITY_ALIASES.get(required, {required})
+        if not worker_caps.intersection(accepted):
+            return False
+    return True
+
+
+async def db_worker_agent_name(worker_id: str) -> str | None:
     """Resolve a worker's registered agent name from durable storage."""
     try:
         from .database import db_get_worker
@@ -64,7 +116,9 @@ async def db_worker_recent(worker_id: str, max_age_seconds: int = 120) -> bool:
 
         worker = await db_get_worker(worker_id)
     except Exception as e:
-        logger.debug(f'Failed to resolve target worker freshness for {worker_id}: {e}')
+        logger.debug(
+            f'Failed to resolve target worker freshness for {worker_id}: {e}'
+        )
         return False
 
     if not worker or worker.get('status') != 'active':
@@ -79,5 +133,5 @@ async def db_worker_recent(worker_id: str, max_age_seconds: int = 120) -> bool:
         except ValueError:
             return False
     if last_seen.tzinfo is None:
-        last_seen = last_seen.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last_seen).total_seconds() <= max_age_seconds
+        last_seen = last_seen.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - last_seen).total_seconds() <= max_age_seconds

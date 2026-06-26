@@ -7,10 +7,13 @@ import json
 import logging
 import re
 import uuid
+
 from typing import Any
 
 from ..provenance import verify_provenance
-from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
+from .routing import resolve_task_target
+from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF, get_secret
+
 
 logger = logging.getLogger(__name__)
 
@@ -619,6 +622,7 @@ async def create_fix_followup_task(
         'fix_followup': 'true',
         'fix_attempt': attempt,
     }
+    fix_metadata.update(await resolve_task_target())
     # Propagate parent_task_id from the review task metadata chain
     parent_task_id = metadata.get('parent_task_id')
     if parent_task_id:
@@ -1023,6 +1027,92 @@ If every gate passes, merge the PR using the repository's normal merge method. I
 Final response must state MERGED or BLOCKED, plus the PR URL and policy-gate summary."""
 
 
+def approval_review_marker(task_id: str) -> str:
+    """Return the idempotency marker for a server-submitted PR approval."""
+    return f'codetether-review-task: {task_id}'
+
+
+def approval_review_body(
+    review_task: dict[str, Any], provenance: dict[str, Any]
+) -> str:
+    """Render the GitHub PR review body for a completed CodeTether approval."""
+    task_id = str(review_task.get('id') or '').strip()
+    result = str(review_task.get('result') or '').strip()
+    body = (
+        'CodeTether reviewer task approved this PR after checking the issue '
+        'Definition of Done and validation evidence.'
+    )
+    if result:
+        body += f'\n\nReviewer summary:\n\n{_truncate_for_comment(result, limit=3000)}'
+    body += provenance_footer(provenance, action='github:review_pr')
+    if task_id:
+        body += f'\n\n{approval_review_marker(task_id)}'
+    return body
+
+
+async def approval_review_token(default_token: str) -> str:
+    """Return a distinct reviewer token when configured, otherwise the app token."""
+    token = await get_secret(
+        'approval_token',
+        'GITHUB_APP_APPROVAL_TOKEN',
+        'approval_token',
+        'github_approval_token',
+        'github_review_approval_token',
+    )
+    return token or default_token
+
+
+async def ensure_pull_request_approval_review(
+    *,
+    repo: str,
+    pr_number: int,
+    current_sha: str,
+    review_task: dict[str, Any],
+    provenance: dict[str, Any],
+    token: str,
+) -> dict[str, Any] | None:
+    """Submit the actual GitHub approving review required by branch protection."""
+    from .auth import github_json
+
+    review_token = await approval_review_token(token)
+    task_id = str(review_task.get('id') or '').strip()
+    marker = approval_review_marker(task_id) if task_id else ''
+    reviews_path = f'/repos/{repo}/pulls/{pr_number}/reviews?per_page=100'
+
+    if marker:
+        try:
+            existing_reviews = await github_json(
+                'GET', reviews_path, review_token
+            )
+            if isinstance(existing_reviews, list):
+                for review in existing_reviews:
+                    body = str((review or {}).get('body') or '')
+                    state = str((review or {}).get('state') or '').upper()
+                    if marker in body and state == 'APPROVED':
+                        return review
+        except Exception as exc:
+            logger.warning(
+                'approval_review: could not list existing reviews for %s#%s: %s',
+                repo,
+                pr_number,
+                exc,
+            )
+
+    payload: dict[str, Any] = {
+        'event': 'APPROVE',
+        'body': approval_review_body(review_task, provenance),
+    }
+    if current_sha:
+        payload['commit_id'] = current_sha
+
+    return await github_json(
+        'POST',
+        f'/repos/{repo}/pulls/{pr_number}/reviews',
+        review_token,
+        payload,
+    )
+
+
 async def create_issue_review_task(
     *,
     workspace_id: str,
@@ -1075,11 +1165,13 @@ async def create_issue_review_task(
             'agent_type': 'merge',
         },
     }
+    metadata.update(await resolve_task_target())
     task_id = await create_and_dispatch_task(
         workspace_id=workspace_id,
         title=f'Review issue PR #{pr.get("number")}',
         prompt=review_prompt(repo, issue_number, branch, pr, provenance),
         agent_type='review',
+        priority=50,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
@@ -1178,6 +1270,32 @@ async def create_issue_merge_task(
         )
         return None
 
+    try:
+        await ensure_pull_request_approval_review(
+            repo=repo,
+            pr_number=pr_number,
+            current_sha=current_sha,
+            review_task=review_task,
+            provenance=provenance,
+            token=token,
+        )
+    except Exception as exc:
+        failures = [f'GitHub approving review could not be submitted: {exc}']
+        await record_automation_decision(
+            provenance=provenance,
+            decision=_failure_decision('github:merge_pr', failures),
+            task_id=parent_task_id,
+        )
+        await post_issue_comment(
+            repo,
+            pr_number,
+            token,
+            '## 🛠️ CodeTether Auto-Merge\n\n'
+            'Blocked because CodeTether could not submit the approving PR review required by branch protection.\n\n'
+            f'{_format_blockers(failures)}',
+        )
+        return None
+
     feedback_status = await review_feedback_status(repo, pr_number, token)
     if not feedback_status['feedback_addressed']:
         failures = list(
@@ -1233,6 +1351,7 @@ async def create_issue_merge_task(
             'pr_head_sha': current_sha,
         }
     )
+    merge_metadata.update(await resolve_task_target())
 
     if AUTO_MERGE_ENABLED:
         repo_info = await github_json('GET', f'/repos/{repo}', token)
@@ -1331,6 +1450,7 @@ async def create_issue_merge_task(
         title=f'Merge issue PR #{pr_number}',
         prompt=merge_prompt(repo, issue_number, branch, pr, provenance),
         agent_type='merge',
+        priority=100,
         model_ref=MODEL_REF,
         metadata=merge_metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

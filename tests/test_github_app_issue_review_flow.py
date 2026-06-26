@@ -1,5 +1,6 @@
 import os
 
+
 os.environ.setdefault(
     'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
 )
@@ -12,6 +13,13 @@ from a2a_server.github_app import (
     task_completion,
     task_context,
 )
+
+
+async def _fake_harvester_route():
+    return {
+        'target_agent_name': 'harvester',
+        'required_capabilities': ['persistent-workspace'],
+    }
 
 
 @pytest.fixture
@@ -168,6 +176,9 @@ async def test_create_review_task_records_allow_decision_without_builder_target(
     monkeypatch.setattr(
         issue_review_task, 'record_automation_decision', fake_record
     )
+    monkeypatch.setattr(
+        issue_review_task, 'resolve_task_target', _fake_harvester_route
+    )
 
     task_id = await issue_review_task.create_issue_review_task(
         workspace_id='ws1',
@@ -182,8 +193,13 @@ async def test_create_review_task_records_allow_decision_without_builder_target(
     )
 
     assert task_id == 'task-review-1'
+    assert created[0]['priority'] == 50
     assert created[0]['metadata']['worker_personality'] == 'reviewer'
     assert 'target_worker_id' not in created[0]['metadata']
+    assert created[0]['metadata']['target_agent_name'] == 'harvester'
+    assert created[0]['metadata']['required_capabilities'] == [
+        'persistent-workspace'
+    ]
     assert (
         '@codetether please address the requested PR changes'
         in created[0]['prompt']
@@ -353,6 +369,175 @@ def test_reviewer_approval_ignores_blocked_prose():
 
 
 @pytest.mark.asyncio
+async def test_approval_review_submits_github_pr_review(
+    monkeypatch, pr_payload
+):
+    calls = []
+
+    async def fake_github_json(method, path, token, payload=None):
+        calls.append((method, path, payload))
+        if method == 'GET' and path == (
+            '/repos/acme/widgets/pulls/77/reviews?per_page=100'
+        ):
+            return []
+        if method == 'POST' and path == '/repos/acme/widgets/pulls/77/reviews':
+            assert payload['event'] == 'APPROVE'
+            assert payload['commit_id'] == 'abc123'
+            assert 'codetether-review-task: task-review-1' in payload['body']
+            assert 'Automation provenance:' in payload['body']
+            return {'id': 99, 'state': 'APPROVED'}
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    async def fake_get_secret(*args):
+        return None
+
+    monkeypatch.setattr(
+        'a2a_server.github_app.auth.github_json', fake_github_json
+    )
+    monkeypatch.setattr(issue_review_task, 'get_secret', fake_get_secret)
+    provenance = issue_review_task.issue_pr_provenance(
+        repo='acme/widgets',
+        issue_number=12,
+        branch='codetether/issue-12',
+        pr=pr_payload,
+        installation_id=123,
+        action='github:merge_pr',
+        parent_task_id='task-review-1',
+    )
+
+    result = await issue_review_task.ensure_pull_request_approval_review(
+        repo='acme/widgets',
+        pr_number=77,
+        current_sha='abc123',
+        review_task={
+            'id': 'task-review-1',
+            'result': 'APPROVED: validation passed',
+        },
+        provenance=provenance,
+        token='token',
+    )
+
+    assert result == {'id': 99, 'state': 'APPROVED'}
+    assert calls[-1][0] == 'POST'
+
+
+@pytest.mark.asyncio
+async def test_approval_review_uses_configured_approval_token(
+    monkeypatch, pr_payload
+):
+    tokens = []
+
+    async def fake_get_secret(*args):
+        return 'approval-token'
+
+    async def fake_github_json(method, path, token, payload=None):
+        tokens.append(token)
+        if method == 'GET':
+            return []
+        if method == 'POST':
+            return {'id': 100, 'state': 'APPROVED'}
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    monkeypatch.setattr(issue_review_task, 'get_secret', fake_get_secret)
+    monkeypatch.setattr(
+        'a2a_server.github_app.auth.github_json', fake_github_json
+    )
+    provenance = issue_review_task.issue_pr_provenance(
+        repo='acme/widgets',
+        issue_number=12,
+        branch='codetether/issue-12',
+        pr=pr_payload,
+        installation_id=123,
+        action='github:merge_pr',
+        parent_task_id='task-review-1',
+    )
+
+    await issue_review_task.ensure_pull_request_approval_review(
+        repo='acme/widgets',
+        pr_number=77,
+        current_sha='abc123',
+        review_task={'id': 'task-review-1', 'result': 'APPROVED'},
+        provenance=provenance,
+        token='app-token',
+    )
+
+    assert tokens == ['approval-token', 'approval-token']
+
+
+@pytest.mark.asyncio
+async def test_create_merge_task_blocks_when_approval_review_rejected(
+    monkeypatch, pr_payload
+):
+    decisions = []
+    comments = []
+    feedback_called = False
+
+    async def fake_github_json(method, path, token, payload=None):
+        if path == '/repos/acme/widgets/pulls/77':
+            return pr_payload
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    async def fake_approval_review(**kwargs):
+        raise RuntimeError('Cannot approve your own pull request')
+
+    async def fake_feedback_status(repo, pr_number, token):
+        nonlocal feedback_called
+        feedback_called = True
+        return {'feedback_addressed': True, 'blockers': []}
+
+    async def fake_record(**kwargs):
+        decisions.append(kwargs)
+
+    async def fake_post(repo, issue_number, token, body):
+        comments.append(body)
+
+    monkeypatch.setattr(
+        'a2a_server.github_app.auth.github_json', fake_github_json
+    )
+    monkeypatch.setattr(
+        issue_review_task,
+        'ensure_pull_request_approval_review',
+        fake_approval_review,
+    )
+    monkeypatch.setattr(
+        issue_review_task, 'review_feedback_status', fake_feedback_status
+    )
+    monkeypatch.setattr(
+        issue_review_task, 'record_automation_decision', fake_record
+    )
+    monkeypatch.setattr(
+        'a2a_server.github_app.watch.post_issue_comment', fake_post
+    )
+
+    result = await issue_review_task.create_issue_merge_task(
+        review_task={
+            'id': 'task-review-1',
+            'result': 'APPROVED: looks safe',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'issue_number': 12,
+                'pr_number': 77,
+                'branch_name': 'codetether/issue-12',
+                'pr_head_sha': 'abc123',
+                'github_installation_id': 123,
+            },
+        },
+        token='token',
+    )
+
+    assert result is None
+    assert feedback_called is False
+    assert decisions[-1]['decision']['allowed'] is False
+    assert decisions[-1]['decision']['action'] == 'github:merge_pr'
+    assert (
+        'approving review could not be submitted'
+        in (decisions[-1]['decision']['provenance']['failures'][0])
+    )
+    assert 'could not submit the approving PR review' in comments[0]
+
+
+@pytest.mark.asyncio
 async def test_create_merge_task_records_sha_mismatch(monkeypatch, pr_payload):
     decisions = []
     comments = []
@@ -430,11 +615,19 @@ async def test_create_merge_task_blocks_unresolved_review_feedback(
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
+    async def fake_approval_review(**kwargs):
+        return {'id': 1}
+
     monkeypatch.setattr(
         'a2a_server.github_app.auth.github_json', fake_github_json
     )
     monkeypatch.setattr(
         issue_review_task, 'review_feedback_status', fake_feedback_status
+    )
+    monkeypatch.setattr(
+        issue_review_task,
+        'ensure_pull_request_approval_review',
+        fake_approval_review,
     )
     monkeypatch.setattr(
         issue_review_task, 'record_automation_decision', fake_record
@@ -505,6 +698,9 @@ async def test_create_merge_task_auto_merges_when_feedback_addressed(
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
+    async def fake_approval_review(**kwargs):
+        return {'id': 1}
+
     monkeypatch.setattr(
         'a2a_server.github_app.auth.github_json', fake_github_json
     )
@@ -513,6 +709,11 @@ async def test_create_merge_task_auto_merges_when_feedback_addressed(
     )
     monkeypatch.setattr(
         issue_review_task, 'status_check_status', fake_status_check_status
+    )
+    monkeypatch.setattr(
+        issue_review_task,
+        'ensure_pull_request_approval_review',
+        fake_approval_review,
     )
     monkeypatch.setattr(
         issue_review_task, 'record_automation_decision', fake_record
@@ -598,6 +799,9 @@ async def test_create_merge_task_enables_github_auto_merge_when_direct_merge_blo
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
+    async def fake_approval_review(**kwargs):
+        return {'id': 1}
+
     monkeypatch.setattr(
         'a2a_server.github_app.auth.github_json', fake_github_json
     )
@@ -609,6 +813,11 @@ async def test_create_merge_task_enables_github_auto_merge_when_direct_merge_blo
     )
     monkeypatch.setattr(
         issue_review_task, 'status_check_status', fake_status_check_status
+    )
+    monkeypatch.setattr(
+        issue_review_task,
+        'ensure_pull_request_approval_review',
+        fake_approval_review,
     )
     monkeypatch.setattr(
         issue_review_task, 'record_automation_decision', fake_record
@@ -644,6 +853,85 @@ async def test_create_merge_task_enables_github_auto_merge_when_direct_merge_blo
 
 
 @pytest.mark.asyncio
+async def test_create_merge_task_dispatches_high_priority_merge_when_auto_merge_disabled(
+    monkeypatch, pr_payload
+):
+    dispatched = []
+
+    async def fake_github_json(method, path, token):
+        if path == '/repos/acme/widgets/pulls/77':
+            return pr_payload
+        raise AssertionError(f'unexpected GitHub call: {method} {path}')
+
+    async def fake_feedback_status(repo, pr_number, token):
+        return {'feedback_addressed': True, 'blockers': []}
+
+    async def fake_status_check_status(repo, sha, token):
+        return {'checks_green': True, 'blockers': []}
+
+    async def fake_approval_review(**kwargs):
+        return {'id': 1}
+
+    async def fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'task-merge-1'
+
+    async def fake_record(**kwargs):
+        pass
+
+    monkeypatch.setattr(
+        'a2a_server.github_app.auth.github_json', fake_github_json
+    )
+    monkeypatch.setattr(
+        issue_review_task, 'review_feedback_status', fake_feedback_status
+    )
+    monkeypatch.setattr(
+        issue_review_task, 'status_check_status', fake_status_check_status
+    )
+    monkeypatch.setattr(
+        issue_review_task,
+        'ensure_pull_request_approval_review',
+        fake_approval_review,
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_dispatch,
+    )
+    monkeypatch.setattr(
+        issue_review_task, 'record_automation_decision', fake_record
+    )
+    monkeypatch.setattr(issue_review_task, 'AUTO_MERGE_ENABLED', False)
+    monkeypatch.setattr(
+        issue_review_task, 'resolve_task_target', _fake_harvester_route
+    )
+
+    task_id = await issue_review_task.create_issue_merge_task(
+        review_task={
+            'id': 'task-review-1',
+            'result': 'APPROVED: looks safe',
+            'metadata': {
+                'workspace_id': 'ws1',
+                'repo': 'acme/widgets',
+                'issue_number': 12,
+                'pr_number': 77,
+                'branch_name': 'codetether/issue-12',
+                'pr_head_sha': 'abc123',
+                'github_installation_id': 123,
+            },
+        },
+        token='token',
+    )
+
+    assert task_id == 'task-merge-1'
+    assert dispatched[0]['title'] == 'Merge issue PR #77'
+    assert dispatched[0]['priority'] == 100
+    assert dispatched[0]['metadata']['target_agent_name'] == 'harvester'
+    assert dispatched[0]['metadata']['required_capabilities'] == [
+        'persistent-workspace'
+    ]
+
+
+@pytest.mark.asyncio
 async def test_create_merge_task_blocks_failed_status_checks(
     monkeypatch, pr_payload
 ):
@@ -672,6 +960,9 @@ async def test_create_merge_task_blocks_failed_status_checks(
     async def fake_post(repo, issue_number, token, body):
         comments.append(body)
 
+    async def fake_approval_review(**kwargs):
+        return {'id': 1}
+
     monkeypatch.setattr(
         'a2a_server.github_app.auth.github_json', fake_github_json
     )
@@ -680,6 +971,11 @@ async def test_create_merge_task_blocks_failed_status_checks(
     )
     monkeypatch.setattr(
         issue_review_task, 'status_check_status', fake_status_check_status
+    )
+    monkeypatch.setattr(
+        issue_review_task,
+        'ensure_pull_request_approval_review',
+        fake_approval_review,
     )
     monkeypatch.setattr(
         issue_review_task, 'record_automation_decision', fake_record
@@ -796,6 +1092,9 @@ async def test_fix_followup_creates_task_on_changes_requested(
         'a2a_server.github_app.watch.post_issue_comment', fake_post
     )
     monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+    monkeypatch.setattr(
+        issue_review_task, 'resolve_task_target', _fake_harvester_route
+    )
 
     task_id = await issue_review_task.create_fix_followup_task(
         review_task=_make_review_task('CHANGES_REQUESTED: tests failed'),
@@ -864,6 +1163,9 @@ async def test_fix_followup_creates_task_on_blocked(monkeypatch, pr_payload):
         'a2a_server.github_app.watch.post_issue_comment', fake_post
     )
     monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+    monkeypatch.setattr(
+        issue_review_task, 'resolve_task_target', _fake_harvester_route
+    )
 
     task_id = await issue_review_task.create_fix_followup_task(
         review_task=_make_review_task('BLOCKED: provenance mismatch'),
@@ -1059,6 +1361,9 @@ async def test_fix_followup_includes_review_context_in_prompt(
         'a2a_server.github_app.watch.post_issue_comment', fake_post
     )
     monkeypatch.setattr(issue_review_task, '_count_fix_attempts', fake_count)
+    monkeypatch.setattr(
+        issue_review_task, 'resolve_task_target', _fake_harvester_route
+    )
 
     task_id = await issue_review_task.create_fix_followup_task(
         review_task=_make_review_task(
@@ -1078,6 +1383,10 @@ async def test_fix_followup_includes_review_context_in_prompt(
     assert 'Test test_foo fails' in prompt
     assert 'FAILED test_foo' in prompt
     assert 'CHANGES_REQUESTED' in prompt
+    assert dispatched[0]['metadata']['target_agent_name'] == 'harvester'
+    assert dispatched[0]['metadata']['required_capabilities'] == [
+        'persistent-workspace'
+    ]
 
 
 @pytest.mark.asyncio
@@ -1125,7 +1434,6 @@ async def test_create_merge_task_falls_back_to_mention_on_fix_failure(
 
     async def fake_fix_followup(*, review_task, token):
         fix_created.append(True)
-        return None  # fix follow-up could not create task
 
     async def fake_fallback(*, review_task, token):
         fallback_called.append(True)
@@ -1159,7 +1467,6 @@ async def test_create_merge_task_does_not_call_fix_on_approval(
 
     async def fake_fix_followup(*, review_task, token):
         fix_created.append(True)
-        return None
 
     async def fake_github_json(method, path, token, payload=None):
         if path == '/repos/acme/widgets/pulls/77':

@@ -5,6 +5,7 @@ from .issue_prompt import issue_fix_prompt
 from .routing import resolve_task_target
 from .settings import MODEL_REF
 
+
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
 
@@ -18,7 +19,7 @@ async def create_issue_clone_task(
     github_issue_url: str = '',
     github_installation_id: int = 0,
     github_check_head_sha: str = '',
-) -> str:
+) -> tuple[str, bool]:
     """Queue the branch preparation task for an issue fix request.
 
     Dispatches as fire-and-forget with a 7-day timeout so the persistent
@@ -26,6 +27,10 @@ async def create_issue_clone_task(
 
     The github_issue_url is propagated into the clone and follow-up build
     task metadata so the progress reporter can post periodic comments.
+
+    Returns ``(task_id, created)``. ``created`` is False when an active task
+    for the same issue/commit/stage was reused (e.g. a redelivered or
+    duplicate webhook), so the caller can skip a duplicate acceptance comment.
     """
     from ..persistent_worker_pool import create_and_dispatch_task
 
@@ -88,4 +93,5 @@ async def create_issue_clone_task(
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=github_issue_url,
+        with_created=True,
     )

@@ -1,5 +1,4 @@
-"""
-Monitoring API endpoints for A2A Server.
+"""Monitoring API endpoints for A2A Server.
 
 Provides real-time monitoring, logging, and human intervention capabilities.
 Supports multiple storage backends:
@@ -11,29 +10,29 @@ Supports multiple storage backends:
 """
 
 import asyncio
+import io
 import json
 import logging
 import os
 import sqlite3
 import threading
 import uuid
-from typing import List, Dict, Any, Optional, Literal
-from datetime import datetime, timezone, timedelta
+
 from collections import deque
-from dataclasses import dataclass, asdict
-from fastapi import APIRouter, HTTPException, Request, Depends, Security
-from fastapi.responses import (
-    StreamingResponse,
-    HTMLResponse,
-    FileResponse,
-    JSONResponse,
-)
-from pydantic import BaseModel
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import os
-import io
-import tempfile
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
+from typing import Any, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
 
 # Import PostgreSQL persistence layer
 from . import database as db
@@ -43,13 +42,16 @@ from .git_service import (
     issue_git_credentials,
     store_git_credential_record,
 )
-from .task_routing import target_agent_mismatch
 from .task_orchestration import orchestrate_task_route
+from .task_routing import target_agent_mismatch
+
 
 try:
     from .vm_workspace_provisioner import (
         VMWorkspaceSpec,
         vm_workspace_provisioner,
+    )
+    from .vm_workspace_provisioner import (
         is_enabled as is_vm_workspaces_enabled,
     )
 except ModuleNotFoundError:
@@ -114,10 +116,10 @@ class MonitorMessage:
     type: str  # agent, human, system, tool, error
     agent_name: str
     content: str
-    metadata: Dict[str, Any]
-    response_time: Optional[float] = None
-    tokens: Optional[int] = None
-    error: Optional[str] = None
+    metadata: dict[str, Any]
+    response_time: float | None = None
+    tokens: int | None = None
+    error: str | None = None
 
 
 class InterventionRequest(BaseModel):
@@ -132,38 +134,94 @@ class AgentTaskResponse(BaseModel):
     """Response model for an agent task."""
 
     id: str
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     title: str
     prompt: str
     agent_type: str = 'build'
-    model: Optional[str] = None
+    model: str | None = None
     status: str
     priority: int = 0
     created_at: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    result: Optional[str] = None
-    error: Optional[str] = None
-    session_id: Optional[str] = None
-    metadata: Dict[str, Any] = {}
-    target_agent_name: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    result: str | None = None
+    error: str | None = None
+    session_id: str | None = None
+    metadata: dict[str, Any] = {}
+    target_agent_name: str | None = None
 
 
-def _task_metadata(task: Dict[str, Any]) -> Dict[str, Any]:
+def _task_metadata(task: dict[str, Any]) -> dict[str, Any]:
     metadata = task.get('metadata') or {}
-    if isinstance(metadata, str):
+    # Some legacy rows accidentally stored JSON as a JSON string. Decode a
+    # bounded number of times so routing fields such as required_capabilities
+    # are still honored by worker polling filters.
+    for _ in range(2):
+        if not isinstance(metadata, str):
+            break
         try:
             parsed = json.loads(metadata)
         except json.JSONDecodeError:
             return {}
-        return parsed if isinstance(parsed, dict) else {}
+        metadata = parsed
     return metadata if isinstance(metadata, dict) else {}
 
 
+def _normalize_task_capabilities(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = [value]
+        value = parsed
+    if not isinstance(value, list):
+        return []
+    return [str(cap).strip() for cap in value if str(cap).strip()]
+
+
+def _worker_satisfies_required_capabilities(
+    worker_capabilities: list[str] | None,
+    required_capabilities: list[str],
+) -> bool:
+    if not required_capabilities:
+        return True
+    if not worker_capabilities:
+        return False
+    worker_caps = set(worker_capabilities)
+    aliases = {
+        'persistent': {
+            'persistent',
+            'persistent-workspace',
+            'persistent_workspace',
+            'harvester',
+        },
+        'persistent-workspace': {
+            'persistent-workspace',
+            'persistent_workspace',
+            'persistent',
+            'harvester',
+        },
+        'persistent_workspace': {
+            'persistent-workspace',
+            'persistent_workspace',
+            'persistent',
+            'harvester',
+        },
+    }
+    for required in required_capabilities:
+        accepted = aliases.get(required, {required})
+        if not worker_caps.intersection(accepted):
+            return False
+    return True
+
+
 def _pending_task_visible_to_worker(
-    task: Dict[str, Any],
-    worker_id: Optional[str],
-    agent_name: Optional[str],
+    task: dict[str, Any],
+    worker_id: str | None,
+    agent_name: str | None,
+    worker_capabilities: list[str] | None = None,
 ) -> bool:
     """Hide targeted pending tasks from legacy pollers that cannot claim them."""
     metadata = _task_metadata(task)
@@ -180,21 +238,36 @@ def _pending_task_visible_to_worker(
     ):
         return False
 
+    required_capabilities = _normalize_task_capabilities(
+        task.get('required_capabilities')
+        or metadata.get('required_capabilities')
+    )
+    if not _worker_satisfies_required_capabilities(
+        worker_capabilities, required_capabilities
+    ):
+        return False
+
     return True
 
 
-async def _active_worker_id_for_agent_name(
-    agent_name: Optional[str],
-) -> Optional[str]:
+async def _active_worker_for_agent_name(
+    agent_name: str | None,
+) -> dict[str, Any] | None:
     """Resolve legacy poll requests that identify the worker by agent_name only."""
     if not agent_name:
         return None
     try:
         worker = await db.db_get_active_worker_by_name(agent_name)
     except Exception as e:
-        logger.debug(f'Failed to resolve worker id for agent {agent_name}: {e}')
+        logger.debug(f'Failed to resolve worker for agent {agent_name}: {e}')
         return None
+    return worker if isinstance(worker, dict) else None
 
+
+async def _active_worker_id_for_agent_name(
+    agent_name: str | None,
+) -> str | None:
+    worker = await _active_worker_for_agent_name(agent_name)
     if worker:
         worker_id = str(worker.get('worker_id') or '').strip()
         if worker_id:
@@ -205,7 +278,7 @@ async def _active_worker_id_for_agent_name(
 class PersistentMessageStore:
     """SQLite-based persistent storage for monitor messages with fallback to in-memory."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         self.db_path = db_path or DEFAULT_DB_PATH
         self._local = threading.local()
         self._use_sqlite = (
@@ -332,7 +405,7 @@ class PersistentMessageStore:
         except Exception as e:
             logger.debug(f'No existing MinIO data to load: {e}')
 
-    def _save_to_minio(self, message_dict: Dict[str, Any]):
+    def _save_to_minio(self, message_dict: dict[str, Any]):
         """Save a message to MinIO storage."""
         if not self._minio_client:
             return
@@ -550,12 +623,12 @@ class PersistentMessageStore:
     def _get_messages_from_memory(
         self,
         limit: int = 100,
-        message_type: Optional[str] = None,
-        agent_name: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        since: Optional[datetime] = None,
+        message_type: str | None = None,
+        agent_name: str | None = None,
+        conversation_id: str | None = None,
+        since: datetime | None = None,
         offset: int = 0,
-    ) -> List[MonitorMessage]:
+    ) -> list[MonitorMessage]:
         """Return messages from the in-memory cache (used for MinIO and in-memory fallback)."""
 
         def _parse_ts(value: Any) -> datetime:
@@ -568,7 +641,7 @@ class PersistentMessageStore:
                     return datetime.min
             return datetime.min
 
-        def _get_metadata(m: Dict[str, Any]) -> Dict[str, Any]:
+        def _get_metadata(m: dict[str, Any]) -> dict[str, Any]:
             md = m.get('metadata')
             return md if isinstance(md, dict) else {}
 
@@ -603,7 +676,7 @@ class PersistentMessageStore:
         # Apply pagination
         page = raw[offset : offset + limit]
 
-        result: List[MonitorMessage] = []
+        result: list[MonitorMessage] = []
         for m in page:
             result.append(
                 MonitorMessage(
@@ -625,12 +698,12 @@ class PersistentMessageStore:
     def get_messages(
         self,
         limit: int = 100,
-        message_type: Optional[str] = None,
-        agent_name: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        since: Optional[datetime] = None,
+        message_type: str | None = None,
+        agent_name: str | None = None,
+        conversation_id: str | None = None,
+        since: datetime | None = None,
         offset: int = 0,
-    ) -> List[MonitorMessage]:
+    ) -> list[MonitorMessage]:
         """Get messages with optional filtering."""
         # For MinIO-backed deployments, reads come from the in-memory cache.
         # (MinIO is used as the persistence layer, and the cache is populated on init and on writes.)
@@ -692,7 +765,7 @@ class PersistentMessageStore:
 
         return messages
 
-    def get_message_count(self, message_type: Optional[str] = None) -> int:
+    def get_message_count(self, message_type: str | None = None) -> int:
         """Get total message count."""
         # For MinIO (and in-memory fallback), counts are tracked in-memory.
         if not self._use_sqlite:
@@ -751,7 +824,7 @@ class PersistentMessageStore:
 
         conn.commit()
 
-    def get_interventions(self, limit: int = 100) -> List[Dict]:
+    def get_interventions(self, limit: int = 100) -> list[dict]:
         """Get recent interventions."""
         if not self._use_sqlite:
             return list(self._in_memory_interventions)[-limit:]
@@ -771,7 +844,7 @@ class PersistentMessageStore:
 
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get aggregate statistics."""
         # For MinIO (and in-memory fallback), stats are tracked in-memory.
         if not self._use_sqlite:
@@ -793,7 +866,7 @@ class PersistentMessageStore:
 
     def search_messages(
         self, query: str, limit: int = 100
-    ) -> List[MonitorMessage]:
+    ) -> list[MonitorMessage]:
         """Full-text search in message content."""
         # For MinIO (and in-memory fallback), search the in-memory cache.
         if not self._use_sqlite:
@@ -863,7 +936,7 @@ class PersistentMessageStore:
 class MonitoringService:
     """Service for monitoring agent conversations and enabling human intervention."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         # Persistent storage
         self.store = PersistentMessageStore(db_path)
 
@@ -892,10 +965,10 @@ class MonitoringService:
         agent_name: str,
         content: str,
         message_type: str = 'agent',
-        metadata: Optional[Dict[str, Any]] = None,
-        response_time: Optional[float] = None,
-        tokens: Optional[int] = None,
-        error: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        response_time: float | None = None,
+        tokens: int | None = None,
+        error: str | None = None,
     ):
         """Log a message from an agent or system."""
         message = MonitorMessage(
@@ -947,10 +1020,9 @@ class MonitoringService:
         for queue in self.subscribers:
             try:
                 await queue.put(f'data: {message_json}\n\n')
-                logger.debug(f'Message queued successfully')
+                logger.debug('Message queued successfully')
             except Exception as e:
                 logger.error(f'Failed to send to subscriber: {e}')
-                pass
 
     async def broadcast_agent_status(self, agent_id: str, agent_data: dict):
         """Broadcast agent status update to all SSE subscribers."""
@@ -1025,9 +1097,9 @@ class MonitoringService:
     def get_messages(
         self,
         limit: int = 100,
-        message_type: Optional[str] = None,
+        message_type: str | None = None,
         use_cache: bool = True,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Get recent messages."""
         if use_cache and limit <= 1000:
             # Use in-memory cache for fast access
@@ -1035,14 +1107,13 @@ class MonitoringService:
             if message_type:
                 messages = [m for m in messages if m.type == message_type]
             return [asdict(m) for m in messages[-limit:]]
-        else:
-            # Query persistent storage for larger requests
-            messages = self.store.get_messages(
-                limit=limit, message_type=message_type
-            )
-            return [asdict(m) for m in messages]
+        # Query persistent storage for larger requests
+        messages = self.store.get_messages(
+            limit=limit, message_type=message_type
+        )
+        return [asdict(m) for m in messages]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get monitoring statistics."""
         # Get persistent stats
         db_stats = self.store.get_stats()
@@ -1064,7 +1135,7 @@ class MonitoringService:
             'interventions': db_stats.get('interventions', 0),
         }
 
-    def search_messages(self, query: str, limit: int = 100) -> List[Dict]:
+    def search_messages(self, query: str, limit: int = 100) -> list[dict]:
         """Search messages by content, agent name, or metadata."""
         messages = self.store.search_messages(query, limit)
         return [asdict(m) for m in messages]
@@ -1147,9 +1218,9 @@ async def monitor_stream(request: Request):
                         f'Sending message to SSE client: {message[:100]}'
                     )
                     yield message
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send heartbeat on timeout
-                    yield f': heartbeat\n\n'
+                    yield ': heartbeat\n\n'
                 except asyncio.CancelledError:
                     logger.info('SSE stream cancelled')
                     break
@@ -1181,7 +1252,7 @@ async def get_active_agents():
 
 @monitor_router.get('/messages')
 async def get_messages(
-    limit: int = 100, type: Optional[str] = None, use_cache: bool = True
+    limit: int = 100, type: str | None = None, use_cache: bool = True
 ):
     """Get recent messages. Set use_cache=false to query all persistent logs."""
     return monitoring_service.get_messages(
@@ -1200,7 +1271,7 @@ async def search_messages(q: str, limit: int = 100):
 
 
 @monitor_router.get('/messages/count')
-async def get_message_count(type: Optional[str] = None):
+async def get_message_count(type: str | None = None):
     """Get total message count from persistent storage."""
     return {
         'total': monitoring_service.store.get_message_count(type),
@@ -1210,9 +1281,9 @@ async def get_message_count(type: Optional[str] = None):
 
 @monitor_router.get('/workers')
 async def monitor_list_workers(
-    search: Optional[str] = None,
+    search: str | None = None,
     online_only: bool = False,
-    exclude_offline_hours: Optional[int] = 24,
+    exclude_offline_hours: int | None = 24,
 ):
     """Proxy to /v1/agent/workers for backward compatibility."""
     return await list_workers(
@@ -1304,11 +1375,11 @@ async def export_csv(limit: int = 10000, all_messages: bool = False):
 _agent_bridge = None
 
 # Worker-synced session data: {workspace_id: [session_dicts]}
-_worker_sessions: Dict[str, List[Dict[str, Any]]] = {}
+_worker_sessions: dict[str, list[dict[str, Any]]] = {}
 # Worker-synced messages: {session_id: [message_dicts]}
-_worker_messages: Dict[str, List[Dict[str, Any]]] = {}
+_worker_messages: dict[str, list[dict[str, Any]]] = {}
 # Real-time task output streams: {task_id: [output_lines]}
-_task_output_streams: Dict[str, List[Dict[str, Any]]] = {}
+_task_output_streams: dict[str, list[dict[str, Any]]] = {}
 
 # Optional Redis backing store for worker-synced sessions/messages.
 #
@@ -1378,8 +1449,8 @@ def _redis_key_worker_messages(session_id: str) -> str:
 
 async def _append_worker_message(
     session_id: str,
-    message: Dict[str, Any],
-    worker_id: Optional[str] = None,
+    message: dict[str, Any],
+    worker_id: str | None = None,
 ) -> None:
     """Append a message to the worker-synced store (memory + Redis)."""
     existing = _worker_messages.get(session_id, [])
@@ -1390,7 +1461,7 @@ async def _append_worker_message(
         return
 
     try:
-        payload: Dict[str, Any] = {}
+        payload: dict[str, Any] = {}
         raw = await client.get(_redis_key_worker_messages(session_id))
         if raw:
             payload = json.loads(raw) if isinstance(raw, str) else {}
@@ -1433,7 +1504,7 @@ def _redis_key_workspace_meta(workspace_id: str) -> str:
     return f'a2a:agent:workspaces:{workspace_id}:meta'
 
 
-async def _redis_upsert_worker(worker_info: Dict[str, Any]) -> None:
+async def _redis_upsert_worker(worker_info: dict[str, Any]) -> None:
     """Best-effort: mirror worker registry to Redis so all replicas can list it."""
     client = await _get_redis_client()
     if not client:
@@ -1462,7 +1533,7 @@ async def _redis_delete_worker(worker_id: str) -> None:
         logger.debug(f'Failed to delete worker from Redis: {e}')
 
 
-async def _redis_list_workers() -> List[Dict[str, Any]]:
+async def _redis_list_workers() -> list[dict[str, Any]]:
     client = await _get_redis_client()
     if not client:
         return []
@@ -1475,7 +1546,7 @@ async def _redis_list_workers() -> List[Dict[str, Any]]:
         keys = [_redis_key_worker(wid) for wid in worker_ids]
         raw_items = await client.mget(keys)
 
-        workers: List[Dict[str, Any]] = []
+        workers: list[dict[str, Any]] = []
         for raw in raw_items:
             if not raw:
                 continue
@@ -1489,7 +1560,7 @@ async def _redis_list_workers() -> List[Dict[str, Any]]:
         return []
 
 
-async def _redis_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
+async def _redis_get_worker(worker_id: str) -> dict[str, Any] | None:
     client = await _get_redis_client()
     if not client:
         return None
@@ -1504,7 +1575,7 @@ async def _redis_get_worker(worker_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def _redis_upsert_workspace_meta(workspace: Dict[str, Any]) -> None:
+async def _redis_upsert_workspace_meta(workspace: dict[str, Any]) -> None:
     """Best-effort: mirror workspace registry to Redis for multi-replica setups."""
     client = await _get_redis_client()
     if not client:
@@ -1535,7 +1606,7 @@ async def _redis_delete_workspace_meta(workspace_id: str) -> None:
         logger.debug(f'Failed to delete workspace meta from Redis: {e}')
 
 
-async def _redis_list_workspace_meta() -> List[Dict[str, Any]]:
+async def _redis_list_workspace_meta() -> list[dict[str, Any]]:
     client = await _get_redis_client()
     if not client:
         return []
@@ -1548,7 +1619,7 @@ async def _redis_list_workspace_meta() -> List[Dict[str, Any]]:
         keys = [_redis_key_workspace_meta(cid) for cid in workspace_ids]
         raw_items = await client.mget(keys)
 
-        workspaces: List[Dict[str, Any]] = []
+        workspaces: list[dict[str, Any]] = []
         for raw in raw_items:
             if not raw:
                 continue
@@ -1564,7 +1635,7 @@ async def _redis_list_workspace_meta() -> List[Dict[str, Any]]:
 
 async def _redis_get_workspace_meta(
     workspace_id: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     client = await _get_redis_client()
     if not client:
         return None
@@ -1620,10 +1691,7 @@ def get_agent_bridge():
 
             # Set up SSE worker notification hook for task updates
             try:
-                from .worker_sse import (
-                    get_worker_registry,
-                    notify_workers_of_new_task,
-                )
+                from .worker_sse import notify_workers_of_new_task
 
                 async def _on_task_update(task):
                     """Notify SSE-connected workers when a task is created/updated."""
@@ -1704,7 +1772,7 @@ async def _rehydrate_workspace_into_bridge(workspace_id: str):
     if existing is not None:
         return existing
 
-    meta: Optional[Dict[str, Any]] = None
+    meta: dict[str, Any] | None = None
     try:
         meta = await _redis_get_workspace_meta(workspace_id)
     except Exception:
@@ -1747,8 +1815,8 @@ async def _rehydrate_workspace_into_bridge(workspace_id: str):
 
 
 def _extract_workspace_runtime_meta(
-    workspace: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
+    workspace: dict[str, Any] | None,
+) -> dict[str, Any]:
     """Extract runtime metadata from a workspace dict."""
     if not isinstance(workspace, dict):
         return {'runtime': 'container'}
@@ -1802,26 +1870,26 @@ class WorkspaceRegistration(BaseModel):
     """Request model for registering a workspace."""
 
     name: str
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     path: str = ''  # Can be empty when git_url is provided
     description: str = ''
-    agent_config: Dict[str, Any] = {}
-    worker_id: Optional[str] = None  # Associate with a specific worker
-    git_url: Optional[str] = None  # HTTPS Git URL to clone
-    git_branch: Optional[str] = None
-    git_token: Optional[str] = None  # Access token (stored in Vault, not DB)
-    git_auth: Optional[GitAuthConfig] = None
+    agent_config: dict[str, Any] = {}
+    worker_id: str | None = None  # Associate with a specific worker
+    git_url: str | None = None  # HTTPS Git URL to clone
+    git_branch: str | None = None
+    git_token: str | None = None  # Access token (stored in Vault, not DB)
+    git_auth: GitAuthConfig | None = None
     runtime: Literal['container', 'vm'] = 'container'
-    vm: Optional[Dict[str, Any]] = None
+    vm: dict[str, Any] | None = None
 
 
 class GitCredentialRequest(BaseModel):
     """Request model for worker-issued git credentials."""
 
     operation: str = 'get'
-    protocol: Optional[str] = None
-    host: Optional[str] = None
-    path: Optional[str] = None
+    protocol: str | None = None
+    host: str | None = None
+    path: str | None = None
 
 
 class AgentTrigger(BaseModel):
@@ -1829,19 +1897,19 @@ class AgentTrigger(BaseModel):
 
     prompt: str
     agent: str = 'build'
-    model: Optional[str] = None
-    model_ref: Optional[str] = None
-    files: List[str] = []
-    worker_personality: Optional[str] = None
-    notify_email: Optional[str] = None
-    metadata: Dict[str, Any] = {}
+    model: str | None = None
+    model_ref: str | None = None
+    files: list[str] = []
+    worker_personality: str | None = None
+    notify_email: str | None = None
+    metadata: dict[str, Any] = {}
 
 
 class AgentMessage(BaseModel):
     """Request model for sending a message to an agent."""
 
     message: str
-    agent: Optional[str] = None
+    agent: str | None = None
 
 
 class AgentTaskCreate(BaseModel):
@@ -1851,11 +1919,11 @@ class AgentTaskCreate(BaseModel):
     prompt: str
     agent_type: str = 'build'
     priority: int = 0
-    metadata: Dict[str, Any] = {}
-    workspace_id: Optional[str] = None  # Optional: specify target workspace
-    model: Optional[str] = None  # Optional: specify model
-    model_ref: Optional[str] = None  # Optional: normalized provider:model
-    worker_personality: Optional[str] = None
+    metadata: dict[str, Any] = {}
+    workspace_id: str | None = None  # Optional: specify target workspace
+    model: str | None = None  # Optional: specify model
+    model_ref: str | None = None  # Optional: normalized provider:model
+    worker_personality: str | None = None
 
 
 class WatchModeConfig(BaseModel):
@@ -2020,8 +2088,7 @@ async def database_sessions(
     limit: int = 100,
     offset: int = 0,
 ):
-    """
-    List all sessions from PostgreSQL database.
+    """List all sessions from PostgreSQL database.
 
     Returns sessions across all workspaces, sorted by most recently updated.
     Use this endpoint for a global view of all agent sessions.
@@ -2038,8 +2105,7 @@ async def database_sessions(
 
 @agent_router_alias.get('/database/workspaces')
 async def database_workspaces():
-    """
-    List all workspaces from PostgreSQL database.
+    """List all workspaces from PostgreSQL database.
 
     Returns all registered workspaces with their worker assignments.
     """
@@ -2053,8 +2119,7 @@ async def database_workspaces():
 
 @agent_router_alias.post('/database/workspaces/deduplicate')
 async def deduplicate_workspaces():
-    """
-    Remove duplicate workspace entries, keeping the oldest (canonical) ID for each path.
+    """Remove duplicate workspace entries, keeping the oldest (canonical) ID for each path.
 
     This is useful after server restarts or when workers have created duplicate entries.
     The canonical ID is preserved to maintain consistency with existing tasks and sessions.
@@ -2074,8 +2139,7 @@ async def deduplicate_workspaces():
 
 @agent_router_alias.get('/database/workers')
 async def database_workers():
-    """
-    List all workers from PostgreSQL database.
+    """List all workers from PostgreSQL database.
 
     Returns all registered workers with their status and capabilities.
     """
@@ -2101,7 +2165,7 @@ AGENT_DATA_DIR = os.environ.get(
 AGENT_STORAGE_DIR = os.path.join(AGENT_DATA_DIR, 'storage')
 
 
-def _get_agent_storage_path() -> Optional[str]:
+def _get_agent_storage_path() -> str | None:
     """Get the Agent storage directory path if it exists."""
     if os.path.isdir(AGENT_STORAGE_DIR):
         return AGENT_STORAGE_DIR
@@ -2116,18 +2180,18 @@ def _get_agent_storage_path() -> Optional[str]:
     return None
 
 
-async def _read_json_file(filepath: str) -> Optional[Dict[str, Any]]:
+async def _read_json_file(filepath: str) -> dict[str, Any] | None:
     """Read and parse a JSON file."""
     try:
         import aiofiles
 
-        async with aiofiles.open(filepath, 'r') as f:
+        async with aiofiles.open(filepath) as f:
             content = await f.read()
             return json.loads(content)
     except ImportError:
         # Fallback to sync if aiofiles not available
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath) as f:
                 return json.load(f)
         except Exception as e:
             logger.debug(f'Failed to read {filepath}: {e}')
@@ -2139,8 +2203,7 @@ async def _read_json_file(filepath: str) -> Optional[Dict[str, Any]]:
 
 @agent_router_alias.get('/runtime/status')
 async def agent_runtime_status():
-    """
-    Check if Agent runtime is available on this system.
+    """Check if Agent runtime is available on this system.
 
     Returns information about the local agent installation and storage.
     """
@@ -2190,8 +2253,7 @@ async def agent_runtime_status():
 
 @agent_router_alias.get('/runtime/projects')
 async def list_agent_projects():
-    """
-    List all Agent projects detected on this system.
+    """List all Agent projects detected on this system.
 
     Projects are identified by their git commit hash and include
     the worktree path where the project is located.
@@ -2253,12 +2315,11 @@ async def list_agent_projects():
 
 @agent_router_alias.get('/runtime/sessions')
 async def list_all_runtime_sessions(
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ):
-    """
-    List all Agent sessions, optionally filtered by project.
+    """List all Agent sessions, optionally filtered by project.
 
     Sessions are sorted by most recently updated first.
     Use project_id to filter sessions for a specific project.
@@ -2336,8 +2397,7 @@ async def list_all_runtime_sessions(
 
 @agent_router_alias.get('/runtime/sessions/{session_id}')
 async def get_runtime_session(session_id: str):
-    """
-    Get details for a specific agent session.
+    """Get details for a specific agent session.
 
     Returns the full session data including metadata.
     """
@@ -2389,8 +2449,7 @@ async def get_runtime_session_messages(
     limit: int = 50,
     offset: int = 0,
 ):
-    """
-    Get messages for a specific agent session.
+    """Get messages for a specific agent session.
 
     Returns the conversation history for the session.
     """
@@ -2448,11 +2507,10 @@ async def get_runtime_session_messages(
 @agent_router_alias.get('/runtime/sessions/{session_id}/parts')
 async def get_runtime_session_parts(
     session_id: str,
-    message_id: Optional[str] = None,
+    message_id: str | None = None,
     limit: int = 100,
 ):
-    """
-    Get message parts (content chunks) for a session.
+    """Get message parts (content chunks) for a session.
 
     Parts contain the actual text content, tool calls, and other
     structured data from the conversation.
@@ -2609,7 +2667,7 @@ async def list_providers():
 
     # 2. Get unique model counts per provider from workers (deduplicate by model ID)
     workers = await list_workers()
-    provider_model_ids: Dict[str, set] = {}
+    provider_model_ids: dict[str, set] = {}
     for worker in workers:
         for m in worker.get('models', []):
             pid = m.get('provider_id', '')
@@ -2641,7 +2699,7 @@ async def list_providers():
     }
 
 
-def _normalize_workspace_path(path: Optional[str]) -> Optional[str]:
+def _normalize_workspace_path(path: str | None) -> str | None:
     if not path or not isinstance(path, str):
         return None
     try:
@@ -2652,7 +2710,7 @@ def _normalize_workspace_path(path: Optional[str]) -> Optional[str]:
 
 @agent_router_alias.get('/workspaces')
 async def get_workspaces(
-    path: Optional[str] = None,
+    path: str | None = None,
     include_duplicates: bool = False,
 ):
     """Backward-compatible GET handler.
@@ -2669,20 +2727,20 @@ async def get_workspaces(
     return await list_workspaces(include_duplicates=include_duplicates)
 
 
-def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+def _parse_iso_datetime(value: str | None) -> datetime | None:
     if not value or not isinstance(value, str):
         return None
     try:
         dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
         # Normalize to naive UTC for consistent comparisons/subtraction.
         if dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            dt = dt.astimezone(UTC).replace(tzinfo=None)
         return dt
     except Exception:
         return None
 
 
-def _workspace_sort_key(cb: Dict[str, Any]) -> tuple:
+def _workspace_sort_key(cb: dict[str, Any]) -> tuple:
     # Prefer most recently updated, then created, then stable id
     updated = _parse_iso_datetime(cb.get('updated_at'))
     created = _parse_iso_datetime(cb.get('created_at'))
@@ -2704,7 +2762,7 @@ async def _get_active_worker_ids() -> set:
     db_workers = await db.db_list_workers()
     redis_workers = await _redis_list_workers()
 
-    merged: Dict[str, Dict[str, Any]] = {}
+    merged: dict[str, dict[str, Any]] = {}
     # Keep the freshest last_seen per worker_id
     for w in list(_registered_workers.values()) + redis_workers + db_workers:
         wid = w.get('worker_id')
@@ -2732,11 +2790,11 @@ async def _get_active_worker_ids() -> set:
 
 
 def _dedupe_workspaces_by_path(
-    workspaces: List[Dict[str, Any]],
+    workspaces: list[dict[str, Any]],
     active_worker_ids: set,
-) -> List[Dict[str, Any]]:
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
-    passthrough: List[Dict[str, Any]] = []
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    passthrough: list[dict[str, Any]] = []
 
     for cb in workspaces:
         path = _normalize_workspace_path(cb.get('path'))
@@ -2745,7 +2803,7 @@ def _dedupe_workspaces_by_path(
             continue
         grouped.setdefault(path, []).append(cb)
 
-    deduped: List[Dict[str, Any]] = []
+    deduped: list[dict[str, Any]] = []
 
     for path, cbs in grouped.items():
         if len(cbs) == 1:
@@ -2801,7 +2859,7 @@ async def list_workspaces(include_duplicates: bool = False):
     redis_workspaces = await _redis_list_workspace_meta()
     db_workspaces = await db.db_list_workspaces()
 
-    merged: Dict[str, Dict[str, Any]] = {}
+    merged: dict[str, dict[str, Any]] = {}
 
     # Local first (most up-to-date for this instance)
     for cb in local_workspaces:
@@ -2835,8 +2893,7 @@ async def list_workspaces(include_duplicates: bool = False):
 
 @agent_router_alias.post('/workspaces')
 async def register_workspace(registration: WorkspaceRegistration):
-    """
-    Register a new workspace for agent work.
+    """Register a new workspace for agent work.
 
     If worker_id is provided (from a worker), the workspace is registered directly
     since the worker has already validated the path exists locally.
@@ -2854,7 +2911,7 @@ async def register_workspace(registration: WorkspaceRegistration):
     # If a git_url is provided, validate it, store credentials in Vault,
     # and create a clone task for workers. The path is resolved after cloning.
     if registration.git_url and not registration.worker_id:
-        from .git_service import validate_git_url, store_git_credentials
+        from .git_service import store_git_credentials, validate_git_url
 
         if not validate_git_url(registration.git_url):
             raise HTTPException(
@@ -3093,7 +3150,7 @@ async def register_workspace(registration: WorkspaceRegistration):
                 or registration.path
             )
 
-            desired_id: Optional[str] = registration.workspace_id
+            desired_id: str | None = registration.workspace_id
             if not desired_id and registration.git_url:
                 import hashlib
 
@@ -3222,12 +3279,11 @@ async def register_workspace(registration: WorkspaceRegistration):
             'success': True,
             'pending': True,
             'task_id': task.id,
-            'message': f'Registration task created. A worker will validate the path and confirm registration.',
+            'message': 'Registration task created. A worker will validate the path and confirm registration.',
         }
-    else:
-        raise HTTPException(
-            status_code=500, detail='Failed to create registration task'
-        )
+    raise HTTPException(
+        status_code=500, detail='Failed to create registration task'
+    )
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}')
@@ -3374,7 +3430,7 @@ async def unregister_workspace(workspace_id: str):
         workspace_name = redis_workspace.get('name')
 
     runtime_meta = _extract_workspace_runtime_meta(workspace_snapshot)
-    vm_cleanup_ok: Optional[bool] = None
+    vm_cleanup_ok: bool | None = None
     if runtime_meta.get('runtime') == 'vm':
         vm_cleanup_ok = await vm_workspace_provisioner.delete_workspace_vm(
             workspace_id=workspace_id,
@@ -3458,7 +3514,7 @@ async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
     # Try to use the bridge's trigger_agent for Knative support
     bridge = get_agent_bridge()
     if bridge is not None:
-        from .agent_bridge import is_knative_enabled, AgentTriggerRequest
+        from .agent_bridge import AgentTriggerRequest, is_knative_enabled
 
         # If Knative is enabled, use the bridge which has Knative integration
         if is_knative_enabled():
@@ -3490,11 +3546,10 @@ async def trigger_agent(workspace_id: str, trigger: AgentTrigger):
                         'worker_personality': routing_decision.worker_personality,
                     },
                 }
-            else:
-                # Fall through to legacy path if Knative fails
-                logger.warning(
-                    f'Knative trigger failed: {response.error}, falling back to SSE workers'
-                )
+            # Fall through to legacy path if Knative fails
+            logger.warning(
+                f'Knative trigger failed: {response.error}, falling back to SSE workers'
+            )
 
     # Legacy path: Create a task in the database for SSE workers to pick up
     task_id = str(uuid.uuid4())
@@ -3699,9 +3754,9 @@ async def get_agent_status(workspace_id: str):
 def _parse_agent_output_line(
     line: str,
     task_id: str,
-    worker_id: Optional[str],
-    session_id: Optional[str],
-) -> Optional[str]:
+    worker_id: str | None,
+    session_id: str | None,
+) -> str | None:
     """Parse an agent JSON output line and return an SSE frame.
 
     Agent with --format json outputs lines like:
@@ -3826,7 +3881,7 @@ async def stream_agent_events(workspace_id: str, request: Request):
     # Workspaces to Redis for durability and multi-replica support.
     # The SSE stream must therefore not depend solely on bridge._workspaces.
     workspace_obj = bridge.get_workspace(workspace_id)
-    workspace_meta: Optional[Dict[str, Any]] = (
+    workspace_meta: dict[str, Any] | None = (
         workspace_obj.to_dict() if workspace_obj else None
     )
 
@@ -3859,7 +3914,7 @@ async def stream_agent_events(workspace_id: str, request: Request):
             import time
 
             def _format_task_result_events(
-                raw_result: Any, session_id: Optional[str] = None
+                raw_result: Any, session_id: str | None = None
             ):
                 """Yield SSE frames for a stored task result payload."""
                 try:
@@ -3902,8 +3957,8 @@ async def stream_agent_events(workspace_id: str, request: Request):
             )
 
             emitted_task_ids: set[str] = set()
-            output_cursors: Dict[str, int] = {}
-            last_task_status: Dict[str, str] = {}
+            output_cursors: dict[str, int] = {}
+            last_task_status: dict[str, str] = {}
 
             # Emit recent completed task results on initial connect.
             all_tasks = await bridge.list_tasks(codebase_id=workspace_id)
@@ -4067,7 +4122,7 @@ async def stream_agent_events(workspace_id: str, request: Request):
             )
 
             emitted_task_ids: set[str] = set()
-            output_cursors: Dict[str, int] = {}
+            output_cursors: dict[str, int] = {}
 
             keepalive_interval_s = 15.0
             poll_interval_s = 1.0
@@ -4241,8 +4296,8 @@ async def stream_agent_events_legacy(codebase_id: str, request: Request):
 
 
 def transform_agent_event(
-    event: Dict[str, Any], workspace_id: str
-) -> Optional[Dict[str, Any]]:
+    event: dict[str, Any], workspace_id: str
+) -> dict[str, Any] | None:
     """Transform agent events into UI-friendly format."""
     event_type = event.get('type', '')
     properties = event.get('properties', {})
@@ -4278,10 +4333,7 @@ def transform_agent_event(
             'part_type': part_type,
         }
 
-        if part_type == 'text':
-            result['text'] = part.get('text', '')
-            result['delta'] = delta
-        elif part_type == 'reasoning':
+        if part_type == 'text' or part_type == 'reasoning':
             result['text'] = part.get('text', '')
             result['delta'] = delta
         elif part_type == 'tool':
@@ -4371,7 +4423,7 @@ def transform_agent_event(
             'diagnostics': properties.get('diagnostics'),
         }
 
-    # Todo updates
+    # TODO updates
     if event_type == 'todo.updated':
         return {
             'event_type': 'todo',
@@ -4407,18 +4459,20 @@ async def get_session_messages(workspace_id: str, limit: int = 50):
 
     try:
         base_url = bridge._get_agent_base_url(workspace.agent_port)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 f'{base_url}/session/{workspace.session_id}/message',
                 params={'limit': limit, 'directory': workspace.path},
-            ) as resp:
-                if resp.status == 200:
-                    messages = await resp.json()
-                    return {
-                        'messages': messages,
-                        'session_id': workspace.session_id,
-                    }
-                return {'messages': [], 'error': f'Status {resp.status}'}
+            ) as resp,
+        ):
+            if resp.status == 200:
+                messages = await resp.json()
+                return {
+                    'messages': messages,
+                    'session_id': workspace.session_id,
+                }
+            return {'messages': [], 'error': f'Status {resp.status}'}
     except Exception as e:
         return {'messages': [], 'error': str(e)}
 
@@ -4429,7 +4483,7 @@ async def get_session_messages(workspace_id: str, limit: int = 50):
 
 
 def _is_recent_heartbeat(
-    heartbeat_value: Optional[str], max_age_seconds: int = 120
+    heartbeat_value: str | None, max_age_seconds: int = 120
 ) -> bool:
     """Return True when heartbeat timestamp is within max_age_seconds."""
     if not heartbeat_value:
@@ -4438,15 +4492,15 @@ def _is_recent_heartbeat(
         normalized = heartbeat_value.replace('Z', '+00:00')
         last = datetime.fromisoformat(normalized)
         if last.tzinfo is None:
-            last = last.replace(tzinfo=timezone.utc)
-        age = (datetime.now(timezone.utc) - last).total_seconds()
+            last = last.replace(tzinfo=UTC)
+        age = (datetime.now(UTC) - last).total_seconds()
         return age <= max_age_seconds
     except Exception:
         return False
 
 
 async def _validate_target_worker_is_available(
-    metadata: Dict[str, Any], *, strict: bool = False
+    metadata: dict[str, Any], *, strict: bool = False
 ) -> None:
     """Validate target worker availability for routed tasks."""
     target_worker_id = metadata.get('target_worker_id')
@@ -4500,8 +4554,6 @@ async def _validate_target_worker_is_available(
         )
 
 
-
-
 async def get_current_policy_user(request: Request) -> dict:
     """Return the OIDC/self-service/API-key user resolved by policy middleware."""
     user = getattr(request.state, 'policy_user', None)
@@ -4518,11 +4570,11 @@ async def get_current_policy_user(request: Request) -> dict:
 
 @agent_router_alias.get('/tasks')
 async def list_all_tasks(
-    workspace_id: Optional[str] = None,
-    codebase_id: Optional[str] = None,
-    status: Optional[str] = None,
-    worker_id: Optional[str] = None,
-    agent_name: Optional[str] = None,
+    workspace_id: str | None = None,
+    codebase_id: str | None = None,
+    status: str | None = None,
+    worker_id: str | None = None,
+    agent_name: str | None = None,
 ):
     """List all agent tasks, optionally filtered by workspace, status, or worker."""
     # Use database as primary source of truth for tasks
@@ -4538,10 +4590,18 @@ async def list_all_tasks(
             from .worker_sse import get_worker_registry
 
             visible_worker_id = worker_id
-            if not visible_worker_id and agent_name:
-                visible_worker_id = await _active_worker_id_for_agent_name(
-                    agent_name
-                )
+            worker_capabilities: list[str] = []
+            if agent_name:
+                active_worker = await _active_worker_for_agent_name(agent_name)
+                if active_worker:
+                    if not visible_worker_id:
+                        visible_worker_id = (
+                            str(active_worker.get('worker_id') or '').strip()
+                            or None
+                        )
+                    worker_capabilities = _normalize_task_capabilities(
+                        active_worker.get('capabilities')
+                    )
 
             claimed = await get_worker_registry().claimed_task_ids()
             if claimed:
@@ -4557,6 +4617,7 @@ async def list_all_tasks(
                     task,
                     worker_id=visible_worker_id,
                     agent_name=agent_name,
+                    worker_capabilities=worker_capabilities,
                 )
             ]
         except Exception as e:
@@ -4564,11 +4625,10 @@ async def list_all_tasks(
     return tasks
 
 
-
 @agent_router_alias.get('/workflows/github-app')
 async def get_github_app_workflows(
     request: Request,
-    repos: Optional[str] = None,
+    repos: str | None = None,
     limit: int = 250,
     user: dict = Depends(get_current_policy_user),
 ):
@@ -4580,7 +4640,6 @@ async def get_github_app_workflows(
     dashboard users and authorized agents are handled consistently.
     """
     from .workflow_monitor import load_github_app_workflows
-    from .workflow_monitor import build_response as empty_workflow_response
 
     roles = set(user.get('roles') or [])
     tenant_id = (
@@ -4859,7 +4918,7 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
 def _is_github_app_worker_post_clone_followup(
     title: str,
     agent_type: str,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> bool:
     """Return true for legacy worker-created GitHub App follow-up tasks.
 
@@ -4873,13 +4932,15 @@ def _is_github_app_worker_post_clone_followup(
         return False
     if metadata.get('source') != 'github-app':
         return False
-    if not metadata.get('github_issue_url') or not metadata.get('target_worker_id'):
+    if not metadata.get('github_issue_url') or not metadata.get(
+        'target_worker_id'
+    ):
         return False
     return title.startswith(('Apply PR fix #', 'Work issue #'))
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}/tasks')
-async def list_workspace_tasks(workspace_id: str, status: Optional[str] = None):
+async def list_workspace_tasks(workspace_id: str, status: str | None = None):
     """List all tasks for a specific workspace."""
     # Use database as primary source of truth for tasks
     tasks = await db.db_list_tasks(
@@ -4932,17 +4993,17 @@ async def cancel_task(task_id: str):
 class SessionResumeRequest(BaseModel):
     """Request to resume a session."""
 
-    prompt: Optional[str] = None
+    prompt: str | None = None
     agent: str = 'build'
-    model: Optional[str] = None
-    model_ref: Optional[str] = None
-    worker_personality: Optional[str] = None
+    model: str | None = None
+    model_ref: str | None = None
+    worker_personality: str | None = None
 
 
-def _session_sort_key(session: Dict[str, Any]) -> tuple:
+def _session_sort_key(session: dict[str, Any]) -> tuple:
     """Best-effort sort key across agent/worker/DB session shapes."""
 
-    def _dt(value: Any) -> Optional[datetime]:
+    def _dt(value: Any) -> datetime | None:
         normalized = _normalize_iso_timestamp(value)
         if not normalized:
             return None
@@ -4959,9 +5020,9 @@ def _session_sort_key(session: Dict[str, Any]) -> tuple:
 
 async def _merge_sessions_with_database(
     workspace_id: str,
-    sessions: List[Dict[str, Any]],
+    sessions: list[dict[str, Any]],
     limit: int = 500,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Merge durable DB sessions into a source-specific session list."""
     if not sessions:
         return sessions
@@ -4983,7 +5044,7 @@ async def _merge_sessions_with_database(
     if not persisted:
         return sessions
 
-    by_id: Dict[str, Dict[str, Any]] = {}
+    by_id: dict[str, dict[str, Any]] = {}
     for s in sessions:
         sid = s.get('id')
         if isinstance(sid, str) and sid:
@@ -5016,7 +5077,7 @@ async def list_sessions(
     workspace_id: str,
     limit: int = 50,
     offset: int = 0,
-    q: Optional[str] = None,
+    q: str | None = None,
 ):
     """List sessions for a workspace with pagination.
 
@@ -5036,12 +5097,12 @@ async def list_sessions(
         bridge.get_workspace(workspace_id) if bridge is not None else None
     )
 
-    def _session_matches_query(session: Dict[str, Any], query: str) -> bool:
+    def _session_matches_query(session: dict[str, Any], query: str) -> bool:
         needle = query.strip().lower()
         if not needle:
             return True
 
-        values: List[str] = []
+        values: list[str] = []
         for key in ('id', 'title', 'project_id', 'directory', 'agent', 'model'):
             value = session.get(key)
             if isinstance(value, str) and value:
@@ -5118,7 +5179,7 @@ async def list_sessions(
             logger.debug(f'Failed to read worker sessions from Redis: {e}')
 
     # Check if we have worker-synced sessions first (for remote workspaces)
-    if workspace_id in _worker_sessions and _worker_sessions[workspace_id]:
+    if _worker_sessions.get(workspace_id):
         merged = await _merge_sessions_with_database(
             workspace_id, _worker_sessions[workspace_id]
         )
@@ -5185,31 +5246,30 @@ class SessionSyncRequest(BaseModel):
     """Request model for syncing sessions from a worker."""
 
     worker_id: str
-    sessions: List[Dict[str, Any]]
+    sessions: list[dict[str, Any]]
 
 
 class ExternalSessionIngestRequest(BaseModel):
     """Ingest an external chat/session transcript (e.g. VS Code chat)."""
 
-    source: Optional[str] = None
-    worker_id: Optional[str] = None
-    session: Optional[Dict[str, Any]] = None
-    messages: Optional[List[Dict[str, Any]]] = None
+    source: str | None = None
+    worker_id: str | None = None
+    session: dict[str, Any] | None = None
+    messages: list[dict[str, Any]] | None = None
 
 
-def _normalize_iso_timestamp(value: Any) -> Optional[str]:
+def _normalize_iso_timestamp(value: Any) -> str | None:
     """Normalize timestamps coming from workers.
 
     Workers may send ISO strings (preferred) or epoch times (agent often uses
     milliseconds since epoch). We normalize to an ISO-8601 string when possible
     so PostgreSQL ordering and UI displays behave consistently.
     """
-
     if value is None:
         return None
 
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc).isoformat()
+        return value.astimezone(UTC).isoformat()
 
     if isinstance(value, str):
         v = value.strip()
@@ -5221,14 +5281,14 @@ def _normalize_iso_timestamp(value: Any) -> Optional[str]:
         if ts > 1e11:
             ts = ts / 1000.0
         try:
-            return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(ts, tz=UTC).isoformat()
         except Exception:
             return None
 
     return None
 
 
-def _normalize_model_value(model: Any) -> Optional[str]:
+def _normalize_model_value(model: Any) -> str | None:
     """Normalize model values to string format.
 
     Agent stores models as objects like {providerID: 'anthropic', modelID: 'claude-...'}.
@@ -5266,10 +5326,10 @@ async def ingest_external_session(
     _require_ingest_auth(request)
 
     source = (payload.source or 'external').strip() or 'external'
-    session_data: Dict[str, Any] = (
+    session_data: dict[str, Any] = (
         payload.session if isinstance(payload.session, dict) else {}
     )
-    messages: List[Dict[str, Any]] = (
+    messages: list[dict[str, Any]] = (
         payload.messages if isinstance(payload.messages, list) else []
     )
 
@@ -5277,16 +5337,16 @@ async def ingest_external_session(
         _normalize_iso_timestamp(
             session_data.get('created_at') or session_data.get('created')
         )
-        or datetime.now(timezone.utc).isoformat()
+        or datetime.now(UTC).isoformat()
     )
     updated_at = (
         _normalize_iso_timestamp(
             session_data.get('updated_at') or session_data.get('updated')
         )
-        or datetime.now(timezone.utc).isoformat()
+        or datetime.now(UTC).isoformat()
     )
 
-    summary: Dict[str, Any] = {}
+    summary: dict[str, Any] = {}
     if isinstance(session_data.get('summary'), dict):
         summary = dict(session_data['summary'])
     summary.setdefault('source', source)
@@ -5309,7 +5369,7 @@ async def ingest_external_session(
         }
     )
 
-    def _stringify(value: Any) -> Optional[str]:
+    def _stringify(value: Any) -> str | None:
         if value is None:
             return None
         if isinstance(value, str):
@@ -5319,7 +5379,7 @@ async def ingest_external_session(
         except Exception:
             return str(value)
 
-    def _extract_message_content(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_message_content(msg: dict[str, Any]) -> str | None:
         c = msg.get('content')
         content_str = _stringify(c)
         if isinstance(content_str, str) and content_str.strip():
@@ -5327,7 +5387,7 @@ async def ingest_external_session(
 
         parts = msg.get('parts')
         if isinstance(parts, list):
-            texts: List[str] = []
+            texts: list[str] = []
             for p in parts:
                 if not isinstance(p, dict):
                     continue
@@ -5346,7 +5406,7 @@ async def ingest_external_session(
 
         return None
 
-    def _extract_role(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_role(msg: dict[str, Any]) -> str | None:
         r = msg.get('role')
         if isinstance(r, str) and r:
             return r
@@ -5357,7 +5417,7 @@ async def ingest_external_session(
                 return r2
         return None
 
-    def _extract_model(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_model(msg: dict[str, Any]) -> str | None:
         m = msg.get('model')
         normalized = _normalize_model_value(m)
         if normalized:
@@ -5368,7 +5428,7 @@ async def ingest_external_session(
             return _normalize_model_value(m2)
         return None
 
-    def _extract_created_at(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_created_at(msg: dict[str, Any]) -> str | None:
         ca = msg.get('created_at')
         normalized = _normalize_iso_timestamp(ca)
         if normalized:
@@ -5410,7 +5470,7 @@ async def ingest_external_session(
                 'tokens': tokens,
                 'tool_calls': tool_calls,
                 'created_at': _extract_created_at(msg_data)
-                or datetime.now(timezone.utc).isoformat(),
+                or datetime.now(UTC).isoformat(),
             }
         )
         ingested += 1
@@ -5486,7 +5546,7 @@ class MessageSyncRequest(BaseModel):
     """Request model for syncing messages from a worker."""
 
     worker_id: str
-    messages: List[Dict[str, Any]]
+    messages: list[dict[str, Any]]
 
 
 @agent_router_alias.post(
@@ -5504,7 +5564,7 @@ async def sync_session_messages(
     # Store the synced messages
     _worker_messages[session_id] = request.messages
 
-    def _extract_message_content(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_message_content(msg: dict[str, Any]) -> str | None:
         def _looks_like_worker_registry_payload(value: Any) -> bool:
             if isinstance(value, dict):
                 keys = set(value.keys())
@@ -5536,7 +5596,7 @@ async def sync_session_messages(
         # Worker-synced agent shape: parts[].text
         parts = msg.get('parts')
         if isinstance(parts, list):
-            texts: List[str] = []
+            texts: list[str] = []
             for p in parts:
                 if not isinstance(p, dict):
                     continue
@@ -5560,7 +5620,7 @@ async def sync_session_messages(
 
         return None
 
-    def _extract_role(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_role(msg: dict[str, Any]) -> str | None:
         r = msg.get('role')
         if isinstance(r, str) and r:
             return r
@@ -5571,7 +5631,7 @@ async def sync_session_messages(
                 return r2
         return None
 
-    def _extract_model(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_model(msg: dict[str, Any]) -> str | None:
         m = msg.get('model')
         normalized = _normalize_model_value(m)
         if normalized:
@@ -5582,7 +5642,7 @@ async def sync_session_messages(
             return _normalize_model_value(m2)
         return None
 
-    def _extract_created_at(msg: Dict[str, Any]) -> Optional[str]:
+    def _extract_created_at(msg: dict[str, Any]) -> str | None:
         ca = msg.get('created_at')
         normalized = _normalize_iso_timestamp(ca)
         if normalized:
@@ -5723,7 +5783,6 @@ async def get_session_messages_by_id(
     workspace_id: str, session_id: str, limit: int = 100
 ):
     """Get messages from a specific session."""
-    import aiohttp
     import traceback
 
     try:
@@ -5789,7 +5848,7 @@ async def _get_session_messages_impl(
             logger.debug(f'Failed to read worker messages from Redis: {e}')
 
     # Check if we have worker-synced messages
-    if session_id in _worker_messages and _worker_messages[session_id]:
+    if _worker_messages.get(session_id):
         messages = _worker_messages[session_id][:limit]
         return {
             'messages': messages,
@@ -5846,7 +5905,7 @@ async def _get_session_messages_impl(
         if persisted:
             # Normalize DB rows into the shape expected by the Swift client
             # (SessionMessage: {id, sessionID, role, info{...}, time{created}, model, ...}).
-            normalized: List[Dict[str, Any]] = []
+            normalized: list[dict[str, Any]] = []
             for row in persisted:
                 role = row.get('role')
                 model = row.get('model')
@@ -5901,7 +5960,7 @@ async def resume_session(
         raise HTTPException(status_code=404, detail='Workspace not found')
 
     resume_prompt = request.prompt or 'Continue where we left off'
-    resume_metadata: Dict[str, Any] = {'resume_session_id': session_id}
+    resume_metadata: dict[str, Any] = {'resume_session_id': session_id}
     if request.model:
         resume_metadata['model'] = request.model
     if request.model_ref:
@@ -6044,7 +6103,7 @@ async def resume_session(
                     if effective_resume_model:
                         payload['model'] = effective_resume_model
 
-                    async def _send_message(body: Dict[str, Any]):
+                    async def _send_message(body: dict[str, Any]):
                         async with session.post(
                             f'{base_url}/session/{session_id}/message',
                             params={'directory': workspace.path},
@@ -6117,7 +6176,7 @@ async def resume_session(
     }
 
 
-async def _read_local_sessions(workspace_path: str) -> List[Dict[str, Any]]:
+async def _read_local_sessions(workspace_path: str) -> list[dict[str, Any]]:
     """Read sessions from agent's local state directory."""
     import glob
 
@@ -6133,7 +6192,7 @@ async def _read_local_sessions(workspace_path: str) -> List[Dict[str, Any]]:
 
     for session_file in session_files:
         try:
-            with open(session_file, 'r') as f:
+            with open(session_file) as f:
                 session_data = json.load(f)
                 sessions.append(
                     {
@@ -6159,7 +6218,7 @@ async def _read_local_sessions(workspace_path: str) -> List[Dict[str, Any]]:
 
 async def _read_local_session(
     workspace_path: str, session_id: str
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Read a specific session from agent's local state directory."""
     session_file = os.path.join(
         workspace_path, '.codetether', 'state', 'session', f'{session_id}.json'
@@ -6169,7 +6228,7 @@ async def _read_local_session(
         return None
 
     try:
-        with open(session_file, 'r') as f:
+        with open(session_file) as f:
             return json.load(f)
     except Exception as e:
         logger.warning(f'Failed to read session file {session_file}: {e}')
@@ -6178,7 +6237,7 @@ async def _read_local_session(
 
 async def _read_local_session_messages(
     workspace_path: str, session_id: str
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Read messages from a session's local state."""
     session_data = await _read_local_session(workspace_path, session_id)
     if session_data:
@@ -6193,10 +6252,9 @@ async def _read_local_session_messages(
 
 @agent_router_alias.post('/workspaces/{workspace_id}/watch/start')
 async def start_watch_mode(
-    workspace_id: str, config: Optional[WatchModeConfig] = None
+    workspace_id: str, config: WatchModeConfig | None = None
 ):
-    """
-    Start watch mode for a workspace - agent will automatically process tasks.
+    """Start watch mode for a workspace - agent will automatically process tasks.
 
     The agent will poll for pending tasks and execute them in order of priority.
     """
@@ -6275,12 +6333,6 @@ async def get_watch_status(workspace_id: str):
     if not workspace:
         raise HTTPException(status_code=404, detail='Workspace not found')
 
-    pending_tasks = await bridge.list_tasks(
-        codebase_id=workspace_id,
-        status=bridge._tasks.__class__.PENDING
-        if hasattr(bridge._tasks, '__class__')
-        else None,
-    )
     from .agent_bridge import AgentTaskStatus
 
     pending_count = len(
@@ -6308,8 +6360,8 @@ async def get_watch_status(workspace_id: str):
 # Helper function to integrate monitoring with existing A2A server
 async def log_agent_message(
     agent_name: str,
-    content: Optional[str] = None,
-    message: Optional[str] = None,
+    content: str | None = None,
+    message: str | None = None,
     **kwargs,
 ):
     """Helper function to log agent messages.
@@ -6337,7 +6389,7 @@ async def log_agent_message(
 # ========================================
 
 # In-memory worker registry (workers are transient - they re-register on start)
-_registered_workers: Dict[str, Dict[str, Any]] = {}
+_registered_workers: dict[str, dict[str, Any]] = {}
 
 
 class WorkerRegistration(BaseModel):
@@ -6345,20 +6397,20 @@ class WorkerRegistration(BaseModel):
 
     worker_id: str
     name: str
-    capabilities: List[str] = []
-    hostname: Optional[str] = None
-    models: List[Dict[str, Any]] = []
-    global_workspace_id: Optional[str] = None
-    workspaces: List[str] = []  # List of workspace IDs this worker handles
-    agents: List[
-        Dict[str, Any]
+    capabilities: list[str] = []
+    hostname: str | None = None
+    models: list[dict[str, Any]] = []
+    global_workspace_id: str | None = None
+    workspaces: list[str] = []  # List of workspace IDs this worker handles
+    agents: list[
+        dict[str, Any]
     ] = []  # Custom agent definitions this worker supports
 
 
 def _normalized_worker_capabilities(
     name: str,
-    capabilities: Optional[List[str]],
-) -> List[str]:
+    capabilities: list[str] | None,
+) -> list[str]:
     """Return worker capabilities plus server-inferred infrastructure roles.
 
     Older codetether-agent binaries only advertise protocol/tool capabilities.
@@ -6366,7 +6418,7 @@ def _normalized_worker_capabilities(
     the control plane annotates them with durable workspace capabilities used by
     GitHub App clone/prep routing.
     """
-    ordered: List[str] = []
+    ordered: list[str] = []
     seen: set[str] = set()
 
     def add(value: str) -> None:
@@ -6397,9 +6449,9 @@ class TaskStatusUpdate(BaseModel):
 
     status: str
     worker_id: str
-    session_id: Optional[str] = None
-    result: Optional[str] = None
-    error: Optional[str] = None
+    session_id: str | None = None
+    result: str | None = None
+    error: str | None = None
 
 
 @agent_router_alias.post('/workers/register')
@@ -6496,9 +6548,9 @@ async def unregister_worker(worker_id: str):
 
 @agent_router_alias.get('/workers')
 async def list_workers(
-    search: Optional[str] = None,
+    search: str | None = None,
     online_only: bool = False,
-    exclude_offline_hours: Optional[int] = 24,
+    exclude_offline_hours: int | None = 24,
 ):
     """List all registered workers with optional model search filter.
 
@@ -6510,8 +6562,8 @@ async def list_workers(
     """
 
     def _classify_worker_runtime(
-        worker: Dict[str, Any],
-        sse_worker: Optional[Dict[str, Any]],
+        worker: dict[str, Any],
+        sse_worker: dict[str, Any] | None,
     ) -> str:
         source = str(worker.get('_registry_source') or '')
         worker_id = str(worker.get('worker_id') or '').lower()
@@ -6586,7 +6638,7 @@ async def list_workers(
     db_workers = await db.db_list_workers()
     redis_workers = await _redis_list_workers()
 
-    merged: Dict[str, Dict[str, Any]] = {}
+    merged: dict[str, dict[str, Any]] = {}
 
     # In-memory first (most up-to-date for this instance)
     for w in _registered_workers.values():
@@ -6615,7 +6667,7 @@ async def list_workers(
     workers = list(merged.values())
 
     # Include connected SSE worker metadata to improve runtime classification.
-    sse_workers_by_id: Dict[str, Dict[str, Any]] = {}
+    sse_workers_by_id: dict[str, dict[str, Any]] = {}
     try:
         from .worker_sse import get_worker_registry
 
@@ -6630,7 +6682,7 @@ async def list_workers(
             f'Unable to load SSE worker registry for classification: {e}'
         )
 
-    annotated_workers: List[Dict[str, Any]] = []
+    annotated_workers: list[dict[str, Any]] = []
     for worker in workers:
         wid = str(worker.get('worker_id') or '')
         sse_worker = sse_workers_by_id.get(wid)
@@ -6644,7 +6696,7 @@ async def list_workers(
 
     if online_only:
         sse_worker_ids = set(sse_workers_by_id.keys())
-        online_workers: List[Dict[str, Any]] = []
+        online_workers: list[dict[str, Any]] = []
         for w in workers:
             wid = str(w.get('worker_id') or '')
             if wid in sse_worker_ids:
@@ -6670,7 +6722,7 @@ async def list_workers(
         sse_worker_ids_set = (
             set(sse_workers_by_id.keys()) if exclude_offline_hours else set()
         )
-        active_workers: List[Dict[str, Any]] = []
+        active_workers: list[dict[str, Any]] = []
         for w in workers:
             wid = str(w.get('worker_id') or '')
             # SSE-connected workers are always considered active
@@ -6763,54 +6815,47 @@ async def worker_heartbeat(worker_id: str):
                     f'Re-inserted worker {worker_id} from Redis into DB during heartbeat'
                 )
                 return {'success': True}
-            else:
-                # Check if worker is connected via SSE (different registry)
-                try:
-                    from .worker_sse import get_worker_registry
+            # Check if worker is connected via SSE (different registry)
+            try:
+                from .worker_sse import get_worker_registry
 
-                    sse_registry = get_worker_registry()
-                    sse_workers = await sse_registry.list_workers()
-                    sse_worker = next(
-                        (
-                            w
-                            for w in sse_workers
-                            if w.get('worker_id') == worker_id
-                        ),
-                        None,
-                    )
-                    if sse_worker:
-                        # Auto-register SSE worker into main registry
-                        worker_info = {
-                            'worker_id': worker_id,
-                            'name': sse_worker.get('agent_name', 'unknown'),
-                            'capabilities': _normalized_worker_capabilities(
-                                sse_worker.get('agent_name', 'unknown'),
-                                sse_worker.get('capabilities', []),
-                            ),
-                            'hostname': '',
-                            'models': [],
-                            'workspaces': list(
-                                sse_worker.get('workspaces', [])
-                            ),
-                            'registered_at': now,
-                            'last_seen': now,
-                            'status': 'active',
-                        }
-                        _registered_workers[worker_id] = worker_info
-                        await db.db_upsert_worker(worker_info)
-                        await _redis_upsert_worker(worker_info)
-                        logger.info(
-                            f'Auto-registered SSE worker {worker_id} into main registry during heartbeat'
-                        )
-                        return {'success': True}
-                except Exception as e:
-                    logger.debug(f'SSE registry check failed: {e}')
-
-                # Worker not found anywhere - return 404 so worker re-registers
-                raise HTTPException(
-                    status_code=404,
-                    detail='Worker not found - please re-register',
+                sse_registry = get_worker_registry()
+                sse_workers = await sse_registry.list_workers()
+                sse_worker = next(
+                    (w for w in sse_workers if w.get('worker_id') == worker_id),
+                    None,
                 )
+                if sse_worker:
+                    # Auto-register SSE worker into main registry
+                    worker_info = {
+                        'worker_id': worker_id,
+                        'name': sse_worker.get('agent_name', 'unknown'),
+                        'capabilities': _normalized_worker_capabilities(
+                            sse_worker.get('agent_name', 'unknown'),
+                            sse_worker.get('capabilities', []),
+                        ),
+                        'hostname': '',
+                        'models': [],
+                        'workspaces': list(sse_worker.get('workspaces', [])),
+                        'registered_at': now,
+                        'last_seen': now,
+                        'status': 'active',
+                    }
+                    _registered_workers[worker_id] = worker_info
+                    await db.db_upsert_worker(worker_info)
+                    await _redis_upsert_worker(worker_info)
+                    logger.info(
+                        f'Auto-registered SSE worker {worker_id} into main registry during heartbeat'
+                    )
+                    return {'success': True}
+            except Exception as e:
+                logger.debug(f'SSE registry check failed: {e}')
+
+            # Worker not found anywhere - return 404 so worker re-registers
+            raise HTTPException(
+                status_code=404,
+                detail='Worker not found - please re-register',
+            )
 
     # Update Redis
     if worker_id in _registered_workers:
@@ -6837,9 +6882,9 @@ class WorkerProfileCreate(BaseModel):
     name: str
     description: str = ''
     system_prompt: str = ''
-    default_capabilities: List[str] = []
+    default_capabilities: list[str] = []
     default_model_tier: str = 'balanced'
-    default_model_ref: Optional[str] = None
+    default_model_ref: str | None = None
     default_agent_type: str = 'build'
     icon: str = '🤖'
     color: str = '#6366f1'
@@ -6848,22 +6893,22 @@ class WorkerProfileCreate(BaseModel):
 class WorkerProfileUpdate(BaseModel):
     """Request body for updating a custom worker profile."""
 
-    slug: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
-    system_prompt: Optional[str] = None
-    default_capabilities: Optional[List[str]] = None
-    default_model_tier: Optional[str] = None
-    default_model_ref: Optional[str] = None
-    default_agent_type: Optional[str] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
+    slug: str | None = None
+    name: str | None = None
+    description: str | None = None
+    system_prompt: str | None = None
+    default_capabilities: list[str] | None = None
+    default_model_tier: str | None = None
+    default_model_ref: str | None = None
+    default_agent_type: str | None = None
+    icon: str | None = None
+    color: str | None = None
 
 
 class WorkerProfileAssign(BaseModel):
     """Assign a profile to a worker."""
 
-    profile_id: Optional[str] = None  # None clears the assignment
+    profile_id: str | None = None  # None clears the assignment
 
 
 # ---------------------------------------------------------------------------
@@ -6874,8 +6919,8 @@ class WorkerProfileAssign(BaseModel):
 @agent_router_alias.get('/worker-profiles')
 async def list_worker_profiles(
     builtin_only: bool = False,
-    tenant_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    tenant_id: str | None = None,
+    user_id: str | None = None,
 ):
     """List all visible worker profiles (builtins + user-owned)."""
     profiles = await db.db_list_worker_profiles(
@@ -6910,8 +6955,8 @@ async def get_worker_profile(profile_id: str):
 @agent_router_alias.post('/worker-profiles')
 async def create_worker_profile(
     body: WorkerProfileCreate,
-    tenant_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    tenant_id: str | None = None,
+    user_id: str | None = None,
 ):
     """Create a custom worker profile."""
     data = body.dict()
@@ -6994,33 +7039,33 @@ class AgentDefinitionCreate(BaseModel):
     """Request body for creating a custom agent definition."""
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     mode: str = 'primary'
     hidden: bool = False
-    model: Optional[str] = None
-    temperature: Optional[float] = None
-    top_p: Optional[float] = None
-    max_steps: Optional[int] = None
-    system_prompt: Optional[str] = None
+    model: str | None = None
+    temperature: float | None = None
+    top_p: float | None = None
+    max_steps: int | None = None
+    system_prompt: str | None = None
 
 
 class AgentDefinitionUpdate(BaseModel):
     """Request body for updating a custom agent definition."""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    mode: Optional[str] = None
-    hidden: Optional[bool] = None
-    model: Optional[str] = None
-    temperature: Optional[float] = None
-    top_p: Optional[float] = None
-    max_steps: Optional[int] = None
-    system_prompt: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    mode: str | None = None
+    hidden: bool | None = None
+    model: str | None = None
+    temperature: float | None = None
+    top_p: float | None = None
+    max_steps: int | None = None
+    system_prompt: str | None = None
 
 
 @agent_router_alias.get('/agents')
 async def list_agent_definitions(
-    worker_id: Optional[str] = None,
+    worker_id: str | None = None,
     include_builtins: bool = True,
 ):
     """List all agent definitions, optionally filtered by worker.
@@ -7269,7 +7314,7 @@ class TaskOutputChunk(BaseModel):
 
     worker_id: str
     output: str
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
 
 
 @agent_router_alias.post('/tasks/{task_id}/output')
@@ -7323,7 +7368,7 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
 
 
 @agent_router_alias.get('/tasks/{task_id}/output')
-async def get_task_output(task_id: str, since: Optional[int] = None):
+async def get_task_output(task_id: str, since: int | None = None):
     """Get streaming output for a task."""
     outputs = _task_output_streams.get(task_id, [])
 
@@ -7379,7 +7424,7 @@ async def stream_task_output_sse(task_id: str, request: Request):
 
 
 @agent_router_alias.post('/tasks/{task_id}/cancel')
-async def cancel_task(task_id: str):
+async def cancel_task_alias(task_id: str):
     """Cancel a pending task."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -7406,8 +7451,7 @@ async def cancel_task(task_id: str):
 async def get_stuck_tasks(
     timeout_seconds: int = 300,
 ):
-    """
-    Get list of tasks that appear to be stuck.
+    """Get list of tasks that appear to be stuck.
 
     A task is considered stuck if:
     - Status is 'running'
@@ -7449,8 +7493,7 @@ async def get_stuck_tasks(
 
 @agent_router_alias.post('/tasks/stuck/recover')
 async def recover_stuck_tasks():
-    """
-    Manually trigger recovery of stuck tasks.
+    """Manually trigger recovery of stuck tasks.
 
     This will:
     1. Find all tasks stuck in 'running' status
@@ -7460,7 +7503,7 @@ async def recover_stuck_tasks():
     Returns statistics about the recovery operation.
     """
     try:
-        from .task_reaper import get_task_reaper, TaskReaper
+        from .task_reaper import TaskReaper, get_task_reaper
 
         reaper = get_task_reaper()
         if reaper is None:
@@ -7480,8 +7523,7 @@ async def recover_stuck_tasks():
 
 @agent_router_alias.post('/tasks/{task_id}/requeue')
 async def requeue_task(task_id: str):
-    """
-    Manually requeue a specific task.
+    """Manually requeue a specific task.
 
     This will reset the task to 'pending' status so it can be picked up
     by a worker again. Useful for recovering a single stuck task.
@@ -7611,9 +7653,9 @@ class LoginRequest(BaseModel):
 
     username: str
     password: str
-    device_id: Optional[str] = None
-    device_name: Optional[str] = None
-    device_type: Optional[str] = None  # ios, macos, web, linux
+    device_id: str | None = None
+    device_name: str | None = None
+    device_type: str | None = None  # ios, macos, web, linux
 
 
 class RefreshRequest(BaseModel):
@@ -7683,7 +7725,7 @@ async def refresh_token(request: RefreshRequest):
 
 @auth_router.post('/logout')
 async def logout(
-    session_id: Optional[str] = None, authorization: Optional[str] = None
+    session_id: str | None = None, authorization: str | None = None
 ):
     """Logout and invalidate session."""
     auth = get_keycloak_auth()
@@ -7699,7 +7741,7 @@ async def logout(
 
 
 @auth_router.get('/session')
-async def get_session(session_id: str):
+async def get_auth_session(session_id: str):
     """Get current session info."""
     auth = get_keycloak_auth()
     if auth is None:
@@ -7805,7 +7847,7 @@ async def create_agent_session(
     user_id: str,
     workspace_id: str,
     agent_type: str = 'build',
-    device_id: Optional[str] = None,
+    device_id: str | None = None,
 ):
     """Create a new agent session for a user."""
     auth = get_keycloak_auth()
@@ -7959,22 +8001,24 @@ async def nextauth_callback(code: str, state: str):
 
 from .vault_client import (
     KNOWN_PROVIDERS,
-    get_user_api_key,
-    set_user_api_key,
+    check_vault_connection,
     delete_user_api_key,
-    list_user_api_keys,
-    get_all_user_api_keys,
     get_all_user_api_keys_with_diagnostics,
     get_worker_sync_data,
-    check_vault_connection,
+    set_user_api_key,
+)
+from .vault_client import (
     test_api_key as vault_test_api_key,
 )
 
+
 try:
     from .keycloak_auth import (
-        get_current_user as get_keycloak_user,
-        require_auth,
         UserSession,
+        require_auth,
+    )
+    from .keycloak_auth import (
+        get_current_user as get_keycloak_user,
     )
 except ImportError:
 
@@ -7996,7 +8040,6 @@ except ImportError:
         return None
 
 
-
 @dataclass
 class ApiKeyUser:
     user_id: str
@@ -8008,10 +8051,10 @@ _api_key_auth_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_api_key_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(
+    credentials: HTTPAuthorizationCredentials | None = Security(
         _api_key_auth_scheme
     ),
-) -> Optional[ApiKeyUser]:
+) -> ApiKeyUser | None:
     if not credentials:
         return None
 
@@ -8047,12 +8090,12 @@ class APIKeyCreate(BaseModel):
 
     provider_id: str  # e.g., 'anthropic', 'openai', 'minimax-m2'
     api_key: str
-    provider_name: Optional[str] = None  # Display name
-    base_url: Optional[str] = None  # Custom base URL for provider
+    provider_name: str | None = None  # Display name
+    base_url: str | None = None  # Custom base URL for provider
 
 
 @agent_router_alias.get('/providers')
-async def list_providers():
+async def list_provider_configs():
     """List all known LLM providers with their configuration."""
     return {
         'providers': [
@@ -8073,7 +8116,7 @@ async def list_providers():
 
 @agent_router_alias.get('/vault/status')
 async def vault_status(
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Check Vault connectivity status."""
     return await check_vault_connection(user_id=user.user_id if user else None)
@@ -8081,7 +8124,7 @@ async def vault_status(
 
 @agent_router_alias.get('/api-keys')
 async def list_api_keys(
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """List all configured API keys for the current user (without exposing full keys)."""
     if not user:
@@ -8121,7 +8164,7 @@ async def list_api_keys(
 @agent_router_alias.post('/api-keys')
 async def create_or_update_api_key(
     key_data: APIKeyCreate,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Create or update an API key for a provider for the current user."""
     if not user:
@@ -8161,7 +8204,7 @@ async def create_or_update_api_key(
 @agent_router_alias.delete('/api-keys/{provider_id}')
 async def delete_api_key(
     provider_id: str,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Delete an API key for a provider for the current user."""
     if not user:
@@ -8178,12 +8221,11 @@ async def delete_api_key(
 
 @agent_router_alias.get('/api-keys/sync')
 async def get_api_keys_for_sync(
-    user_id: Optional[str] = None,
-    worker_id: Optional[str] = None,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user_id: str | None = None,
+    worker_id: str | None = None,
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
-    """
-    Get all API keys for worker sync.
+    """Get all API keys for worker sync.
 
     If user_id is provided (worker request), returns that user's keys.
     Otherwise, returns the authenticated user's keys.
@@ -8211,7 +8253,7 @@ async def get_api_keys_for_sync(
 @agent_router_alias.post('/api-keys/test')
 async def test_api_key_endpoint(
     key_data: APIKeyCreate,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Test an API key by making a simple request to the provider."""
     # Allow testing without auth (just testing the key itself)
@@ -8255,8 +8297,8 @@ def _get_minio_client():
 
 
 async def _verify_workspace_ownership(
-    workspace_id: str, tenant_id: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
+    workspace_id: str, tenant_id: str | None = None
+) -> dict[str, Any] | None:
     """Verify that a workspace exists and optionally belongs to a tenant.
 
     Returns the workspace dict if valid, None otherwise.
@@ -8279,26 +8321,26 @@ class WorkspaceSyncRequest(BaseModel):
 
     size_bytes: int
     files_changed: int = 0
-    worker_id: Optional[str] = None
+    worker_id: str | None = None
 
 
 class WorkerStatusResponse(BaseModel):
     """Response model for worker status."""
 
     status: str  # pending, creating, ready, failed, not_found
-    url: Optional[str] = None
-    created_at: Optional[str] = None
-    last_activity: Optional[str] = None
-    tenant_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    error_message: Optional[str] = None
+    url: str | None = None
+    created_at: str | None = None
+    last_activity: str | None = None
+    tenant_id: str | None = None
+    workspace_id: str | None = None
+    error_message: str | None = None
 
 
 @agent_router_alias.post('/workspaces/{workspace_id}/upload')
 async def upload_workspace_tarball(
     workspace_id: str,
     request: Request,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Upload a workspace tarball to MinIO.
 
@@ -8333,8 +8375,6 @@ async def upload_workspace_tarball(
         )
 
     # Parse multipart form data
-    from fastapi import UploadFile, File
-    import aiofiles
 
     try:
         form = await request.form()
@@ -8401,14 +8441,14 @@ async def upload_workspace_tarball(
         raise
     except Exception as e:
         logger.error(f'Failed to upload workspace {workspace_id}: {e}')
-        raise HTTPException(status_code=500, detail=f'Upload failed: {str(e)}')
+        raise HTTPException(status_code=500, detail=f'Upload failed: {e!s}')
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}/download')
 async def download_workspace_tarball(
     workspace_id: str,
     stream: bool = False,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Get a presigned URL or stream the workspace tarball from MinIO.
 
@@ -8476,7 +8516,7 @@ async def download_workspace_tarball(
         except Exception as e:
             logger.error(f'Failed to stream workspace {workspace_id}: {e}')
             raise HTTPException(
-                status_code=500, detail=f'Download failed: {str(e)}'
+                status_code=500, detail=f'Download failed: {e!s}'
             )
     else:
         # Generate presigned URL
@@ -8498,7 +8538,7 @@ async def download_workspace_tarball(
                 f'Failed to generate presigned URL for {workspace_id}: {e}'
             )
             raise HTTPException(
-                status_code=500, detail=f'Failed to generate URL: {str(e)}'
+                status_code=500, detail=f'Failed to generate URL: {e!s}'
             )
 
 
@@ -8561,13 +8601,13 @@ async def sync_workspace_from_worker(
 
     except Exception as e:
         logger.error(f'Failed to update sync status for {workspace_id}: {e}')
-        raise HTTPException(status_code=500, detail=f'Sync failed: {str(e)}')
+        raise HTTPException(status_code=500, detail=f'Sync failed: {e!s}')
 
 
 @agent_router_alias.get('/sessions/{session_id}/worker-status')
 async def get_session_worker_status(
     session_id: str,
-    user: Optional[ApiKeyUser] = Depends(get_current_api_key_user),
+    user: ApiKeyUser | None = Depends(get_current_api_key_user),
 ):
     """Get Knative worker status for a session.
 
@@ -8586,7 +8626,6 @@ async def get_session_worker_status(
     if session:
         # Check if we have Knative service info stored
         knative_service_name = session.get('knative_service_name')
-        worker_status = session.get('worker_status', 'pending')
         last_activity = session.get('last_activity_at')
 
         if not knative_service_name:
@@ -8600,7 +8639,7 @@ async def get_session_worker_status(
 
     # Try to get status from Knative spawner
     try:
-        from .knative_spawner import get_worker_status, KNATIVE_ENABLED
+        from .knative_spawner import KNATIVE_ENABLED, get_worker_status
 
         if not KNATIVE_ENABLED:
             return WorkerStatusResponse(
@@ -8648,7 +8687,7 @@ async def get_session_worker_status(
             f'Failed to get worker status for session {session_id}: {e}'
         )
         raise HTTPException(
-            status_code=500, detail=f'Failed to get worker status: {str(e)}'
+            status_code=500, detail=f'Failed to get worker status: {e!s}'
         )
 
 
@@ -8662,13 +8701,13 @@ AVAILABLE_VOICES = [
 
 
 class VoiceSessionRequest(BaseModel):
-    workspace_id: Optional[str] = None
-    worker_id: Optional[str] = None
-    session_id: Optional[str] = None
+    workspace_id: str | None = None
+    worker_id: str | None = None
+    session_id: str | None = None
     voice: str = '960f89fc'
     mode: str = 'chat'
     playback_style: str = 'verbatim'
-    user_id: Optional[str] = None
+    user_id: str | None = None
 
 
 class VoiceSessionResponse(BaseModel):
@@ -8774,7 +8813,7 @@ async def create_voice_session(request: VoiceSessionRequest):
     except Exception as e:
         logger.error(f'Failed to create LiveKit room: {e}')
         raise HTTPException(
-            status_code=500, detail=f'Failed to create voice room: {str(e)}'
+            status_code=500, detail=f'Failed to create voice room: {e!s}'
         )
 
     voice_agent_name = os.getenv(
@@ -8822,7 +8861,7 @@ async def create_voice_session(request: VoiceSessionRequest):
         except:
             pass
         raise HTTPException(
-            status_code=500, detail=f'Failed to generate access token: {str(e)}'
+            status_code=500, detail=f'Failed to generate access token: {e!s}'
         )
 
     expires_at = datetime.now() + timedelta(minutes=60)
@@ -8841,7 +8880,7 @@ async def create_voice_session(request: VoiceSessionRequest):
 
 
 @voice_router.get('/sessions/{room_name}')
-async def get_voice_session(room_name: str, user_id: Optional[str] = None):
+async def get_voice_session(room_name: str, user_id: str | None = None):
     """Get session info for a voice session.
 
     If user_id is provided, a new access token will be generated for reconnection.
@@ -8977,14 +9016,14 @@ async def get_voice_session_state(room_name: str):
 
 # Export the monitoring service, routers and helpers
 __all__ = [
-    'monitor_router',
     'agent_router',
     'agent_router_alias',  # backward-compat alias for agent_router
-    'voice_router',
     'auth_router',
-    'nextauth_router',
-    'monitoring_service',
-    'log_agent_message',
     'get_agent_bridge',
     'get_keycloak_auth',
+    'log_agent_message',
+    'monitor_router',
+    'monitoring_service',
+    'nextauth_router',
+    'voice_router',
 ]
