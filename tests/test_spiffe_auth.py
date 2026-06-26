@@ -1,10 +1,10 @@
 """Tests for SPIFFE JWT-SVID authentication (a2a_server/spiffe_auth.py)."""
 
-import json
 import time
 
 import jwt
 import pytest
+
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from a2a_server import spiffe_auth
@@ -14,6 +14,10 @@ from a2a_server import spiffe_auth
 
 _KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _KID = "test-kid-1"
+
+# HTTP status codes used in assertions.
+HTTP_UNAUTHORIZED = 401
+HTTP_FORBIDDEN = 403
 
 
 def _make_svid(sub, aud="a2a-server", exp_delta=300):
@@ -29,6 +33,12 @@ class _FakeSigningKey:
     key = _KEY.public_key()
 
 
+class _FakeJwkClient:
+    @staticmethod
+    def get_signing_key_from_jwt(_token):
+        return _FakeSigningKey()
+
+
 @pytest.fixture(autouse=True)
 def _env_and_jwks(monkeypatch):
     monkeypatch.setenv("SPIFFE_ENABLED", "true")
@@ -36,12 +46,7 @@ def _env_and_jwks(monkeypatch):
     monkeypatch.setenv("SPIFFE_AUDIENCE", "a2a-server")
     monkeypatch.setenv("SPIFFE_JWKS_URL", "https://spire.example/keys")
     # Bypass the network JWKS fetch: return our public key for any token.
-    monkeypatch.setattr(
-        spiffe_auth, "_get_jwk_client",
-        lambda: type("C", (), {
-            "get_signing_key_from_jwt": staticmethod(lambda t: _FakeSigningKey())
-        })(),
-    )
+    monkeypatch.setattr(spiffe_auth, "_get_jwk_client", _FakeJwkClient)
     yield
 
 
@@ -99,18 +104,18 @@ def test_validate_rejects_expired():
     token = _make_svid("spiffe://codetether.io/x", exp_delta=-10)
     with pytest.raises(Exception) as exc:
         spiffe_auth.validate_jwt_svid(token)
-    assert getattr(exc.value, "status_code", None) == 401
+    assert getattr(exc.value, "status_code", None) == HTTP_UNAUTHORIZED
 
 
 def test_validate_rejects_wrong_audience():
     token = _make_svid("spiffe://codetether.io/x", aud="other-service")
     with pytest.raises(Exception) as exc:
         spiffe_auth.validate_jwt_svid(token)
-    assert getattr(exc.value, "status_code", None) == 403
+    assert getattr(exc.value, "status_code", None) == HTTP_FORBIDDEN
 
 
 def test_validate_rejects_wrong_trust_domain():
     token = _make_svid("spiffe://evil.example/x")
     with pytest.raises(Exception) as exc:
         spiffe_auth.validate_jwt_svid(token)
-    assert getattr(exc.value, "status_code", None) == 403
+    assert getattr(exc.value, "status_code", None) == HTTP_FORBIDDEN

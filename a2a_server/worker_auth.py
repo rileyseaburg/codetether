@@ -1,10 +1,12 @@
 """Authentication helpers shared by worker-facing routes."""
 
 import os
+
 from functools import lru_cache
-from typing import Optional
 
 from fastapi import HTTPException, Request
+
+from a2a_server import spiffe_auth
 
 
 @lru_cache(maxsize=1)
@@ -15,20 +17,20 @@ def get_auth_tokens_set() -> set:
         return set()
     tokens: set = set()
     for pair in raw.split(','):
-        pair = pair.strip()
-        if not pair:
+        entry = pair.strip()
+        if not entry:
             continue
-        if ':' in pair:
-            _, token = pair.split(':', 1)
+        if ':' in entry:
+            _, token = entry.split(':', 1)
             token = token.strip()
             if token:
                 tokens.add(token)
         else:
-            tokens.add(pair)
+            tokens.add(entry)
     return tokens
 
 
-def verify_auth(request: Request) -> Optional[str]:
+def verify_auth(request: Request) -> str | None:
     """Verify the caller's identity for worker-facing routes.
 
     When SPIFFE is enabled (``SPIFFE_ENABLED=true``) the Bearer credential is
@@ -43,8 +45,6 @@ def verify_auth(request: Request) -> Optional[str]:
     Returns the SPIFFE ID or legacy token, or None when no auth is configured.
     Raises HTTPException(401/403) on invalid credentials.
     """
-    from a2a_server import spiffe_auth
-
     tokens = get_auth_tokens_set()
 
     if spiffe_auth.spiffe_enabled():
