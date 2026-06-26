@@ -478,7 +478,7 @@ async def test_create_merge_task_blocks_when_approval_review_rejected(
         raise AssertionError(f'unexpected GitHub call: {method} {path}')
 
     async def fake_approval_review(**kwargs):
-        raise RuntimeError('Can not approve your own pull request')
+        raise RuntimeError('Cannot approve your own pull request')
 
     async def fake_feedback_status(repo, pr_number, token):
         nonlocal feedback_called
