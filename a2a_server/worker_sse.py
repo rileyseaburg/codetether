@@ -50,9 +50,9 @@ from .worker_persistent_claim_loop import (
 )
 from .worker_auth import verify_auth as _verify_auth
 from .worker_progress_routes import worker_progress_router
-from .replay_ring import ReplayRing
-from .stream_epoch import ResumeAction, decide_resume, mint_epoch
-from .stream_emit import Sequencer, format_event
+from .stream_emit import format_event
+from .sequencer_store import SequencerStore
+from .stream_resume_handshake import resume_frames
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,12 @@ class WorkerRegistry:
         self._claimed_tasks: Dict[str, str] = {}
         # Callbacks for task creation events
         self._task_listeners: List[Callable] = []
+        # Per-worker sequencers persist across reconnects for replay.
+        self._sequencers = SequencerStore()
+
+    def sequencer_for(self, worker_id: str):
+        """Return the persistent sequencer for a worker (cross-connection)."""
+        return self._sequencers.get_or_create(worker_id)
 
     async def register_worker(
         self,
@@ -1078,7 +1084,7 @@ async def worker_task_stream(
         """Generate SSE events for the connected worker."""
         queue: asyncio.Queue = asyncio.Queue()
         worker = None
-        seq = Sequencer(epoch=mint_epoch(), ring=ReplayRing())
+        seq = registry.sequencer_for(resolved_worker_id)
 
         try:
             # Register this worker
@@ -1090,28 +1096,12 @@ async def worker_task_stream(
                 codebases=codebases,
             )
 
-            # Honor a reconnecting client's Last-Event-ID. The freshly minted
-            # epoch never matches a prior id, so any resume request yields a
-            # resync-required control event; clients then cold-reconcile. This
-            # keeps replay correct across server restarts without persisting
-            # per-worker sequence state. Live (intra-connection) replay is
-            # served from the ring below.
-            decision = decide_resume(last_event_id, seq.epoch, None)
-            if decision.action in (
-                ResumeAction.RESYNC_EPOCH,
-                ResumeAction.RESYNC_WINDOW,
-            ):
-                reason = (
-                    'epoch_mismatch'
-                    if decision.action == ResumeAction.RESYNC_EPOCH
-                    else 'window_exceeded'
-                )
-                resync_event = {
-                    'reason': reason,
-                    'head_seq': 0,
-                    'epoch': seq.epoch,
-                }
-                yield format_event('resync-required', resync_event, seq)
+            # Honor a reconnecting client's Last-Event-ID against this worker's
+            # persistent sequencer: replay the gap (seq, head] when still within
+            # the ring, or emit resync-required on epoch mismatch / window
+            # overflow. A first-time connect (no id) yields nothing here.
+            for frame in resume_frames(last_event_id, seq):
+                yield frame
 
             # Send connection confirmation
             connect_event = {
