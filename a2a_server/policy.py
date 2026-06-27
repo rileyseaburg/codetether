@@ -345,6 +345,11 @@ def _build_input(
 
 def _detect_auth_source(user: dict[str, Any]) -> str:
     """Determine how the user authenticated."""
+    explicit = user.get('auth_source')
+    if explicit:
+        return explicit
+    if user.get('spiffe_id'):
+        return 'spiffe'
     if user.get('api_key_scopes') is not None:
         return 'api_key'
     if (

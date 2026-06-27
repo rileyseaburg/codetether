@@ -91,6 +91,38 @@ def test_identity_worker_role_no_tenant():
     assert ident.role == "pool"
 
 
+# ── to_policy_user (OPA mapping) ─────────────────────────────────
+
+def test_to_policy_user_default_role():
+    ident = spiffe_auth.SpiffeIdentity(
+        "spiffe://codetether.io/tenant/acme/agent/orch",
+        "codetether.io", "/tenant/acme/agent/orch", {},
+    )
+    user = ident.to_policy_user()
+    assert user["roles"] == ["a2a-agent"]
+    assert user["tenant_id"] == "acme"
+    assert user["auth_source"] == "spiffe"
+    assert user["spiffe_id"] == "spiffe://codetether.io/tenant/acme/agent/orch"
+
+
+def test_to_policy_user_mapped_role(monkeypatch):
+    monkeypatch.setenv("SPIFFE_ROLE_MAP", "orch:operator,reader:viewer")
+    ident = spiffe_auth.SpiffeIdentity(
+        "spiffe://codetether.io/tenant/acme/agent/orch",
+        "codetether.io", "/tenant/acme/agent/orch", {},
+    )
+    assert ident.to_policy_user()["roles"] == ["operator"]
+
+
+def test_to_policy_user_custom_default(monkeypatch):
+    monkeypatch.setenv("SPIFFE_DEFAULT_ROLE", "viewer")
+    ident = spiffe_auth.SpiffeIdentity(
+        "spiffe://codetether.io/worker/pool",
+        "codetether.io", "/worker/pool", {},
+    )
+    assert ident.to_policy_user()["roles"] == ["viewer"]
+
+
 # ── validate_jwt_svid ────────────────────────────────────────────
 
 def test_validate_valid_svid():
