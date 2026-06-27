@@ -20,6 +20,7 @@ nav:
     - Core Concepts: topics/key-concepts.md
     - Agent Discovery: topics/agent-discovery.md
     - Enterprise Features: topics/enterprise-ready.md
+    - Agent Trust (SPIFFE/SPIRE): topics/agent-trust-spiffe.md
     - Life of a Task: topics/life-of-a-task.md
     - Extensions: topics/extensions.md
     - Streaming & Asynchronous Operations: topics/streaming-and-async.md
