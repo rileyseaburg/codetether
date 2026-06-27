@@ -53,6 +53,7 @@ from .worker_progress_routes import worker_progress_router
 from .stream_emit import format_event
 from .sequencer_store import SequencerStore
 from .stream_resume_handshake import resume_frames
+from .worker_queue import make_worker_queue, try_enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -689,8 +690,7 @@ class WorkerRegistry:
                     'data': task,
                     'timestamp': datetime.now(timezone.utc).isoformat(),
                 }
-                await worker.queue.put(event)
-                return True
+                return try_enqueue(worker.queue, event, worker_id)
             except Exception as e:
                 logger.error(f'Failed to push task to worker {worker_id}: {e}')
                 return False
@@ -707,8 +707,9 @@ class WorkerRegistry:
             worker = self._workers.get(worker_id)
             if not worker:
                 return False
-            await worker.queue.put({'event': 'progress', 'data': data})
-            return True
+            return try_enqueue(
+                worker.queue, {'event': 'progress', 'data': data}, worker_id
+            )
 
     async def broadcast_task(
         self,
@@ -1097,7 +1098,7 @@ async def worker_task_stream(
 
     async def event_generator():
         """Generate SSE events for the connected worker."""
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue = make_worker_queue()
         worker = None
         seq = registry.sequencer_for(resolved_worker_id)
 
