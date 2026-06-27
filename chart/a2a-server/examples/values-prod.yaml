@@ -65,6 +65,30 @@ auth:
 envFromSecret:
   A2A_AUTH_TOKENS: a2a-server-prod-auth
 
+# ── SPIFFE / SPIRE workload identity ─────────────────────────────
+# Cryptographic, auto-rotating agent identity that feeds the OPA authorization
+# layer. See docs/topics/agent-trust-spiffe.md.
+#
+# This profile enables SVID validation while STILL accepting the legacy
+# A2A_AUTH_TOKENS above (allowTokenLegacy: true) for a zero-downtime cutover.
+# Once every worker presents a JWT-SVID, set allowTokenLegacy: false and drop
+# the A2A_AUTH_TOKENS secret to retire shared tokens entirely.
+#
+# NOTE: server.enabled stays false in production — install the upstream
+# spiffe/spire-server + spiffe/spire-agent charts (node attestation, persistent
+# storage, OIDC Discovery Provider) rather than the chart's minimal dev server.
+spiffe:
+  enabled: true
+  trustDomain: "codetether.io"
+  audience: "a2a-server"
+  jwksUrl: "http://spire-oidc.spire.svc.cluster.local/keys"
+  jwksTtl: 300
+  allowTokenLegacy: true
+  roleMap: ""
+  defaultRole: "a2a-agent"
+  server:
+    enabled: false
+
 # Monitoring enabled
 monitoring:
   serviceMonitor:
