@@ -24,6 +24,10 @@ class MonitorViewModel: ObservableObject {
     @Published var totalStoredMessages: Int = 0
     @Published var messageFilter: MessageType?
     @Published var searchQuery: String = ""
+    /// Cached result of filtering `messages` by `messageFilter`/`searchQuery`.
+    /// Recomputed only when one of those inputs changes (see setupCallbacks),
+    /// instead of re-filtering on every SwiftUI body evaluation.
+    @Published private(set) var filteredMessages: [Message] = []
 
     // Sessions
     @Published var sessions: [SessionSummary] = []
@@ -133,6 +137,19 @@ class MonitorViewModel: ObservableObject {
                 self?.connectionError = error
             }
             .store(in: &cancellables)
+
+        // Recompute the cached filtered-messages list only when its inputs
+        // change. Search text is debounced so typing doesn't refilter on every
+        // keystroke; messages/filter changes apply immediately.
+        Publishers.CombineLatest3(
+            $messages,
+            $messageFilter,
+            $searchQuery.debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
+        )
+        .sink { [weak self] _, _, _ in
+            self?.recomputeFilteredMessages()
+        }
+        .store(in: &cancellables)
     }
 
     // MARK: - Connection
@@ -197,11 +214,19 @@ class MonitorViewModel: ObservableObject {
     }
 
     func refreshData() async {
+        // The SSE stream already pushes agent_status and new messages live.
+        // While connected we only poll the endpoints that have no push channel
+        // (codebases, tasks, message count) and skip agents to cut redundant
+        // network + battery cost. Models are effectively static and are loaded
+        // once in loadInitialData(), so they are never re-fetched here.
         await loadCodebases()
-        await loadModels()
-        await loadAgents()
         await loadTasks()
         await loadMessageCount()
+
+        if !isConnected {
+            // No live stream: fall back to polling agents too.
+            await loadAgents()
+        }
     }
 
     // MARK: - OpenCode
@@ -355,7 +380,9 @@ class MonitorViewModel: ObservableObject {
         }
     }
 
-    var filteredMessages: [Message] {
+    /// Recomputes `filteredMessages` from the current inputs. Called by the
+    /// Combine pipeline in setupCallbacks whenever messages/filter/query change.
+    private func recomputeFilteredMessages() {
         var result = messages
 
         if let filter = messageFilter {
@@ -369,7 +396,7 @@ class MonitorViewModel: ObservableObject {
             }
         }
 
-        return result
+        filteredMessages = result
     }
 
     // MARK: - Sessions
