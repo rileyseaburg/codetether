@@ -10,6 +10,25 @@ from .watch import post_issue_comment
 logger = logging.getLogger(__name__)
 
 
+def _github_repo_migrated_to_forgejo(repo: str) -> bool:
+    """Return true when GitHub issue finalization should be skipped.
+
+    Some repos are now worked in Forgejo while legacy/open issues still exist on
+    GitHub. In that mode the harvester pushes branches to Forgejo, so verifying
+    the branch/PR against GitHub produces false 404 failures and noisy GitHub
+    email comments. The Forgejo/Rudder path owns issue publication for these
+    repositories.
+    """
+    import os
+
+    configured = os.environ.get(
+        'CODETETHER_FORGEJO_MIGRATED_REPOS',
+        'rileyseaburg/spotlessbinco,spotlessbinco/spotlessbinco',
+    )
+    migrated = {item.strip().lower() for item in configured.split(',') if item.strip()}
+    return str(repo or '').strip().lower() in migrated
+
+
 async def _verify_branch_and_commits(
     repo: str, branch: str, token: str,
 ) -> dict:
@@ -66,6 +85,14 @@ async def normalize_issue_task_terminal_status(task: dict) -> dict:
     if context is None:
         return task
     repo, issue_number, branch, token = context
+    if _github_repo_migrated_to_forgejo(repo):
+        logger.info(
+            'Skipping GitHub branch/PR finalization for Forgejo-migrated repo %s issue #%s branch %s',
+            repo,
+            issue_number,
+            branch,
+        )
+        return task
     branch_info = await _verify_branch_and_commits(repo, branch, token)
     if not branch_info['branch_exists']:
         error = (
@@ -111,6 +138,14 @@ async def notify_issue_final_comment(task: dict) -> None:
     if context is None:
         return
     repo, issue_number, branch, token = context
+    if _github_repo_migrated_to_forgejo(repo):
+        logger.info(
+            'Skipping GitHub final comment for Forgejo-migrated repo %s issue #%s branch %s',
+            repo,
+            issue_number,
+            branch,
+        )
+        return
 
     task_id = task.get('id', 'unknown')
     task_status = str(task.get('status'))
