@@ -695,6 +695,21 @@ class WorkerRegistry:
                 logger.error(f'Failed to push task to worker {worker_id}: {e}')
                 return False
 
+    async def push_progress(
+        self, worker_id: str, data: Dict[str, Any]
+    ) -> bool:
+        """Push a sequenced `progress` event to a specific worker.
+
+        Unlike `push_task_to_worker` (advisory `task_available`), progress is a
+        Class B event: it carries an id and is retained in the replay ring.
+        """
+        async with self._lock:
+            worker = self._workers.get(worker_id)
+            if not worker:
+                return False
+            await worker.queue.put({'event': 'progress', 'data': data})
+            return True
+
     async def broadcast_task(
         self,
         task: Dict[str, Any],
