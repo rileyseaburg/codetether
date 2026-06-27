@@ -125,7 +125,12 @@ struct FleetView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(viewModel.runtimeSessions) { session in
-                            RuntimeSessionCard(session: session)
+                            NavigationLink {
+                                RuntimeSessionDetailView(session: session)
+                            } label: {
+                                RuntimeSessionCard(session: session)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(16)
@@ -260,4 +265,104 @@ struct RuntimeSessionCard: View {
     }
 
     private static let formatter = RelativeDateTimeFormatter()
+}
+
+// MARK: - Runtime Session Detail
+
+/// Drill-in for a single runtime session: shows metadata plus the message/turn
+/// history fetched from `/v1/agent/runtime/sessions/{id}/messages`.
+struct RuntimeSessionDetailView: View {
+    @EnvironmentObject var viewModel: MonitorViewModel
+    let session: RuntimeSession
+    @State private var isLoading = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                RuntimeSessionCard(session: session)
+
+                Text("Messages")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 4)
+
+                if isLoading && viewModel.selectedRuntimeSessionMessages.isEmpty {
+                    GlassLoadingIndicator()
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 24)
+                } else if viewModel.selectedRuntimeSessionMessages.isEmpty {
+                    EmptyStateView(icon: "tray", title: "No Messages", message: "This session has no recorded messages.")
+                } else {
+                    LazyVStack(spacing: 10) {
+                        ForEach(viewModel.selectedRuntimeSessionMessages) { message in
+                            RuntimeSessionMessageRow(message: message)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .navigationTitle(session.title ?? "Session")
+        #if os(iOS)
+        .navigationBarTitleDisplayModeInline()
+        #endif
+        .task { await load() }
+    }
+
+    private func load() async {
+        isLoading = true
+        await viewModel.loadRuntimeSessionMessages(sessionId: session.id)
+        isLoading = false
+    }
+}
+
+struct RuntimeSessionMessageRow: View {
+    let message: RuntimeSessionMessage
+
+    var body: some View {
+        GlassCard(padding: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    GlassBadge(text: (message.role ?? "unknown").capitalized, color: roleColor)
+                    Spacer()
+                    if let model = message.model, !model.isEmpty {
+                        Text(model)
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                }
+
+                HStack(spacing: 12) {
+                    if let tokens = message.tokens {
+                        meta("number", "\(tokens) tok")
+                    }
+                    if let cost = message.cost, cost > 0 {
+                        meta("dollarsign.circle", String(format: "$%.4f", cost))
+                    }
+                }
+            }
+        }
+    }
+
+    private func meta(_ icon: String, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.5))
+            Text(text)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.7))
+        }
+    }
+
+    private var roleColor: Color {
+        switch (message.role ?? "").lowercased() {
+        case "user": return .blue
+        case "assistant": return .green
+        case "system": return .orange
+        case "tool": return .purple
+        default: return .gray
+        }
+    }
 }
