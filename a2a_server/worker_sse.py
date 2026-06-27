@@ -50,6 +50,9 @@ from .worker_persistent_claim_loop import (
 )
 from .worker_auth import verify_auth as _verify_auth
 from .worker_progress_routes import worker_progress_router
+from .replay_ring import ReplayRing
+from .stream_epoch import ResumeAction, decide_resume, mint_epoch
+from .stream_emit import Sequencer, format_event
 
 logger = logging.getLogger(__name__)
 
@@ -996,6 +999,7 @@ async def worker_task_stream(
     x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
     x_capabilities: Optional[str] = Header(None, alias='X-Capabilities'),
     x_codebases: Optional[str] = Header(None, alias='X-Codebases'),
+    last_event_id: Optional[str] = Header(None, alias='Last-Event-ID'),
 ):
     """
     SSE endpoint for workers to receive task notifications.
@@ -1074,6 +1078,7 @@ async def worker_task_stream(
         """Generate SSE events for the connected worker."""
         queue: asyncio.Queue = asyncio.Queue()
         worker = None
+        seq = Sequencer(epoch=mint_epoch(), ring=ReplayRing())
 
         try:
             # Register this worker
@@ -1085,6 +1090,29 @@ async def worker_task_stream(
                 codebases=codebases,
             )
 
+            # Honor a reconnecting client's Last-Event-ID. The freshly minted
+            # epoch never matches a prior id, so any resume request yields a
+            # resync-required control event; clients then cold-reconcile. This
+            # keeps replay correct across server restarts without persisting
+            # per-worker sequence state. Live (intra-connection) replay is
+            # served from the ring below.
+            decision = decide_resume(last_event_id, seq.epoch, None)
+            if decision.action in (
+                ResumeAction.RESYNC_EPOCH,
+                ResumeAction.RESYNC_WINDOW,
+            ):
+                reason = (
+                    'epoch_mismatch'
+                    if decision.action == ResumeAction.RESYNC_EPOCH
+                    else 'window_exceeded'
+                )
+                resync_event = {
+                    'reason': reason,
+                    'head_seq': 0,
+                    'epoch': seq.epoch,
+                }
+                yield format_event('resync-required', resync_event, seq)
+
             # Send connection confirmation
             connect_event = {
                 'event': 'connected',
@@ -1093,7 +1121,7 @@ async def worker_task_stream(
                 'message': 'Connected to task stream',
                 'timestamp': datetime.now(timezone.utc).isoformat(),
             }
-            yield f'event: connected\ndata: {json.dumps(connect_event)}\n\n'
+            yield format_event('connected', connect_event, seq)
 
             # Send any pending tasks to the newly connected worker
             try:
@@ -1152,7 +1180,7 @@ async def worker_task_stream(
                                 if task.created_at
                                 else None,
                             }
-                            yield f'event: task_available\ndata: {json.dumps(task_data)}\n\n'
+                            yield format_event('task_available', task_data, seq)
                             sent_count += 1
 
                     if sent_count > 0:
@@ -1191,7 +1219,7 @@ async def worker_task_stream(
                         event_type = event.get('event', 'message')
                         event_data = event.get('data', event)
 
-                        yield f'event: {event_type}\ndata: {json.dumps(event_data)}\n\n'
+                        yield format_event(event_type, event_data, seq)
 
                     except asyncio.TimeoutError:
                         pass  # No event, check if heartbeat needed
@@ -1203,7 +1231,7 @@ async def worker_task_stream(
                             'timestamp': datetime.now(timezone.utc).isoformat(),
                             'worker_id': resolved_worker_id,
                         }
-                        yield f'event: heartbeat\ndata: {json.dumps(heartbeat_data)}\n\n'
+                        yield format_event('heartbeat', heartbeat_data, seq)
                         last_heartbeat = current_time
                         await registry.update_heartbeat(resolved_worker_id)
 
