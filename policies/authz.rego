@@ -5,7 +5,8 @@
 #   input.user.roles        - array[string]: Keycloak realm roles
 #   input.user.tenant_id    - string|null: tenant the user belongs to
 #   input.user.scopes       - array[string]: API-key scopes (empty for JWT users)
-#   input.user.auth_source  - string: "keycloak" | "self-service" | "api_key"
+#   input.user.auth_source  - string: "keycloak" | "self-service" | "api_key" | "spiffe"
+#   input.user.spiffe_id    - string|null: SPIFFE ID for workload-identity callers
 #   input.action            - string: requested permission (e.g. "tasks:write")
 #   input.resource.type     - string: resource type (e.g. "task")
 #   input.resource.id       - string|null: resource ID

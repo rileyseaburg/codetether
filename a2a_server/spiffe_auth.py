@@ -82,6 +82,35 @@ def allow_token_legacy() -> bool:
     return os.environ.get("SPIFFE_ALLOW_TOKEN_LEGACY", "true").lower() == "true"
 
 
+def _role_map() -> dict[str, str]:
+    """Parse SPIFFE_ROLE_MAP ("svid-role:rbac-role,...") into a dict."""
+    raw = os.environ.get("SPIFFE_ROLE_MAP", "").strip()
+    mapping: dict[str, str] = {}
+    for pair in raw.split(","):
+        entry = pair.strip()
+        if ":" in entry:
+            svid_role, rbac_role = entry.split(":", 1)
+            svid_role = svid_role.strip()
+            rbac_role = rbac_role.strip()
+            if svid_role and rbac_role:
+                mapping[svid_role] = rbac_role
+    return mapping
+
+
+def _default_rbac_role() -> str:
+    """Default RBAC role for SPIFFE callers without an explicit mapping."""
+    role = os.environ.get("SPIFFE_DEFAULT_ROLE", "a2a-agent").strip()
+    return role or "a2a-agent"
+
+
+def _mapped_rbac_roles(svid_role: str | None) -> list[str]:
+    """Map a SPIFFE path role to application RBAC roles."""
+    mapping = _role_map()
+    if svid_role and svid_role in mapping:
+        return [mapping[svid_role]]
+    return [_default_rbac_role()]
+
+
 # Mutable cache state held in a dict to avoid module-level `global` rebinds.
 _jwk_cache: dict = {"client": None, "at": 0.0}
 _jwk_lock = threading.Lock()
@@ -143,6 +172,26 @@ class SpiffeIdentity:
             "tenant": self.tenant,
             "role": self.role,
             "path": self.path,
+        }
+
+    def to_policy_user(self) -> dict:
+        """Build the ``user`` dict consumed by ``a2a_server.policy``.
+
+        The SPIFFE path role (e.g. the segment after ``agent``/``worker``)
+        is mapped to an application RBAC role via ``SPIFFE_ROLE_MAP``
+        (``svid-role:rbac-role`` comma list). Unmapped callers default to
+        the ``a2a-agent`` service-account role. ``auth_source`` is set to
+        ``spiffe`` so policy code can branch on workload identity.
+        """
+        rbac_roles = _mapped_rbac_roles(self.role)
+        return {
+            "user_id": self.spiffe_id,
+            "sub": self.spiffe_id,
+            "roles": rbac_roles,
+            "tenant_id": self.tenant,
+            "scopes": [],
+            "auth_source": "spiffe",
+            "spiffe_id": self.spiffe_id,
         }
 
 
