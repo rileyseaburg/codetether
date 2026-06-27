@@ -1541,6 +1541,27 @@ release-opencode-local: build-opencode ## Build and upload binaries to existing 
 	fi; \
 	echo "✅ Release $$TAG updated with binaries!"
 
+# ── ArgoCD App-of-Apps Bootstrap ─────────────────────
+.PHONY: argocd-bootstrap argocd-verify argocd-upgrade argocd-recovery argocd-dry-run argocd-render-check
+
+argocd-bootstrap: ## Bootstrap ArgoCD and apply all CodeTether app-of-apps
+	@./scripts/bootstrap-argocd.sh bootstrap
+
+argocd-verify: ## Capture evidence artifacts for all ArgoCD apps (no changes)
+	@./scripts/bootstrap-argocd.sh verify
+
+argocd-upgrade: ## Apply ArgoCD manifests with image-tag safety checks
+	@./scripts/bootstrap-argocd.sh upgrade
+
+argocd-recovery: ## Diagnose stuck syncs / orphaned resources and print next steps
+	@./scripts/bootstrap-argocd.sh recovery
+
+argocd-dry-run: ## Render + server-side dry-run without applying
+	@./scripts/bootstrap-argocd.sh dry-run
+
+argocd-render-check: ## Static manifest renderability check (CI-friendly, no cluster needed)
+	@./scripts/argocd-render-check.sh deploy/argocd
+
 # ── OPA Policy Engine ───────────────────────────────────────────
 .PHONY: policy-test policy-fmt policy-check policy-opa-start policy-opa-stop
 
