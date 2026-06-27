@@ -165,3 +165,29 @@ GitHub App secret name
 {{- printf "%s-github-app" (include "a2a-server.fullname" .) -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+SPIFFE / SPIRE JWT-SVID environment variables for the server container.
+Emits nothing when .Values.spiffe.enabled is false.
+Intended for use under a container `env:` list.
+*/}}
+{{- define "a2a-server.spiffeEnv" -}}
+{{- if .Values.spiffe.enabled }}
+- name: SPIFFE_ENABLED
+  value: "true"
+- name: SPIFFE_TRUST_DOMAIN
+  value: {{ .Values.spiffe.trustDomain | quote }}
+- name: SPIFFE_AUDIENCE
+  value: {{ .Values.spiffe.audience | quote }}
+- name: SPIFFE_JWKS_URL
+  value: {{ .Values.spiffe.jwksUrl | quote }}
+- name: SPIFFE_JWKS_TTL
+  value: {{ .Values.spiffe.jwksTtl | quote }}
+- name: SPIFFE_ALLOW_TOKEN_LEGACY
+  value: {{ .Values.spiffe.allowTokenLegacy | quote }}
+- name: SPIFFE_ROLE_MAP
+  value: {{ .Values.spiffe.roleMap | quote }}
+- name: SPIFFE_DEFAULT_ROLE
+  value: {{ .Values.spiffe.defaultRole | quote }}
+{{- end }}
+{{- end }}
