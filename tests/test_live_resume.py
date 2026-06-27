@@ -2,9 +2,8 @@
 
 Spawns uvicorn on a real port, consumes the stream, abruptly drops the TCP
 connection mid-stream (simulating an RST / black-holed path), reconnects with
-the last processed Last-Event-ID, and asserts the full sequence 1.._TOTAL is
-received exactly once with no gaps and no duplicates. This is the section 9
-acceptance experiment for Phase 1 (gap recovery within window + epoch restart).
+the last processed Last-Event-ID, and asserts the wire contract holds. These
+are the section 9 acceptance experiments for Phase 1.
 """
 
 import asyncio
@@ -135,3 +134,37 @@ async def test_epoch_restart_forces_resync_not_corrupt_replay():
 
     assert b'event: resync-required' in raw
     assert b'epoch_mismatch' in raw
+
+
+@pytest.mark.asyncio
+async def test_window_exceeded_forces_cold_resync():
+    port = _free_port()
+    url = f'http://127.0.0.1:{port}/stream_tiny?worker_id=tiny1'
+    async with _Server(port):
+        # Consume to seq 50; the 2-event ring now retains only {49, 50}.
+        leg1, last_id = await _consume_until(url, None, stop_after=50)
+        assert leg1 == list(range(1, 51))
+        assert last_id is not None
+        epoch = last_id.split('.')[0]
+        # Reconnect presenting a stale cursor (seq 1) that has long since been
+        # evicted from the ring -> server must cold-resync, not replay.
+        raw = await _first_frames_raw(url, f'{epoch}.1', limit=200)
+
+    assert b'event: resync-required' in raw
+    assert b'window_exceeded' in raw
+
+
+@pytest.mark.asyncio
+async def test_advisory_events_carry_no_id_and_dont_consume_seq():
+    port = _free_port()
+    url = f'http://127.0.0.1:{port}/stream_advisory?worker_id=adv1'
+    async with _Server(port):
+        raw = await _first_frames_raw(url, None, limit=300)
+
+    blocks = [b for b in raw.split(b'\n\n') if b.strip()]
+    advisory = next(b for b in blocks if b'event: task_available' in b)
+    sequenced = [b for b in blocks if b'event: progress' in b]
+    # Advisory frame has no id line.
+    assert b'id:' not in advisory
+    # First sequenced event is seq 1 (advisory did not consume a seq).
+    assert sequenced[0].split(b'\n')[0].endswith(b'.1')
