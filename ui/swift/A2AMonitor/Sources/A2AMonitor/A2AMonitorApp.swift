@@ -72,12 +72,14 @@ struct ContentView: View {
     enum Tab: String, CaseIterable {
         case command = "Command"
         case activity = "Activity"
+        case fleet = "Fleet"
         case environments = "Environments"
 
         var icon: String {
             switch self {
             case .command: return "mic.fill"
             case .activity: return "list.bullet.rectangle.fill"
+            case .fleet: return "cpu"
             case .environments: return "lock.shield.fill"
             }
         }
@@ -168,6 +170,8 @@ struct ContentView: View {
             CommandView()
         case .activity:
             ActivityView()
+        case .fleet:
+            FleetView()
         case .environments:
             EnvironmentsView()
         }

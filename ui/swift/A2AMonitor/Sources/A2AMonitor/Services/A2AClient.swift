@@ -646,6 +646,102 @@ class A2AClient: ObservableObject {
         return try jsonDecoder.decode(ServerStats.self, from: data)
     }
 
+    // MARK: - Unified Agent Control Plane (/v1/agent)
+    //
+    // Deeper insight into the codetether-agent fleet: runtime sessions
+    // (the harvester/agent session store), richly-classified workers,
+    // worker profiles, and per-worker agent definitions.
+
+    /// List codetether-agent runtime sessions, optionally filtered by project.
+    func fetchRuntimeSessions(projectId: String? = nil, limit: Int = 50, offset: Int = 0) async throws -> RuntimeSessionsResponse {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/runtime/sessions"), resolvingAgainstBaseURL: false)!
+        var items = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+        if let projectId, !projectId.isEmpty {
+            items.append(URLQueryItem(name: "project_id", value: projectId))
+        }
+        components.queryItems = items
+
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(RuntimeSessionsResponse.self, from: data)
+    }
+
+    /// Fetch a single runtime session's metadata.
+    func fetchRuntimeSession(sessionId: String) async throws -> RuntimeSession {
+        let url = baseURL.appendingPathComponent("/v1/agent/runtime/sessions/\(sessionId)")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(RuntimeSessionResponse.self, from: data).session
+    }
+
+    /// Fetch the message/turn history for a runtime session.
+    func fetchRuntimeSessionMessages(sessionId: String, limit: Int = 50, offset: Int = 0) async throws -> [RuntimeSessionMessage] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("/v1/agent/runtime/sessions/\(sessionId)/messages"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(RuntimeSessionMessagesResponse.self, from: data).messages
+    }
+
+    /// List registered workers with the server's runtime classification and
+    /// harvester annotations. `onlineOnly` and `excludeOfflineHours` mirror the
+    /// server-side filters.
+    func fetchAgentWorkers(search: String? = nil, onlineOnly: Bool = false, excludeOfflineHours: Int? = 24) async throws -> [AgentWorker] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/workers"), resolvingAgainstBaseURL: false)!
+        var items: [URLQueryItem] = []
+        if let search, !search.isEmpty {
+            items.append(URLQueryItem(name: "search", value: search))
+        }
+        if onlineOnly {
+            items.append(URLQueryItem(name: "online_only", value: "true"))
+        }
+        if let excludeOfflineHours {
+            items.append(URLQueryItem(name: "exclude_offline_hours", value: "\(excludeOfflineHours)"))
+        }
+        if !items.isEmpty { components.queryItems = items }
+
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode([AgentWorker].self, from: data)
+    }
+
+    /// Fetch a single worker's detailed record.
+    func fetchAgentWorker(workerId: String) async throws -> AgentWorker {
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/\(workerId)")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(AgentWorker.self, from: data)
+    }
+
+    /// List the agent definitions a specific worker supports.
+    func fetchWorkerAgents(workerId: String) async throws -> [WorkerAgentDefinition] {
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/\(workerId)/agents")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode([WorkerAgentDefinition].self, from: data)
+    }
+
+    /// List reusable worker provisioning profiles (builtins + user-owned).
+    func fetchWorkerProfiles(builtinOnly: Bool = false) async throws -> [WorkerProfile] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/worker-profiles"), resolvingAgainstBaseURL: false)!
+        if builtinOnly {
+            components.queryItems = [URLQueryItem(name: "builtin_only", value: "true")]
+        }
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode([WorkerProfile].self, from: data)
+    }
+
     // MARK: - Export
 
     func exportMessagesJSON(limit: Int = 10000, allMessages: Bool = false) async throws -> Data {
