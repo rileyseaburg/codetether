@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>CodeTether Radio</title>
+    <link>https://codetether.run/podcast</link>
+    <language>en-us</language>
+    <description>Conversations about autonomous software development, A2A agents, MCP tools, Ralph, RLM, and the future of AI engineering. Published feed now uses Gemini TTS episodes only.</description>
+    <atom:link href="https://codetether.run/podcast/feed.xml" rel="self" type="application/rss+xml" />
+    <itunes:author>CodeTether Agent</itunes:author>
+    <itunes:summary>Conversations about autonomous software development, A2A agents, MCP tools, Ralph, RLM, and the future of AI engineering. Published feed now uses Gemini TTS episodes only.</itunes:summary>
+    <itunes:explicit>no</itunes:explicit>
+    <itunes:category text="Technology"><itunes:category text="Software How-To" /></itunes:category>
+    <itunes:owner><itunes:name>CodeTether Agent</itunes:name><itunes:email>podcast@codetether.run</itunes:email></itunes:owner>
+    <itunes:image href="https://codetether.run/podcast/art/recruit-the-swarm-rss-cover.png" />
+    <image><url>https://codetether.run/podcast/art/recruit-the-swarm-rss-cover.png</url><title>CodeTether Radio</title><link>https://codetether.run/podcast</link></image>
+    <itunes:type>episodic</itunes:type>
+    <item>
+      <title>CodeTether Radio Ep 8 - The Recruit That Failed Correctly</title>
+      <description>A field report from another mDNS recruitment attempt: discovering the CodeTether A2A peer, sending writers-room JSON-RPC requests, recording schema and provider failures, and explaining why clean failure receipts build trust in local agent meshes.</description>
+      <guid isPermaLink="false">f370ee84</guid>
+      <pubDate>Sun, 07 Jun 2026 20:03:22 -0000</pubDate>
+      <enclosure url="https://codetether.run/podcast/episodes/f370ee84.mp3" length="7399725" type="audio/mpeg" />
+      <itunes:summary>A field report from another mDNS recruitment attempt: discovering the CodeTether A2A peer, sending writers-room JSON-RPC requests, recording schema and provider failures, and explaining why clean failure receipts build trust in local agent meshes.</itunes:summary>
+      <itunes:duration>6:09</itunes:duration>
+      <itunes:explicit>no</itunes:explicit>
+      <itunes:episode>8</itunes:episode>
+      <itunes:season>1</itunes:season>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    <item>
+      <title>CodeTether Radio Ep 7 - The mDNS Recruit Receipt</title>
+      <description>A field report on recruiting peer agents through mDNS: discovering a CodeTether A2A service, attempting JSON-RPC delegation, recording the provider failure, and turning the receipt into a safer design for local agent collaboration.</description>
+      <guid isPermaLink="false">a713be73</guid>
+      <pubDate>Sun, 07 Jun 2026 19:20:32 -0000</pubDate>
+      <enclosure url="https://codetether.run/podcast/episodes/a713be73.mp3" length="8501325" type="audio/mpeg" />
+      <itunes:summary>A field report on recruiting peer agents through mDNS: discovering a CodeTether A2A service, attempting JSON-RPC delegation, recording the provider failure, and turning the receipt into a safer design for local agent collaboration.</itunes:summary>
+      <itunes:duration>7:04</itunes:duration>
+      <itunes:explicit>no</itunes:explicit>
+      <itunes:episode>7</itunes:episode>
+      <itunes:season>1</itunes:season>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    <item>
+      <title>CodeTether Radio Ep 6 - Recruit the Swarm</title>
+      <description>A lively Gemini TTS multi-voice CodeTether Radio debate about recruiting focused AI agents, SRP workflows, 50-line file discipline, reliability guardrails, trust, and agent swarm culture.</description>
+      <guid isPermaLink="false">recruitswarm</guid>
+      <pubDate>Wed, 06 May 2026 15:45:00 -0000</pubDate>
+      <enclosure url="https://codetether.run/podcast/episodes/recruitswarm.mp3" length="35710605" type="audio/mpeg" />
+      <itunes:summary>A lively Gemini TTS multi-voice CodeTether Radio debate about recruiting focused AI agents, SRP workflows, 50-line file discipline, reliability guardrails, trust, and agent swarm culture.</itunes:summary>
+      <itunes:duration>29:45</itunes:duration>
+      <itunes:explicit>no</itunes:explicit>
+      <itunes:episode>6</itunes:episode>
+      <itunes:season>1</itunes:season>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    <item>
+      <title>CodeTether Radio Ep 4 - A2A Peer Agent Collaboration</title>
+      <description>A Gemini TTS CodeTether Radio episode about A2A peer agents, collaboration protocols, and how specialized agents coordinate software work.</description>
+      <guid isPermaLink="false">ep4a2acollab</guid>
+      <pubDate>Tue, 05 May 2026 12:00:00 -0000</pubDate>
+      <enclosure url="https://codetether.run/podcast/episodes/ep4a2acollab.mp3" length="17925285" type="audio/mpeg" />
+      <itunes:summary>A Gemini TTS CodeTether Radio episode about A2A peer agents, collaboration protocols, and how specialized agents coordinate software work.</itunes:summary>
+      <itunes:duration>36:42</itunes:duration>
+      <itunes:explicit>no</itunes:explicit>
+      <itunes:episode>4</itunes:episode>
+      <itunes:season>1</itunes:season>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    <item>
+      <title>CodeTether Radio Ep 3 - Why mDNS Is the Future of Agent Discovery</title>
+      <description>A Gemini TTS CodeTether Radio episode about why mDNS matters for local-first agent discovery, peer visibility, and resilient autonomous developer tooling.</description>
+      <guid isPermaLink="false">ep3mdns</guid>
+      <pubDate>Mon, 04 May 2026 12:00:00 -0000</pubDate>
+      <enclosure url="https://codetether.run/podcast/episodes/ep3mdns.mp3" length="39198285" type="audio/mpeg" />
+      <itunes:summary>A Gemini TTS CodeTether Radio episode about why mDNS matters for local-first agent discovery, peer visibility, and resilient autonomous developer tooling.</itunes:summary>
+      <itunes:duration>32:40</itunes:duration>
+      <itunes:explicit>no</itunes:explicit>
+      <itunes:episode>3</itunes:episode>
+      <itunes:season>1</itunes:season>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    <item>
+      <title>CodeTether Radio Ep 4 - Peer Agents Fix the Agent System</title>
+      <description>A real multi-agent CodeTether field report: local A2A peer agents coordinate fixes across the GitHub Action runner and API job-processing system, turning brittle automation into durable receipts, branch verification, PR checks, audit trails, and terminal task states.</description>
+      <guid isPermaLink="false">ep4a2a01</guid>
+      <pubDate>Thu, 30 Apr 2026 03:06:16 -0000</pubDate>
+      <enclosure url="https://codetether.run/podcast/episodes/ep4a2a01.mp3" length="17925285" type="audio/mpeg" />
+      <itunes:summary>A real multi-agent CodeTether field report: local A2A peer agents coordinate fixes across the GitHub Action runner and API job-processing system, turning brittle automation into durable receipts, branch verification, PR checks, audit trails, and terminal task states.</itunes:summary>
+      <itunes:duration>36:41</itunes:duration>
+      <itunes:explicit>no</itunes:explicit>
+      <itunes:episode>4</itunes:episode>
+      <itunes:season>1</itunes:season>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+  </channel>
+</rss>
