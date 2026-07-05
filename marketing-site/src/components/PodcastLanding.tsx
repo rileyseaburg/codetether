@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import { PodcastEpisodeCard } from '@/components/PodcastEpisodeCard'
+import { PodcastSubscribePanel } from '@/components/PodcastSubscribePanel'
 import { podcastEpisodes, podcastInfo } from '@/components/podcastData'
 
 export function PodcastLanding() {
@@ -31,19 +32,14 @@ function PodcastHero() {
                 {podcastInfo.description}
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Link
-                    href="/podcast/feed.xml"
-                    className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500"
-                >
+                <Link href="/podcast/feed.xml" className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500">
                     Subscribe via RSS
                 </Link>
-                <a
-                    href={podcastEpisodes[0]?.audio_url ?? '/podcast/feed.xml'}
-                    className="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:text-white dark:hover:bg-gray-900"
-                >
+                <a href={podcastEpisodes[0]?.audio_url ?? '/podcast/feed.xml'} className="rounded-full border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:text-white dark:hover:bg-gray-900">
                     Play latest episode
                 </a>
             </div>
+            <PodcastSubscribePanel />
         </div>
     )
 }

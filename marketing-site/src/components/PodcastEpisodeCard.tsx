@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import {
     type Episode,
     formatEpisodeDate,
@@ -13,7 +15,9 @@ export function PodcastEpisodeCard({ episode }: { episode: Episode }) {
                         Episode {episode.episode_number ?? episode.episode_id} · {formatEpisodeDate(episode.published_at)} · {formatEpisodeDuration(episode)}
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
-                        {episode.title}
+                        <Link href={`/podcast/episodes/${episode.episode_id}`}>
+                            {episode.title}
+                        </Link>
                     </h2>
                 </div>
                 <a
