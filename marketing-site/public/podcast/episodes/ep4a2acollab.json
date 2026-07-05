@@ -1,0 +1,19 @@
+{
+  "episode_id": "ep4a2acollab",
+  "podcast_id": "ef302249",
+  "title": "CodeTether Radio Ep 4 - A2A Peer Agent Collaboration",
+  "description": "A Gemini TTS CodeTether Radio episode about A2A peer agents, collaboration protocols, and how specialized agents coordinate software work.",
+  "voice_id": "gemini-3.1-flash-tts-preview",
+  "voice_name": "Gemini TTS - Kore",
+  "model": "gemini-3.1-flash-tts-preview",
+  "audio_url": "http://192.168.50.101:8025/published/ef302249/episodes/ep4a2acollab.mp3",
+  "duration_seconds": 2201.784,
+  "duration_text": "36:42",
+  "file_size": 17925285,
+  "episode_number": 4,
+  "season_number": 1,
+  "episode_type": "full",
+  "explicit": "no",
+  "published_at": "2026-05-05T12:00:00",
+  "image_url": "http://192.168.50.101:8025/published/ef302249/art/recruit-the-swarm-rss-cover.png"
+}
