@@ -169,16 +169,7 @@ function BillingContent() {
     const getAuthToken = () => {
         // @ts-ignore - accessToken/idToken may be on session
         const sessionToken = session?.accessToken || session?.idToken
-        if (sessionToken) {
-            return sessionToken as string
-        }
-        if (typeof window !== 'undefined') {
-            const storedToken = localStorage.getItem('a2a_token')
-            if (storedToken) {
-                return storedToken
-            }
-        }
-        return null
+        return sessionToken ? (sessionToken as string) : null
     }
 
     const getAuthHeaders = () => {

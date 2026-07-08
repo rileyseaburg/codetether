@@ -93,8 +93,8 @@ class VoiceSessionManager: ObservableObject {
             self.baseURL = url
         } else {
             // Safely parse URL from UserDefaults, falling back to default if invalid
-            let urlString = UserDefaults.standard.string(forKey: "serverURL") ?? "https://api.codetether.run"
-            self.baseURL = URL(string: urlString) ?? URL(string: "https://api.codetether.run")!
+            let urlString = UserDefaults.standard.string(forKey: "serverURL") ?? "https://quantum-forge.codetether.run"
+            self.baseURL = URL(string: urlString) ?? URL(string: "https://quantum-forge.codetether.run")!
         }
         self.authHeader = authHeader
         self.userId = "user-\(UUID().uuidString.prefix(8))"

@@ -77,6 +77,12 @@ ingress:
 env:
   A2A_HOST: "0.0.0.0"
   A2A_PORT: "8000"
+  # Tenant A2A pods talk to Keycloak in-cluster for token/JWKS calls.
+  # Public clients still use the tenant host and public issuer configured by the API.
+  KEYCLOAK_URL: "http://keycloak.keycloak.svc.cluster.local:8080"
+  KEYCLOAK_REALM: "quantum-forge"
+  KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
+  KEYCLOAK_CLIENT_ID: "a2a-monitor"
   # DATABASE_URL is injected from secret
   # Add other env vars as needed
 
@@ -84,6 +90,8 @@ env:
 secrets:
   # Name of secret containing DATABASE_URL
   database: codetether-db-credentials
+  # Name of secret containing KEYCLOAK_CLIENT_SECRET
+  keycloak: keycloak-client-secret
   # Name of secret containing API keys
   apiKeys: codetether-api-keys
 

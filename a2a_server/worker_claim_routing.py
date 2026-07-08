@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+
+from datetime import UTC, datetime
+
+from a2a_server.database import db_get_worker
+
+
+type CapabilityPayload = str | list[object] | tuple[object, ...] | None
 
 logger = logging.getLogger(__name__)
 
+PERSISTENT_ALIASES = {
+    'persistent-workspace',
+    'persistent_workspace',
+    'persistent',
+    'harvester',
+}
 
-def normalize_capabilities(value: Any) -> list[str]:
+
+def normalize_capabilities(value: CapabilityPayload) -> list[str]:
     """Normalize capability payloads from headers, JSON, or DB rows.
 
     Treat persistent workspace capability aliases as satisfying the legacy
@@ -18,35 +30,36 @@ def normalize_capabilities(value: Any) -> list[str]:
     than literal ``persistent``.
     """
     if isinstance(value, str):
-        value = [value]
-    if not isinstance(value, list):
+        raw_capabilities: list[object] = [value]
+    elif isinstance(value, tuple):
+        raw_capabilities = list(value)
+    elif isinstance(value, list):
+        raw_capabilities = value
+    else:
         return []
+
     capabilities: list[str] = []
-    for raw_cap in value:
+    for raw_cap in raw_capabilities:
         cap = str(raw_cap).strip()
         if not cap:
             continue
         capabilities.append(cap)
-        if cap in {'persistent-workspace', 'persistent_workspace', 'harvester'}:
+        if cap in PERSISTENT_ALIASES:
             capabilities.append('persistent')
     return list(dict.fromkeys(capabilities))
 
 
 def has_persistent_workspace_capability(capabilities: list[str]) -> bool:
-    return any(
-        cap in {'persistent-workspace', 'persistent_workspace', 'persistent', 'harvester'}
-        for cap in capabilities
-    )
+    """Return true if capabilities include a persistent worker alias."""
+    return any(cap in PERSISTENT_ALIASES for cap in capabilities)
 
 
-async def db_worker_agent_name(worker_id: str) -> Optional[str]:
+async def db_worker_agent_name(worker_id: str) -> str | None:
     """Resolve a worker's registered agent name from durable storage."""
     try:
-        from .database import db_get_worker
-
         worker = await db_get_worker(worker_id)
     except Exception as e:
-        logger.debug(f'Failed to resolve worker {worker_id} from DB: {e}')
+        logger.debug('Failed to resolve worker %s from DB: %s', worker_id, e)
         return None
 
     if not worker:
@@ -57,12 +70,12 @@ async def db_worker_agent_name(worker_id: str) -> Optional[str]:
 async def db_worker_capabilities(worker_id: str) -> list[str]:
     """Resolve a worker's registered capabilities from durable storage."""
     try:
-        from .database import db_get_worker
-
         worker = await db_get_worker(worker_id)
     except Exception as e:
         logger.debug(
-            f'Failed to resolve worker capabilities for {worker_id}: {e}'
+            'Failed to resolve worker capabilities for %s: %s',
+            worker_id,
+            e,
         )
         return []
 
@@ -74,11 +87,13 @@ async def db_worker_capabilities(worker_id: str) -> list[str]:
 async def db_worker_recent(worker_id: str, max_age_seconds: int = 120) -> bool:
     """Return true when a worker id still represents a live process."""
     try:
-        from .database import db_get_worker
-
         worker = await db_get_worker(worker_id)
     except Exception as e:
-        logger.debug(f'Failed to resolve target worker freshness for {worker_id}: {e}')
+        logger.debug(
+            'Failed to resolve target worker freshness for %s: %s',
+            worker_id,
+            e,
+        )
         return False
 
     if not worker or worker.get('status') != 'active':
@@ -93,5 +108,6 @@ async def db_worker_recent(worker_id: str, max_age_seconds: int = 120) -> bool:
         except ValueError:
             return False
     if last_seen.tzinfo is None:
-        last_seen = last_seen.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last_seen).total_seconds() <= max_age_seconds
+        last_seen = last_seen.replace(tzinfo=UTC)
+    age_seconds = (datetime.now(UTC) - last_seen).total_seconds()
+    return age_seconds <= max_age_seconds

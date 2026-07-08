@@ -42,13 +42,6 @@ interface RBACUsersResponse {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-const getStoredToken = (): string | null => {
-    if (typeof window === 'undefined') {
-        return null
-    }
-    return localStorage.getItem('a2a_token')
-}
-
 const hasAdminRole = (user: any): boolean => {
     if (!user) {
         return false
@@ -81,7 +74,7 @@ export default function AdminUsersPage() {
 
     const getAuthToken = (): string | null => {
         const sessionToken = typedSession?.accessToken as string | undefined
-        return sessionToken || getStoredToken()
+        return sessionToken || null
     }
 
     const selectedUser = useMemo(

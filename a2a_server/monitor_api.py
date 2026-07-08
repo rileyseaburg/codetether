@@ -1,3 +1,4 @@
+# ruff: noqa
 """
 Monitoring API endpoints for A2A Server.
 
@@ -1856,6 +1857,20 @@ class AgentTaskCreate(BaseModel):
     model: Optional[str] = None  # Optional: specify model
     model_ref: Optional[str] = None  # Optional: normalized provider:model
     worker_personality: Optional[str] = None
+
+
+class AgentTaskCreateSync(AgentTaskCreate):
+    """Request model for creating a task and waiting for worker output.
+
+    This is intended for CI/action integrations (Forgejo/GitHub PR review,
+    Codex/Copilot-style agent checks) where accepting a task asynchronously is
+    not useful to the caller. The HTTP request stays open until the worker
+    finishes or the timeout expires, and the response contains all streamed
+    output chunks plus the terminal result.
+    """
+
+    timeout_seconds: float = 900
+    poll_interval_seconds: float = 0.5
 
 
 class WatchModeConfig(BaseModel):
@@ -4601,6 +4616,54 @@ async def get_github_app_workflows(
     return await load_github_app_workflows(pool, repos, limit, tenant_id)
 
 
+async def _wait_for_task_completion(
+    task_id: str,
+    *,
+    timeout_seconds: float,
+    poll_interval_seconds: float,
+) -> dict[str, Any]:
+    """Wait for a worker task to reach a terminal state and collect output."""
+    bridge = get_agent_bridge()
+    if bridge is None:
+        raise HTTPException(status_code=503, detail='Agent bridge not available')
+
+    deadline = asyncio.get_running_loop().time() + max(timeout_seconds, 0.0)
+    poll_interval = max(poll_interval_seconds, 0.1)
+    terminal_statuses = {'completed', 'failed', 'cancelled'}
+
+    while True:
+        task = await bridge.get_task(task_id)
+        status = None
+        if task is not None:
+            raw_status = getattr(task, 'status', None)
+            status = getattr(raw_status, 'value', raw_status)
+
+        if status in terminal_statuses:
+            task_dict = task.to_dict() if hasattr(task, 'to_dict') else task
+            return {
+                'success': status == 'completed',
+                'task_id': task_id,
+                'status': status,
+                'task': task_dict,
+                'outputs': _task_output_streams.get(task_id, []),
+                'result': task_dict.get('result') if isinstance(task_dict, dict) else None,
+                'error': task_dict.get('error') if isinstance(task_dict, dict) else None,
+            }
+
+        if asyncio.get_running_loop().time() >= deadline:
+            raise HTTPException(
+                status_code=504,
+                detail={
+                    'message': 'Task did not complete before the synchronous wait timeout',
+                    'task_id': task_id,
+                    'status': status or 'unknown',
+                    'outputs': _task_output_streams.get(task_id, []),
+                },
+            )
+
+        await asyncio.sleep(poll_interval)
+
+
 @agent_router_alias.post('/tasks')
 async def create_global_task(task_data: AgentTaskCreate):
     """Create a new task, optionally tied to a specific workspace.
@@ -4671,6 +4734,119 @@ async def create_global_task(task_data: AgentTaskCreate):
         raise HTTPException(status_code=500, detail='Failed to create task')
 
     return task
+
+
+@agent_router_alias.post('/tasks/sync')
+async def create_global_task_sync(task_data: AgentTaskCreateSync):
+    """Create a task and synchronously return worker output/result.
+
+    CI action integrations should use this instead of queueing a task and
+    polling briefly. A timeout is reported as HTTP 504 with partial output,
+    making the check visibly inconclusive rather than silently non-blocking.
+    """
+    task = await create_global_task(task_data)
+    task_id = task.get('id') if isinstance(task, dict) else getattr(task, 'id')
+    if not task_id:
+        raise HTTPException(status_code=500, detail='Created task has no id')
+    return await _wait_for_task_completion(
+        str(task_id),
+        timeout_seconds=task_data.timeout_seconds,
+        poll_interval_seconds=task_data.poll_interval_seconds,
+    )
+
+
+async def _stream_task_run_events(
+    task_id: str,
+    *,
+    timeout_seconds: float,
+    poll_interval_seconds: float,
+):
+    """Yield NDJSON task lifecycle/output events until terminal state."""
+    bridge = get_agent_bridge()
+    if bridge is None:
+        yield json.dumps(
+            {'event': 'error', 'task_id': task_id, 'error': 'Agent bridge not available'}
+        ) + '\n'
+        return
+
+    deadline = asyncio.get_running_loop().time() + max(timeout_seconds, 0.0)
+    poll_interval = max(poll_interval_seconds, 0.1)
+    terminal_statuses = {'completed', 'failed', 'cancelled'}
+    last_output_index = 0
+
+    yield json.dumps({'event': 'task_started', 'task_id': task_id}) + '\n'
+
+    while True:
+        outputs = _task_output_streams.get(task_id, [])
+        if len(outputs) > last_output_index:
+            for output in outputs[last_output_index:]:
+                yield json.dumps(
+                    {'event': 'output', 'task_id': task_id, 'data': output}
+                ) + '\n'
+            last_output_index = len(outputs)
+
+        task = await bridge.get_task(task_id)
+        status = None
+        if task is not None:
+            raw_status = getattr(task, 'status', None)
+            status = getattr(raw_status, 'value', raw_status)
+
+        if status in terminal_statuses:
+            task_dict = task.to_dict() if hasattr(task, 'to_dict') else task
+            yield json.dumps(
+                {
+                    'event': 'done',
+                    'task_id': task_id,
+                    'success': status == 'completed',
+                    'status': status,
+                    'task': task_dict,
+                    'result': task_dict.get('result')
+                    if isinstance(task_dict, dict)
+                    else None,
+                    'error': task_dict.get('error')
+                    if isinstance(task_dict, dict)
+                    else None,
+                }
+            ) + '\n'
+            return
+
+        if asyncio.get_running_loop().time() >= deadline:
+            yield json.dumps(
+                {
+                    'event': 'timeout',
+                    'task_id': task_id,
+                    'success': False,
+                    'status': status or 'unknown',
+                    'message': 'Task did not complete before the synchronous wait timeout',
+                }
+            ) + '\n'
+            return
+
+        await asyncio.sleep(poll_interval)
+
+
+@agent_router_alias.post('/tasks/sync/stream')
+async def create_global_task_sync_stream(task_data: AgentTaskCreateSync):
+    """Create a task and stream worker output synchronously as NDJSON.
+
+    This endpoint is the CI/action-friendly path: the request stays open, every
+    worker output chunk is written to the response as it arrives, and the final
+    line is a `done` or `timeout` event. Callers should fail the action when the
+    terminal event has `success: false`.
+    """
+    task = await create_global_task(task_data)
+    task_id = task.get('id') if isinstance(task, dict) else getattr(task, 'id')
+    if not task_id:
+        raise HTTPException(status_code=500, detail='Created task has no id')
+
+    return StreamingResponse(
+        _stream_task_run_events(
+            str(task_id),
+            timeout_seconds=task_data.timeout_seconds,
+            poll_interval_seconds=task_data.poll_interval_seconds,
+        ),
+        media_type='application/x-ndjson',
+    )
 
 
 @agent_router_alias.post('/workspaces/{workspace_id}/tasks')

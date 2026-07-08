@@ -69,12 +69,7 @@ export function useTenantApi() {
 
   const tenantConfig = useMemo(() => {
     const defaultApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
-    const sessionToken = typedSession?.accessToken as string | undefined
-    const storedToken =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('a2a_token') || localStorage.getItem('access_token') || undefined
-        : undefined
-    const authToken = sessionToken || storedToken
+    const authToken = typedSession?.accessToken as string | undefined
     const tokenTenant = extractTenantFromToken(authToken)
 
     const resolvedTenantId =
@@ -95,7 +90,7 @@ export function useTenantApi() {
       localUser?.tenant_slug ||
       tokenTenant.tenantSlug
 
-    if (!typedSession && !authToken) {
+    if (!typedSession?.accessToken) {
       return {
         apiUrl: defaultApiUrl,
         tenantId: undefined,
@@ -139,12 +134,7 @@ export function useTenantApi() {
       ...(options.headers as Record<string, string> || {}),
     }
 
-    const sessionToken = typedSession?.accessToken as string | undefined
-    const storedToken =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('a2a_token') || localStorage.getItem('access_token')
-        : null
-    const authToken = sessionToken || storedToken
+    const authToken = typedSession?.accessToken as string | undefined
 
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`

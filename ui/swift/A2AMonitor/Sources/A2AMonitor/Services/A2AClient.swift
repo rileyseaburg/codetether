@@ -44,7 +44,7 @@ class A2AClient: ObservableObject {
     /// Reusable ISO8601 formatter for outgoing timestamps (avoids per-call allocation).
     private static let iso8601Output = ISO8601DateFormatter()
 
-    init(baseURL: String = "https://api.codetether.run") {
+    init(baseURL: String = "https://quantum-forge.codetether.run") {
         self.baseURL = URL(string: baseURL)!
 
         let config = URLSessionConfiguration.default

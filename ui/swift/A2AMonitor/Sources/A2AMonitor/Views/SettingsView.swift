@@ -4,7 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var viewModel: MonitorViewModel
     @EnvironmentObject var authService: AuthService
-    @AppStorage("serverURL") private var serverURL = "https://api.codetether.run"
+    @AppStorage("serverURL") private var serverURL = "https://quantum-forge.codetether.run"
     @AppStorage("autoReconnect") private var autoReconnect = true
     @AppStorage("refreshInterval") private var refreshInterval = 5.0
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
@@ -65,7 +65,7 @@ struct SettingsView: View {
                     Text("Server URL")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
-                    TextField("https://api.codetether.run", text: $serverURL)
+                    TextField("https://quantum-forge.codetether.run", text: $serverURL)
                         .textFieldStyle(.plain)
                         .foregroundColor(.white)
                         .padding(12)
@@ -304,7 +304,7 @@ struct SettingsView: View {
     // MARK: - Helpers
     
     private func resetToDefaults() {
-        serverURL = "https://api.codetether.run"
+        serverURL = "https://quantum-forge.codetether.run"
         autoReconnect = true
         refreshInterval = 5.0
         notificationsEnabled = true

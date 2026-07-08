@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 
 interface AutomationTemplate {
   id: string
@@ -42,6 +43,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 export default function AutomationsPage() {
+  const { data: session } = useSession()
   const [templates, setTemplates] = useState<AutomationTemplate[]>([])
   const [automations, setAutomations] = useState<Automation[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<AutomationTemplate | null>(null)
@@ -132,7 +134,7 @@ export default function AutomationsPage() {
     setSubmitResult(null)
 
     try {
-      const token = localStorage.getItem('a2a_token')
+      const token = session?.accessToken
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
       // Build the prompt from template
@@ -334,7 +336,7 @@ export default function AutomationsPage() {
                     Need something custom?
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Describe any task in plain English and we'll figure out how to do it.
+                    Describe any task in plain English and we&apos;ll figure out how to do it.
                   </p>
                   <Link
                     href="/dashboard/automations/custom"

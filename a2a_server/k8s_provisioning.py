@@ -1,5 +1,4 @@
-"""
-Kubernetes Instance Provisioning Service.
+"""Kubernetes Instance Provisioning Service.
 
 This module handles dynamic provisioning of dedicated Kubernetes instances
 for new user signups. Each user gets their own isolated deployment.
@@ -17,17 +16,26 @@ Best practices:
 - Configurable resource limits per tier
 """
 
+import asyncio
 import logging
 import os
-import asyncio
-import subprocess
 import shutil
+import subprocess
+
 from dataclasses import dataclass
-from enum import Enum
-from typing import Optional, Dict, Any
+from enum import StrEnum
 from pathlib import Path
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
+
+HTTP_NOT_FOUND = 404
+HTTP_CONFLICT = 409
+DEFAULT_TENANT_IMAGE = (
+    'us-central1-docker.pkg.dev/spotlessbinco/codetether/'
+    'a2a-server-mcp:latest'
+)
 
 # Helm chart path
 HELM_CHART_PATH = Path(__file__).parent.parent / 'chart' / 'codetether-tenant'
@@ -50,7 +58,7 @@ except ImportError:
     )
 
 
-class K8sProvisioningStatus(str, Enum):
+class K8sProvisioningStatus(StrEnum):
     """Status of Kubernetes instance provisioning."""
 
     PENDING = 'pending'
@@ -75,7 +83,7 @@ class K8sInstanceConfig:
     replicas: int = 1
 
     # Image configuration
-    image: str = 'us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp:latest'
+    image: str = DEFAULT_TENANT_IMAGE
     image_pull_policy: str = 'Always'
 
     # Domain configuration
@@ -122,16 +130,16 @@ class K8sProvisioningResult:
     """Result of Kubernetes instance provisioning."""
 
     success: bool
-    namespace: Optional[str] = None
-    deployment_name: Optional[str] = None
-    service_name: Optional[str] = None
-    ingress_host: Optional[str] = None
-    internal_url: Optional[str] = None
-    external_url: Optional[str] = None
-    error_message: Optional[str] = None
+    namespace: str | None = None
+    deployment_name: str | None = None
+    service_name: str | None = None
+    ingress_host: str | None = None
+    internal_url: str | None = None
+    external_url: str | None = None
+    error_message: str | None = None
     status: K8sProvisioningStatus = K8sProvisioningStatus.PENDING
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'success': self.success,
             'namespace': self.namespace,
@@ -146,8 +154,7 @@ class K8sProvisioningResult:
 
 
 class K8sProvisioningService:
-    """
-    Service for provisioning dedicated Kubernetes instances for users.
+    """Service for provisioning dedicated Kubernetes instances for users.
 
     Each user gets:
     - A dedicated namespace for isolation
@@ -157,9 +164,9 @@ class K8sProvisioningService:
     """
 
     def __init__(self):
-        self.core_api: Optional[Any] = None
-        self.apps_api: Optional[Any] = None
-        self.networking_api: Optional[Any] = None
+        self.core_api: Any | None = None
+        self.apps_api: Any | None = None
+        self.networking_api: Any | None = None
         self._initialized = False
 
     def _init_k8s_client(self) -> bool:
@@ -179,7 +186,7 @@ class K8sProvisioningService:
             except config.ConfigException:
                 # Fall back to kubeconfig file
                 kubeconfig_path = os.environ.get(
-                    'KUBECONFIG', os.path.expanduser('~/.kube/config')
+                    'KUBECONFIG', str(Path('~/.kube/config').expanduser())
                 )
                 config.load_kube_config(config_file=kubeconfig_path)
                 logger.info(f'Loaded Kubernetes config from {kubeconfig_path}')
@@ -201,8 +208,7 @@ class K8sProvisioningService:
         org_slug: str,
         tier: str = 'free',
     ) -> K8sProvisioningResult:
-        """
-        Provision a tenant instance using Helm chart.
+        """Provision a tenant instance using Helm chart.
 
         This is the preferred method as it provides:
         - Declarative configuration
@@ -268,7 +274,8 @@ class K8sProvisioningService:
             external_url = f'https://{ingress_host}'
 
             logger.info(
-                f'K8s instance provisioned successfully via Helm: {external_url}'
+                'K8s instance provisioned successfully via Helm: '
+                f'{external_url}'
             )
 
             return K8sProvisioningResult(
@@ -338,10 +345,9 @@ class K8sProvisioningService:
         tenant_id: str,
         org_slug: str,
         tier: str = 'free',
-        config_override: Optional[K8sInstanceConfig] = None,
+        config_override: K8sInstanceConfig | None = None,
     ) -> K8sProvisioningResult:
-        """
-        Provision a dedicated Kubernetes instance for a user.
+        """Provision a dedicated Kubernetes instance for a user.
 
         Args:
             user_id: The user's ID
@@ -381,7 +387,8 @@ class K8sProvisioningService:
         ingress_host = f'{org_slug}.{k8s_config.base_domain}'
 
         logger.info(
-            f'Provisioning K8s instance for user {user_id}: namespace={namespace}'
+            f'Provisioning K8s instance for user {user_id}: '
+            f'namespace={namespace}'
         )
 
         # Track what we've created for rollback
@@ -497,7 +504,7 @@ class K8sProvisioningService:
                 body=namespace,
             )
         except ApiException as e:
-            if e.status == 409:  # Already exists
+            if e.status == HTTP_CONFLICT:  # Already exists
                 logger.info(f'Namespace {name} already exists')
             else:
                 raise
@@ -539,13 +546,15 @@ class K8sProvisioningService:
                 f'Copied image pull secret {secret_name} to {target_namespace}'
             )
         except ApiException as e:
-            if e.status == 409:  # Already exists
+            if e.status == HTTP_CONFLICT:  # Already exists
                 logger.info(
-                    f'Image pull secret {secret_name} already exists in {target_namespace}'
+                    f'Image pull secret {secret_name} already exists in '
+                    f'{target_namespace}'
                 )
-            elif e.status == 404:
+            elif e.status == HTTP_NOT_FOUND:
                 logger.warning(
-                    f'Source secret {secret_name} not found in {source_namespace}'
+                    f'Source secret {secret_name} not found in '
+                    f'{source_namespace}'
                 )
             else:
                 logger.error(f'Failed to copy image pull secret: {e}')
@@ -609,6 +618,47 @@ class K8sProvisioningService:
                                     client.V1EnvVar(
                                         name='A2A_PORT',
                                         value='8000',
+                                    ),
+                                    client.V1EnvVar(
+                                        name='KEYCLOAK_URL',
+                                        value=os.getenv(
+                                            'TENANT_KEYCLOAK_URL',
+                                            'http://keycloak.keycloak.svc.cluster.local:8080',
+                                        ),
+                                    ),
+                                    client.V1EnvVar(
+                                        name='KEYCLOAK_REALM',
+                                        value=os.getenv(
+                                            'TENANT_KEYCLOAK_REALM',
+                                            'quantum-forge',
+                                        ),
+                                    ),
+                                    client.V1EnvVar(
+                                        name='KEYCLOAK_ISSUER',
+                                        value=os.getenv(
+                                            'TENANT_KEYCLOAK_ISSUER',
+                                            'https://auth.quantum-forge.io/realms/quantum-forge',
+                                        ),
+                                    ),
+                                    client.V1EnvVar(
+                                        name='KEYCLOAK_CLIENT_ID',
+                                        value=os.getenv(
+                                            'TENANT_KEYCLOAK_CLIENT_ID',
+                                            'a2a-monitor',
+                                        ),
+                                    ),
+                                    client.V1EnvVar(
+                                        name='KEYCLOAK_CLIENT_SECRET',
+                                        value_from=client.V1EnvVarSource(
+                                            secret_key_ref=client.V1SecretKeySelector(
+                                                name=os.getenv(
+                                                    'TENANT_KEYCLOAK_SECRET_NAME',
+                                                    'keycloak-client-secret',
+                                                ),
+                                                key='KEYCLOAK_CLIENT_SECRET',
+                                                optional=True,
+                                            ),
+                                        ),
                                     ),
                                 ],
                                 resources=client.V1ResourceRequirements(
@@ -750,10 +800,10 @@ class K8sProvisioningService:
 
     async def _rollback(
         self,
-        namespace: Optional[str],
-        deployment_name: Optional[str],
-        service_name: Optional[str],
-        ingress_name: Optional[str],
+        namespace: str | None,
+        deployment_name: str | None,
+        service_name: str | None,
+        ingress_name: str | None,
     ) -> None:
         """Rollback created resources on failure."""
         logger.warning(f'Rolling back K8s resources for namespace {namespace}')
@@ -803,8 +853,7 @@ class K8sProvisioningService:
                 logger.error(f'Rollback: Failed to delete namespace: {e}')
 
     async def delete_instance(self, namespace: str) -> bool:
-        """
-        Delete a user's Kubernetes instance.
+        """Delete a user's Kubernetes instance.
 
         Deleting the namespace cascades to all resources within it.
         """
@@ -819,7 +868,7 @@ class K8sProvisioningService:
             logger.info(f'Deleted K8s instance namespace: {namespace}')
             return True
         except ApiException as e:
-            if e.status == 404:
+            if e.status == HTTP_NOT_FOUND:
                 logger.info(f'Namespace {namespace} already deleted')
                 return True
             logger.error(f'Failed to delete namespace {namespace}: {e}')
@@ -830,8 +879,7 @@ class K8sProvisioningService:
         namespace: str,
         new_tier: str,
     ) -> bool:
-        """
-        Scale a user's K8s instance based on their subscription tier.
+        """Scale a user's K8s instance based on their subscription tier.
 
         Called when user upgrades or downgrades their subscription.
         Updates deployment resources and replica count.
@@ -899,7 +947,7 @@ class K8sProvisioningService:
             return True
 
         except ApiException as e:
-            if e.status == 404:
+            if e.status == HTTP_NOT_FOUND:
                 logger.warning(f'Namespace {namespace} not found for scaling')
                 return False
             logger.error(f'Failed to scale instance {namespace}: {e}')
@@ -909,8 +957,7 @@ class K8sProvisioningService:
             return False
 
     async def suspend_instance(self, namespace: str) -> bool:
-        """
-        Suspend a user's K8s instance (scale to 0 replicas).
+        """Suspend a user's K8s instance (scale to 0 replicas).
 
         Called when subscription is cancelled or payment fails.
         Instance is not deleted, just stopped to allow recovery.
@@ -939,7 +986,7 @@ class K8sProvisioningService:
             return True
 
         except ApiException as e:
-            if e.status == 404:
+            if e.status == HTTP_NOT_FOUND:
                 logger.warning(
                     f'Namespace {namespace} not found for suspension'
                 )
@@ -948,8 +995,7 @@ class K8sProvisioningService:
             return False
 
     async def resume_instance(self, namespace: str, tier: str = 'free') -> bool:
-        """
-        Resume a suspended K8s instance.
+        """Resume a suspended K8s instance.
 
         Called when user reactivates subscription or payment succeeds.
         """
@@ -957,7 +1003,7 @@ class K8sProvisioningService:
 
     async def get_instance_status(
         self, namespace: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get the status of a user's Kubernetes instance."""
         if not self._init_k8s_client():
             return None
@@ -1006,7 +1052,7 @@ class K8sProvisioningService:
             }
 
         except ApiException as e:
-            if e.status == 404:
+            if e.status == HTTP_NOT_FOUND:
                 return None
             raise
 
@@ -1021,9 +1067,7 @@ async def provision_k8s_instance_for_user(
     org_slug: str,
     tier: str = 'free',
 ) -> K8sProvisioningResult:
-    """
-    Convenience function to provision a K8s instance for a new user.
-    """
+    """Convenience function to provision a K8s instance for a new user."""
     return await k8s_provisioning_service.provision_instance(
         user_id=user_id,
         tenant_id=tenant_id,

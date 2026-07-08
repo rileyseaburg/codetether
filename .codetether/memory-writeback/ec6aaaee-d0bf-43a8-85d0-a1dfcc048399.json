@@ -1,0 +1,57 @@
+[
+  {
+    "kind": "k8s",
+    "level": "live deployment/Argo",
+    "value": "pod-succeeded"
+  },
+  {
+    "kind": "runtime",
+    "level": "blocked",
+    "value": "failed-or-degraded"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "test-results/"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "awscliv2.zip"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "favicon_io.zip"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "playwright-report/data/3ec1a0929c37bc72e33426c01836b3589c05e7b9.md"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "playwright-report/data/e3bf351d39d51a0e0ad300a84f96847dc69ade99.webm"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "playwright-report/data/e3bf351d39d51a0e0ad300a84f96847dc69ade99.webm"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "playwright-report/index.html"
+  },
+  {
+    "kind": "db-migration",
+    "level": "live DB",
+    "value": "applied"
+  },
+  {
+    "kind": "db-query",
+    "level": "live DB",
+    "value": "row-evidence"
+  }
+]

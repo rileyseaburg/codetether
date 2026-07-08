@@ -1,5 +1,5 @@
-"""
-Keycloak Authentication Service for A2A Server.
+# ruff: noqa: ANN202, B008, B904, E501, PLC0415, PLR2004
+"""Keycloak Authentication Service for A2A Server.
 
 Provides OAuth2/OIDC authentication with Keycloak for:
 - User authentication and session management
@@ -7,26 +7,25 @@ Provides OAuth2/OIDC authentication with Keycloak for:
 - User-scoped agent and codebase management
 """
 
-import os
-import logging
-import asyncio
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field, asdict
-import json
-import uuid
 import hashlib
+import json
+import logging
+import os
+import uuid
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any
 
 import httpx
-from jose import jwt, JWTError, jwk
-from jose.utils import base64url_decode
-from pydantic import BaseModel
-from fastapi import HTTPException, Security, Depends, Request
+
+from fastapi import Depends, HTTPException, Request, Security
 from fastapi.security import (
-    HTTPBearer,
     HTTPAuthorizationCredentials,
-    OAuth2AuthorizationCodeBearer,
+    HTTPBearer,
 )
+from jose import JWTError, jwk, jwt
+
 
 try:
     import redis.asyncio as aioredis
@@ -39,6 +38,9 @@ logger = logging.getLogger(__name__)
 # Keycloak Configuration from environment
 KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL', 'https://auth.quantum-forge.io')
 KEYCLOAK_REALM = os.environ.get('KEYCLOAK_REALM', 'quantum-forge')
+KEYCLOAK_ISSUER = os.environ.get(
+    'KEYCLOAK_ISSUER', f'{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}'
+)
 KEYCLOAK_CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID', 'a2a-monitor')
 KEYCLOAK_CLIENT_SECRET = os.environ.get('KEYCLOAK_CLIENT_SECRET', '')
 KEYCLOAK_ADMIN_USERNAME = os.environ.get('KEYCLOAK_ADMIN_USERNAME', '')
@@ -52,7 +54,7 @@ if not KEYCLOAK_CLIENT_SECRET:
 
 # JWT Configuration
 JWT_ALGORITHM = 'RS256'
-JWT_ISSUER = f'{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}'
+JWT_ISSUER = KEYCLOAK_ISSUER
 
 # Security schemes
 security = HTTPBearer(auto_error=False)
@@ -64,7 +66,7 @@ class TenantContext:
 
     tenant_id: str
     realm_name: str
-    plan: Optional[str] = None
+    plan: str | None = None
 
 
 @dataclass
@@ -77,16 +79,16 @@ class UserSession:
     name: str
     session_id: str
     access_token: str
-    refresh_token: Optional[str]
+    refresh_token: str | None
     expires_at: datetime
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_activity: datetime = field(default_factory=datetime.utcnow)
-    device_info: Dict[str, Any] = field(default_factory=dict)
-    roles: List[str] = field(default_factory=list)
-    tenant_id: Optional[str] = None
-    realm_name: Optional[str] = None
+    device_info: dict[str, Any] = field(default_factory=dict)
+    roles: list[str] = field(default_factory=list)
+    tenant_id: str | None = None
+    realm_name: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'user_id': self.user_id,
             'email': self.email,
@@ -118,7 +120,7 @@ class UserCodebaseAssociation:
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_accessed: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'user_id': self.user_id,
             'codebase_id': self.codebase_id,
@@ -138,13 +140,13 @@ class UserAgentSession:
     session_id: str
     codebase_id: str
     agent_type: str
-    agent_session_id: Optional[str] = None
+    agent_session_id: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_activity: datetime = field(default_factory=datetime.utcnow)
-    device_id: Optional[str] = None
-    messages: List[Dict[str, Any]] = field(default_factory=list)
+    device_id: str | None = None
+    messages: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'user_id': self.user_id,
             'session_id': self.session_id,
@@ -167,6 +169,7 @@ class KeycloakAuthService:
     def __init__(self):
         self.keycloak_url = KEYCLOAK_URL
         self.realm = KEYCLOAK_REALM
+        self.issuer = KEYCLOAK_ISSUER.rstrip('/')
         self.client_id = KEYCLOAK_CLIENT_ID
         self.client_secret = KEYCLOAK_CLIENT_SECRET
 
@@ -178,16 +181,16 @@ class KeycloakAuthService:
         self.logout_url = f'{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/logout'
 
         # Caches - keyed by realm for multi-tenant support
-        self._jwks_cache: Dict[str, Dict[str, Any]] = {}
-        self._jwks_cache_time: Dict[str, datetime] = {}
+        self._jwks_cache: dict[str, dict[str, Any]] = {}
+        self._jwks_cache_time: dict[str, datetime] = {}
 
         # In-memory fallback when Redis is unavailable
-        self._sessions: Dict[str, UserSession] = {}
-        self._user_codebases: Dict[str, List[UserCodebaseAssociation]] = {}
-        self._agent_sessions: Dict[str, UserAgentSession] = {}
+        self._sessions: dict[str, UserSession] = {}
+        self._user_codebases: dict[str, list[UserCodebaseAssociation]] = {}
+        self._agent_sessions: dict[str, UserAgentSession] = {}
 
         # Redis connection (lazy-initialized)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_url = os.environ.get(
             'A2A_REDIS_URL',
             os.environ.get('REDIS_URL', 'redis://localhost:6379'),
@@ -240,7 +243,7 @@ class KeycloakAuthService:
         else:
             self._sessions[session.session_id] = session
 
-    async def _load_session(self, session_id: str) -> Optional[UserSession]:
+    async def _load_session(self, session_id: str) -> UserSession | None:
         """Load session from Redis (with in-memory fallback)."""
         r = await self._get_redis()
         if r:
@@ -250,7 +253,7 @@ class KeycloakAuthService:
             return self._deserialize_session(json.loads(data))
         return self._sessions.get(session_id)
 
-    async def _load_session_by_token(self, token: str) -> Optional[UserSession]:
+    async def _load_session_by_token(self, token: str) -> UserSession | None:
         """Look up session by access token."""
         r = await self._get_redis()
         if r:
@@ -263,7 +266,7 @@ class KeycloakAuthService:
                 return session
         return None
 
-    async def _delete_session(self, session_id: str) -> Optional[UserSession]:
+    async def _delete_session(self, session_id: str) -> UserSession | None:
         """Remove session from storage."""
         r = await self._get_redis()
         if r:
@@ -279,7 +282,7 @@ class KeycloakAuthService:
         return self._sessions.pop(session_id, None)
 
     @staticmethod
-    def _deserialize_session(data: Dict[str, Any]) -> UserSession:
+    def _deserialize_session(data: dict[str, Any]) -> UserSession:
         """Reconstruct a UserSession from its dict representation."""
         return UserSession(
             user_id=data['user_id'],
@@ -319,7 +322,7 @@ class KeycloakAuthService:
         # Fall back to default realm
         return self.realm
 
-    async def get_jwks(self, realm: Optional[str] = None) -> Dict[str, Any]:
+    async def get_jwks(self, realm: str | None = None) -> dict[str, Any]:
         """Fetch and cache JWKS from Keycloak for a specific realm.
 
         Args:
@@ -334,11 +337,10 @@ class KeycloakAuthService:
         if (
             target_realm in self._jwks_cache
             and target_realm in self._jwks_cache_time
-        ):
-            if datetime.utcnow() - self._jwks_cache_time[
-                target_realm
-            ] < timedelta(minutes=5):
-                return self._jwks_cache[target_realm]
+        ) and datetime.utcnow() - self._jwks_cache_time[
+            target_realm
+        ] < timedelta(minutes=5):
+            return self._jwks_cache[target_realm]
 
         # Build JWKS URL dynamically for the target realm
         jwks_url = f'{self.keycloak_url}/realms/{target_realm}/protocol/openid-connect/certs'
@@ -358,7 +360,7 @@ class KeycloakAuthService:
                 status_code=503, detail='Authentication service unavailable'
             )
 
-    async def validate_token(self, token: str) -> Dict[str, Any]:
+    async def validate_token(self, token: str) -> dict[str, Any]:
         """Validate a JWT token from Keycloak.
 
         Extracts the realm from the token's issuer claim and validates
@@ -387,8 +389,9 @@ class KeycloakAuthService:
                     status_code=401, detail='Invalid token: key not found'
                 )
 
-            # Build expected issuer for the token's realm
-            expected_issuer = f'{self.keycloak_url}/realms/{token_realm}'
+            # Browser/NextAuth tokens are signed with the public issuer, while
+            # tenant pods may fetch JWKS through the in-cluster Keycloak URL.
+            expected_issuer = self.issuer
 
             # Verify and decode token
             payload = jwt.decode(
@@ -410,14 +413,14 @@ class KeycloakAuthService:
         except JWTError as e:
             logger.warning(f'Token validation failed: {e}')
             raise HTTPException(
-                status_code=401, detail=f'Invalid token: {str(e)}'
+                status_code=401, detail=f'Invalid token: {e!s}'
             )
 
     async def authenticate_password(
         self,
         username: str,
         password: str,
-        device_info: Optional[Dict[str, Any]] = None,
+        device_info: dict[str, Any] | None = None,
     ) -> UserSession:
         """Authenticate user with username/password and create session."""
         try:
@@ -527,7 +530,7 @@ class KeycloakAuthService:
 
         # Find and update existing session or create new
         old_session = None
-        for sid, session in self._sessions.items():
+        for _sid, session in self._sessions.items():
             if session.refresh_token == refresh_token:
                 old_session = session
                 break
@@ -552,7 +555,7 @@ class KeycloakAuthService:
 
         return new_session
 
-    async def get_session(self, session_id: str) -> Optional[UserSession]:
+    async def get_session(self, session_id: str) -> UserSession | None:
         """Get a session by ID."""
         session = await self._load_session(session_id)
         if session and session.is_valid():
@@ -560,7 +563,7 @@ class KeycloakAuthService:
             return session
         return None
 
-    async def get_session_by_token(self, token: str) -> Optional[UserSession]:
+    async def get_session_by_token(self, token: str) -> UserSession | None:
         """Get a session by access token."""
         session = await self._load_session_by_token(token)
         if session and session.is_valid():
@@ -620,7 +623,7 @@ class KeycloakAuthService:
         logger.info(f'Codebase {codebase_name} associated with user {user_id}')
         return association
 
-    def get_user_codebases(self, user_id: str) -> List[UserCodebaseAssociation]:
+    def get_user_codebases(self, user_id: str) -> list[UserCodebaseAssociation]:
         """Get all codebases for a user."""
         return self._user_codebases.get(user_id, [])
 
@@ -654,7 +657,7 @@ class KeycloakAuthService:
         user_id: str,
         codebase_id: str,
         agent_type: str,
-        device_id: Optional[str] = None,
+        device_id: str | None = None,
     ) -> UserAgentSession:
         """Create a new agent session for a user."""
         session = UserAgentSession(
@@ -671,17 +674,17 @@ class KeycloakAuthService:
         )
         return session
 
-    def get_agent_session(self, session_id: str) -> Optional[UserAgentSession]:
+    def get_agent_session(self, session_id: str) -> UserAgentSession | None:
         """Get an agent session by ID."""
         return self._agent_sessions.get(session_id)
 
-    def get_user_agent_sessions(self, user_id: str) -> List[UserAgentSession]:
+    def get_user_agent_sessions(self, user_id: str) -> list[UserAgentSession]:
         """Get all agent sessions for a user."""
         return [
             s for s in self._agent_sessions.values() if s.user_id == user_id
         ]
 
-    def get_codebase_sessions(self, codebase_id: str) -> List[UserAgentSession]:
+    def get_codebase_sessions(self, codebase_id: str) -> list[UserAgentSession]:
         """Get all agent sessions for a codebase."""
         return [
             s
@@ -692,8 +695,8 @@ class KeycloakAuthService:
     def update_agent_session(
         self,
         session_id: str,
-        agent_session_id: Optional[str] = None,
-        message: Optional[Dict[str, Any]] = None,
+        agent_session_id: str | None = None,
+        message: dict[str, Any] | None = None,
     ):
         """Update an agent session."""
         session = self._agent_sessions.get(session_id)
@@ -716,7 +719,7 @@ class KeycloakAuthService:
 
     # Session Sync Across Devices
 
-    def get_active_sessions_for_user(self, user_id: str) -> List[UserSession]:
+    def get_active_sessions_for_user(self, user_id: str) -> list[UserSession]:
         """Get all active sessions for a user across devices."""
         return [
             s
@@ -724,7 +727,7 @@ class KeycloakAuthService:
             if s.user_id == user_id and s.is_valid()
         ]
 
-    def sync_session_state(self, user_id: str) -> Dict[str, Any]:
+    def sync_session_state(self, user_id: str) -> dict[str, Any]:
         """Get synchronized state for a user across all sessions."""
         user_sessions = self.get_active_sessions_for_user(user_id)
         agent_sessions = self.get_user_agent_sessions(user_id)
@@ -749,8 +752,8 @@ keycloak_auth = KeycloakAuthService()
 
 async def get_current_user(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
-) -> Optional[UserSession]:
+    credentials: HTTPAuthorizationCredentials | None = Security(security),
+) -> UserSession | None:
     """Dependency to get current authenticated user.
 
     Supports Keycloak sessions/JWTs and ct_ API keys.
@@ -765,7 +768,7 @@ async def get_current_user(
     # Handle ct_ API keys via user_auth module
     if token.startswith('ct_'):
         try:
-            from .user_auth import _get_user_from_api_key
+            from a2a_server.user_auth import _get_user_from_api_key
 
             user_dict = await _get_user_from_api_key(token)
             tenant_id = (
@@ -814,7 +817,7 @@ async def get_current_user(
         tenant_id = None
         if realm_name:
             try:
-                from .database import get_tenant_by_realm
+                from a2a_server.database import get_tenant_by_realm
 
                 tenant = await get_tenant_by_realm(realm_name)
                 if tenant:
@@ -851,7 +854,7 @@ async def get_current_user(
 
 
 async def require_auth(
-    user: Optional[UserSession] = Depends(get_current_user),
+    user: UserSession | None = Depends(get_current_user),
 ) -> UserSession:
     """Dependency that requires authentication."""
     if not user:
@@ -868,7 +871,7 @@ async def require_admin(
     inline role check for backward compatibility.
     """
     try:
-        from .policy import enforce_policy
+        from a2a_server.policy import enforce_policy
 
         user_dict = {
             'user_id': user.user_id,
@@ -886,7 +889,7 @@ async def require_admin(
 
 async def get_current_tenant(
     user: UserSession = Depends(get_current_user),
-) -> Optional[TenantContext]:
+) -> TenantContext | None:
     """Dependency to get current tenant context from authenticated user.
 
     Returns TenantContext with tenant_id, realm_name, and plan if available.
@@ -901,7 +904,7 @@ async def get_current_tenant(
     # Look up tenant plan from database
     plan = None
     try:
-        from .database import get_tenant_by_realm
+        from a2a_server.database import get_tenant_by_realm
 
         tenant = await get_tenant_by_realm(user.realm_name)
         if tenant:

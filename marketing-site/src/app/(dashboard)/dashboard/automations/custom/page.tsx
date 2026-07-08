@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 
 export default function CustomAutomationPage() {
+  const { data: session } = useSession()
   const [prompt, setPrompt] = useState('')
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -15,7 +17,7 @@ export default function CustomAutomationPage() {
     setResult(null)
 
     try {
-      const token = localStorage.getItem('a2a_token')
+      const token = session?.accessToken
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
       // Use the automation API which queues tasks and sends email notifications
@@ -81,7 +83,7 @@ export default function CustomAutomationPage() {
             Custom Automation
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Describe any task in plain English. We'll figure out how to do it.
+            Describe any task in plain English. We&apos;ll figure out how to do it.
           </p>
         </div>
       </div>
@@ -125,7 +127,7 @@ export default function CustomAutomationPage() {
                 placeholder="you@example.com"
               />
               <p className="mt-1 text-xs text-gray-500">
-                If not provided, we'll use your account email.
+                If not provided, we&apos;ll use your account email.
               </p>
             </div>
 
