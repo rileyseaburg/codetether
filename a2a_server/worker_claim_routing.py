@@ -10,12 +10,26 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_capabilities(value: Any) -> list[str]:
-    """Normalize capability payloads from headers, JSON, or DB rows."""
+    """Normalize capability payloads from headers, JSON, or DB rows.
+
+    Treat persistent workspace capability aliases as satisfying the legacy
+    ``persistent`` requirement emitted by task routing. Existing harvesters
+    commonly register ``persistent-workspace``/``persistent_workspace`` rather
+    than literal ``persistent``.
+    """
     if isinstance(value, str):
         value = [value]
     if not isinstance(value, list):
         return []
-    return [str(cap).strip() for cap in value if str(cap).strip()]
+    capabilities: list[str] = []
+    for raw_cap in value:
+        cap = str(raw_cap).strip()
+        if not cap:
+            continue
+        capabilities.append(cap)
+        if cap in {'persistent-workspace', 'persistent_workspace', 'harvester'}:
+            capabilities.append('persistent')
+    return list(dict.fromkeys(capabilities))
 
 
 def has_persistent_workspace_capability(capabilities: list[str]) -> bool:
