@@ -280,7 +280,6 @@ class WorkerRegistry:
                         f'Worker {worker_id} recovering task {task_id} from stale '
                         f'target_worker_id={target_worker_id}'
                     )
-                worker_agent_name = worker.agent_name if worker else None
                 if not worker_agent_name:
                     worker_agent_name = await _db_worker_agent_name(worker_id)
                 task_target_agent = getattr(
