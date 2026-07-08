@@ -15,7 +15,17 @@ import a2a_server.agent_bridge as agent_bridge
 import a2a_server.database as database
 import a2a_server.monitor_api as monitor_api
 import a2a_server.worker_sse as worker_sse
+from a2a_server.worker_claim_routing import normalize_capabilities
 from a2a_server.worker_sse import WorkerRegistry, worker_sse_router
+
+
+def test_normalize_capabilities_expands_persistent_aliases():
+    assert normalize_capabilities(['persistent-workspace']) == [
+        'persistent-workspace',
+        'persistent',
+    ]
+    assert 'persistent' in normalize_capabilities(['persistent_workspace'])
+    assert 'persistent' in normalize_capabilities(['harvester'])
 
 
 @pytest.fixture
