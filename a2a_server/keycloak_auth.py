@@ -29,6 +29,7 @@ from jose import JWTError, jwk, jwt
 
 try:
     import redis.asyncio as aioredis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -218,7 +219,9 @@ class KeycloakAuthService:
             logger.info('Redis session store connected')
             return self._redis
         except Exception as e:
-            logger.debug(f'Redis not available for sessions, using in-memory: {e}')
+            logger.debug(
+                f'Redis not available for sessions, using in-memory: {e}'
+            )
             self._redis = None
             return None
 
@@ -293,8 +296,12 @@ class KeycloakAuthService:
             access_token=data.get('access_token', ''),
             refresh_token=data.get('refresh_token'),
             expires_at=datetime.fromisoformat(data['expires_at']),
-            created_at=datetime.fromisoformat(data.get('created_at', datetime.utcnow().isoformat())),
-            last_activity=datetime.fromisoformat(data.get('last_activity', datetime.utcnow().isoformat())),
+            created_at=datetime.fromisoformat(
+                data.get('created_at', datetime.utcnow().isoformat())
+            ),
+            last_activity=datetime.fromisoformat(
+                data.get('last_activity', datetime.utcnow().isoformat())
+            ),
             device_info=data.get('device_info', {}),
             roles=data.get('roles', []),
             tenant_id=data.get('tenant_id'),
@@ -412,9 +419,7 @@ class KeycloakAuthService:
 
         except JWTError as e:
             logger.warning(f'Token validation failed: {e}')
-            raise HTTPException(
-                status_code=401, detail=f'Invalid token: {e!s}'
-            )
+            raise HTTPException(status_code=401, detail=f'Invalid token: {e!s}')
 
     async def authenticate_password(
         self,
@@ -771,15 +776,14 @@ async def get_current_user(
             from a2a_server.user_auth import _get_user_from_api_key
 
             user_dict = await _get_user_from_api_key(token)
-            tenant_id = (
-                getattr(request.state, 'tenant_id', None)
-                or request.headers.get('X-Tenant-ID')
-            )
+            tenant_id = getattr(
+                request.state, 'tenant_id', None
+            ) or request.headers.get('X-Tenant-ID')
             return UserSession(
                 user_id=user_dict['id'],
                 email=user_dict.get('email', ''),
                 username=user_dict.get('email', ''),
-                name=f"{user_dict.get('first_name', '')} {user_dict.get('last_name', '')}".strip(),
+                name=f'{user_dict.get("first_name", "")} {user_dict.get("last_name", "")}'.strip(),
                 session_id='apikey-' + str(uuid.uuid4()),
                 access_token=token,
                 refresh_token=None,
@@ -831,10 +835,9 @@ async def get_current_user(
 
         # Fallback for requests where tenant context is injected by middleware/header.
         if not tenant_id:
-            tenant_id = (
-                getattr(request.state, 'tenant_id', None)
-                or request.headers.get('X-Tenant-ID')
-            )
+            tenant_id = getattr(
+                request.state, 'tenant_id', None
+            ) or request.headers.get('X-Tenant-ID')
 
         return UserSession(
             user_id=user_id,

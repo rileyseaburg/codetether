@@ -11,9 +11,9 @@ def issue_branch(context: MentionContext) -> str:
 def accepted_issue_message(issue: dict, branch: str) -> str:
     """Render the acknowledgement comment for an issue fix request."""
     return (
-        "## 🛠️ CodeTether Fix\n\n"
-        f"Picked up issue #{issue['number']} on branch `{branch}`. "
-        "I’m preparing the workspace and will open a PR if the task succeeds."
+        '## 🛠️ CodeTether Fix\n\n'
+        f'Picked up issue #{issue["number"]} on branch `{branch}`. '
+        'I’m preparing the workspace and will open a PR if the task succeeds.'
     )
 
 

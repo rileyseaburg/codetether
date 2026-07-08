@@ -4515,8 +4515,6 @@ async def _validate_target_worker_is_available(
         )
 
 
-
-
 async def get_current_policy_user(request: Request) -> dict:
     """Return the OIDC/self-service/API-key user resolved by policy middleware."""
     user = getattr(request.state, 'policy_user', None)
@@ -4579,7 +4577,6 @@ async def list_all_tasks(
     return tasks
 
 
-
 @agent_router_alias.get('/workflows/github-app')
 async def get_github_app_workflows(
     request: Request,
@@ -4625,7 +4622,9 @@ async def _wait_for_task_completion(
     """Wait for a worker task to reach a terminal state and collect output."""
     bridge = get_agent_bridge()
     if bridge is None:
-        raise HTTPException(status_code=503, detail='Agent bridge not available')
+        raise HTTPException(
+            status_code=503, detail='Agent bridge not available'
+        )
 
     deadline = asyncio.get_running_loop().time() + max(timeout_seconds, 0.0)
     poll_interval = max(poll_interval_seconds, 0.1)
@@ -4646,8 +4645,12 @@ async def _wait_for_task_completion(
                 'status': status,
                 'task': task_dict,
                 'outputs': _task_output_streams.get(task_id, []),
-                'result': task_dict.get('result') if isinstance(task_dict, dict) else None,
-                'error': task_dict.get('error') if isinstance(task_dict, dict) else None,
+                'result': task_dict.get('result')
+                if isinstance(task_dict, dict)
+                else None,
+                'error': task_dict.get('error')
+                if isinstance(task_dict, dict)
+                else None,
             }
 
         if asyncio.get_running_loop().time() >= deadline:
@@ -4764,9 +4767,16 @@ async def _stream_task_run_events(
     """Yield NDJSON task lifecycle/output events until terminal state."""
     bridge = get_agent_bridge()
     if bridge is None:
-        yield json.dumps(
-            {'event': 'error', 'task_id': task_id, 'error': 'Agent bridge not available'}
-        ) + '\n'
+        yield (
+            json.dumps(
+                {
+                    'event': 'error',
+                    'task_id': task_id,
+                    'error': 'Agent bridge not available',
+                }
+            )
+            + '\n'
+        )
         return
 
     deadline = asyncio.get_running_loop().time() + max(timeout_seconds, 0.0)
@@ -4780,9 +4790,12 @@ async def _stream_task_run_events(
         outputs = _task_output_streams.get(task_id, [])
         if len(outputs) > last_output_index:
             for output in outputs[last_output_index:]:
-                yield json.dumps(
-                    {'event': 'output', 'task_id': task_id, 'data': output}
-                ) + '\n'
+                yield (
+                    json.dumps(
+                        {'event': 'output', 'task_id': task_id, 'data': output}
+                    )
+                    + '\n'
+                )
             last_output_index = len(outputs)
 
         task = await bridge.get_task(task_id)
@@ -4793,33 +4806,39 @@ async def _stream_task_run_events(
 
         if status in terminal_statuses:
             task_dict = task.to_dict() if hasattr(task, 'to_dict') else task
-            yield json.dumps(
-                {
-                    'event': 'done',
-                    'task_id': task_id,
-                    'success': status == 'completed',
-                    'status': status,
-                    'task': task_dict,
-                    'result': task_dict.get('result')
-                    if isinstance(task_dict, dict)
-                    else None,
-                    'error': task_dict.get('error')
-                    if isinstance(task_dict, dict)
-                    else None,
-                }
-            ) + '\n'
+            yield (
+                json.dumps(
+                    {
+                        'event': 'done',
+                        'task_id': task_id,
+                        'success': status == 'completed',
+                        'status': status,
+                        'task': task_dict,
+                        'result': task_dict.get('result')
+                        if isinstance(task_dict, dict)
+                        else None,
+                        'error': task_dict.get('error')
+                        if isinstance(task_dict, dict)
+                        else None,
+                    }
+                )
+                + '\n'
+            )
             return
 
         if asyncio.get_running_loop().time() >= deadline:
-            yield json.dumps(
-                {
-                    'event': 'timeout',
-                    'task_id': task_id,
-                    'success': False,
-                    'status': status or 'unknown',
-                    'message': 'Task did not complete before the synchronous wait timeout',
-                }
-            ) + '\n'
+            yield (
+                json.dumps(
+                    {
+                        'event': 'timeout',
+                        'task_id': task_id,
+                        'success': False,
+                        'status': status or 'unknown',
+                        'message': 'Task did not complete before the synchronous wait timeout',
+                    }
+                )
+                + '\n'
+            )
             return
 
         await asyncio.sleep(poll_interval)
@@ -5049,7 +5068,9 @@ def _is_github_app_worker_post_clone_followup(
         return False
     if metadata.get('source') != 'github-app':
         return False
-    if not metadata.get('github_issue_url') or not metadata.get('target_worker_id'):
+    if not metadata.get('github_issue_url') or not metadata.get(
+        'target_worker_id'
+    ):
         return False
     return title.startswith(('Apply PR fix #', 'Work issue #'))
 
@@ -8170,7 +8191,6 @@ except ImportError:
 
     async def get_self_service_user(*args, **kwargs):
         return None
-
 
 
 @dataclass

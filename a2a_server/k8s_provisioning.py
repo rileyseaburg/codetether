@@ -33,8 +33,7 @@ logger = logging.getLogger(__name__)
 HTTP_NOT_FOUND = 404
 HTTP_CONFLICT = 409
 DEFAULT_TENANT_IMAGE = (
-    'us-central1-docker.pkg.dev/spotlessbinco/codetether/'
-    'a2a-server-mcp:latest'
+    'us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp:latest'
 )
 
 # Helm chart path

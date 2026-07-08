@@ -279,3 +279,5 @@ marketing-site/openapi-ts-error-*.log
 marketing-site/test-results/
 marketing-site/*.tsbuildinfo
 marketing-site/**/*.bak
+.codetether/
+.codetether-todos.json

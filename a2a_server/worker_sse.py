@@ -170,9 +170,7 @@ class WorkerRegistry:
             )
             return worker
 
-    async def unregister_worker(
-        self, worker_id: str
-    ) -> ConnectedWorker | None:
+    async def unregister_worker(self, worker_id: str) -> ConnectedWorker | None:
         """Unregister a disconnected worker."""
         async with self._lock:
             worker = self._workers.pop(worker_id, None)
@@ -279,7 +277,9 @@ class WorkerRegistry:
                     worker_capabilities
                 )
                 if target_worker_id and target_worker_id != worker_id:
-                    if not persistent_worker or await _db_worker_recent(target_worker_id):
+                    if not persistent_worker or await _db_worker_recent(
+                        target_worker_id
+                    ):
                         logger.debug(
                             f'Worker {worker_id} skipped task {task_id} '
                             f'(target_worker_id={target_worker_id})'
@@ -337,7 +337,9 @@ class WorkerRegistry:
                     stable_persistent_route = (
                         bool(task_target_agent)
                         and task_target_agent == worker_agent_name
-                        and _has_persistent_workspace_capability(required_capabilities)
+                        and _has_persistent_workspace_capability(
+                            required_capabilities
+                        )
                         and persistent_worker
                     )
                     if stable_persistent_route:
@@ -578,7 +580,9 @@ class WorkerRegistry:
                         and _has_persistent_workspace_capability(
                             required_capabilities or []
                         )
-                        and _has_persistent_workspace_capability(worker.capabilities)
+                        and _has_persistent_workspace_capability(
+                            worker.capabilities
+                        )
                     ):
                         pass
                     elif await self._worker_owns_codebase(
@@ -663,7 +667,11 @@ class WorkerRegistry:
         claim bridge can still recognize harvester/persistent workers.
         """
         async with self._lock:
-            workers = [worker for worker in self._workers.values() if not worker.is_busy]
+            workers = [
+                worker
+                for worker in self._workers.values()
+                if not worker.is_busy
+            ]
 
         eligible: list[ConnectedWorker] = []
         for worker in workers:
@@ -730,9 +738,7 @@ class WorkerRegistry:
                 logger.error(f'Failed to push task to worker {worker_id}: {e}')
                 return False
 
-    async def push_progress(
-        self, worker_id: str, data: dict[str, Any]
-    ) -> bool:
+    async def push_progress(self, worker_id: str, data: dict[str, Any]) -> bool:
         """Push a sequenced `progress` event to a specific worker.
 
         Unlike `push_task_to_worker` (advisory `task_available`), progress is a
@@ -1748,4 +1754,3 @@ def setup_task_creation_hook(agent_bridge) -> None:
 
     registry.add_task_listener(on_task_created)
     logger.info('Task creation hook installed for SSE worker notifications')
-

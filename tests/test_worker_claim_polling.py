@@ -280,8 +280,7 @@ async def test_claim_task_rejects_worker_missing_required_capability(
     )
 
     assert (
-        await registry.claim_task('task_persistent', 'worker_knative')
-        is False
+        await registry.claim_task('task_persistent', 'worker_knative') is False
     )
     assert 'task_persistent' not in registry._claimed_tasks
 

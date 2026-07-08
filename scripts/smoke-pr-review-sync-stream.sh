@@ -47,20 +47,20 @@ if [[ "${DRY_RUN}" != "1" ]]; then
   fi
 fi
 
-current_branch=$(git branch --show-current)
 git fetch origin "${BASE_BRANCH}" >/dev/null
 git checkout -B "${BRANCH}" "origin/${BASE_BRANCH}" >/dev/null
 mkdir -p .codetether/smoke
-printf 'CodeTether sync review smoke %s\n' "${RUN_ID}" > ".codetether/smoke/${RUN_ID}.txt"
+printf 'CodeTether sync review smoke %s\n' "${RUN_ID}" >".codetether/smoke/${RUN_ID}.txt"
 git add ".codetether/smoke/${RUN_ID}.txt"
 git commit -m "test: codetether sync review smoke ${RUN_ID}" >/dev/null
 git push -u origin "${BRANCH}" >/dev/null
 
-PR_URL=$(gh pr create \
-  --base "${BASE_BRANCH}" \
-  --head "${BRANCH}" \
-  --title "${TITLE}" \
-  --body "Temporary CodeTether sync review smoke PR. This PR is created and closed automatically." \
+PR_URL=$(
+  gh pr create \
+    --base "${BASE_BRANCH}" \
+    --head "${BRANCH}" \
+    --title "${TITLE}" \
+    --body "Temporary CodeTether sync review smoke PR. This PR is created and closed automatically."
 )
 PR_NUMBER=$(gh pr view "${PR_URL}" --json number --jq '.number')
 HEAD_SHA=$(gh pr view "${PR_URL}" --json headRefOid --jq '.headRefOid')
@@ -100,17 +100,17 @@ jq -n \
       pr_number: $pr_number,
       head_sha: $head_sha
     }
-  }' > "${TMPFILE}"
+  }' >"${TMPFILE}"
 
 terminal_event=$(
   curl -fsS -N \
     -H "Authorization: Bearer ${AUTH_TOKEN}" \
     -H 'Content-Type: application/json' \
     --data-binary "@${TMPFILE}" \
-    "${STREAM_URL}" \
-  | tee /dev/stderr \
-  | jq -cr 'select(.event == "done" or .event == "timeout")' \
-  | tail -n 1
+    "${STREAM_URL}" |
+    tee /dev/stderr |
+    jq -cr 'select(.event == "done" or .event == "timeout")' |
+    tail -n 1
 )
 
 if [[ -z "${terminal_event}" ]]; then
