@@ -128,6 +128,8 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
     monkeypatch.setattr(
         database, 'db_update_task_status', _fake_update_task_status
     )
+    attach_worker_id = AsyncMock(return_value=False)
+    monkeypatch.setattr(worker_sse, '_attach_claim_worker_id', attach_worker_id)
     monkeypatch.setattr(
         worker_sse, '_claim_task_run_for_worker', AsyncMock(return_value={})
     )
@@ -156,9 +158,9 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
         {
             'task_id': 'task_claimed',
             'status': 'running',
-            'worker_id': 'worker_1',
         }
     ]
+    attach_worker_id.assert_awaited_once_with('task_claimed', 'worker_1')
 
 
 @pytest.mark.asyncio
@@ -189,6 +191,9 @@ async def test_claim_task_returns_attached_task_run_metadata(
     )
     monkeypatch.setattr(
         worker_sse, '_claim_task_run_for_worker', _fake_claim_task_run
+    )
+    monkeypatch.setattr(
+        worker_sse, '_attach_claim_worker_id', AsyncMock(return_value=True)
     )
 
     await registry.register_worker(

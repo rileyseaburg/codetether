@@ -57,6 +57,37 @@ from .worker_queue import make_worker_queue, try_enqueue
 
 logger = logging.getLogger(__name__)
 
+
+async def _attach_claim_worker_id(task_id: str, worker_id: str) -> bool:
+    """Best-effort worker_id persistence for a successfully claimed task.
+
+    The task status is more important than the optional worker reference for API
+    consumers. Keep this separate from the status update so schema drift or
+    missing worker rows cannot leave claimed tasks looking pending.
+    """
+    try:
+        from .database import get_pool
+
+        pool = await get_pool()
+        if not pool:
+            return False
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                'UPDATE tasks SET worker_id = $2, updated_at = NOW() WHERE id = $1',
+                task_id,
+                worker_id,
+            )
+            return 'UPDATE 1' in result
+    except Exception as exc:
+        logger.debug(
+            'Could not attach worker_id %s to claimed task %s: %s',
+            worker_id,
+            task_id,
+            exc,
+        )
+        return False
+
+
 # Router for worker SSE endpoints
 worker_sse_router = APIRouter(prefix='/v1/worker', tags=['worker-sse'])
 worker_sse_router.include_router(worker_progress_router)
@@ -1317,15 +1348,31 @@ async def claim_task(
                         f'Bridge missed task {claim.task_id}; using DB status update fallback'
                     )
 
+            # Persist the running status even if the worker_id cannot be
+            # attached. Some live databases still enforce a workers FK or have
+            # drifted worker schemas; in that case a worker_id-bearing update can
+            # fail and leave an already-claimed task visible as `pending` to CI
+            # pollers. Status/started_at is the contract the public task API
+            # exposes, so write it first without the optional worker reference.
             updated = await db_update_task_status(
                 task_id=claim.task_id,
                 status=AgentTaskStatus.RUNNING.value,
-                worker_id=resolved_worker_id,
             )
             if not updated:
                 logger.warning(
                     f'Claimed task {claim.task_id} but could not persist running status'
                 )
+            else:
+                worker_attached = await _attach_claim_worker_id(
+                    claim.task_id,
+                    resolved_worker_id,
+                )
+                if not worker_attached:
+                    logger.warning(
+                        'Claimed task %s is running, but worker_id %s could not be persisted',
+                        claim.task_id,
+                        resolved_worker_id,
+                    )
         except Exception as e:
             logger.warning(
                 f'Failed to update task {claim.task_id} to running: {e}'
