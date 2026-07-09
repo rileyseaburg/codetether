@@ -40,6 +40,7 @@ jobs:
           VALIDATE_JAVASCRIPT_PRETTIER: false
           VALIDATE_JSON_PRETTIER: false
           VALIDATE_YAML_PRETTIER: false
+          YAML_CONFIG_FILE: .yamllint.yml
           VALIDATE_GIT_COMMITLINT: false
           VALIDATE_GITHUB_ACTIONS_ZIZMOR: false
           VALIDATE_KUBERNETES_KUBECONFORM: false
