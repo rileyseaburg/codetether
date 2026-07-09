@@ -1,3 +1,4 @@
+
 AAAANSUh
 AAAAUA
 AAAGHMHc
@@ -205,6 +206,7 @@ cls
 coc
 codegen
 codeowner
+codespell
 codetether
 configmap
 crewai
