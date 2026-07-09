@@ -24,7 +24,8 @@ jobs:
           LINTER_RULES_PATH: .github/linters
           SHELLCHECK_OPTS: -e SC1091 -e 2086
           VALIDATE_ALL_CODEBASE: false
-          FILTER_REGEX_EXCLUDE: "^(\\.github/|\\.vscode/).*|CODE_OF_CONDUCT.md|CHANGELOG.md|GOVERNANCE.md|\\.mkdocs/overrides/.*|docs/404.html"
+          FILTER_REGEX_EXCLUDE: >-
+            ^(\.github/|\.vscode/).*|CODE_OF_CONDUCT.md|CHANGELOG.md|GOVERNANCE.md|\.mkdocs/overrides/.*|docs/404.html
           VALIDATE_BIOME_FORMAT: false
           VALIDATE_BIOME_LINT: false
           VALIDATE_PYTHON_BLACK: false
