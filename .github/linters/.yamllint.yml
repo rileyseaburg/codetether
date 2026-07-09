@@ -5,11 +5,6 @@ ignore: |
   chart/*/templates/*
 
 rules:
-  # Helm templates use {{ }} which yamllint flags as brace spacing issues
-  braces:
-    disable: true
-  brackets:
-    disable: true
   # Helm templates don't require document start markers
   document-start: disable
   # Allow longer lines for readability
