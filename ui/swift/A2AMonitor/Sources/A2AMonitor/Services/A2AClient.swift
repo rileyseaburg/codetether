@@ -92,7 +92,7 @@ class A2AClient: ObservableObject {
             onEvent: { [weak self] event in
                 Task { @MainActor in
                     guard let self = self else { return }
-                    
+
                     // Set connected on first successful event
                     if !hasReceivedFirstEvent {
                         hasReceivedFirstEvent = true
@@ -100,7 +100,7 @@ class A2AClient: ObservableObject {
                         self.connectionError = nil
                         self.reconnectAttempts = 0  // Reset on successful connection
                     }
-                    
+
                     self.handleSSEEvent(event)
                 }
             },

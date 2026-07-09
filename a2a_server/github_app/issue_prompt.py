@@ -13,7 +13,7 @@ def accepted_issue_message(issue: dict, branch: str) -> str:
     return (
         '## 🛠️ CodeTether Fix\n\n'
         f'Picked up issue #{issue["number"]} on branch `{branch}`. '
-        'I’m preparing the workspace and will open a PR if the task succeeds.'
+        "I'm preparing the workspace and will open a PR if the task succeeds."
     )
 
 

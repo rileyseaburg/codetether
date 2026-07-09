@@ -11,22 +11,22 @@ struct SettingsView: View {
     @AppStorage("notifyOnNewTask") private var notifyOnNewTask = true
     @AppStorage("notifyOnTaskComplete") private var notifyOnTaskComplete = true
     @AppStorage("notifyOnAgentMessage") private var notifyOnAgentMessage = false
-    
+
     @State private var showingLogoutConfirmation = false
     @State private var showingResetConfirmation = false
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // Server Configuration
                 serverSection
-                
+
                 // Notification Preferences
                 notificationSection
-                
+
                 // About Section
                 aboutSection
-                
+
                 // Account Section
                 accountSection
             }
@@ -54,9 +54,9 @@ struct SettingsView: View {
             Text("This will reset all settings to their default values.")
         }
     }
-    
+
     // MARK: - Server Section
-    
+
     private var serverSection: some View {
         SettingsSectionCard(title: "Server", icon: "server.rack") {
             VStack(spacing: 16) {
@@ -77,7 +77,7 @@ struct SettingsView: View {
                         .textContentType(.URL)
                         #endif
                 }
-                
+
                 // Auto Reconnect Toggle
                 Toggle(isOn: $autoReconnect) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -89,7 +89,7 @@ struct SettingsView: View {
                     }
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .cyan))
-                
+
                 // Refresh Interval
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -103,7 +103,7 @@ struct SettingsView: View {
                     Slider(value: $refreshInterval, in: 1...30, step: 1)
                         .tint(.cyan)
                 }
-                
+
                 // Connection Status
                 HStack {
                     Text("Status")
@@ -114,9 +114,9 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     // MARK: - Notification Section
-    
+
     private var notificationSection: some View {
         SettingsSectionCard(title: "Notifications", icon: "bell.fill") {
             VStack(spacing: 16) {
@@ -131,24 +131,24 @@ struct SettingsView: View {
                     }
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .cyan))
-                
+
                 if notificationsEnabled {
                     Divider()
                         .background(Color.white.opacity(0.2))
-                    
+
                     // Individual notification toggles
                     Toggle(isOn: $notifyOnNewTask) {
                         Text("New Tasks")
                             .foregroundColor(.white)
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .cyan))
-                    
+
                     Toggle(isOn: $notifyOnTaskComplete) {
                         Text("Task Completed")
                             .foregroundColor(.white)
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .cyan))
-                    
+
                     Toggle(isOn: $notifyOnAgentMessage) {
                         Text("Agent Messages")
                             .foregroundColor(.white)
@@ -158,19 +158,19 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     // MARK: - About Section
-    
+
     private var aboutSection: some View {
         SettingsSectionCard(title: "About", icon: "info.circle.fill") {
             VStack(spacing: 12) {
                 aboutRow(label: "App Name", value: "A2A Monitor")
                 aboutRow(label: "Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
                 aboutRow(label: "Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
-                
+
                 Divider()
                     .background(Color.white.opacity(0.2))
-                
+
                 // Links
                 #if os(iOS)
                 Link(destination: URL(string: "https://github.com/sst/opencode")!) {
@@ -183,7 +183,7 @@ struct SettingsView: View {
                     }
                     .foregroundColor(.cyan)
                 }
-                
+
                 Link(destination: URL(string: "https://opencode.ai/docs")!) {
                     HStack {
                         Image(systemName: "book")
@@ -198,7 +198,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     private func aboutRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
@@ -209,9 +209,9 @@ struct SettingsView: View {
                 .fontWeight(.medium)
         }
     }
-    
+
     // MARK: - Account Section
-    
+
     private var accountSection: some View {
         SettingsSectionCard(title: "Account", icon: "person.circle.fill") {
             VStack(spacing: 16) {
@@ -228,7 +228,7 @@ struct SettingsView: View {
                                 .foregroundColor(.cyan)
                         }
                         .frame(width: 50, height: 50)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(user.displayName)
                                 .font(.headline)
@@ -239,17 +239,17 @@ struct SettingsView: View {
                         }
                         Spacer()
                     }
-                    
+
                     Divider()
                         .background(Color.white.opacity(0.2))
-                    
+
                     // Sync Status
                     if let syncState = authService.syncState {
                         VStack(spacing: 8) {
                             aboutRow(label: "Active Devices", value: "\(syncState.activeDevices)")
                             aboutRow(label: "Codebases", value: "\(syncState.codebases.count)")
                         }
-                        
+
                         Divider()
                             .background(Color.white.opacity(0.2))
                     }
@@ -262,7 +262,7 @@ struct SettingsView: View {
                         Spacer()
                     }
                 }
-                
+
                 // Action Buttons
                 VStack(spacing: 12) {
                     // Reset Settings
@@ -279,7 +279,7 @@ struct SettingsView: View {
                         .background(Color.orange.opacity(0.15))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
-                    
+
                     // Logout
                     if authService.isAuthenticated {
                         Button {
@@ -300,9 +300,9 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     // MARK: - Helpers
-    
+
     private func resetToDefaults() {
         serverURL = "https://quantum-forge.codetether.run"
         autoReconnect = true
@@ -320,13 +320,13 @@ struct SettingsSectionCard<Content: View>: View {
     let title: String
     let icon: String
     let content: Content
-    
-    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
+
+   init(title: String, icon: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.icon = icon
         self.content = content()
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
@@ -339,7 +339,7 @@ struct SettingsSectionCard<Content: View>: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
             }
-            
+
             content
         }
         .padding(16)

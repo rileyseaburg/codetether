@@ -1,0 +1,11 @@
+# Patterns that should be ignored by check-spelling
+
+# "Sign in to" is a valid phrasal verb construction (sign in + to), not the same as "into"
+# The line_forbidden.patterns rule flags \sin to\s but "sign in to" is correct English
+[Ss]ign(?:ed)? in to\b
+
+# "log in to" is similarly valid
+[Ll]og(?:ged)? in to\b
+
+# "signed in to" is valid
+signed in to\b

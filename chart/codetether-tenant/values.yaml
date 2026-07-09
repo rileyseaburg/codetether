@@ -95,7 +95,7 @@ secrets:
   # Name of secret containing API keys
   apiKeys: codetether-api-keys
 
-# Health check configuration  
+# Health check configuration
 healthCheck:
   path: /.well-known/agent-card.json
   initialDelaySeconds: 30

@@ -12,7 +12,7 @@ function decodeJwtPayload(token: string): Record<string, any> {
       atob(base64)
         .split('')
         .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
+        .join(''),
     )
     return JSON.parse(json)
   } catch {
@@ -20,7 +20,10 @@ function decodeJwtPayload(token: string): Record<string, any> {
   }
 }
 
-function extractTenantFromToken(token?: string): { tenantId?: string; tenantSlug?: string } {
+function extractTenantFromToken(token?: string): {
+  tenantId?: string
+  tenantSlug?: string
+} {
   if (!token) return {}
   const payload = decodeJwtPayload(token)
   return {
@@ -68,7 +71,8 @@ export function useTenantApi() {
       : undefined
 
   const tenantConfig = useMemo(() => {
-    const defaultApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+    const defaultApiUrl =
+      process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
     const authToken = typedSession?.accessToken as string | undefined
     const tokenTenant = extractTenantFromToken(authToken)
 
@@ -105,8 +109,7 @@ export function useTenantApi() {
       tenantApiUrl = tenantApiUrl.replace('http://', 'https://')
     }
     const hasDedicatedInstance = !!(
-      resolvedTenantSlug &&
-      tenantApiUrl.includes(resolvedTenantSlug)
+      resolvedTenantSlug && tenantApiUrl.includes(resolvedTenantSlug)
     )
 
     return {
@@ -115,7 +118,13 @@ export function useTenantApi() {
       tenantSlug: resolvedTenantSlug,
       hasDedicatedInstance,
     }
-  }, [localUser?.tenantId, localUser?.tenantSlug, localUser?.tenant_id, localUser?.tenant_slug, typedSession])
+  }, [
+    localUser?.tenantId,
+    localUser?.tenantSlug,
+    localUser?.tenant_id,
+    localUser?.tenant_slug,
+    typedSession,
+  ])
 
   useEffect(() => {
     unauthorizedHandledRef.current = false
@@ -125,97 +134,107 @@ export function useTenantApi() {
    * Tenant-aware fetch function.
    * Automatically adds auth headers and routes to the correct tenant API.
    */
-  const tenantFetch = useCallback(async <T = unknown>(
-    path: string,
-    options: RequestInit = {}
-  ): Promise<{ data?: T; error?: string }> => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
-    }
-
-    const authToken = typedSession?.accessToken as string | undefined
-
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`
-    }
-
-    if (tenantConfig.tenantId) {
-      headers['X-Tenant-ID'] = tenantConfig.tenantId
-    }
-
-    try {
-      const url = path.startsWith('http') ? path : `${tenantConfig.apiUrl}${path}`
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      })
-
-      if (response.status === 401) {
-        if (!unauthorizedHandledRef.current) {
-          unauthorizedHandledRef.current = true
-
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('a2a_token')
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('a2a_refresh_token')
-            localStorage.removeItem('a2a_session')
-            localStorage.removeItem('a2a_user')
-            document.cookie = 'a2a_token=; path=/; max-age=0'
-          }
-
-          signOut({ callbackUrl: '/login?error=session_expired' }).catch(() => {})
-        }
-
-        return { error: 'Session expired. Please sign in again.' }
+  const tenantFetch = useCallback(
+    async <T = unknown>(
+      path: string,
+      options: RequestInit = {},
+    ): Promise<{ data?: T; error?: string }> => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...((options.headers as Record<string, string>) || {}),
       }
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        const isHtmlResponse =
-          /^\s*<!doctype html/i.test(errorText) ||
-          /^\s*<html/i.test(errorText) ||
-          errorText.includes('<!DOCTYPE html>')
+      const authToken = typedSession?.accessToken as string | undefined
 
-        if (isHtmlResponse) {
-          const usingApiProxy =
-            tenantConfig.apiUrl === '/api' ||
-            tenantConfig.apiUrl.endsWith('/api')
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
+      }
 
-          if (response.status === 404 && usingApiProxy) {
+      if (tenantConfig.tenantId) {
+        headers['X-Tenant-ID'] = tenantConfig.tenantId
+      }
+
+      try {
+        const url = path.startsWith('http')
+          ? path
+          : `${tenantConfig.apiUrl}${path}`
+        const response = await fetch(url, {
+          ...options,
+          headers,
+        })
+
+        if (response.status === 401) {
+          if (!unauthorizedHandledRef.current) {
+            unauthorizedHandledRef.current = true
+
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('a2a_token')
+              localStorage.removeItem('access_token')
+              localStorage.removeItem('a2a_refresh_token')
+              localStorage.removeItem('a2a_session')
+              localStorage.removeItem('a2a_user')
+              document.cookie = 'a2a_token=; path=/; max-age=0'
+            }
+
+            signOut({ callbackUrl: '/login?error=session_expired' }).catch(
+              () => {},
+            )
+          }
+
+          return { error: 'Session expired. Please sign in again.' }
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          const isHtmlResponse =
+            /^\s*<!doctype html/i.test(errorText) ||
+            /^\s*<html/i.test(errorText) ||
+            errorText.includes('<!DOCTYPE html>')
+
+          if (isHtmlResponse) {
+            const usingApiProxy =
+              tenantConfig.apiUrl === '/api' ||
+              tenantConfig.apiUrl.endsWith('/api')
+
+            if (response.status === 404 && usingApiProxy) {
+              return {
+                error:
+                  'API proxy route returned 404 HTML instead of JSON. Ensure Next.js rewrite is configured with A2A_API_BACKEND and restart `next dev`.',
+              }
+            }
+
             return {
-              error:
-                'API proxy route returned 404 HTML instead of JSON. Ensure Next.js rewrite is configured with A2A_API_BACKEND and restart `next dev`.',
+              error: `Unexpected HTML response from API (HTTP ${response.status}). Check NEXT_PUBLIC_API_URL and Next.js rewrites.`,
             }
           }
 
-          return {
-            error: `Unexpected HTML response from API (HTTP ${response.status}). Check NEXT_PUBLIC_API_URL and Next.js rewrites.`,
+          let detail = errorText
+          try {
+            const parsed = JSON.parse(errorText)
+            detail = parsed?.detail || parsed?.message || errorText
+          } catch {
+            // Non-JSON error payload.
           }
+          if (
+            typeof detail === 'string' &&
+            detail.toLowerCase().includes('no tenant associated')
+          ) {
+            return {
+              error:
+                'No tenant is associated with this account yet. Complete tenant setup in registration/admin before using tenant-scoped features.',
+            }
+          }
+          return { error: detail || `HTTP ${response.status}` }
         }
 
-        let detail = errorText
-        try {
-          const parsed = JSON.parse(errorText)
-          detail = parsed?.detail || parsed?.message || errorText
-        } catch {
-          // Non-JSON error payload.
-        }
-        if (typeof detail === 'string' && detail.toLowerCase().includes('no tenant associated')) {
-          return {
-            error:
-              'No tenant is associated with this account yet. Complete tenant setup in registration/admin before using tenant-scoped features.',
-          }
-        }
-        return { error: detail || `HTTP ${response.status}` }
+        const data = await response.json()
+        return { data }
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : 'Unknown error' }
       }
-
-      const data = await response.json()
-      return { data }
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Unknown error' }
-    }
-  }, [typedSession?.accessToken, tenantConfig])
+    },
+    [typedSession?.accessToken, tenantConfig],
+  )
 
   return {
     ...tenantConfig,
@@ -224,7 +243,10 @@ export function useTenantApi() {
     isAuthenticated:
       status === 'authenticated' ||
       (typeof window !== 'undefined' &&
-        Boolean(localStorage.getItem('a2a_token') || localStorage.getItem('access_token'))),
+        Boolean(
+          localStorage.getItem('a2a_token') ||
+          localStorage.getItem('access_token'),
+        )),
     hasTenant: Boolean(tenantConfig.tenantId),
   }
 }

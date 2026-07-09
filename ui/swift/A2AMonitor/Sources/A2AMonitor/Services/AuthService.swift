@@ -247,7 +247,7 @@ class AuthService: ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            
+
             // Add authorization header
             if let token = accessToken {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -309,7 +309,7 @@ class AuthService: ObservableObject {
 
         do {
             let (data, response) = try await session.data(for: request)
-            
+
             // Check HTTP status
             if let httpResponse = response as? HTTPURLResponse {
                 guard (200...299).contains(httpResponse.statusCode) else {
@@ -317,7 +317,7 @@ class AuthService: ObservableObject {
                     return
                 }
             }
-            
+
             syncState = try JSONDecoder().decode(SyncState.self, from: data)
         } catch {
             print("Failed to load sync state: \(error)")

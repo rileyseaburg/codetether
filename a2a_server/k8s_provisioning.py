@@ -694,7 +694,7 @@ class K8sProvisioningService:
                             run_as_user=1000,
                             fs_group=1000,
                         ),
-                        # Image pull secrets for GCP Artifact Registry
+                        # Image pull secrets for Google Cloud Artifact Registry
                         image_pull_secrets=[
                             client.V1LocalObjectReference(
                                 name='gcr-pull-secret'
