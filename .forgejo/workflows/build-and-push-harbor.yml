@@ -1,0 +1,63 @@
+name: Build and Push CodeTether to Harbor
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: codetether-harbor-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: registry.quantum-forge.net
+  IMAGE: cluster-ci-cache/a2a-server-mcp
+
+jobs:
+  test-build-push:
+    runs-on: spotlessbinco-k8s
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Forgejo and GitHub webhook regression tests
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user -r requirements.txt -r requirements-test.txt
+          PYTHONPATH=. python3 -m pytest -q \
+            tests/test_forgejo_webhooks.py \
+            tests/test_github_app_mentions.py \
+            tests/test_github_app_router.py
+          python3 -m py_compile \
+            a2a_server/forgejo_webhooks.py \
+            a2a_server/server.py \
+            a2a_server/git_service.py
+
+      - name: Validate Helm chart
+        run: |
+          set -euo pipefail
+          helm lint chart/a2a-server
+          helm template codetether chart/a2a-server \
+            -f chart/a2a-server/examples/values-argocd-prod.yaml \
+            >/tmp/codetether-rendered.yaml
+          grep -q 'registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp' \
+            /tmp/codetether-rendered.yaml
+          grep -q 'FORGEJO_API_URL' /tmp/codetether-rendered.yaml
+
+      - name: Authenticate to Harbor
+        run: |
+          set -euo pipefail
+          test -n "${REGISTRY_USERNAME:-}"
+          test -n "${REGISTRY_PASSWORD:-}"
+          printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY" \
+            --username "$REGISTRY_USERNAME" --password-stdin
+
+      - name: Build and push immutable Harbor image
+        run: |
+          set -euo pipefail
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          image="$REGISTRY/$IMAGE:main-$short_sha"
+          docker build --pull -t "$image" .
+          docker push "$image"
+          echo "Published $image"

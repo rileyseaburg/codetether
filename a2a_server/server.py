@@ -59,6 +59,7 @@ from .monitor_api import (
     log_agent_message,
 )
 from .worker_sse import worker_sse_router
+from .forgejo_webhooks import forgejo_webhook_router
 from .email_inbound import email_router
 from .email_api import email_api_router
 from .tenant_middleware import TenantContextMiddleware
@@ -684,6 +685,9 @@ class A2AServer:
             logger.info(
                 'GitHub App routes mounted at /v1/webhooks/github, /v1/agent/workspaces/*/git/credentials, and /v1/integrations/rudder/log-incidents'
             )
+
+        self.app.include_router(forgejo_webhook_router)
+        logger.info('Forgejo webhook route mounted at /v1/webhooks/forgejo')
 
         # Include token billing API routes for per-token usage tracking
         self.app.include_router(token_billing_router)
