@@ -3,6 +3,9 @@
 import hashlib
 import hmac
 import json
+import sys
+
+from types import SimpleNamespace
 
 import pytest
 
@@ -155,6 +158,36 @@ async def test_edited_existing_mention_does_not_retrigger(app):
         'accepted': False,
         'reason': 'unsupported-or-no-mention',
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('row', 'expected'), [({'id': 'task-1'}, True), (None, False)]
+)
+async def test_active_task_uses_database_pool(monkeypatch, row, expected):
+    class Connection:
+        async def fetchrow(self, query, repo, number):
+            assert "source' = 'forgejo-webhook'" in query
+            assert (repo, number) == ('owner/repo', '12')
+            return row
+
+    class Acquire:
+        async def __aenter__(self):
+            return Connection()
+
+        async def __aexit__(self, *args):
+            return None
+
+    class Pool:
+        def acquire(self):
+            return Acquire()
+
+    async def get_pool():
+        return Pool()
+
+    database = SimpleNamespace(get_pool=get_pool)
+    monkeypatch.setitem(sys.modules, 'a2a_server.database', database)
+    assert await fw._active_task('owner/repo', 12) is expected  # noqa: SLF001
 
 
 def test_configured_forgejo_host_is_allowed_without_credential_injection(

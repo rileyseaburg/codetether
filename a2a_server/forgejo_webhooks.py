@@ -155,14 +155,16 @@ async def _comment(base: str, repo: str, number: int, body: str) -> None:
 async def _active_task(repo: str, number: int) -> bool:
     from a2a_server import database as db
 
-    row = await db.fetchrow(
-        """SELECT id FROM tasks WHERE status IN ('pending','queued','running','in_progress')
-           AND COALESCE(metadata, '{}'::jsonb)->>'source' = 'forgejo-webhook'
-           AND COALESCE(metadata, '{}'::jsonb)->>'repo' = $1
-           AND COALESCE(metadata, '{}'::jsonb)->>'issue_number' = $2 LIMIT 1""",
-        repo,
-        str(number),
-    )
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT id FROM tasks WHERE status IN ('pending','queued','running','in_progress')
+               AND COALESCE(metadata, '{}'::jsonb)->>'source' = 'forgejo-webhook'
+               AND COALESCE(metadata, '{}'::jsonb)->>'repo' = $1
+               AND COALESCE(metadata, '{}'::jsonb)->>'issue_number' = $2 LIMIT 1""",
+            repo,
+            str(number),
+        )
     return bool(row)
 
 
