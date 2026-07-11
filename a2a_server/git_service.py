@@ -8,7 +8,6 @@ and auto-clone them on workers. Credentials are stored in Vault.
 import asyncio
 import logging
 import os
-import re
 import shutil
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
@@ -23,15 +22,28 @@ GIT_CLONE_BASE = os.environ.get('GIT_CLONE_BASE', '/var/lib/codetether/repos')
 # Maximum repo size (in bytes) — default 2GB
 MAX_REPO_SIZE = int(os.environ.get('GIT_MAX_REPO_SIZE', str(2 * 1024 * 1024 * 1024)))
 
-# Allowed Git URL patterns (HTTPS only — no arbitrary protocols)
-_ALLOWED_URL_PATTERN = re.compile(
-    r'^https://(github\.com|gitlab\.com|bitbucket\.org|dev\.azure\.com)/[^\s]+\.git$'
-)
+# Allowed Git hosts (HTTPS only — no arbitrary protocols or embedded credentials).
+_PUBLIC_GIT_HOSTS = {'github.com', 'gitlab.com', 'bitbucket.org', 'dev.azure.com'}
 
 
 def validate_git_url(url: str) -> bool:
-    """Validate that a Git URL is an allowed HTTPS repo URL."""
-    return bool(_ALLOWED_URL_PATTERN.match(url))
+    """Validate that a Git URL uses HTTPS and an explicitly allowed host."""
+    parsed = urlparse(url)
+    configured_forgejo_host = urlparse(
+        os.environ.get('FORGEJO_API_URL', '')
+    ).hostname
+    allowed_hosts = _PUBLIC_GIT_HOSTS | (
+        {configured_forgejo_host} if configured_forgejo_host else set()
+    )
+    return (
+        parsed.scheme == 'https'
+        and parsed.hostname in allowed_hosts
+        and parsed.path.endswith('.git')
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 async def store_git_credentials(
