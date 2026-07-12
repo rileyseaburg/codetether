@@ -75,6 +75,10 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
             {{- if .Values.configMap.create }}
             - configMapRef:
                 name: {{ include "a2a-server.fullname" . }}-config
@@ -387,6 +391,10 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
             {{- if .Values.configMap.create }}
             - configMapRef:
                 name: {{ include "a2a-server.fullname" . }}-config
@@ -643,6 +651,10 @@ spec:
           startupProbe:
             {{- toYaml $.Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- range $.Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
             {{- if $.Values.configMap.create }}
             - configMapRef:
                 name: {{ include "a2a-server.fullname" $ }}-config

@@ -103,6 +103,9 @@ auth:
 secret:
   create: false
 
+existingEnvFromSecrets:
+  - harvester-api-keys
+
 envFromSecret:
   A2A_AUTH_TOKENS: a2a-server-auth-tokens
 
