@@ -58,13 +58,26 @@ jobs:
             /tmp/codetether-rendered.yaml
           grep -q 'FORGEJO_API_URL' /tmp/codetether-rendered.yaml
 
-      - name: Authenticate to Harbor
+      - name: Configure Harbor authentication
         run: |
           set -euo pipefail
           test -n "${REGISTRY_USERNAME:-}"
           test -n "${REGISTRY_PASSWORD:-}"
-          printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY" \
-            --username "$REGISTRY_USERNAME" --password-stdin
+          docker_config="${DOCKER_CONFIG:-$HOME/.docker}"
+          install -d -m 0700 "$docker_config"
+          registry_auth="$(
+            printf '%s:%s' "$REGISTRY_USERNAME" "$REGISTRY_PASSWORD" \
+              | base64 --wrap=0
+          )"
+          umask 077
+          printf '{"auths":{"%s":{"auth":"%s"}}}\n' \
+            "$REGISTRY" "$registry_auth" >"$docker_config/config.json"
+          unset registry_auth
+          grep -q "$REGISTRY" "$docker_config/config.json"
+          docker_registry_config="$(
+            docker info --format '{{json .RegistryConfig.IndexConfigs}}'
+          )"
+          [[ "$docker_registry_config" == *"$REGISTRY"* ]]
 
       - name: Build and push immutable Harbor image
         run: |
