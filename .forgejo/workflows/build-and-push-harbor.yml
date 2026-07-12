@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  DOCKER_HOST: tcp://127.0.0.1:2375
   REGISTRY: registry.quantum-forge.net
   IMAGE: cluster-ci-cache/a2a-server-mcp
 
