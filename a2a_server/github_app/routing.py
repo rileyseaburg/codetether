@@ -40,6 +40,26 @@ def _has_any_capability(worker: dict[str, Any], capabilities: tuple[str, ...]) -
     return any(cap in worker_caps for cap in capabilities)
 
 
+def _required_capabilities() -> list[str]:
+    """Canonicalize aliases before emitting AND-based claim requirements."""
+    persistent_aliases = {
+        'persistent-workspace',
+        'persistent_workspace',
+        'persistent',
+        'harvester',
+    }
+    required: list[str] = []
+    for capability in TARGET_CAPABILITIES:
+        canonical = (
+            'persistent-workspace'
+            if capability in persistent_aliases
+            else capability
+        )
+        if canonical not in required:
+            required.append(canonical)
+    return required
+
+
 def clone_task_routing_metadata() -> dict[str, Any]:
     """Return mandatory capability metadata for GitHub App durable tasks.
 
@@ -53,7 +73,7 @@ def clone_task_routing_metadata() -> dict[str, Any]:
     if TARGET_AGENT:
         metadata['target_agent_name'] = TARGET_AGENT
     if not TARGET_WORKER_ID and TARGET_CAPABILITIES:
-        metadata['required_capabilities'] = list(TARGET_CAPABILITIES)
+        metadata['required_capabilities'] = _required_capabilities()
     return metadata
 
 

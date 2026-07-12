@@ -66,6 +66,20 @@ async def test_resolve_task_target_uses_capability_metadata_when_no_worker(monke
     }
 
 
+def test_clone_task_routing_collapses_persistent_capability_aliases(monkeypatch):
+    monkeypatch.setattr(routing, 'TARGET_WORKER_ID', '')
+    monkeypatch.setattr(routing, 'TARGET_AGENT', '')
+    monkeypatch.setattr(
+        routing,
+        'TARGET_CAPABILITIES',
+        ('persistent-workspace', 'persistent', 'persistent_workspace'),
+    )
+
+    assert routing.clone_task_routing_metadata() == {
+        'required_capabilities': ['persistent-workspace']
+    }
+
+
 @pytest.mark.asyncio
 async def test_resolve_task_target_preserves_configured_target_agent_with_capability(monkeypatch):
     async def fake_workers(status):
