@@ -106,6 +106,8 @@ spec:
         githubApp:
           existingSecret: codetether-a2a-server-github-app
           apiBaseUrl: https://api.github.com
+        existingEnvFromSecrets:
+          - harvester-api-keys
         envFromSecret:
           A2A_AUTH_TOKENS: a2a-server-auth-tokens
           GITHUB_APP_API_BASE_URL: codetether-a2a-server-github-app
