@@ -41,8 +41,17 @@ jobs:
       - name: Validate Helm chart
         run: |
           set -euo pipefail
-          helm lint chart/a2a-server
-          helm template codetether chart/a2a-server \
+          helm_archive=/tmp/helm-v3.16.4-linux-amd64.tar.gz
+          curl --fail --location --silent --show-error \
+            https://get.helm.sh/helm-v3.16.4-linux-amd64.tar.gz \
+            --output "$helm_archive"
+          printf '%s  %s\n' \
+            fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179 \
+            "$helm_archive" | sha256sum --check
+          tar --extract --gzip --file "$helm_archive" --directory /tmp
+          helm_bin=/tmp/linux-amd64/helm
+          "$helm_bin" lint chart/a2a-server
+          "$helm_bin" template codetether chart/a2a-server \
             -f chart/a2a-server/examples/values-argocd-prod.yaml \
             >/tmp/codetether-rendered.yaml
           grep -q 'registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp' \
