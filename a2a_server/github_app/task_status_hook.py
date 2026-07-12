@@ -17,6 +17,11 @@ async def handle_github_app_terminal_task(task_id: str, worker_id: str | None = 
 
     task = await db.db_get_task(task_id)
     metadata = (task or {}).get('metadata') or {}
+    if metadata.get('source') == 'forgejo-webhook':
+        from ..forgejo_task_completion import notify_forgejo_task_completion
+
+        await notify_forgejo_task_completion(task)
+        return
     if metadata.get('source') == 'github-app':
         try:
             if metadata.get('workflow_stage') == 'fix':
