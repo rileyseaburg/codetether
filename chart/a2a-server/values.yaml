@@ -236,7 +236,10 @@ env:
   WORKER_INFRA_CACHE_TTL_SECONDS: "30"
   WORKER_INFRA_NODE_MAP: ""
 
-# Environment variables from secrets
+# Import every key from existing Kubernetes secrets into server containers.
+existingEnvFromSecrets: []
+
+# Environment variables from individual secret keys
 envFromSecret: {}
 # Example:
 # envFromSecret:
