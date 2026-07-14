@@ -1692,13 +1692,25 @@ class AgentBridge:
         return task
 
     async def get_task(self, task_id: str) -> Optional[AgentTask]:
-        """Get a task by ID. Checks in-memory cache first, then database."""
-        # Check in-memory cache first
-        task = self._tasks.get(task_id)
-        if task:
-            return task
-        # Fall back to database
-        return await self._load_task_from_db(task_id)
+        """Get a task by ID, refreshing replica-local cache from PostgreSQL."""
+        try:
+            row = await db.db_get_task(task_id)
+            if row:
+                task = self._task_from_db_row(row)
+                self._tasks[task_id] = task
+                if task.codebase_id not in self._codebase_tasks:
+                    self._codebase_tasks[task.codebase_id] = []
+                if task_id not in self._codebase_tasks[task.codebase_id]:
+                    self._codebase_tasks[task.codebase_id].append(task_id)
+                return task
+        except Exception as exc:
+            logger.warning(
+                'Failed to refresh task %s from PostgreSQL: %s', task_id, exc
+            )
+
+        # Keep reads available during a transient database outage. Mutations
+        # persist before returning, so the local cache is the safest degraded read.
+        return self._tasks.get(task_id)
 
     async def list_tasks(
         self,
