@@ -1,0 +1,53 @@
+name: Validate CodeTether Pull Request
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: codetether-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: spotlessbinco-k8s
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python test dependencies
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/codetether-pr-ci
+          /tmp/codetether-pr-ci/bin/python -m pip install \
+            -r requirements.txt -r requirements-test.txt
+
+      - name: Run Forgejo and GitHub compatibility regressions
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. /tmp/codetether-pr-ci/bin/python -m pytest -q \
+            tests/test_forgejo*.py \
+            tests/test_github_app*.py \
+            tests/test_github_check_failure_tasks.py
+
+      - name: Lint and format changed automation code
+        run: |
+          set -euo pipefail
+          files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}"...HEAD -- '*.py')"
+          test -n "$files"
+          /tmp/codetether-pr-ci/bin/python -m ruff check \
+            --config .github/linters/.ruff.toml $files
+          /tmp/codetether-pr-ci/bin/python -m ruff format --check $files
+
+      - name: Compile Forgejo automation modules
+        run: |
+          set -euo pipefail
+          /tmp/codetether-pr-ci/bin/python -m compileall -q \
+            a2a_server/forgejo_automation.py \
+            a2a_server/forgejo_webhooks.py \
+            a2a_server/forgejo_task_completion.py \
+            a2a_server/post_clone_followup.py \
+            a2a_server/persistent_worker_pool.py

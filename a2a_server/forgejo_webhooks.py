@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import importlib
 import os
 
 from typing import Any
@@ -19,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from a2a_server.github_app.mention import is_fix_request, mentions_bot
 from a2a_server.github_app.routing import resolve_task_target
+from a2a_server.github_app.settings import TASK_PRIORITY
 from a2a_server.github_app.workspace import workspace_id
 
 
@@ -87,7 +89,14 @@ def _context(event: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         'issue': issue,
         'repo_data': repo,
         'comment': comment,
+        'comment_id': int(comment.get('id') or 0),
         'html_url': str(issue.get('html_url') or ''),
+        'actor_login': str(
+            (payload.get('sender') or {}).get('login')
+            or (payload.get('sender') or {}).get('username')
+            or (comment.get('user') or {}).get('login')
+            or ''
+        ),
     }
 
 
@@ -153,9 +162,10 @@ async def _comment(base: str, repo: str, number: int, body: str) -> None:
 
 
 async def _active_task(repo: str, number: int) -> bool:
-    from a2a_server import database as db
-
+    db = importlib.import_module('a2a_server.database')
     pool = await db.get_pool()
+    if not pool:
+        return False
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT id FROM tasks WHERE status IN ('pending','queued','running','in_progress')
@@ -213,6 +223,7 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
     )
     default_branch = str(repo_data.get('default_branch') or 'main')
     branch = default_branch
+    head_sha = ''
     if ctx['is_pr']:
         pr = await forgejo_json(
             'GET',
@@ -221,6 +232,7 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
         )
         head = pr.get('head') or {}
         branch = str(head.get('ref') or default_branch)
+        head_sha = str(head.get('sha') or '')
     clone_url = str(
         repo_data.get('clone_url') or ctx['repo_data'].get('clone_url') or ''
     )
@@ -250,6 +262,12 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         'default_branch': default_branch,
         'forgejo_api_url': base,
         'forgejo_issue_url': ctx['html_url'],
+        'trigger_actor_login': ctx.get('actor_login'),
+        'pr_head_sha': head_sha,
+        'forgejo_work_key': (
+            f'forgejo:{repo}:{ctx["number"]}:code:{head_sha or work_branch}:'
+            f'{ctx.get("comment_id") or 0}'
+        ),
         **routing,
     }
     metadata = {
@@ -260,11 +278,21 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         'issue_number': ctx['number'],
         'git_url': clone_url,
         'git_branch': branch,
+        'pr_number': ctx['number'] if ctx['is_pr'] else None,
+        'pr_head_sha': head_sha,
+        'trigger_actor_login': ctx.get('actor_login'),
+        'forgejo_api_url': base,
+        'forgejo_work_key': (
+            f'forgejo:{repo}:{ctx["number"]}:clone:{head_sha or branch}:'
+            f'{ctx.get("comment_id") or 0}'
+        ),
         **routing,
         'post_clone_task': {
             'title': f'Work Forgejo {kind} #{ctx["number"]}',
             'prompt': prompt,
             'agent_type': 'build',
+            'priority': TASK_PRIORITY,
+            'model_ref': 'zai:glm-5.1',
             'metadata': followup,
         },
     }
@@ -273,6 +301,7 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         title=f'Prepare Forgejo {kind} #{ctx["number"]}',
         prompt=f'Clone or refresh {repo} on branch {branch} for Forgejo automation.',
         agent_type='clone_repo',
+        priority=TASK_PRIORITY,
         metadata=metadata,
         task_timeout_seconds=604800,
     )
