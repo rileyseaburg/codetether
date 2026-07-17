@@ -308,6 +308,67 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
     return {'accepted': True, 'workspace_id': wid, 'clone_task_id': task_id}
 
 
+async def _handle_status_event(
+    payload: dict[str, Any], base: str
+) -> dict[str, Any]:
+    """Create one remediation task for a failed status on an open PR head."""
+    from a2a_server.forgejo_automation import (
+        create_status_remediation_task,
+        is_failed_status,
+        is_self_status,
+    )
+
+    repo_data = payload.get('repository') or {}
+    repo = str(repo_data.get('full_name') or '')
+    sha = str(payload.get('sha') or '')
+    sender = payload.get('sender') or {}
+    status = {
+        'id': payload.get('id'),
+        'status': payload.get('state') or payload.get('status'),
+        'context': payload.get('context'),
+        'description': payload.get('description'),
+        'target_url': payload.get('target_url'),
+        'creator': sender,
+    }
+    if not (repo and sha) or '/' not in repo:
+        return {'accepted': False, 'reason': 'invalid-status-payload'}
+    if not is_failed_status(status) or is_self_status(status):
+        return {'accepted': False, 'reason': 'non-failed-or-self-status'}
+
+    owner, name = repo.split('/', 1)
+    repo_path = f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
+    pr = None
+    for page in range(1, 21):
+        pulls = await forgejo_json(
+            'GET', base, f'{repo_path}/pulls?state=open&limit=50&page={page}'
+        )
+        pr = next(
+            (
+                candidate
+                for candidate in pulls or []
+                if str(((candidate or {}).get('head') or {}).get('sha') or '')
+                == sha
+            ),
+            None,
+        )
+        if pr or len(pulls or []) < 50:
+            break
+    if not pr:
+        return {'accepted': False, 'reason': 'no-open-pr-for-status-sha'}
+
+    task_id = await create_status_remediation_task(
+        base=base,
+        repo=repo,
+        pr=pr,
+        status=status,
+    )
+    return {
+        'accepted': bool(task_id),
+        'reason': 'queued' if task_id else 'duplicate-or-ignored',
+        'task_id': task_id,
+    }
+
+
 @forgejo_webhook_router.post('/forgejo')
 async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
     """Authenticate and process a Forgejo issue-comment delivery."""
@@ -317,6 +378,8 @@ async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
     event = _event_name(request)
     if event == 'ping':
         return {'ok': True}
+    if event == 'status':
+        return await _handle_status_event(payload, _api_base(payload))
     if _is_self_authored(payload):
         return {'accepted': False, 'reason': 'self-authored-event'}
     ctx = _context(event, payload)

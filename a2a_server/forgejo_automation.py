@@ -428,7 +428,7 @@ async def create_status_remediation_task(
 
 
 async def reconcile_forgejo_failures(limit: int = 20) -> int:
-    """Poll open Forgejo PR heads because Forgejo 15 has no status webhook."""
+    """Recover missed status deliveries and support unpatched Forgejo servers."""
     from a2a_server import database as db
 
     pool = await db.get_pool()
