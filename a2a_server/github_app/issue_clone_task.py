@@ -3,7 +3,7 @@
 from .context import MentionContext
 from .issue_prompt import issue_fix_prompt
 from .routing import resolve_task_target
-from .settings import MODEL_REF
+from .settings import MODEL_REF, TASK_PRIORITY
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
@@ -86,6 +86,7 @@ async def create_issue_clone_task(
         title=f'Prepare issue workspace #{context.issue_number}',
         prompt=f'Clone or refresh {context.repo_full_name} on branch {base_branch} for issue automation.',
         agent_type='clone_repo',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

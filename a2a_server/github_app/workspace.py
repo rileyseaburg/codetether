@@ -6,7 +6,7 @@ from typing import Any
 from .context import MentionContext
 from .prompt import fix_prompt
 from .routing import resolve_task_target
-from .settings import MODEL_REF, get_secret
+from .settings import MODEL_REF, TASK_PRIORITY, get_secret
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
@@ -134,6 +134,7 @@ async def create_clone_task(
         title=f'Prepare PR workspace #{context.pr_number}',
         prompt=f'Clone or refresh {context.repo_full_name} on branch {pr["head"]["ref"]} for PR fix execution.',
         agent_type='clone_repo',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

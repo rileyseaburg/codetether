@@ -10,7 +10,12 @@ import uuid
 from typing import Any
 
 from ..provenance import verify_provenance
-from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
+from .settings import (
+    AUTO_MERGE_ENABLED,
+    MERGE_METHOD,
+    MODEL_REF,
+    TASK_PRIORITY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -629,6 +634,7 @@ async def create_fix_followup_task(
         title=f'Apply PR fix #{pr_number}',
         prompt=fix_prompt,
         agent_type='build',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=fix_metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
@@ -1084,6 +1090,7 @@ async def create_issue_review_task(
         title=f'Review issue PR #{pr.get("number")}',
         prompt=review_prompt(repo, issue_number, branch, pr, provenance),
         agent_type='review',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
@@ -1339,6 +1346,7 @@ async def create_issue_merge_task(
         title=f'Merge issue PR #{pr_number}',
         prompt=merge_prompt(repo, issue_number, branch, pr, provenance),
         agent_type='merge',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=merge_metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
