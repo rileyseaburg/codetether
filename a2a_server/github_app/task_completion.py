@@ -6,7 +6,9 @@ from .pr_final_comment import notify_pr_final_comment
 from .pr_prepare_completion import handle_pr_prepare_completion
 
 
-async def notify_issue_task_completion(task: dict, worker_id: str | None = None) -> None:
+async def notify_issue_task_completion(
+    task: dict, worker_id: str | None = None
+) -> None:
     """Advance or finish a GitHub App issue workflow."""
     metadata = task.get('metadata') or {}
     if metadata.get('source') != 'github-app':
@@ -15,6 +17,7 @@ async def notify_issue_task_completion(task: dict, worker_id: str | None = None)
     stage = metadata.get('workflow_stage')
     if stage == 'review' or title.startswith('Review issue PR #'):
         from .issue_review_task import create_issue_merge_task
+        from .review_publish import publish_github_review
         from .task_context import github_app_task_context
 
         if str(task.get('status')) != 'completed':
@@ -23,6 +26,7 @@ async def notify_issue_task_completion(task: dict, worker_id: str | None = None)
         if context is None:
             return
         _, _, _, token = context
+        await publish_github_review(task, token)
         await create_issue_merge_task(review_task=task, token=token)
         return
     if metadata.get('pr_number'):

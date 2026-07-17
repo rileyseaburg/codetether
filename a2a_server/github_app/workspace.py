@@ -4,15 +4,18 @@ import hashlib
 from typing import Any
 
 from .context import MentionContext
-from .prompt import fix_prompt; from .routing import resolve_task_target
-from .settings import MODEL_REF, get_secret
+from .prompt import fix_prompt
+from .routing import resolve_task_target
+from .settings import MODEL_REF, TASK_PRIORITY, get_secret
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
 
 def workspace_id(git_url: str, git_branch: str) -> str:
     """Derive the deterministic branch-scoped workspace ID."""
-    return hashlib.sha256(f'{git_url}::{git_branch or "main"}'.encode()).hexdigest()[:16]
+    return hashlib.sha256(
+        f'{git_url}::{git_branch or "main"}'.encode()
+    ).hexdigest()[:16]
 
 
 def checkout_branch(context: MentionContext, pr: dict[str, Any]) -> str:
@@ -28,9 +31,40 @@ async def ensure_workspace(context: MentionContext, pr: dict[str, Any]) -> str:
     git_url = pr['head']['repo']['clone_url']
     branch_name = pr['head']['ref']
     git_branch = checkout_branch(context, pr)
-    app_id = await get_secret('app_id', 'GITHUB_APP_ID', 'app_id', 'github_app_id')
+    app_id = await get_secret(
+        'app_id', 'GITHUB_APP_ID', 'app_id', 'github_app_id'
+    )
     wid = workspace_id(git_url, git_branch)
-    workspace = {'id': wid, 'name': context.repo_full_name, 'path': f'/var/lib/codetether/repos/{wid}', 'description': f'GitHub App workspace for {context.repo_full_name}', 'git_url': git_url, 'git_branch': git_branch, 'status': 'active', 'agent_config': {'source': 'github-app', 'repo': {'full_name': context.repo_full_name}, 'github': {'repo_full_name': context.repo_full_name, 'pull_request_number': context.pr_number, 'branch_name': branch_name}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}, 'git_auth': {'github_app': {'app_id': app_id, 'installation_id': str(context.installation_id)}}}
+    workspace = {
+        'id': wid,
+        'name': context.repo_full_name,
+        'path': f'/var/lib/codetether/repos/{wid}',
+        'description': f'GitHub App workspace for {context.repo_full_name}',
+        'git_url': git_url,
+        'git_branch': git_branch,
+        'status': 'active',
+        'agent_config': {
+            'source': 'github-app',
+            'repo': {'full_name': context.repo_full_name},
+            'github': {
+                'repo_full_name': context.repo_full_name,
+                'pull_request_number': context.pr_number,
+                'branch_name': branch_name,
+            },
+            'git_auth': {
+                'github_app': {
+                    'app_id': app_id,
+                    'installation_id': str(context.installation_id),
+                }
+            },
+        },
+        'git_auth': {
+            'github_app': {
+                'app_id': app_id,
+                'installation_id': str(context.installation_id),
+            }
+        },
+    }
     await db.db_upsert_workspace(workspace)
     await _redis_upsert_workspace_meta(workspace)
     return wid
@@ -59,6 +93,7 @@ async def create_clone_task(
         'workspace_id': wid,
         'source': 'github-app',
         'workflow_stage': 'code',
+        'trigger_actor_login': context.actor_login,
         'repo': context.repo_full_name,
         'pr_number': context.pr_number,
         'pr_head': pr['head']['ref'],
@@ -80,6 +115,7 @@ async def create_clone_task(
         'git_branch': pr['head']['ref'],
         'source': 'github-app',
         'repo': context.repo_full_name,
+        'trigger_actor_login': context.actor_login,
         'pr_number': context.pr_number,
         'pr_head_sha': (pr.get('head') or {}).get('sha'),
         'github_check_head_sha': (pr.get('head') or {}).get('sha'),
@@ -98,6 +134,7 @@ async def create_clone_task(
         title=f'Prepare PR workspace #{context.pr_number}',
         prompt=f'Clone or refresh {context.repo_full_name} on branch {pr["head"]["ref"]} for PR fix execution.',
         agent_type='clone_repo',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

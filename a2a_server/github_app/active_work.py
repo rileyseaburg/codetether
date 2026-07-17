@@ -70,6 +70,7 @@ def _context_for_item(
         pr_number=number if is_pr else None,
         comment_id=int(item.get('id') or number),
         comment_body=body,
+        actor_login=str((item.get('user') or {}).get('login') or ''),
     )
 
 

@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 _RECONCILER_TASK: asyncio.Task | None = None
 
 
-async def handle_github_app_terminal_task(task_id: str, worker_id: str | None = None) -> None:
+async def handle_github_app_terminal_task(
+    task_id: str, worker_id: str | None = None
+) -> None:
     """Load a terminal task and run any GitHub App follow-up logic."""
     from .. import database as db
     from .checks import ensure_task_check_run
@@ -28,23 +30,35 @@ async def handle_github_app_terminal_task(task_id: str, worker_id: str | None = 
                 from .pr_final_comment import normalize_pr_fix_terminal_status
 
                 task = await normalize_pr_fix_terminal_status(task)
-            elif metadata.get('workflow_stage') == 'code' and not metadata.get('pr_number'):
-                from .issue_final_comment import normalize_issue_task_terminal_status
+            elif metadata.get('workflow_stage') == 'code' and not metadata.get(
+                'pr_number'
+            ):
+                from .issue_final_comment import (
+                    normalize_issue_task_terminal_status,
+                )
 
                 task = await normalize_issue_task_terminal_status(task)
         except Exception as exc:
-            logger.warning('GitHub terminal protocol normalization failed for task %s: %s', task_id, exc)
+            logger.warning(
+                'GitHub terminal protocol normalization failed for task %s: %s',
+                task_id,
+                exc,
+            )
         try:
             await ensure_task_check_run(task, status='completed')
         except Exception as exc:
-            logger.warning('GitHub Checks terminal update failed for task %s: %s', task_id, exc)
+            logger.warning(
+                'GitHub Checks terminal update failed for task %s: %s',
+                task_id,
+                exc,
+            )
         await notify_issue_task_completion(task, worker_id)
 
 
 async def reconcile_github_app_terminal_tasks(limit: int = 20) -> int:
-    """Run missed GitHub App review completions that have no merge decision yet."""
+    """Run missed GitHub App review completions exactly once per outcome."""
     from .. import database as db
-    from .issue_review_task import reviewer_allows_merge
+    from .issue_review_task import reviewer_verdict
     from .task_completion import notify_issue_task_completion
 
     pool = await db.get_pool()
@@ -60,12 +74,29 @@ async def reconcile_github_app_terminal_tasks(limit: int = 20) -> int:
               AND t.completed_at >= NOW() - INTERVAL '2 days'
               AND t.metadata->>'source' = 'github-app'
               AND t.metadata->>'workflow_stage' = 'review'
-              AND t.result ILIKE '%APPROVED%'
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM github_automation_decisions d
-                  WHERE d.task_id = t.id
-                    AND d.action = 'github:merge_pr'
+              AND (
+                (
+                  t.result ILIKE '%APPROVED%'
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM github_automation_decisions d
+                    WHERE d.task_id = t.id
+                      AND d.action = 'github:merge_pr'
+                  )
+                )
+                OR
+                (
+                  (
+                    t.result ILIKE '%CHANGES_REQUESTED%'
+                    OR t.result ~* 'BLOCKED\\s*:'
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM tasks fix
+                    WHERE fix.metadata->>'review_task_id' = t.id
+                      AND fix.metadata->>'fix_followup' = 'true'
+                  )
+                )
               )
             ORDER BY t.completed_at ASC
             LIMIT $1
@@ -76,23 +107,38 @@ async def reconcile_github_app_terminal_tasks(limit: int = 20) -> int:
     handled = 0
     for row in rows:
         task = await db.db_get_task(str(row['id']))
-        if not task or not reviewer_allows_merge(task):
+        if not task or reviewer_verdict(task) not in {
+            'APPROVED',
+            'CHANGES_REQUESTED',
+            'BLOCKED',
+        }:
             continue
         await notify_issue_task_completion(task)
         handled += 1
     if handled:
-        logger.info('Reconciled %s missed GitHub App terminal review task(s)', handled)
+        logger.info(
+            'Reconciled %s missed GitHub App terminal review task(s)', handled
+        )
     return handled
 
 
 def start_github_app_terminal_reconciler() -> None:
     """Start a lightweight reconciliation loop for missed terminal hooks."""
     global _RECONCILER_TASK
-    enabled = os.environ.get('GITHUB_APP_TERMINAL_RECONCILER_ENABLED', 'true').lower()
+    enabled = os.environ.get(
+        'GITHUB_APP_TERMINAL_RECONCILER_ENABLED', 'true'
+    ).lower()
     if enabled in {'0', 'false', 'no'} or _RECONCILER_TASK is not None:
         return
 
-    interval = max(30, int(os.environ.get('GITHUB_APP_TERMINAL_RECONCILER_INTERVAL_SECONDS', '60')))
+    interval = max(
+        30,
+        int(
+            os.environ.get(
+                'GITHUB_APP_TERMINAL_RECONCILER_INTERVAL_SECONDS', '60'
+            )
+        ),
+    )
 
     async def _loop() -> None:
         await asyncio.sleep(30)

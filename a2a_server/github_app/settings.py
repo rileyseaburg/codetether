@@ -38,6 +38,9 @@ MODEL_REF = (
     os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip()
     or 'zai:glm-5.1'
 )
+# GitHub webhook work is user-facing and must not starve behind an old generic
+# task backlog. Apply this to every stage of the automation chain.
+TASK_PRIORITY = int(os.environ.get('GITHUB_APP_TASK_PRIORITY', '100'))
 # Existing env name retained; default includes harvester first while still
 # allowing legacy knative-worker deployments to be selected if connected.
 # Leave GITHUB_APP_TARGET_AGENT unset to route by durable worker capability
