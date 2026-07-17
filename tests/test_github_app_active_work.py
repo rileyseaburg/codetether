@@ -26,12 +26,18 @@ async def test_dispatch_active_work_for_repo_queues_open_issues_and_prs(
             '/repos/owner/repo/issues?state=open&per_page=100&page=1'
         )
         return [
-            {'id': 11, 'number': 1, 'body': '@codetether implement this'},
+            {
+                'id': 11,
+                'number': 1,
+                'body': '@codetether implement this',
+                'user': {'login': 'issue-author'},
+            },
             {
                 'id': 22,
                 'number': PR_NUMBER,
                 'body': '@codetether fix the failing PR',
                 'pull_request': {},
+                'user': {'login': 'pr-author'},
             },
         ]
 
@@ -70,8 +76,10 @@ async def test_dispatch_active_work_for_repo_queues_open_issues_and_prs(
     assert [result.task_id for result in results] == ['task-1', 'task-2']
     assert calls[0][0].pr_number is None
     assert calls[0][0].comment_body == '@codetether implement this'
+    assert calls[0][0].actor_login == 'issue-author'
     assert calls[1][0].pr_number == PR_NUMBER
     assert calls[1][0].comment_body == '@codetether fix the failing PR'
+    assert calls[1][0].actor_login == 'pr-author'
 
 
 @pytest.mark.asyncio

@@ -16,8 +16,12 @@ def _actor_for_event(
     if event_name == 'pull_request_review':
         return payload.get('review', {}).get('user', {}) or {}
     if event_name == 'issues':
+        if str(payload.get('action') or '').lower() == 'edited':
+            return payload.get('sender', {}) or {}
         return payload.get('issue', {}).get('user', {}) or {}
     if event_name == 'pull_request':
+        if str(payload.get('action') or '').lower() == 'edited':
+            return payload.get('sender', {}) or {}
         return payload.get('pull_request', {}).get('user', {}) or {}
     return payload.get('sender', {}) or {}
 
@@ -115,6 +119,7 @@ def extract_context(
     body = _body_for_event(event_name, payload)
     installation_id = payload.get('installation', {}).get('id')
     repo_full_name = payload.get('repository', {}).get('full_name', '')
+    actor_login = str(_actor_for_event(event_name, payload).get('login') or '')
     comment_id = payload.get('comment', {}).get('id')
     issue_number = None
     pr_number = None
@@ -171,4 +176,5 @@ def extract_context(
         comment_body=body,
         comment_path=comment_path,
         comment_diff_hunk=comment_diff_hunk,
+        actor_login=actor_login,
     )
