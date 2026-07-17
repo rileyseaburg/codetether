@@ -23,7 +23,8 @@ jobs:
           set -euo pipefail
           python3 -m venv /tmp/codetether-pr-ci
           /tmp/codetether-pr-ci/bin/python -m pip install \
-            -r requirements.txt -r requirements-test.txt
+            -r requirements.txt -r requirements-test.txt \
+            ruff==0.14.10
 
       - name: Run Forgejo and GitHub compatibility regressions
         run: |
