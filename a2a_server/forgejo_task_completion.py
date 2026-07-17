@@ -11,6 +11,15 @@ from a2a_server.forgejo_automation import (
     publish_forgejo_review,
 )
 from a2a_server.forgejo_webhooks import forgejo_json
+from a2a_server.session_view import build_task_session_url
+
+
+def _task_footer(task_id: str) -> str:
+    session_url = build_task_session_url(task_id)
+    footer = f'\n\nTask: `{task_id}`'
+    if session_url:
+        footer += f' · [View session]({session_url})'
+    return footer
 
 
 async def notify_forgejo_task_completion(task: dict) -> None:
@@ -74,5 +83,6 @@ async def notify_forgejo_task_completion(task: dict) -> None:
         message = f'## ⚠️ CodeTether {stage.title()}\n\nTask ended with status `{status}`.'
     if detail:
         message += f'\n\n{detail}'
-    message += f'\n\nTask: `{task_id}`\n\n{marker}'
+    message += _task_footer(task_id)
+    message += f'\n\n{marker}'
     await forgejo_json('POST', base, issue_path, {'body': message})
