@@ -78,6 +78,8 @@ spec:
               value: "8081"
             - name: CODETETHER_SERVER
               value: http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: {{ join "," (.Values.harvester.capabilities | default (list "harvester" "persistent" "persistent-workspace" "persistent_workspace" "git-clone" "repo-cache")) | quote }}
             {{- if .Values.harvester.tokenSecret.name }}
             - name: CODETETHER_TOKEN
               valueFrom:
@@ -85,11 +87,30 @@ spec:
                   name: {{ .Values.harvester.tokenSecret.name | quote }}
                   key: {{ .Values.harvester.tokenSecret.key | default "CODETETHER_TOKEN" | quote }}
             {{- end }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgresql.auth.username }}:$(POSTGRES_PASSWORD)@{{ include "a2a-server.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.auth.existingSecret | default (printf "%s-postgresql" (include "a2a-server.fullname" .)) }}
+                  key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey | default "password" }}
+            {{- else if .Values.externalPostgresql.url }}
+            - name: DATABASE_URL
+              value: {{ .Values.externalPostgresql.url | quote }}
+            {{- else if .Values.externalPostgresql.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalPostgresql.existingSecret }}
+                  key: {{ .Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
+            {{- else }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "a2a-server.fullname" . }}-db
                   key: url
+            {{- end }}
             {{- if .Values.harvester.homePath }}
             - name: HOME
               value: {{ .Values.harvester.homePath | quote }}

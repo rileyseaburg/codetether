@@ -7,12 +7,19 @@ options:
 settings:
   DEVELOPMENT_TEAM: "J9YRM3U37D"
   CODE_SIGN_STYLE: Manual
+packages:
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift.git
+    from: "2.0.0"
 targets:
   A2AMonitor:
     type: application
     platform: iOS
     sources:
       - path: Sources/A2AMonitor
+    dependencies:
+      - package: LiveKit
+        product: LiveKit
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor
       INFOPLIST_FILE: Info.plist

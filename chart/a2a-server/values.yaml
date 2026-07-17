@@ -465,6 +465,9 @@ knative:
     maxTimeoutSeconds: 1200
     # One task at a time (hardware-bound)
     containerConcurrency: 1
+    # Optional extra capabilities for generated Knative session workers.
+    # Leave empty unless these workers should claim persistent automation tasks.
+    capabilities: []
     resources:
       limits:
         memory: 2Gi
@@ -684,6 +687,50 @@ opa:
       cpu: 50m
       memory: 64Mi
 
+# ── SPIFFE / SPIRE: workload identity for agent trust ────────────
+# When enabled, the server validates SPIFFE JWT-SVIDs presented as
+# `Authorization: Bearer <jwt-svid>` against the SPIRE OIDC JWKS, and maps
+# the SPIFFE ID into the OPA authorization flow (see a2a_server/spiffe_auth.py).
+#
+# Deploying SPIRE itself (server + agent DaemonSet) is normally done with the
+# upstream spiffe/spire-server + spiffe/spire-agent charts. The block below
+# (a) flips on SVID validation in the server via env vars, and (b) optionally
+# renders a minimal SPIRE server Deployment + ConfigMap for dev/test clusters.
+spiffe:
+  # Enable JWT-SVID validation in the A2A server (sets SPIFFE_ENABLED=true).
+  enabled: false
+  # SPIFFE trust domain. Must match the SPIRE server's trust_domain.
+  trustDomain: "codetether.io"
+  # Expected audience(s) the SVID must be minted for (comma-separated).
+  audience: "a2a-server"
+  # JWKS endpoint published by SPIRE's OIDC Discovery Provider.
+  jwksUrl: "http://spire-oidc.spire.svc.cluster.local/keys"
+  # JWKS cache TTL in seconds.
+  jwksTtl: 300
+  # During migration, still accept legacy A2A_AUTH_TOKENS when no SVID is sent.
+  allowTokenLegacy: true
+  # SPIFFE path role -> app RBAC role map ("svid-role:rbac-role,..."). Empty
+  # means every SVID caller gets the defaultRole below.
+  roleMap: ""
+  # RBAC role for SVID callers without an explicit roleMap entry.
+  defaultRole: "a2a-agent"
+  # Optional in-cluster SPIRE server (dev/test only — production should use the
+  # upstream spiffe/spire-server chart with proper node attestation + storage).
+  server:
+    enabled: false
+    image:
+      repository: ghcr.io/spiffe/spire-server
+      tag: "1.9.6"
+      pullPolicy: IfNotPresent
+    logLevel: "info"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
 # ── Harvester: Persistent Worker StatefulSet ─────────────────────
 # The harvester is a StatefulSet of codetether-agent workers that
 # run 24/7 on our compute. They claim tasks from the webhook pipeline
@@ -729,6 +776,15 @@ harvester:
   # Auto-approve policy for tool calls: all, safe (read-only), none.
   # Harvester workers edit files, commit, push, and open PRs — use "all".
   autoApprove: "all"
+  # Additional capabilities advertised by the Rust worker. Cron and GitHub
+  # automation tasks are routed to workers with these persistent-workspace caps.
+  capabilities:
+    - harvester
+    - persistent
+    - persistent-workspace
+    - persistent_workspace
+    - git-clone
+    - repo-cache
   # Keep codetether state and telemetry on the workspace PVC so the worker's
   # install ID survives restarts and the non-root user has a writable home.
   homePath: "/var/lib/codetether/repos/.codetether-home"

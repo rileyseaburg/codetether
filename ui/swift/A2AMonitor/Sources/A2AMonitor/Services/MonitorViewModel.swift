@@ -24,6 +24,10 @@ class MonitorViewModel: ObservableObject {
     @Published var totalStoredMessages: Int = 0
     @Published var messageFilter: MessageType?
     @Published var searchQuery: String = ""
+    /// Cached result of filtering `messages` by `messageFilter`/`searchQuery`.
+    /// Recomputed only when one of those inputs changes (see setupCallbacks),
+    /// instead of re-filtering on every SwiftUI body evaluation.
+    @Published private(set) var filteredMessages: [Message] = []
 
     // Sessions
     @Published var sessions: [SessionSummary] = []
@@ -33,6 +37,12 @@ class MonitorViewModel: ObservableObject {
     // Tasks
     @Published var tasks: [AgentTask] = []
     @Published var taskFilter: TaskStatus?
+
+    // Unified codetether-agent control plane
+    @Published var runtimeSessions: [RuntimeSession] = []
+    @Published var agentWorkers: [AgentWorker] = []
+    @Published var workerProfiles: [WorkerProfile] = []
+    @Published var selectedRuntimeSessionMessages: [RuntimeSessionMessage] = []
 
     // Agent Output
     @Published var agentOutputs: [String: [OutputEntry]] = [:]
@@ -133,6 +143,19 @@ class MonitorViewModel: ObservableObject {
                 self?.connectionError = error
             }
             .store(in: &cancellables)
+
+        // Recompute the cached filtered-messages list only when its inputs
+        // change. Search text is debounced so typing doesn't refilter on every
+        // keystroke; messages/filter changes apply immediately.
+        Publishers.CombineLatest3(
+            $messages,
+            $messageFilter,
+            $searchQuery.debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
+        )
+        .sink { [weak self] _, _, _ in
+            self?.recomputeFilteredMessages()
+        }
+        .store(in: &cancellables)
     }
 
     // MARK: - Connection
@@ -197,11 +220,19 @@ class MonitorViewModel: ObservableObject {
     }
 
     func refreshData() async {
+        // The SSE stream already pushes agent_status and new messages live.
+        // While connected we only poll the endpoints that have no push channel
+        // (codebases, tasks, message count) and skip agents to cut redundant
+        // network + battery cost. Models are effectively static and are loaded
+        // once in loadInitialData(), so they are never re-fetched here.
         await loadCodebases()
-        await loadModels()
-        await loadAgents()
         await loadTasks()
         await loadMessageCount()
+
+        if !isConnected {
+            // No live stream: fall back to polling agents too.
+            await loadAgents()
+        }
     }
 
     // MARK: - OpenCode
@@ -355,7 +386,9 @@ class MonitorViewModel: ObservableObject {
         }
     }
 
-    var filteredMessages: [Message] {
+    /// Recomputes `filteredMessages` from the current inputs. Called by the
+    /// Combine pipeline in setupCallbacks whenever messages/filter/query change.
+    private func recomputeFilteredMessages() {
         var result = messages
 
         if let filter = messageFilter {
@@ -369,7 +402,51 @@ class MonitorViewModel: ObservableObject {
             }
         }
 
-        return result
+        filteredMessages = result
+    }
+
+    // MARK: - Unified Agent Control Plane
+
+    /// Load codetether-agent runtime sessions (the harvester/agent session store).
+    func loadRuntimeSessions(projectId: String? = nil, limit: Int = 50) async {
+        do {
+            let response = try await client.fetchRuntimeSessions(projectId: projectId, limit: limit)
+            runtimeSessions = response.sessions
+        } catch {
+            print("Failed to load runtime sessions: \(error)")
+        }
+    }
+
+    /// Load the message history for a single runtime session.
+    func loadRuntimeSessionMessages(sessionId: String, limit: Int = 50) async {
+        do {
+            selectedRuntimeSessionMessages = try await client.fetchRuntimeSessionMessages(sessionId: sessionId, limit: limit)
+        } catch {
+            print("Failed to load runtime session messages for \(sessionId): \(error)")
+        }
+    }
+
+    /// Load the classified worker fleet (Rust/Python/Harvester).
+    func loadAgentWorkers(search: String? = nil, onlineOnly: Bool = false) async {
+        do {
+            agentWorkers = try await client.fetchAgentWorkers(search: search, onlineOnly: onlineOnly)
+        } catch {
+            print("Failed to load agent workers: \(error)")
+        }
+    }
+
+    /// Load reusable worker provisioning profiles.
+    func loadWorkerProfiles(builtinOnly: Bool = false) async {
+        do {
+            workerProfiles = try await client.fetchWorkerProfiles(builtinOnly: builtinOnly)
+        } catch {
+            print("Failed to load worker profiles: \(error)")
+        }
+    }
+
+    /// Convenience: only the Harvester/KubeVirt persistent-workspace workers.
+    var harvesterWorkers: [AgentWorker] {
+        agentWorkers.filter { $0.isHarvester }
     }
 
     // MARK: - Sessions

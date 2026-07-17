@@ -1,7 +1,39 @@
+import { useGithubAppWorkflows } from '../GithubAppWorkflowsContext'
 import { Badge } from './Badge'
 import { formatDate } from '../utils'
-import type { WorkflowRun } from '../types'
 
-export function RunsTable({ rows, loading }: { rows: WorkflowRun[]; loading: boolean }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 p-5"><h2 className="text-lg font-semibold text-slate-950">Open task runs</h2></div><div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 text-sm"><thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Run</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Lease</th><th className="px-4 py-3">Workflow</th><th className="px-4 py-3">Error</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map((run) => <tr key={run.run_id} className="align-top"><td className="px-4 py-4 font-mono text-xs text-slate-700">{run.run_id}</td><td className="px-4 py-4"><Badge value={run.status} /></td><td className="px-4 py-4 text-xs text-slate-600"><div>{run.lease_owner || '—'}</div><div>expires {formatDate(run.lease_expires_at)}</div></td><td className="px-4 py-4 text-xs text-slate-600">{run.repo} #{run.issue_pr || '—'}</td><td className="px-4 py-4"><Badge value={run.error_class} />{run.last_error ? <div className="mt-2 max-w-sm truncate text-xs text-slate-500" title={run.last_error}>{run.last_error}</div> : null}</td></tr>)}{!loading && !rows.length ? <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No open task_run rows.</td></tr> : null}</tbody></table></div></section>
+export function RunsTable() {
+  const { data, loading } = useGithubAppWorkflows()
+  const rows = data?.runs || []
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-5">
+        <h2 className="text-lg font-semibold text-slate-950">Recent task runs</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Latest task_run rows, including completed runs and their lease owner.
+        </p>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {rows.map((run) => (
+          <article key={run.run_id} className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge value={run.status} />
+                <span className="font-mono text-xs font-semibold text-slate-700">{run.run_id}</span>
+              </div>
+              <div className="mt-2 text-sm font-medium text-slate-900">{run.repo} #{run.issue_pr || '-'}</div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span>Lease: {run.lease_owner || '-'}</span>
+                <span>Expires: {formatDate(run.lease_expires_at)}</span>
+                <span>Completed: {formatDate(run.completed_at)}</span>
+              </div>
+              {run.last_error ? <div className="mt-3 truncate rounded-2xl bg-rose-50 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-100" title={run.last_error}>{run.last_error}</div> : null}
+            </div>
+            <div className="justify-self-start md:justify-self-end"><Badge value={run.error_class} /></div>
+          </article>
+        ))}
+        {!loading && !rows.length ? <div className="px-4 py-8 text-center text-sm text-slate-500">No recent task_run rows found.</div> : null}
+      </div>
+    </section>
+  )
 }

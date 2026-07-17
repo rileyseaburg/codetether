@@ -1,8 +1,39 @@
-import Link from 'next/link'
-import { Badge } from './Badge'
-import { formatDate } from '../utils'
-import type { WorkflowTask } from '../types'
+import { useGithubAppWorkflows } from '../GithubAppWorkflowsContext'
+import { ActiveTaskCards } from './ActiveTaskCards'
+import { TaskRow } from './TaskRow'
+import { activeRows } from './taskHelpers'
 
-export function TasksTable({ rows }: { rows: WorkflowTask[] }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 p-5"><h2 className="text-lg font-semibold text-slate-950">Task rows</h2><p className="mt-1 text-sm text-slate-500">Pending, running, and failed GitHub tasks with target worker and error classification.</p></div><div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 text-sm"><thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Task</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Route</th><th className="px-4 py-3">Worker</th><th className="px-4 py-3">Updated</th><th className="px-4 py-3">Error</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map((task) => <tr key={task.id} className="align-top"><td className="px-4 py-4"><Link href={`/dashboard/tasks?taskId=${task.id}`} className="font-mono text-xs font-semibold text-cyan-700 hover:underline">{task.id}</Link><div className="mt-1 max-w-xs truncate font-medium text-slate-800" title={task.title}>{task.title || 'Untitled task'}</div><div className="text-xs text-slate-500">{task.repo} #{task.issue_pr || '—'} · {task.agent_type}</div></td><td className="px-4 py-4"><Badge value={task.status} /></td><td className="px-4 py-4"><Badge value={task.route_state} /></td><td className="px-4 py-4 text-xs text-slate-600"><div>{task.worker_name || task.target_worker_id || '—'}</div><div>{task.worker_status || 'unknown'} · {formatDate(task.worker_last_seen)}</div></td><td className="px-4 py-4 text-xs text-slate-600">{formatDate(task.updated_at)}</td><td className="px-4 py-4"><Badge value={task.error_class} />{task.error ? <div className="mt-2 max-w-sm truncate text-xs text-slate-500" title={task.error}>{task.error}</div> : null}</td></tr>)}</tbody></table></div></section>
+export function TasksTable() {
+  const { data } = useGithubAppWorkflows()
+  const rows = data?.tasks || []
+  const active = activeRows(rows)
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">Agent activity</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Live GitHub App tasks. Running rows mean a worker has claimed the task and is doing work.
+            </p>
+          </div>
+          <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
+            {active.length} active
+          </span>
+        </div>
+      </div>
+      <ActiveTaskCards rows={active} />
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr><th className="px-4 py-3">Task</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Route</th><th className="px-4 py-3">Runner</th><th className="px-4 py-3">Updated</th><th className="px-4 py-3">Error</th></tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((task) => <TaskRow key={task.id} task={task} />)}
+            {!rows.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No recent GitHub App task rows found.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
 }

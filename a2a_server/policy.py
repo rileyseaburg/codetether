@@ -16,9 +16,20 @@ Usage:
 
     # Resource-level check:
     from a2a_server.policy import enforce_policy
-    await enforce_policy(user, "tasks:write", resource={"type": "task", "id": task_id, "owner_id": owner, "tenant_id": tid})
+
+    await enforce_policy(
+        user,
+        "tasks:write",
+        resource={
+            "type": "task",
+            "id": task_id,
+            "owner_id": owner,
+            "tenant_id": tid,
+        },
+    )
 """
 
+import functools
 import hashlib
 import json
 import logging
@@ -31,6 +42,7 @@ from typing import Any
 import httpx
 
 from fastapi import HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials
 
 from a2a_server.provenance import verify_provenance
 
@@ -60,6 +72,16 @@ OPA_ENABLED = os.environ.get('OPA_ENABLED', 'true').lower() == 'true'
 # Path to policies directory (for local mode and bundle building).
 POLICIES_DIR = Path(__file__).parent.parent / 'policies'
 
+# When the decision cache grows past this size, evict entries older than the
+# TTL. Bound keeps memory predictable in long-running OPA-sidecar deployments.
+_DECISION_CACHE_EVICT_THRESHOLD = 10000
+
+# A permission string has the form "resource:action" — exactly two parts.
+_PERMISSION_PARTS = 2
+
+# HTTP 200 OK, used in OPA health checks.
+_HTTP_OK = 200
+
 
 # ── Decision cache ───────────────────────────────────────────────
 
@@ -84,7 +106,7 @@ class _DecisionCache:
             return
         self._store[key] = (result, time.monotonic())
         # Evict stale entries periodically.
-        if len(self._store) > 10000:
+        if len(self._store) > _DECISION_CACHE_EVICT_THRESHOLD:
             cutoff = time.monotonic() - self._ttl
             self._store = {
                 k: v for k, v in self._store.items() if v[1] > cutoff
@@ -99,29 +121,58 @@ _cache = _DecisionCache(OPA_CACHE_TTL)
 
 # ── Local policy data (for local mode) ──────────────────────────
 
-_local_policy_data: dict[str, Any] | None = None
 
-
+@functools.lru_cache(maxsize=1)
 def _load_local_policy_data() -> dict[str, Any]:
-    """Load data.json for local policy evaluation."""
-    global _local_policy_data
-    if _local_policy_data is None:
-        data_file = POLICIES_DIR / 'data.json'
-        if data_file.exists():
-            with open(data_file) as f:
-                _local_policy_data = json.load(f)
-        else:
-            logger.warning(f'Policy data file not found: {data_file}')
-            _local_policy_data = {'roles': {}, 'public_endpoints': []}
-    return _local_policy_data
+    """Load data.json for local policy evaluation.
+
+    Memoized via lru_cache so the file is only read on first call. Use
+    ``reload_local_policy_data()`` to invalidate after editing policies.
+    """
+    data_file = POLICIES_DIR / 'data.json'
+    if data_file.exists():
+        with data_file.open() as f:
+            return json.load(f)
+    logger.warning(f'Policy data file not found: {data_file}')
+    return {'roles': {}, 'public_endpoints': []}
 
 
 def reload_local_policy_data() -> dict[str, Any]:
     """Force reload of local policy data from disk and clear decision cache."""
-    global _local_policy_data
-    _local_policy_data = None
+    _load_local_policy_data.cache_clear()
     _cache.clear()
     return _load_local_policy_data()
+
+
+def _resolve_role_permissions(
+    user: dict[str, Any], data: dict[str, Any]
+) -> tuple[set, set]:
+    """Resolve a user's effective roles and the permissions they grant."""
+    effective_roles: set = set()
+    for role in _effective_roles(user):
+        role_def = data.get('roles', {}).get(role)
+        if not role_def:
+            continue
+        parent = role_def.get('inherits')
+        effective_roles.add(parent if parent else role)
+
+    role_permissions: set = set()
+    for role in effective_roles:
+        role_def = data.get('roles', {}).get(role)
+        if role_def:
+            role_permissions.update(role_def.get('permissions', []))
+    return effective_roles, role_permissions
+
+
+def _api_key_scope_allows(user: dict[str, Any], action: str) -> bool:
+    """Return True if the API-key scopes permit the action (incl. wildcard)."""
+    scopes = user.get('api_key_scopes') or user.get('scopes', [])
+    if action in scopes:
+        return True
+    parts = action.split(':')
+    if len(parts) == _PERMISSION_PARTS:
+        return f'{parts[0]}:*' in scopes
+    return False
 
 
 def _evaluate_local(
@@ -141,25 +192,8 @@ def _evaluate_local(
     if action in data.get('public_endpoints', []):
         return True, []
 
-    # Resolve effective roles (with inheritance).
-    effective_roles = set()
-    user_roles = _effective_roles(user)
-    for role in user_roles:
-        role_def = data.get('roles', {}).get(role)
-        if not role_def:
-            continue
-        parent = role_def.get('inherits')
-        if parent:
-            effective_roles.add(parent)
-        else:
-            effective_roles.add(role)
-
-    # Collect permissions from effective roles.
-    role_permissions = set()
-    for role in effective_roles:
-        role_def = data.get('roles', {}).get(role)
-        if role_def:
-            role_permissions.update(role_def.get('permissions', []))
+    # Resolve effective roles and the permissions they grant.
+    effective_roles, role_permissions = _resolve_role_permissions(user, data)
 
     # Check role-based access.
     if action not in role_permissions:
@@ -167,29 +201,25 @@ def _evaluate_local(
         return False, reasons
 
     # API key scope enforcement.
-    auth_source = _detect_auth_source(user)
-    if auth_source == 'api_key':
-        scopes = user.get('api_key_scopes') or user.get('scopes', [])
-        scope_ok = action in scopes
-        if not scope_ok:
-            # Check wildcard scopes.
-            parts = action.split(':')
-            if len(parts) == 2:
-                wildcard = f'{parts[0]}:*'
-                scope_ok = wildcard in scopes
-        if not scope_ok:
-            reasons.append('api key scope does not permit action')
-            return False, reasons
+    if _detect_auth_source(user) == 'api_key' and not _api_key_scope_allows(
+        user, action
+    ):
+        reasons.append('api key scope does not permit action')
+        return False, reasons
 
     # Tenant isolation.
     resource_tenant = resource.get('tenant_id')
     user_tenant = user.get('tenant_id')
     is_admin = bool(effective_roles & {'admin'})
 
-    if resource_tenant and user_tenant and resource_tenant != user_tenant:
-        if not is_admin:
-            reasons.append('cross-tenant access denied')
-            return False, reasons
+    if (
+        resource_tenant
+        and user_tenant
+        and resource_tenant != user_tenant
+        and not is_admin
+    ):
+        reasons.append('cross-tenant access denied')
+        return False, reasons
 
     # Agent Provenance Framework checks. Legacy users without provenance remain
     # compatible; once provenance claims are present, failures deny the action.
@@ -209,7 +239,7 @@ _http_client: httpx.AsyncClient | None = None
 
 
 async def _get_client() -> httpx.AsyncClient:
-    global _http_client
+    global _http_client  # noqa: PLW0603 - module-level pooled client singleton
     if _http_client is None or _http_client.is_closed:
         _http_client = httpx.AsyncClient(
             base_url=OPA_URL,
@@ -247,7 +277,7 @@ _DEFAULT_KEYCLOAK_REALM_ROLES = {
 }
 
 
-def _is_default_keycloak_realm_role(role: Any) -> bool:
+def _is_default_keycloak_realm_role(role: object) -> bool:
     """Return True for Keycloak built-in realm roles that are not app RBAC."""
     if not isinstance(role, str):
         return False
@@ -267,7 +297,8 @@ def _known_policy_roles() -> set[str]:
     read-only panes such as /v1/agent/workflows/github-app 403 before the
     tenant-scoped query can run.
 
-    Some tenant images run in OPA_LOCAL_MODE without bundling policies/data.json.
+    Some tenant images run in OPA_LOCAL_MODE without bundling
+    policies/data.json.
     Keep explicit application RBAC roles authoritative in that case instead of
     downgrading every tenant Keycloak user to the default editor role.
     """
@@ -332,6 +363,11 @@ def _build_input(
 
 def _detect_auth_source(user: dict[str, Any]) -> str:
     """Determine how the user authenticated."""
+    explicit = user.get('auth_source')
+    if explicit:
+        return explicit
+    if user.get('spiffe_id'):
+        return 'spiffe'
     if user.get('api_key_scopes') is not None:
         return 'api_key'
     if (
@@ -510,7 +546,10 @@ async def enforce_tenant_policy(
     if not allowed:
         raise HTTPException(
             status_code=403,
-            detail=f"Access denied: insufficient permissions for '{action}' on resource",
+            detail=(
+                f"Access denied: insufficient permissions for "
+                f"'{action}' on resource"
+            ),
         )
 
 
@@ -582,9 +621,7 @@ async def _resolve_user(request: Request) -> dict[str, Any] | None:
 
     # Try self-service / API key auth (handles all token types)
     try:
-        from fastapi.security import HTTPAuthorizationCredentials
-
-        from a2a_server.user_auth import (
+        from a2a_server.user_auth import (  # noqa: PLC0415 - deferred: avoids import cycle
             get_current_user as user_auth_get_current_user,
         )
 
@@ -595,11 +632,9 @@ async def _resolve_user(request: Request) -> dict[str, Any] | None:
     except Exception:
         pass
 
-    # Fallback: try Keycloak-only auth
+    # Otherwise, try Keycloak-only auth
     try:
-        from fastapi.security import HTTPAuthorizationCredentials
-
-        from a2a_server.keycloak_auth import (
+        from a2a_server.keycloak_auth import (  # noqa: PLC0415 - deferred: avoids import cycle
             get_current_user as kc_get_current_user,
         )
 
@@ -640,7 +675,7 @@ async def opa_health() -> dict[str, Any]:
         resp = await client.get('/health')
         return {
             'mode': 'sidecar',
-            'healthy': resp.status_code == 200,
+            'healthy': resp.status_code == _HTTP_OK,
             'url': OPA_URL,
         }
     except Exception as e:
@@ -657,7 +692,7 @@ async def opa_health() -> dict[str, Any]:
 
 async def close_policy_client() -> None:
     """Close the HTTP client. Call on app shutdown."""
-    global _http_client
+    global _http_client  # noqa: PLW0603 - module-level pooled client singleton
     if _http_client and not _http_client.is_closed:
         await _http_client.aclose()
         _http_client = None

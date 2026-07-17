@@ -18,42 +18,9 @@ class A2AClient: ObservableObject {
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-
-            // Python's isoformat() produces dates like "2024-01-15T10:30:00.123456" (no timezone)
-            // We need to handle multiple formats
-
-            let dateFormats = [
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",  // Python isoformat with microseconds
-                "yyyy-MM-dd'T'HH:mm:ss.SSS",      // With milliseconds
-                "yyyy-MM-dd'T'HH:mm:ss",          // Without fractional seconds
-                "yyyy-MM-dd'T'HH:mm:ssZ",         // With Z timezone
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",  // With microseconds and Z
-                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // With milliseconds and Z
-            ]
-
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-
-            for format in dateFormats {
-                formatter.dateFormat = format
-                if let date = formatter.date(from: dateString) {
-                    return date
-                }
-            }
-
-            // Also try ISO8601DateFormatter as fallback
-            let isoFormatter = ISO8601DateFormatter()
-            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = isoFormatter.date(from: dateString) {
+            if let date = ServerDateParser.shared.date(from: dateString) {
                 return date
             }
-
-            isoFormatter.formatOptions = [.withInternetDateTime]
-            if let date = isoFormatter.date(from: dateString) {
-                return date
-            }
-
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date: \(dateString)")
         }
         return decoder
@@ -73,6 +40,9 @@ class A2AClient: ObservableObject {
     private let maxReconnectAttempts = 5
     private var reconnectTask: Task<Void, Never>?
     private var sseSession: URLSession?
+
+    /// Reusable ISO8601 formatter for outgoing timestamps (avoids per-call allocation).
+    private static let iso8601Output = ISO8601DateFormatter()
 
     init(baseURL: String = "https://api.codetether.run") {
         self.baseURL = URL(string: baseURL)!
@@ -264,7 +234,7 @@ class A2AClient: ObservableObject {
         let body: [String: Any] = [
             "agent_id": agentId,
             "message": message,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
+            "timestamp": Self.iso8601Output.string(from: Date())
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -676,6 +646,102 @@ class A2AClient: ObservableObject {
         return try jsonDecoder.decode(ServerStats.self, from: data)
     }
 
+    // MARK: - Unified Agent Control Plane (/v1/agent)
+    //
+    // Deeper insight into the codetether-agent fleet: runtime sessions
+    // (the harvester/agent session store), richly-classified workers,
+    // worker profiles, and per-worker agent definitions.
+
+    /// List codetether-agent runtime sessions, optionally filtered by project.
+    func fetchRuntimeSessions(projectId: String? = nil, limit: Int = 50, offset: Int = 0) async throws -> RuntimeSessionsResponse {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/runtime/sessions"), resolvingAgainstBaseURL: false)!
+        var items = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+        if let projectId, !projectId.isEmpty {
+            items.append(URLQueryItem(name: "project_id", value: projectId))
+        }
+        components.queryItems = items
+
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(RuntimeSessionsResponse.self, from: data)
+    }
+
+    /// Fetch a single runtime session's metadata.
+    func fetchRuntimeSession(sessionId: String) async throws -> RuntimeSession {
+        let url = baseURL.appendingPathComponent("/v1/agent/runtime/sessions/\(sessionId)")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(RuntimeSessionResponse.self, from: data).session
+    }
+
+    /// Fetch the message/turn history for a runtime session.
+    func fetchRuntimeSessionMessages(sessionId: String, limit: Int = 50, offset: Int = 0) async throws -> [RuntimeSessionMessage] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("/v1/agent/runtime/sessions/\(sessionId)/messages"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(RuntimeSessionMessagesResponse.self, from: data).messages
+    }
+
+    /// List registered workers with the server's runtime classification and
+    /// harvester annotations. `onlineOnly` and `excludeOfflineHours` mirror the
+    /// server-side filters.
+    func fetchAgentWorkers(search: String? = nil, onlineOnly: Bool = false, excludeOfflineHours: Int? = 24) async throws -> [AgentWorker] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/workers"), resolvingAgainstBaseURL: false)!
+        var items: [URLQueryItem] = []
+        if let search, !search.isEmpty {
+            items.append(URLQueryItem(name: "search", value: search))
+        }
+        if onlineOnly {
+            items.append(URLQueryItem(name: "online_only", value: "true"))
+        }
+        if let excludeOfflineHours {
+            items.append(URLQueryItem(name: "exclude_offline_hours", value: "\(excludeOfflineHours)"))
+        }
+        if !items.isEmpty { components.queryItems = items }
+
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode([AgentWorker].self, from: data)
+    }
+
+    /// Fetch a single worker's detailed record.
+    func fetchAgentWorker(workerId: String) async throws -> AgentWorker {
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/\(workerId)")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode(AgentWorker.self, from: data)
+    }
+
+    /// List the agent definitions a specific worker supports.
+    func fetchWorkerAgents(workerId: String) async throws -> [WorkerAgentDefinition] {
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/\(workerId)/agents")
+        let request = authenticatedRequest(for: url)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode([WorkerAgentDefinition].self, from: data)
+    }
+
+    /// List reusable worker provisioning profiles (builtins + user-owned).
+    func fetchWorkerProfiles(builtinOnly: Bool = false) async throws -> [WorkerProfile] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/worker-profiles"), resolvingAgainstBaseURL: false)!
+        if builtinOnly {
+            components.queryItems = [URLQueryItem(name: "builtin_only", value: "true")]
+        }
+        let request = authenticatedRequest(for: components.url!)
+        let (data, _) = try await session.data(for: request)
+        return try jsonDecoder.decode([WorkerProfile].self, from: data)
+    }
+
     // MARK: - Export
 
     func exportMessagesJSON(limit: Int = 10000, allMessages: Bool = false) async throws -> Data {
@@ -780,5 +846,64 @@ enum A2AError: LocalizedError {
         case .connectionFailed: return "Failed to connect to server"
         case .invalidResponse: return "Invalid response from server"
         }
+    }
+}
+
+// MARK: - Date Parsing
+
+/// Thread-safe server date parser that reuses cached `DateFormatter` instances
+/// and remembers the last successful format so repeated decodes of large
+/// payloads (hundreds of messages) skip re-trying every candidate format.
+final class ServerDateParser {
+    static let shared = ServerDateParser()
+
+    private static let formats = [
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",  // Python isoformat with microseconds
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",      // With milliseconds
+        "yyyy-MM-dd'T'HH:mm:ss",          // Without fractional seconds
+        "yyyy-MM-dd'T'HH:mm:ssZ",         // With Z timezone
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",  // With microseconds and Z
+        "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // With milliseconds and Z
+    ]
+
+    // Pre-built formatters, created once. Guarded by `lock` for thread safety
+    // because JSONDecoder may decode off the main thread.
+    private let lock = NSLock()
+    private let formatters: [DateFormatter]
+    private let isoFractional = ISO8601DateFormatter()
+    private let isoPlain = ISO8601DateFormatter()
+    private var lastGoodIndex = 0
+
+    private init() {
+        formatters = Self.formats.map { format in
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(secondsFromGMT: 0)
+            f.dateFormat = format
+            return f
+        }
+        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        isoPlain.formatOptions = [.withInternetDateTime]
+    }
+
+    func date(from string: String) -> Date? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        // Try the last successful format first.
+        if let date = formatters[lastGoodIndex].date(from: string) {
+            return date
+        }
+
+        for index in formatters.indices where index != lastGoodIndex {
+            if let date = formatters[index].date(from: string) {
+                lastGoodIndex = index
+                return date
+            }
+        }
+
+        if let date = isoFractional.date(from: string) { return date }
+        if let date = isoPlain.date(from: string) { return date }
+        return nil
     }
 }

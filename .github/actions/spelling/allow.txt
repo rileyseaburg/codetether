@@ -27,6 +27,7 @@ CAs
 CLIs
 CODETETHER
 CONFIGMAP
+CRDs
 Camry
 Cjava
 Cpzuhi
@@ -182,6 +183,7 @@ cdn
 ceee
 cerebras
 cfe
+claimfix
 claude
 cls
 coc
@@ -346,6 +348,7 @@ rollme
 rst
 rtid
 rvelicheti
+rwo
 sadd
 schemaname
 scm
@@ -381,6 +384,7 @@ tok
 toolkits
 tracestate
 ugc
+uma
 undoc
 upsell
 upserted

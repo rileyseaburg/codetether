@@ -15,7 +15,17 @@ import a2a_server.agent_bridge as agent_bridge
 import a2a_server.database as database
 import a2a_server.monitor_api as monitor_api
 import a2a_server.worker_sse as worker_sse
+from a2a_server.worker_claim_routing import normalize_capabilities
 from a2a_server.worker_sse import WorkerRegistry, worker_sse_router
+
+
+def test_normalize_capabilities_expands_persistent_aliases():
+    assert normalize_capabilities(['persistent-workspace']) == [
+        'persistent-workspace',
+        'persistent',
+    ]
+    assert 'persistent' in normalize_capabilities(['persistent_workspace'])
+    assert 'persistent' in normalize_capabilities(['harvester'])
 
 
 @pytest.fixture
@@ -128,6 +138,8 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
     monkeypatch.setattr(
         database, 'db_update_task_status', _fake_update_task_status
     )
+    attach_worker_id = AsyncMock(return_value=False)
+    monkeypatch.setattr(worker_sse, '_attach_claim_worker_id', attach_worker_id)
     monkeypatch.setattr(
         worker_sse, '_claim_task_run_for_worker', AsyncMock(return_value={})
     )
@@ -156,9 +168,9 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
         {
             'task_id': 'task_claimed',
             'status': 'running',
-            'worker_id': 'worker_1',
         }
     ]
+    attach_worker_id.assert_awaited_once_with('task_claimed', 'worker_1')
 
 
 @pytest.mark.asyncio
@@ -189,6 +201,9 @@ async def test_claim_task_returns_attached_task_run_metadata(
     )
     monkeypatch.setattr(
         worker_sse, '_claim_task_run_for_worker', _fake_claim_task_run
+    )
+    monkeypatch.setattr(
+        worker_sse, '_attach_claim_worker_id', AsyncMock(return_value=True)
     )
 
     await registry.register_worker(

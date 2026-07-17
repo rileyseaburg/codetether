@@ -50,8 +50,43 @@ from .worker_persistent_claim_loop import (
 )
 from .worker_auth import verify_auth as _verify_auth
 from .worker_progress_routes import worker_progress_router
+from .stream_emit import format_event
+from .sequencer_store import SequencerStore
+from .stream_resume_handshake import resume_frames
+from .worker_queue import make_worker_queue, try_enqueue
 
 logger = logging.getLogger(__name__)
+
+
+async def _attach_claim_worker_id(task_id: str, worker_id: str) -> bool:
+    """Best-effort worker_id persistence for a successfully claimed task.
+
+    The task status is more important than the optional worker reference for API
+    consumers. Keep this separate from the status update so schema drift or
+    missing worker rows cannot leave claimed tasks looking pending.
+    """
+    try:
+        from .database import get_pool
+
+        pool = await get_pool()
+        if not pool:
+            return False
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                'UPDATE tasks SET worker_id = $2, updated_at = NOW() WHERE id = $1',
+                task_id,
+                worker_id,
+            )
+            return 'UPDATE 1' in result
+    except Exception as exc:
+        logger.debug(
+            'Could not attach worker_id %s to claimed task %s: %s',
+            worker_id,
+            task_id,
+            exc,
+        )
+        return False
+
 
 # Router for worker SSE endpoints
 worker_sse_router = APIRouter(prefix='/v1/worker', tags=['worker-sse'])
@@ -91,6 +126,12 @@ class WorkerRegistry:
         self._claimed_tasks: Dict[str, str] = {}
         # Callbacks for task creation events
         self._task_listeners: List[Callable] = []
+        # Per-worker sequencers persist across reconnects for replay.
+        self._sequencers = SequencerStore()
+
+    def sequencer_for(self, worker_id: str):
+        """Return the persistent sequencer for a worker (cross-connection)."""
+        return self._sequencers.get_or_create(worker_id)
 
     async def register_worker(
         self,
@@ -239,7 +280,6 @@ class WorkerRegistry:
                         f'Worker {worker_id} recovering task {task_id} from stale '
                         f'target_worker_id={target_worker_id}'
                     )
-                worker_agent_name = worker.agent_name if worker else None
                 if not worker_agent_name:
                     worker_agent_name = await _db_worker_agent_name(worker_id)
                 task_target_agent = getattr(
@@ -383,22 +423,6 @@ class WorkerRegistry:
                 worker.current_task_id = task_id
             logger.info(f'Task {task_id} claimed by worker {worker_id}')
             return True
-
-    async def note_task_claimed(self, task_id: str, worker_id: str) -> None:
-        """Record advisory in-memory claim state after durable lease success.
-
-        The database/task_runs lease is authoritative. This registry update is
-        only SSE/UI bookkeeping and must not veto a durable claim.
-        """
-        async with self._lock:
-            self._claimed_tasks[task_id] = worker_id
-            worker = self._workers.get(worker_id)
-            if worker:
-                worker.is_busy = True
-                worker.current_task_id = task_id
-        logger.info(
-            f'Task {task_id} recorded as claimed by worker {worker_id} after durable lease'
-        )
 
     async def release_task(self, task_id: str, worker_id: str) -> bool:
         """Release a task claim (on completion or failure).
@@ -696,11 +720,26 @@ class WorkerRegistry:
                     'data': task,
                     'timestamp': datetime.now(timezone.utc).isoformat(),
                 }
-                await worker.queue.put(event)
-                return True
+                return try_enqueue(worker.queue, event, worker_id)
             except Exception as e:
                 logger.error(f'Failed to push task to worker {worker_id}: {e}')
                 return False
+
+    async def push_progress(
+        self, worker_id: str, data: Dict[str, Any]
+    ) -> bool:
+        """Push a sequenced `progress` event to a specific worker.
+
+        Unlike `push_task_to_worker` (advisory `task_available`), progress is a
+        Class B event: it carries an id and is retained in the replay ring.
+        """
+        async with self._lock:
+            worker = self._workers.get(worker_id)
+            if not worker:
+                return False
+            return try_enqueue(
+                worker.queue, {'event': 'progress', 'data': data}, worker_id
+            )
 
     async def broadcast_task(
         self,
@@ -1012,6 +1051,7 @@ async def worker_task_stream(
     x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
     x_capabilities: Optional[str] = Header(None, alias='X-Capabilities'),
     x_codebases: Optional[str] = Header(None, alias='X-Codebases'),
+    last_event_id: Optional[str] = Header(None, alias='Last-Event-ID'),
 ):
     """
     SSE endpoint for workers to receive task notifications.
@@ -1088,8 +1128,9 @@ async def worker_task_stream(
 
     async def event_generator():
         """Generate SSE events for the connected worker."""
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue = make_worker_queue()
         worker = None
+        seq = registry.sequencer_for(resolved_worker_id)
 
         try:
             # Register this worker
@@ -1101,6 +1142,13 @@ async def worker_task_stream(
                 codebases=codebases,
             )
 
+            # Honor a reconnecting client's Last-Event-ID against this worker's
+            # persistent sequencer: replay the gap (seq, head] when still within
+            # the ring, or emit resync-required on epoch mismatch / window
+            # overflow. A first-time connect (no id) yields nothing here.
+            for frame in resume_frames(last_event_id, seq):
+                yield frame
+
             # Send connection confirmation
             connect_event = {
                 'event': 'connected',
@@ -1109,7 +1157,7 @@ async def worker_task_stream(
                 'message': 'Connected to task stream',
                 'timestamp': datetime.now(timezone.utc).isoformat(),
             }
-            yield f'event: connected\ndata: {json.dumps(connect_event)}\n\n'
+            yield format_event('connected', connect_event, seq)
 
             # Send any pending tasks to the newly connected worker
             try:
@@ -1168,7 +1216,7 @@ async def worker_task_stream(
                                 if task.created_at
                                 else None,
                             }
-                            yield f'event: task_available\ndata: {json.dumps(task_data)}\n\n'
+                            yield format_event('task_available', task_data, seq)
                             sent_count += 1
 
                     if sent_count > 0:
@@ -1207,7 +1255,7 @@ async def worker_task_stream(
                         event_type = event.get('event', 'message')
                         event_data = event.get('data', event)
 
-                        yield f'event: {event_type}\ndata: {json.dumps(event_data)}\n\n'
+                        yield format_event(event_type, event_data, seq)
 
                     except asyncio.TimeoutError:
                         pass  # No event, check if heartbeat needed
@@ -1219,7 +1267,7 @@ async def worker_task_stream(
                             'timestamp': datetime.now(timezone.utc).isoformat(),
                             'worker_id': resolved_worker_id,
                         }
-                        yield f'event: heartbeat\ndata: {json.dumps(heartbeat_data)}\n\n'
+                        yield format_event('heartbeat', heartbeat_data, seq)
                         last_heartbeat = current_time
                         await registry.update_heartbeat(resolved_worker_id)
 
@@ -1275,25 +1323,74 @@ async def claim_task(
 
     registry = get_worker_registry()
 
-    # Durable task_runs leases are authoritative. Try that path before the
-    # process-local SSE registry so stale in-memory claims cannot strand queued
-    # fire-and-forget work behind HTTP 409 conflicts.
-    run_claim = await _claim_task_run_for_worker(
-        claim.task_id,
-        resolved_worker_id,
-    )
-    durable_claimed = bool(run_claim)
+    success = await registry.claim_task(claim.task_id, resolved_worker_id)
 
-    if durable_claimed:
-        await registry.note_task_claimed(claim.task_id, resolved_worker_id)
-        success = True
+    if success:
         logger.info(
-            f'Task {claim.task_id} durably claimed by worker {resolved_worker_id}'
+            f'Task {claim.task_id} claimed by worker {resolved_worker_id}'
         )
-    else:
-        success = await registry.claim_task(claim.task_id, resolved_worker_id)
+        # Update task status to 'running' in DB so the UI reflects reality
+        try:
+            from .agent_bridge import get_bridge as get_agent_bridge
+            from .agent_bridge import AgentTaskStatus
+            from .database import db_update_task_status
 
-    if not success:
+            bridge = get_agent_bridge()
+            if bridge:
+                updated_task = await bridge.update_task_status(
+                    task_id=claim.task_id,
+                    status=AgentTaskStatus.RUNNING,
+                    worker_id=resolved_worker_id,
+                )
+                if updated_task is None:
+                    logger.debug(
+                        f'Bridge missed task {claim.task_id}; using DB status update fallback'
+                    )
+
+            # Persist the running status even if the worker_id cannot be
+            # attached. Some live databases still enforce a workers FK or have
+            # drifted worker schemas; in that case a worker_id-bearing update can
+            # fail and leave an already-claimed task visible as `pending` to CI
+            # pollers. Status/started_at is the contract the public task API
+            # exposes, so write it first without the optional worker reference.
+            updated = await db_update_task_status(
+                task_id=claim.task_id,
+                status=AgentTaskStatus.RUNNING.value,
+            )
+            if not updated:
+                logger.warning(
+                    f'Claimed task {claim.task_id} but could not persist running status'
+                )
+            else:
+                worker_attached = await _attach_claim_worker_id(
+                    claim.task_id,
+                    resolved_worker_id,
+                )
+                if not worker_attached:
+                    logger.warning(
+                        'Claimed task %s is running, but worker_id %s could not be persisted',
+                        claim.task_id,
+                        resolved_worker_id,
+                    )
+        except Exception as e:
+            logger.warning(
+                f'Failed to update task {claim.task_id} to running: {e}'
+            )
+
+        run_claim = await _claim_task_run_for_worker(
+            claim.task_id,
+            resolved_worker_id,
+        )
+
+        response = {
+            'success': True,
+            'task_id': claim.task_id,
+            'worker_id': resolved_worker_id,
+            'message': 'Task claimed successfully',
+        }
+        response.update(run_claim)
+        return response
+    else:
         raise HTTPException(
             status_code=409,
             detail=(
@@ -1301,59 +1398,6 @@ async def claim_task(
                 '(already claimed, worker not connected, or worker not eligible for this task)'
             ),
         )
-
-    logger.info(
-        f'Task {claim.task_id} claimed by worker {resolved_worker_id}'
-    )
-    # Update task status to 'running' in DB so the UI reflects reality
-    try:
-        from .agent_bridge import get_bridge as get_agent_bridge
-        from .agent_bridge import AgentTaskStatus
-        from .database import db_update_task_status
-
-        bridge = get_agent_bridge()
-        if bridge:
-            updated_task = await bridge.update_task_status(
-                task_id=claim.task_id,
-                status=AgentTaskStatus.RUNNING,
-                worker_id=resolved_worker_id,
-            )
-            if updated_task is None:
-                logger.debug(
-                    f'Bridge missed task {claim.task_id}; using DB status update fallback'
-                )
-
-        updated = await db_update_task_status(
-            task_id=claim.task_id,
-            status=AgentTaskStatus.RUNNING.value,
-            worker_id=resolved_worker_id,
-        )
-        if not updated:
-            logger.warning(
-                f'Claimed task {claim.task_id} but could not persist running status'
-            )
-    except Exception as e:
-        logger.warning(
-            f'Failed to update task {claim.task_id} to running: {e}'
-        )
-
-    # Legacy registry claims may not have a task_runs row; try attaching one
-    # after the registry succeeds, but do not let that best-effort bridge veto
-    # the already accepted legacy claim.
-    if not durable_claimed:
-        run_claim = await _claim_task_run_for_worker(
-            claim.task_id,
-            resolved_worker_id,
-        )
-
-    response = {
-        'success': True,
-        'task_id': claim.task_id,
-        'worker_id': resolved_worker_id,
-        'message': 'Task claimed successfully',
-    }
-    response.update(run_claim)
-    return response
 
 
 @worker_sse_router.post('/tasks/release')

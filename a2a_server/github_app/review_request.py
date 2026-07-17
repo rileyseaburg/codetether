@@ -22,7 +22,7 @@ def is_human_reviewer_login(login: str | None) -> bool:
         return False
     lowered = normalized.lower()
     app_slug = APP_SLUG.lower()
-    if lowered in {app_slug, f'{app_slug}[bot]'}:
+    if lowered in {app_slug, f'{app_slug}[bot]', f'{app_slug}-bot'}:
         return False
     if lowered.endswith('[bot]'):
         return False
@@ -48,7 +48,7 @@ async def request_human_review(
     try:
         await github_json(
             'POST',
-            f'/repos/{repo}/pulls/{int(pr_number)}/requested_reviewers',
+            f'/repos/{repo}/pulls/{pr_number}/requested_reviewers',
             token,
             {'reviewers': [reviewer]},
         )
