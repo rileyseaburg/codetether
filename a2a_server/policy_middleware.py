@@ -49,6 +49,8 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r'^/docs', None, ''),
     (r'^/openapi\.json$', None, ''),
     (r'^/redoc', None, ''),
+    # Expiring HMAC-signed task transcript links validate in the route handler.
+    (r'^/sessions/tasks/[^/]+$', {'GET'}, ''),
     # Auth endpoints — intentionally public
     (r'^/v1/auth/login$', None, ''),
     (r'^/v1/auth/refresh$', None, ''),

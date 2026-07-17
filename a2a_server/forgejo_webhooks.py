@@ -22,9 +22,11 @@ from a2a_server.github_app.mention import is_fix_request, mentions_bot
 from a2a_server.github_app.routing import resolve_task_target
 from a2a_server.github_app.settings import TASK_PRIORITY
 from a2a_server.github_app.workspace import workspace_id
+from a2a_server.session_view import session_view_router
 
 
-forgejo_webhook_router = APIRouter(prefix='/v1/webhooks', tags=['forgejo'])
+forgejo_webhook_router = APIRouter(tags=['forgejo'])
+forgejo_webhook_router.include_router(session_view_router)
 
 
 def _setting(name: str, default: str = '') -> str:
@@ -369,7 +371,7 @@ async def _handle_status_event(
     }
 
 
-@forgejo_webhook_router.post('/forgejo')
+@forgejo_webhook_router.post('/v1/webhooks/forgejo')
 async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
     """Authenticate and process a Forgejo issue-comment delivery."""
     body = await request.body()

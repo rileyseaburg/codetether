@@ -52,8 +52,12 @@ logger = logging.getLogger(__name__)
 
 # Agent host configuration - allows container to connect to host VM's agent
 # Accepts AGENT_HOST/AGENT_PORT (preferred) or legacy OPENCODE_HOST/OPENCODE_PORT
-AGENT_HOST = os.environ.get('AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost'))
-AGENT_DEFAULT_PORT = int(os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777')))
+AGENT_HOST = os.environ.get(
+    'AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost')
+)
+AGENT_DEFAULT_PORT = int(
+    os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777'))
+)
 
 # Backward-compatible aliases
 # Legacy OPENCODE_HOST removed
@@ -351,11 +355,9 @@ class AgentBridge:
         # HTTP session for API calls
         self._session: Optional[aiohttp.ClientSession] = None
 
-        logger.info(
-            f'Agent bridge initialized with binary: {self.agent_bin}'
-        )
+        logger.info(f'Agent bridge initialized with binary: {self.agent_bin}')
         logger.info(f'Agent host: {self.agent_host}:{self.default_port}')
-        logger.info(f'Using PostgreSQL database for persistence')
+        logger.info('Using PostgreSQL database for persistence')
 
     def _get_agent_base_url(self, port: Optional[int] = None) -> str:
         """
@@ -406,6 +408,8 @@ class AgentBridge:
                 metadata['target_agent_name'] = task.target_agent_name
             if task.model_used and 'model_used' not in metadata:
                 metadata['model_used'] = task.model_used
+            if task.session_id:
+                metadata['session_id'] = task.session_id
 
             await db.db_upsert_task(
                 {
@@ -529,7 +533,9 @@ class AgentBridge:
             # 1. Discover all tenant IDs using admin_scope (bypasses RLS).
             pool = await db.get_pool()
             if not pool:
-                logger.warning('Database pool unavailable, skipping workspace load')
+                logger.warning(
+                    'Database pool unavailable, skipping workspace load'
+                )
                 return
 
             tenant_ids: List[str] = []
@@ -902,9 +908,7 @@ class AgentBridge:
             str(port),
         ]
 
-        logger.info(
-            f'Starting agent server for {codebase.name} on port {port}'
-        )
+        logger.info(f'Starting agent server for {codebase.name} on port {port}')
         logger.debug(f'Command: {" ".join(cmd)}')
 
         try:
@@ -1140,7 +1144,6 @@ class AgentBridge:
         """
         # Generate session ID (or use existing)
         session_id = request.metadata.get('session_id') or str(uuid.uuid4())[:8]
-        task_id = str(uuid.uuid4())
 
         # Prepare model specification for CloudEvent
         model_spec = None
@@ -1407,10 +1410,7 @@ class AgentBridge:
         # 1. Try to find an active agent instance
         active_port = None
         for codebase in self._codebases.values():
-            if (
-                codebase.agent_port
-                and codebase.status == AgentStatus.RUNNING
-            ):
+            if codebase.agent_port and codebase.status == AgentStatus.RUNNING:
                 active_port = codebase.agent_port
                 break
 
@@ -1559,11 +1559,7 @@ class AgentBridge:
     async def interrupt_agent(self, codebase_id: str) -> bool:
         """Interrupt the current agent task."""
         codebase = self._codebases.get(codebase_id)
-        if (
-            not codebase
-            or not codebase.session_id
-            or not codebase.agent_port
-        ):
+        if not codebase or not codebase.session_id or not codebase.agent_port:
             return False
 
         try:

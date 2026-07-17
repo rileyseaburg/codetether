@@ -31,6 +31,8 @@ def task(status='completed'):
 
 @pytest.mark.asyncio
 async def test_posts_completed_forgejo_terminal_comment(monkeypatch):
+    monkeypatch.setenv('CODETETHER_PUBLIC_URL', 'https://api.codetether.run')
+    monkeypatch.setenv('CODETETHER_SESSION_VIEW_SECRET', 'test-session-secret')
     calls = []
 
     async def fake_json(method, base, path, payload=None):
@@ -44,6 +46,11 @@ async def test_posts_completed_forgejo_terminal_comment(monkeypatch):
     body = calls[1][3]['body']
     assert 'Completed and pushed' in body
     assert 'Pushed commit abc123.' in body
+    assert (
+        '[View session](https://api.codetether.run/sessions/tasks/task-1?'
+        in body
+    )
+    assert 'signature=' in body
     assert '<!-- codetether-forgejo-terminal:task-1 -->' in body
 
 
