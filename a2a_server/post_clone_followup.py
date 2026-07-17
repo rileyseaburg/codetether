@@ -22,12 +22,32 @@ async def enqueue_post_clone_followup(bridge, task_id: str) -> Optional[str]:
     followup = metadata.get('post_clone_task')
     if not isinstance(followup, dict):
         return None
+    if metadata.get('source') == 'forgejo-webhook':
+        from .persistent_worker_pool import create_and_dispatch_task
+
+        queued_id = await create_and_dispatch_task(
+            workspace_id=task.codebase_id,
+            title=followup.get('title') or 'Continue after clone',
+            prompt=followup.get('prompt') or '',
+            agent_type=followup.get('agent_type') or 'build',
+            priority=int(followup.get('priority') or 0),
+            metadata=followup.get('metadata'),
+            model_ref=followup.get('model_ref'),
+            task_timeout_seconds=604800,
+            github_issue_url=(followup.get('metadata') or {}).get(
+                'forgejo_issue_url'
+            ),
+        )
+        return queued_id
+
     queued = await bridge.create_task(
         codebase_id=task.codebase_id,
         title=followup.get('title') or 'Continue after clone',
         prompt=followup.get('prompt') or '',
         agent_type=followup.get('agent_type') or 'build',
+        priority=int(followup.get('priority') or metadata.get('priority') or 0),
         metadata=followup.get('metadata'),
+        model_ref=followup.get('model_ref'),
     )
     if queued is None:
         logger.warning(
