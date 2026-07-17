@@ -11,29 +11,28 @@ Supports multiple storage backends:
 """
 
 import asyncio
+import io
 import json
 import logging
 import os
 import sqlite3
 import threading
 import uuid
-from typing import List, Dict, Any, Optional, Literal
-from datetime import datetime, timezone, timedelta
 from collections import deque
-from dataclasses import dataclass, asdict
-from fastapi import APIRouter, HTTPException, Request, Depends, Security
-from fastapi.responses import (
-    StreamingResponse,
-    HTMLResponse,
-    FileResponse,
-    JSONResponse,
-)
-from pydantic import BaseModel
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import os
-import io
-import tempfile
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
+from typing import Any, Dict, List, Literal, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
 
 # Import PostgreSQL persistence layer
 from . import database as db
@@ -45,6 +44,15 @@ from .git_service import (
 )
 from .task_routing import target_agent_mismatch
 from .task_orchestration import orchestrate_task_route
+from .vault_client import (
+    KNOWN_PROVIDERS,
+    check_vault_connection,
+    delete_user_api_key,
+    get_all_user_api_keys_with_diagnostics,
+    get_worker_sync_data,
+    set_user_api_key,
+    test_api_key as vault_test_api_key,
+)
 
 try:
     from .vm_workspace_provisioner import (
@@ -947,7 +955,7 @@ class MonitoringService:
         for queue in self.subscribers:
             try:
                 await queue.put(f'data: {message_json}\n\n')
-                logger.debug(f'Message queued successfully')
+                logger.debug('Message queued successfully')
             except Exception as e:
                 logger.error(f'Failed to send to subscriber: {e}')
                 pass
@@ -1149,7 +1157,7 @@ async def monitor_stream(request: Request):
                     yield message
                 except asyncio.TimeoutError:
                     # Send heartbeat on timeout
-                    yield f': heartbeat\n\n'
+                    yield ': heartbeat\n\n'
                 except asyncio.CancelledError:
                     logger.info('SSE stream cancelled')
                     break
@@ -1620,10 +1628,7 @@ def get_agent_bridge():
 
             # Set up SSE worker notification hook for task updates
             try:
-                from .worker_sse import (
-                    get_worker_registry,
-                    notify_workers_of_new_task,
-                )
+                from .worker_sse import notify_workers_of_new_task
 
                 async def _on_task_update(task):
                     """Notify SSE-connected workers when a task is created/updated."""
@@ -3222,7 +3227,7 @@ async def register_workspace(registration: WorkspaceRegistration):
             'success': True,
             'pending': True,
             'task_id': task.id,
-            'message': f'Registration task created. A worker will validate the path and confirm registration.',
+            'message': 'Registration task created. A worker will validate the path and confirm registration.',
         }
     else:
         raise HTTPException(
@@ -4500,8 +4505,6 @@ async def _validate_target_worker_is_available(
         )
 
 
-
-
 async def get_current_policy_user(request: Request) -> dict:
     """Return the OIDC/self-service/API-key user resolved by policy middleware."""
     user = getattr(request.state, 'policy_user', None)
@@ -4564,7 +4567,6 @@ async def list_all_tasks(
     return tasks
 
 
-
 @agent_router_alias.get('/workflows/github-app')
 async def get_github_app_workflows(
     request: Request,
@@ -4580,7 +4582,6 @@ async def get_github_app_workflows(
     dashboard users and authorized agents are handled consistently.
     """
     from .workflow_monitor import load_github_app_workflows
-    from .workflow_monitor import build_response as empty_workflow_response
 
     roles = set(user.get('roles') or [])
     tenant_id = (
@@ -4873,7 +4874,9 @@ def _is_github_app_worker_post_clone_followup(
         return False
     if metadata.get('source') != 'github-app':
         return False
-    if not metadata.get('github_issue_url') or not metadata.get('target_worker_id'):
+    if not metadata.get('github_issue_url') or not metadata.get(
+        'target_worker_id'
+    ):
         return False
     return title.startswith(('Apply PR fix #', 'Work issue #'))
 
@@ -5723,7 +5726,6 @@ async def get_session_messages_by_id(
     workspace_id: str, session_id: str, limit: int = 100
 ):
     """Get messages from a specific session."""
-    import aiohttp
     import traceback
 
     try:
@@ -6275,12 +6277,6 @@ async def get_watch_status(workspace_id: str):
     if not workspace:
         raise HTTPException(status_code=404, detail='Workspace not found')
 
-    pending_tasks = await bridge.list_tasks(
-        codebase_id=workspace_id,
-        status=bridge._tasks.__class__.PENDING
-        if hasattr(bridge._tasks, '__class__')
-        else None,
-    )
     from .agent_bridge import AgentTaskStatus
 
     pending_count = len(
@@ -7379,7 +7375,7 @@ async def stream_task_output_sse(task_id: str, request: Request):
 
 
 @agent_router_alias.post('/tasks/{task_id}/cancel')
-async def cancel_task(task_id: str):
+async def cancel_task_streaming_route(task_id: str):
     """Cancel a pending task."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -7699,7 +7695,7 @@ async def logout(
 
 
 @auth_router.get('/session')
-async def get_session(session_id: str):
+async def get_auth_session(session_id: str):
     """Get current session info."""
     auth = get_keycloak_auth()
     if auth is None:
@@ -7957,19 +7953,6 @@ async def nextauth_callback(code: str, state: str):
 # These endpoints allow users to manage their LLM provider API keys through the UI.
 # Keys are stored in HashiCorp Vault, scoped to the authenticated user.
 
-from .vault_client import (
-    KNOWN_PROVIDERS,
-    get_user_api_key,
-    set_user_api_key,
-    delete_user_api_key,
-    list_user_api_keys,
-    get_all_user_api_keys,
-    get_all_user_api_keys_with_diagnostics,
-    get_worker_sync_data,
-    check_vault_connection,
-    test_api_key as vault_test_api_key,
-)
-
 try:
     from .keycloak_auth import (
         get_current_user as get_keycloak_user,
@@ -7994,7 +7977,6 @@ except ImportError:
 
     async def get_self_service_user(*args, **kwargs):
         return None
-
 
 
 @dataclass
@@ -8052,7 +8034,7 @@ class APIKeyCreate(BaseModel):
 
 
 @agent_router_alias.get('/providers')
-async def list_providers():
+async def list_configured_providers():
     """List all known LLM providers with their configuration."""
     return {
         'providers': [
@@ -8333,9 +8315,6 @@ async def upload_workspace_tarball(
         )
 
     # Parse multipart form data
-    from fastapi import UploadFile, File
-    import aiofiles
-
     try:
         form = await request.form()
         file = form.get('file')
@@ -8586,7 +8565,6 @@ async def get_session_worker_status(
     if session:
         # Check if we have Knative service info stored
         knative_service_name = session.get('knative_service_name')
-        worker_status = session.get('worker_status', 'pending')
         last_activity = session.get('last_activity_at')
 
         if not knative_service_name:
@@ -8819,7 +8797,7 @@ async def create_voice_session(request: VoiceSessionRequest):
         logger.error(f'Failed to mint access token: {e}')
         try:
             await bridge.delete_room(room_name)
-        except:
+        except Exception:
             pass
         raise HTTPException(
             status_code=500, detail=f'Failed to generate access token: {str(e)}'
@@ -8865,7 +8843,7 @@ async def get_voice_session(room_name: str, user_id: Optional[str] = None):
                 if isinstance(metadata_str, str)
                 else metadata_str
             )
-        except:
+        except Exception:
             pass
 
     response = {
@@ -8950,7 +8928,7 @@ async def get_voice_session_state(room_name: str):
                     if isinstance(metadata_str, str)
                     else metadata_str
                 )
-            except:
+            except Exception:
                 pass
 
         session_id = metadata.get('session_id')
