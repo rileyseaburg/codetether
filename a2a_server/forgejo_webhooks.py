@@ -252,6 +252,29 @@ Request:
 
 Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from `{default_branch}` for an issue; for a PR update its existing branch). Implement the requested changes, run focused validation, commit, and push. For an issue, open a Forgejo pull request against `{default_branch}`. Post concise progress and the final commit/PR URL back to Forgejo issue #{ctx['number']}. Do not use GitHub APIs."""
     routing = await resolve_task_target()
+    from a2a_server.forgejo_agent_client import create_task as create_agent_task
+
+    operation = 'fix' if is_fix_request(ctx['body']) else 'review'
+    forgejo_agent_task = await create_agent_task(
+        repo=repo,
+        operation=operation,
+        prompt=prompt,
+        idempotency_key=(
+            f'forgejo-comment:{ctx.get("comment_id") or 0}:'
+            f'{head_sha or work_branch}:{operation}'
+        ),
+        issue_index=ctx['number'],
+        pull_request_index=ctx['number'] if ctx['is_pr'] else 0,
+        head_sha=head_sha,
+        metadata={
+            'source': 'forgejo-agent',
+            'trigger_actor_login': ctx.get('actor_login'),
+            'comment_id': ctx.get('comment_id'),
+        },
+        base_url=base,
+    )
+    forgejo_agent_task_id = int(forgejo_agent_task['id'])
+    forgejo_agent_task_url = str(forgejo_agent_task['html_url'])
     followup = {
         'workspace_id': wid,
         'source': 'forgejo-webhook',
@@ -264,6 +287,8 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         'default_branch': default_branch,
         'forgejo_api_url': base,
         'forgejo_issue_url': ctx['html_url'],
+        'forgejo_agent_task_id': forgejo_agent_task_id,
+        'forgejo_agent_task_url': forgejo_agent_task_url,
         'trigger_actor_login': ctx.get('actor_login'),
         'pr_head_sha': head_sha,
         'forgejo_work_key': (
@@ -284,6 +309,8 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         'pr_head_sha': head_sha,
         'trigger_actor_login': ctx.get('actor_login'),
         'forgejo_api_url': base,
+        'forgejo_agent_task_id': forgejo_agent_task_id,
+        'forgejo_agent_task_url': forgejo_agent_task_url,
         'forgejo_work_key': (
             f'forgejo:{repo}:{ctx["number"]}:clone:{head_sha or branch}:'
             f'{ctx.get("comment_id") or 0}'
@@ -307,7 +334,24 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         metadata=metadata,
         task_timeout_seconds=604800,
     )
-    return {'accepted': True, 'workspace_id': wid, 'clone_task_id': task_id}
+    from a2a_server.forgejo_agent_client import update_task as update_agent_task
+
+    await update_agent_task(
+        repo=repo,
+        task_id=forgejo_agent_task_id,
+        base_url=base,
+        status='accepted',
+        external_task_id=str(task_id),
+        head_sha=head_sha,
+        branch=work_branch,
+    )
+    return {
+        'accepted': True,
+        'workspace_id': wid,
+        'clone_task_id': task_id,
+        'forgejo_agent_task_id': forgejo_agent_task_id,
+        'forgejo_agent_task_url': forgejo_agent_task_url,
+    }
 
 
 async def _handle_status_event(

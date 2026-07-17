@@ -14,12 +14,63 @@ from a2a_server.forgejo_webhooks import forgejo_json
 from a2a_server.session_view import build_task_session_url
 
 
-def _task_footer(task_id: str) -> str:
-    session_url = build_task_session_url(task_id)
+def _task_footer(task_id: str, metadata: dict | None = None) -> str:
     footer = f'\n\nTask: `{task_id}`'
+    native_url = str((metadata or {}).get('forgejo_agent_task_url') or '')
+    session_url = native_url or build_task_session_url(task_id)
     if session_url:
         footer += f' · [View session]({session_url})'
     return footer
+
+
+async def sync_forgejo_agent_task(task: dict) -> None:
+    """Publish terminal lifecycle and complete transcript to Forgejo."""
+    metadata = task.get('metadata') or {}
+    forgejo_task_id = int(metadata.get('forgejo_agent_task_id') or 0)
+    repo = str(metadata.get('repo') or '')
+    if not forgejo_task_id or not repo:
+        return
+
+    from a2a_server.forgejo_agent_client import (
+        publish_session_events,
+        update_task,
+    )
+    from a2a_server.session_view import _task_messages
+
+    status = str(task.get('status') or 'failed').lower()
+    forgejo_status = {
+        'queued': 'pending',
+        'in_progress': 'running',
+    }.get(status, status)
+    if forgejo_status not in {
+        'pending',
+        'accepted',
+        'running',
+        'completed',
+        'failed',
+        'cancelled',
+    }:
+        forgejo_status = 'failed'
+    session_id, messages = await _task_messages(task, 10_000)
+    await update_task(
+        repo=repo,
+        task_id=forgejo_task_id,
+        base_url=str(metadata.get('forgejo_api_url') or ''),
+        status=forgejo_status,
+        external_task_id=str(task.get('id') or ''),
+        external_session_id=session_id,
+        head_sha=str(metadata.get('pr_head_sha') or ''),
+        branch=str(metadata.get('branch_name') or ''),
+        result=str(task.get('result') or ''),
+        error=str(task.get('error') or ''),
+    )
+    await publish_session_events(
+        repo=repo,
+        forgejo_task_id=forgejo_task_id,
+        codetether_task_id=str(task.get('id') or ''),
+        messages=messages,
+        base_url=str(metadata.get('forgejo_api_url') or ''),
+    )
 
 
 async def notify_forgejo_task_completion(task: dict) -> None:
@@ -38,6 +89,8 @@ async def notify_forgejo_task_completion(task: dict) -> None:
     task_id = str(task.get('id') or '')
     if not repo or not number or not base or not task_id:
         return
+
+    await sync_forgejo_agent_task(task)
 
     status = str(task.get('status') or 'unknown')
     review_evidence: dict | None = None
@@ -83,6 +136,6 @@ async def notify_forgejo_task_completion(task: dict) -> None:
         message = f'## ⚠️ CodeTether {stage.title()}\n\nTask ended with status `{status}`.'
     if detail:
         message += f'\n\n{detail}'
-    message += _task_footer(task_id)
+    message += _task_footer(task_id, metadata)
     message += f'\n\n{marker}'
     await forgejo_json('POST', base, issue_path, {'body': message})
