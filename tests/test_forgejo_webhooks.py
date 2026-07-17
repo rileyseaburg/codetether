@@ -52,10 +52,10 @@ def app(monkeypatch):
     return app
 
 
-async def _post(app, payload, signature=None):
+async def _post(app, payload, signature=None, event='issue_comment'):
     raw = json.dumps(payload).encode()
     headers = {
-        'X-Forgejo-Event': 'issue_comment',
+        'X-Forgejo-Event': event,
         'X-Forgejo-Signature': signature
         if signature is not None
         else _signature(raw),
@@ -67,6 +67,132 @@ async def _post(app, payload, signature=None):
         return await client.post(
             '/v1/webhooks/forgejo', content=raw, headers=headers
         )
+
+
+def _status_payload(
+    *, state='failure', sha='abc123', sender='forgejo-actions', context='tests'
+):
+    return {
+        'id': 7,
+        'sha': sha,
+        'state': state,
+        'context': context,
+        'description': 'tests failed',
+        'target_url': 'https://forge.example/actions/runs/1',
+        'commit': {'id': sha},
+        'repository': {
+            'full_name': 'owner/repo',
+            'html_url': 'https://forge.example/owner/repo',
+        },
+        'sender': {'login': sender},
+    }
+
+
+@pytest.mark.asyncio
+async def test_failed_status_webhook_queues_matching_pr_remediation(
+    app, monkeypatch
+):
+    calls = []
+
+    async def fake_json(method, base, path, payload=None):
+        assert method == 'GET'
+        assert 'pulls?state=open' in path
+        return [
+            {
+                'number': 5,
+                'html_url': 'https://forge.example/owner/repo/pulls/5',
+                'head': {'sha': 'abc123', 'ref': 'feature'},
+            }
+        ]
+
+    async def fake_remediation(**kwargs):
+        calls.append(kwargs)
+        return 'fix-1'
+
+    monkeypatch.setattr(fw, 'forgejo_json', fake_json)
+    monkeypatch.setattr(
+        'a2a_server.forgejo_automation.create_status_remediation_task',
+        fake_remediation,
+    )
+    response = await _post(app, _status_payload(), event='status')
+    assert response.status_code == 200
+    assert response.json() == {
+        'accepted': True,
+        'reason': 'queued',
+        'task_id': 'fix-1',
+    }
+    assert calls[0]['repo'] == 'owner/repo'
+    assert calls[0]['pr']['number'] == 5
+    assert calls[0]['status']['status'] == 'failure'
+    assert calls[0]['status']['creator']['login'] == 'forgejo-actions'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('payload', 'reason'),
+    [
+        (_status_payload(state='success'), 'non-failed-or-self-status'),
+        (
+            _status_payload(sender='codetether-bot'),
+            'non-failed-or-self-status',
+        ),
+    ],
+)
+async def test_status_webhook_ignores_success_and_self_status(
+    app, monkeypatch, payload, reason
+):
+    async def unexpected(*args, **kwargs):
+        raise AssertionError('Forgejo PR lookup should not run')
+
+    monkeypatch.setattr(fw, 'forgejo_json', unexpected)
+    response = await _post(app, payload, event='status')
+    assert response.json() == {'accepted': False, 'reason': reason}
+
+
+@pytest.mark.asyncio
+async def test_status_webhook_paginates_open_pr_heads(app, monkeypatch):
+    paths = []
+
+    async def fake_json(method, base, path, payload=None):
+        paths.append(path)
+        if 'page=1' in path:
+            return [
+                {'number': number, 'head': {'sha': f'other-{number}'}}
+                for number in range(50)
+            ]
+        return [
+            {
+                'number': 77,
+                'html_url': 'https://forge.example/owner/repo/pulls/77',
+                'head': {'sha': 'abc123', 'ref': 'feature'},
+            }
+        ]
+
+    async def fake_remediation(**kwargs):
+        return 'fix-page-2'
+
+    monkeypatch.setattr(fw, 'forgejo_json', fake_json)
+    monkeypatch.setattr(
+        'a2a_server.forgejo_automation.create_status_remediation_task',
+        fake_remediation,
+    )
+    response = await _post(app, _status_payload(), event='status')
+    assert response.json()['task_id'] == 'fix-page-2'
+    assert any('page=1' in path for path in paths)
+    assert any('page=2' in path for path in paths)
+
+
+@pytest.mark.asyncio
+async def test_status_webhook_ignores_unmatched_sha(app, monkeypatch):
+    async def fake_json(method, base, path, payload=None):
+        return [{'number': 5, 'head': {'sha': 'different'}}]
+
+    monkeypatch.setattr(fw, 'forgejo_json', fake_json)
+    response = await _post(app, _status_payload(), event='status')
+    assert response.json() == {
+        'accepted': False,
+        'reason': 'no-open-pr-for-status-sha',
+    }
 
 
 @pytest.mark.asyncio
