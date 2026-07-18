@@ -123,6 +123,17 @@ async def create_task(
     )
 
 
+async def get_task(
+    *, repo: str, task_id: int, base_url: str = ''
+) -> dict[str, Any]:
+    """Read one Forgejo-owned coding-agent task."""
+    return await _request(
+        'GET',
+        f'{_repo_path(repo)}/agent/tasks/{task_id}',
+        base_url=base_url,
+    )
+
+
 async def update_task(
     *,
     repo: str,
