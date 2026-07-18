@@ -128,6 +128,9 @@ async def reconcile_forgejo_agent_controls(limit: int = 50) -> int:
         forgejo_task = await get_task(
             repo=repo, task_id=forgejo_task_id, base_url=base_url
         )
+        current_task_id = str(forgejo_task.get('external_task_id') or '')
+        if current_task_id and current_task_id != str(task.get('id') or ''):
+            continue
         forgejo_status = str(forgejo_task.get('status') or '')
         codetether_status = str(task.get('status') or '')
         if (

@@ -151,6 +151,17 @@ async def update_task(
     )
 
 
+async def list_events(
+    *, repo: str, task_id: int, base_url: str = ''
+) -> dict[str, Any]:
+    """List ordered events already published for a Forgejo task."""
+    return await _request(
+        'GET',
+        f'{_repo_path(repo)}/agent/tasks/{task_id}/events',
+        base_url=base_url,
+    )
+
+
 async def append_event(
     *,
     repo: str,
@@ -245,15 +256,36 @@ async def publish_session_events(
     base_url: str = '',
 ) -> int:
     """Publish a complete normalized transcript idempotently to Forgejo."""
+    existing = await list_events(
+        repo=repo, task_id=forgejo_task_id, base_url=base_url
+    )
+    existing_events = existing.get('events') or []
+    existing_ids = {
+        str(event.get('external_id') or '')
+        for event in existing_events
+        if isinstance(event, Mapping)
+    }
+    sequence_offset = max(
+        (
+            int(event.get('sequence') or 0)
+            for event in existing_events
+            if isinstance(event, Mapping)
+        ),
+        default=0,
+    )
     events = normalize_session_events(codetether_task_id, messages)
+    published = 0
     for event in events:
+        if event['external_id'] in existing_ids:
+            continue
         await append_event(
             repo=repo,
             task_id=forgejo_task_id,
-            sequence=event['sequence'],
+            sequence=sequence_offset + event['sequence'],
             external_id=event['external_id'],
             event_type=event['type'],
             payload=event['payload'],
             base_url=base_url,
         )
-    return len(events)
+        published += 1
+    return published

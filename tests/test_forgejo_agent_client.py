@@ -75,6 +75,49 @@ async def test_create_update_and_append_event_use_repository_api(monkeypatch):
     assert event_payload['payload']['token'] == '[REDACTED]'
 
 
+@pytest.mark.asyncio
+async def test_publish_session_events_appends_after_existing_stage(monkeypatch):
+    appended: list[dict] = []
+
+    async def fake_list(**kwargs):
+        return {
+            'events': [
+                {'sequence': 4, 'external_id': 'older-stage-event'},
+                {
+                    'sequence': 5,
+                    'external_id': client._event_id(
+                        'task-2',
+                        1,
+                        'agent.message',
+                        {'role': 'assistant', 'content': 'Already published'},
+                    ),
+                },
+            ]
+        }
+
+    async def fake_append(**kwargs):
+        appended.append(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(client, 'list_events', fake_list)
+    monkeypatch.setattr(client, 'append_event', fake_append)
+
+    count = await client.publish_session_events(
+        repo='acme/widgets',
+        forgejo_task_id=42,
+        codetether_task_id='task-2',
+        messages=[
+            {'role': 'assistant', 'content': 'Already published'},
+            {'role': 'assistant', 'content': 'New event'},
+        ],
+    )
+
+    assert count == 1
+    assert len(appended) == 1
+    assert appended[0]['sequence'] == 7
+    assert appended[0]['payload']['content'] == 'New event'
+
+
 def test_normalize_session_events_is_ordered_deterministic_and_redacted():
     messages = [
         {

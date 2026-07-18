@@ -99,6 +99,32 @@ async def test_reconcile_pending_forgejo_task_retries_cancelled_codetether(
 
 
 @pytest.mark.asyncio
+async def test_reconcile_ignores_stale_codetether_stage(monkeypatch):
+    cancelled: list[str] = []
+
+    async def fake_linked(limit):
+        return [_task('running')]
+
+    async def fake_get(**kwargs):
+        return {
+            'id': 42,
+            'status': 'cancelled',
+            'external_task_id': 'newer-codetether-task',
+        }
+
+    async def fake_cancel(task_id):
+        cancelled.append(task_id)
+        return True
+
+    monkeypatch.setattr(controls, '_linked_tasks', fake_linked)
+    monkeypatch.setattr(forgejo_agent_client, 'get_task', fake_get)
+    monkeypatch.setattr(controls, '_cancel_codetether_task', fake_cancel)
+
+    assert await controls.reconcile_forgejo_agent_controls() == 0
+    assert cancelled == []
+
+
+@pytest.mark.asyncio
 async def test_reconcile_matching_states_is_noop(monkeypatch):
     async def fake_linked(limit):
         return [_task('running')]
