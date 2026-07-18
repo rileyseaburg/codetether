@@ -61,9 +61,21 @@ jobs:
       - name: Render Temporal Helm modes
         run: |
           set -euo pipefail
-          helm lint chart/a2a-server
-          helm template temporal-disabled chart/a2a-server >/dev/null
-          helm template temporal-enabled chart/a2a-server \
+          helm_version=v3.18.4
+          archive="helm-${helm_version}-linux-amd64.tar.gz"
+          curl -fsSLo "/tmp/${archive}" \
+            "https://get.helm.sh/${archive}"
+          curl -fsSLo "/tmp/${archive}.sha256sum" \
+            "https://get.helm.sh/${archive}.sha256sum"
+          (
+            cd /tmp
+            sha256sum --check "${archive}.sha256sum"
+            tar -xzf "${archive}"
+          )
+          helm=/tmp/linux-amd64/helm
+          "$helm" lint chart/a2a-server
+          "$helm" template temporal-disabled chart/a2a-server >/dev/null
+          "$helm" template temporal-enabled chart/a2a-server \
             --set temporal.enabled=true \
             --set temporal.address=temporal.example:7233 \
             --set forgejo.apiUrl=https://forgejo.example/api/v1 \
