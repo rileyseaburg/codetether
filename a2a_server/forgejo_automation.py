@@ -211,6 +211,9 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
         or pr.get('html_url'),
         'forgejo_agent_task_id': metadata.get('forgejo_agent_task_id'),
         'forgejo_agent_task_url': metadata.get('forgejo_agent_task_url'),
+        'temporal_orchestrated': metadata.get('temporal_orchestrated', False),
+        'temporal_workflow_id': metadata.get('temporal_workflow_id'),
+        'temporal_attempt': metadata.get('temporal_attempt'),
         'trigger_actor_login': metadata.get('trigger_actor_login'),
         'parent_task_id': code_task.get('id'),
         'forgejo_work_key': work_key,
@@ -342,6 +345,9 @@ async def create_forgejo_fix_followup(
         or pr.get('html_url'),
         'forgejo_agent_task_id': metadata.get('forgejo_agent_task_id'),
         'forgejo_agent_task_url': metadata.get('forgejo_agent_task_url'),
+        'temporal_orchestrated': metadata.get('temporal_orchestrated', False),
+        'temporal_workflow_id': metadata.get('temporal_workflow_id'),
+        'temporal_attempt': metadata.get('temporal_attempt'),
         'review_task_id': review_task_id,
         'review_verdict': verdict,
         'fix_followup': 'true',
@@ -513,6 +519,7 @@ async def reconcile_forgejo_terminal_reviews(limit: int = 20) -> int:
                WHERE status = 'completed'
                  AND metadata->>'source' = 'forgejo-webhook'
                  AND metadata->>'workflow_stage' = 'review'
+                 AND COALESCE(metadata->>'temporal_orchestrated', 'false') != 'true'
                  AND NOT (COALESCE(metadata, '{}'::jsonb) ? 'forgejo_review_reconciled_at')
                ORDER BY completed_at
                LIMIT $1""",

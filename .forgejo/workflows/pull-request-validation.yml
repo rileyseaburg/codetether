@@ -55,4 +55,16 @@ jobs:
             a2a_server/forgejo_task_completion.py \
             a2a_server/session_view.py \
             a2a_server/post_clone_followup.py \
-            a2a_server/persistent_worker_pool.py
+            a2a_server/persistent_worker_pool.py \
+            a2a_server/temporal
+
+      - name: Render Temporal Helm modes
+        run: |
+          set -euo pipefail
+          helm lint chart/a2a-server
+          helm template temporal-disabled chart/a2a-server >/dev/null
+          helm template temporal-enabled chart/a2a-server \
+            --set temporal.enabled=true \
+            --set temporal.address=temporal.example:7233 \
+            --set forgejo.apiUrl=https://forgejo.example/api/v1 \
+            >/dev/null

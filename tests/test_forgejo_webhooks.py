@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import sys
+import time
 
 from types import SimpleNamespace
 
@@ -324,3 +325,76 @@ def test_configured_forgejo_host_is_allowed_without_credential_injection(
     assert not validate_git_url('https://token@forge.example/owner/repo.git')
     assert not validate_git_url('http://forge.example/owner/repo.git')
     assert not validate_git_url('https://evil.example/owner/repo.git')
+
+
+async def _post_control(app, payload, signature=None):
+    raw = json.dumps(payload).encode()
+    headers = {
+        'X-Forgejo-Event': 'agent_task_control',
+        'X-Forgejo-Signature': signature
+        if signature is not None
+        else _signature(raw),
+        'Content-Type': 'application/json',
+    }
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url='http://test'
+    ) as client:
+        return await client.post(
+            '/v1/webhooks/forgejo/agent-control',
+            content=raw,
+            headers=headers,
+        )
+
+
+@pytest.mark.asyncio
+async def test_signed_agent_control_signals_temporal(app, monkeypatch):
+    signals = []
+
+    async def fake_signal(signal):
+        signals.append(signal)
+
+    monkeypatch.setattr(
+        'a2a_server.temporal.client.signal_control', fake_signal
+    )
+    payload = {
+        'action': 'cancel',
+        'task_id': 42,
+        'requested_by': 'alice',
+        'request_id': 'control-1',
+        'issued_at': int(time.time()),
+    }
+    response = await _post_control(app, payload)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'accepted': True,
+        'task_id': 42,
+        'action': 'cancel',
+    }
+    assert len(signals) == 1
+    assert signals[0].forgejo_task_id == 42
+    assert signals[0].requested_by == 'alice'
+
+
+@pytest.mark.asyncio
+async def test_agent_control_rejects_bad_signature_and_expiry(app):
+    payload = {
+        'action': 'retry',
+        'task_id': 42,
+        'issued_at': int(time.time()) - 301,
+    }
+    bad_signature = await _post_control(app, payload, signature='bad')
+    assert bad_signature.status_code == 401
+
+    expired = await _post_control(app, payload)
+    assert expired.status_code == 401
+    assert expired.json()['detail'] == 'Expired Forgejo agent control'
+
+
+@pytest.mark.asyncio
+async def test_agent_control_rejects_unknown_action(app):
+    response = await _post_control(
+        app,
+        {'action': 'delete', 'task_id': 42, 'issued_at': int(time.time())},
+    )
+    assert response.status_code == 422
