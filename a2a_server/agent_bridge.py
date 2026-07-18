@@ -422,7 +422,7 @@ class AgentBridge:
                     'agent_type': task.agent_type,
                     'status': task.status.value,
                     'priority': task.priority,
-                    'worker_id': None,  # Will be set by worker when claimed
+                    'worker_id': task.worker_id,
                     'result': task.result,
                     'error': task.error,
                     'metadata': metadata,
