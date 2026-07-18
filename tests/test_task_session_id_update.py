@@ -1,3 +1,5 @@
+# ruff: noqa: PLR2004, SLF001
+
 """Regression tests for attaching CodeTether session IDs to running tasks.
 
 We want workers to be able to report the active CodeTether `session_id` while a
@@ -13,21 +15,20 @@ Two key requirements:
 
 import pytest
 import pytest_asyncio
+
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from a2a_server import monitor_api
 from a2a_server.agent_bridge import AgentBridge, AgentTaskStatus
 from a2a_server.monitor_api import agent_router
-import a2a_server.monitor_api as monitor_api
 
 
 @pytest.mark.asyncio
 async def test_bridge_running_updates_preserve_started_at_and_set_session_id(
     tmp_path,
 ):
-    bridge = AgentBridge(
-        auto_start=False, db_path=str(tmp_path / 'agent.db')
-    )
+    bridge = AgentBridge(auto_start=False)
 
     cb = await bridge.register_codebase(
         name='test',
@@ -80,9 +81,7 @@ async def client(monkeypatch):
 async def test_api_task_status_accepts_session_id_and_does_not_reset_started_at(
     tmp_path, monkeypatch, client
 ):
-    bridge = AgentBridge(
-        auto_start=False, db_path=str(tmp_path / 'agent.db')
-    )
+    bridge = AgentBridge(auto_start=False)
     cb = await bridge.register_codebase(
         name='test',
         path=str(tmp_path),
