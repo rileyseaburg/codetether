@@ -53,6 +53,9 @@ temporal:
 `<release>-temporal-worker` Deployment and configures all API deployment modes
 to start/signal workflows.
 
+Pull-request validation downloads Helm v3.18.4 from the official release
+endpoint and verifies its published SHA-256 checksum before chart rendering.
+
 ## Forgejo configuration
 
 Forgejo sends native Cancel/Retry controls to CodeTether with HMAC-SHA256 over
