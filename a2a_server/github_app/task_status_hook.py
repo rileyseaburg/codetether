@@ -148,11 +148,15 @@ def start_github_app_terminal_reconciler() -> None:
                 if os.environ.get(
                     'FORGEJO_AUTOMATION_RECONCILER_ENABLED', 'true'
                 ).lower() not in {'0', 'false', 'no'}:
+                    from ..forgejo_agent_controls import (
+                        reconcile_forgejo_agent_controls,
+                    )
                     from ..forgejo_automation import (
                         reconcile_forgejo_failures,
                         reconcile_forgejo_terminal_reviews,
                     )
 
+                    await reconcile_forgejo_agent_controls()
                     await reconcile_forgejo_terminal_reviews()
                     await reconcile_forgejo_failures()
             except asyncio.CancelledError:
