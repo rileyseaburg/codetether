@@ -23,8 +23,14 @@ def _task_footer(task_id: str, metadata: dict | None = None) -> str:
     return footer
 
 
-async def sync_forgejo_agent_task(task: dict) -> None:
-    """Publish terminal lifecycle and complete transcript to Forgejo."""
+async def sync_forgejo_agent_task(
+    task: dict, *, workflow_terminal: bool = True
+) -> None:
+    """Publish lifecycle and complete transcript to Forgejo.
+
+    Temporal-managed stage completions remain ``running`` until the durable
+    workflow itself finalizes the Forgejo-owned task.
+    """
     metadata = task.get('metadata') or {}
     forgejo_task_id = int(metadata.get('forgejo_agent_task_id') or 0)
     repo = str(metadata.get('repo') or '')
@@ -52,17 +58,25 @@ async def sync_forgejo_agent_task(task: dict) -> None:
     }:
         forgejo_status = 'failed'
     session_id, messages = await _task_messages(task, 10_000)
+    if not workflow_terminal:
+        forgejo_status = 'running'
+    lifecycle = {
+        'status': forgejo_status,
+        'external_task_id': str(task.get('id') or ''),
+        'external_session_id': session_id,
+        'head_sha': str(metadata.get('pr_head_sha') or ''),
+        'branch': str(metadata.get('branch_name') or ''),
+    }
+    if workflow_terminal:
+        lifecycle.update(
+            result=str(task.get('result') or ''),
+            error=str(task.get('error') or ''),
+        )
     await update_task(
         repo=repo,
         task_id=forgejo_task_id,
         base_url=str(metadata.get('forgejo_api_url') or ''),
-        status=forgejo_status,
-        external_task_id=str(task.get('id') or ''),
-        external_session_id=session_id,
-        head_sha=str(metadata.get('pr_head_sha') or ''),
-        branch=str(metadata.get('branch_name') or ''),
-        result=str(task.get('result') or ''),
-        error=str(task.get('error') or ''),
+        **lifecycle,
     )
     await publish_session_events(
         repo=repo,
@@ -80,6 +94,30 @@ async def notify_forgejo_task_completion(task: dict) -> None:
         return
 
     stage = str(metadata.get('workflow_stage') or '')
+    if metadata.get('temporal_orchestrated'):
+        if stage not in {'prepare', 'code', 'fix', 'review'}:
+            return
+        await sync_forgejo_agent_task(task, workflow_terminal=False)
+        from a2a_server.forgejo_automation import reviewer_verdict
+        from a2a_server.temporal.client import signal_task_terminal
+        from a2a_server.temporal.models import ForgejoTaskTerminalSignal
+
+        await signal_task_terminal(
+            int(metadata.get('forgejo_agent_task_id') or 0),
+            ForgejoTaskTerminalSignal(
+                task_id=str(task.get('id') or ''),
+                stage=stage,
+                status=str(task.get('status') or 'failed'),
+                session_id=str(
+                    task.get('session_id') or metadata.get('session_id') or ''
+                ),
+                verdict=(reviewer_verdict(task) if stage == 'review' else ''),
+                head_sha=str(metadata.get('pr_head_sha') or ''),
+                pull_request_number=int(metadata.get('pr_number') or 0),
+            ),
+        )
+        return
+
     if stage not in {'code', 'fix', 'review'}:
         return
 
