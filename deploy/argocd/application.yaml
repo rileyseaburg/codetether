@@ -40,6 +40,9 @@ spec:
           enabled: true
           mode: bluegreen
           serviceColor: green
+          images:
+            green:
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-5dbe61fbf0f7
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -107,7 +110,7 @@ spec:
           existingSecret: codetether-a2a-server-github-app
           apiBaseUrl: https://api.github.com
         forgejo:
-          existingSecret: codetether-a2a-server-forgejo
+          existingSecret: a2a-server-forgejo
           apiUrl: https://forgejo.quantum-forge.io/api/v1
           botUsername: codetether-bot
         temporal:
@@ -115,7 +118,7 @@ spec:
           address: temporal-frontend.temporal.svc.cluster.local:7233
           namespace: codetether-prod
           taskQueue: codetether-forgejo-agent
-          secretRef: codetether-a2a-server-forgejo
+          secretRef: a2a-server-forgejo
           replicas: 1
         existingEnvFromSecrets:
           - harvester-api-keys
