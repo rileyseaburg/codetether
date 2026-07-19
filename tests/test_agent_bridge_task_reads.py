@@ -6,7 +6,9 @@ from a2a_server.agent_bridge import AgentBridge, AgentTask, AgentTaskStatus
 
 
 @pytest.mark.asyncio
-async def test_get_task_refreshes_stale_replica_cache_from_database(monkeypatch):
+async def test_get_task_refreshes_stale_replica_cache_from_database(
+    monkeypatch,
+):
     bridge = AgentBridge(auto_start=False)
     cached = AgentTask(
         id='task-review',

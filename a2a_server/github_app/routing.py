@@ -17,7 +17,9 @@ def _is_recent(value: Optional[str], max_age_seconds: int = 120) -> bool:
     last_seen = datetime.fromisoformat(value.replace('Z', '+00:00'))
     if last_seen.tzinfo is None:
         last_seen = last_seen.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last_seen).total_seconds() <= max_age_seconds
+    return (
+        datetime.now(timezone.utc) - last_seen
+    ).total_seconds() <= max_age_seconds
 
 
 def _best_worker(workers: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
@@ -35,7 +37,9 @@ def _capabilities(worker: dict[str, Any]) -> set[str]:
     return {str(cap) for cap in raw if cap}
 
 
-def _has_any_capability(worker: dict[str, Any], capabilities: tuple[str, ...]) -> bool:
+def _has_any_capability(
+    worker: dict[str, Any], capabilities: tuple[str, ...]
+) -> bool:
     worker_caps = _capabilities(worker)
     return any(cap in worker_caps for cap in capabilities)
 
@@ -97,7 +101,8 @@ async def resolve_task_target() -> dict[str, Any]:
     from .. import database as db
 
     workers = [
-        worker for worker in await db.db_list_workers(status='active')
+        worker
+        for worker in await db.db_list_workers(status='active')
         if _is_recent(str(worker.get('last_seen') or ''))
     ]
     if TARGET_WORKER_ID and any(
@@ -106,7 +111,11 @@ async def resolve_task_target() -> dict[str, Any]:
         return {'target_worker_id': TARGET_WORKER_ID}
 
     capable_match = _best_worker(
-        [worker for worker in workers if _has_any_capability(worker, TARGET_CAPABILITIES)]
+        [
+            worker
+            for worker in workers
+            if _has_any_capability(worker, TARGET_CAPABILITIES)
+        ]
     )
     if capable_match:
         return _worker_routing_metadata(capable_match)

@@ -106,6 +106,16 @@ spec:
         githubApp:
           existingSecret: codetether-a2a-server-github-app
           apiBaseUrl: https://api.github.com
+        forgejo:
+          existingSecret: codetether-a2a-server-forgejo
+          apiUrl: https://forgejo.quantum-forge.io/api/v1
+          botUsername: codetether-bot
+        temporal:
+          enabled: true
+          address: temporal-frontend.temporal.svc.cluster.local:7233
+          namespace: codetether-prod
+          taskQueue: codetether-forgejo-agent
+          replicas: 1
         existingEnvFromSecrets:
           - harvester-api-keys
         envFromSecret:

@@ -38,8 +38,6 @@ from .models import (
     Part,
     LiveKitTokenRequest,
     LiveKitTokenResponse,
-    PushNotificationConfig,
-    TaskPushNotificationConfig,
     SetPushNotificationConfigRequest,
     GetPushNotificationConfigRequest,
     ListPushNotificationConfigsRequest,
@@ -74,6 +72,7 @@ from .a2a_agent_card import a2a_agent_card_router
 from .opencode_deprecated import router as opencode_deprecated_router
 from .ralph_api import ralph_router
 from .okr_api import okr_router
+
 try:
     from .github_app import (
         github_git_credentials_router,
@@ -167,7 +166,7 @@ except ImportError as e:
     create_a2a_router = None
     CodetetherExecutor = None
     create_codetether_executor = None
-    logger.warning(f'A2A router not available: {e}')
+    logging.getLogger(__name__).warning(f'A2A router not available: {e}')
 
 # Import queue API router for operational visibility (mid-market)
 try:
@@ -207,16 +206,25 @@ def _cors_allowed_origins() -> List[str]:
         'http://localhost:3000',
         'http://localhost:8000',
     ]
-    configured = os.getenv('CORS_ALLOWED_ORIGINS') or os.getenv('A2A_CORS_ALLOWED_ORIGINS')
+    configured = os.getenv('CORS_ALLOWED_ORIGINS') or os.getenv(
+        'A2A_CORS_ALLOWED_ORIGINS'
+    )
     if not configured:
         return defaults
 
-    origins = [origin.strip() for origin in configured.split(',') if origin.strip()]
+    origins = [
+        origin.strip() for origin in configured.split(',') if origin.strip()
+    ]
     # Preserve the safe production defaults unless explicitly disabled.
-    if os.getenv('CORS_REPLACE_DEFAULT_ORIGINS', '').lower() in {'1', 'true', 'yes'}:
+    if os.getenv('CORS_REPLACE_DEFAULT_ORIGINS', '').lower() in {
+        '1',
+        'true',
+        'yes',
+    }:
         return origins
 
     return list(dict.fromkeys([*defaults, *origins]))
+
 
 security = HTTPBearer(auto_error=False)
 
@@ -270,6 +278,7 @@ class A2AServer:
         # Runs after tenant extraction.
         try:
             from .budget_middleware import BudgetEnforcementMiddleware
+
             self.app.add_middleware(BudgetEnforcementMiddleware)
         except Exception as e:
             logger.warning(f'Budget enforcement middleware not loaded: {e}')
@@ -359,7 +368,9 @@ class A2AServer:
         @self.app.on_event('startup')
         async def start_github_progress():
             try:
-                from .github_progress_service import start_github_progress_reporter
+                from .github_progress_service import (
+                    start_github_progress_reporter,
+                )
 
                 await start_github_progress_reporter()
             except Exception as e:
@@ -368,7 +379,9 @@ class A2AServer:
         @self.app.on_event('shutdown')
         async def stop_github_progress():
             try:
-                from .github_progress_service import stop_github_progress_reporter
+                from .github_progress_service import (
+                    stop_github_progress_reporter,
+                )
 
                 await stop_github_progress_reporter()
             except Exception:
@@ -460,7 +473,9 @@ class A2AServer:
 
                 await start_perpetual_loop_manager()
             except Exception as e:
-                logger.warning(f'Failed to start perpetual cognition manager: {e}')
+                logger.warning(
+                    f'Failed to start perpetual cognition manager: {e}'
+                )
 
         @self.app.on_event('shutdown')
         async def stop_perpetual_manager():
@@ -514,16 +529,19 @@ class A2AServer:
         async def start_conversion_and_orchestration():
             try:
                 from .conversion_tracker import start_conversion_tracker
+
                 await start_conversion_tracker()
             except Exception as e:
                 logger.warning(f'Failed to start conversion tracker: {e}')
             try:
                 from .marketing_orchestrator import start_orchestrator
+
                 await start_orchestrator()
             except Exception as e:
                 logger.warning(f'Failed to start marketing orchestrator: {e}')
             try:
                 from .marketing_loop import ensure_marketing_loop
+
                 await ensure_marketing_loop()
             except Exception as e:
                 logger.warning(f'Failed to ensure marketing loop: {e}')
@@ -532,11 +550,13 @@ class A2AServer:
         async def stop_conversion_and_orchestration():
             try:
                 from .conversion_tracker import stop_conversion_tracker
+
                 await stop_conversion_tracker()
             except Exception:
                 pass
             try:
                 from .marketing_orchestrator import stop_orchestrator
+
                 await stop_orchestrator()
             except Exception:
                 pass
@@ -544,16 +564,22 @@ class A2AServer:
         @self.app.on_event('startup')
         async def start_github_app_terminal_reconciler():
             try:
-                from .github_app.task_status_hook import start_github_app_terminal_reconciler
+                from .github_app.task_status_hook import (
+                    start_github_app_terminal_reconciler,
+                )
 
                 start_github_app_terminal_reconciler()
             except Exception as e:
-                logger.warning(f'Failed to start GitHub App terminal reconciler: {e}')
+                logger.warning(
+                    f'Failed to start GitHub App terminal reconciler: {e}'
+                )
 
         @self.app.on_event('shutdown')
         async def stop_github_app_terminal_reconciler():
             try:
-                from .github_app.task_status_hook import stop_github_app_terminal_reconciler
+                from .github_app.task_status_hook import (
+                    stop_github_app_terminal_reconciler,
+                )
 
                 await stop_github_app_terminal_reconciler()
             except Exception:
@@ -704,7 +730,9 @@ class A2AServer:
         # Include OAuth 2.1 provider for MCP protocol compliance
         if OAUTH_AVAILABLE and oauth_router:
             self.app.include_router(oauth_router)
-            logger.info('OAuth 2.1 provider mounted (/.well-known/oauth-*, /oauth/*)')
+            logger.info(
+                'OAuth 2.1 provider mounted (/.well-known/oauth-*, /oauth/*)'
+            )
 
         # Include queue API routes for operational visibility (mid-market)
         if QUEUE_API_AVAILABLE and queue_api_router:
@@ -889,7 +917,11 @@ class A2AServer:
 
         # Log incoming message to monitoring
         message_text = ' '.join(
-            [p.text for p in request.message.parts if p.kind == 'text' and p.text]
+            [
+                p.text
+                for p in request.message.parts
+                if p.kind == 'text' and p.text
+            ]
         )
         await log_agent_message(
             agent_name='External Client',
@@ -924,7 +956,11 @@ class A2AServer:
 
         # Log agent response to monitoring
         response_text = ' '.join(
-            [p.text for p in response_message.parts if p.kind == 'text' and p.text]
+            [
+                p.text
+                for p in response_message.parts
+                if p.kind == 'text' and p.text
+            ]
         )
         await log_agent_message(
             agent_name=self.agent_card.card.name,
@@ -1091,7 +1127,9 @@ class A2AServer:
         """Handle tasks/pushNotificationConfig/set method."""
         request = SetPushNotificationConfigRequest.model_validate(params)
         if not hasattr(self.task_manager, 'set_push_notification_config'):
-            raise ValueError('Push notifications not supported by this task manager')
+            raise ValueError(
+                'Push notifications not supported by this task manager'
+            )
 
         task = await self.task_manager.get_task(request.task_id)
         if not task:
@@ -1108,13 +1146,17 @@ class A2AServer:
         """Handle tasks/pushNotificationConfig/get method."""
         request = GetPushNotificationConfigRequest.model_validate(params)
         if not hasattr(self.task_manager, 'get_push_notification_config'):
-            raise ValueError('Push notifications not supported by this task manager')
+            raise ValueError(
+                'Push notifications not supported by this task manager'
+            )
 
         result = await self.task_manager.get_push_notification_config(
             request.task_id, request.config_id
         )
         if not result:
-            raise ValueError(f'Push notification config not found for task: {request.task_id}')
+            raise ValueError(
+                f'Push notification config not found for task: {request.task_id}'
+            )
         return result.model_dump(by_alias=True, exclude_none=True)
 
     async def _handle_list_push_notification_configs(
@@ -1123,7 +1165,9 @@ class A2AServer:
         """Handle tasks/pushNotificationConfig/list method."""
         request = ListPushNotificationConfigsRequest.model_validate(params)
         if not hasattr(self.task_manager, 'list_push_notification_configs'):
-            raise ValueError('Push notifications not supported by this task manager')
+            raise ValueError(
+                'Push notifications not supported by this task manager'
+            )
 
         results = await self.task_manager.list_push_notification_configs(
             request.task_id
@@ -1136,7 +1180,9 @@ class A2AServer:
         """Handle tasks/pushNotificationConfig/delete method."""
         request = DeletePushNotificationConfigRequest.model_validate(params)
         if not hasattr(self.task_manager, 'delete_push_notification_config'):
-            raise ValueError('Push notifications not supported by this task manager')
+            raise ValueError(
+                'Push notifications not supported by this task manager'
+            )
 
         deleted = await self.task_manager.delete_push_notification_config(
             request.task_id, request.config_id
@@ -1274,8 +1320,12 @@ class A2AServer:
 
         # Start the server
         config = uvicorn.Config(
-            self.app, host=host, port=port, log_level='info',
-            proxy_headers=True, forwarded_allow_ips='*',
+            self.app,
+            host=host,
+            port=port,
+            log_level='info',
+            proxy_headers=True,
+            forwarded_allow_ips='*',
         )
         server = uvicorn.Server(config)
         await server.serve()
