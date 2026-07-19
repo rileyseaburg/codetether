@@ -8,6 +8,7 @@ and auto-clone them on workers. Credentials are stored in Vault.
 import asyncio
 import logging
 import os
+import re
 import shutil
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
@@ -20,10 +21,17 @@ logger = logging.getLogger(__name__)
 GIT_CLONE_BASE = os.environ.get('GIT_CLONE_BASE', '/var/lib/codetether/repos')
 
 # Maximum repo size (in bytes) — default 2GB
-MAX_REPO_SIZE = int(os.environ.get('GIT_MAX_REPO_SIZE', str(2 * 1024 * 1024 * 1024)))
+MAX_REPO_SIZE = int(
+    os.environ.get('GIT_MAX_REPO_SIZE', str(2 * 1024 * 1024 * 1024))
+)
 
 # Allowed Git hosts (HTTPS only — no arbitrary protocols or embedded credentials).
-_PUBLIC_GIT_HOSTS = {'github.com', 'gitlab.com', 'bitbucket.org', 'dev.azure.com'}
+_PUBLIC_GIT_HOSTS = {
+    'github.com',
+    'gitlab.com',
+    'bitbucket.org',
+    'dev.azure.com',
+}
 
 
 def validate_git_url(url: str) -> bool:
@@ -63,6 +71,7 @@ async def store_git_credentials(
     """
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         await client.write_secret(
             f'codetether/git/{codebase_id}',
@@ -81,6 +90,7 @@ async def store_git_credential_record(
     """Store arbitrary git credential metadata in Vault."""
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         await client.write_secret(f'codetether/git/{codebase_id}', record)
         logger.info(f'Stored Git credential record for codebase {codebase_id}')
@@ -94,6 +104,7 @@ async def get_git_credentials(codebase_id: str) -> Optional[Dict[str, str]]:
     """Retrieve Git credentials from Vault."""
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         secret = await client.read_secret(f'codetether/git/{codebase_id}')
         return secret
@@ -106,6 +117,7 @@ async def delete_git_credentials(codebase_id: str) -> bool:
     """Remove Git credentials from Vault."""
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         await client.delete_secret(f'codetether/git/{codebase_id}')
         logger.info(f'Deleted Git credentials for codebase {codebase_id}')
@@ -174,14 +186,21 @@ async def clone_repo(
         err_msg = _sanitize_output(err_msg)
         raise ValueError(f'Git clone failed: {err_msg}')
 
-    logger.info(f'Cloned {git_url} → {clone_dir} (branch={branch}, depth={depth})')
+    logger.info(
+        f'Cloned {git_url} → {clone_dir} (branch={branch}, depth={depth})'
+    )
     return clone_dir
 
 
 async def pull_repo(clone_dir: str, branch: str = 'main') -> str:
     """Pull latest changes in an already-cloned repo."""
     proc = await asyncio.create_subprocess_exec(
-        'git', '-C', clone_dir, 'pull', 'origin', branch,
+        'git',
+        '-C',
+        clone_dir,
+        'pull',
+        'origin',
+        branch,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'},
@@ -306,7 +325,9 @@ def _workspace_github_app_config(workspace: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def _github_owner_repo_from_url(git_url: str) -> tuple[Optional[str], Optional[str]]:
+def _github_owner_repo_from_url(
+    git_url: str,
+) -> tuple[Optional[str], Optional[str]]:
     parsed = urlparse(git_url)
     parts = parsed.path.strip('/').removesuffix('.git').split('/')
     if len(parts) >= 2 and parsed.hostname == 'github.com':
@@ -323,7 +344,9 @@ async def _build_auth_url(git_url: str, codebase_id: str) -> str:
     token = creds.get('password', '')
     token_type = creds.get('token_type', 'pat')
     if token_type in ('pat', 'oauth', 'github_app'):
-        return git_url.replace('https://', f'https://x-access-token:{token}@', 1)
+        return git_url.replace(
+            'https://', f'https://x-access-token:{token}@', 1
+        )
 
     return git_url
 
