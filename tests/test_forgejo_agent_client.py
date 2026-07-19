@@ -12,6 +12,7 @@ from a2a_server import forgejo_agent_client as client
 def _settings(monkeypatch):
     monkeypatch.setenv('FORGEJO_API_URL', 'https://forgejo.example/api/v1')
     monkeypatch.setenv('FORGEJO_TOKEN', 'top-secret-token')
+    monkeypatch.setattr(client, '_HTTP_CLIENT', None)
 
 
 @pytest.mark.asyncio
@@ -145,3 +146,47 @@ def test_normalize_session_events_is_ordered_deterministic_and_redacted():
     assert first[0]['payload']['authorization'] == '[REDACTED]'
     assert first[1]['payload']['arguments']['api_key'] == '[REDACTED]'
     assert len({event['external_id'] for event in first}) == 4
+
+
+@pytest.mark.asyncio
+async def test_request_reuses_async_client(monkeypatch):
+    instances = []
+
+    class Response:
+        status_code = 200
+        text = ''
+        content = b'{}'
+
+        @staticmethod
+        def json():
+            return {}
+
+    class FakeClient:
+        def __init__(self, *, timeout):
+            assert timeout == 30
+            self.is_closed = False
+            self.requests = []
+            instances.append(self)
+
+        async def request(self, method, url, **kwargs):
+            self.requests.append((method, url, kwargs))
+            return Response()
+
+    monkeypatch.setattr(client.httpx, 'AsyncClient', FakeClient)
+
+    await client._request(
+        'GET',
+        '/repos/acme/widgets/agent/tasks/1',
+        base_url='https://forge.example',
+    )
+    await client._request(
+        'GET',
+        '/repos/acme/widgets/agent/tasks/2',
+        base_url='https://forge.example',
+    )
+
+    assert len(instances) == 1
+    assert len(instances[0].requests) == 2
+    assert instances[0].requests[0][2]['headers']['Authorization'] == (
+        'token top-secret-token'
+    )

@@ -197,6 +197,21 @@ async def test_status_webhook_ignores_unmatched_sha(app, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_status_webhook_rejects_non_list_pulls(app, monkeypatch):
+    async def fake_json(*args, **kwargs):
+        return {'user_error': 'unexpected response'}
+
+    monkeypatch.setattr(fw, 'forgejo_json', fake_json)
+    response = await _post(app, _status_payload(), event='status')
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'accepted': False,
+        'reason': 'invalid-forgejo-pulls-response',
+    }
+
+
+@pytest.mark.asyncio
 async def test_rejects_invalid_signature(app):
     response = await _post(app, _payload(), 'wrong')
     assert response.status_code == 401

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -117,17 +118,28 @@ async def reconcile_forgejo_agent_controls(limit: int = 50) -> int:
     """Apply Forgejo cancel/retry state to linked CodeTether tasks."""
     from a2a_server.forgejo_agent_client import get_task, update_task
 
-    handled = 0
-    for task in await _linked_tasks(limit):
+    linked_tasks = await _linked_tasks(limit)
+    semaphore = asyncio.Semaphore(8)
+
+    async def fetch(task):
         metadata = _metadata(task)
         repo = str(metadata.get('repo') or '')
         forgejo_task_id = int(metadata.get('forgejo_agent_task_id') or 0)
         base_url = str(metadata.get('forgejo_api_url') or '')
         if not repo or not forgejo_task_id:
+            return None
+        async with semaphore:
+            forgejo_task = await get_task(
+                repo=repo, task_id=forgejo_task_id, base_url=base_url
+            )
+        return task, repo, forgejo_task_id, base_url, forgejo_task
+
+    handled = 0
+    results = await asyncio.gather(*(fetch(task) for task in linked_tasks))
+    for result in results:
+        if result is None:
             continue
-        forgejo_task = await get_task(
-            repo=repo, task_id=forgejo_task_id, base_url=base_url
-        )
+        task, repo, forgejo_task_id, base_url, forgejo_task = result
         current_task_id = str(forgejo_task.get('external_task_id') or '')
         if current_task_id and current_task_id != str(task.get('id') or ''):
             continue

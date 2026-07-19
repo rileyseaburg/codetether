@@ -424,16 +424,21 @@ async def _handle_status_event(
         pulls = await forgejo_json(
             'GET', base, f'{repo_path}/pulls?state=open&limit=50&page={page}'
         )
+        if not isinstance(pulls, list):
+            return {
+                'accepted': False,
+                'reason': 'invalid-forgejo-pulls-response',
+            }
         pr = next(
             (
                 candidate
-                for candidate in pulls or []
+                for candidate in pulls
                 if str(((candidate or {}).get('head') or {}).get('sha') or '')
                 == sha
             ),
             None,
         )
-        if pr or len(pulls or []) < 50:
+        if pr or len(pulls) < 50:
             break
     if not pr:
         return {'accepted': False, 'reason': 'no-open-pr-for-status-sha'}
