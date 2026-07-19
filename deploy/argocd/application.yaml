@@ -14,7 +14,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: a2a-system
   source:
-    repoURL: git@github.com:rileyseaburg/codetether.git
+    repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
     targetRevision: main
     path: chart/a2a-server
     helm:
