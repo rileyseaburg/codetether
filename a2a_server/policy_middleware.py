@@ -75,6 +75,8 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     # Billing webhooks — Stripe signature verified
     (r'^/v1/webhooks/stripe$', {'POST'}, ''),
     (r'^/v1/webhooks/github$', {'POST'}, ''),
+    # Forgejo webhooks and native agent controls verify HMAC signatures.
+    (r'^/v1/webhooks/forgejo(?:/agent-control)?$', {'POST'}, ''),
     # ── Already-protected routes (skip to avoid double auth) ─────
     # Billing, admin, tenant (non-signup), user auth (non-public),
     # cronjobs, queue — all have existing Depends(require_*).

@@ -62,3 +62,6 @@ a2a-sdk[http-server,postgresql]>=0.3.22
 # Cron scheduling support
 croniter>=2.0.0
 pytz>=2024.1
+
+# Durable Forgejo agent orchestration
+temporalio>=1.30.0,<2.0.0
