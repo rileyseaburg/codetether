@@ -434,7 +434,10 @@ async def test_forgejo_post_clone_uses_durable_dispatch(monkeypatch):
                 'model_ref': 'zai:glm-5.1',
                 'metadata': {
                     'source': 'forgejo-webhook',
+                    'repo': 'owner/repo',
+                    'forgejo_api_url': 'https://forgejo.example/api/v1',
                     'forgejo_issue_url': PR['html_url'],
+                    'forgejo_agent_task_id': 42,
                     'forgejo_work_key': 'forgejo:owner/repo:5:code:abc123:9',
                 },
             },
@@ -445,14 +448,23 @@ async def test_forgejo_post_clone_uses_durable_dispatch(monkeypatch):
         assert task_id == 'clone-1'
         return task
 
+    updates = []
+
     async def fake_dispatch(**kwargs):
         dispatched.append(kwargs)
         return 'code-1'
+
+    async def fake_update(**kwargs):
+        updates.append(kwargs)
+        return {'id': 42}
 
     bridge.get_task = get_task
     monkeypatch.setattr(
         'a2a_server.persistent_worker_pool.create_and_dispatch_task',
         fake_dispatch,
+    )
+    monkeypatch.setattr(
+        'a2a_server.forgejo_agent_client.update_task', fake_update
     )
     queued = await post_clone_followup.enqueue_post_clone_followup(
         bridge, 'clone-1'
@@ -460,6 +472,15 @@ async def test_forgejo_post_clone_uses_durable_dispatch(monkeypatch):
     assert queued == 'code-1'
     assert dispatched[0]['priority'] == TASK_PRIORITY
     assert dispatched[0]['metadata']['forgejo_work_key'].endswith(':9')
+    assert updates == [
+        {
+            'repo': 'owner/repo',
+            'task_id': 42,
+            'base_url': 'https://forgejo.example/api/v1',
+            'status': 'running',
+            'external_task_id': 'code-1',
+        }
+    ]
 
 
 def test_forgejo_work_key_is_first_class():

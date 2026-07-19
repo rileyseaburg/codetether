@@ -209,6 +209,11 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
         'forgejo_api_url': base,
         'forgejo_issue_url': metadata.get('forgejo_issue_url')
         or pr.get('html_url'),
+        'forgejo_agent_task_id': metadata.get('forgejo_agent_task_id'),
+        'forgejo_agent_task_url': metadata.get('forgejo_agent_task_url'),
+        'temporal_orchestrated': metadata.get('temporal_orchestrated', False),
+        'temporal_workflow_id': metadata.get('temporal_workflow_id'),
+        'temporal_attempt': metadata.get('temporal_attempt'),
         'trigger_actor_login': metadata.get('trigger_actor_login'),
         'parent_task_id': code_task.get('id'),
         'forgejo_work_key': work_key,
@@ -231,6 +236,19 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
         task_timeout_seconds=TASK_TIMEOUT_SECONDS,
         github_issue_url=review_metadata['forgejo_issue_url'],
     )
+    forgejo_task_id = int(review_metadata.get('forgejo_agent_task_id') or 0)
+    if forgejo_task_id:
+        from a2a_server.forgejo_agent_client import update_task
+
+        await update_task(
+            repo=repo,
+            task_id=forgejo_task_id,
+            base_url=base,
+            status='running',
+            external_task_id=str(task_id),
+            head_sha=head_sha,
+            branch=branch,
+        )
     await request_forgejo_review(
         base=base,
         repo=repo,
@@ -325,6 +343,11 @@ async def create_forgejo_fix_followup(
         'forgejo_api_url': base,
         'forgejo_issue_url': metadata.get('forgejo_issue_url')
         or pr.get('html_url'),
+        'forgejo_agent_task_id': metadata.get('forgejo_agent_task_id'),
+        'forgejo_agent_task_url': metadata.get('forgejo_agent_task_url'),
+        'temporal_orchestrated': metadata.get('temporal_orchestrated', False),
+        'temporal_workflow_id': metadata.get('temporal_workflow_id'),
+        'temporal_attempt': metadata.get('temporal_attempt'),
         'review_task_id': review_task_id,
         'review_verdict': verdict,
         'fix_followup': 'true',
@@ -339,7 +362,7 @@ async def create_forgejo_fix_followup(
         'Edit the existing branch, run focused validation, commit, and push. '
         'Do not open a duplicate pull request.'
     )
-    return await create_and_dispatch_task(
+    task_id = await create_and_dispatch_task(
         workspace_id=workspace_id,
         title=f'Apply Forgejo PR fix #{pr_number}',
         prompt=prompt,
@@ -350,6 +373,20 @@ async def create_forgejo_fix_followup(
         task_timeout_seconds=TASK_TIMEOUT_SECONDS,
         github_issue_url=fix_metadata['forgejo_issue_url'],
     )
+    forgejo_task_id = int(fix_metadata.get('forgejo_agent_task_id') or 0)
+    if forgejo_task_id:
+        from a2a_server.forgejo_agent_client import update_task
+
+        await update_task(
+            repo=repo,
+            task_id=forgejo_task_id,
+            base_url=base,
+            status='running',
+            external_task_id=str(task_id),
+            head_sha=expected_sha,
+            branch=str(fix_metadata.get('branch_name') or ''),
+        )
+    return task_id
 
 
 async def create_status_remediation_task(
@@ -482,6 +519,7 @@ async def reconcile_forgejo_terminal_reviews(limit: int = 20) -> int:
                WHERE status = 'completed'
                  AND metadata->>'source' = 'forgejo-webhook'
                  AND metadata->>'workflow_stage' = 'review'
+                 AND COALESCE(metadata->>'temporal_orchestrated', 'false') != 'true'
                  AND NOT (COALESCE(metadata, '{}'::jsonb) ? 'forgejo_review_reconciled_at')
                ORDER BY completed_at
                LIMIT $1""",

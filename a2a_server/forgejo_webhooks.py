@@ -252,6 +252,65 @@ Request:
 
 Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from `{default_branch}` for an issue; for a PR update its existing branch). Implement the requested changes, run focused validation, commit, and push. For an issue, open a Forgejo pull request against `{default_branch}`. Post concise progress and the final commit/PR URL back to Forgejo issue #{ctx['number']}. Do not use GitHub APIs."""
     routing = await resolve_task_target()
+    from a2a_server.forgejo_agent_client import create_task as create_agent_task
+
+    operation = 'fix' if is_fix_request(ctx['body']) else 'review'
+    forgejo_agent_task = await create_agent_task(
+        repo=repo,
+        operation=operation,
+        prompt=prompt,
+        idempotency_key=(
+            f'forgejo-comment:{ctx.get("comment_id") or 0}:'
+            f'{head_sha or work_branch}:{operation}'
+        ),
+        issue_index=ctx['number'],
+        pull_request_index=ctx['number'] if ctx['is_pr'] else 0,
+        head_sha=head_sha,
+        metadata={
+            'source': 'forgejo-agent',
+            'trigger_actor_login': ctx.get('actor_login'),
+            'comment_id': ctx.get('comment_id'),
+        },
+        base_url=base,
+    )
+    forgejo_agent_task_id = int(forgejo_agent_task['id'])
+    forgejo_agent_task_url = str(forgejo_agent_task['html_url'])
+
+    from a2a_server.temporal.config import temporal_settings
+
+    if temporal_settings().enabled:
+        from a2a_server.forgejo_agent_client import (
+            update_task as update_agent_task,
+        )
+        from a2a_server.temporal.client import start_forgejo_workflow
+        from a2a_server.temporal.models import ForgejoAgentWorkflowInput
+
+        workflow_id = await start_forgejo_workflow(
+            ForgejoAgentWorkflowInput(
+                forgejo_task_id=forgejo_agent_task_id,
+                repository=repo,
+                issue_number=ctx['number'],
+                pull_request_number=ctx['number'] if ctx['is_pr'] else 0,
+                workspace_id=wid,
+                branch=work_branch,
+                head_sha=head_sha,
+                operation=operation,
+            )
+        )
+        await update_agent_task(
+            repo=repo,
+            task_id=forgejo_agent_task_id,
+            base_url=base,
+            status='accepted',
+        )
+        return {
+            'accepted': True,
+            'workspace_id': wid,
+            'temporal_workflow_id': workflow_id,
+            'forgejo_agent_task_id': forgejo_agent_task_id,
+            'forgejo_agent_task_url': forgejo_agent_task_url,
+        }
+
     followup = {
         'workspace_id': wid,
         'source': 'forgejo-webhook',
@@ -264,6 +323,8 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         'default_branch': default_branch,
         'forgejo_api_url': base,
         'forgejo_issue_url': ctx['html_url'],
+        'forgejo_agent_task_id': forgejo_agent_task_id,
+        'forgejo_agent_task_url': forgejo_agent_task_url,
         'trigger_actor_login': ctx.get('actor_login'),
         'pr_head_sha': head_sha,
         'forgejo_work_key': (
@@ -284,6 +345,8 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         'pr_head_sha': head_sha,
         'trigger_actor_login': ctx.get('actor_login'),
         'forgejo_api_url': base,
+        'forgejo_agent_task_id': forgejo_agent_task_id,
+        'forgejo_agent_task_url': forgejo_agent_task_url,
         'forgejo_work_key': (
             f'forgejo:{repo}:{ctx["number"]}:clone:{head_sha or branch}:'
             f'{ctx.get("comment_id") or 0}'
@@ -307,7 +370,24 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
         metadata=metadata,
         task_timeout_seconds=604800,
     )
-    return {'accepted': True, 'workspace_id': wid, 'clone_task_id': task_id}
+    from a2a_server.forgejo_agent_client import update_task as update_agent_task
+
+    await update_agent_task(
+        repo=repo,
+        task_id=forgejo_agent_task_id,
+        base_url=base,
+        status='accepted',
+        external_task_id=str(task_id),
+        head_sha=head_sha,
+        branch=work_branch,
+    )
+    return {
+        'accepted': True,
+        'workspace_id': wid,
+        'clone_task_id': task_id,
+        'forgejo_agent_task_id': forgejo_agent_task_id,
+        'forgejo_agent_task_url': forgejo_agent_task_url,
+    }
 
 
 async def _handle_status_event(
@@ -369,6 +449,42 @@ async def _handle_status_event(
         'reason': 'queued' if task_id else 'duplicate-or-ignored',
         'task_id': task_id,
     }
+
+
+@forgejo_webhook_router.post('/v1/webhooks/forgejo/agent-control')
+async def handle_forgejo_agent_control(request: Request) -> dict[str, Any]:
+    """Verify and signal a native Forgejo cancel/retry control."""
+    import json
+    import time
+
+    body = await request.body()
+    verify_forgejo_signature(_signature(request), body)
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, 'Invalid Forgejo control JSON') from exc
+    issued_at = int(payload.get('issued_at') or 0)
+    if not issued_at or abs(int(time.time()) - issued_at) > 300:
+        raise HTTPException(401, 'Expired Forgejo agent control')
+    action = str(payload.get('action') or '')
+    if action not in {'cancel', 'retry'}:
+        raise HTTPException(422, 'Unsupported Forgejo agent control')
+    forgejo_task_id = int(payload.get('task_id') or 0)
+    if not forgejo_task_id:
+        raise HTTPException(422, 'Forgejo task ID is required')
+
+    from a2a_server.temporal.client import signal_control
+    from a2a_server.temporal.models import ForgejoControlSignal
+
+    await signal_control(
+        ForgejoControlSignal(
+            action=action,
+            forgejo_task_id=forgejo_task_id,
+            requested_by=str(payload.get('requested_by') or ''),
+            request_id=str(payload.get('request_id') or ''),
+        )
+    )
+    return {'accepted': True, 'task_id': forgejo_task_id, 'action': action}
 
 
 @forgejo_webhook_router.post('/v1/webhooks/forgejo')
