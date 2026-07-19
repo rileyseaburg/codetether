@@ -34,6 +34,8 @@ import aiohttp
 
 # Import PostgreSQL database module
 from . import database as db
+from .agent_task_persistence import save as save_agent_task
+from .forgejo_protocol_admission import require as require_protocol_admission
 
 # Import Knative modules for event-driven worker spawning
 from .knative_spawner import (
@@ -394,46 +396,9 @@ class AgentBridge:
         except Exception as e:
             logger.error(f'Failed to delete codebase from PostgreSQL: {e}')
 
-    async def _save_task(self, task: AgentTask):
+    async def _save_task(self, task: AgentTask) -> bool:
         """Save or update a task in PostgreSQL."""
-        try:
-            metadata = dict(task.metadata or {})
-            if task.model and 'model' not in metadata:
-                metadata['model'] = task.model
-            if task.model_ref and 'model_ref' not in metadata:
-                metadata['model_ref'] = task.model_ref
-            if task.target_agent_name and 'target_agent_name' not in metadata:
-                metadata['target_agent_name'] = task.target_agent_name
-            if task.model_used and 'model_used' not in metadata:
-                metadata['model_used'] = task.model_used
-
-            await db.db_upsert_task(
-                {
-                    'id': task.id,
-                    # Workspace is the canonical DB column; keep legacy key too.
-                    'workspace_id': task.codebase_id,
-                    'codebase_id': task.codebase_id,
-                    'title': task.title,
-                    'prompt': task.prompt,
-                    'agent_type': task.agent_type,
-                    'status': task.status.value,
-                    'priority': task.priority,
-                    'worker_id': None,  # Will be set by worker when claimed
-                    'result': task.result,
-                    'error': task.error,
-                    'metadata': metadata,
-                    'created_at': task.created_at.isoformat(),
-                    'updated_at': datetime.utcnow().isoformat(),
-                    'started_at': task.started_at.isoformat()
-                    if task.started_at
-                    else None,
-                    'completed_at': task.completed_at.isoformat()
-                    if task.completed_at
-                    else None,
-                }
-            )
-        except Exception as e:
-            logger.error(f'Failed to save task to PostgreSQL: {e}')
+        return await save_agent_task(task)
 
     def _task_from_db_row(self, row: Dict[str, Any]) -> AgentTask:
         """Convert a database row to an AgentTask object."""
@@ -1618,6 +1583,9 @@ class AgentBridge:
         model: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         model_ref: Optional[str] = None,
+        task_id: Optional[str] = None,
+        require_persistence: bool = False,
+        protocol_admission: object | None = None,
     ) -> Optional[AgentTask]:
         """
         Create a new task for an agent.
@@ -1651,6 +1619,7 @@ class AgentBridge:
             codebase_name = 'global'
 
         task_metadata = dict(metadata or {})
+        require_protocol_admission(task_metadata, protocol_admission)
         if model and 'model' not in task_metadata:
             task_metadata['model'] = model
         if model_ref and 'model_ref' not in task_metadata:
@@ -1660,7 +1629,14 @@ class AgentBridge:
         if not isinstance(task_target_agent, str) or not task_target_agent:
             task_target_agent = None
 
-        task_id = str(uuid.uuid4())
+        if task_id:
+            cached = self._tasks.get(task_id)
+            if cached:
+                if require_persistence and not await self._save_task(cached):
+                    return None
+                return cached
+        else:
+            task_id = str(uuid.uuid4())
         task = AgentTask(
             id=task_id,
             codebase_id=codebase_id,
@@ -1682,7 +1658,15 @@ class AgentBridge:
         self._codebase_tasks[codebase_id].append(task_id)
 
         # Persist to database
-        await self._save_task(task)
+        saved = await self._save_task(task)
+        if require_persistence and not saved:
+            self._tasks.pop(task_id, None)
+            self._codebase_tasks[codebase_id] = [
+                value
+                for value in self._codebase_tasks[codebase_id]
+                if value != task_id
+            ]
+            return None
 
         logger.info(f'Created task {task_id} for {codebase_name}: {title}')
 

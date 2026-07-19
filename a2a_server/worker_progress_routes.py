@@ -9,6 +9,8 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from .worker_auth import verify_auth
+from .worker_extended_claim import resolve as resolve_extended_claim_name
+from .worker_task_mutation import authorize as authorize_worker_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +122,9 @@ async def post_task_heartbeat(
 ):
     """Persist CI runner progress and renew its short lease."""
     verify_auth(request)
+    await authorize_worker_mutation(
+        request, 'heartbeat-progress', heartbeat.task_id, heartbeat.worker_id
+    )
 
     from . import database as db
 
@@ -330,6 +335,9 @@ async def post_extended_heartbeat(
 ):
     """Extended heartbeat for 7-day persistent worker tasks."""
     verify_auth(request)
+    await authorize_worker_mutation(
+        request, 'heartbeat-extended', heartbeat.task_id, heartbeat.worker_id
+    )
 
     from .persistent_worker_pool import post_extended_heartbeat as _do_heartbeat
 
@@ -381,9 +389,12 @@ async def claim_extended_task_endpoint(
 
     from .persistent_worker_pool import claim_extended_task as _do_claim
 
+    agent_name = await resolve_extended_claim_name(
+        resolved_worker_id, x_agent_name
+    )
     result = await _do_claim(
         worker_id=resolved_worker_id,
-        agent_name=x_agent_name,
+        agent_name=agent_name,
     )
 
     if not result:
@@ -419,6 +430,9 @@ async def resume_task_from_checkpoint(
 ):
     """Resume a task from its last checkpoint."""
     verify_auth(request)
+    await authorize_worker_mutation(
+        request, 'resume', resume.task_id, resume.worker_id
+    )
 
     from . import database as db
 
@@ -472,9 +486,12 @@ async def claim_extended_task_legacy_endpoint(
 
     from .persistent_worker_pool import claim_extended_task
 
+    agent_name = await resolve_extended_claim_name(
+        claim.worker_id, claim.agent_name
+    )
     result = await claim_extended_task(
         worker_id=claim.worker_id,
-        agent_name=claim.agent_name,
+        agent_name=agent_name,
         capabilities=claim.capabilities,
         models_supported=claim.models_supported,
     )
@@ -490,6 +507,9 @@ async def heartbeat_extended_endpoint(
 ):
     """Legacy extended heartbeat endpoint for persistent workers."""
     verify_auth(request)
+    await authorize_worker_mutation(
+        request, 'heartbeat-extended', heartbeat.task_id, heartbeat.worker_id
+    )
 
     from .persistent_worker_pool import post_extended_heartbeat
 

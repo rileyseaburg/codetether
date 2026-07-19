@@ -30,6 +30,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from .sequencer_store import SequencerStore
+from .forgejo_worker_claim import require as require_forgejo_worker_claim
+from .forgejo_claim_reservation import reserve as reserve_forgejo_claim
+from .worker_task_mutation import authorize as authorize_worker_mutation
 from .stream_emit import format_event
 from .stream_resume_handshake import resume_frames
 from .task_routing import (
@@ -1328,9 +1331,29 @@ async def claim_task(
             detail='worker_id is required (query param or X-Worker-ID header)',
         )
 
+    try:
+        verified_task = await require_forgejo_worker_claim(
+            request.headers, claim.task_id, resolved_worker_id
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (LookupError, RuntimeError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
     registry = get_worker_registry()
 
     success = await registry.claim_task(claim.task_id, resolved_worker_id)
+    if success and verified_task:
+        try:
+            state = await reserve_forgejo_claim(
+                claim.task_id, resolved_worker_id
+            )
+        except RuntimeError as error:
+            await registry.release_task(claim.task_id, resolved_worker_id)
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        if state == 'unavailable':
+            await registry.release_task(claim.task_id, resolved_worker_id)
+            success = False
 
     if success:
         logger.info(
@@ -1427,6 +1450,9 @@ async def release_task(
             detail='worker_id is required (query param or X-Worker-ID header)',
         )
 
+    await authorize_worker_mutation(
+        request, 'release', release.task_id, resolved_worker_id
+    )
     registry = get_worker_registry()
 
     success = await registry.release_task(release.task_id, resolved_worker_id)
