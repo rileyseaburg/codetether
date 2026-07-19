@@ -319,9 +319,11 @@ async def finalize_workflow(payload: dict[str, Any]) -> None:
             f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
             f'/issues/{issue_number}/comments',
         )
+        if not isinstance(comments, list):
+            comments = []
         if not any(
             marker in str((comment or {}).get('body') or '')
-            for comment in comments or []
+            for comment in comments
         ):
             body += f'\n\n{marker}'
             await _comment(base, repository, issue_number, body)

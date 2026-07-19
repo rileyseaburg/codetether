@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from a2a_server import forgejo_agent_client
@@ -122,6 +124,42 @@ async def test_reconcile_ignores_stale_codetether_stage(monkeypatch):
 
     assert await controls.reconcile_forgejo_agent_controls() == 0
     assert cancelled == []
+
+
+@pytest.mark.asyncio
+async def test_reconcile_fetches_tasks_with_bounded_concurrency(monkeypatch):
+    active = 0
+    maximum = 0
+    tasks = []
+    for index in range(16):
+        task = _task('completed')
+        task['id'] = f'codetether-{index}'
+        task['metadata'] = {
+            **task['metadata'],
+            'forgejo_agent_task_id': index + 1,
+        }
+        tasks.append(task)
+
+    async def fake_linked(limit):
+        return tasks
+
+    async def fake_get(*, task_id, **kwargs):
+        nonlocal active, maximum
+        active += 1
+        maximum = max(maximum, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        return {
+            'id': task_id,
+            'status': 'completed',
+            'external_task_id': f'codetether-{task_id - 1}',
+        }
+
+    monkeypatch.setattr(controls, '_linked_tasks', fake_linked)
+    monkeypatch.setattr(forgejo_agent_client, 'get_task', fake_get)
+
+    assert await controls.reconcile_forgejo_agent_controls() == 0
+    assert 1 < maximum <= 8
 
 
 @pytest.mark.asyncio

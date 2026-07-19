@@ -490,7 +490,10 @@ async def reconcile_forgejo_failures(limit: int = 20) -> int:
         pulls = await forgejo_json(
             'GET', base, f'{_repo_path(repo)}/pulls?state=open&limit=50'
         )
-        for pr in pulls or []:
+        if not isinstance(pulls, list):
+            logger.warning('Forgejo pulls response for %s was not a list', repo)
+            continue
+        for pr in pulls:
             sha = str(((pr.get('head') or {}).get('sha')) or '')
             if not sha:
                 continue
@@ -499,7 +502,14 @@ async def reconcile_forgejo_failures(limit: int = 20) -> int:
                 base,
                 f'{_repo_path(repo)}/commits/{sha}/statuses?limit=50',
             )
-            for status in statuses or []:
+            if not isinstance(statuses, list):
+                logger.warning(
+                    'Forgejo statuses response for %s@%s was not a list',
+                    repo,
+                    sha,
+                )
+                continue
+            for status in statuses:
                 if await create_status_remediation_task(
                     base=base, repo=repo, pr=pr, status=status
                 ):

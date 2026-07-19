@@ -39,10 +39,11 @@ jobs:
         run: |
           set -euo pipefail
           files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}"...HEAD -- '*.py')"
-          test -n "$files"
-          /tmp/codetether-pr-ci/bin/python -m ruff check \
-            --config .github/linters/.ruff.toml $files
-          /tmp/codetether-pr-ci/bin/python -m ruff format --check $files
+          if [ -n "$files" ]; then
+            /tmp/codetether-pr-ci/bin/python -m ruff check \
+              --config .github/linters/.ruff.toml $files
+            /tmp/codetether-pr-ci/bin/python -m ruff format --check $files
+          fi
 
       - name: Compile Forgejo automation modules
         run: |

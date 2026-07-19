@@ -491,3 +491,38 @@ def test_forgejo_work_key_is_first_class():
         'forgejo_work_key': 'forgejo:owner/repo:5:review:abc123',
     }
     assert _github_work_key(metadata) == metadata['forgejo_work_key']
+
+
+@pytest.mark.asyncio
+async def test_failure_reconciler_ignores_non_list_pulls(monkeypatch):
+    from a2a_server import database
+
+    class Connection:
+        async def fetch(self, query, limit):
+            return [
+                {
+                    'repo': 'owner/repo',
+                    'base': 'https://forge.example/api/v1',
+                }
+            ]
+
+    class Acquire:
+        async def __aenter__(self):
+            return Connection()
+
+        async def __aexit__(self, *args):
+            return None
+
+    class Pool:
+        def acquire(self):
+            return Acquire()
+
+    async def get_pool():
+        return Pool()
+
+    async def fake_json(*args, **kwargs):
+        return {'user_error': 'unexpected response'}
+
+    monkeypatch.setattr(database, 'get_pool', get_pool)
+    monkeypatch.setattr(automation, 'forgejo_json', fake_json)
+    assert await automation.reconcile_forgejo_failures() == 0

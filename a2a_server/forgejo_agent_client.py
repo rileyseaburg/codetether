@@ -27,6 +27,8 @@ _SECRET_KEYS = {
     'token',
 }
 
+_HTTP_CLIENT: httpx.AsyncClient | None = None
+
 
 def _setting(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
@@ -72,16 +74,18 @@ async def _request(
     base_url: str = '',
     payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.request(
-            method,
-            f'{_api_base(base_url)}{path}',
-            headers={
-                'Authorization': f'token {_token()}',
-                'Accept': 'application/json',
-            },
-            json=_redact(payload) if payload is not None else None,
-        )
+    global _HTTP_CLIENT
+    if _HTTP_CLIENT is None or _HTTP_CLIENT.is_closed:
+        _HTTP_CLIENT = httpx.AsyncClient(timeout=30)
+    response = await _HTTP_CLIENT.request(
+        method,
+        f'{_api_base(base_url)}{path}',
+        headers={
+            'Authorization': f'token {_token()}',
+            'Accept': 'application/json',
+        },
+        json=_redact(payload) if payload is not None else None,
+    )
     if response.status_code >= 400:
         detail = response.text[:400]
         raise RuntimeError(

@@ -7,6 +7,7 @@ from temporalio.exceptions import ApplicationError
 
 from a2a_server import forgejo_task_completion
 from a2a_server import forgejo_webhooks
+from a2a_server.temporal import activities
 from a2a_server.temporal.activities import safe_activity
 from a2a_server.temporal.models import ForgejoAgentWorkflowInput
 
@@ -113,6 +114,51 @@ async def test_temporal_dispatch_starts_workflow_without_legacy_clone(
         operation='fix',
     )
     assert updates[-1]['status'] == 'accepted'
+
+
+@pytest.mark.asyncio
+async def test_finalize_handles_non_list_comment_response(monkeypatch):
+    updates = []
+    comments = []
+
+    async def fake_update(**kwargs):
+        updates.append(kwargs)
+        return {'id': 42}
+
+    async def fake_json(*args, **kwargs):
+        return {'user_error': 'unexpected response'}
+
+    async def fake_comment(*args):
+        comments.append(args)
+
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
+    monkeypatch.setattr(
+        'a2a_server.forgejo_agent_client.update_task', fake_update
+    )
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', fake_json)
+    monkeypatch.setattr(forgejo_webhooks, '_comment', fake_comment)
+
+    await activities.finalize_workflow(
+        {
+            'repository': 'owner/repo',
+            'forgejo_task_id': 42,
+            'status': 'completed',
+            'active_task_id': 'task-1',
+            'issue_number': 7,
+            'attempt': 1,
+        }
+    )
+
+    assert updates == [
+        {
+            'repo': 'owner/repo',
+            'task_id': 42,
+            'status': 'completed',
+            'external_task_id': 'task-1',
+        }
+    ]
+    assert len(comments) == 1
+    assert '<!-- codetether-temporal:42:1 -->' in comments[0][3]
 
 
 async def _async_value(value):
