@@ -1,0 +1,25 @@
+---
+extends: default
+
+ignore: |
+  chart/*/templates/*
+
+rules:
+  # Helm templates don't require document start markers
+  document-start: disable
+  # Allow longer lines for readability
+  line-length:
+    max: 120
+    level: warning
+  # Helm templates use Go template indentation which can differ
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+  # Allow comments without space after #
+  comments:
+    min-spaces-from-content: 1
+  # Allow truthy values
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: false

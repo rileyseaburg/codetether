@@ -1,3 +1,4 @@
+# ruff: noqa
 """
 Monitoring API endpoints for A2A Server.
 
@@ -37,6 +38,11 @@ from functools import lru_cache
 
 # Import PostgreSQL persistence layer
 from . import database as db
+from .worker_task_mutation import authorize as authorize_worker_mutation
+from .worker_registration_identity import bind as bind_worker_identity
+from .worker_lifecycle_authorization import authorize as authorize_worker_lifecycle
+from .worker_request_resource import derive as worker_request_resource
+from .worker_heartbeat_identity import bind as bind_worker_heartbeat
 from .git_auth_models import GitAuthConfig
 from .git_service import (
     default_clone_dir,
@@ -45,6 +51,11 @@ from .git_service import (
 )
 from .task_routing import target_agent_mismatch
 from .task_orchestration import orchestrate_task_route
+from .forgejo_request_scope import resolve as forgejo_request_scope
+from .forgejo_task_response import public as public_forgejo_task
+from .forgejo_task_access import authorize as authorize_forgejo_task_access
+from .forgejo_protocol_guard import classify as classify_forgejo_protocol
+from .worker_target_validation import validate_target_worker as _validate_target_worker_is_available
 
 try:
     from .vm_workspace_provisioner import (
@@ -1856,6 +1867,20 @@ class AgentTaskCreate(BaseModel):
     model: Optional[str] = None  # Optional: specify model
     model_ref: Optional[str] = None  # Optional: normalized provider:model
     worker_personality: Optional[str] = None
+
+
+class AgentTaskCreateSync(AgentTaskCreate):
+    """Request model for creating a task and waiting for worker output.
+
+    This is intended for CI/action integrations (Forgejo/GitHub PR review,
+    Codex/Copilot-style agent checks) where accepting a task asynchronously is
+    not useful to the caller. The HTTP request stays open until the worker
+    finishes or the timeout expires, and the response contains all streamed
+    output chunks plus the terminal result.
+    """
+
+    timeout_seconds: float = 900
+    poll_interval_seconds: float = 0.5
 
 
 class WatchModeConfig(BaseModel):
@@ -4428,80 +4453,6 @@ async def get_session_messages(workspace_id: str, limit: int = 50):
 # ========================================
 
 
-def _is_recent_heartbeat(
-    heartbeat_value: Optional[str], max_age_seconds: int = 120
-) -> bool:
-    """Return True when heartbeat timestamp is within max_age_seconds."""
-    if not heartbeat_value:
-        return False
-    try:
-        normalized = heartbeat_value.replace('Z', '+00:00')
-        last = datetime.fromisoformat(normalized)
-        if last.tzinfo is None:
-            last = last.replace(tzinfo=timezone.utc)
-        age = (datetime.now(timezone.utc) - last).total_seconds()
-        return age <= max_age_seconds
-    except Exception:
-        return False
-
-
-async def _validate_target_worker_is_available(
-    metadata: Dict[str, Any], *, strict: bool = False
-) -> None:
-    """Validate target worker availability for routed tasks."""
-    target_worker_id = metadata.get('target_worker_id')
-    if not target_worker_id:
-        return
-
-    target_worker_id = str(target_worker_id).strip()
-    if not target_worker_id:
-        return
-
-    try:
-        target_worker = await db.db_get_worker(target_worker_id)
-    except Exception as e:
-        target_worker = None
-        logger.debug(
-            f'Failed to load target worker {target_worker_id} from DB: {e}'
-        )
-
-    if not target_worker:
-        if strict:
-            raise HTTPException(
-                status_code=409,
-                detail=f'Target worker "{target_worker_id}" is not connected.',
-            )
-        logger.info(
-            f'Target worker "{target_worker_id}" is not connected; falling back to auto-select'
-        )
-        metadata.pop('target_worker_id', None)
-        metadata['_routing_warning'] = (
-            f'Target worker "{target_worker_id}" is not connected; task auto-routed to available worker.'
-        )
-        return
-
-    last_heartbeat = target_worker.get('last_seen') or target_worker.get(
-        'last_heartbeat'
-    )
-    if not _is_recent_heartbeat(
-        str(last_heartbeat) if last_heartbeat else None
-    ):
-        if strict:
-            raise HTTPException(
-                status_code=409,
-                detail=f'Target worker "{target_worker_id}" has a stale heartbeat.',
-            )
-        logger.info(
-            f'Target worker "{target_worker_id}" has stale heartbeat ({last_heartbeat}); falling back to auto-select'
-        )
-        metadata.pop('target_worker_id', None)
-        metadata['_routing_warning'] = (
-            f'Target worker "{target_worker_id}" is stale (last heartbeat: {last_heartbeat}); task auto-routed.'
-        )
-
-
-
-
 async def get_current_policy_user(request: Request) -> dict:
     """Return the OIDC/self-service/API-key user resolved by policy middleware."""
     user = getattr(request.state, 'policy_user', None)
@@ -4564,7 +4515,6 @@ async def list_all_tasks(
     return tasks
 
 
-
 @agent_router_alias.get('/workflows/github-app')
 async def get_github_app_workflows(
     request: Request,
@@ -4601,8 +4551,88 @@ async def get_github_app_workflows(
     return await load_github_app_workflows(pool, repos, limit, tenant_id)
 
 
+async def _wait_for_task_completion(
+    task_id: str,
+    *,
+    timeout_seconds: float,
+    poll_interval_seconds: float,
+) -> dict[str, Any]:
+    """Wait for a worker task to reach a terminal state and collect output."""
+    bridge = get_agent_bridge()
+    if bridge is None:
+        raise HTTPException(
+            status_code=503, detail='Agent bridge not available'
+        )
+
+    deadline = asyncio.get_running_loop().time() + max(timeout_seconds, 0.0)
+    poll_interval = max(poll_interval_seconds, 0.1)
+    terminal_statuses = {'completed', 'failed', 'cancelled'}
+
+    while True:
+        task = await bridge.get_task(task_id)
+        status = None
+        if task is not None:
+            raw_status = getattr(task, 'status', None)
+            status = getattr(raw_status, 'value', raw_status)
+
+        if status in terminal_statuses:
+            task_dict = task.to_dict() if hasattr(task, 'to_dict') else task
+            return {
+                'success': status == 'completed',
+                'task_id': task_id,
+                'status': status,
+                'task': task_dict,
+                'outputs': _task_output_streams.get(task_id, []),
+                'result': task_dict.get('result')
+                if isinstance(task_dict, dict)
+                else None,
+                'error': task_dict.get('error')
+                if isinstance(task_dict, dict)
+                else None,
+            }
+
+        if asyncio.get_running_loop().time() >= deadline:
+            raise HTTPException(
+                status_code=504,
+                detail={
+                    'message': 'Task did not complete before the synchronous wait timeout',
+                    'task_id': task_id,
+                    'status': status or 'unknown',
+                    'outputs': _task_output_streams.get(task_id, []),
+                },
+            )
+
+        await asyncio.sleep(poll_interval)
+
+
 @agent_router_alias.post('/tasks')
-async def create_global_task(task_data: AgentTaskCreate):
+async def create_global_task_endpoint(
+    task_data: AgentTaskCreate, request: Request
+):
+    """Parse HTTP-only verification credentials before task creation."""
+    metadata = task_data.metadata or {}
+    try:
+        is_forgejo_protocol = classify_forgejo_protocol(metadata)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if is_forgejo_protocol:
+        scope, tenant_id = forgejo_request_scope(request)
+    else:
+        scope, tenant_id = 'internal:global', None
+    return await create_global_task(
+        task_data,
+        request.headers.get('x-forgejo-token', ''),
+        scope,
+        tenant_id,
+    )
+
+
+async def create_global_task(
+    task_data: AgentTaskCreate,
+    forgejo_token: str = '',
+    idempotency_scope: str = 'internal:global',
+    tenant_id: Optional[str] = None,
+):
     """Create a new task, optionally tied to a specific workspace.
 
     If workspace_id is provided, the task will run in that workspace's directory.
@@ -4619,6 +4649,10 @@ async def create_global_task(task_data: AgentTaskCreate):
 
     # Build metadata + routing policy outputs.
     base_metadata = task_data.metadata.copy() if task_data.metadata else {}
+    try:
+        classify_forgejo_protocol(base_metadata)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     if task_data.model:
         base_metadata['model'] = task_data.model
     if task_data.model_ref:
@@ -4632,6 +4666,35 @@ async def create_global_task(task_data: AgentTaskCreate):
         model_ref=task_data.model_ref,
         worker_personality=task_data.worker_personality,
     )
+    if routed_metadata.get('protocol') == 'codetether.forgejo-author.v1':
+        from a2a_server.forgejo_author_request import AuthorTaskRequest
+        from a2a_server.forgejo_author_service import create as create_author_task
+
+        routed_metadata['idempotency_scope'] = idempotency_scope
+        if tenant_id:
+            routed_metadata['tenant_id'] = tenant_id
+        else:
+            routed_metadata.pop('tenant_id', None)
+
+        try:
+            request = AuthorTaskRequest(
+                task_data=task_data,
+                metadata=routed_metadata,
+                routing=routing_decision,
+                workspace_id=effective_workspace_id,
+                forgejo_token=forgejo_token,
+                idempotency_scope=idempotency_scope,
+                tenant_id=tenant_id,
+            )
+            return await create_author_task(
+                bridge, request, _validate_target_worker_is_available
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except LookupError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
     await _validate_target_worker_is_available(routed_metadata)
 
     if task_data.agent_type == 'clone_repo':
@@ -4673,6 +4736,135 @@ async def create_global_task(task_data: AgentTaskCreate):
     return task
 
 
+@agent_router_alias.post('/tasks/sync')
+async def create_global_task_sync(task_data: AgentTaskCreateSync):
+    """Create a task and synchronously return worker output/result.
+
+    CI action integrations should use this instead of queueing a task and
+    polling briefly. A timeout is reported as HTTP 504 with partial output,
+    making the check visibly inconclusive rather than silently non-blocking.
+    """
+    task = await create_global_task(task_data)
+    task_id = task.get('id') if isinstance(task, dict) else getattr(task, 'id')
+    if not task_id:
+        raise HTTPException(status_code=500, detail='Created task has no id')
+    return await _wait_for_task_completion(
+        str(task_id),
+        timeout_seconds=task_data.timeout_seconds,
+        poll_interval_seconds=task_data.poll_interval_seconds,
+    )
+
+
+async def _stream_task_run_events(
+    task_id: str,
+    *,
+    timeout_seconds: float,
+    poll_interval_seconds: float,
+):
+    """Yield NDJSON task lifecycle/output events until terminal state."""
+    bridge = get_agent_bridge()
+    if bridge is None:
+        yield (
+            json.dumps(
+                {
+                    'event': 'error',
+                    'task_id': task_id,
+                    'error': 'Agent bridge not available',
+                }
+            )
+            + '\n'
+        )
+        return
+
+    deadline = asyncio.get_running_loop().time() + max(timeout_seconds, 0.0)
+    poll_interval = max(poll_interval_seconds, 0.1)
+    terminal_statuses = {'completed', 'failed', 'cancelled'}
+    last_output_index = 0
+
+    yield json.dumps({'event': 'task_started', 'task_id': task_id}) + '\n'
+
+    while True:
+        outputs = _task_output_streams.get(task_id, [])
+        if len(outputs) > last_output_index:
+            for output in outputs[last_output_index:]:
+                yield (
+                    json.dumps(
+                        {'event': 'output', 'task_id': task_id, 'data': output}
+                    )
+                    + '\n'
+                )
+            last_output_index = len(outputs)
+
+        task = await bridge.get_task(task_id)
+        status = None
+        if task is not None:
+            raw_status = getattr(task, 'status', None)
+            status = getattr(raw_status, 'value', raw_status)
+
+        if status in terminal_statuses:
+            task_dict = task.to_dict() if hasattr(task, 'to_dict') else task
+            yield (
+                json.dumps(
+                    {
+                        'event': 'done',
+                        'task_id': task_id,
+                        'success': status == 'completed',
+                        'status': status,
+                        'task': task_dict,
+                        'result': task_dict.get('result')
+                        if isinstance(task_dict, dict)
+                        else None,
+                        'error': task_dict.get('error')
+                        if isinstance(task_dict, dict)
+                        else None,
+                    }
+                )
+                + '\n'
+            )
+            return
+
+        if asyncio.get_running_loop().time() >= deadline:
+            yield (
+                json.dumps(
+                    {
+                        'event': 'timeout',
+                        'task_id': task_id,
+                        'success': False,
+                        'status': status or 'unknown',
+                        'message': 'Task did not complete before the synchronous wait timeout',
+                    }
+                )
+                + '\n'
+            )
+            return
+
+        await asyncio.sleep(poll_interval)
+
+
+@agent_router_alias.post('/tasks/sync/stream')
+async def create_global_task_sync_stream(task_data: AgentTaskCreateSync):
+    """Create a task and stream worker output synchronously as NDJSON.
+
+    This endpoint is the CI/action-friendly path: the request stays open, every
+    worker output chunk is written to the response as it arrives, and the final
+    line is a `done` or `timeout` event. Callers should fail the action when the
+    terminal event has `success: false`.
+    """
+    task = await create_global_task(task_data)
+    task_id = task.get('id') if isinstance(task, dict) else getattr(task, 'id')
+    if not task_id:
+        raise HTTPException(status_code=500, detail='Created task has no id')
+
+    return StreamingResponse(
+        _stream_task_run_events(
+            str(task_id),
+            timeout_seconds=task_data.timeout_seconds,
+            poll_interval_seconds=task_data.poll_interval_seconds,
+        ),
+        media_type='application/x-ndjson',
+    )
+
+
 @agent_router_alias.post('/workspaces/{workspace_id}/tasks')
 async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
     """Create a new task for an agent to work on."""
@@ -4695,6 +4887,10 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
         raise HTTPException(status_code=404, detail='Workspace not found')
 
     base_metadata = task_data.metadata.copy() if task_data.metadata else {}
+    try:
+        classify_forgejo_protocol(base_metadata)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     if task_data.model:
         base_metadata['model'] = task_data.model
     if task_data.model_ref:
@@ -4873,24 +5069,37 @@ def _is_github_app_worker_post_clone_followup(
         return False
     if metadata.get('source') != 'github-app':
         return False
-    if not metadata.get('github_issue_url') or not metadata.get('target_worker_id'):
+    if not metadata.get('github_issue_url') or not metadata.get(
+        'target_worker_id'
+    ):
         return False
     return title.startswith(('Apply PR fix #', 'Work issue #'))
 
 
 @agent_router_alias.get('/workspaces/{workspace_id}/tasks')
-async def list_workspace_tasks(workspace_id: str, status: Optional[str] = None):
+async def list_workspace_tasks(
+    workspace_id: str, request: Request, status: Optional[str] = None
+):
     """List all tasks for a specific workspace."""
     # Use database as primary source of truth for tasks
     tasks = await db.db_list_tasks(
         workspace_id=workspace_id,
         status=status,
     )
-    return tasks
+    visible = []
+    for task in tasks:
+        try:
+            authorize_forgejo_task_access(request, task)
+        except HTTPException as error:
+            if error.status_code in (401, 403):
+                continue
+            raise
+        visible.append(public_forgejo_task(task))
+    return visible
 
 
 @agent_router_alias.get('/tasks/{task_id}', response_model=AgentTaskResponse)
-async def get_task(task_id: str):
+async def get_task(task_id: str, request: Request):
     """Get details of a specific task."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -4902,11 +5111,13 @@ async def get_task(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail='Task not found')
 
-    return task.to_dict()
+    task_data = task.to_dict()
+    authorize_forgejo_task_access(request, task_data)
+    return public_forgejo_task(task_data)
 
 
 @agent_router_alias.post('/tasks/{task_id}/cancel')
-async def cancel_task(task_id: str):
+async def cancel_task(task_id: str, request: Request):
     """Cancel a pending task."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -4914,6 +5125,22 @@ async def cancel_task(task_id: str):
             status_code=503, detail='Agent bridge not available'
         )
 
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
     success = bridge.cancel_task(task_id)
     if not success:
         raise HTTPException(
@@ -6403,15 +6630,30 @@ class TaskStatusUpdate(BaseModel):
 
 
 @agent_router_alias.post('/workers/register')
-async def register_worker(registration: WorkerRegistration):
+async def register_worker(registration: WorkerRegistration, request: Request):
     """Register a worker with the A2A server."""
+    capabilities = _normalized_worker_capabilities(
+        registration.name, registration.capabilities
+    )
+    try:
+        resource = await worker_request_resource(
+            request, registration.worker_id
+        )
+        capabilities, tenant_id = bind_worker_identity(
+            request.headers,
+            registration.worker_id,
+            registration.name,
+            capabilities,
+            proof=('register', resource),
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     worker_info = {
         'worker_id': registration.worker_id,
         'name': registration.name,
-        'capabilities': _normalized_worker_capabilities(
-            registration.name,
-            registration.capabilities,
-        ),
+        'capabilities': capabilities,
         'hostname': registration.hostname,
         'models': registration.models,
         'global_workspace_id': registration.global_workspace_id,
@@ -6419,13 +6661,20 @@ async def register_worker(registration: WorkerRegistration):
         'registered_at': datetime.utcnow().isoformat(),
         'last_seen': datetime.utcnow().isoformat(),
         'status': 'active',
+        'tenant_id': tenant_id,
     }
 
     # In-memory cache for this instance
     _registered_workers[registration.worker_id] = worker_info
 
     # Primary persistence: PostgreSQL (survives restarts/multi-replica)
-    await db.db_upsert_worker(worker_info)
+    persisted = await db.db_upsert_worker(worker_info)
+    if registration.name.startswith('ctforgejo_') and not persisted:
+        _registered_workers.pop(registration.worker_id, None)
+        raise HTTPException(
+            status_code=503,
+            detail='canonical worker registration was not durably persisted',
+        )
 
     # Secondary persistence: Redis (for session sync and fallback)
     await _redis_upsert_worker(worker_info)
@@ -6457,8 +6706,11 @@ async def register_worker(registration: WorkerRegistration):
 
 
 @agent_router_alias.post('/workers/{worker_id}/unregister')
-async def unregister_worker(worker_id: str):
+async def unregister_worker(worker_id: str, request: Request):
     """Unregister a worker."""
+    await authorize_worker_lifecycle(
+        request, worker_id, _registered_workers.get(worker_id)
+    )
     worker_info = None
 
     # Remove from in-memory
@@ -6729,9 +6981,25 @@ async def get_worker(worker_id: str):
 
 
 @agent_router_alias.post('/workers/{worker_id}/heartbeat')
-async def worker_heartbeat(worker_id: str):
+async def worker_heartbeat(worker_id: str, request: Request):
     """Update worker last-seen timestamp."""
     now = datetime.utcnow().isoformat()
+    worker_info = _registered_workers.get(worker_id)
+    if worker_info is None:
+        worker_info = await db.db_get_worker(worker_id)
+    if worker_info is None:
+        worker_info = await _redis_get_worker(worker_id)
+    try:
+        if worker_info is not None:
+            bind_worker_heartbeat(request.headers, worker_id, worker_info)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=403, detail=str(error)
+        ) from error
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=503, detail=str(error)
+        ) from error
 
     # Update in-memory cache
     if worker_id in _registered_workers:
@@ -6796,6 +7064,18 @@ async def worker_heartbeat(worker_id: str):
                             'last_seen': now,
                             'status': 'active',
                         }
+                        try:
+                            worker_info = bind_worker_heartbeat(
+                                request.headers, worker_id, worker_info
+                            )
+                        except ValueError as error:
+                            raise HTTPException(
+                                status_code=403, detail=str(error)
+                            ) from error
+                        except RuntimeError as error:
+                            raise HTTPException(
+                                status_code=503, detail=str(error)
+                            ) from error
                         _registered_workers[worker_id] = worker_info
                         await db.db_upsert_worker(worker_info)
                         await _redis_upsert_worker(worker_info)
@@ -6803,6 +7083,8 @@ async def worker_heartbeat(worker_id: str):
                             f'Auto-registered SSE worker {worker_id} into main registry during heartbeat'
                         )
                         return {'success': True}
+                except HTTPException:
+                    raise
                 except Exception as e:
                     logger.debug(f'SSE registry check failed: {e}')
 
@@ -7193,8 +7475,11 @@ async def delete_worker_agent(worker_id: str, agent_id: str):
 
 
 @agent_router_alias.put('/tasks/{task_id}/status')
-async def update_task_status(task_id: str, update: TaskStatusUpdate):
+async def update_task_status(task_id: str, update: TaskStatusUpdate, request: Request):
     """Update task status (called by workers)."""
+    await authorize_worker_mutation(
+        request, 'status', task_id, update.worker_id
+    )
     bridge = get_agent_bridge()
     if bridge is None:
         raise HTTPException(
@@ -7273,8 +7558,11 @@ class TaskOutputChunk(BaseModel):
 
 
 @agent_router_alias.post('/tasks/{task_id}/output')
-async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
+async def stream_task_output(task_id: str, chunk: TaskOutputChunk, request: Request):
     """Receive streaming output from a worker (called by workers)."""
+    await authorize_worker_mutation(
+        request, 'output', task_id, chunk.worker_id
+    )
     if task_id not in _task_output_streams:
         _task_output_streams[task_id] = []
 
@@ -7323,8 +7611,17 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
 
 
 @agent_router_alias.get('/tasks/{task_id}/output')
-async def get_task_output(task_id: str, since: Optional[int] = None):
+async def get_task_output(
+    task_id: str, request: Request, since: Optional[int] = None
+):
     """Get streaming output for a task."""
+    bridge = get_agent_bridge()
+    if bridge is None:
+        raise HTTPException(status_code=503, detail='Agent bridge not available')
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
     outputs = _task_output_streams.get(task_id, [])
 
     if since is not None and since < len(outputs):
@@ -7340,6 +7637,13 @@ async def get_task_output(task_id: str, since: Optional[int] = None):
 @agent_router_alias.get('/tasks/{task_id}/output/stream')
 async def stream_task_output_sse(task_id: str, request: Request):
     """SSE stream for real-time task output."""
+    bridge = get_agent_bridge()
+    if bridge is None:
+        raise HTTPException(status_code=503, detail='Agent bridge not available')
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
     from sse_starlette.sse import EventSourceResponse
 
     async def event_generator():
@@ -7379,7 +7683,7 @@ async def stream_task_output_sse(task_id: str, request: Request):
 
 
 @agent_router_alias.post('/tasks/{task_id}/cancel')
-async def cancel_task(task_id: str):
+async def cancel_task(task_id: str, request: Request):
     """Cancel a pending task."""
     bridge = get_agent_bridge()
     if bridge is None:
@@ -7387,6 +7691,22 @@ async def cancel_task(task_id: str):
             status_code=503, detail='Agent bridge not available'
         )
 
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
+    task = await bridge.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail='Task not found')
+    authorize_forgejo_task_access(request, task.to_dict())
     success = bridge.cancel_task(task_id)
     if not success:
         raise HTTPException(
@@ -7994,7 +8314,6 @@ except ImportError:
 
     async def get_self_service_user(*args, **kwargs):
         return None
-
 
 
 @dataclass

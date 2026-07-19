@@ -1,20 +1,21 @@
+# ruff: noqa
 import asyncio
 import os
+
 from unittest.mock import AsyncMock
 
 import pytest
+
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
+
 
 os.environ.setdefault(
     'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
 )
 
-import a2a_server.agent_bridge as agent_bridge
-import a2a_server.database as database
-import a2a_server.monitor_api as monitor_api
-import a2a_server.worker_sse as worker_sse
+from a2a_server import agent_bridge, database, monitor_api, worker_sse
 from a2a_server.worker_claim_routing import normalize_capabilities
 from a2a_server.worker_sse import WorkerRegistry, worker_sse_router
 
@@ -279,8 +280,7 @@ async def test_claim_task_rejects_worker_missing_required_capability(
     )
 
     assert (
-        await registry.claim_task('task_persistent', 'worker_knative')
-        is False
+        await registry.claim_task('task_persistent', 'worker_knative') is False
     )
     assert 'task_persistent' not in registry._claimed_tasks
 

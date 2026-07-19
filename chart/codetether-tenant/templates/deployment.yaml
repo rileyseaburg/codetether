@@ -1,3 +1,4 @@
+# yamllint disable-file
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,6 +44,22 @@ spec:
               value: {{ .Values.env.A2A_HOST | quote }}
             - name: A2A_PORT
               value: {{ .Values.env.A2A_PORT | quote }}
+            - name: KEYCLOAK_URL
+              value: {{ .Values.env.KEYCLOAK_URL | quote }}
+            - name: KEYCLOAK_REALM
+              value: {{ .Values.env.KEYCLOAK_REALM | quote }}
+            - name: KEYCLOAK_ISSUER
+              value: {{ .Values.env.KEYCLOAK_ISSUER | quote }}
+            - name: KEYCLOAK_CLIENT_ID
+              value: {{ .Values.env.KEYCLOAK_CLIENT_ID | quote }}
+            {{- if .Values.secrets.keycloak }}
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.keycloak }}
+                  key: KEYCLOAK_CLIENT_SECRET
+                  optional: true
+            {{- end }}
             {{- if .Values.secrets.database }}
             - name: DATABASE_URL
               valueFrom:

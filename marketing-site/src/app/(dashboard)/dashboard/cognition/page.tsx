@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { useSession } from 'next-auth/react'
 
 // Cognition API is proxied through Next.js rewrites (next.config.js) to avoid
 // Mixed Content errors when the backend only speaks HTTP.
@@ -249,23 +250,26 @@ function withCognitionApiHint(message: string) {
     return message
 }
 
-function getAuthHeaders(includeJson: boolean, extraHeaders?: HeadersInit): Headers {
+function getAuthHeaders(
+    includeJson: boolean,
+    extraHeaders: HeadersInit | undefined,
+    token?: string
+): Headers {
     const headers = new Headers(extraHeaders)
     if (includeJson && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json')
     }
 
-    if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('a2a_token')
-        if (token && !headers.has('Authorization')) {
-            headers.set('Authorization', `Bearer ${token}`)
-        }
+    if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`)
     }
 
     return headers
 }
 
 export default function CognitionPage() {
+    const { data: session } = useSession()
+    const authToken = (session as any)?.accessToken as string | undefined
     const [status, setStatus] = useState<CognitionStatus | null>(null)
     const [snapshot, setSnapshot] = useState<MemorySnapshot | null>(null)
     const [lineage, setLineage] = useState<LineageGraph | null>(null)
@@ -323,7 +327,7 @@ export default function CognitionPage() {
             try {
                 response = await fetch(`${COGNITION_API_URL}${path.replace('/v1/cognition/', '/api/cognition/').replace('/v1/swarm/', '/api/swarm/')}`, {
                     ...init,
-                    headers: getAuthHeaders(Boolean(init.body), init.headers),
+                    headers: getAuthHeaders(Boolean(init.body), init.headers, authToken),
                     credentials: 'omit',
                 })
             } catch {

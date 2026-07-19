@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 
 import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/Button'
@@ -13,33 +13,26 @@ function LoginForm() {
   const { status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
   const authError = searchParams.get('error')
+  const initialError = useMemo(() => {
+    if (!authError) return null
+    if (authError === 'OAuthSignin') return 'Error connecting to Keycloak'
+    if (authError === 'OAuthCallback') return 'Authentication callback failed'
+    if (authError === 'Configuration') {
+      return 'Authentication is misconfigured (check Keycloak client ID/secret and issuer settings).'
+    }
+    if (authError === 'OAuthAccountNotLinked') return 'Account not linked'
+    return 'Authentication failed'
+  }, [authError])
+  const [error, setError] = useState<string | null>(initialError)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated') {
       router.push(callbackUrl)
     }
   }, [status, router, callbackUrl])
-
-  useEffect(() => {
-    if (authError) {
-      setError(
-        authError === 'OAuthSignin'
-          ? 'Error connecting to Keycloak'
-          : authError === 'OAuthCallback'
-            ? 'Authentication callback failed'
-            : authError === 'Configuration'
-              ? 'Authentication is misconfigured (check Keycloak client ID/secret and issuer settings).'
-            : authError === 'OAuthAccountNotLinked'
-              ? 'Account not linked'
-              : 'Authentication failed'
-      )
-    }
-  }, [authError])
 
   const handleKeycloakLogin = async () => {
     setLoading(true)
@@ -59,56 +52,11 @@ function LoginForm() {
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
-    const password = formData.get('password') as string
-
-     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
     try {
-      // Try new self-service user auth first
-      const userAuthResponse = await fetch(
-        `${apiUrl}/v1/users/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        }
-      )
-
-      if (userAuthResponse.ok) {
-        const data = await userAuthResponse.json()
-        // Store token and user info
-        localStorage.setItem('a2a_token', data.access_token)
-        localStorage.setItem('a2a_user', JSON.stringify(data.user))
-        // Also set cookie for server-side middleware
-        document.cookie = `a2a_token=${data.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
-        router.push(callbackUrl)
-        return
-      }
-
-      // Fall back to Keycloak-based auth
-      const keycloakResponse = await fetch(
-        `${apiUrl}/v1/auth/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: email, password }),
-        }
-      )
-
-      if (keycloakResponse.ok) {
-        const data = await keycloakResponse.json()
-        // Store token and redirect
-        localStorage.setItem('a2a_token', data.accessToken || data.access_token)
-        localStorage.setItem('a2a_refresh_token', data.refreshToken || data.refresh_token || '')
-        localStorage.setItem('a2a_session', JSON.stringify(data.session || {}))
-        router.push(callbackUrl)
-      } else {
-        const errorData = await keycloakResponse.json().catch(() => ({}))
-        setError(errorData.detail || 'Invalid email or password')
-      }
+      await signIn('keycloak', { callbackUrl }, { login_hint: email })
     } catch {
-      setError('Failed to connect to authentication server')
-    } finally {
+      setError('Failed to initiate Keycloak login')
       setLoading(false)
     }
   }
@@ -162,7 +110,7 @@ function LoginForm() {
         </div>
         <div className="relative flex justify-center text-sm">
           <span className="bg-white px-2 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-            Or continue with email
+            Sign in with your Keycloak account
           </span>
         </div>
       </div>
@@ -176,13 +124,6 @@ function LoginForm() {
             autoComplete="email"
             required
           />
-          <TextField
-            label="Password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
         </div>
         <Button
           type="submit"
@@ -190,7 +131,7 @@ function LoginForm() {
           className="mt-8 w-full"
           disabled={loading}
         >
-          {loading ? 'Signing in...' : 'Sign in to account'}
+          {loading ? 'Redirecting...' : 'Continue to Keycloak'}
         </Button>
       </form>
     </AuthLayout>

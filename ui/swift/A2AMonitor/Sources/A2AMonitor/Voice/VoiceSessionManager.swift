@@ -27,7 +27,7 @@ struct VoiceOption: Identifiable, Codable, Hashable {
         case model
         case language
     }
-    
+
     // Provide defaults for display
     var displayProvider: String { provider ?? "Default" }
     var displayModel: String { model ?? "Standard" }
@@ -93,8 +93,8 @@ class VoiceSessionManager: ObservableObject {
             self.baseURL = url
         } else {
             // Safely parse URL from UserDefaults, falling back to default if invalid
-            let urlString = UserDefaults.standard.string(forKey: "serverURL") ?? "https://api.codetether.run"
-            self.baseURL = URL(string: urlString) ?? URL(string: "https://api.codetether.run")!
+            let urlString = UserDefaults.standard.string(forKey: "serverURL") ?? "https://quantum-forge.codetether.run"
+            self.baseURL = URL(string: urlString) ?? URL(string: "https://quantum-forge.codetether.run")!
         }
         self.authHeader = authHeader
         self.userId = "user-\(UUID().uuidString.prefix(8))"
@@ -194,7 +194,7 @@ class VoiceSessionManager: ObservableObject {
             self.currentRoomName = nil
         }
     }
-    
+
     func toggleMute() async {
         guard let room = room else { return }
         do {
@@ -290,7 +290,7 @@ class VoiceSessionManager: ObservableObject {
         stateUpdateTask = Task {
             var retryCount = 0
             let maxRetries = 3
-            
+
             while !Task.isCancelled {
                 do {
                     let url = baseURL.appendingPathComponent("/v1/voice/sessions/\(roomName)/state")

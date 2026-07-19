@@ -91,3 +91,5 @@ CHANGELOG.md
 \.gitignore
 ^\Qdocs/robots.txt\E$
 CODE_OF_CONDUCT.md
+^\.codetether/
+^\.codetether-todos\.json$

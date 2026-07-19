@@ -1,0 +1,3 @@
+[codespell]
+# Swift keyword 'inout' is flagged as a misspelling - ignore it
+ignore-words-list = inout

@@ -1425,6 +1425,8 @@ async def db_upsert_task(
                         started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
                         completed_at = EXCLUDED.completed_at,
                         tenant_id = COALESCE(EXCLUDED.tenant_id, tasks.tenant_id)
+                        WHERE tasks.metadata->>'protocol'
+                            IS DISTINCT FROM 'codetether.forgejo-author.v1'
                 """,
                     *params,
                 )
@@ -1448,6 +1450,8 @@ async def db_upsert_task(
                             started_at = COALESCE(tasks.started_at, EXCLUDED.started_at),
                             completed_at = EXCLUDED.completed_at,
                             tenant_id = COALESCE(EXCLUDED.tenant_id, tasks.tenant_id)
+                            WHERE tasks.metadata->>'protocol'
+                                IS DISTINCT FROM 'codetether.forgejo-author.v1'
                     """,
                         *params,
                     )
@@ -1475,7 +1479,7 @@ async def db_get_task(task_id: str) -> Optional[Dict[str, Any]]:
         return None
     except Exception as e:
         logger.error(f'Failed to get task: {e}')
-        return None
+        raise
 
 
 async def db_list_tasks(

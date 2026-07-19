@@ -52,17 +52,6 @@ interface BillingStatus {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
-const getAuthHeaders = () => {
-    const headers: Record<string, string> = {}
-    if (typeof window !== 'undefined') {
-        const storedToken = localStorage.getItem('a2a_token')
-        if (storedToken) {
-            headers['Authorization'] = `Bearer ${storedToken}`
-        }
-    }
-    return headers
-}
-
 export default function SettingsPage() {
     const { data: session, status } = useSession()
     const [providers, setProviders] = useState<Provider[]>([])
@@ -82,16 +71,7 @@ export default function SettingsPage() {
 
     const getAuthToken = () => {
         const sessionToken = session?.accessToken || (session as any)?.idToken
-        if (sessionToken) {
-            return sessionToken as string
-        }
-        if (typeof window !== 'undefined') {
-            const storedToken = localStorage.getItem('a2a_token')
-            if (storedToken) {
-                return storedToken
-            }
-        }
-        return null
+        return sessionToken ? (sessionToken as string) : null
     }
 
     useEffect(() => {

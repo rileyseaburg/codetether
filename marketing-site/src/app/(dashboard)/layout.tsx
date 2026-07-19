@@ -1,42 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import clsx from 'clsx'
 import { ApiAuthSync } from '@/components/ApiAuthSync'
 
-// Custom hook to get user from either NextAuth or localStorage
 function useAuth() {
   const { data: session, status } = useSession()
-  const [customUser, setCustomUser] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const user = session?.user
+  const isAuthenticated = status === 'authenticated'
+  const loading = status === 'loading'
 
-  useEffect(() => {
-    // Check for custom token in localStorage
-    const token = localStorage.getItem('a2a_token')
-    const userStr = localStorage.getItem('a2a_user')
-
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr)
-        setCustomUser(user)
-      } catch {
-        // Invalid user data
-        localStorage.removeItem('a2a_token')
-        localStorage.removeItem('a2a_user')
-      }
-    }
-    setIsLoading(false)
-  }, [])
-
-  // Prefer NextAuth session, fall back to custom auth
-  const user = session?.user || customUser
-  const isAuthenticated = status === 'authenticated' || !!customUser
-  const loading = status === 'loading' || isLoading
-
-  return { user, isAuthenticated, loading, session, customUser }
+  return { user, isAuthenticated, loading, session }
 }
 
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
@@ -457,7 +434,7 @@ export default function DashboardLayout({
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, isAuthenticated, loading, session, customUser } = useAuth()
+  const { user, isAuthenticated, loading, session } = useAuth()
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -476,7 +453,6 @@ export default function DashboardLayout({
   const navItems = isAdmin ? [...navigation, adminNavItem] : navigation
 
   useEffect(() => {
-    setDarkMode(true)
     document.documentElement.classList.add('dark')
   }, [])
 
@@ -704,19 +680,16 @@ export default function DashboardLayout({
                     {user.image ? (
                       <img
                         src={user.image}
-                        alt={user.name || user.first_name || 'User'}
+                        alt={user.name || user.email || 'User'}
                         className="h-8 w-8 rounded-full"
                       />
                     ) : (
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-white text-sm font-medium">
-                        {user.name?.charAt(0) ||
-                          user.first_name?.charAt(0) ||
-                          user.email?.charAt(0) ||
-                          'U'}
+                        {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
                       </div>
                     )}
                     <span className="hidden xs:hidden sm:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 max-w-20 sm:max-w-none truncate">
-                      {user.name || user.first_name || user.email}
+                      {user.name || user.email}
                     </span>
                   </button>
 

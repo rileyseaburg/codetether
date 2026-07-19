@@ -962,13 +962,102 @@ struct UserSession: Codable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
+        case userIdCamel = "userId"
+        case id
         case email, username, name
+        case firstName = "first_name"
+        case firstNameCamel = "firstName"
+        case lastName = "last_name"
+        case lastNameCamel = "lastName"
         case sessionId = "session_id"
+        case sessionIdCamel = "sessionId"
         case expiresAt = "expires_at"
+        case expiresAtCamel = "expiresAt"
         case createdAt = "created_at"
+        case createdAtCamel = "createdAt"
         case lastActivity = "last_activity"
+        case lastActivityCamel = "lastActivity"
         case deviceInfo = "device_info"
+        case deviceInfoCamel = "deviceInfo"
         case roles
+    }
+
+    init(
+        userId: String,
+        email: String,
+        username: String,
+        name: String,
+        sessionId: String,
+        expiresAt: String,
+        createdAt: String,
+        lastActivity: String,
+        deviceInfo: DeviceInfo,
+        roles: [String]
+    ) {
+        self.userId = userId
+        self.email = email
+        self.username = username
+        self.name = name
+        self.sessionId = sessionId
+        self.expiresAt = expiresAt
+        self.createdAt = createdAt
+        self.lastActivity = lastActivity
+        self.deviceInfo = deviceInfo
+        self.roles = roles
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedUserId = try container.decodeIfPresent(String.self, forKey: .userId)
+            ?? container.decodeIfPresent(String.self, forKey: .userIdCamel)
+            ?? container.decodeIfPresent(String.self, forKey: .id)
+            ?? UUID().uuidString
+        let decodedEmail = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        let firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+            ?? container.decodeIfPresent(String.self, forKey: .firstNameCamel)
+            ?? ""
+        let lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+            ?? container.decodeIfPresent(String.self, forKey: .lastNameCamel)
+            ?? ""
+        let decodedName = try container.decodeIfPresent(String.self, forKey: .name)
+            ?? [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ")
+        let decodedUsername = try container.decodeIfPresent(String.self, forKey: .username)
+            ?? decodedEmail
+
+        userId = decodedUserId
+        email = decodedEmail
+        username = decodedUsername
+        name = decodedName
+        sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
+            ?? container.decodeIfPresent(String.self, forKey: .sessionIdCamel)
+            ?? decodedUserId
+        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt)
+            ?? container.decodeIfPresent(String.self, forKey: .expiresAtCamel)
+            ?? ""
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+            ?? container.decodeIfPresent(String.self, forKey: .createdAtCamel)
+            ?? ""
+        lastActivity = try container.decodeIfPresent(String.self, forKey: .lastActivity)
+            ?? container.decodeIfPresent(String.self, forKey: .lastActivityCamel)
+            ?? ""
+        deviceInfo = try container.decodeIfPresent(DeviceInfo.self, forKey: .deviceInfo)
+            ?? container.decodeIfPresent(DeviceInfo.self, forKey: .deviceInfoCamel)
+            ?? DeviceInfo()
+        roles = try container.decodeIfPresent([String].self, forKey: .roles) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(email, forKey: .email)
+        try container.encode(username, forKey: .username)
+        try container.encode(name, forKey: .name)
+        try container.encode(sessionId, forKey: .sessionId)
+        try container.encode(expiresAt, forKey: .expiresAt)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(lastActivity, forKey: .lastActivity)
+        try container.encode(deviceInfo, forKey: .deviceInfo)
+        try container.encode(roles, forKey: .roles)
     }
 
     var isAdmin: Bool {
@@ -987,6 +1076,20 @@ struct DeviceInfo: Codable, Hashable {
     let ipAddress: String?
     let userAgent: String?
 
+    init(
+        deviceId: String? = nil,
+        deviceName: String? = nil,
+        deviceType: String? = nil,
+        ipAddress: String? = nil,
+        userAgent: String? = nil
+    ) {
+        self.deviceId = deviceId
+        self.deviceName = deviceName
+        self.deviceType = deviceType
+        self.ipAddress = ipAddress
+        self.userAgent = userAgent
+    }
+
     enum CodingKeys: String, CodingKey {
         case deviceId = "device_id"
         case deviceName = "device_name"
@@ -1004,10 +1107,54 @@ struct LoginResponse: Codable {
     let expiresAt: String
 
     enum CodingKeys: String, CodingKey {
-        case success, session
+        case success, session, user
         case accessToken = "access_token"
+        case accessTokenCamel = "accessToken"
         case refreshToken = "refresh_token"
+        case refreshTokenCamel = "refreshToken"
         case expiresAt = "expires_at"
+        case expiresAtCamel = "expiresAt"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken)
+            ?? container.decode(String.self, forKey: .accessTokenCamel)
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
+            ?? container.decodeIfPresent(String.self, forKey: .refreshTokenCamel)
+        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt)
+            ?? container.decode(String.self, forKey: .expiresAtCamel)
+
+        if let decodedSession = try container.decodeIfPresent(UserSession.self, forKey: .session) {
+            session = decodedSession
+        } else {
+            var decodedUser = try container.decode(UserSession.self, forKey: .user)
+            if decodedUser.expiresAt.isEmpty || decodedUser.sessionId == decodedUser.userId {
+                decodedUser = UserSession(
+                    userId: decodedUser.userId,
+                    email: decodedUser.email,
+                    username: decodedUser.username,
+                    name: decodedUser.name,
+                    sessionId: decodedUser.sessionId,
+                    expiresAt: expiresAt,
+                    createdAt: decodedUser.createdAt,
+                    lastActivity: decodedUser.lastActivity,
+                    deviceInfo: decodedUser.deviceInfo,
+                    roles: decodedUser.roles
+                )
+            }
+            session = decodedUser
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(success, forKey: .success)
+        try container.encode(session, forKey: .session)
+        try container.encode(accessToken, forKey: .accessToken)
+        try container.encodeIfPresent(refreshToken, forKey: .refreshToken)
+        try container.encode(expiresAt, forKey: .expiresAt)
     }
 }
 

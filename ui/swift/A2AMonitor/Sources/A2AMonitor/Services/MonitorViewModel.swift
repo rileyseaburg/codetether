@@ -70,7 +70,7 @@ class MonitorViewModel: ObservableObject {
 
     // MARK: - Settings
 
-    @AppStorage("serverURL") var serverURL = "https://api.codetether.run" {
+    @AppStorage("serverURL") var serverURL = "https://quantum-forge.codetether.run" {
         didSet {
             client.updateBaseURL(serverURL)
         }
@@ -81,7 +81,7 @@ class MonitorViewModel: ObservableObject {
     // MARK: - Init
 
     init() {
-        self.client = A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "https://api.codetether.run")
+        self.client = A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "https://quantum-forge.codetether.run")
         setupCallbacks()
     }
 

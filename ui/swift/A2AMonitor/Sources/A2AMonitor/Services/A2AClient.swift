@@ -44,7 +44,7 @@ class A2AClient: ObservableObject {
     /// Reusable ISO8601 formatter for outgoing timestamps (avoids per-call allocation).
     private static let iso8601Output = ISO8601DateFormatter()
 
-    init(baseURL: String = "https://api.codetether.run") {
+    init(baseURL: String = "https://quantum-forge.codetether.run") {
         self.baseURL = URL(string: baseURL)!
 
         let config = URLSessionConfiguration.default
@@ -92,7 +92,7 @@ class A2AClient: ObservableObject {
             onEvent: { [weak self] event in
                 Task { @MainActor in
                     guard let self = self else { return }
-                    
+
                     // Set connected on first successful event
                     if !hasReceivedFirstEvent {
                         hasReceivedFirstEvent = true
@@ -100,7 +100,7 @@ class A2AClient: ObservableObject {
                         self.connectionError = nil
                         self.reconnectAttempts = 0  // Reset on successful connection
                     }
-                    
+
                     self.handleSSEEvent(event)
                 }
             },

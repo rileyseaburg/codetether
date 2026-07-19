@@ -72,13 +72,6 @@ const getStoredUser = (): any => {
     }
 }
 
-const getStoredToken = (): string | null => {
-    if (typeof window === 'undefined') {
-        return null
-    }
-    return localStorage.getItem('a2a_token')
-}
-
 const hasAdminRole = (user: any): boolean => {
     if (!user) {
         return false
@@ -107,14 +100,11 @@ export default function AdminPoliciesPage() {
 
     const getAuthToken = (): string | null => {
         const sessionToken = typedSession?.accessToken
-        if (sessionToken) {
-            return sessionToken as string
-        }
-        return getStoredToken()
+        return sessionToken ? (sessionToken as string) : null
     }
 
     const isAdmin = useMemo(() => {
-        return hasAdminRole(typedSession?.user) || hasAdminRole(getStoredUser())
+        return hasAdminRole(typedSession?.user)
     }, [typedSession])
 
     const loadPolicyData = async (preferredRole?: string) => {

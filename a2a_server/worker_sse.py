@@ -1,5 +1,5 @@
-"""
-Worker SSE Task Stream - Push-based task distribution for A2A workers.
+# ruff: noqa
+"""Worker SSE Task Stream - Push-based task distribution for A2A workers.
 
 This module implements "reverse-polling" via Server-Sent Events (SSE) where workers
 connect outbound to the server and receive task notifications pushed to them.
@@ -17,43 +17,57 @@ Security:
 """
 
 import asyncio
-import json
 import logging
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set
 
-from fastapi import APIRouter, HTTPException, Request, Query, Header
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Header, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from .sequencer_store import SequencerStore
+from .forgejo_worker_claim import require as require_forgejo_worker_claim
+from .forgejo_claim_reservation import reserve as reserve_forgejo_claim
+from .worker_task_mutation import authorize as authorize_worker_mutation
+from .stream_emit import format_event
+from .stream_resume_handshake import resume_frames
 from .task_routing import (
     is_clone_task,
     is_targeted_clone_task,
     target_agent_mismatch,
 )
+from .worker_auth import verify_auth as _verify_auth
 from .worker_claim_routing import (
     db_worker_agent_name as _db_worker_agent_name,
-    db_worker_capabilities as _db_worker_capabilities,
-    db_worker_recent as _db_worker_recent,
-    has_persistent_workspace_capability as _has_persistent_workspace_capability,
-    normalize_capabilities as _normalize_capabilities,
 )
-from .worker_task_run_claims import (
-    claim_task_run_for_worker as _claim_task_run_for_worker,
-    mirror_release_to_task_run as _mirror_release_to_task_run,
+from .worker_claim_routing import (
+    db_worker_capabilities as _db_worker_capabilities,
+)
+from .worker_claim_routing import (
+    db_worker_recent as _db_worker_recent,
+)
+from .worker_claim_routing import (
+    has_persistent_workspace_capability as _has_persistent_workspace_capability,
+)
+from .worker_claim_routing import (
+    normalize_capabilities as _normalize_capabilities,
 )
 from .worker_persistent_claim_loop import (
     start_persistent_claim_loop as _start_persistent_claim_loop,
-    stop_persistent_claim_loop,
 )
-from .worker_auth import verify_auth as _verify_auth
 from .worker_progress_routes import worker_progress_router
-from .stream_emit import format_event
-from .sequencer_store import SequencerStore
-from .stream_resume_handshake import resume_frames
 from .worker_queue import make_worker_queue, try_enqueue
+from .worker_task_run_claims import (
+    claim_task_run_for_worker as _claim_task_run_for_worker,
+)
+from .worker_task_run_claims import (
+    mirror_release_to_task_run as _mirror_release_to_task_run,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -102,15 +116,14 @@ class ConnectedWorker:
     queue: asyncio.Queue
     connected_at: datetime
     last_heartbeat: datetime
-    capabilities: List[str] = field(default_factory=list)
-    codebases: Set[str] = field(default_factory=set)
+    capabilities: list[str] = field(default_factory=list)
+    codebases: set[str] = field(default_factory=set)
     is_busy: bool = False  # True when worker is processing a task
-    current_task_id: Optional[str] = None
+    current_task_id: str | None = None
 
 
 class WorkerRegistry:
-    """
-    Registry of workers connected via SSE for push-based task distribution.
+    """Registry of workers connected via SSE for push-based task distribution.
 
     Thread-safe via asyncio locks. Supports:
     - Worker registration/deregistration on SSE connect/disconnect
@@ -120,12 +133,12 @@ class WorkerRegistry:
     """
 
     def __init__(self):
-        self._workers: Dict[str, ConnectedWorker] = {}
+        self._workers: dict[str, ConnectedWorker] = {}
         self._lock = asyncio.Lock()
         # Track claimed tasks: task_id -> worker_id
-        self._claimed_tasks: Dict[str, str] = {}
+        self._claimed_tasks: dict[str, str] = {}
         # Callbacks for task creation events
-        self._task_listeners: List[Callable] = []
+        self._task_listeners: list[Callable] = []
         # Per-worker sequencers persist across reconnects for replay.
         self._sequencers = SequencerStore()
 
@@ -138,12 +151,12 @@ class WorkerRegistry:
         worker_id: str,
         agent_name: str,
         queue: asyncio.Queue,
-        capabilities: Optional[List[str]] = None,
-        codebases: Optional[Set[str]] = None,
+        capabilities: list[str] | None = None,
+        codebases: set[str] | None = None,
     ) -> ConnectedWorker:
         """Register a new SSE-connected worker."""
         async with self._lock:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             worker = ConnectedWorker(
                 worker_id=worker_id,
                 agent_name=agent_name,
@@ -160,9 +173,7 @@ class WorkerRegistry:
             )
             return worker
 
-    async def unregister_worker(
-        self, worker_id: str
-    ) -> Optional[ConnectedWorker]:
+    async def unregister_worker(self, worker_id: str) -> ConnectedWorker | None:
         """Unregister a disconnected worker."""
         async with self._lock:
             worker = self._workers.pop(worker_id, None)
@@ -190,7 +201,7 @@ class WorkerRegistry:
         async with self._lock:
             worker = self._workers.get(worker_id)
             if worker:
-                worker.last_heartbeat = datetime.now(timezone.utc)
+                worker.last_heartbeat = datetime.now(UTC)
                 # Persist to DB so task_reaper sees an active worker
                 asyncio.create_task(self._persist_heartbeat(worker_id))
                 return True
@@ -205,7 +216,7 @@ class WorkerRegistry:
         except Exception as e:
             logger.debug(f'Failed to persist heartbeat for {worker_id}: {e}')
 
-    async def _lookup_worker_agent_name(self, worker_id: str) -> Optional[str]:
+    async def _lookup_worker_agent_name(self, worker_id: str) -> str | None:
         """Resolve a worker's agent name from durable state.
 
         SSE connections are stored in-memory per API replica. A polling claim can
@@ -227,7 +238,7 @@ class WorkerRegistry:
             return None
 
     async def update_worker_codebases(
-        self, worker_id: str, codebases: Set[str]
+        self, worker_id: str, codebases: set[str]
     ) -> bool:
         """Update the codebases a worker can handle."""
         async with self._lock:
@@ -238,8 +249,7 @@ class WorkerRegistry:
             return False
 
     async def claim_task(self, task_id: str, worker_id: str) -> bool:
-        """
-        Atomically claim a task for a worker.
+        """Atomically claim a task for a worker.
 
         Returns True if claim succeeded, False if task was already claimed
         or if the worker doesn't own the task's codebase.
@@ -270,7 +280,9 @@ class WorkerRegistry:
                     worker_capabilities
                 )
                 if target_worker_id and target_worker_id != worker_id:
-                    if not persistent_worker or await _db_worker_recent(target_worker_id):
+                    if not persistent_worker or await _db_worker_recent(
+                        target_worker_id
+                    ):
                         logger.debug(
                             f'Worker {worker_id} skipped task {task_id} '
                             f'(target_worker_id={target_worker_id})'
@@ -328,7 +340,9 @@ class WorkerRegistry:
                     stable_persistent_route = (
                         bool(task_target_agent)
                         and task_target_agent == worker_agent_name
-                        and _has_persistent_workspace_capability(required_capabilities)
+                        and _has_persistent_workspace_capability(
+                            required_capabilities
+                        )
                         and persistent_worker
                     )
                     if stable_persistent_route:
@@ -338,48 +352,46 @@ class WorkerRegistry:
                             f'for codebase {codebase_id}'
                         )
                         # Fall through to the claim lock below.
+                    elif not worker:
+                        # Worker not SSE-connected; allow claim anyway so
+                        # polling-only / reconnecting workers aren't locked out.
+                        logger.debug(
+                            f'Worker {worker_id} not in SSE registry, '
+                            f'allowing claim attempt for task {task_id}'
+                        )
                     else:
-                        if not worker:
-                            # Worker not SSE-connected; allow claim anyway so
-                            # polling-only / reconnecting workers aren't locked out.
-                            logger.debug(
-                                f'Worker {worker_id} not in SSE registry, '
-                                f'allowing claim attempt for task {task_id}'
+                        can_handle = codebase_id in worker.codebases
+                        if not can_handle:
+                            can_handle = await self._worker_owns_codebase(
+                                worker_id, codebase_id
                             )
-                        else:
-                            can_handle = codebase_id in worker.codebases
-                            if not can_handle:
-                                can_handle = await self._worker_owns_codebase(
-                                    worker_id, codebase_id
+                        if not can_handle:
+                            # Check if ANY connected worker owns this codebase;
+                            # if not, the codebase has a stale worker_id and we
+                            # should let any worker pick it up rather than
+                            # leaving the task stuck forever.
+                            owner_connected = False
+                            async with self._lock:
+                                for w in self._workers.values():
+                                    if codebase_id in w.codebases:
+                                        owner_connected = True
+                                        break
+                            if not owner_connected:
+                                owner_connected = await self._any_connected_worker_owns_codebase(
+                                    codebase_id
                                 )
-                            if not can_handle:
-                                # Check if ANY connected worker owns this codebase;
-                                # if not, the codebase has a stale worker_id and we
-                                # should let any worker pick it up rather than
-                                # leaving the task stuck forever.
-                                owner_connected = False
-                                async with self._lock:
-                                    for w in self._workers.values():
-                                        if codebase_id in w.codebases:
-                                            owner_connected = True
-                                            break
-                                if not owner_connected:
-                                    owner_connected = await self._any_connected_worker_owns_codebase(
-                                        codebase_id
-                                    )
 
-                                if owner_connected:
-                                    logger.debug(
-                                        f'Worker {worker_id} ({worker.agent_name}) skipped task {task_id} '
-                                        f'for codebase {codebase_id} (worker codebases: {worker.codebases})'
-                                    )
-                                    return False
-                                else:
-                                    logger.warning(
-                                        f'No connected worker owns codebase {codebase_id} — '
-                                        f'allowing worker {worker_id} ({worker.agent_name}) '
-                                        f'to claim orphaned task {task_id}'
-                                    )
+                            if owner_connected:
+                                logger.debug(
+                                    f'Worker {worker_id} ({worker.agent_name}) skipped task {task_id} '
+                                    f'for codebase {codebase_id} (worker codebases: {worker.codebases})'
+                                )
+                                return False
+                            logger.warning(
+                                f'No connected worker owns codebase {codebase_id} — '
+                                f'allowing worker {worker_id} ({worker.agent_name}) '
+                                f'to claim orphaned task {task_id}'
+                            )
 
         async with self._lock:
             if task_id in self._claimed_tasks:
@@ -512,14 +524,13 @@ class WorkerRegistry:
 
     async def get_available_workers(
         self,
-        codebase_id: Optional[str] = None,
-        target_agent_name: Optional[str] = None,
-        target_worker_id: Optional[str] = None,
-        required_capabilities: Optional[List[str]] = None,
-        task_agent_type: Optional[str] = None,
-    ) -> List[ConnectedWorker]:
-        """
-        Get workers available to accept a new task.
+        codebase_id: str | None = None,
+        target_agent_name: str | None = None,
+        target_worker_id: str | None = None,
+        required_capabilities: list[str] | None = None,
+        task_agent_type: str | None = None,
+    ) -> list[ConnectedWorker]:
+        """Get workers available to accept a new task.
 
         Filters by:
         - Not currently busy
@@ -572,7 +583,9 @@ class WorkerRegistry:
                         and _has_persistent_workspace_capability(
                             required_capabilities or []
                         )
-                        and _has_persistent_workspace_capability(worker.capabilities)
+                        and _has_persistent_workspace_capability(
+                            worker.capabilities
+                        )
                     ):
                         pass
                     elif await self._worker_owns_codebase(
@@ -643,12 +656,12 @@ class WorkerRegistry:
             logger.debug(f'Error checking connected codebase owners: {e}')
         return False
 
-    async def get_worker(self, worker_id: str) -> Optional[ConnectedWorker]:
+    async def get_worker(self, worker_id: str) -> ConnectedWorker | None:
         """Get a specific worker by ID."""
         async with self._lock:
             return self._workers.get(worker_id)
 
-    async def list_idle_persistent_workers(self) -> List[ConnectedWorker]:
+    async def list_idle_persistent_workers(self) -> list[ConnectedWorker]:
         """Return connected, idle workers eligible for durable FF claims.
 
         Some deployed Rust workers register capabilities through the durable
@@ -657,9 +670,13 @@ class WorkerRegistry:
         claim bridge can still recognize harvester/persistent workers.
         """
         async with self._lock:
-            workers = [worker for worker in self._workers.values() if not worker.is_busy]
+            workers = [
+                worker
+                for worker in self._workers.values()
+                if not worker.is_busy
+            ]
 
-        eligible: List[ConnectedWorker] = []
+        eligible: list[ConnectedWorker] = []
         for worker in workers:
             capabilities = list(worker.capabilities or [])
             if not capabilities:
@@ -677,12 +694,12 @@ class WorkerRegistry:
                 eligible.append(worker)
         return eligible
 
-    async def claimed_task_ids(self) -> Set[str]:
+    async def claimed_task_ids(self) -> set[str]:
         """Return task IDs currently held by the in-memory claim registry."""
         async with self._lock:
             return set(self._claimed_tasks)
 
-    async def list_workers(self) -> List[Dict[str, Any]]:
+    async def list_workers(self) -> list[dict[str, Any]]:
         """List all connected workers."""
         async with self._lock:
             return [
@@ -702,10 +719,9 @@ class WorkerRegistry:
     async def push_task_to_worker(
         self,
         worker_id: str,
-        task: Dict[str, Any],
+        task: dict[str, Any],
     ) -> bool:
-        """
-        Push a task notification to a specific worker.
+        """Push a task notification to a specific worker.
 
         Returns True if the message was queued successfully.
         """
@@ -718,16 +734,14 @@ class WorkerRegistry:
                 event = {
                     'event': 'task_available',
                     'data': task,
-                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'timestamp': datetime.now(UTC).isoformat(),
                 }
                 return try_enqueue(worker.queue, event, worker_id)
             except Exception as e:
                 logger.error(f'Failed to push task to worker {worker_id}: {e}')
                 return False
 
-    async def push_progress(
-        self, worker_id: str, data: Dict[str, Any]
-    ) -> bool:
+    async def push_progress(self, worker_id: str, data: dict[str, Any]) -> bool:
         """Push a sequenced `progress` event to a specific worker.
 
         Unlike `push_task_to_worker` (advisory `task_available`), progress is a
@@ -743,14 +757,13 @@ class WorkerRegistry:
 
     async def broadcast_task(
         self,
-        task: Dict[str, Any],
-        codebase_id: Optional[str] = None,
-        target_agent_name: Optional[str] = None,
-        target_worker_id: Optional[str] = None,
-        required_capabilities: Optional[List[str]] = None,
-    ) -> List[str]:
-        """
-        Broadcast a task to all available workers that can handle it.
+        task: dict[str, Any],
+        codebase_id: str | None = None,
+        target_agent_name: str | None = None,
+        target_worker_id: str | None = None,
+        required_capabilities: list[str] | None = None,
+    ) -> list[str]:
+        """Broadcast a task to all available workers that can handle it.
 
         For targeted tasks (target_agent_name or target_worker_id set), only notifies the specific worker.
         This is notify-time filtering for efficiency; claim-time is the real enforcement.
@@ -793,10 +806,9 @@ class WorkerRegistry:
         return notified
 
     async def _enrich_task_with_persona_scoping(
-        self, task: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Enrich task metadata with permission scoping from the worker_profile
+        self, task: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Enrich task metadata with permission scoping from the worker_profile
         matching the task's worker_personality. This backs the marketing claim:
         "each agent only has the permissions it needs."
 
@@ -809,8 +821,9 @@ class WorkerRegistry:
             return task
 
         try:
-            from . import database as db
             import json as _json
+
+            from . import database as db
 
             pool = await db.get_pool()
             if not pool:
@@ -857,11 +870,10 @@ class WorkerRegistry:
     async def broadcast_task_available(
         self,
         task_id: str,
-        codebase_id: Optional[str] = None,
-        target_agent_name: Optional[str] = None,
-    ) -> List[str]:
-        """
-        Broadcast that a task is available to workers that can handle it.
+        codebase_id: str | None = None,
+        target_agent_name: str | None = None,
+    ) -> list[str]:
+        """Broadcast that a task is available to workers that can handle it.
 
         This fetches the task details and broadcasts to appropriate workers.
         Used when a task is created or becomes available for claiming.
@@ -931,7 +943,7 @@ class WorkerRegistry:
         if callback in self._task_listeners:
             self._task_listeners.remove(callback)
 
-    async def notify_task_created(self, task: Dict[str, Any]) -> None:
+    async def notify_task_created(self, task: dict[str, Any]) -> None:
         """Notify all listeners that a new task was created."""
         for callback in self._task_listeners:
             try:
@@ -944,7 +956,7 @@ class WorkerRegistry:
 
 
 # Global worker registry singleton
-_worker_registry: Optional[WorkerRegistry] = None
+_worker_registry: WorkerRegistry | None = None
 
 
 def get_worker_registry() -> WorkerRegistry:
@@ -989,8 +1001,8 @@ class TaskReleaseRequest(BaseModel):
 
     task_id: str
     status: str = 'completed'  # completed, failed, cancelled
-    result: Optional[str] = None
-    error: Optional[str] = None
+    result: str | None = None
+    error: str | None = None
 
 
 async def _db_claim_allows_release(task_id: str, worker_id: str) -> bool:
@@ -1030,12 +1042,12 @@ async def _db_claim_allows_release(task_id: str, worker_id: str) -> bool:
 class CodebaseUpdateRequest(BaseModel):
     """Request to update worker's codebase list."""
 
-    codebases: List[str]
+    codebases: list[str]
     # Accept extra fields from workers that send full registration payloads
-    worker_id: Optional[str] = None
-    agent_name: Optional[str] = None
-    models: Optional[Any] = None
-    capabilities: Optional[List[str]] = None
+    worker_id: str | None = None
+    agent_name: str | None = None
+    models: Any | None = None
+    capabilities: list[str] | None = None
 
     model_config = {'extra': 'ignore'}
 
@@ -1043,18 +1055,17 @@ class CodebaseUpdateRequest(BaseModel):
 @worker_sse_router.get('/tasks/stream')
 async def worker_task_stream(
     request: Request,
-    agent_name: Optional[str] = Query(None, description='Worker agent name'),
-    worker_id: Optional[str] = Query(
+    agent_name: str | None = Query(None, description='Worker agent name'),
+    worker_id: str | None = Query(
         None, description='Worker ID (optional, generated if not provided)'
     ),
-    x_agent_name: Optional[str] = Header(None, alias='X-Agent-Name'),
-    x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
-    x_capabilities: Optional[str] = Header(None, alias='X-Capabilities'),
-    x_codebases: Optional[str] = Header(None, alias='X-Codebases'),
-    last_event_id: Optional[str] = Header(None, alias='Last-Event-ID'),
+    x_agent_name: str | None = Header(None, alias='X-Agent-Name'),
+    x_worker_id: str | None = Header(None, alias='X-Worker-ID'),
+    x_capabilities: str | None = Header(None, alias='X-Capabilities'),
+    x_codebases: str | None = Header(None, alias='X-Codebases'),
+    last_event_id: str | None = Header(None, alias='Last-Event-ID'),
 ):
-    """
-    SSE endpoint for workers to receive task notifications.
+    """SSE endpoint for workers to receive task notifications.
 
     Workers connect to this endpoint and receive:
     - `task_available` events when new tasks are created
@@ -1155,14 +1166,14 @@ async def worker_task_stream(
                 'worker_id': resolved_worker_id,
                 'agent_name': resolved_agent_name,
                 'message': 'Connected to task stream',
-                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'timestamp': datetime.now(UTC).isoformat(),
             }
             yield format_event('connected', connect_event, seq)
 
             # Send any pending tasks to the newly connected worker
             try:
-                from .agent_bridge import get_bridge as get_agent_bridge
                 from .agent_bridge import AgentTaskStatus
+                from .agent_bridge import get_bridge as get_agent_bridge
 
                 bridge = get_agent_bridge()
                 if bridge:
@@ -1257,14 +1268,14 @@ async def worker_task_stream(
 
                         yield format_event(event_type, event_data, seq)
 
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pass  # No event, check if heartbeat needed
 
                     # Send heartbeat if interval elapsed
                     current_time = asyncio.get_event_loop().time()
                     if current_time - last_heartbeat >= heartbeat_interval:
                         heartbeat_data = {
-                            'timestamp': datetime.now(timezone.utc).isoformat(),
+                            'timestamp': datetime.now(UTC).isoformat(),
                             'worker_id': resolved_worker_id,
                         }
                         yield format_event('heartbeat', heartbeat_data, seq)
@@ -1300,11 +1311,10 @@ async def worker_task_stream(
 async def claim_task(
     request: Request,
     claim: TaskClaimRequest,
-    worker_id: Optional[str] = Query(None),
-    x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
+    worker_id: str | None = Query(None),
+    x_worker_id: str | None = Header(None, alias='X-Worker-ID'),
 ):
-    """
-    Claim a task for processing.
+    """Claim a task for processing.
 
     Workers call this endpoint after receiving a task_available event
     to atomically claim the task. This prevents multiple workers from
@@ -1321,9 +1331,29 @@ async def claim_task(
             detail='worker_id is required (query param or X-Worker-ID header)',
         )
 
+    try:
+        verified_task = await require_forgejo_worker_claim(
+            request.headers, claim.task_id, resolved_worker_id
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (LookupError, RuntimeError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
     registry = get_worker_registry()
 
     success = await registry.claim_task(claim.task_id, resolved_worker_id)
+    if success and verified_task:
+        try:
+            state = await reserve_forgejo_claim(
+                claim.task_id, resolved_worker_id
+            )
+        except RuntimeError as error:
+            await registry.release_task(claim.task_id, resolved_worker_id)
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        if state == 'unavailable':
+            await registry.release_task(claim.task_id, resolved_worker_id)
+            success = False
 
     if success:
         logger.info(
@@ -1331,8 +1361,8 @@ async def claim_task(
         )
         # Update task status to 'running' in DB so the UI reflects reality
         try:
-            from .agent_bridge import get_bridge as get_agent_bridge
             from .agent_bridge import AgentTaskStatus
+            from .agent_bridge import get_bridge as get_agent_bridge
             from .database import db_update_task_status
 
             bridge = get_agent_bridge()
@@ -1390,25 +1420,23 @@ async def claim_task(
         }
         response.update(run_claim)
         return response
-    else:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f'Task {claim.task_id} cannot be claimed by worker {resolved_worker_id} '
-                '(already claimed, worker not connected, or worker not eligible for this task)'
-            ),
-        )
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            f'Task {claim.task_id} cannot be claimed by worker {resolved_worker_id} '
+            '(already claimed, worker not connected, or worker not eligible for this task)'
+        ),
+    )
 
 
 @worker_sse_router.post('/tasks/release')
 async def release_task(
     request: Request,
     release: TaskReleaseRequest,
-    worker_id: Optional[str] = Query(None),
-    x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
+    worker_id: str | None = Query(None),
+    x_worker_id: str | None = Header(None, alias='X-Worker-ID'),
 ):
-    """
-    Release a task after completion or failure.
+    """Release a task after completion or failure.
 
     Workers call this endpoint when they finish processing a task
     to release the claim and report the result.
@@ -1422,6 +1450,9 @@ async def release_task(
             detail='worker_id is required (query param or X-Worker-ID header)',
         )
 
+    await authorize_worker_mutation(
+        request, 'release', release.task_id, resolved_worker_id
+    )
     registry = get_worker_registry()
 
     success = await registry.release_task(release.task_id, resolved_worker_id)
@@ -1597,22 +1628,20 @@ async def release_task(
             'status': release.status,
             'message': 'Task released successfully',
         }
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail=f'Task {release.task_id} not claimed by worker {resolved_worker_id}',
-        )
+    raise HTTPException(
+        status_code=404,
+        detail=f'Task {release.task_id} not claimed by worker {resolved_worker_id}',
+    )
 
 
 @worker_sse_router.put('/codebases')
 async def update_worker_codebases(
     request: Request,
     update: CodebaseUpdateRequest,
-    worker_id: Optional[str] = Query(None),
-    x_worker_id: Optional[str] = Header(None, alias='X-Worker-ID'),
+    worker_id: str | None = Query(None),
+    x_worker_id: str | None = Header(None, alias='X-Worker-ID'),
 ):
-    """
-    Update the list of codebases a worker can handle.
+    """Update the list of codebases a worker can handle.
 
     Workers call this endpoint after registering new codebases
     to update the server's routing table.
@@ -1639,17 +1668,15 @@ async def update_worker_codebases(
             'codebases': update.codebases,
             'message': 'Codebases updated successfully',
         }
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail=f'Worker {resolved_worker_id} not found (not connected via SSE?)',
-        )
+    raise HTTPException(
+        status_code=404,
+        detail=f'Worker {resolved_worker_id} not found (not connected via SSE?)',
+    )
 
 
 @worker_sse_router.get('/connected')
 async def list_connected_workers(request: Request):
-    """
-    List all workers currently connected via SSE.
+    """List all workers currently connected via SSE.
 
     Returns information about each connected worker including
     their capabilities, codebases, and current status.
@@ -1662,7 +1689,7 @@ async def list_connected_workers(request: Request):
     return {
         'workers': workers,
         'count': len(workers),
-        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'timestamp': datetime.now(UTC).isoformat(),
     }
 
 
@@ -1700,9 +1727,8 @@ async def get_connected_worker(
 # ============================================================================
 
 
-async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
-    """
-    Notify connected workers of a new task.
+async def notify_workers_of_new_task(task: dict[str, Any]) -> list[str]:
+    """Notify connected workers of a new task.
 
     This function should be called when a new task is created to push
     it to available workers via SSE.
@@ -1742,17 +1768,15 @@ async def notify_workers_of_new_task(task: Dict[str, Any]) -> List[str]:
 
 
 def setup_task_creation_hook(agent_bridge) -> None:
-    """
-    Set up a hook to notify workers when tasks are created.
+    """Set up a hook to notify workers when tasks are created.
 
     This should be called during server initialization to connect
     the task queue to the SSE push system.
     """
     registry = get_worker_registry()
 
-    async def on_task_created(task: Dict[str, Any]):
+    async def on_task_created(task: dict[str, Any]):
         await notify_workers_of_new_task(task)
 
     registry.add_task_listener(on_task_created)
     logger.info('Task creation hook installed for SSE worker notifications')
-
