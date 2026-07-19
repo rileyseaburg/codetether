@@ -11,18 +11,24 @@ os.environ.setdefault(
 
 import pytest
 
-from a2a_server import agent_bridge, database
+from a2a_server import agent_bridge, task_execution_persistence
 
 
 @pytest.mark.asyncio
 async def test_save_task_persists_session_id_in_metadata(monkeypatch):
     captured = {}
+    projected = {}
 
     async def fake_upsert(value):
         captured.update(value)
         return True
 
+    async def fake_persist(task_id, **kwargs):
+        projected.update(task_id=task_id, **kwargs)
+        return True
+
     monkeypatch.setattr(agent_bridge.db, 'db_upsert_task', fake_upsert)
+    monkeypatch.setattr(agent_bridge, 'persist_task_execution', fake_persist)
     bridge = object.__new__(agent_bridge.AgentBridge)
     now = datetime.utcnow()
     task = SimpleNamespace(
@@ -52,16 +58,22 @@ async def test_save_task_persists_session_id_in_metadata(monkeypatch):
     assert captured['worker_id'] == 'worker-1'
     assert captured['metadata']['session_id'] == 'session-1'
     assert captured['metadata']['source'] == 'forgejo-webhook'
+    assert projected['task_id'] == 'task-1'
+    assert projected['worker_id'] == 'worker-1'
+    assert projected['metadata']['session_id'] == 'session-1'
 
 
 @pytest.mark.asyncio
-async def test_task_upsert_refreshes_worker_and_session_metadata(monkeypatch):
+async def test_persist_task_execution_merges_worker_and_session_metadata(
+    monkeypatch,
+):
     captured = {}
 
     class Connection:
         async def execute(self, query, *params):
             captured['query'] = query
             captured['params'] = params
+            return 'UPDATE 1'
 
     class Acquire:
         async def __aenter__(self):
@@ -77,35 +89,20 @@ async def test_task_upsert_refreshes_worker_and_session_metadata(monkeypatch):
     async def fake_pool():
         return Pool()
 
-    monkeypatch.setattr(database, 'get_pool', fake_pool)
-    now = datetime.utcnow().isoformat()
+    monkeypatch.setattr(task_execution_persistence.db, 'get_pool', fake_pool)
 
-    saved = await database.db_upsert_task(
-        {
-            'id': 'task-1',
-            'workspace_id': 'workspace-1',
-            'title': 'Fix the issue',
-            'prompt': 'Please fix it',
-            'agent_type': 'build',
-            'status': 'running',
-            'priority': 0,
-            'worker_id': 'worker-1',
-            'result': None,
-            'error': None,
-            'metadata': {
-                'source': 'forgejo-webhook',
-                'session_id': 'session-1',
-            },
-            'created_at': now,
-            'updated_at': now,
-            'started_at': now,
-            'completed_at': None,
-        }
+    saved = await task_execution_persistence.persist_task_execution(
+        'task-1',
+        worker_id='worker-1',
+        metadata={'source': 'forgejo-webhook', 'session_id': 'session-1'},
     )
 
     assert saved is True
     normalized_query = ' '.join(captured['query'].split())
-    assert 'worker_id = EXCLUDED.worker_id' in normalized_query
-    assert 'metadata = EXCLUDED.metadata' in normalized_query
-    assert captured['params'][7] == 'worker-1'
-    assert json.loads(captured['params'][10])['session_id'] == 'session-1'
+    assert 'worker_id = COALESCE($2, worker_id)' in normalized_query
+    assert (
+        "metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb"
+        in normalized_query
+    )
+    assert captured['params'][1] == 'worker-1'
+    assert json.loads(captured['params'][2])['session_id'] == 'session-1'

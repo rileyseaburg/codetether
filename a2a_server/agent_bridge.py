@@ -34,6 +34,7 @@ import aiohttp
 
 # Import PostgreSQL database module
 from . import database as db
+from .task_execution_persistence import persist_task_execution
 
 # Import Knative modules for event-driven worker spawning
 from .knative_spawner import (
@@ -411,7 +412,7 @@ class AgentBridge:
             if task.session_id:
                 metadata['session_id'] = task.session_id
 
-            await db.db_upsert_task(
+            saved = await db.db_upsert_task(
                 {
                     'id': task.id,
                     # Workspace is the canonical DB column; keep legacy key too.
@@ -436,6 +437,12 @@ class AgentBridge:
                     else None,
                 }
             )
+            if saved and (task.worker_id or task.session_id):
+                await persist_task_execution(
+                    task.id,
+                    worker_id=task.worker_id,
+                    metadata=metadata,
+                )
         except Exception as e:
             logger.error(f'Failed to save task to PostgreSQL: {e}')
 
