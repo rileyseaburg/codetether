@@ -58,6 +58,14 @@ data:
   # RLS is enabled by default for multi-tenant isolation
   RLS_ENABLED: "true"
 
+  # Durable Forgejo Temporal orchestration (non-secret client settings)
+  FORGEJO_TEMPORAL_ENABLED: {{ .Values.temporal.enabled | quote }}
+  {{- if .Values.temporal.enabled }}
+  TEMPORAL_ADDRESS: {{ required "temporal.address is required when temporal.enabled=true" .Values.temporal.address | quote }}
+  TEMPORAL_NAMESPACE: {{ .Values.temporal.namespace | quote }}
+  TEMPORAL_FORGEJO_TASK_QUEUE: {{ .Values.temporal.taskQueue | quote }}
+  {{- end }}
+
   # Database persistence paths (use mounted volume for persistence across restarts)
   {{- if .Values.persistence.enabled }}
   MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"

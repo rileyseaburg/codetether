@@ -21,17 +21,37 @@ logger = logging.getLogger(__name__)
 GIT_CLONE_BASE = os.environ.get('GIT_CLONE_BASE', '/var/lib/codetether/repos')
 
 # Maximum repo size (in bytes) — default 2GB
-MAX_REPO_SIZE = int(os.environ.get('GIT_MAX_REPO_SIZE', str(2 * 1024 * 1024 * 1024)))
-
-# Allowed Git URL patterns (HTTPS only — no arbitrary protocols)
-_ALLOWED_URL_PATTERN = re.compile(
-    r'^https://(github\.com|gitlab\.com|bitbucket\.org|dev\.azure\.com)/[^\s]+\.git$'
+MAX_REPO_SIZE = int(
+    os.environ.get('GIT_MAX_REPO_SIZE', str(2 * 1024 * 1024 * 1024))
 )
+
+# Allowed Git hosts (HTTPS only — no arbitrary protocols or embedded credentials).
+_PUBLIC_GIT_HOSTS = {
+    'github.com',
+    'gitlab.com',
+    'bitbucket.org',
+    'dev.azure.com',
+}
 
 
 def validate_git_url(url: str) -> bool:
-    """Validate that a Git URL is an allowed HTTPS repo URL."""
-    return bool(_ALLOWED_URL_PATTERN.match(url))
+    """Validate that a Git URL uses HTTPS and an explicitly allowed host."""
+    parsed = urlparse(url)
+    configured_forgejo_host = urlparse(
+        os.environ.get('FORGEJO_API_URL', '')
+    ).hostname
+    allowed_hosts = _PUBLIC_GIT_HOSTS | (
+        {configured_forgejo_host} if configured_forgejo_host else set()
+    )
+    return (
+        parsed.scheme == 'https'
+        and parsed.hostname in allowed_hosts
+        and parsed.path.endswith('.git')
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 async def store_git_credentials(
@@ -51,6 +71,7 @@ async def store_git_credentials(
     """
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         await client.write_secret(
             f'codetether/git/{codebase_id}',
@@ -69,6 +90,7 @@ async def store_git_credential_record(
     """Store arbitrary git credential metadata in Vault."""
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         await client.write_secret(f'codetether/git/{codebase_id}', record)
         logger.info(f'Stored Git credential record for codebase {codebase_id}')
@@ -82,6 +104,7 @@ async def get_git_credentials(codebase_id: str) -> Optional[Dict[str, str]]:
     """Retrieve Git credentials from Vault."""
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         secret = await client.read_secret(f'codetether/git/{codebase_id}')
         return secret
@@ -94,6 +117,7 @@ async def delete_git_credentials(codebase_id: str) -> bool:
     """Remove Git credentials from Vault."""
     try:
         from .vault_client import get_vault_client
+
         client = get_vault_client()
         await client.delete_secret(f'codetether/git/{codebase_id}')
         logger.info(f'Deleted Git credentials for codebase {codebase_id}')
@@ -162,14 +186,21 @@ async def clone_repo(
         err_msg = _sanitize_output(err_msg)
         raise ValueError(f'Git clone failed: {err_msg}')
 
-    logger.info(f'Cloned {git_url} → {clone_dir} (branch={branch}, depth={depth})')
+    logger.info(
+        f'Cloned {git_url} → {clone_dir} (branch={branch}, depth={depth})'
+    )
     return clone_dir
 
 
 async def pull_repo(clone_dir: str, branch: str = 'main') -> str:
     """Pull latest changes in an already-cloned repo."""
     proc = await asyncio.create_subprocess_exec(
-        'git', '-C', clone_dir, 'pull', 'origin', branch,
+        'git',
+        '-C',
+        clone_dir,
+        'pull',
+        'origin',
+        branch,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'},
@@ -294,7 +325,9 @@ def _workspace_github_app_config(workspace: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def _github_owner_repo_from_url(git_url: str) -> tuple[Optional[str], Optional[str]]:
+def _github_owner_repo_from_url(
+    git_url: str,
+) -> tuple[Optional[str], Optional[str]]:
     parsed = urlparse(git_url)
     parts = parsed.path.strip('/').removesuffix('.git').split('/')
     if len(parts) >= 2 and parsed.hostname == 'github.com':
@@ -311,7 +344,9 @@ async def _build_auth_url(git_url: str, codebase_id: str) -> str:
     token = creds.get('password', '')
     token_type = creds.get('token_type', 'pat')
     if token_type in ('pat', 'oauth', 'github_app'):
-        return git_url.replace('https://', f'https://x-access-token:{token}@', 1)
+        return git_url.replace(
+            'https://', f'https://x-access-token:{token}@', 1
+        )
 
     return git_url
 

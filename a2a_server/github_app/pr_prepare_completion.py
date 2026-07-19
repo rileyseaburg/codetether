@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 
-from .settings import MODEL_REF
+from .settings import MODEL_REF, TASK_PRIORITY
 from .task_context import github_app_task_context
 from .watch import post_issue_comment
 
@@ -51,7 +51,9 @@ async def _claim_pr_followup_creation(task_id: str | None) -> bool:
     return row is not None
 
 
-async def _record_pr_followup_task(task_id: str | None, followup_task_id: str) -> None:
+async def _record_pr_followup_task(
+    task_id: str | None, followup_task_id: str
+) -> None:
     if not task_id:
         return
 
@@ -140,7 +142,9 @@ async def _active_followup_task_id(
     return str(row['id']) if row else None
 
 
-async def _release_pr_followup_claim(task_id: str | None, error: Exception) -> None:
+async def _release_pr_followup_claim(
+    task_id: str | None, error: Exception
+) -> None:
     if not task_id:
         return
 
@@ -171,7 +175,9 @@ async def _release_pr_followup_claim(task_id: str | None, error: Exception) -> N
         )
 
 
-async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None) -> None:
+async def handle_pr_prepare_completion(
+    task: dict, worker_id: str | None = None
+) -> None:
     """Create the PR branch edit task or post a prepare failure."""
     from ..persistent_worker_pool import create_and_dispatch_task
 
@@ -184,7 +190,7 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
         body = str(
             task.get('error')
             or task.get('result')
-            or f"Task `{task.get('id')}` ended with status `{task.get('status')}`."
+            or f'Task `{task.get("id")}` ended with status `{task.get("status")}`.'
         ).strip()
         await post_issue_comment(
             repo,
@@ -202,14 +208,19 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
             repo,
             pr_number,
             token,
-            "## 🛠️ CodeTether Fix\n\nI prepared the PR workspace, but the follow-up task metadata was incomplete.",
+            '## 🛠️ CodeTether Fix\n\nI prepared the PR workspace, but the follow-up task metadata was incomplete.',
         )
         return
 
     followup_metadata = dict(followup.get('metadata') or {})
 
     # Propagate GitHub metadata for progress reporting and Checks API updates.
-    for key in ('github_issue_url', 'github_installation_id', 'github_check_head_sha', 'github_check_run_id'):
+    for key in (
+        'github_issue_url',
+        'github_installation_id',
+        'github_check_head_sha',
+        'github_check_run_id',
+    ):
         if key in metadata and key not in followup_metadata:
             followup_metadata[key] = metadata[key]
 
@@ -221,9 +232,9 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
         )
         return
 
-    github_issue_url = followup_metadata.get('github_issue_url') or metadata.get(
+    github_issue_url = followup_metadata.get(
         'github_issue_url'
-    )
+    ) or metadata.get('github_issue_url')
     lock = await _acquire_followup_lock(repo, pr_number, 'pr')
     try:
         existing_task_id = await _active_followup_task_id(repo, pr_number, 'pr')
@@ -242,6 +253,7 @@ async def handle_pr_prepare_completion(task: dict, worker_id: str | None = None)
             title=str(followup.get('title') or f'Apply PR fix #{pr_number}'),
             prompt=prompt,
             agent_type=str(followup.get('agent_type') or 'build'),
+            priority=TASK_PRIORITY,
             model_ref=MODEL_REF,
             metadata=followup_metadata,
             task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

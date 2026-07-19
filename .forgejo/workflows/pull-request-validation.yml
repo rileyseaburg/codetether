@@ -1,0 +1,83 @@
+name: Validate CodeTether Pull Request
+
+on:
+  pull_request: {}
+
+concurrency:
+  group: codetether-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: spotlessbinco-k8s
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python test dependencies
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/codetether-pr-ci
+          /tmp/codetether-pr-ci/bin/python -m pip install \
+            -r requirements.txt -r requirements-test.txt \
+            ruff==0.14.10
+
+      - name: Run Forgejo and GitHub compatibility regressions
+        run: |
+          set -euo pipefail
+          DATABASE_URL=postgresql://test:test@localhost:5432/test \
+            PYTHONPATH=. /tmp/codetether-pr-ci/bin/python -m pytest -q \
+            tests/test_forgejo*.py \
+            tests/test_session_view*.py \
+            tests/test_github_app*.py \
+            tests/test_github_check_failure_tasks.py
+
+      - name: Lint and format changed automation code
+        run: |
+          set -euo pipefail
+          files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}"...HEAD -- '*.py')"
+          if [ -n "$files" ]; then
+            /tmp/codetether-pr-ci/bin/python -m ruff check \
+              --config .github/linters/.ruff.toml $files
+            /tmp/codetether-pr-ci/bin/python -m ruff format --check $files
+          fi
+
+      - name: Compile Forgejo automation modules
+        run: |
+          set -euo pipefail
+          /tmp/codetether-pr-ci/bin/python -m compileall -q \
+            a2a_server/forgejo_agent_client.py \
+            a2a_server/forgejo_agent_controls.py \
+            a2a_server/forgejo_automation.py \
+            a2a_server/forgejo_webhooks.py \
+            a2a_server/forgejo_task_completion.py \
+            a2a_server/session_view.py \
+            a2a_server/post_clone_followup.py \
+            a2a_server/persistent_worker_pool.py \
+            a2a_server/temporal
+
+      - name: Render Temporal Helm modes
+        run: |
+          set -euo pipefail
+          helm_version=v3.18.4
+          archive="helm-${helm_version}-linux-amd64.tar.gz"
+          curl -fsSLo "/tmp/${archive}" \
+            "https://get.helm.sh/${archive}"
+          curl -fsSLo "/tmp/${archive}.sha256sum" \
+            "https://get.helm.sh/${archive}.sha256sum"
+          (
+            cd /tmp
+            sha256sum --check "${archive}.sha256sum"
+            tar -xzf "${archive}"
+          )
+          helm=/tmp/linux-amd64/helm
+          "$helm" lint chart/a2a-server
+          "$helm" template temporal-disabled chart/a2a-server >/dev/null
+          "$helm" template temporal-enabled chart/a2a-server \
+            --set temporal.enabled=true \
+            --set temporal.address=temporal.example:7233 \
+            --set forgejo.apiUrl=https://forgejo.example/api/v1 \
+            >/dev/null

@@ -10,7 +10,12 @@ import uuid
 from typing import Any
 
 from ..provenance import verify_provenance
-from .settings import AUTO_MERGE_ENABLED, MERGE_METHOD, MODEL_REF
+from .settings import (
+    AUTO_MERGE_ENABLED,
+    MERGE_METHOD,
+    MODEL_REF,
+    TASK_PRIORITY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -629,6 +634,7 @@ async def create_fix_followup_task(
         title=f'Apply PR fix #{pr_number}',
         prompt=fix_prompt,
         agent_type='build',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=fix_metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
@@ -1032,11 +1038,14 @@ async def create_issue_review_task(
     pr: dict[str, Any],
     github_issue_url: str | None,
     github_installation_id: int | str | None,
+    token: str = '',
     parent_task_id: str | None = None,
     target_worker_id: str | None = None,
+    trigger_actor_login: str = '',
 ) -> str | None:
     """Queue a reviewer task for an issue PR if provenance policy allows it."""
     from ..persistent_worker_pool import create_and_dispatch_task
+    from .review_request import request_human_review
 
     provenance = issue_pr_provenance(
         repo=repo,
@@ -1056,6 +1065,7 @@ async def create_issue_review_task(
 
     metadata = {
         'workspace_id': workspace_id,
+        'trigger_actor_login': trigger_actor_login,
         'source': 'github-app',
         'workflow_stage': 'review',
         'repo': repo,
@@ -1080,11 +1090,16 @@ async def create_issue_review_task(
         title=f'Review issue PR #{pr.get("number")}',
         prompt=review_prompt(repo, issue_number, branch, pr, provenance),
         agent_type='review',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,
         github_issue_url=github_issue_url,
     )
+    if token:
+        await request_human_review(
+            repo, int(pr.get('number') or 0), token, trigger_actor_login
+        )
     await record_automation_decision(
         provenance=provenance, decision=decision, task_id=task_id
     )
@@ -1331,6 +1346,7 @@ async def create_issue_merge_task(
         title=f'Merge issue PR #{pr_number}',
         prompt=merge_prompt(repo, issue_number, branch, pr, provenance),
         agent_type='merge',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=merge_metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

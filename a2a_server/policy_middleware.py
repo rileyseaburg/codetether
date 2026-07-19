@@ -49,6 +49,8 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r'^/docs', None, ''),
     (r'^/openapi\.json$', None, ''),
     (r'^/redoc', None, ''),
+    # Expiring HMAC-signed task transcript links validate in the route handler.
+    (r'^/sessions/tasks/[^/]+$', {'GET'}, ''),
     # Auth endpoints — intentionally public
     (r'^/v1/auth/login$', None, ''),
     (r'^/v1/auth/refresh$', None, ''),
@@ -73,6 +75,8 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     # Billing webhooks — Stripe signature verified
     (r'^/v1/webhooks/stripe$', {'POST'}, ''),
     (r'^/v1/webhooks/github$', {'POST'}, ''),
+    # Forgejo webhooks and native agent controls verify HMAC signatures.
+    (r'^/v1/webhooks/forgejo(?:/agent-control)?$', {'POST'}, ''),
     # ── Already-protected routes (skip to avoid double auth) ─────
     # Billing, admin, tenant (non-signup), user auth (non-public),
     # cronjobs, queue — all have existing Depends(require_*).
