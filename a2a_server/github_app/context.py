@@ -16,3 +16,4 @@ class MentionContext:
     comment_body: str
     comment_path: str = ''
     comment_diff_hunk: str = ''
+    actor_login: str = ''

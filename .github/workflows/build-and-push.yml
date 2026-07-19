@@ -1,4 +1,4 @@
-name: Build and Push to Google Artifact Registry
+name: Build and Push to On-Cluster Harbor
 
 "on":
     push:
@@ -22,8 +22,8 @@ name: Build and Push to Google Artifact Registry
                     - production
 
 env:
-    REGISTRY: us-central1-docker.pkg.dev
-    PROJECT: spotlessbinco/codetether
+    REGISTRY: registry.quantum-forge.net
+    PROJECT: cluster-ci-cache
     IMAGE_NAME: a2a-server-mcp
     CHART_PATH: chart/a2a-server
     CHART_VERSION: 1.4.3
@@ -52,7 +52,7 @@ jobs:
               env:
                   DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_test"
               run: |
-                  python -m pytest tests/ -v || true
+                  python -m pytest tests/ -v
 
             - name: Run OPA policy tests
               run: |
@@ -78,12 +78,12 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
 
-            - name: Log in to Google Artifact Registry
+            - name: Log in to on-cluster Harbor
               uses: docker/login-action@v3
               with:
                   registry: ${{ env.REGISTRY }}
-                  username: _json_key
-                  password: ${{ secrets.GCP_SA_KEY }}
+                  username: ${{ secrets.HARBOR_USERNAME }}
+                  password: ${{ secrets.HARBOR_PASSWORD }}
 
             - name: Extract metadata
               id: meta
@@ -149,12 +149,12 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
 
-            - name: Log in to Google Artifact Registry
+            - name: Log in to on-cluster Harbor
               uses: docker/login-action@v3
               with:
                   registry: ${{ env.REGISTRY }}
-                  username: _json_key
-                  password: ${{ secrets.GCP_SA_KEY }}
+                  username: ${{ secrets.HARBOR_USERNAME }}
+                  password: ${{ secrets.HARBOR_PASSWORD }}
 
             - name: Extract metadata (Worker)
               id: meta
@@ -206,10 +206,10 @@ jobs:
               with:
                   version: "3.14.0"
 
-            - name: Log in to Google Artifact Registry (Helm)
+            - name: Log in to on-cluster Harbor (Helm)
               run: |
-                  printf '%s' '${{ secrets.GCP_SA_KEY }}' | helm registry login https://${{ env.REGISTRY }} \
-                    --username _json_key \
+                  printf '%s' '${{ secrets.HARBOR_PASSWORD }}' | helm registry login ${{ env.REGISTRY }} \
+                    --username ${{ secrets.HARBOR_USERNAME }} \
                     --password-stdin
 
             - name: Update Helm chart values
@@ -305,7 +305,7 @@ jobs:
                   echo '```bash' >> $GITHUB_STEP_SUMMARY
                   echo "# Login to registry" >> $GITHUB_STEP_SUMMARY
                   echo "cat service-account-key.json | helm registry login https://${{ env.REGISTRY }} \\" >> $GITHUB_STEP_SUMMARY
-                  echo "  --username _json_key \\" >> $GITHUB_STEP_SUMMARY
+                  echo "  --username ${{ secrets.HARBOR_USERNAME }} \\" >> $GITHUB_STEP_SUMMARY
                   echo "  --password-stdin" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "# Deploy using local script" >> $GITHUB_STEP_SUMMARY
