@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: main-8029ece
+          value: main-5dbe61fbf0f7
         - name: blueGreen.rolloutId.green
-          value: harvester-enabled-main-8029ece
+          value: forgejo-temporal-main-5dbe61fbf0f7
       valuesObject:
         app:
           name: CodeTether Server
@@ -31,11 +31,11 @@ spec:
           logLevel: INFO
           enhanced: true
         image:
-          repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
-          tag: main-8029ece
+          repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
+          tag: main-5dbe61fbf0f7
           pullPolicy: Always
         imagePullSecrets:
-          - name: gcp-artifact-registry
+          - name: registry-credentials
         blueGreen:
           enabled: true
           mode: bluegreen
@@ -47,7 +47,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: harvester-enabled-main-8029ece
+            green: forgejo-temporal-main-5dbe61fbf0f7
         service:
           type: ClusterIP
           port: 8000
@@ -115,6 +115,7 @@ spec:
           address: temporal-frontend.temporal.svc.cluster.local:7233
           namespace: codetether-prod
           taskQueue: codetether-forgejo-agent
+          secretRef: codetether-a2a-server-forgejo
           replicas: 1
         existingEnvFromSecrets:
           - harvester-api-keys
