@@ -10,12 +10,12 @@ app:
   enhanced: true
 
 image:
-  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
+  repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
   tag: "main-d518d97"
   pullPolicy: Always
 
 imagePullSecrets:
-  - name: gcp-artifact-registry
+  - name: registry-credentials
 
 # Use the deterministic blue/green chart path for GitOps. The legacy
 # non-blue/green deployment path uses a random Helm annotation, which causes
@@ -32,6 +32,11 @@ blueGreen:
     legacy: ""
     blue: ""
     green: "claimfix-20260506-152900"
+
+forgejo:
+  existingSecret: codetether-a2a-server-forgejo
+  apiUrl: https://forgejo.quantum-forge.io/api/v1
+  botUsername: codetether
 
 service:
   type: ClusterIP
@@ -97,6 +102,9 @@ auth:
 
 secret:
   create: false
+
+existingEnvFromSecrets:
+  - harvester-api-keys
 
 envFromSecret:
   A2A_AUTH_TOKENS: a2a-server-auth-tokens

@@ -3,7 +3,7 @@
 from .context import MentionContext
 from .issue_prompt import issue_fix_prompt
 from .routing import resolve_task_target
-from .settings import MODEL_REF
+from .settings import MODEL_REF, TASK_PRIORITY
 
 DEFAULT_TASK_TIMEOUT = 604800  # 7 days
 
@@ -28,6 +28,7 @@ async def create_issue_build_task(
         'source': 'github-app',
         'repo': context.repo_full_name,
         'issue_number': context.issue_number,
+        'trigger_actor_login': context.actor_login,
         'branch_name': branch,
         'default_branch': repo['default_branch'],
         'github_issue_url': f'https://github.com/{context.repo_full_name}/issues/{context.issue_number}',
@@ -39,6 +40,7 @@ async def create_issue_build_task(
         title=f'Work issue #{context.issue_number}',
         prompt=issue_fix_prompt(context, issue, repo, branch),
         agent_type='build',
+        priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=DEFAULT_TASK_TIMEOUT,

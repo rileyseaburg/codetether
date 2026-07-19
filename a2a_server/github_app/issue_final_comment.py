@@ -6,10 +6,10 @@ import os
 from urllib.parse import quote
 
 from a2a_server import database as db
-from a2a_server.github_app.auth import github_json
+from a2a_server.github_app import auth as github_app_auth
+from a2a_server.github_app import issue_review_task
 from a2a_server.github_app.issue_pr import open_issue_pr
 from a2a_server.github_app.issue_review_task import (
-    create_issue_review_task,
     issue_pr_provenance,
     provenance_footer,
 )
@@ -34,9 +34,7 @@ def _github_repo_migrated_to_forgejo(repo: str) -> bool:
         'rileyseaburg/spotlessbinco,spotlessbinco/spotlessbinco',
     )
     migrated = {
-        item.strip().lower()
-        for item in configured.split(',')
-        if item.strip()
+        item.strip().lower() for item in configured.split(',') if item.strip()
     }
     return str(repo or '').strip().lower() in migrated
 
@@ -60,7 +58,7 @@ async def _verify_branch_and_commits(
     """
     encoded_branch = quote(branch, safe='')
     try:
-        ref = await github_json(
+        ref = await github_app_auth.github_json(
             'GET',
             f'/repos/{repo}/git/ref/heads/{encoded_branch}',
             token,
@@ -114,8 +112,8 @@ async def normalize_issue_task_terminal_status(task: dict) -> dict:
         error = (
             'Branch verification failed after worker completion. '
             f'Expected branch `{branch}` for issue #{issue_number}; '
-            f"GET /repos/{repo}/git/ref/heads/{quote(branch, safe='')} "
-            f"failed: {branch_info.get('error', 'unknown reason')}. "
+            f'GET /repos/{repo}/git/ref/heads/{quote(branch, safe="")} '
+            f'failed: {branch_info.get("error", "unknown reason")}. '
             'Recovery: retry or investigate worker commit/push/auth before '
             'marking the check successful.'
         )
@@ -185,17 +183,23 @@ async def notify_issue_final_comment(task: dict) -> None:
             review_task_id = None
             review_status = ''
             try:
-                review_task_id = await create_issue_review_task(
-                    workspace_id=str(metadata.get('workspace_id') or ''),
-                    repo=repo,
-                    issue_number=issue_number,
-                    branch=branch,
-                    pr=pr,
-                    github_issue_url=metadata.get('github_issue_url'),
-                    github_installation_id=metadata.get(
-                        'github_installation_id',
-                    ),
-                    parent_task_id=str(task_id),
+                review_task_id = (
+                    await issue_review_task.create_issue_review_task(
+                        workspace_id=str(metadata.get('workspace_id') or ''),
+                        repo=repo,
+                        issue_number=issue_number,
+                        branch=branch,
+                        pr=pr,
+                        github_issue_url=metadata.get('github_issue_url'),
+                        github_installation_id=metadata.get(
+                            'github_installation_id',
+                        ),
+                        token=token,
+                        parent_task_id=str(task_id),
+                        trigger_actor_login=str(
+                            metadata.get('trigger_actor_login') or ''
+                        ),
+                    )
                 )
                 if review_task_id:
                     review_status = (
@@ -235,7 +239,7 @@ async def notify_issue_final_comment(task: dict) -> None:
 
             message = (
                 '## 🛠️ CodeTether Fix\n\n'
-                f"Opened PR #{pr['number']}: {pr['html_url']}"
+                f'Opened PR #{pr["number"]}: {pr["html_url"]}'
             )
             if body:
                 message += f'\n\n{body}'

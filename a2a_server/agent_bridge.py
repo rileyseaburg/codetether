@@ -34,6 +34,7 @@ import aiohttp
 
 # Import PostgreSQL database module
 from . import database as db
+from .task_execution_persistence import persist_task_execution
 
 # Import Knative modules for event-driven worker spawning
 from .knative_spawner import (
@@ -52,8 +53,12 @@ logger = logging.getLogger(__name__)
 
 # Agent host configuration - allows container to connect to host VM's agent
 # Accepts AGENT_HOST/AGENT_PORT (preferred) or legacy OPENCODE_HOST/OPENCODE_PORT
-AGENT_HOST = os.environ.get('AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost'))
-AGENT_DEFAULT_PORT = int(os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777')))
+AGENT_HOST = os.environ.get(
+    'AGENT_HOST', os.environ.get('OPENCODE_HOST', 'localhost')
+)
+AGENT_DEFAULT_PORT = int(
+    os.environ.get('AGENT_PORT', os.environ.get('OPENCODE_PORT', '9777'))
+)
 
 # Backward-compatible aliases
 # Legacy OPENCODE_HOST removed
@@ -351,11 +356,9 @@ class AgentBridge:
         # HTTP session for API calls
         self._session: Optional[aiohttp.ClientSession] = None
 
-        logger.info(
-            f'Agent bridge initialized with binary: {self.agent_bin}'
-        )
+        logger.info(f'Agent bridge initialized with binary: {self.agent_bin}')
         logger.info(f'Agent host: {self.agent_host}:{self.default_port}')
-        logger.info(f'Using PostgreSQL database for persistence')
+        logger.info('Using PostgreSQL database for persistence')
 
     def _get_agent_base_url(self, port: Optional[int] = None) -> str:
         """
@@ -406,8 +409,10 @@ class AgentBridge:
                 metadata['target_agent_name'] = task.target_agent_name
             if task.model_used and 'model_used' not in metadata:
                 metadata['model_used'] = task.model_used
+            if task.session_id:
+                metadata['session_id'] = task.session_id
 
-            await db.db_upsert_task(
+            saved = await db.db_upsert_task(
                 {
                     'id': task.id,
                     # Workspace is the canonical DB column; keep legacy key too.
@@ -418,7 +423,7 @@ class AgentBridge:
                     'agent_type': task.agent_type,
                     'status': task.status.value,
                     'priority': task.priority,
-                    'worker_id': None,  # Will be set by worker when claimed
+                    'worker_id': task.worker_id,
                     'result': task.result,
                     'error': task.error,
                     'metadata': metadata,
@@ -432,6 +437,12 @@ class AgentBridge:
                     else None,
                 }
             )
+            if saved and (task.worker_id or task.session_id):
+                await persist_task_execution(
+                    task.id,
+                    worker_id=task.worker_id,
+                    metadata=metadata,
+                )
         except Exception as e:
             logger.error(f'Failed to save task to PostgreSQL: {e}')
 
@@ -529,7 +540,9 @@ class AgentBridge:
             # 1. Discover all tenant IDs using admin_scope (bypasses RLS).
             pool = await db.get_pool()
             if not pool:
-                logger.warning('Database pool unavailable, skipping workspace load')
+                logger.warning(
+                    'Database pool unavailable, skipping workspace load'
+                )
                 return
 
             tenant_ids: List[str] = []
@@ -551,9 +564,9 @@ class AgentBridge:
                         ws_rows = await conn.fetch(
                             'SELECT * FROM workspaces ORDER BY updated_at DESC'
                         )
-                except Exception as te:
+                except Exception as tenant_error:
                     logger.warning(
-                        f'Failed to load workspaces for tenant {tid}: {te}'
+                        f'Failed to load workspaces for tenant {tid}: {tenant_error}'
                     )
                     continue
 
@@ -902,9 +915,7 @@ class AgentBridge:
             str(port),
         ]
 
-        logger.info(
-            f'Starting agent server for {codebase.name} on port {port}'
-        )
+        logger.info(f'Starting agent server for {codebase.name} on port {port}')
         logger.debug(f'Command: {" ".join(cmd)}')
 
         try:
@@ -1140,7 +1151,6 @@ class AgentBridge:
         """
         # Generate session ID (or use existing)
         session_id = request.metadata.get('session_id') or str(uuid.uuid4())[:8]
-        task_id = str(uuid.uuid4())
 
         # Prepare model specification for CloudEvent
         model_spec = None
@@ -1407,10 +1417,7 @@ class AgentBridge:
         # 1. Try to find an active agent instance
         active_port = None
         for codebase in self._codebases.values():
-            if (
-                codebase.agent_port
-                and codebase.status == AgentStatus.RUNNING
-            ):
+            if codebase.agent_port and codebase.status == AgentStatus.RUNNING:
                 active_port = codebase.agent_port
                 break
 
@@ -1559,11 +1566,7 @@ class AgentBridge:
     async def interrupt_agent(self, codebase_id: str) -> bool:
         """Interrupt the current agent task."""
         codebase = self._codebases.get(codebase_id)
-        if (
-            not codebase
-            or not codebase.session_id
-            or not codebase.agent_port
-        ):
+        if not codebase or not codebase.session_id or not codebase.agent_port:
             return False
 
         try:
@@ -1692,13 +1695,25 @@ class AgentBridge:
         return task
 
     async def get_task(self, task_id: str) -> Optional[AgentTask]:
-        """Get a task by ID. Checks in-memory cache first, then database."""
-        # Check in-memory cache first
-        task = self._tasks.get(task_id)
-        if task:
-            return task
-        # Fall back to database
-        return await self._load_task_from_db(task_id)
+        """Get a task by ID, refreshing replica-local cache from PostgreSQL."""
+        try:
+            row = await db.db_get_task(task_id)
+            if row:
+                task = self._task_from_db_row(row)
+                self._tasks[task_id] = task
+                if task.codebase_id not in self._codebase_tasks:
+                    self._codebase_tasks[task.codebase_id] = []
+                if task_id not in self._codebase_tasks[task.codebase_id]:
+                    self._codebase_tasks[task.codebase_id].append(task_id)
+                return task
+        except Exception as exc:
+            logger.warning(
+                'Failed to refresh task %s from PostgreSQL: %s', task_id, exc
+            )
+
+        # Keep reads available during a transient database outage. Mutations
+        # persist before returning, so the local cache is the safest degraded read.
+        return self._tasks.get(task_id)
 
     async def list_tasks(
         self,
