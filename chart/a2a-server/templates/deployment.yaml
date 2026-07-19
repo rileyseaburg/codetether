@@ -75,6 +75,10 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
             {{- if .Values.configMap.create }}
             - configMapRef:
                 name: {{ include "a2a-server.fullname" . }}-config
@@ -94,6 +98,10 @@ spec:
             {{- if or .Values.githubApp.existingSecret .Values.githubApp.appId .Values.githubApp.privateKey .Values.githubApp.webhookSecret }}
             - secretRef:
                 name: {{ include "a2a-server.githubAppSecretName" . }}
+            {{- end }}
+            {{- if .Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ .Values.forgejo.existingSecret }}
             {{- end }}
           env:
             {{- if .Values.opa.enabled }}
@@ -120,6 +128,12 @@ spec:
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ .Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ .Values.forgejo.botUsername | default "codetether" | quote }}
             {{- end }}
             {{- if .Values.minio.enabled }}
             - name: MINIO_ENDPOINT
@@ -377,6 +391,10 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
             {{- if .Values.configMap.create }}
             - configMapRef:
                 name: {{ include "a2a-server.fullname" . }}-config
@@ -392,6 +410,14 @@ spec:
             {{- if or .Values.stripe.apiKey .Values.stripe.webhookSecret }}
             - secretRef:
                 name: {{ include "a2a-server.fullname" . }}-stripe
+            {{- end }}
+            {{- if or .Values.githubApp.existingSecret .Values.githubApp.appId .Values.githubApp.privateKey .Values.githubApp.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.githubAppSecretName" . }}
+            {{- end }}
+            {{- if .Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ .Values.forgejo.existingSecret }}
             {{- end }}
           env:
             {{- if .Values.opa.enabled }}
@@ -418,6 +444,12 @@ spec:
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ .Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ .Values.forgejo.botUsername | default "codetether" | quote }}
             {{- end }}
             {{- if .Values.minio.enabled }}
             - name: MINIO_ENDPOINT
@@ -619,6 +651,10 @@ spec:
           startupProbe:
             {{- toYaml $.Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- range $.Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
             {{- if $.Values.configMap.create }}
             - configMapRef:
                 name: {{ include "a2a-server.fullname" $ }}-config
@@ -634,6 +670,14 @@ spec:
             {{- if or $.Values.stripe.apiKey $.Values.stripe.webhookSecret }}
             - secretRef:
                 name: {{ include "a2a-server.fullname" $ }}-stripe
+            {{- end }}
+            {{- if or $.Values.githubApp.existingSecret $.Values.githubApp.appId $.Values.githubApp.privateKey $.Values.githubApp.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.githubAppSecretName" $ }}
+            {{- end }}
+            {{- if $.Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ $.Values.forgejo.existingSecret }}
             {{- end }}
           env:
             {{- if $.Values.opa.enabled }}
@@ -660,6 +704,12 @@ spec:
             {{- range $key, $value := $.Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
+            {{- if $.Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ $.Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ $.Values.forgejo.botUsername | default "codetether" | quote }}
             {{- end }}
             {{- if $.Values.minio.enabled }}
             - name: MINIO_ENDPOINT

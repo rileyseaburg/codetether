@@ -1,5 +1,8 @@
 from a2a_server.github_app.mention import is_fix_request, mentions_bot
-from a2a_server.github_app.payload import extract_context, is_supported_event_action
+from a2a_server.github_app.payload import (
+    extract_context,
+    is_supported_event_action,
+)
 from a2a_server.github_app.settings import APP_SLUG
 
 
@@ -51,3 +54,46 @@ def test_issue_edit_only_triggers_when_mention_is_new():
 
     payload['changes']['body']['from'] = f'@{APP_SLUG} old instructions'
     assert not is_supported_event_action('issues', payload)
+
+
+def test_edited_issue_attributes_trigger_to_sender():
+    payload = {
+        'action': 'edited',
+        'changes': {'body': {'from': 'plain issue body'}},
+        'installation': {'id': 123},
+        'repository': {'full_name': 'owner/repo'},
+        'issue': {
+            'id': 456,
+            'number': 7,
+            'body': f'@{APP_SLUG} handle this issue',
+            'user': {'login': 'original-author'},
+        },
+        'sender': {'login': 'human-editor'},
+    }
+
+    context = extract_context('issues', payload)
+
+    assert context is not None
+    assert context.actor_login == 'human-editor'
+
+
+def test_edited_pull_request_attributes_trigger_to_sender():
+    payload = {
+        'action': 'edited',
+        'changes': {'body': {'from': 'plain pull request body'}},
+        'installation': {'id': 123},
+        'repository': {'full_name': 'owner/repo'},
+        'pull_request': {
+            'id': 789,
+            'number': 8,
+            'body': f'@{APP_SLUG} fix this pull request',
+            'user': {'login': 'original-author'},
+        },
+        'sender': {'login': 'human-editor'},
+    }
+
+    context = extract_context('pull_request', payload)
+
+    assert context is not None
+    assert context.pr_number == 8
+    assert context.actor_login == 'human-editor'
