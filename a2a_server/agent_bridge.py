@@ -564,9 +564,9 @@ class AgentBridge:
                         ws_rows = await conn.fetch(
                             'SELECT * FROM workspaces ORDER BY updated_at DESC'
                         )
-                except Exception as te:
+                except Exception as tenant_error:
                     logger.warning(
-                        f'Failed to load workspaces for tenant {tid}: {te}'
+                        f'Failed to load workspaces for tenant {tid}: {tenant_error}'
                     )
                     continue
 
