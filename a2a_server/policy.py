@@ -546,7 +546,7 @@ async def enforce_tenant_policy(
         raise HTTPException(
             status_code=403,
             detail=(
-                f"Access denied: insufficient permissions for "
+                f'Access denied: insufficient permissions for '
                 f"'{action}' on resource"
             ),
         )
@@ -603,6 +603,7 @@ def require_resource_permission(action: str):
 async def _resolve_user(request: Request) -> dict[str, Any] | None:
     """Resolve a workload, application, or Keycloak policy identity."""
     from a2a_server.policy_identity_resolver import resolve  # noqa: PLC0415
+
     return await resolve(request)
 
 
