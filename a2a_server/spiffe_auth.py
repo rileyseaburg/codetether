@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 def _enabled() -> bool:
-    return os.environ.get("SPIFFE_ENABLED", "false").lower() == "true"
+    return os.environ.get('SPIFFE_ENABLED', 'false').lower() == 'true'
 
 
 def spiffe_enabled() -> bool:
@@ -59,38 +59,38 @@ def spiffe_enabled() -> bool:
 
 
 def _trust_domain() -> str:
-    return os.environ.get("SPIFFE_TRUST_DOMAIN", "").strip()
+    return os.environ.get('SPIFFE_TRUST_DOMAIN', '').strip()
 
 
 def _audiences() -> list[str]:
-    raw = os.environ.get("SPIFFE_AUDIENCE", "").strip()
-    return [a.strip() for a in raw.split(",") if a.strip()]
+    raw = os.environ.get('SPIFFE_AUDIENCE', '').strip()
+    return [a.strip() for a in raw.split(',') if a.strip()]
 
 
 def _jwks_url() -> str:
-    return os.environ.get("SPIFFE_JWKS_URL", "").strip()
+    return os.environ.get('SPIFFE_JWKS_URL', '').strip()
 
 
 def _jwks_ttl() -> int:
     try:
-        return int(os.environ.get("SPIFFE_JWKS_TTL", "300"))
+        return int(os.environ.get('SPIFFE_JWKS_TTL', '300'))
     except ValueError:
         return 300
 
 
 def allow_token_legacy() -> bool:
     """Whether legacy A2A_AUTH_TOKENS are still accepted during migration."""
-    return os.environ.get("SPIFFE_ALLOW_TOKEN_LEGACY", "true").lower() == "true"
+    return os.environ.get('SPIFFE_ALLOW_TOKEN_LEGACY', 'true').lower() == 'true'
 
 
 def _role_map() -> dict[str, str]:
     """Parse SPIFFE_ROLE_MAP ("svid-role:rbac-role,...") into a dict."""
-    raw = os.environ.get("SPIFFE_ROLE_MAP", "").strip()
+    raw = os.environ.get('SPIFFE_ROLE_MAP', '').strip()
     mapping: dict[str, str] = {}
-    for pair in raw.split(","):
+    for pair in raw.split(','):
         entry = pair.strip()
-        if ":" in entry:
-            svid_role, rbac_role = entry.split(":", 1)
+        if ':' in entry:
+            svid_role, rbac_role = entry.split(':', 1)
             svid_role = svid_role.strip()
             rbac_role = rbac_role.strip()
             if svid_role and rbac_role:
@@ -100,8 +100,8 @@ def _role_map() -> dict[str, str]:
 
 def _default_rbac_role() -> str:
     """Default RBAC role for SPIFFE callers without an explicit mapping."""
-    role = os.environ.get("SPIFFE_DEFAULT_ROLE", "a2a-agent").strip()
-    return role or "a2a-agent"
+    role = os.environ.get('SPIFFE_DEFAULT_ROLE', 'a2a-agent').strip()
+    return role or 'a2a-agent'
 
 
 def _mapped_rbac_roles(svid_role: str | None) -> list[str]:
@@ -117,7 +117,7 @@ def _get_jwk_client() -> PyJWKClient:
     url = _jwks_url()
     if not url:
         raise HTTPException(
-            status_code=500, detail="SPIFFE_JWKS_URL not configured"
+            status_code=500, detail='SPIFFE_JWKS_URL not configured'
         )
     return get_client(url, _jwks_ttl())
 
@@ -133,20 +133,20 @@ class SpiffeIdentity:
 
     @property
     def segments(self) -> list[str]:
-        return [s for s in self.path.split("/") if s]
+        return [s for s in self.path.split('/') if s]
 
     @property
     def tenant(self) -> str | None:
         segs = self.segments
         for i, seg in enumerate(segs):
-            if seg == "tenant" and i + 1 < len(segs):
+            if seg == 'tenant' and i + 1 < len(segs):
                 return segs[i + 1]
         return None
 
     @property
     def role(self) -> str | None:
         segs = self.segments
-        for kw in ("agent", "worker", "server", "service"):
+        for kw in ('agent', 'worker', 'server', 'service'):
             if kw in segs:
                 idx = segs.index(kw)
                 if idx + 1 < len(segs):
@@ -156,11 +156,11 @@ class SpiffeIdentity:
 
     def to_opa_input(self) -> dict:
         return {
-            "spiffe_id": self.spiffe_id,
-            "trust_domain": self.trust_domain,
-            "tenant": self.tenant,
-            "role": self.role,
-            "path": self.path,
+            'spiffe_id': self.spiffe_id,
+            'trust_domain': self.trust_domain,
+            'tenant': self.tenant,
+            'role': self.role,
+            'path': self.path,
         }
 
     def to_policy_user(self) -> dict:
@@ -174,30 +174,30 @@ class SpiffeIdentity:
         """
         rbac_roles = _mapped_rbac_roles(self.role)
         return {
-            "user_id": self.spiffe_id,
-            "sub": self.spiffe_id,
-            "roles": rbac_roles,
-            "tenant_id": self.tenant,
-            "scopes": [],
-            "auth_source": "spiffe",
-            "spiffe_id": self.spiffe_id,
+            'user_id': self.spiffe_id,
+            'sub': self.spiffe_id,
+            'roles': rbac_roles,
+            'tenant_id': self.tenant,
+            'scopes': [],
+            'auth_source': 'spiffe',
+            'spiffe_id': self.spiffe_id,
         }
 
 
 def parse_spiffe_id(spiffe_id: str) -> tuple[str, str]:
     """Split a spiffe://trust-domain/path URI into (trust_domain, path)."""
-    if not spiffe_id.startswith("spiffe://"):
-        raise ValueError("SPIFFE ID must start with spiffe://")
-    remainder = spiffe_id[len("spiffe://"):]
+    if not spiffe_id.startswith('spiffe://'):
+        raise ValueError('SPIFFE ID must start with spiffe://')
+    remainder = spiffe_id[len('spiffe://') :]
     if not remainder:
-        raise ValueError("SPIFFE ID missing trust domain")
-    if "/" in remainder:
-        trust_domain, path = remainder.split("/", 1)
-        path = "/" + path
+        raise ValueError('SPIFFE ID missing trust domain')
+    if '/' in remainder:
+        trust_domain, path = remainder.split('/', 1)
+        path = '/' + path
     else:
-        trust_domain, path = remainder, "/"
+        trust_domain, path = remainder, '/'
     if not trust_domain:
-        raise ValueError("SPIFFE ID missing trust domain")
+        raise ValueError('SPIFFE ID missing trust domain')
     return trust_domain, path
 
 
@@ -211,46 +211,46 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
     except HTTPException:
         raise
     except Exception as exc:
-        logger.warning("SVID signing key lookup failed: %s", exc)
+        logger.warning('SVID signing key lookup failed: %s', exc)
         raise HTTPException(
-            status_code=401, detail="Invalid SVID signature"
+            status_code=401, detail='Invalid SVID signature'
         ) from exc
 
     audiences = _audiences()
     decode_kwargs: dict = {
-        "algorithms": ["RS256", "ES256", "ES384", "EdDSA"],
-        "options": {"require": ["exp", "sub"]},
+        'algorithms': ['RS256', 'ES256', 'ES384', 'EdDSA'],
+        'options': {'require': ['exp', 'sub']},
     }
     if audiences:
-        decode_kwargs["audience"] = audiences
+        decode_kwargs['audience'] = audiences
     else:
-        decode_kwargs["options"]["verify_aud"] = False
+        decode_kwargs['options']['verify_aud'] = False
 
     try:
         claims = jwt.decode(token, signing_key.key, **decode_kwargs)
     except jwt.ExpiredSignatureError as exc:
-        raise HTTPException(status_code=401, detail="SVID expired") from exc
+        raise HTTPException(status_code=401, detail='SVID expired') from exc
     except jwt.InvalidAudienceError as exc:
         raise HTTPException(
-            status_code=403, detail="SVID audience mismatch"
+            status_code=403, detail='SVID audience mismatch'
         ) from exc
     except jwt.PyJWTError as exc:
-        logger.warning("SVID decode failed: %s", exc)
-        raise HTTPException(status_code=401, detail="Invalid SVID") from exc
+        logger.warning('SVID decode failed: %s', exc)
+        raise HTTPException(status_code=401, detail='Invalid SVID') from exc
 
-    spiffe_id = claims.get("sub", "")
+    spiffe_id = claims.get('sub', '')
     try:
         trust_domain, path = parse_spiffe_id(spiffe_id)
     except ValueError as exc:
         raise HTTPException(
-            status_code=403, detail=f"Invalid SPIFFE ID: {exc}"
+            status_code=403, detail=f'Invalid SPIFFE ID: {exc}'
         ) from exc
 
     expected_td = _trust_domain()
     if expected_td and trust_domain != expected_td:
         raise HTTPException(
             status_code=403,
-            detail=f"Untrusted SPIFFE trust domain: {trust_domain}",
+            detail=f'Untrusted SPIFFE trust domain: {trust_domain}',
         )
 
     return SpiffeIdentity(
@@ -264,13 +264,13 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
 def bearer_token(request: Request) -> str | None:
     """Extract the raw Bearer credential from the request, if present."""
     auth = (
-        request.headers.get("authorization")
-        or request.headers.get("Authorization")
-        or ""
+        request.headers.get('authorization')
+        or request.headers.get('Authorization')
+        or ''
     )
-    if not auth.startswith("Bearer "):
+    if not auth.startswith('Bearer '):
         return None
-    token = auth.removeprefix("Bearer ").strip()
+    token = auth.removeprefix('Bearer ').strip()
     return token or None
 
 
@@ -280,5 +280,5 @@ def verify_spiffe(request: Request) -> SpiffeIdentity | None:
         return None
     token = bearer_token(request)
     if not token:
-        raise HTTPException(status_code=401, detail="Missing Bearer SVID")
+        raise HTTPException(status_code=401, detail='Missing Bearer SVID')
     return validate_jwt_svid(token)
