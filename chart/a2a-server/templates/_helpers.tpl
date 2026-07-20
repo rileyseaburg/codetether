@@ -189,5 +189,13 @@ Intended for use under a container `env:` list.
   value: {{ .Values.spiffe.roleMap | quote }}
 - name: SPIFFE_DEFAULT_ROLE
   value: {{ .Values.spiffe.defaultRole | quote }}
+{{- if .Values.spiffe.bundle.configMap }}
+- name: SPIFFE_BUNDLE_NAMESPACE
+  value: {{ .Values.spiffe.bundle.namespace | quote }}
+- name: SPIFFE_BUNDLE_CONFIGMAP
+  value: {{ .Values.spiffe.bundle.configMap | quote }}
+- name: SPIFFE_BUNDLE_KEY
+  value: {{ .Values.spiffe.bundle.key | quote }}
+{{- end }}
 {{- end }}
 {{- end }}

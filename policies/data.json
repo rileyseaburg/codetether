@@ -84,6 +84,22 @@
                 "mcp:write"
             ]
         },
+        "executive-vp": {
+            "description": "Executive coordination without platform administration",
+            "inherits": "operator"
+        },
+        "engineering-manager": {
+            "description": "Engineering line management and delivery coordination",
+            "inherits": "editor"
+        },
+        "ops-manager": {
+            "description": "Operations line management and deployment coordination",
+            "inherits": "operator"
+        },
+        "line-manager": {
+            "description": "Team task and review coordination",
+            "inherits": "editor"
+        },
         "a2a-user": {
             "description": "Standard user role (Keycloak realm role)",
             "inherits": "editor"

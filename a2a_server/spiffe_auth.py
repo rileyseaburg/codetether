@@ -26,6 +26,7 @@ Configuration (env):
     SPIFFE_AUDIENCE         expected audience, e.g. "a2a-server" (comma list ok)
     SPIFFE_JWKS_URL         URL to the JWKS bundle (SPIRE OIDC discovery)
     SPIFFE_JWKS_TTL         JWKS cache TTL seconds (default 300)
+    SPIFFE_BUNDLE_CONFIGMAP rotating SPIRE trust bundle ConfigMap (optional)
     SPIFFE_ALLOW_TOKEN_LEGACY  "true" to also accept legacy A2A_AUTH_TOKENS
                             during migration (default true)
 """
@@ -34,8 +35,6 @@ from __future__ import annotations
 
 import logging
 import os
-import threading
-import time
 
 from dataclasses import dataclass
 
@@ -43,6 +42,8 @@ import jwt
 
 from fastapi import HTTPException, Request
 from jwt import PyJWKClient
+
+from a2a_server.spiffe_jwks_client import get_client
 
 
 logger = logging.getLogger(__name__)
@@ -111,11 +112,6 @@ def _mapped_rbac_roles(svid_role: str | None) -> list[str]:
     return [_default_rbac_role()]
 
 
-# Mutable cache state held in a dict to avoid module-level `global` rebinds.
-_jwk_cache: dict = {"client": None, "at": 0.0}
-_jwk_lock = threading.Lock()
-
-
 def _get_jwk_client() -> PyJWKClient:
     """Return a cached PyJWKClient, rotating it past the configured TTL."""
     url = _jwks_url()
@@ -123,14 +119,7 @@ def _get_jwk_client() -> PyJWKClient:
         raise HTTPException(
             status_code=500, detail="SPIFFE_JWKS_URL not configured"
         )
-    now = time.monotonic()
-    with _jwk_lock:
-        client = _jwk_cache["client"]
-        if client is None or (now - _jwk_cache["at"]) > _jwks_ttl():
-            client = PyJWKClient(url, cache_keys=True)
-            _jwk_cache["client"] = client
-            _jwk_cache["at"] = now
-        return client
+    return get_client(url, _jwks_ttl())
 
 
 @dataclass(frozen=True)

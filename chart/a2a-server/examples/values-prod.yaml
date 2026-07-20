@@ -81,11 +81,15 @@ spiffe:
   enabled: true
   trustDomain: "codetether.io"
   audience: "a2a-server"
-  jwksUrl: "http://spire-oidc.spire.svc.cluster.local/keys"
+  jwksUrl: "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
   jwksTtl: 300
   allowTokenLegacy: true
   roleMap: ""
   defaultRole: "a2a-agent"
+  bundle:
+    namespace: "spire"
+    configMap: "spire-bundle"
+    key: "bundle.spiffe"
   server:
     enabled: false
 

@@ -42,7 +42,6 @@ from typing import Any
 import httpx
 
 from fastapi import HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials
 
 from a2a_server.provenance import verify_provenance
 
@@ -602,59 +601,9 @@ def require_resource_permission(action: str):
 
 
 async def _resolve_user(request: Request) -> dict[str, Any] | None:
-    """Resolve authenticated user from request using existing auth systems.
-
-    Tries Keycloak auth first, then self-service auth.
-    Supports Bearer token from Authorization header, with query param
-    fallback (access_token) for SSE/EventSource connections that cannot
-    set custom headers.
-    """
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header[7:]
-    else:
-        # Fallback: check query param for SSE/EventSource connections
-        token = request.query_params.get('access_token')
-
-    if not token:
-        return None
-
-    # Try self-service / API key auth (handles all token types)
-    try:
-        from a2a_server.user_auth import (  # noqa: PLC0415 - deferred: avoids import cycle
-            get_current_user as user_auth_get_current_user,
-        )
-
-        creds = HTTPAuthorizationCredentials(scheme='Bearer', credentials=token)
-        user = await user_auth_get_current_user(request, creds)
-        if user:
-            return user
-    except Exception:
-        pass
-
-    # Otherwise, try Keycloak-only auth
-    try:
-        from a2a_server.keycloak_auth import (  # noqa: PLC0415 - deferred: avoids import cycle
-            get_current_user as kc_get_current_user,
-        )
-
-        creds = HTTPAuthorizationCredentials(scheme='Bearer', credentials=token)
-        session = await kc_get_current_user(creds)
-        if session:
-            return {
-                'id': session.user_id,
-                'user_id': session.user_id,
-                'email': session.email,
-                'roles': session.roles,
-                'tenant_id': session.tenant_id,
-                'type': 'keycloak',
-                'keycloak_sub': session.user_id,
-                'realm_name': session.realm_name,
-            }
-    except Exception:
-        pass
-
-    return None
+    """Resolve a workload, application, or Keycloak policy identity."""
+    from a2a_server.policy_identity_resolver import resolve  # noqa: PLC0415
+    return await resolve(request)
 
 
 # ── OPA Health Check ─────────────────────────────────────────────
