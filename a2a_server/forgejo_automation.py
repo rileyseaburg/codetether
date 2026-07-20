@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import logging
+
 from typing import Any
 from urllib.parse import quote
+
+from fastapi import HTTPException
 
 from a2a_server.github_app.issue_review_task import reviewer_verdict
 from a2a_server.github_app.settings import MODEL_REF, TASK_PRIORITY
 
 from .forgejo_webhooks import forgejo_json
+
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +122,20 @@ async def publish_forgejo_review(review_task: dict[str, Any]) -> dict[str, Any]:
     }
     if head_sha:
         payload['commit_id'] = head_sha
-    published = await forgejo_json('POST', base, path, payload)
+    try:
+        published = await forgejo_json('POST', base, path, payload)
+    except HTTPException as exc:
+        # Agent-authored pull requests cannot be approved or rejected by the
+        # same Forgejo bot account. Preserve the review and its internal
+        # verdict as a non-blocking comment instead of failing the workflow.
+        if (
+            payload['event'] != 'COMMENT'
+            and 'your own pull' in str(exc.detail).lower()
+        ):
+            payload['event'] = 'COMMENT'
+            published = await forgejo_json('POST', base, path, payload)
+        else:
+            raise
     return {
         'published': True,
         'duplicate': False,

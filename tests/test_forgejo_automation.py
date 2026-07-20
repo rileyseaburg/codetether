@@ -2,9 +2,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from fastapi import HTTPException
+
 from a2a_server import forgejo_automation as automation
-from a2a_server import forgejo_task_completion
-from a2a_server import forgejo_webhooks
+from a2a_server import forgejo_task_completion, forgejo_webhooks
 from a2a_server.github_app.settings import TASK_PRIORITY
 
 
@@ -116,6 +117,61 @@ async def test_publish_review_is_semantic_and_idempotent(monkeypatch):
     duplicate = await automation.publish_forgejo_review(review_task())
     assert duplicate['duplicate'] is True
     assert calls == ['GET']
+
+
+@pytest.mark.asyncio
+async def test_publish_review_comments_when_bot_cannot_approve_own_pr(
+    monkeypatch,
+):
+    calls = []
+
+    async def fake_json(method, base, path, payload=None):
+        calls.append((method, payload.copy() if payload else None))
+        if method == 'GET':
+            return []
+        if payload['event'] == 'APPROVED':
+            raise HTTPException(
+                502,
+                'Forgejo API POST failed: '
+                '{"message":"approve your own pull is not allowed"}',
+            )
+        return {'id': 45}
+
+    monkeypatch.setattr(automation, 'forgejo_json', fake_json)
+
+    result = await automation.publish_forgejo_review(
+        review_task('APPROVED: no blocking findings')
+    )
+
+    assert [
+        payload['event'] for method, payload in calls if method == 'POST'
+    ] == [
+        'APPROVED',
+        'COMMENT',
+    ]
+    assert result == {
+        'published': True,
+        'duplicate': False,
+        'event': 'COMMENT',
+        'review_id': 45,
+    }
+
+
+@pytest.mark.asyncio
+async def test_publish_review_does_not_mask_unrelated_forgejo_error(
+    monkeypatch,
+):
+    async def fake_json(method, base, path, payload=None):
+        if method == 'GET':
+            return []
+        raise HTTPException(502, 'Forgejo API POST failed: stale commit')
+
+    monkeypatch.setattr(automation, 'forgejo_json', fake_json)
+
+    with pytest.raises(HTTPException, match='stale commit'):
+        await automation.publish_forgejo_review(
+            review_task('APPROVED: no blocking findings')
+        )
 
 
 @pytest.mark.asyncio
