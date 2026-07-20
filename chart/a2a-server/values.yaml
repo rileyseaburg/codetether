@@ -449,6 +449,13 @@ commonAnnotations: {}
 # Extra manifests to deploy as an array
 extraDeploy: []
 
+# Persona instances receive a unique Kubernetes service account. The installed
+# SPIRE fallback ClusterSPIFFEID projects that account into a JWT/X509 SVID.
+agentIdentity:
+  enabled: false
+  # Inject KEYCLOAK_PROVISIONER_CLIENT_SECRET with envFromSecret. The client
+  # needs only clients, users, groups, and realm-role management permissions.
+
 # Knative per-session worker configuration
 # When enabled, creates a Broker for event routing and ConfigMap with
 # Service/Trigger templates for the Python spawner to use
@@ -734,7 +741,7 @@ spiffe:
   # Expected audience(s) the SVID must be minted for (comma-separated).
   audience: "a2a-server"
   # JWKS endpoint published by SPIRE's OIDC Discovery Provider.
-  jwksUrl: "http://spire-oidc.spire.svc.cluster.local/keys"
+  jwksUrl: "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
   # JWKS cache TTL in seconds.
   jwksTtl: 300
   # During migration, still accept legacy A2A_AUTH_TOKENS when no SVID is sent.
@@ -744,6 +751,12 @@ spiffe:
   roleMap: ""
   # RBAC role for SVID callers without an explicit roleMap entry.
   defaultRole: "a2a-agent"
+  # Optional rotating CA source for an in-cluster SPIRE OIDC endpoint. The
+  # chart grants this service account get access to only this ConfigMap name.
+  bundle:
+    namespace: "spire"
+    configMap: ""
+    key: "bundle.spiffe"
   # Optional in-cluster SPIRE server (dev/test only — production should use the
   # upstream spiffe/spire-server chart with proper node attestation + storage).
   server:
