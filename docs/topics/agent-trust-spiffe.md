@@ -11,7 +11,7 @@ implementation). This replaces long-lived shared bearer tokens with verifiable
 !!! abstract "TL;DR"
     **SPIFFE = authentication** (who is calling), **OPA = authorization**
     (what they may do). A SPIFFE ID such as
-    `spiffe://codetether.io/tenant/acme/agent/orchestrator` is validated from a
+    `spiffe://codetether.run/tenant/acme/agent/orchestrator` is validated from a
     JWT-SVID, then its path is mapped to a tenant and an RBAC role for policy
     evaluation.
 
@@ -40,9 +40,9 @@ A SPIFFE ID is a URI of the form `spiffe://<trust-domain>/<path>`. CodeTether
 uses the path to encode tenant and role:
 
 ```
-spiffe://codetether.io/tenant/acme/agent/marketing-orchestrator
-spiffe://codetether.io/worker/persistent-pool
-spiffe://codetether.io/server/a2a-mcp
+spiffe://codetether.run/tenant/acme/agent/marketing-orchestrator
+spiffe://codetether.run/worker/persistent-pool
+spiffe://codetether.run/server/a2a-mcp
 ```
 
 | Path segment pattern | Extracted as |
@@ -81,7 +81,7 @@ SPIFFE validation is **off by default**. Enable it with environment variables
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `SPIFFE_ENABLED` | `false` | Turn on JWT-SVID validation |
-| `SPIFFE_TRUST_DOMAIN` | _(empty)_ | Expected trust domain, e.g. `codetether.io` |
+| `SPIFFE_TRUST_DOMAIN` | _(empty)_ | Expected trust domain, e.g. `codetether.run` |
 | `SPIFFE_AUDIENCE` | _(empty)_ | Expected SVID audience(s), comma-separated |
 | `SPIFFE_JWKS_URL` | _(empty)_ | SPIRE OIDC discovery JWKS endpoint |
 | `SPIFFE_JWKS_TTL` | `300` | JWKS cache TTL (seconds) |
@@ -111,7 +111,7 @@ environment variables into the server deployments:
 ```yaml
 spiffe:
   enabled: true
-  trustDomain: "codetether.io"
+  trustDomain: "codetether.run"
   audience: "a2a-server"
   jwksUrl: "http://spire-oidc.spire.svc.cluster.local/keys"
   allowTokenLegacy: true        # keep legacy tokens working during cutover
@@ -139,15 +139,15 @@ Kubernetes ServiceAccount):
 ```bash
 # Register the persistent worker pool
 spire-server entry create \
-  -spiffeID spiffe://codetether.io/worker/persistent-pool \
-  -parentID spiffe://codetether.io/spire/agent/k8s_psat/dev-cluster \
+  -spiffeID spiffe://codetether.run/worker/persistent-pool \
+  -parentID spiffe://codetether.run/spire/agent/k8s_psat/dev-cluster \
   -selector k8s:ns:default \
   -selector k8s:sa:a2a-worker
 
 # Register a tenant-scoped agent
 spire-server entry create \
-  -spiffeID spiffe://codetether.io/tenant/acme/agent/orchestrator \
-  -parentID spiffe://codetether.io/spire/agent/k8s_psat/dev-cluster \
+  -spiffeID spiffe://codetether.run/tenant/acme/agent/orchestrator \
+  -parentID spiffe://codetether.run/spire/agent/k8s_psat/dev-cluster \
   -selector k8s:ns:acme \
   -selector k8s:sa:orchestrator
 ```
