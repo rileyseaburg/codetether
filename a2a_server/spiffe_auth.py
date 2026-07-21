@@ -8,7 +8,7 @@ place of long-lived shared secrets. A JWT-SVID is a standard JWT whose ``sub``
 claim is a SPIFFE ID:
 
     spiffe://<trust-domain>/<path>
-    e.g. spiffe://codetether.io/tenant/acme/agent/marketing-orchestrator
+    e.g. spiffe://codetether.run/tenant/acme/agent/marketing-orchestrator
 
 Validation flow:
     1. Parse the Bearer token.
@@ -22,7 +22,7 @@ OPA = authorization.
 
 Configuration (env):
     SPIFFE_ENABLED          "true" to enable SVID validation (default false)
-    SPIFFE_TRUST_DOMAIN     expected trust domain, e.g. "codetether.io"
+    SPIFFE_TRUST_DOMAIN     expected trust domain, e.g. "codetether.run"
     SPIFFE_AUDIENCE         expected audience, e.g. "a2a-server" (comma list ok)
     SPIFFE_JWKS_URL         URL to the JWKS bundle (SPIRE OIDC discovery)
     SPIFFE_JWKS_TTL         JWKS cache TTL seconds (default 300)

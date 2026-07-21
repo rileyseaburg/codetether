@@ -10,7 +10,7 @@ FORGEJO_IDENTITY_ID = 42
 
 @pytest.mark.asyncio
 async def test_provisioner_converges_planes_in_order(monkeypatch):
-    monkeypatch.setenv('SPIFFE_TRUST_DOMAIN', 'codetether.io')
+    monkeypatch.setenv('SPIFFE_TRUST_DOMAIN', 'codetether.run')
     events = []
 
     async def workload(identity, persona, provisioning):

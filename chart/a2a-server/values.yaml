@@ -737,7 +737,7 @@ spiffe:
   # Enable JWT-SVID validation in the A2A server (sets SPIFFE_ENABLED=true).
   enabled: false
   # SPIFFE trust domain. Must match the SPIRE server's trust_domain.
-  trustDomain: "codetether.io"
+  trustDomain: "codetether.run"
   # Expected audience(s) the SVID must be minted for (comma-separated).
   audience: "a2a-server"
   # JWKS endpoint published by SPIRE's OIDC Discovery Provider.
