@@ -31,6 +31,7 @@ COPY --from=builder /app/deps /app/deps
 
 # Copy application code
 COPY --from=builder /app/a2a_server /app/a2a_server
+COPY --from=builder /app/policies /app/policies
 COPY --from=builder /app/run_server.py /app/run_server.py
 # NOTE: legacy/agent_worker/ (legacy Python worker) is no longer shipped.
 # Workers now use the codetether Rust binary in SSE mode (codetether a2a).
