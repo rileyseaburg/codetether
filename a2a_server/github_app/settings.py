@@ -34,9 +34,10 @@ ACTIVE_WORK_MAX_REPOS_PER_INSTALLATION = max(
         os.environ.get('GITHUB_APP_ACTIVE_WORK_MAX_REPOS_PER_INSTALLATION', '5')
     ),
 )
+DEFAULT_MODEL_REF = 'openai-codex/gpt-5.6-sol-fast:max'
 MODEL_REF = (
-    os.environ.get('GITHUB_APP_MODEL_REF', 'zai:glm-5.1').strip()
-    or 'zai:glm-5.1'
+    os.environ.get('GITHUB_APP_MODEL_REF', DEFAULT_MODEL_REF).strip()
+    or DEFAULT_MODEL_REF
 )
 # GitHub webhook work is user-facing and must not starve behind an old generic
 # task backlog. Apply this to every stage of the automation chain.

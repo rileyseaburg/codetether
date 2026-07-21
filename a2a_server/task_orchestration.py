@@ -10,8 +10,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+
 
 logger = logging.getLogger(__name__)
 
@@ -235,16 +237,22 @@ def normalize_model_ref(model_value: Optional[str]) -> Optional[str]:
     if not model_value:
         return None
 
-    if ':' in model_value:
-        provider, model = model_value.split(':', 1)
+    slash_index = model_value.find('/')
+    colon_index = model_value.find(':')
+
+    # A slash-form reference may include a trailing reasoning qualifier, for
+    # example ``openai-codex/gpt-5.6-sol-fast:max``. Split the provider at the
+    # slash before considering colons so the qualifier remains part of the
+    # model identifier.
+    if slash_index > 0 and (colon_index < 0 or slash_index < colon_index):
+        provider, model = model_value.split('/', 1)
         provider = provider.strip()
         model = model.strip()
         if provider and model:
             return f'{provider}:{model}'
         return None
-
-    if '/' in model_value:
-        provider, model = model_value.split('/', 1)
+    if colon_index > 0:
+        provider, model = model_value.split(':', 1)
         provider = provider.strip()
         model = model.strip()
         if provider and model:
@@ -500,9 +508,7 @@ def orchestrate_task_route(
         or source_metadata.get('agent_name')
     )
     if not resolved_target_agent and personality:
-        personality_to_agent = _parse_json_env_dict(
-            'A2A_PERSONALITY_AGENT_MAP'
-        )
+        personality_to_agent = _parse_json_env_dict('A2A_PERSONALITY_AGENT_MAP')
         resolved_target_agent = personality_to_agent.get(
             personality.lower(), personality
         )

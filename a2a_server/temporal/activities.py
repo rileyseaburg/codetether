@@ -17,6 +17,8 @@ from urllib.parse import quote
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from a2a_server.github_app.settings import MODEL_REF
+
 from .models import ForgejoStageRequest, ForgejoStageResult
 
 
@@ -192,7 +194,7 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
         prompt=prompt,
         agent_type=agent_type,
         priority=100,
-        model_ref='zai:glm-5.1',
+        model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=604800,
         github_issue_url=metadata.get('forgejo_issue_url') or None,

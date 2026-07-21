@@ -3,13 +3,16 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+
 from temporalio.exceptions import ApplicationError
 
-from a2a_server import forgejo_task_completion
-from a2a_server import forgejo_webhooks
+from a2a_server import forgejo_task_completion, forgejo_webhooks
 from a2a_server.temporal import activities
 from a2a_server.temporal.activities import safe_activity
-from a2a_server.temporal.models import ForgejoAgentWorkflowInput
+from a2a_server.temporal.models import (
+    ForgejoAgentWorkflowInput,
+    ForgejoStageRequest,
+)
 
 
 @pytest.mark.asyncio
@@ -114,6 +117,64 @@ async def test_temporal_dispatch_starts_workflow_without_legacy_clone(
         operation='fix',
     )
     assert updates[-1]['status'] == 'accepted'
+
+
+@pytest.mark.asyncio
+async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
+    monkeypatch,
+):
+    dispatched = []
+
+    async def fake_context(request):
+        return (
+            {'prompt': 'Implement the change'},
+            'feature',
+            'abc123',
+            12,
+            'https://forge.example/owner/repo.git',
+            'feature',
+        )
+
+    async def fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        return 'code-task-1'
+
+    async def fake_update(**kwargs):
+        return {'id': kwargs['task_id']}
+
+    monkeypatch.setattr(activities, '_forgejo_context', fake_context)
+    monkeypatch.setattr(
+        'a2a_server.github_app.routing.resolve_task_target',
+        lambda: _async_value({}),
+    )
+    monkeypatch.setattr(
+        'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+        fake_dispatch,
+    )
+    monkeypatch.setattr(
+        'a2a_server.forgejo_agent_client.update_task',
+        fake_update,
+    )
+
+    result = await activities.dispatch_stage(
+        ForgejoStageRequest(
+            workflow=ForgejoAgentWorkflowInput(
+                forgejo_task_id=42,
+                repository='owner/repo',
+                issue_number=12,
+                pull_request_number=12,
+                workspace_id='workspace-1',
+                branch='feature',
+                head_sha='abc123',
+                operation='fix',
+            ),
+            workflow_id='forgejo-agent-task-42',
+            stage='code',
+        )
+    )
+
+    assert result.task_id == 'code-task-1'
+    assert dispatched[0]['model_ref'] == ('openai-codex/gpt-5.6-sol-fast:max')
 
 
 @pytest.mark.asyncio

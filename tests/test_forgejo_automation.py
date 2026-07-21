@@ -6,7 +6,11 @@ from fastapi import HTTPException
 
 from a2a_server import forgejo_automation as automation
 from a2a_server import forgejo_task_completion, forgejo_webhooks
-from a2a_server.github_app.settings import TASK_PRIORITY
+from a2a_server.github_app.settings import DEFAULT_MODEL_REF, TASK_PRIORITY
+
+
+def test_vcs_automation_defaults_to_requested_openai_codex_model():
+    assert DEFAULT_MODEL_REF == 'openai-codex/gpt-5.6-sol-fast:max'
 
 
 PR = {
@@ -229,6 +233,7 @@ async def test_changes_requested_creates_exactly_one_fix(monkeypatch):
     task_id = await automation.create_forgejo_fix_followup(review_task())
     assert task_id == 'fix-1'
     assert dispatched[0]['priority'] == TASK_PRIORITY
+    assert dispatched[0]['model_ref'] == DEFAULT_MODEL_REF
     assert dispatched[0]['metadata']['fix_followup'] == 'true'
     assert dispatched[0]['metadata']['review_task_id'] == 'review-1'
 
@@ -448,6 +453,7 @@ async def test_issue_code_completion_discovers_created_pr_by_branch(
     assert task_id == 'review-issue-pr'
     assert dispatched[0]['metadata']['pr_number'] == 5
     assert dispatched[0]['metadata']['pr_head_sha'] == 'abc123'
+    assert dispatched[0]['model_ref'] == DEFAULT_MODEL_REF
     assert dispatched[0]['priority'] == TASK_PRIORITY
 
     created = []
@@ -487,7 +493,7 @@ async def test_forgejo_post_clone_uses_durable_dispatch(monkeypatch):
                 'prompt': 'fix it',
                 'agent_type': 'build',
                 'priority': TASK_PRIORITY,
-                'model_ref': 'zai:glm-5.1',
+                'model_ref': 'openai-codex/gpt-5.6-sol-fast:max',
                 'metadata': {
                     'source': 'forgejo-webhook',
                     'repo': 'owner/repo',

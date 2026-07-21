@@ -4,9 +4,8 @@ import asyncio
 
 import pytest
 
-from a2a_server import forgejo_agent_client
+from a2a_server import forgejo_agent_client, persistent_worker_pool
 from a2a_server import forgejo_agent_controls as controls
-from a2a_server import persistent_worker_pool
 
 
 def _task(status: str = 'running') -> dict:
@@ -18,7 +17,7 @@ def _task(status: str = 'running') -> dict:
         'prompt': 'Implement the fix',
         'agent_type': 'build',
         'priority': 100,
-        'model_ref': 'zai:glm-5.1',
+        'model_ref': 'openai-codex/gpt-5.6-sol-fast:max',
         'task_timeout_seconds': 604800,
         'metadata': {
             'source': 'forgejo-webhook',

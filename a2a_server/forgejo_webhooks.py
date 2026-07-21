@@ -20,7 +20,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from a2a_server.github_app.mention import is_fix_request, mentions_bot
 from a2a_server.github_app.routing import resolve_task_target
-from a2a_server.github_app.settings import TASK_PRIORITY
+from a2a_server.github_app.settings import MODEL_REF, TASK_PRIORITY
 from a2a_server.github_app.workspace import workspace_id
 from a2a_server.session_view import session_view_router
 
@@ -357,7 +357,7 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
             'prompt': prompt,
             'agent_type': 'build',
             'priority': TASK_PRIORITY,
-            'model_ref': 'zai:glm-5.1',
+            'model_ref': MODEL_REF,
             'metadata': followup,
         },
     }

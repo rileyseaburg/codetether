@@ -5,6 +5,7 @@ import pytest
 from a2a_server.task_orchestration import (
     normalize_model_ref,
     orchestrate_task_route,
+    to_provider_model,
 )
 
 
@@ -26,6 +27,9 @@ def clear_routing_env(monkeypatch):
 def test_normalize_model_ref_supports_colon_and_slash():
     assert normalize_model_ref('openai:gpt-5-mini') == 'openai:gpt-5-mini'
     assert normalize_model_ref('openai/gpt-5-mini') == 'openai:gpt-5-mini'
+    qualified = normalize_model_ref('openai-codex/gpt-5.6-sol-fast:max')
+    assert qualified == 'openai-codex:gpt-5.6-sol-fast:max'
+    assert to_provider_model(qualified) == 'openai-codex/gpt-5.6-sol-fast:max'
     assert normalize_model_ref('') is None
     assert normalize_model_ref(None) is None
 
@@ -70,7 +74,9 @@ def test_personality_map_sets_target_agent_and_model(monkeypatch):
 def test_auto_model_routing_uses_tier_models(monkeypatch):
     monkeypatch.setenv('A2A_ROUTING_AUTO_MODEL', 'true')
     monkeypatch.setenv('A2A_ROUTING_MODEL_FAST', 'openai:gpt-5-mini')
-    monkeypatch.setenv('A2A_ROUTING_MODEL_BALANCED', 'anthropic:claude-sonnet-4')
+    monkeypatch.setenv(
+        'A2A_ROUTING_MODEL_BALANCED', 'anthropic:claude-sonnet-4'
+    )
     monkeypatch.setenv('A2A_ROUTING_MODEL_HEAVY', 'openai:o3')
 
     quick_decision, _ = orchestrate_task_route(
