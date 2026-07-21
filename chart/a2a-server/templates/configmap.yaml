@@ -38,6 +38,7 @@ data:
 
   # Keycloak SSO configuration (non-secret values)
   KEYCLOAK_URL: {{ .Values.keycloak.url | quote }}
+  KEYCLOAK_ISSUER: {{ .Values.keycloak.issuer | quote }}
   KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
   KEYCLOAK_CLIENT_ID: {{ .Values.keycloak.clientId | quote }}
 
