@@ -677,6 +677,7 @@ docs:
 # Client secret should be set via --set or a sealed secret.
 keycloak:
   url: "https://auth.quantum-forge.io"
+  issuer: "https://auth.quantum-forge.io/realms/quantum-forge"
   realm: "quantum-forge"
   clientId: "a2a-monitor"
   # clientSecret: ""  # Set via --set keycloak.clientSecret=<value>

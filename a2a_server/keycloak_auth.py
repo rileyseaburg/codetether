@@ -9,27 +9,26 @@ Provides OAuth2/OIDC authentication with Keycloak for:
 
 import os
 import logging
-import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 import json
 import uuid
 import hashlib
 
 import httpx
 from jose import jwt, JWTError, jwk
-from jose.utils import base64url_decode
-from pydantic import BaseModel
 from fastapi import HTTPException, Security, Depends, Request
 from fastapi.security import (
     HTTPBearer,
     HTTPAuthorizationCredentials,
-    OAuth2AuthorizationCodeBearer,
 )
+
+from a2a_server.keycloak_issuer import issuer_for_realm
 
 try:
     import redis.asyncio as aioredis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -52,7 +51,6 @@ if not KEYCLOAK_CLIENT_SECRET:
 
 # JWT Configuration
 JWT_ALGORITHM = 'RS256'
-JWT_ISSUER = f'{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}'
 
 # Security schemes
 security = HTTPBearer(auto_error=False)
@@ -215,7 +213,9 @@ class KeycloakAuthService:
             logger.info('Redis session store connected')
             return self._redis
         except Exception as e:
-            logger.debug(f'Redis not available for sessions, using in-memory: {e}')
+            logger.debug(
+                f'Redis not available for sessions, using in-memory: {e}'
+            )
             self._redis = None
             return None
 
@@ -290,8 +290,12 @@ class KeycloakAuthService:
             access_token=data.get('access_token', ''),
             refresh_token=data.get('refresh_token'),
             expires_at=datetime.fromisoformat(data['expires_at']),
-            created_at=datetime.fromisoformat(data.get('created_at', datetime.utcnow().isoformat())),
-            last_activity=datetime.fromisoformat(data.get('last_activity', datetime.utcnow().isoformat())),
+            created_at=datetime.fromisoformat(
+                data.get('created_at', datetime.utcnow().isoformat())
+            ),
+            last_activity=datetime.fromisoformat(
+                data.get('last_activity', datetime.utcnow().isoformat())
+            ),
             device_info=data.get('device_info', {}),
             roles=data.get('roles', []),
             tenant_id=data.get('tenant_id'),
@@ -388,7 +392,7 @@ class KeycloakAuthService:
                 )
 
             # Build expected issuer for the token's realm
-            expected_issuer = f'{self.keycloak_url}/realms/{token_realm}'
+            expected_issuer = issuer_for_realm(token_realm, self.keycloak_url)
 
             # Verify and decode token
             payload = jwt.decode(
@@ -768,15 +772,14 @@ async def get_current_user(
             from .user_auth import _get_user_from_api_key
 
             user_dict = await _get_user_from_api_key(token)
-            tenant_id = (
-                getattr(request.state, 'tenant_id', None)
-                or request.headers.get('X-Tenant-ID')
-            )
+            tenant_id = getattr(
+                request.state, 'tenant_id', None
+            ) or request.headers.get('X-Tenant-ID')
             return UserSession(
                 user_id=user_dict['id'],
                 email=user_dict.get('email', ''),
                 username=user_dict.get('email', ''),
-                name=f"{user_dict.get('first_name', '')} {user_dict.get('last_name', '')}".strip(),
+                name=f'{user_dict.get("first_name", "")} {user_dict.get("last_name", "")}'.strip(),
                 session_id='apikey-' + str(uuid.uuid4()),
                 access_token=token,
                 refresh_token=None,
@@ -828,10 +831,9 @@ async def get_current_user(
 
         # Fallback for requests where tenant context is injected by middleware/header.
         if not tenant_id:
-            tenant_id = (
-                getattr(request.state, 'tenant_id', None)
-                or request.headers.get('X-Tenant-ID')
-            )
+            tenant_id = getattr(
+                request.state, 'tenant_id', None
+            ) or request.headers.get('X-Tenant-ID')
 
         return UserSession(
             user_id=user_id,
