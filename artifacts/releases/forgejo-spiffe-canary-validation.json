@@ -1,0 +1,37 @@
+{
+  "validated_at": "2026-07-21T00:51:30Z",
+  "namespace": "codetether-temporal-canary",
+  "deployment": "forgejo-temporal-canary",
+  "forgejo_revision": "21a6b242f435143b8036d7077e26506a3cbd9756",
+  "forgejo_version": "15.0.5-temporal.21a6b242",
+  "image_digest": "sha256:cda099ff67e8930325dc6e0e0b63254f80a58ca82b39bfe43f193ac9a47888c5",
+  "rollback_digest": "sha256:10577b637c150b12d1f66bdda82498fb00214b728f7f40e8bca5a780b3f48725",
+  "bridge_account": "codetether-bot",
+  "keycloak_realm": "quantum-forge",
+  "trust_domain": "codetether.run",
+  "checks": {
+    "deployment_ready": true,
+    "create_status": 201,
+    "get_status": 200,
+    "get_matches_create": true,
+    "replay_status": 200,
+    "foreign_domain_status": 422,
+    "wrong_caller_status": 403,
+    "temporary_api_tokens_deleted": true,
+    "focused_python_tests_passed": 14,
+    "helm_trust_domain_rendered": true,
+    "file_limit_ratchet_passed": true
+  },
+  "canary_identity": {
+    "id": 1,
+    "user_id": 3,
+    "provisioning_id": "canary-release-21a6b242",
+    "spiffe_id": "spiffe://codetether.run/ns/codetether-temporal-canary/sa/ct-agent-canary-21a6b242",
+    "provenance_id": "forgejo-pr-2-21a6b242"
+  },
+  "notes": [
+    "Canary egress blocks Keycloak discovery; an inert OAuth2 source validated Forgejo projection only.",
+    "The temporary build-source token secret was deleted after the immutable image push.",
+    "Build pods, logs, and attempt manifests remain available as validation evidence."
+  ]
+}
