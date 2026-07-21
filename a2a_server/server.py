@@ -119,7 +119,7 @@ except ImportError:
 
 # Import admin API for system overview
 try:
-    from .admin_api import router as admin_router
+    from .admin_api_bundle import router as admin_router
 
     ADMIN_API_AVAILABLE = True
 except ImportError:

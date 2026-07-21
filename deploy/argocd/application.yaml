@@ -110,6 +110,18 @@ spec:
           existingSecret: codetether-a2a-server-forgejo
           apiUrl: https://forgejo.quantum-forge.io/api/v1
           botUsername: codetether-bot
+        agentIdentity:
+          enabled: true
+        spiffe:
+          enabled: true
+          trustDomain: codetether.run
+          audience: a2a-server
+          jwksUrl: https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys
+          allowTokenLegacy: true
+          bundle:
+            namespace: spire
+            configMap: spire-bundle
+            key: bundle.spiffe
         temporal:
           enabled: true
           address: temporal-frontend.temporal.svc.cluster.local:7233
@@ -124,6 +136,10 @@ spec:
           GITHUB_APP_ID: codetether-a2a-server-github-app
           GITHUB_APP_PRIVATE_KEY: codetether-a2a-server-github-app
           GITHUB_WEBHOOK_SECRET: codetether-a2a-server-github-app
+          KEYCLOAK_AGENT_REALM: codetether-identity-provisioner
+          KEYCLOAK_PROVISIONER_REALM: codetether-identity-provisioner
+          KEYCLOAK_PROVISIONER_CLIENT_ID: codetether-identity-provisioner
+          KEYCLOAK_PROVISIONER_CLIENT_SECRET: codetether-identity-provisioner
         env:
           A2A_HOST: "0.0.0.0"
           A2A_PORT: "8000"

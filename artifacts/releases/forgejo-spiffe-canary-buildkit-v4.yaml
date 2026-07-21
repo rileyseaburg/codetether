@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: forgejo-spiffe-buildkit-v4-21a6b242
+  namespace: forgejo-actions
+  labels: {app: forgejo-spiffe-builder, revision: 21a6b242, engine: buildkit-v4}
+spec:
+  restartPolicy: Never
+  nodeName: k8s-worker-3
+  initContainers:
+    - name: source
+      image: alpine:3.22
+      command: [/bin/sh, -ec]
+      args:
+        - |
+          apk add --no-cache curl tar
+          token="$(cat /run/forgejo/FORGEJO_TOKEN)"
+          printf 'header = "Authorization: token %s"\n' "$token" |
+            curl --fail --silent --show-error --config - https://forgejo.quantum-forge.io/api/v1/repos/codetether-bot/forgejo-codetether-agent/archive/21a6b242f435143b8036d7077e26506a3cbd9756.tar.gz |
+            tar -xz --strip-components=1 -C /workspace
+          printf '%s\n' 15.0.5-temporal.21a6b242 > /workspace/VERSION
+          printf '%s\n' '!/VERSION' >> /workspace/.dockerignore
+          cp /run/registry/config.json /docker-config/config.json
+      volumeMounts: [{name: source, mountPath: /workspace}, {name: forgejo-token, mountPath: /run/forgejo, readOnly: true}, {name: registry-auth, mountPath: /run/registry, readOnly: true}, {name: docker-config, mountPath: /docker-config}]
+  containers:
+    - name: buildkit
+      image: docker:27-dind
+      securityContext: {privileged: true}
+      env: [{name: DOCKER_TLS_CERTDIR, value: ""}, {name: DOCKER_BUILDKIT, value: "1"}, {name: DOCKER_CONFIG, value: /docker-config}]
+      command: [/bin/sh, -ec]
+      args:
+        - |
+          dockerd-entrypoint.sh >/tmp/dockerd.log 2>&1 &
+          until docker info >/dev/null 2>&1; do sleep 1; done
+          image=registry.quantum-forge.net/cluster-ci-cache/forgejo-codetether-agent:main-21a6b242f435
+          docker build --progress=plain --build-arg RELEASE_VERSION=15.0.5-temporal.21a6b242 -t "$image" /workspace
+          docker push "$image"
+      resources:
+        requests: {cpu: "4", memory: 8Gi, ephemeral-storage: 30Gi}
+        limits: {cpu: "12", memory: 16Gi, ephemeral-storage: 80Gi}
+      volumeMounts: [{name: source, mountPath: /workspace}, {name: docker-config, mountPath: /docker-config}, {name: docker-graph, mountPath: /var/lib/docker}]
+  volumes:
+    - {name: source, emptyDir: {sizeLimit: 40Gi}}
+    - {name: docker-graph, emptyDir: {sizeLimit: 80Gi}}
+    - {name: docker-config, emptyDir: {}}
+    - {name: forgejo-token, secret: {secretName: forgejo-spiffe-source-token}}
+    - {name: registry-auth, secret: {secretName: harbor-regcred, items: [{key: .dockerconfigjson, path: config.json}]}}
