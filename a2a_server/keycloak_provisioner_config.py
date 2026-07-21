@@ -3,9 +3,9 @@
 import os
 
 from dataclasses import dataclass
-from urllib.parse import urlparse
 
 from a2a_server.agent_identity_errors import IdentityConfigurationError
+from a2a_server.keycloak_transport import is_secure_keycloak_transport
 
 
 @dataclass(frozen=True)
@@ -28,11 +28,9 @@ class KeycloakProvisionerConfig:
         )
         client_id = os.environ.get('KEYCLOAK_PROVISIONER_CLIENT_ID', '')
         secret = os.environ.get('KEYCLOAK_PROVISIONER_CLIENT_SECRET', '')
-        parsed = urlparse(base_url)
         if not all(
             (
-                parsed.scheme == 'https',
-                parsed.netloc,
+                is_secure_keycloak_transport(base_url),
                 managed_realm,
                 token_realm,
                 client_id,
