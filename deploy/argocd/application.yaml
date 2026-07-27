@@ -162,7 +162,11 @@ spec:
           WORKER_INFRA_NODE_MAP: ""
           # Approved CodeTether PRs are merged by the GitHub App after reviewer,
           # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
-          GITHUB_APP_MODEL_REF: openai-codex/gpt-5.6-sol-fast:max
+          # The openai-codex provider is a ChatGPT-subscription backend that is
+          # disabled in-cluster (no OPENAI_API_KEY), so pinning it here made every
+          # issue/PR task fail instantly at its first provider call. Use a model
+          # whose credential is present in Vault and verified working in-cluster.
+          GITHUB_APP_MODEL_REF: google/gemini-3-flash-preview
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           GITHUB_APP_MERGE_METHOD: squash
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
