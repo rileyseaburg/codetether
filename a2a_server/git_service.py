@@ -73,12 +73,15 @@ async def store_git_credentials(
         from .vault_client import get_vault_client
 
         client = get_vault_client()
-        await client.write_secret(
+        stored = await client.write_secret(
             f'codetether/git/{codebase_id}',
             {'token': token, 'token_type': token_type},
         )
-        logger.info(f'Stored Git credentials for codebase {codebase_id}')
-        return True
+        if stored:
+            logger.info(f'Stored Git credentials for codebase {codebase_id}')
+        else:
+            logger.error(f'Vault rejected Git credential write for {codebase_id}')
+        return stored
     except Exception as e:
         logger.error(f'Failed to store Git credentials: {e}')
         return False
@@ -92,9 +95,14 @@ async def store_git_credential_record(
         from .vault_client import get_vault_client
 
         client = get_vault_client()
-        await client.write_secret(f'codetether/git/{codebase_id}', record)
-        logger.info(f'Stored Git credential record for codebase {codebase_id}')
-        return True
+        stored = await client.write_secret(
+            f'codetether/git/{codebase_id}', record
+        )
+        if stored:
+            logger.info(f'Stored Git credential record for codebase {codebase_id}')
+        else:
+            logger.error(f'Vault rejected Git credential record for {codebase_id}')
+        return stored
     except Exception as e:
         logger.error(f'Failed to store Git credential record: {e}')
         return False
