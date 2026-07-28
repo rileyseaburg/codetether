@@ -134,6 +134,7 @@ spec:
           replicas: 1
         existingEnvFromSecrets:
           - harvester-api-keys
+          - vault-token
         envFromSecret:
           A2A_AUTH_TOKENS: a2a-server-auth-tokens
           GITHUB_APP_API_BASE_URL: codetether-a2a-server-github-app
@@ -162,11 +163,9 @@ spec:
           WORKER_INFRA_NODE_MAP: ""
           # Approved CodeTether PRs are merged by the GitHub App after reviewer,
           # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
-          # The openai-codex provider is a ChatGPT-subscription backend that is
-          # disabled in-cluster (no OPENAI_API_KEY), so pinning it here made every
-          # issue/PR task fail instantly at its first provider call. Use a model
-          # whose credential is present in Vault and verified working in-cluster.
-          GITHUB_APP_MODEL_REF: google/gemini-3-flash-preview
+          # Worker pods explicitly opt in to the Vault-backed ChatGPT Codex
+          # backend under harvester.extraEnv below.
+          GITHUB_APP_MODEL_REF: openai-codex/gpt-5.6-sol-fast:max
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           GITHUB_APP_MERGE_METHOD: squash
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
@@ -190,9 +189,32 @@ spec:
           enabled: false
         harvester:
           enabled: true
+          replicaCount: 2
+          image:
+            repository: registry.quantum-forge.net/cluster-ci-cache/codetether-worker
+            tag: 4.7.5-dev.9-workerfix
+            pullPolicy: IfNotPresent
           tokenSecret:
             name: a2a-server-worker-token
             key: CODETETHER_TOKEN
+          vault:
+            enabled: true
+            tokenSecret:
+              name: vault-token
+              addressKey: VAULT_ADDR
+              tokenKey: VAULT_TOKEN
+          defaultProvider: openai-codex
+          defaultModel: openai-codex/gpt-5.6-sol-fast:max
+          providerSecrets:
+            envFrom:
+              - secretRef:
+                  name: harvester-api-keys
+          extraArgs:
+            - --max-concurrent-tasks
+            - "1"
+          extraEnv:
+            - name: CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND
+              value: "1"
         commonLabels:
           app.kubernetes.io/part-of: codetether
           app.kubernetes.io/managed-by: argocd
