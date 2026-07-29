@@ -6,6 +6,11 @@ entire life of a run the panel said "No session events have been published yet"
 and `external_session_id` stayed null. Operators could see that a task was
 `running` but had no visibility into what it was doing.
 
+Workers stream their narration to `/v1/agent/tasks/{id}/output` but never call
+the session-message sync endpoint, so no transcript rows existed to publish.
+`record_output_chunk` persists those streamed chunks as session messages, which
+gives both this publisher and the terminal hook real content to work with.
+
 This module publishes the same normalized transcript incrementally, throttled so
 a chatty worker cannot flood the Forgejo API. Publishing is idempotent:
 `publish_session_events` skips events whose `external_id` already exists.
@@ -16,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import uuid
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -83,6 +89,136 @@ def is_forgejo_agent_task(task: Optional[Dict[str, Any]]) -> bool:
         return int(metadata.get('forgejo_agent_task_id') or 0) > 0
     except (TypeError, ValueError):
         return False
+
+
+async def record_output_chunk(
+    task_id: str, output: str, worker_id: str = ''
+) -> bool:
+    """Persist one streamed worker output chunk as a session message.
+
+    The Forgejo transcript is built from `session_messages`. Workers stream
+    progress narration to the task-output endpoint but never sync session
+    messages, so without this the transcript had no rows to publish even once a
+    `session_id` was known.
+
+    Returns:
+        True when a message row was written.
+    """
+    text = (output or '').strip()
+    if not task_id or not text:
+        return False
+
+    from . import database as db
+
+    try:
+        task = await db.db_get_task(task_id)
+    except Exception as exc:
+        logger.debug('Output persist skipped for %s: %s', task_id, exc)
+        return False
+
+    if not is_forgejo_agent_task(task):
+        return False
+
+    metadata = task.get('metadata') or {}
+    session_id = str(
+        task.get('session_id') or metadata.get('session_id') or ''
+    ).strip()
+    if not session_id:
+        # Derive a stable session id from the task so progress is recorded even
+        # before the worker reports its own session on release.
+        session_id = f'task-{task_id}'
+        try:
+            await _persist_derived_session_id(task_id, session_id)
+        except Exception as exc:
+            logger.debug('Derived session persist failed for %s: %s', task_id, exc)
+
+    # `session_messages.session_id` is a foreign key to `sessions(id)`, so the
+    # parent row must exist before any transcript row can be written.
+    if not await _ensure_session_row(session_id, task):
+        return False
+
+    try:
+        return await db.db_upsert_message(
+            {
+                'id': str(uuid.uuid4()),
+                'session_id': session_id,
+                'role': 'assistant',
+                'content': text,
+                'model': str(metadata.get('model_ref') or ''),
+            }
+        )
+    except Exception as exc:
+        logger.debug('Session message write failed for %s: %s', task_id, exc)
+        return False
+
+
+async def _ensure_session_row(
+    session_id: str, task: Dict[str, Any]
+) -> bool:
+    """Create the parent `sessions` row when it does not already exist.
+
+    `sessions.workspace_id` is itself a foreign key, so the workspace is only
+    referenced when that row actually exists. A transcript is more valuable than
+    the workspace back-reference, so an unknown workspace yields a session with a
+    null workspace rather than no session at all.
+    """
+    from .database import get_pool
+
+    metadata = task.get('metadata') or {}
+    try:
+        pool = await get_pool()
+        if not pool:
+            return False
+        async with pool.acquire() as conn:
+            workspace_id = (
+                str(
+                    task.get('workspace_id')
+                    or metadata.get('workspace_id')
+                    or ''
+                )
+                or None
+            )
+            if workspace_id is not None:
+                known = await conn.fetchval(
+                    'SELECT 1 FROM workspaces WHERE id = $1', workspace_id
+                )
+                if not known:
+                    workspace_id = None
+            await conn.execute(
+                """
+                INSERT INTO sessions (id, workspace_id, title, last_activity_at)
+                VALUES ($1, $2, $3, now())
+                ON CONFLICT (id) DO UPDATE SET last_activity_at = now()
+                """,
+                session_id,
+                workspace_id,
+                str(task.get('title') or '')[:200] or None,
+            )
+    except Exception as exc:
+        logger.debug('Session row ensure failed for %s: %s', session_id, exc)
+        return False
+    return True
+
+
+async def _persist_derived_session_id(task_id: str, session_id: str) -> None:
+    """Record a task-derived session id so later reads resolve the transcript."""
+    from .database import get_pool
+
+    pool = await get_pool()
+    if not pool:
+        return
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE tasks
+            SET metadata = coalesce(metadata, '{}'::jsonb)
+                           || jsonb_build_object('session_id', $2::text)
+            WHERE id = $1
+              AND coalesce(metadata->>'session_id', '') = ''
+            """,
+            task_id,
+            session_id,
+        )
 
 
 async def publish_task_progress(task_id: str) -> int:
