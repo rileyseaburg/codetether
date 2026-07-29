@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: main-5dbe61fbf0f7
+          value: main-cbd52d62bb7f
         - name: blueGreen.rolloutId.green
-          value: forgejo-temporal-main-5dbe61fbf0f7
+          value: transient-requeue-main-cbd52d62bb7f
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: main-5dbe61fbf0f7
+          tag: main-cbd52d62bb7f
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-5dbe61fbf0f7
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-cbd52d62bb7f
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: forgejo-temporal-main-5dbe61fbf0f7
+            green: transient-requeue-main-cbd52d62bb7f
         service:
           type: ClusterIP
           port: 8000
