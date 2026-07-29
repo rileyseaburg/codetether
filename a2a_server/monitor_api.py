@@ -7303,6 +7303,20 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
     except Exception:
         pass
 
+    # Keep the Forgejo task page's session transcript current while the task is
+    # still running. Without this, the panel stays empty for the whole run and
+    # only fills in once the terminal hook fires. Throttled inside the helper.
+    try:
+        from .forgejo_progress_events import publish_task_progress
+
+        await publish_task_progress(task_id)
+    except Exception as e:
+        logger.debug(
+            'Forgejo progress publish skipped for task %s: %s',
+            task_id,
+            e,
+        )
+
     # Also broadcast to any SSE listeners
     await monitoring_service.log_message(
         agent_name='Agent Output',

@@ -57,6 +57,12 @@ async def sync_forgejo_agent_task(
         'cancelled',
     }:
         forgejo_status = 'failed'
+    try:
+        from a2a_server.forgejo_progress_events import forget
+
+        forget(str(task.get('id') or ''))
+    except Exception:
+        pass
     session_id, messages = await _task_messages(task, 10_000)
     if not workflow_terminal:
         forgejo_status = 'running'
