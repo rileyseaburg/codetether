@@ -1621,9 +1621,7 @@ async def db_list_tasks(
                     params.append(tenant_id)
                     param_idx += 1
 
-                query += (
-                    f' ORDER BY priority DESC, created_at ASC LIMIT ${param_idx}'
-                )
+                query += f' ORDER BY {task_claim_order()} LIMIT ${param_idx}'
                 params.append(limit)
                 return query, params
 
@@ -1648,31 +1646,55 @@ async def db_list_tasks(
         return []
 
 
+# Ordering used when a worker selects which pending task to claim.
+#
+# Historically this was `created_at ASC`, so a large backlog meant workers
+# always picked the oldest queued item and never reached the issue a user had
+# just filed. Newest-first keeps @codetether responsive to current activity;
+# set CODETETHER_TASK_CLAIM_ORDER=oldest to restore FIFO drain behaviour.
+TASK_CLAIM_ORDER_NEWEST = 'priority DESC, created_at DESC'
+TASK_CLAIM_ORDER_OLDEST = 'priority DESC, created_at ASC'
+
+
+def task_claim_order() -> str:
+    """Return the SQL ORDER BY clause used to pick the next pending task.
+
+    Returns:
+        `priority DESC, created_at DESC` (newest eligible task first) unless
+        `CODETETHER_TASK_CLAIM_ORDER` is set to `oldest`.
+    """
+    configured = os.environ.get('CODETETHER_TASK_CLAIM_ORDER', 'newest')
+    if configured.strip().lower() == 'oldest':
+        return TASK_CLAIM_ORDER_OLDEST
+    return TASK_CLAIM_ORDER_NEWEST
+
+
 async def db_get_next_pending_task(
     workspace_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Get the next pending task (highest priority, oldest first)."""
+    """Get the next pending task (highest priority, newest first by default)."""
     pool = await get_pool()
     if not pool:
         return None
 
     try:
         async with pool.acquire() as conn:
+            order = task_claim_order()
             if workspace_id:
                 row = await conn.fetchrow(
-                    """
+                    f"""
                     SELECT * FROM tasks
                     WHERE status = 'pending' AND workspace_id = $1
-                    ORDER BY priority DESC, created_at ASC
+                    ORDER BY {order}
                     LIMIT 1
                 """,
                     workspace_id,
                 )
             else:
-                row = await conn.fetchrow("""
+                row = await conn.fetchrow(f"""
                     SELECT * FROM tasks
                     WHERE status = 'pending'
-                    ORDER BY priority DESC, created_at ASC
+                    ORDER BY {order}
                     LIMIT 1
                 """)
             if row:
