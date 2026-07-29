@@ -7307,8 +7307,14 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
     # still running. Without this, the panel stays empty for the whole run and
     # only fills in once the terminal hook fires. Throttled inside the helper.
     try:
-        from .forgejo_progress_events import publish_task_progress
+        from .forgejo_progress_events import (
+            publish_task_progress,
+            record_output_chunk,
+        )
 
+        # Persist the streamed narration first so there is transcript content
+        # available for this and later publishes.
+        await record_output_chunk(task_id, chunk.output, chunk.worker_id)
         await publish_task_progress(task_id)
     except Exception as e:
         logger.debug(
