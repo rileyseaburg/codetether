@@ -106,9 +106,11 @@ spec:
           tokens: {}
         secret:
           create: false
+        # GitHub App automation is intentionally disabled: this platform is
+        # Forgejo-only. Leaving the App credentials mounted allowed stale
+        # GitHub-era tasks to be enqueued and pushed to github.com.
         githubApp:
-          existingSecret: codetether-a2a-server-github-app
-          apiBaseUrl: https://api.github.com
+          existingSecret: ""
         forgejo:
           existingSecret: a2a-server-forgejo
           apiUrl: https://forgejo.quantum-forge.io/api/v1
@@ -137,10 +139,6 @@ spec:
           - vault-token
         envFromSecret:
           A2A_AUTH_TOKENS: a2a-server-auth-tokens
-          GITHUB_APP_API_BASE_URL: codetether-a2a-server-github-app
-          GITHUB_APP_ID: codetether-a2a-server-github-app
-          GITHUB_APP_PRIVATE_KEY: codetether-a2a-server-github-app
-          GITHUB_WEBHOOK_SECRET: codetether-a2a-server-github-app
           KEYCLOAK_AGENT_REALM: codetether-identity-provisioner
           KEYCLOAK_PROVISIONER_REALM: codetether-identity-provisioner
           KEYCLOAK_PROVISIONER_CLIENT_ID: codetether-identity-provisioner
@@ -165,13 +163,15 @@ spec:
           # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
           # Worker pods explicitly opt in to the Vault-backed ChatGPT Codex
           # backend under harvester.extraEnv below.
+          # GITHUB_APP_MODEL_REF still names the model used for Forgejo tasks;
+          # the GitHub App itself has no credentials and cannot act.
           GITHUB_APP_MODEL_REF: openai-codex/gpt-5.6-sol-fast:max
+          GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
-          GITHUB_APP_MERGE_METHOD: squash
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
           # checks = rich Check Runs first, then commit-status secondary path.
           # statuses = commit statuses only; off = no commit-attached status publishing.
-          GITHUB_APP_STATUS_PUBLISHER: checks
+          GITHUB_APP_STATUS_PUBLISHER: "off"
         livekit:
           enabled: false
         knative:
