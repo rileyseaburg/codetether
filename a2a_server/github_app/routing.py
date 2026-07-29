@@ -82,12 +82,20 @@ def clone_task_routing_metadata() -> dict[str, Any]:
 
 
 def _worker_routing_metadata(worker: dict[str, Any]) -> dict[str, Any]:
-    """Route to a stable worker class instead of an ephemeral worker id."""
-    metadata = clone_task_routing_metadata()
-    name = str(worker.get('name') or '').strip()
-    if name and not metadata.get('target_agent_name'):
-        metadata['target_agent_name'] = name
-    return metadata
+    """Route by capability rather than pinning to the discovered worker.
+
+    Discovery only proves that *some* capable worker was alive when the task was
+    enqueued. Copying that worker's name into `target_agent_name` pinned the task
+    to a single pod: while it worked a long build, identical idle siblings could
+    not claim the task, so a fresh `@codetether` mention waited behind unrelated
+    work. Interchangeable workers share a name in a StatefulSet pool, so the
+    capability gate from `clone_task_routing_metadata` is already sufficient.
+
+    An explicit `GITHUB_APP_TARGET_AGENT` still pins work, because that is an
+    operator override rather than an accident of discovery.
+    """
+    del worker  # Discovery proves availability, not affinity.
+    return clone_task_routing_metadata()
 
 
 async def resolve_task_target() -> dict[str, Any]:
