@@ -61,7 +61,18 @@ def verify_forgejo_signature(signature: str, body: bytes) -> None:
 
 
 def _context(event: str, payload: dict[str, Any]) -> dict[str, Any] | None:
-    if event != 'issue_comment' or payload.get('action') not in {
+    """Extract a mention context from an issue-comment or issue-open event.
+
+    Filing an issue whose *body* mentions @codetether delivers `issues` with
+    action `opened`, not `issue_comment`. Handling only comments meant such a
+    mention was silently dropped and the bot never responded, so users had to
+    add a second comment repeating themselves.
+    """
+    if event in {'issues', 'issue'}:
+        return _opened_issue_context(event, payload)
+    if event not in {'issue_comment', 'pull_request_comment'}:
+        return None
+    if payload.get('action') not in {
         'created',
         'edited',
     }:
@@ -102,14 +113,69 @@ def _context(event: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def _is_self_authored(payload: dict[str, Any]) -> bool:
-    bot = _setting('FORGEJO_BOT_USERNAME', 'codetether').lower()
+def _opened_issue_context(
+    event: str, payload: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Build a mention context from a newly opened issue's body."""
+    del event  # Both `issues` and `issue` carry the same payload shape.
+    if payload.get('action') != 'opened':
+        return None
+    issue = payload.get('issue') or {}
+    repo = payload.get('repository') or {}
+    body = str(issue.get('body') or '')
+    if not mentions_bot(body):
+        return None
+    full_name = str(repo.get('full_name') or repo.get('name') or '')
+    number = int(issue.get('number') or issue.get('index') or 0)
+    if not full_name or not number:
+        return None
+    return {
+        'repo': full_name,
+        'number': number,
+        'is_pr': bool(issue.get('pull_request') or {}),
+        'body': body,
+        'issue': issue,
+        'repo_data': repo,
+        'comment': {},
+        # No comment exists yet; key dedupe off the issue itself so a later
+        # comment mention is still treated as distinct work.
+        'comment_id': 0,
+        'html_url': str(issue.get('html_url') or ''),
+        'actor_login': str(
+            (payload.get('sender') or {}).get('login')
+            or (payload.get('sender') or {}).get('username')
+            or (issue.get('user') or {}).get('login')
+            or ''
+        ),
+    }
+
+
+def _is_self_authored(payload: dict[str, Any], event: str = '') -> bool:
+    """Return true when the agent itself produced the event.
+
+    Every known bot alias must be treated as self-authored. Matching only the
+    single configured username let a comment from a sibling identity (for
+    example `codetether-bot` when `FORGEJO_BOT_USERNAME` is `codetether`) be
+    processed as user input, which can loop the agent against its own replies.
+
+    Only the author of *this* event is considered. The issue author is checked
+    for issue-open events, but never for comments: the bot owns some
+    repositories and opens issues there, and a human comment on such an issue is
+    legitimate user input.
+    """
+    from a2a_server.github_app.mention import bot_aliases
+
+    known = {alias.lower() for alias in bot_aliases()}
+    known.add(_setting('FORGEJO_BOT_USERNAME', 'codetether').lower())
     actors = [
-        (payload.get('comment') or {}).get('user') or {},
         payload.get('sender') or {},
     ]
+    if event in {'issues', 'issue'}:
+        actors.append((payload.get('issue') or {}).get('user') or {})
+    else:
+        actors.append((payload.get('comment') or {}).get('user') or {})
     return any(
-        str(actor.get('login') or actor.get('username') or '').lower() == bot
+        str(actor.get('login') or actor.get('username') or '').lower() in known
         for actor in actors
     )
 
@@ -503,7 +569,7 @@ async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
         return {'ok': True}
     if event == 'status':
         return await _handle_status_event(payload, _api_base(payload))
-    if _is_self_authored(payload):
+    if _is_self_authored(payload, event):
         return {'accepted': False, 'reason': 'self-authored-event'}
     ctx = _context(event, payload)
     if not ctx:

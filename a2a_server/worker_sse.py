@@ -991,6 +991,14 @@ class TaskReleaseRequest(BaseModel):
     status: str = 'completed'  # completed, failed, cancelled
     result: Optional[str] = None
     error: Optional[str] = None
+    # Workers report which agent session produced the work. Without these
+    # fields Pydantic dropped them silently, so no task ever recorded a
+    # session_id and the Forgejo "Session transcript" panel could never
+    # resolve a transcript to publish.
+    session_id: Optional[str] = None
+    diagnostics: Optional[Any] = None
+
+    model_config = {'extra': 'ignore'}
 
 
 async def _db_claim_allows_release(task_id: str, worker_id: str) -> bool:
@@ -1113,6 +1121,43 @@ async def _requeue_transient_failure(
         transient_retry.max_attempts(),
         delay,
     )
+    return True
+
+
+async def _persist_release_session_id(
+    task_id: str, session_id: Optional[str]
+) -> bool:
+    """Record the worker's agent session id on the task.
+
+    The Forgejo task page resolves its transcript through
+    `metadata.session_id`. Workers report the id on release, so persisting it
+    here is what makes the session viewable at all.
+    """
+    if not task_id or not session_id:
+        return False
+    try:
+        from .database import get_pool
+
+        pool = await get_pool()
+        if not pool:
+            return False
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE tasks
+                SET metadata = coalesce(metadata, '{}'::jsonb)
+                               || jsonb_build_object('session_id', $2::text)
+                WHERE id = $1
+                  AND coalesce(metadata->>'session_id', '') <> $2::text
+                """,
+                task_id,
+                session_id,
+            )
+    except Exception as e:
+        logger.warning(
+            'Failed to persist session_id for task %s: %s', task_id, e
+        )
+        return False
     return True
 
 
@@ -1525,6 +1570,16 @@ async def release_task(
         success = True
 
     if success:
+        # Persist the agent session before any status handling so both the
+        # requeue path and the terminal hook can resolve a transcript.
+        try:
+            await _persist_release_session_id(
+                release.task_id, release.session_id
+            )
+        except Exception as e:
+            logger.debug(
+                'Session id persist skipped for %s: %s', release.task_id, e
+            )
         # A provider that was briefly overloaded is not a defective task. Turn
         # such a release back into a pending task (bounded, with backoff) so
         # @codetether recovers without a human re-mentioning the bot.
