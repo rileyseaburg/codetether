@@ -1027,6 +1027,95 @@ async def _db_claim_allows_release(task_id: str, worker_id: str) -> bool:
     }
 
 
+async def _requeue_transient_failure(
+    task_id: str,
+    worker_id: str,
+    status: str,
+    error: Optional[str],
+) -> bool:
+    """Return a transiently failed task to the pending queue.
+
+    Returns:
+        True when the task was reset to `pending` for a later attempt, False
+        when the failure is permanent, the retry budget is spent, or the task
+        row could not be updated.
+    """
+    from . import transient_retry
+
+    if status != 'failed' or not transient_retry.is_transient_failure(error):
+        return False
+
+    try:
+        from .database import get_pool
+
+        pool = await get_pool()
+        if not pool:
+            return False
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT metadata FROM tasks WHERE id = $1', task_id
+            )
+            if not row:
+                return False
+
+            metadata = row['metadata']
+            if isinstance(metadata, str):
+                import json as _json
+
+                metadata = _json.loads(metadata or '{}')
+            metadata = metadata or {}
+
+            if not transient_retry.should_requeue(status, error, metadata):
+                logger.info(
+                    'Task %s transient retry budget exhausted (%s/%s); '
+                    'leaving it failed',
+                    task_id,
+                    transient_retry.attempts_used(metadata),
+                    transient_retry.max_attempts(),
+                )
+                return False
+
+            updated_metadata = transient_retry.next_metadata(metadata, error)
+            attempt = updated_metadata[transient_retry.ATTEMPT_KEY]
+            delay = transient_retry.backoff_seconds(attempt)
+
+            import json as _json
+
+            await conn.execute(
+                """
+                UPDATE tasks
+                SET status = 'pending',
+                    worker_id = NULL,
+                    error = NULL,
+                    started_at = NULL,
+                    metadata = $2::jsonb,
+                    updated_at = now() + ($3 || ' seconds')::interval
+                WHERE id = $1
+                """,
+                task_id,
+                _json.dumps(updated_metadata),
+                str(delay),
+            )
+    except Exception as e:
+        logger.warning('Failed to requeue transient task %s: %s', task_id, e)
+        return False
+
+    try:
+        await get_worker_registry().release_task(task_id, worker_id)
+    except Exception:
+        pass
+
+    logger.info(
+        'Requeued task %s after transient provider failure '
+        '(attempt %s/%s, retry in %ss)',
+        task_id,
+        attempt,
+        transient_retry.max_attempts(),
+        delay,
+    )
+    return True
+
+
 class CodebaseUpdateRequest(BaseModel):
     """Request to update worker's codebase list."""
 
@@ -1436,6 +1525,28 @@ async def release_task(
         success = True
 
     if success:
+        # A provider that was briefly overloaded is not a defective task. Turn
+        # such a release back into a pending task (bounded, with backoff) so
+        # @codetether recovers without a human re-mentioning the bot.
+        requeued = False
+        try:
+            requeued = await _requeue_transient_failure(
+                release.task_id,
+                resolved_worker_id,
+                release.status,
+                release.error,
+            )
+        except Exception as e:
+            logger.exception(
+                'Transient requeue check failed for %s: %s', release.task_id, e
+            )
+        if requeued:
+            return {
+                'released': True,
+                'task_id': release.task_id,
+                'status': 'pending',
+                'requeued': True,
+            }
         # Persist status/result/error to in-memory cache AND database
         try:
             from .agent_bridge import get_bridge as get_agent_bridge
@@ -1755,4 +1866,3 @@ def setup_task_creation_hook(agent_bridge) -> None:
 
     registry.add_task_listener(on_task_created)
     logger.info('Task creation hook installed for SSE worker notifications')
-
