@@ -152,15 +152,35 @@ async def record_output_chunk(
         return False
 
 
+async def _workspace_is_referenceable(conn: Any, workspace_id: str) -> bool:
+    """Return true when `sessions.workspace_id` can reference this workspace.
+
+    The constraint is named `sessions_codebase_id_fkey` and still points at the
+    legacy `codebases` table, so checking `workspaces` reported success and the
+    insert then failed. Probe whichever table the constraint actually targets.
+    """
+    for table in ('codebases', 'workspaces'):
+        try:
+            found = await conn.fetchval(
+                f'SELECT 1 FROM {table} WHERE id = $1', workspace_id
+            )
+        except Exception:
+            continue
+        if found:
+            return True
+    return False
+
+
 async def _ensure_session_row(
     session_id: str, task: Dict[str, Any]
 ) -> bool:
     """Create the parent `sessions` row when it does not already exist.
 
-    `sessions.workspace_id` is itself a foreign key, so the workspace is only
-    referenced when that row actually exists. A transcript is more valuable than
-    the workspace back-reference, so an unknown workspace yields a session with a
-    null workspace rather than no session at all.
+    `sessions.workspace_id` is a foreign key (to the legacy `codebases` table),
+    so the workspace is only referenced when that row actually exists. A
+    transcript is more valuable than the workspace back-reference, so an
+    unreferenceable workspace yields a session with a null workspace rather than
+    no session at all.
     """
     from .database import get_pool
 
@@ -178,12 +198,10 @@ async def _ensure_session_row(
                 )
                 or None
             )
-            if workspace_id is not None:
-                known = await conn.fetchval(
-                    'SELECT 1 FROM workspaces WHERE id = $1', workspace_id
-                )
-                if not known:
-                    workspace_id = None
+            if workspace_id is not None and not await _workspace_is_referenceable(
+                conn, workspace_id
+            ):
+                workspace_id = None
             await conn.execute(
                 """
                 INSERT INTO sessions (id, workspace_id, title, last_activity_at)
