@@ -1662,13 +1662,25 @@ async def release_task(
                     )
         except Exception as e:
             logger.error(f'Failed to update task {release.task_id} status: {e}')
-        await _mirror_release_to_task_run(
-            release.task_id,
-            resolved_worker_id,
-            release.status,
-            release.result,
-            release.error,
-        )
+        # Mirroring is best-effort bookkeeping. It must never prevent the
+        # terminal hook below from running: that hook signals the Temporal
+        # workflow, and without it an orchestrated task stalls on its 7-day
+        # timer with the next stage never dispatched.
+        try:
+            await _mirror_release_to_task_run(
+                release.task_id,
+                resolved_worker_id,
+                release.status,
+                release.result,
+                release.error,
+            )
+        except Exception as e:
+            logger.exception(
+                'Failed to mirror release for task %s (continuing to terminal '
+                'hook): %s',
+                release.task_id,
+                e,
+            )
         if release.status in {'completed', 'failed', 'cancelled'}:
             try:
                 from .github_app.task_status_hook import (
@@ -1678,6 +1690,7 @@ async def release_task(
                 await handle_github_app_terminal_task(
                     release.task_id,
                     resolved_worker_id,
+                    released_status=release.status,
                 )
             except Exception as e:
                 logger.exception(
