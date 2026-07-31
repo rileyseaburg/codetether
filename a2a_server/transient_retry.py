@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 ATTEMPT_KEY = 'transient_retry_attempts'
 LAST_ERROR_KEY = 'transient_retry_last_error'
 
+# Metadata key the worker reads to continue an existing agent session rather
+# than starting over. Equivalent to `codetether run --session <id>`.
+RESUME_KEY = 'resume_session_id'
+
 DEFAULT_MAX_ATTEMPTS = 3
 
 # Substrings that indicate the provider (not the work) failed, and that the
@@ -146,12 +150,38 @@ def next_metadata(
     metadata: Optional[Dict[str, Any]],
     error: Optional[str],
 ) -> Dict[str, Any]:
-    """Return task metadata with the retry counter advanced."""
+    """Return task metadata with the retry counter advanced and resume set.
+
+    A transient fault can occur many minutes into a long task. Requeuing without
+    a resume pointer threw that work away and restarted from the prompt, so a
+    stream that broke near the end simply burned the retry budget. Carrying the
+    established session forward makes the next attempt continue where it stopped,
+    the same way `codetether run --session <id>` does.
+    """
     updated = dict(metadata or {})
     updated[ATTEMPT_KEY] = attempts_used(metadata) + 1
     if error:
         updated[LAST_ERROR_KEY] = _summarize(error)
+    resume = resume_target(metadata)
+    if resume:
+        updated[RESUME_KEY] = resume
     return updated
+
+
+def resume_target(metadata: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Return the session a retry should continue, if one is known.
+
+    Prefers an explicit resume pointer, then the worker's own reported session,
+    then the session the transcript was recorded under. Derived `task-<id>`
+    sessions hold streamed narration rather than agent state, so they are only
+    used when nothing better exists.
+    """
+    data = metadata or {}
+    for key in (RESUME_KEY, 'worker_session_id', 'session_id'):
+        value = str(data.get(key) or '').strip()
+        if value and not value.startswith('task-'):
+            return value
+    return None
 
 
 def _summarize(error: str, limit: int = 300) -> str:
