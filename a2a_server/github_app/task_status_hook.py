@@ -10,14 +10,29 @@ _RECONCILER_TASK: asyncio.Task | None = None
 
 
 async def handle_github_app_terminal_task(
-    task_id: str, worker_id: str | None = None
+    task_id: str,
+    worker_id: str | None = None,
+    released_status: str | None = None,
 ) -> None:
-    """Load a terminal task and run any GitHub App follow-up logic."""
+    """Load a terminal task and run any GitHub App follow-up logic.
+
+    Args:
+        task_id: The task that reached a terminal state.
+        worker_id: Worker that released it, when known.
+        released_status: Authoritative status from the release request. The
+            status write races this hook, so a database read can still show the
+            previous non-terminal status. Trusting that stale value made the
+            Temporal signal report a non-terminal stage, leaving an orchestrated
+            workflow parked on its 7-day timer with no next stage dispatched.
+    """
     from .. import database as db
     from .checks import ensure_task_check_run
     from .task_completion import notify_issue_task_completion
 
     task = await db.db_get_task(task_id)
+    if task and released_status:
+        # Prefer the released status over a possibly stale database read.
+        task = {**task, 'status': released_status}
     metadata = (task or {}).get('metadata') or {}
     if metadata.get('source') == 'forgejo-webhook':
         from ..forgejo_task_completion import notify_forgejo_task_completion
