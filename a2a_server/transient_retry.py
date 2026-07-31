@@ -41,6 +41,12 @@ _TRANSIENT_PATTERNS: Tuple[str, ...] = (
     'timeout waiting',
     'connection reset',
     'connection closed',
+    # A truncated or malformed streaming response is a transport fault, not a
+    # defective task: the same work usually succeeds on a later attempt.
+    'sse stream error',
+    'error decoding response body',
+    'incomplete message',
+    'unexpected eof',
     'stream closed before',
     'stream disconnected',
     'internal server error',

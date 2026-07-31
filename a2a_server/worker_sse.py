@@ -1132,6 +1132,12 @@ async def _persist_release_session_id(
     The Forgejo task page resolves its transcript through
     `metadata.session_id`. Workers report the id on release, so persisting it
     here is what makes the session viewable at all.
+
+    Progress narration streamed during the run is stored under a derived
+    `task-<id>` session. Overwriting that with the worker's own id orphaned every
+    recorded row and the transcript went back to empty, so the derived id is kept
+    once transcript rows exist under it and the worker id is recorded alongside
+    as `worker_session_id`.
     """
     if not task_id or not session_id:
         return False
@@ -1142,6 +1148,30 @@ async def _persist_release_session_id(
         if not pool:
             return False
         async with pool.acquire() as conn:
+            existing = await conn.fetchval(
+                "SELECT coalesce(metadata->>'session_id', '') FROM tasks"
+                ' WHERE id = $1',
+                task_id,
+            )
+            if existing and existing != session_id:
+                recorded = await conn.fetchval(
+                    'SELECT count(*) FROM session_messages'
+                    ' WHERE session_id = $1',
+                    existing,
+                )
+                if recorded:
+                    await conn.execute(
+                        """
+                        UPDATE tasks
+                        SET metadata = coalesce(metadata, '{}'::jsonb)
+                            || jsonb_build_object(
+                                'worker_session_id', $2::text)
+                        WHERE id = $1
+                        """,
+                        task_id,
+                        session_id,
+                    )
+                    return True
             await conn.execute(
                 """
                 UPDATE tasks
