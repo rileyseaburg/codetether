@@ -2576,8 +2576,13 @@ async def list_models():
             )
         )
 
-        # Find a good default (prefer Gemini 3 Flash)
-        default_model = 'google/gemini-3-flash-preview'
+        # Default to the platform's configured agent model. Keep this in sync
+        # with github_app.settings.DEFAULT_MODEL_REF: a divergent hardcoded
+        # default silently routes work to the wrong provider whenever
+        # GITHUB_APP_MODEL_REF is unset.
+        from .github_app.settings import DEFAULT_MODEL_REF
+
+        default_model = DEFAULT_MODEL_REF
         found_default = False
         for m in all_models:
             if m['id'] == default_model:

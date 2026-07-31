@@ -34,7 +34,7 @@ ACTIVE_WORK_MAX_REPOS_PER_INSTALLATION = max(
         os.environ.get('GITHUB_APP_ACTIVE_WORK_MAX_REPOS_PER_INSTALLATION', '5')
     ),
 )
-DEFAULT_MODEL_REF = 'openai-codex/gpt-5.6-sol-fast:max'
+DEFAULT_MODEL_REF = 'openai-codex/gpt-5.6-luna-fast:max'
 MODEL_REF = (
     os.environ.get('GITHUB_APP_MODEL_REF', DEFAULT_MODEL_REF).strip()
     or DEFAULT_MODEL_REF

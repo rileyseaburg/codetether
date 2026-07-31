@@ -10,7 +10,7 @@ from a2a_server.github_app.settings import DEFAULT_MODEL_REF, TASK_PRIORITY
 
 
 def test_vcs_automation_defaults_to_requested_openai_codex_model():
-    assert DEFAULT_MODEL_REF == 'openai-codex/gpt-5.6-sol-fast:max'
+    assert DEFAULT_MODEL_REF == 'openai-codex/gpt-5.6-luna-fast:max'
 
 
 PR = {
