@@ -575,6 +575,18 @@ async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
     if not ctx:
         return {'accepted': False, 'reason': 'unsupported-or-no-mention'}
     base = _api_base(payload)
+    # A repository hook and the instance-wide system hook can both target this
+    # endpoint, delivering the same comment id milliseconds apart. Claim the
+    # delivery atomically so only one of them answers the mention.
+    from .forgejo_delivery_claim import claim_delivery
+
+    claimed, delivery = await claim_delivery(event, ctx)
+    if not claimed:
+        return {
+            'accepted': False,
+            'reason': 'duplicate-delivery',
+            'delivery_key': delivery,
+        }
     if await _active_task(ctx['repo'], ctx['number']):
         return {'accepted': False, 'reason': 'active-task-exists'}
     if not is_fix_request(ctx['body']):
