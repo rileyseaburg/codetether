@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: main-af126b9b3903
+          value: main-3067fc5723f5
         - name: blueGreen.rolloutId.green
-          value: stage-advance-main-af126b9b3903
+          value: transcript-fk-main-3067fc5723f5
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: main-af126b9b3903
+          tag: main-3067fc5723f5
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-af126b9b3903
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-3067fc5723f5
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: stage-advance-main-af126b9b3903
+            green: transcript-fk-main-3067fc5723f5
         service:
           type: ClusterIP
           port: 8000
