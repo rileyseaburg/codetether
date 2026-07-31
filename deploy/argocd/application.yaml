@@ -214,9 +214,10 @@ spec:
             envFrom:
               - secretRef:
                   name: harvester-api-keys
-          extraArgs:
-            - --max-concurrent-tasks
-            - "1"
+          # No --max-concurrent-tasks override: the worker default of 4 applies,
+          # giving the two-pod pool 8 slots. The previous cap of 1 serialized
+          # every worker, so a large queue waited behind two long-running tasks.
+          extraArgs: []
           extraEnv:
             - name: CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND
               value: "1"
