@@ -166,12 +166,11 @@ spec:
           # GITHUB_APP_MODEL_REF still names the model used for Forgejo tasks;
           # the GitHub App itself has no credentials and cannot act.
           #
-          # OpenRouter's `:nitro` suffix sorts providers by throughput, so a
-          # single overloaded upstream no longer fails the task: OpenRouter
-          # load-balances across every provider serving the model. The Codex
-          # backend repeatedly returned "servers are currently overloaded" on
-          # agent-sized prompts, which burned the bounded retry budget.
-          GITHUB_APP_MODEL_REF: openrouter/z-ai/glm-5:nitro
+          # The OpenRouter account ran out of credits and returned a permanent
+          # 402 ("Insufficient credits"), which correctly is not retried and so
+          # failed tasks outright. Use the Vault-backed ChatGPT Codex backend,
+          # which workers opt into under harvester.extraEnv below.
+          GITHUB_APP_MODEL_REF: openai-codex/gpt-5.6-luna-fast:max
           GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
@@ -209,8 +208,8 @@ spec:
               name: vault-token
               addressKey: VAULT_ADDR
               tokenKey: VAULT_TOKEN
-          defaultProvider: openrouter
-          defaultModel: openrouter/z-ai/glm-5:nitro
+          defaultProvider: openai-codex
+          defaultModel: openai-codex/gpt-5.6-luna-fast:max
           providerSecrets:
             envFrom:
               - secretRef:
