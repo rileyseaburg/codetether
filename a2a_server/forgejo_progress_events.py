@@ -152,23 +152,53 @@ async def record_output_chunk(
         return False
 
 
+async def _session_workspace_fk_target(conn: Any) -> Optional[str]:
+    """Return the table that `sessions.workspace_id` must reference.
+
+    The constraint is historically named `sessions_codebase_id_fkey` and points
+    at the legacy `codebases` table on some deployments and `workspaces` on
+    others. Ask the catalog instead of guessing.
+    """
+    return await conn.fetchval(
+        """
+        SELECT confrelid::regclass::text
+        FROM pg_constraint
+        WHERE conrelid = 'sessions'::regclass
+          AND contype = 'f'
+          AND 'workspace_id' = ANY (
+              SELECT a.attname FROM pg_attribute a
+              WHERE a.attrelid = conrelid AND a.attnum = ANY (conkey)
+          )
+        LIMIT 1
+        """
+    )
+
+
 async def _workspace_is_referenceable(conn: Any, workspace_id: str) -> bool:
     """Return true when `sessions.workspace_id` can reference this workspace.
 
-    The constraint is named `sessions_codebase_id_fkey` and still points at the
-    legacy `codebases` table, so checking `workspaces` reported success and the
-    insert then failed. Probe whichever table the constraint actually targets.
+    Only the table the foreign key actually targets may be consulted. Accepting
+    a match from any candidate table reported success for an id that lived in
+    `workspaces` but not in `codebases`, and the insert then failed on the
+    constraint, so no transcript row was ever written.
     """
-    for table in ('codebases', 'workspaces'):
-        try:
-            found = await conn.fetchval(
-                f'SELECT 1 FROM {table} WHERE id = $1', workspace_id
+    try:
+        target = await _session_workspace_fk_target(conn)
+    except Exception as exc:
+        logger.debug('Could not resolve session workspace FK target: %s', exc)
+        return False
+    if not target:
+        # No foreign key on the column: any value is acceptable.
+        return True
+    try:
+        return bool(
+            await conn.fetchval(
+                f'SELECT 1 FROM {target} WHERE id = $1', workspace_id
             )
-        except Exception:
-            continue
-        if found:
-            return True
-    return False
+        )
+    except Exception as exc:
+        logger.debug('Workspace reference check failed for %s: %s', target, exc)
+        return False
 
 
 async def _ensure_session_row(
