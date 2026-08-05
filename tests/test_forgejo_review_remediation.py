@@ -7,9 +7,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from fastapi import HTTPException, Request
 from pydantic import ValidationError
+from starlette import status
 
 from a2a_server import forgejo_review_remediation as remediation
+from a2a_server import monitor_api
 from a2a_server.temporal import activities
 from a2a_server.temporal.models import (
     ForgejoAgentWorkflowInput,
@@ -116,6 +119,49 @@ def test_request_rejects_count_mismatch():
 def test_request_rejects_untrusted_routing_fields(field, value):
     with pytest.raises(ValidationError):
         request(**{field: value})
+
+
+def http_request(token: str = '') -> Request:
+    """Build the minimal Starlette request used by the ingest auth guard."""
+    headers = []
+    if token:
+        headers.append((b'authorization', f'Bearer {token}'.encode()))
+    return Request({'type': 'http', 'headers': headers})
+
+
+@pytest.mark.asyncio
+async def test_endpoint_rejects_missing_ingest_token(monkeypatch):
+    monkeypatch.setattr(
+        monitor_api, '_get_auth_tokens_set', lambda: {'correct-token'}
+    )
+    with pytest.raises(HTTPException) as error:
+        await monitor_api.create_forgejo_review_remediation(
+            http_request(), request()
+        )
+    assert error.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+async def test_endpoint_accepts_configured_ingest_token(monkeypatch):
+    monkeypatch.setattr(
+        monitor_api, '_get_auth_tokens_set', lambda: {'correct-token'}
+    )
+    received = []
+
+    async def fake_start(value):
+        received.append(value)
+        return {
+            'id': '81',
+            'forgejo_task_id': FORGEJO_TASK_ID,
+            'workflow_id': 'forgejo-agent-task-81',
+        }
+
+    monkeypatch.setattr(monitor_api, 'start_review_remediation', fake_start)
+    result = await monitor_api.create_forgejo_review_remediation(
+        http_request('correct-token'), request()
+    )
+    assert result['workflow_id'] == 'forgejo-agent-task-81'
+    assert received[0].resume_session_id == 'author-session-1'
 
 
 @pytest.mark.asyncio
