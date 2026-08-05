@@ -4613,9 +4613,11 @@ async def get_github_app_workflows(
 
 @agent_router_alias.post('/forgejo/review-remediations')
 async def create_forgejo_review_remediation(
+    raw_request: Request,
     request: ForgejoReviewRemediationRequest,
 ) -> dict[str, object]:
     """Start one idempotent Temporal remediation for an immutable PR head."""
+    _require_ingest_auth(raw_request)
     try:
         return await start_review_remediation(request)
     except ValueError as exc:
