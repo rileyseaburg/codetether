@@ -7271,6 +7271,13 @@ class TaskOutputChunk(BaseModel):
     worker_id: str
     output: str
     timestamp: Optional[str] = None
+    # Optional typed session event travelling beside the human-readable text.
+    # Workers previously sent only pre-joined strings such as
+    # `[tool:bash:ok] ...`, so tool name, arguments, and status were lost and
+    # every transcript entry had to be classified as `agent.message`.
+    event: Optional[Dict[str, Any]] = None
+
+    model_config = {'extra': 'ignore'}
 
 
 @agent_router_alias.post('/tasks/{task_id}/output')
@@ -7319,7 +7326,9 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
 
         # Persist the streamed narration first so there is transcript content
         # available for this and later publishes.
-        await record_output_chunk(task_id, chunk.output, chunk.worker_id)
+        await record_output_chunk(
+            task_id, chunk.output, chunk.worker_id, chunk.event
+        )
         await publish_task_progress(task_id)
     except Exception as e:
         logger.debug(

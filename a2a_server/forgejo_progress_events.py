@@ -22,7 +22,17 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, Optional
+
+from collections.abc import Mapping
+from typing import Any
+
+from asyncpg import Connection
+
+from a2a_server import database as db
+from a2a_server.database import get_pool
+from a2a_server.forgejo_agent_client import publish_session_events, update_task
+from a2a_server.session_view import _task_messages
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +43,7 @@ DEFAULT_MIN_INTERVAL_SECONDS = 20.0
 # publish because this runs repeatedly during a task.
 PROGRESS_MESSAGE_LIMIT = 400
 
-_LAST_PUBLISH: Dict[str, float] = {}
+_LAST_PUBLISH: dict[str, float] = {}
 
 # Bound the throttle map so a long-lived server cannot grow it without limit.
 _MAX_TRACKED_TASKS = 2048
@@ -55,7 +65,7 @@ def progress_publishing_enabled() -> bool:
     return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
-def should_publish(task_id: str, now: Optional[float] = None) -> bool:
+def should_publish(task_id: str, now: float | None = None) -> bool:
     """Return true when this task is due for another in-flight publish."""
     if not task_id:
         return False
@@ -80,7 +90,7 @@ def reset() -> None:
     _LAST_PUBLISH.clear()
 
 
-def is_forgejo_agent_task(task: Optional[Dict[str, Any]]) -> bool:
+def is_forgejo_agent_task(task: dict[str, Any] | None) -> bool:
     """Return true when `task` is a native Forgejo agent task with a task id."""
     metadata = (task or {}).get('metadata') or {}
     if metadata.get('source') != 'forgejo-webhook':
@@ -92,7 +102,10 @@ def is_forgejo_agent_task(task: Optional[Dict[str, Any]]) -> bool:
 
 
 async def record_output_chunk(
-    task_id: str, output: str, worker_id: str = ''
+    task_id: str,
+    output: str,
+    worker_id: str = '',
+    event: dict[str, Any] | None = None,
 ) -> bool:
     """Persist one streamed worker output chunk as a session message.
 
@@ -101,14 +114,16 @@ async def record_output_chunk(
     messages, so without this the transcript had no rows to publish even once a
     `session_id` was known.
 
+    When the worker supplies a typed `event`, its structure is stored in the
+    `tool_calls` column so `normalize_session_events` can publish a real
+    `tool.call` or `tool.result` instead of flattening it into `agent.message`.
+
     Returns:
         True when a message row was written.
     """
     text = (output or '').strip()
     if not task_id or not text:
         return False
-
-    from . import database as db
 
     try:
         task = await db.db_get_task(task_id)
@@ -130,21 +145,37 @@ async def record_output_chunk(
         try:
             await _persist_derived_session_id(task_id, session_id)
         except Exception as exc:
-            logger.debug('Derived session persist failed for %s: %s', task_id, exc)
+            logger.debug(
+                'Derived session persist failed for %s: %s', task_id, exc
+            )
 
     # `session_messages.session_id` is a foreign key to `sessions(id)`, so the
     # parent row must exist before any transcript row can be written.
     if not await _ensure_session_row(session_id, task):
         return False
 
+    role = 'assistant'
+    structured: list[dict[str, Any]] | None = None
+    if isinstance(event, Mapping):
+        event_type = str(event.get('type') or '').strip()
+        payload = event.get('payload')
+        if event_type and isinstance(payload, Mapping):
+            # Carry the typed event verbatim; the publisher classifies from it.
+            structured = [
+                {'codetether_event_type': event_type, **dict(payload)}
+            ]
+            if event_type == 'agent.reasoning':
+                role = 'reasoning'
+
     try:
         return await db.db_upsert_message(
             {
                 'id': str(uuid.uuid4()),
                 'session_id': session_id,
-                'role': 'assistant',
+                'role': role,
                 'content': text,
                 'model': str(metadata.get('model_ref') or ''),
+                'tool_calls': structured,
             }
         )
     except Exception as exc:
@@ -152,7 +183,7 @@ async def record_output_chunk(
         return False
 
 
-async def _session_workspace_fk_target(conn: Any) -> Optional[str]:
+async def _session_workspace_fk_target(conn: Connection) -> str | None:
     """Return the table that `sessions.workspace_id` must reference.
 
     The constraint is historically named `sessions_codebase_id_fkey` and points
@@ -174,7 +205,9 @@ async def _session_workspace_fk_target(conn: Any) -> Optional[str]:
     )
 
 
-async def _workspace_is_referenceable(conn: Any, workspace_id: str) -> bool:
+async def _workspace_is_referenceable(
+    conn: Connection, workspace_id: str
+) -> bool:
     """Return true when `sessions.workspace_id` can reference this workspace.
 
     Only the table the foreign key actually targets may be consulted. Accepting
@@ -202,7 +235,7 @@ async def _workspace_is_referenceable(conn: Any, workspace_id: str) -> bool:
 
 
 async def _ensure_session_row(
-    session_id: str, task: Dict[str, Any]
+    session_id: str, task: dict[str, Any]
 ) -> bool:
     """Create the parent `sessions` row when it does not already exist.
 
@@ -212,8 +245,6 @@ async def _ensure_session_row(
     unreferenceable workspace yields a session with a null workspace rather than
     no session at all.
     """
-    from .database import get_pool
-
     metadata = task.get('metadata') or {}
     try:
         pool = await get_pool()
@@ -228,9 +259,10 @@ async def _ensure_session_row(
                 )
                 or None
             )
-            if workspace_id is not None and not await _workspace_is_referenceable(
-                conn, workspace_id
-            ):
+            is_referenceable = workspace_id is None or await (
+                _workspace_is_referenceable(conn, workspace_id)
+            )
+            if not is_referenceable:
                 workspace_id = None
             await conn.execute(
                 """
@@ -249,9 +281,7 @@ async def _ensure_session_row(
 
 
 async def _persist_derived_session_id(task_id: str, session_id: str) -> None:
-    """Record a task-derived session id so later reads resolve the transcript."""
-    from .database import get_pool
-
+    """Record a task-derived session ID for later transcript reads."""
     pool = await get_pool()
     if not pool:
         return
@@ -269,6 +299,26 @@ async def _persist_derived_session_id(task_id: str, session_id: str) -> None:
         )
 
 
+async def _publishable_task(task_id: str) -> dict[str, Any] | None:
+    """Load a nonterminal Forgejo task or return ``None`` when inapplicable."""
+    try:
+        task = await db.db_get_task(task_id)
+    except Exception as exc:
+        logger.debug('Progress publish skipped for %s: %s', task_id, exc)
+        return None
+    if not is_forgejo_agent_task(task):
+        return None
+    if str(task.get('status') or '').lower() in {
+        'completed',
+        'failed',
+        'cancelled',
+    }:
+        # The terminal hook owns the final transcript.
+        forget(task_id)
+        return None
+    return task
+
+
 async def publish_task_progress(task_id: str) -> int:
     """Publish the current transcript for an in-flight Forgejo task.
 
@@ -276,32 +326,14 @@ async def publish_task_progress(task_id: str) -> int:
         The number of newly published events; 0 when publishing is disabled,
         throttled, not applicable, or nothing new was available.
     """
-    if not progress_publishing_enabled():
-        return 0
-    if not should_publish(task_id):
+    if not progress_publishing_enabled() or not should_publish(task_id):
         return 0
 
-    from . import database as db
-
-    try:
-        task = await db.db_get_task(task_id)
-    except Exception as exc:
-        logger.debug('Progress publish skipped for %s: %s', task_id, exc)
-        return 0
-
-    if not is_forgejo_agent_task(task):
+    task = await _publishable_task(task_id)
+    if task is None:
         return 0
 
     metadata = task.get('metadata') or {}
-    status = str(task.get('status') or '').lower()
-    if status in {'completed', 'failed', 'cancelled'}:
-        # The terminal hook owns the final transcript.
-        forget(task_id)
-        return 0
-
-    from .forgejo_agent_client import publish_session_events, update_task
-    from .session_view import _task_messages
-
     repo = str(metadata.get('repo') or '')
     base_url = str(metadata.get('forgejo_api_url') or '')
     forgejo_task_id = int(metadata.get('forgejo_agent_task_id') or 0)

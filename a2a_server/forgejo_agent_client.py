@@ -202,7 +202,13 @@ def normalize_session_events(
     task_id: str,
     messages: Iterable[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Normalize CodeTether messages and tool records into Forgejo events."""
+    """Normalize CodeTether messages and tool records into Forgejo events.
+
+    A record may carry `codetether_event_type`, set by the worker when it
+    streamed a typed event. That type is authoritative: guessing from the
+    presence of a `result` key mislabelled a started call as a result, and a
+    flattened text chunk as a plain message.
+    """
     events: list[dict[str, Any]] = []
     sequence = 0
     for message in messages:
@@ -214,6 +220,8 @@ def normalize_session_events(
             event_type = 'user.message'
         elif role == 'system':
             event_type = 'system.message'
+        elif role == 'reasoning':
+            event_type = 'agent.reasoning'
         events.append(
             {
                 'sequence': sequence,
@@ -232,12 +240,18 @@ def normalize_session_events(
                 continue
             sequence += 1
             tool_payload = _redact(dict(tool_call))
-            tool_type = (
-                'tool.result'
-                if tool_payload.get('result') is not None
-                or tool_payload.get('output') is not None
-                else 'tool.call'
-            )
+            declared = str(
+                tool_payload.pop('codetether_event_type', '') or ''
+            ).strip()
+            if declared:
+                tool_type = declared
+            else:
+                tool_type = (
+                    'tool.result'
+                    if tool_payload.get('result') is not None
+                    or tool_payload.get('output') is not None
+                    else 'tool.call'
+                )
             events.append(
                 {
                     'sequence': sequence,
