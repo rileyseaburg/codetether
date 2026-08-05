@@ -56,8 +56,9 @@ def _issue_url(repository: str, number: int) -> str:
     api = os.environ.get('FORGEJO_API_URL', '').rstrip('/')
     origin = api.removesuffix('/api/v1')
     owner, name = repository.split('/', 1)
+    issue_url = f'{origin}/{quote(owner, safe="")}/{quote(name, safe="")}'
     return (
-        f'{origin}/{quote(owner, safe="")}/{quote(name, safe="")}/issues/{number}'
+        f'{issue_url}/issues/{number}'
         if origin and number
         else ''
     )
@@ -172,12 +173,34 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
     )
     metadata.update(routing)
 
-    if request.stage == 'prepare':
+    if request.stage == 'remediate':
+        task_metadata = forgejo_task.get('metadata') or {}
+        for key in (
+            'target_agent_name',
+            'resume_session_id',
+            'context_id',
+            'conversation_id',
+            'author_provenance_id',
+            'forgejo_author_login',
+            'git_signer',
+            'review_blocking_findings',
+            'review_nonblocking_findings',
+            'review_finding_ids',
+            'preserve_session_workspace',
+            'provenance_verified',
+        ):
+            if key in task_metadata:
+                metadata[key] = task_metadata[key]
+        title = f'Address Forgejo review for PR #{pull_number}'
+        prompt = str(forgejo_task.get('prompt') or '')
+        agent_type = 'build'
+    elif request.stage == 'prepare':
         metadata['git_url'] = clone_url
         metadata['git_branch'] = clone_branch
         title = f'Prepare Forgejo task #{request.workflow.issue_number}'
         prompt = (
-            f'Clone or refresh {request.workflow.repository} on branch {branch} '
+            f'Clone or refresh {request.workflow.repository} '
+            f'on branch {branch} '
             'for Forgejo automation.'
         )
         agent_type = 'clone_repo'
@@ -193,7 +216,7 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
         title=title,
         prompt=prompt,
         agent_type=agent_type,
-        priority=100,
+        priority=500 if request.stage == 'remediate' else 100,
         model_ref=MODEL_REF,
         metadata=metadata,
         task_timeout_seconds=604800,

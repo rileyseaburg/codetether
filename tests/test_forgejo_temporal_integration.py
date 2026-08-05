@@ -7,6 +7,7 @@ import pytest
 from temporalio.exceptions import ApplicationError
 
 from a2a_server import forgejo_task_completion, forgejo_webhooks
+from a2a_server.github_app.settings import MODEL_REF
 from a2a_server.temporal import activities
 from a2a_server.temporal.activities import safe_activity
 from a2a_server.temporal.models import (
@@ -174,7 +175,7 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
     )
 
     assert result.task_id == 'code-task-1'
-    assert dispatched[0]['model_ref'] == ('openai-codex/gpt-5.6-sol-fast:max')
+    assert dispatched[0]['model_ref'] == MODEL_REF
 
 
 @pytest.mark.asyncio

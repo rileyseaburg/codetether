@@ -36,6 +36,10 @@ from pydantic import BaseModel
 
 # Import PostgreSQL persistence layer
 from . import database as db
+from .forgejo_review_remediation import (
+    ForgejoReviewRemediationRequest,
+    start_review_remediation,
+)
 from .git_auth_models import GitAuthConfig
 from .git_service import (
     default_clone_dir,
@@ -4605,6 +4609,26 @@ async def get_github_app_workflows(
     if not pool:
         raise HTTPException(status_code=503, detail='Database unavailable')
     return await load_github_app_workflows(pool, repos, limit, tenant_id)
+
+
+@agent_router_alias.post('/forgejo/review-remediations')
+async def create_forgejo_review_remediation(
+    request: ForgejoReviewRemediationRequest,
+) -> dict[str, object]:
+    """Start one idempotent Temporal remediation for an immutable PR head."""
+    try:
+        return await start_review_remediation(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    except Exception as exc:
+        logger.warning(
+            'Forgejo review remediation start failed: %s',
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail='Forgejo review remediation is temporarily unavailable',
+        ) from None
 
 
 @agent_router_alias.post('/tasks')

@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from urllib.parse import quote
 
+from a2a_server.forgejo_agent_client import (
+    publish_session_events,
+    update_task,
+)
 from a2a_server.forgejo_automation import (
     _mark_review_reconciled,
     create_forgejo_fix_followup,
     create_forgejo_review_task,
     publish_forgejo_review,
+    reviewer_verdict,
 )
+from a2a_server.forgejo_progress_events import forget
 from a2a_server.forgejo_webhooks import forgejo_json
-from a2a_server.session_view import build_task_session_url
+from a2a_server.session_view import _task_messages, build_task_session_url
+from a2a_server.temporal import client as temporal_client
+from a2a_server.temporal.models import ForgejoTaskTerminalSignal
 
 
 def _task_footer(task_id: str, metadata: dict | None = None) -> str:
@@ -37,12 +46,6 @@ async def sync_forgejo_agent_task(
     if not forgejo_task_id or not repo:
         return
 
-    from a2a_server.forgejo_agent_client import (
-        publish_session_events,
-        update_task,
-    )
-    from a2a_server.session_view import _task_messages
-
     status = str(task.get('status') or 'failed').lower()
     forgejo_status = {
         'queued': 'pending',
@@ -57,12 +60,8 @@ async def sync_forgejo_agent_task(
         'cancelled',
     }:
         forgejo_status = 'failed'
-    try:
-        from a2a_server.forgejo_progress_events import forget
-
+    with suppress(Exception):
         forget(str(task.get('id') or ''))
-    except Exception:
-        pass
     session_id, messages = await _task_messages(task, 10_000)
     if not workflow_terminal:
         forgejo_status = 'running'
@@ -93,6 +92,76 @@ async def sync_forgejo_agent_task(
     )
 
 
+async def _notify_temporal_completion(
+    task: dict, metadata: dict, stage: str
+) -> None:
+    """Signal one terminal stage projection into its durable workflow."""
+    if stage not in {'prepare', 'code', 'fix', 'review', 'remediate'}:
+        return
+    await sync_forgejo_agent_task(task, workflow_terminal=False)
+    await temporal_client.signal_task_terminal(
+        int(metadata.get('forgejo_agent_task_id') or 0),
+        ForgejoTaskTerminalSignal(
+            task_id=str(task.get('id') or ''),
+            stage=stage,
+            status=str(task.get('status') or 'failed'),
+            session_id=str(
+                task.get('session_id') or metadata.get('session_id') or ''
+            ),
+            verdict=(reviewer_verdict(task) if stage == 'review' else ''),
+            head_sha=str(metadata.get('pr_head_sha') or ''),
+            pull_request_number=int(metadata.get('pr_number') or 0),
+        ),
+    )
+
+
+async def _legacy_followup(
+    task: dict, stage: str, status: str, task_id: str
+) -> tuple[dict | None, str | None]:
+    """Run the legacy review/fix handoff for a terminal stage."""
+    review_evidence: dict | None = None
+    followup_task_id: str | None = None
+    if stage == 'code' and status == 'completed':
+        followup_task_id = await create_forgejo_review_task(task)
+    elif stage == 'review' and status == 'completed':
+        review_evidence = await publish_forgejo_review(task)
+        followup_task_id = await create_forgejo_fix_followup(task)
+        await _mark_review_reconciled(task_id)
+    return review_evidence, followup_task_id
+
+
+def _legacy_terminal_message(
+    stage: str,
+    status: str,
+    review_evidence: dict | None,
+    followup_task_id: str | None,
+) -> str:
+    """Render the terminal comment for a non-Temporal legacy stage."""
+    if stage == 'review' and status == 'completed':
+        event = str((review_evidence or {}).get('event') or 'COMMENT')
+        review_id = (review_evidence or {}).get('review_id')
+        message = (
+            '## 🔎 CodeTether Review\n\n'
+            f'Published Forgejo review event `{event}`.'
+        )
+        if review_id is not None:
+            message += f' Review: `{review_id}`.'
+        if followup_task_id:
+            message += f'\n\nQueued fix follow-up task `{followup_task_id}`.'
+        return message
+    if status == 'completed':
+        message = (
+            '## 🛠️ CodeTether Fix\n\nCompleted and pushed the requested changes.'
+        )
+        if followup_task_id:
+            message += f'\n\nQueued review task `{followup_task_id}`.'
+        return message
+    return (
+        f'## ⚠️ CodeTether {stage.title()}\n\n'
+        f'Task ended with status `{status}`.'
+    )
+
+
 async def notify_forgejo_task_completion(task: dict) -> None:
     """Advance one Forgejo workflow stage and post one terminal comment."""
     metadata = task.get('metadata') or {}
@@ -101,27 +170,7 @@ async def notify_forgejo_task_completion(task: dict) -> None:
 
     stage = str(metadata.get('workflow_stage') or '')
     if metadata.get('temporal_orchestrated'):
-        if stage not in {'prepare', 'code', 'fix', 'review'}:
-            return
-        await sync_forgejo_agent_task(task, workflow_terminal=False)
-        from a2a_server.forgejo_automation import reviewer_verdict
-        from a2a_server.temporal.client import signal_task_terminal
-        from a2a_server.temporal.models import ForgejoTaskTerminalSignal
-
-        await signal_task_terminal(
-            int(metadata.get('forgejo_agent_task_id') or 0),
-            ForgejoTaskTerminalSignal(
-                task_id=str(task.get('id') or ''),
-                stage=stage,
-                status=str(task.get('status') or 'failed'),
-                session_id=str(
-                    task.get('session_id') or metadata.get('session_id') or ''
-                ),
-                verdict=(reviewer_verdict(task) if stage == 'review' else ''),
-                head_sha=str(metadata.get('pr_head_sha') or ''),
-                pull_request_number=int(metadata.get('pr_number') or 0),
-            ),
-        )
+        await _notify_temporal_completion(task, metadata, stage)
         return
 
     if stage not in {'code', 'fix', 'review'}:
@@ -137,14 +186,9 @@ async def notify_forgejo_task_completion(task: dict) -> None:
     await sync_forgejo_agent_task(task)
 
     status = str(task.get('status') or 'unknown')
-    review_evidence: dict | None = None
-    followup_task_id: str | None = None
-    if stage == 'code' and status == 'completed':
-        followup_task_id = await create_forgejo_review_task(task)
-    elif stage == 'review' and status == 'completed':
-        review_evidence = await publish_forgejo_review(task)
-        followup_task_id = await create_forgejo_fix_followup(task)
-        await _mark_review_reconciled(task_id)
+    review_evidence, followup_task_id = await _legacy_followup(
+        task, stage, status, task_id
+    )
 
     owner, name = repo.split('/', 1)
     issue_path = (
@@ -159,25 +203,9 @@ async def notify_forgejo_task_completion(task: dict) -> None:
         return
 
     detail = str(task.get('result') or task.get('error') or '').strip()
-    if stage == 'review' and status == 'completed':
-        event = str((review_evidence or {}).get('event') or 'COMMENT')
-        review_id = (review_evidence or {}).get('review_id')
-        message = (
-            '## 🔎 CodeTether Review\n\n'
-            f'Published Forgejo review event `{event}`.'
-        )
-        if review_id is not None:
-            message += f' Review: `{review_id}`.'
-        if followup_task_id:
-            message += f'\n\nQueued fix follow-up task `{followup_task_id}`.'
-    elif status == 'completed':
-        message = (
-            '## 🛠️ CodeTether Fix\n\nCompleted and pushed the requested changes.'
-        )
-        if followup_task_id:
-            message += f'\n\nQueued review task `{followup_task_id}`.'
-    else:
-        message = f'## ⚠️ CodeTether {stage.title()}\n\nTask ended with status `{status}`.'
+    message = _legacy_terminal_message(
+        stage, status, review_evidence, followup_task_id
+    )
     if detail:
         message += f'\n\n{detail}'
     message += _task_footer(task_id, metadata)
