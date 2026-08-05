@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import timedelta
 
 import pytest
@@ -189,6 +189,42 @@ async def test_temporal_forgejo_workflow_approval_and_safe_history():
             ):
                 assert forbidden not in encoded
             assert 'acme/widgets' in encoded
+
+
+@pytest.mark.asyncio
+async def test_temporal_review_remediation_is_one_durable_stage():
+    activities = FakeActivities()
+    remediation = replace(INPUT, operation='review-remediation')
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        async with Worker(
+            env.client,
+            task_queue='forgejo-remediation-test',
+            workflows=[ForgejoAgentWorkflow],
+            activities=activities.registered,
+        ):
+            handle = await env.client.start_workflow(
+                ForgejoAgentWorkflow.run,
+                remediation,
+                id='forgejo-agent-task-42-remediation',
+                task_queue='forgejo-remediation-test',
+            )
+            task_id = await wait_for_stage(handle, 'remediate')
+            assert [request.stage for request in activities.dispatched] == [
+                'remediate'
+            ]
+
+            await complete(handle, task_id, 'remediate')
+            result = await handle.result()
+
+            assert result.status == 'completed'
+            assert result.completed_stages == ['remediate']
+            assert activities.finalized[-1]['status'] == 'completed'
+            history = await handle.fetch_history(
+                event_filter_type=WorkflowHistoryEventFilterType.ALL_EVENT
+            )
+            encoded = str(history).lower()
+            assert 'prompt' not in encoded
+            assert 'review markdown' not in encoded
 
 
 @pytest.mark.asyncio

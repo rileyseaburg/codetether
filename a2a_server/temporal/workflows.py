@@ -201,7 +201,7 @@ class ForgejoAgentWorkflow:
             review_task_id=review_task_id,
             fix_attempt=fix_attempt,
         )
-        if stage in {'prepare', 'code'}:
+        if stage in {'prepare', 'code', 'remediate'}:
             result = await self._activity(dispatch_stage, request)
         elif stage == 'review':
             result = await self._activity(dispatch_review, request)
@@ -214,6 +214,9 @@ class ForgejoAgentWorkflow:
     async def _run_attempt(
         self, workflow_input: ForgejoAgentWorkflowInput
     ) -> ForgejoAgentWorkflowResult:
+        if workflow_input.operation == 'review-remediation':
+            return await self._run_review_remediation(workflow_input)
+
         prepare, terminal = await self._stage(workflow_input, 'prepare')
         if terminal.status != 'completed':
             return await self._finish_attempt(
@@ -278,6 +281,25 @@ class ForgejoAgentWorkflow:
 
         return await self._finish_attempt(
             workflow_input, 'failed', error_type='workflow_exhausted'
+        )
+
+    async def _run_review_remediation(
+        self, workflow_input: ForgejoAgentWorkflowInput
+    ) -> ForgejoAgentWorkflowResult:
+        """Run one durable review fix against the immutable PR head.
+
+        The activity loads the full checklist from Forgejo; only identifiers
+        enter Temporal history. A failed attempt waits for a signed retry signal
+        and then continues as new, while transient task retries preserve the
+        supplied author session ID.
+        """
+        _, terminal = await self._stage(workflow_input, 'remediate')
+        if terminal.status == 'completed':
+            return await self._finalize(workflow_input, 'completed')
+        return await self._finish_attempt(
+            workflow_input,
+            terminal.status,
+            error_type='review_remediation_failed',
         )
 
     @workflow.run
