@@ -1,4 +1,4 @@
-# ruff: noqa: PLR2004
+# ruff: noqa: PLR2004, SLF001
 
 import hashlib
 import hmac
@@ -268,6 +268,106 @@ async def test_actionable_issue_dispatches_and_acknowledges(app, monkeypatch):
     assert response.status_code == 200
     assert response.json() == {'accepted': True, 'clone_task_id': 'task-1'}
     assert 'Picked this up' in comments[0][3]
+
+
+def test_opened_issue_body_is_normalized_as_actionable_context():
+    payload = _payload(action='opened')
+    payload['issue']['body'] = payload.pop('comment')['body']
+
+    context = fw._context('issues', payload)
+
+    assert context is not None
+    assert context['repo'] == 'owner/repo'
+    assert context['number'] == 12
+    assert context['comment_id'] == 0
+    assert context['body'] == '@codetether handle this issue'
+
+
+@pytest.mark.asyncio
+async def test_issue_dispatch_isolates_workspace_by_work_branch(monkeypatch):
+    ensure_calls = []
+    workflows = []
+
+    async def fake_json(method, base, path, payload=None):
+        assert method == 'GET'
+        assert path == '/repos/owner/repo'
+        return {
+            'default_branch': 'main',
+            'clone_url': 'https://forge.example/owner/repo.git',
+        }
+
+    async def fake_ensure(
+        ctx,
+        clone_url,
+        branch,
+        token,
+        *,
+        workspace_branch=None,
+    ):
+        ensure_calls.append(
+            {
+                'ctx': ctx,
+                'clone_url': clone_url,
+                'branch': branch,
+                'token': token,
+                'workspace_branch': workspace_branch,
+            }
+        )
+        return 'isolated-issue-workspace'
+
+    async def fake_routing():
+        return {}
+
+    async def fake_create(**kwargs):
+        return {
+            'id': 83,
+            'html_url': 'https://forge.example/owner/repo/agent/tasks/83',
+        }
+
+    async def fake_start(workflow):
+        workflows.append(workflow)
+        return 'forgejo-agent-task-83'
+
+    async def fake_update(**kwargs):
+        return {'id': kwargs['task_id']}
+
+    monkeypatch.setenv('FORGEJO_TOKEN', 'token')
+    monkeypatch.setattr(fw, 'forgejo_json', fake_json)
+    monkeypatch.setattr(fw, '_ensure_workspace', fake_ensure)
+    monkeypatch.setattr(fw, 'resolve_task_target', fake_routing)
+    monkeypatch.setattr(
+        'a2a_server.forgejo_agent_client.create_task', fake_create
+    )
+    monkeypatch.setattr(
+        'a2a_server.forgejo_agent_client.update_task', fake_update
+    )
+    monkeypatch.setattr(
+        'a2a_server.temporal.config.temporal_settings',
+        lambda: SimpleNamespace(enabled=True),
+    )
+    monkeypatch.setattr(
+        'a2a_server.temporal.client.start_forgejo_workflow', fake_start
+    )
+
+    result = await fw._dispatch(
+        {
+            'repo': 'owner/repo',
+            'number': 4743,
+            'is_pr': False,
+            'body': '@codetether handle this issue',
+            'repo_data': {},
+            'comment_id': 0,
+            'html_url': 'https://forge.example/owner/repo/issues/4743',
+            'actor_login': 'alice',
+        },
+        'https://forge.example/api/v1',
+    )
+
+    assert result['workspace_id'] == 'isolated-issue-workspace'
+    assert ensure_calls[0]['branch'] == 'main'
+    assert ensure_calls[0]['workspace_branch'] == 'codetether/issue-4743'
+    assert workflows[0].workspace_id == 'isolated-issue-workspace'
+    assert workflows[0].branch == 'codetether/issue-4743'
 
 
 @pytest.mark.asyncio

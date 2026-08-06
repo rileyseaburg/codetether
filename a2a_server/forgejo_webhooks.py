@@ -247,13 +247,18 @@ async def _active_task(repo: str, number: int) -> bool:
 
 
 async def _ensure_workspace(
-    ctx: dict[str, Any], clone_url: str, branch: str, token: str
+    ctx: dict[str, Any],
+    clone_url: str,
+    branch: str,
+    token: str,
+    *,
+    workspace_branch: str | None = None,
 ) -> str:
     from a2a_server import database as db
     from a2a_server.git_service import store_git_credential_record
     from a2a_server.monitor_api import _redis_upsert_workspace_meta
 
-    wid = workspace_id(clone_url, branch)
+    wid = workspace_id(clone_url, workspace_branch or branch)
     workspace = {
         'id': wid,
         'name': ctx['repo'],
@@ -306,9 +311,21 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
     )
     if not clone_url:
         raise HTTPException(422, 'Forgejo repository clone URL is missing')
-    wid = await _ensure_workspace(ctx, clone_url, branch, _token())
     work_branch = (
         branch if ctx['is_pr'] else f'codetether/issue-{ctx["number"]}'
+    )
+    # Issue work branches all start from the default branch, but they must not
+    # share one mutable checkout. A dirty or conflicted task would otherwise
+    # prevent every later issue for the repository from checking out its branch.
+    workspace_options = (
+        {} if ctx['is_pr'] else {'workspace_branch': work_branch}
+    )
+    wid = await _ensure_workspace(
+        ctx,
+        clone_url,
+        branch,
+        _token(),
+        **workspace_options,
     )
     kind = 'pull request' if ctx['is_pr'] else 'issue'
     prompt = f"""Handle Forgejo {kind} #{ctx['number']} in {repo}.
