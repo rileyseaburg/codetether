@@ -125,6 +125,7 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
     monkeypatch,
 ):
     dispatched = []
+    progress = []
 
     async def fake_context(request):
         return (
@@ -143,6 +144,9 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
     async def fake_update(**kwargs):
         return {'id': kwargs['task_id']}
 
+    async def fake_progress(request, **kwargs):
+        progress.append((request, kwargs))
+
     monkeypatch.setattr(activities, '_forgejo_context', fake_context)
     monkeypatch.setattr(
         'a2a_server.github_app.routing.resolve_task_target',
@@ -155,6 +159,9 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
     monkeypatch.setattr(
         'a2a_server.forgejo_agent_client.update_task',
         fake_update,
+    )
+    monkeypatch.setattr(
+        activities, '_report_stage_progress_safely', fake_progress
     )
 
     result = await activities.dispatch_stage(
@@ -176,6 +183,74 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
 
     assert result.task_id == 'code-task-1'
     assert dispatched[0]['model_ref'] == MODEL_REF
+    assert progress[0][1] == {
+        'task_id': 'code-task-1',
+        'stage': 'code',
+        'branch': 'feature',
+        'head_sha': 'abc123',
+    }
+
+
+@pytest.mark.asyncio
+async def test_stage_progress_comment_is_visible_and_idempotent(monkeypatch):
+    comments = []
+
+    async def fake_json(*args, **kwargs):
+        return []
+
+    async def fake_comment(*args):
+        comments.append(args)
+
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', fake_json)
+    monkeypatch.setattr(forgejo_webhooks, '_comment', fake_comment)
+    request = ForgejoStageRequest(
+        workflow=ForgejoAgentWorkflowInput(
+            forgejo_task_id=42,
+            repository='owner/repo',
+            issue_number=12,
+            pull_request_number=0,
+            workspace_id='workspace-1',
+            branch='codetether/issue-12',
+            head_sha='',
+            operation='fix',
+            attempt=2,
+        ),
+        workflow_id='forgejo-agent-task-42',
+        stage='review',
+    )
+
+    posted = await activities._report_stage_progress(
+        request,
+        task_id='review-task-1',
+        stage='review',
+        branch='codetether/issue-12',
+        head_sha='abc123',
+    )
+
+    assert posted
+    body = comments[0][3]
+    assert 'entered **pull-request review**' in body
+    assert '`review-task-1`' in body
+    assert '`abc123`' in body
+    assert '[Native task #42]' in body
+    marker = (
+        '<!-- codetether-temporal-progress:42:2:review:review-task-1 -->'
+    )
+    assert marker in body
+
+    async def duplicate_json(*args, **kwargs):
+        return [{'body': body}]
+
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', duplicate_json)
+    assert not await activities._report_stage_progress(
+        request,
+        task_id='review-task-1',
+        stage='review',
+        branch='codetether/issue-12',
+        head_sha='abc123',
+    )
+    assert len(comments) == 1
 
 
 @pytest.mark.asyncio

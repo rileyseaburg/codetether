@@ -8,6 +8,7 @@ history.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from functools import wraps
@@ -20,6 +21,9 @@ from temporalio.exceptions import ApplicationError
 from a2a_server.github_app.settings import MODEL_REF
 
 from .models import ForgejoStageRequest, ForgejoStageResult
+
+
+logger = logging.getLogger(__name__)
 
 
 def safe_activity(error_type: str) -> Callable:
@@ -62,6 +66,97 @@ def _issue_url(repository: str, number: int) -> str:
         if origin and number
         else ''
     )
+
+
+async def _report_stage_progress(
+    request: ForgejoStageRequest,
+    *,
+    task_id: str,
+    stage: str,
+    branch: str,
+    head_sha: str = '',
+) -> bool:
+    """Post one idempotent, operator-visible stage update to Forgejo."""
+    issue_number = int(request.workflow.issue_number or 0)
+    if not issue_number:
+        return False
+
+    from a2a_server.forgejo_webhooks import _comment, forgejo_json
+
+    repository = request.workflow.repository
+    forgejo_task_id = request.workflow.forgejo_task_id
+    attempt = request.workflow.attempt
+    base = os.environ.get('FORGEJO_API_URL', '').rstrip('/')
+    owner, name = repository.split('/', 1)
+    marker = (
+        f'<!-- codetether-temporal-progress:{forgejo_task_id}:'
+        f'{attempt}:{stage}:{task_id} -->'
+    )
+    comments = await forgejo_json(
+        'GET',
+        base,
+        f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
+        f'/issues/{issue_number}/comments?limit=100',
+    )
+    if not isinstance(comments, list):
+        comments = []
+    if any(
+        marker in str((comment or {}).get('body') or '')
+        for comment in comments
+    ):
+        return False
+
+    labels = {
+        'prepare': 'workspace preparation',
+        'code': 'implementation',
+        'review': 'pull-request review',
+        'fix': 'review remediation',
+        'remediate': 'author remediation',
+    }
+    label = labels.get(stage, stage)
+    origin = base.removesuffix('/api/v1')
+    task_url = (
+        f'{origin}/{repository}/agent/tasks/{forgejo_task_id}' if origin else ''
+    )
+    body = (
+        '## CodeTether progress\n\n'
+        f'Temporal attempt `{attempt}` entered **{label}**.\n\n'
+        f'- CodeTether task: `{task_id}`\n'
+        f'- Branch: `{branch}`'
+    )
+    if head_sha:
+        body += f'\n- Head: `{head_sha}`'
+    if task_url:
+        body += f'\n- [Native task #{forgejo_task_id}]({task_url})'
+    body += f'\n\n{marker}'
+    await _comment(base, repository, issue_number, body)
+    return True
+
+
+async def _report_stage_progress_safely(
+    request: ForgejoStageRequest,
+    *,
+    task_id: str,
+    stage: str,
+    branch: str,
+    head_sha: str = '',
+) -> None:
+    """Report progress without turning a comment outage into duplicate work."""
+    try:
+        await _report_stage_progress(
+            request,
+            task_id=task_id,
+            stage=stage,
+            branch=branch,
+            head_sha=head_sha,
+        )
+    except Exception as exc:
+        logger.warning(
+            'Could not report Forgejo stage %s for task %s: %s',
+            stage,
+            task_id,
+            exc,
+        )
 
 
 def _temporal_metadata(
@@ -230,6 +325,13 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
         head_sha=head_sha,
         branch=branch,
     )
+    await _report_stage_progress_safely(
+        request,
+        task_id=str(task_id),
+        stage=request.stage,
+        branch=branch,
+        head_sha=head_sha,
+    )
     return ForgejoStageResult(
         task_id=str(task_id),
         stage=request.stage,
@@ -251,6 +353,13 @@ async def dispatch_review(request: ForgejoStageRequest) -> ForgejoStageResult:
         raise RuntimeError('Forgejo review task was not created')
     task = await _codetether_task(str(task_id))
     metadata = task.get('metadata') or {}
+    await _report_stage_progress_safely(
+        request,
+        task_id=str(task_id),
+        stage='review',
+        branch=str(metadata.get('branch_name') or ''),
+        head_sha=str(metadata.get('pr_head_sha') or ''),
+    )
     return ForgejoStageResult(
         task_id=str(task_id),
         stage='review',
@@ -286,6 +395,13 @@ async def dispatch_fix(request: ForgejoStageRequest) -> ForgejoStageResult:
         raise RuntimeError('Forgejo fix task was not created')
     task = await _codetether_task(str(task_id))
     metadata = task.get('metadata') or {}
+    await _report_stage_progress_safely(
+        request,
+        task_id=str(task_id),
+        stage='fix',
+        branch=str(metadata.get('branch_name') or ''),
+        head_sha=str(metadata.get('pr_head_sha') or ''),
+    )
     return ForgejoStageResult(
         task_id=str(task_id),
         stage='fix',
