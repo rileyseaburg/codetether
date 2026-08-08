@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "marketing-site/**"
+      - "a2a_server/billing_api.py"
+      - "a2a_server/billing_service.py"
       - ".github/workflows/marketing-gitops-promotion.yml"
   workflow_dispatch:
     inputs:

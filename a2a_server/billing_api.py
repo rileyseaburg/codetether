@@ -88,6 +88,12 @@ class CheckoutResponse(BaseModel):
     checkout_url: str = Field(..., description='Stripe Checkout session URL')
 
 
+class PaymentIntentResponse(BaseModel):
+    """Response model for embedded payment processor setup."""
+
+    client_secret: str = Field(..., description='Stripe SetupIntent client secret')
+
+
 class PortalRequest(BaseModel):
     """Request model for billing portal session."""
 
@@ -302,6 +308,58 @@ async def create_checkout(
         raise HTTPException(status_code=500, detail=str(e))
 
     return CheckoutResponse(checkout_url=checkout_url)
+
+
+@router.post('/create-intent', response_model=PaymentIntentResponse)
+async def create_payment_intent(
+    user: UserSession = Depends(require_auth),
+    billing: BillingService = Depends(get_billing_service),
+):
+    """
+    Create a Stripe SetupIntent for the embedded payment processor.
+
+    This supports checkout pages that mount Stripe Elements directly instead of
+    redirecting to Stripe Checkout. Creating the Stripe customer on demand keeps
+    first-time customers from hitting a 500 before the payment UI can render.
+    """
+    tenant_id = getattr(user, 'tenant_id', None)
+    if not tenant_id:
+        raise HTTPException(
+            status_code=400, detail='No tenant associated with this user'
+        )
+
+    tenant = await get_tenant_by_id(tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail='Tenant not found')
+
+    customer_id = tenant.get('stripe_customer_id')
+    if not customer_id:
+        try:
+            customer_id = await billing.create_customer(
+                tenant_id=tenant_id,
+                email=user.email,
+                name=tenant.get('display_name') or user.name,
+            )
+            await update_tenant_stripe(
+                tenant_id=tenant_id,
+                customer_id=customer_id,
+                subscription_id=tenant.get('stripe_subscription_id') or '',
+            )
+        except BillingServiceError as e:
+            logger.error(f'Failed to create customer for payment intent: {e}')
+            raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        client_secret = await billing.create_setup_intent(customer_id)
+    except CustomerNotFoundError:
+        raise HTTPException(
+            status_code=400, detail='Customer not found in Stripe'
+        )
+    except BillingServiceError as e:
+        logger.error(f'Failed to create payment intent: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return PaymentIntentResponse(client_secret=client_secret)
 
 
 @router.post('/portal', response_model=PortalResponse)
