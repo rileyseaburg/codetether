@@ -466,6 +466,25 @@ export default function DashboardLayout({
     }
   }, [loading, isAuthenticated, router, pathname])
 
+  // Middleware authorizes /dashboard from the `a2a_token` cookie, but a Keycloak
+  // SSO session lives only in the NextAuth session. Without mirroring it into
+  // the cookie, middleware redirected an authenticated user back to /login while
+  // the client sent them to /dashboard again, rendering as nonstop flicker.
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+    const sessionToken =
+      (session as any)?.accessToken || (session as any)?.access_token
+    if (!sessionToken || document.cookie.includes('a2a_token=')) {
+      return
+    }
+    const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie =
+      `a2a_token=${encodeURIComponent(sessionToken)}; path=/; ` +
+      `max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secure}`
+  }, [session])
+
   // Check if user has admin role
   const isAdmin =
     (user as any)?.roles?.includes('admin') ||
