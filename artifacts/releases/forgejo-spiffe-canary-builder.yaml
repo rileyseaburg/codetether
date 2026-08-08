@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: forgejo-spiffe-build-21a6b242
+  namespace: forgejo-actions
+  labels: {app: forgejo-spiffe-builder, revision: 21a6b242}
+spec:
+  restartPolicy: Never
+  nodeName: k8s-worker-3
+  initContainers:
+    - name: source
+      image: alpine:3.22
+      command: [/bin/sh, -ec]
+      args:
+        - |
+          apk add --no-cache curl tar
+          token="$(cat /run/forgejo/FORGEJO_TOKEN)"
+          printf 'header = "Authorization: token %s"\n' "$token" |
+            curl --fail --silent --show-error --config - \
+              https://forgejo.quantum-forge.io/api/v1/repos/codetether-bot/forgejo-codetether-agent/archive/21a6b242f435143b8036d7077e26506a3cbd9756.tar.gz |
+            tar -xz --strip-components=1 -C /workspace
+      volumeMounts:
+        - {name: source, mountPath: /workspace}
+        - {name: forgejo-token, mountPath: /run/forgejo, readOnly: true}
+  containers:
+    - name: kaniko
+      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      args:
+        - --context=dir:///workspace
+        - --dockerfile=/workspace/Dockerfile
+        - --destination=registry.quantum-forge.net/cluster-ci-cache/forgejo-codetether-agent:main-21a6b242f435
+        - --build-arg=RELEASE_VERSION=15.0.5-temporal.21a6b242
+        - --skip-tls-verify-registry=registry.quantum-forge.net
+        - --snapshot-mode=redo
+        - --use-new-run
+      resources:
+        requests: {cpu: "4", memory: 8Gi, ephemeral-storage: 20Gi}
+        limits: {cpu: "12", memory: 16Gi, ephemeral-storage: 60Gi}
+      volumeMounts:
+        - {name: source, mountPath: /workspace}
+        - {name: registry-auth, mountPath: /kaniko/.docker, readOnly: true}
+  volumes:
+    - {name: source, emptyDir: {sizeLimit: 60Gi}}
+    - {name: forgejo-token, secret: {secretName: forgejo-spiffe-source-token}}
+    - {name: registry-auth, secret: {secretName: harbor-regcred, items: [{key: .dockerconfigjson, path: config.json}]}}
