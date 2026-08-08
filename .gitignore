@@ -279,3 +279,6 @@ marketing-site/openapi-ts-error-*.log
 marketing-site/test-results/
 marketing-site/*.tsbuildinfo
 marketing-site/**/*.bak
+
+# ArgoCD evidence artifacts
+artifacts/argocd-evidence/
