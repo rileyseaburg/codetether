@@ -784,6 +784,22 @@ harvester:
   storage:
     className: ""    # defaults to cluster default StorageClass
     size: 50Gi
+  # Per-repository clones live on a node-local volume. Unbounded retention drove
+  # nodes into kubelet DiskPressure, which taints the node, leaves the harvester
+  # Pending, and silently strands queued tasks. Reclaim runs only when free space
+  # falls below minFreePercent and never removes a clone with unsaved work.
+  workspaceReclaim:
+    enabled: true
+    retainDays: 3
+    intervalSeconds: 3600
+    minFreePercent: 20
+    resources:
+      limits:
+        cpu: "250m"
+        memory: 256Mi
+      requests:
+        cpu: "25m"
+        memory: 64Mi
   resources:
     limits:
       cpu: "4"

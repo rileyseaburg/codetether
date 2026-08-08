@@ -29,6 +29,60 @@ spec:
       securityContext:
         {{- toYaml .Values.harvester.podSecurityContext | nindent 8 }}
       containers:
+        {{- if .Values.harvester.workspaceReclaim.enabled }}
+        # Harvester workspaces are per-repository clones on a node-local volume.
+        # Without bounded retention they accumulate until the node crosses
+        # kubelet's DiskPressure threshold, which taints the node and leaves the
+        # harvester Pending, so queued tasks are accepted and never executed.
+        # This sidecar reclaims only clones that are older than the retention
+        # window AND have no uncommitted, unpushed, or stashed work.
+        - name: workspace-reclaim
+          image: "{{ .Values.harvester.image.repository | default .Values.image.repository }}:{{ .Values.harvester.image.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.harvester.image.pullPolicy | default .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -u
+              root=/var/lib/codetether/repos
+              retain_days={{ .Values.harvester.workspaceReclaim.retainDays | default 3 }}
+              interval={{ .Values.harvester.workspaceReclaim.intervalSeconds | default 3600 }}
+              min_free_pct={{ .Values.harvester.workspaceReclaim.minFreePercent | default 20 }}
+              git config --global --add safe.directory '*' >/dev/null 2>&1 || true
+              while true; do
+                free_pct=$(df -P "$root" | awk 'NR==2 {print 100 - int($5)}')
+                echo "workspace-reclaim: free=${free_pct}% threshold=${min_free_pct}%"
+                if [ "$free_pct" -lt "$min_free_pct" ]; then
+                  find "$root" -maxdepth 1 -mindepth 1 -type d -mtime "+${retain_days}" 2>/dev/null |
+                  while read -r ws; do
+                    name=$(basename "$ws")
+                    case "$name" in .*) continue ;; esac
+                    gd=$(find "$ws" -maxdepth 2 -name .git -type d 2>/dev/null | head -1)
+                    if [ -n "$gd" ]; then
+                      wt=$(dirname "$gd")
+                      dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+                      unpushed=$(git -C "$wt" log --branches --not --remotes --oneline 2>/dev/null | wc -l)
+                      stash=$(git -C "$wt" stash list 2>/dev/null | wc -l)
+                      readable=$(git -C "$wt" rev-parse --is-inside-work-tree 2>/dev/null || echo no)
+                      # Preserve anything unreadable or carrying unsaved work.
+                      if [ "$readable" != true ] ||
+                         [ "$dirty" -ne 0 ] || [ "$unpushed" -ne 0 ] || [ "$stash" -ne 0 ]; then
+                        echo "workspace-reclaim: preserving $name (dirty=$dirty unpushed=$unpushed stash=$stash)"
+                        continue
+                      fi
+                    fi
+                    echo "workspace-reclaim: reclaiming $name"
+                    rm -rf "$ws" || echo "workspace-reclaim: failed $name"
+                  done
+                fi
+                sleep "$interval"
+              done
+          resources:
+            {{- toYaml .Values.harvester.workspaceReclaim.resources | nindent 12 }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+        {{- end }}
         - name: harvester
           securityContext:
             {{- toYaml .Values.harvester.securityContext | nindent 12 }}
