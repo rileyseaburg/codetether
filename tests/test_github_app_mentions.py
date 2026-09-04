@@ -18,6 +18,19 @@ def test_plain_mention_without_action_still_not_fix_request():
     assert not is_fix_request(f'@{APP_SLUG} thanks for the context')
 
 
+def test_assignment_language_is_a_fix_request():
+    # Regression: forgejo riley/spotlessbinco#5847 — "please work on this" got
+    # the "ask me explicitly" reply instead of a task.
+    for body in (
+        '@codetether-bot please work on this',
+        f'@{APP_SLUG} can you take this?',
+        f'@{APP_SLUG} pick this up when you can',
+        f'@{APP_SLUG} go ahead',
+        f'@{APP_SLUG} look into this',
+    ):
+        assert is_fix_request(body), body
+
+
 def test_issue_opened_body_mention_extracts_context():
     payload = {
         'action': 'opened',

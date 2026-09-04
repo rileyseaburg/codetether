@@ -31,6 +31,15 @@ _FIX_TERMS = (
     'check failed', 'checks failed', 'failing check', 'failing checks',
     'ci failed', 'ci failure', 'failing ci', 'tests failed', 'test failed',
     'lint failed', 'typecheck failed', 'workflow failed', 'action failed',
+    # Plain assignment language. Operators say "work on this" or "take this"
+    # far more often than any of the verbs above; without these the bot
+    # answered "ask me explicitly" to a clearly explicit request.
+    'work on', 'take this', 'take it', 'take care', 'pick this up',
+    'pick it up', 'do this', 'do it', 'get this done', 'get it done',
+    'look into', 'investigate', 'build this', 'build it', 'ship this',
+    'ship it', 'tackle', 'solve', 'complete this', 'complete it',
+    'start on', 'go ahead', 'proceed', 'you\'re up', 'your turn',
+    'assign', 'assigned to you', 'own this', 'knock this out',
 )
 
 # Bot identities that exist on the Forgejo instance today. `CODETETHER_BOT_ALIASES`
