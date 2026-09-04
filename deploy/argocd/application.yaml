@@ -202,12 +202,22 @@ spec:
           tokenSecret:
             name: a2a-server-worker-token
             key: CODETETHER_TOKEN
+          # Vault Kubernetes auth (VAULT_ROLE + projected SA JWT). The worker
+          # logs in with its own service account and re-authenticates on 403,
+          # so provider discovery no longer depends on a static token Secret.
+          # The previous `vault-token` Secret (created 2026-06-06) had expired,
+          # which left the harvester with only the env-sourced providers
+          # (cerebras, openrouter) and made every explicit openai-codex task fail.
           vault:
             enabled: true
+            address: http://vault.vault.svc.cluster.local:8200
+            role: codetether-harvester
+            authMount: kubernetes
+            audience: vault
+            mount: secret
+            secretsPath: codetether/providers
             tokenSecret:
-              name: vault-token
-              addressKey: VAULT_ADDR
-              tokenKey: VAULT_TOKEN
+              name: ""
           defaultProvider: openai-codex
           defaultModel: openai-codex/gpt-5.6-luna-fast:max
           providerSecrets:
