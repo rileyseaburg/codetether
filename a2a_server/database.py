@@ -1621,7 +1621,16 @@ async def db_list_tasks(
                     params.append(tenant_id)
                     param_idx += 1
 
-                query += f' ORDER BY {task_claim_order()} LIMIT ${param_idx}'
+                # Pending work is a queue and uses the claim order. Every
+                # other listing (dashboard Tasks page, history views) is
+                # capped by LIMIT, so it must be strictly newest-first or the
+                # highest-priority historical tasks crowd out recent ones.
+                order = (
+                    task_claim_order()
+                    if status == 'pending'
+                    else 'created_at DESC'
+                )
+                query += f' ORDER BY {order} LIMIT ${param_idx}'
                 params.append(limit)
                 return query, params
 

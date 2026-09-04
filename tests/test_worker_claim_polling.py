@@ -451,6 +451,48 @@ async def test_pending_task_query_keeps_fire_and_forget_tasks_visible(
     assert "metadata->>'target_agent_name' = $3" in seen['sql']
     assert "dispatch_mode != 'fire_and_forget'" in seen['sql']
     assert 'task_runs tr' in seen['sql']
+    assert f'ORDER BY {database.task_claim_order()}' in seen['sql']
+
+
+@pytest.mark.asyncio
+async def test_unfiltered_task_listing_is_newest_first(monkeypatch):
+    """The dashboard Tasks page lists with LIMIT and no status filter.
+
+    Ordering oldest-first meant that once the tasks table exceeded the limit
+    the newest tasks were never returned (live: newest item was a month old
+    while tasks completed minutes earlier were missing).
+    """
+    seen = {}
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    class FakeConnection:
+        async def fetch(self, sql, *params):
+            seen['sql'] = sql
+            seen['params'] = params
+            return []
+
+    async def _fake_get_pool():
+        return FakePool()
+
+    monkeypatch.setattr(database, 'get_pool', _fake_get_pool)
+
+    assert await database.db_list_tasks(limit=100) == []
+    assert seen['params'] == (100,)
+    assert 'ORDER BY created_at DESC LIMIT $1' in seen['sql']
+    assert 'priority DESC' not in seen['sql']
+
+    assert await database.db_list_tasks(status='completed', limit=5) == []
+    assert 'ORDER BY created_at DESC LIMIT $2' in seen['sql']
 
 
 @pytest.mark.asyncio
