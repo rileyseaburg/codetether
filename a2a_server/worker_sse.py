@@ -49,6 +49,7 @@ from .worker_persistent_claim_loop import (
     stop_persistent_claim_loop,
 )
 from .worker_auth import verify_auth as _verify_auth
+from .worker_auth import verify_worker_or_user_auth as _verify_worker_or_user_auth
 from .worker_progress_routes import worker_progress_router
 from .stream_emit import format_event
 from .sequencer_store import SequencerStore
@@ -1863,7 +1864,7 @@ async def list_connected_workers(request: Request):
     Returns information about each connected worker including
     their capabilities, codebases, and current status.
     """
-    _verify_auth(request)
+    await _verify_worker_or_user_auth(request)
 
     registry = get_worker_registry()
     workers = await registry.list_workers()
@@ -1881,7 +1882,7 @@ async def get_connected_worker(
     worker_id: str,
 ):
     """Get details about a specific connected worker."""
-    _verify_auth(request)
+    await _verify_worker_or_user_auth(request)
 
     registry = get_worker_registry()
     worker = await registry.get_worker(worker_id)

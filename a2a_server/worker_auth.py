@@ -80,3 +80,32 @@ def verify_auth(request: Request) -> str | None:
         raise HTTPException(status_code=403, detail='Invalid token')
 
     return token
+
+
+async def verify_worker_or_user_auth(request: Request) -> str | None:
+    """Accept either worker credentials or an authenticated platform user.
+
+    Read-only worker views (``GET /v1/worker/connected``) are rendered by the
+    dashboard with the signed-in user's Keycloak access token, not a worker
+    SVID or shared ``A2A_AUTH_TOKENS`` entry. With SPIFFE enabled,
+    :func:`verify_auth` rejected those calls with 401, and the dashboard's
+    tenant client treats any 401 as an expired session and signs the user
+    out, so the UI bounced to ``/login`` in a loop immediately after login.
+
+    Worker credentials are tried first so worker callers keep the same
+    identity semantics. When they fail, the request must resolve to a
+    platform user through the shared policy resolver; otherwise the original
+    worker-auth error is re-raised.
+    """
+    try:
+        return verify_auth(request)
+    except HTTPException as worker_error:
+        from a2a_server.policy import (  # noqa: PLC0415 - deferred: avoids import cycle
+            _resolve_user,
+        )
+
+        user = await _resolve_user(request)
+        if user:
+            request.state.user = user
+            return str(user.get('user_id') or user.get('id') or '')
+        raise worker_error
