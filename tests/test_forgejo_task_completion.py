@@ -87,3 +87,48 @@ async def test_terminal_hook_routes_forgejo_task(monkeypatch):
     await task_status_hook.handle_github_app_terminal_task('task-1')
     assert seen == [task()]
     delattr(a2a_server, 'database')
+
+
+@pytest.mark.asyncio
+async def test_review_terminal_signal_without_verdict_sends_empty_string(
+    monkeypatch,
+):
+    """A review result with no parseable verdict must still signal Temporal.
+
+    ``ForgejoTaskTerminalSignal.verdict`` is typed ``str``; Temporal's data
+    converter rejects ``None`` and drops the signal, stranding the workflow.
+    Observed live on riley/spotlessbinco agent task #448.
+    """
+    signals = []
+
+    async def fake_sync(value, *, workflow_terminal=True):
+        assert workflow_terminal is False
+
+    async def fake_signal(forgejo_task_id, signal):
+        signals.append((forgejo_task_id, signal))
+
+    monkeypatch.setattr(
+        forgejo_task_completion, 'sync_forgejo_agent_task', fake_sync
+    )
+    monkeypatch.setattr(
+        forgejo_task_completion.temporal_client,
+        'signal_task_terminal',
+        fake_signal,
+    )
+    native_task_id = 448
+    review = task()
+    review['result'] = 'I inspected the PR and found no verdict keyword.'
+    review['metadata']['workflow_stage'] = 'review'
+    review['metadata']['forgejo_agent_task_id'] = native_task_id
+    assert forgejo_task_completion.reviewer_verdict(review) is None
+
+    await forgejo_task_completion._notify_temporal_completion(  # noqa: SLF001
+        review, review['metadata'], 'review'
+    )
+
+    assert len(signals) == 1
+    forgejo_task_id, signal = signals[0]
+    assert forgejo_task_id == native_task_id
+    assert signal.stage == 'review'
+    assert signal.verdict == ''
+    assert isinstance(signal.verdict, str)

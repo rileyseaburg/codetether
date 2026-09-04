@@ -108,7 +108,12 @@ async def _notify_temporal_completion(
             session_id=str(
                 task.get('session_id') or metadata.get('session_id') or ''
             ),
-            verdict=(reviewer_verdict(task) if stage == 'review' else ''),
+            # The dataclass field is `str`; Temporal's converter rejects None
+            # and drops the whole signal, which strands the workflow after a
+            # review whose result has no parseable verdict.
+            verdict=(
+                (reviewer_verdict(task) or '') if stage == 'review' else ''
+            ),
             head_sha=str(metadata.get('pr_head_sha') or ''),
             pull_request_number=int(metadata.get('pr_number') or 0),
         ),
