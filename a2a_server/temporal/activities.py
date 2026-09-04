@@ -47,6 +47,53 @@ def safe_activity(error_type: str) -> Callable:
     return decorate
 
 
+_FAILURE_EXPLANATIONS = {
+    'prepare_failed': 'The workspace preparation task did not complete.',
+    'code_failed': 'The implementation task did not complete.',
+    'forgejo_dispatch_review_failed': (
+        'The implementation task finished, but no open pull request was '
+        'found for the branch, so there was nothing to review. The agent '
+        'most likely stopped before committing and opening a PR.'
+    ),
+    'review_failed': 'The pull-request review task did not complete.',
+    'review_unresolved': (
+        'The review finished without an approve or request-changes verdict.'
+    ),
+    'fix_failed': 'The review remediation task did not complete.',
+    'fix_attempts_exhausted': (
+        'The review still requested changes after the maximum number of '
+        'remediation attempts.'
+    ),
+    'workflow_exhausted': 'The workflow ran out of review/fix attempts.',
+    'review_remediation_failed': 'The author remediation task did not complete.',
+}
+
+
+def _failure_explanation(payload: dict[str, Any]) -> str:
+    """Render a human-readable reason for a terminal `failed` comment.
+
+    A bare "finished with status `failed`" left operators with nothing to act
+    on (riley/spotlessbinco#5847). Only identifiers and fixed strings are
+    used, so no prompt or exception text reaches Forgejo.
+    """
+    if str(payload.get('status')) != 'failed':
+        return ''
+    error_type = str(payload.get('error_type') or '')
+    explanation = _FAILURE_EXPLANATIONS.get(error_type)
+    parts = []
+    if explanation:
+        parts.append(f'\n\n**Why:** {explanation}')
+    elif error_type:
+        parts.append(f'\n\n**Why:** stage error `{error_type}`.')
+    stages = [str(s) for s in payload.get('completed_stages') or [] if s]
+    if stages:
+        parts.append(f'\n\nCompleted stages: {", ".join(stages)}.')
+    active = str(payload.get('active_task_id') or '')
+    if active:
+        parts.append(f'\n\nLast CodeTether task: `{active}`.')
+    return ''.join(parts)
+
+
 async def _codetether_task(task_id: str) -> dict[str, Any]:
     from a2a_server import database as db
 
@@ -449,6 +496,7 @@ async def finalize_workflow(payload: dict[str, Any]) -> None:
             f'## CodeTether Agent\n\nTemporal workflow finished with '
             f'status `{status}`.'
         )
+        body += _failure_explanation(payload)
         if task_url:
             body += f'\n\n[View native session]({task_url})'
         from a2a_server.forgejo_webhooks import forgejo_json

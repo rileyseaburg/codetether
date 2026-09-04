@@ -356,3 +356,54 @@ async def test_temporal_terminal_sync_signals_without_legacy_followup(
     assert signal.stage == 'review'
     assert signal.status == 'completed'
     assert signal.verdict == 'APPROVED'
+
+
+@pytest.mark.asyncio
+async def test_finalize_failed_comment_explains_why(monkeypatch):
+    """Regression: riley/spotlessbinco#5847 only said 'status failed'."""
+    comments = []
+
+    async def fake_update(**kwargs):
+        return {'id': 42}
+
+    async def fake_json(*args, **kwargs):
+        return []
+
+    async def fake_comment(*args):
+        comments.append(args)
+
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
+    monkeypatch.setattr(
+        'a2a_server.forgejo_agent_client.update_task', fake_update
+    )
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', fake_json)
+    monkeypatch.setattr(forgejo_webhooks, '_comment', fake_comment)
+
+    await activities.finalize_workflow(
+        {
+            'repository': 'owner/repo',
+            'forgejo_task_id': 449,
+            'status': 'failed',
+            'active_task_id': '8a848cf9',
+            'issue_number': 5847,
+            'attempt': 1,
+            'error_type': 'forgejo_dispatch_review_failed',
+            'completed_stages': ['prepare', 'code'],
+        }
+    )
+
+    assert len(comments) == 1
+    body = comments[0][3]
+    assert 'status `failed`' in body
+    assert '**Why:**' in body
+    assert 'no open pull request' in body
+    assert 'Completed stages: prepare, code.' in body
+    assert 'Last CodeTether task: `8a848cf9`' in body
+
+
+def test_failure_explanation_is_empty_for_success():
+    assert activities._failure_explanation({'status': 'completed'}) == ''
+    unknown = activities._failure_explanation(
+        {'status': 'failed', 'error_type': 'something_new'}
+    )
+    assert 'stage error `something_new`' in unknown

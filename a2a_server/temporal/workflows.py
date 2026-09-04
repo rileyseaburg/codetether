@@ -134,6 +134,8 @@ class ForgejoAgentWorkflow:
                 'attempt': workflow_input.attempt,
                 'status': status,
                 'active_task_id': self._active_task_id,
+                'error_type': error_type,
+                'completed_stages': list(self._completed_stages),
             },
         )
         return ForgejoAgentWorkflowResult(

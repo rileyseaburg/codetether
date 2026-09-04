@@ -319,6 +319,8 @@ async def test_temporal_retry_continues_as_new_attempt():
                     break
                 await asyncio.sleep(0.01)
             assert activities.finalized[-1]['status'] == 'failed'
+            assert activities.finalized[-1]['error_type'] == 'prepare_failed'
+            assert activities.finalized[-1]['completed_stages'] == []
             await handle.signal(
                 ForgejoAgentWorkflow.control,
                 ForgejoControlSignal(action='retry', forgejo_task_id=42),
