@@ -401,6 +401,13 @@ async def test_claim_task_run_helper_matches_deployed_schema(monkeypatch):
     assert result['run_id'] == 'run_1'
     assert result['task_timeout_seconds'] == 604800
     assert seen['params'][:2] == ('task_claimed', 'worker_1')
+    # Regression (riley/spotlessbinco#5847): the lease interval was written as
+    # `($3 || ' seconds')::INTERVAL`, which types $3 as text; passing the int
+    # constant raised at bind time, the exception was swallowed at debug
+    # level, and every claim ran without run_id/task_timeout_seconds.
+    assert isinstance(seen['params'][2], float)
+    assert 'make_interval(secs => $3)' in seen['sql']
+    assert "|| ' seconds'" not in seen['sql']
     assert "t.metadata->>'target_worker_id'" in seen['sql']
     assert 'provider_keys' not in seen['sql']
     assert 'provider_key_source' not in seen['sql']

@@ -74,7 +74,7 @@ async def claim_task_run_for_worker(
                 )
                 UPDATE task_runs tr
                 SET lease_owner = $2,
-                    lease_expires_at = NOW() + ($3 || ' seconds')::INTERVAL,
+                    lease_expires_at = NOW() + make_interval(secs => $3),
                     status = 'running',
                     started_at = COALESCE(started_at, NOW()),
                     last_heartbeat_at = NOW(),
@@ -95,14 +95,18 @@ async def claim_task_run_for_worker(
                 """,
                 task_id,
                 worker_id,
-                PERSISTENT_WORKER_LEASE_SECONDS,
+                float(PERSISTENT_WORKER_LEASE_SECONDS),
                 capabilities_json,
                 worker_agent_name,
             )
 
         return dict(row) if row else {}
     except Exception as e:
-        logger.debug(f'No task_run lease attached to claim {task_id}: {e}')
+        # This used to be debug-level and hid a permanent bind failure
+        # (`$3 || ' seconds'` typed $3 as text while an int was passed),
+        # so every SSE claim silently ran without its task_runs lease and
+        # without the 7-day task_timeout_seconds (riley/spotlessbinco#5847).
+        logger.warning(f'No task_run lease attached to claim {task_id}: {e}')
         return {}
 
 
