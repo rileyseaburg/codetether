@@ -134,9 +134,13 @@ spec:
           taskQueue: codetether-forgejo-agent
           secretRef: a2a-server-forgejo
           replicas: 1
+        # `vault-token` was removed here on purpose. That static Secret expired
+        # and a2a_server.vault_client prefers VAULT_TOKEN over Kubernetes auth,
+        # so every Git-credential read for Forgejo mention tasks returned 403
+        # and the webhook answered 503. Without the env var the client logs in
+        # with its own SA JWT (role `a2a-server`, bound to a2a-server@a2a-system).
         existingEnvFromSecrets:
           - harvester-api-keys
-          - vault-token
         envFromSecret:
           A2A_AUTH_TOKENS: a2a-server-auth-tokens
           KEYCLOAK_AGENT_REALM: codetether-identity-provisioner
