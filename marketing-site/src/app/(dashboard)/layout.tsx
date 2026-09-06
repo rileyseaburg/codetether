@@ -1,43 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  DialogTitle,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuItems,
+} from '@headlessui/react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
+import { signOut } from 'next-auth/react'
 import clsx from 'clsx'
 import { ApiAuthSync } from '@/components/ApiAuthSync'
-
-// Custom hook to get user from either NextAuth or localStorage
-function useAuth() {
-  const { data: session, status } = useSession()
-  const [customUser, setCustomUser] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    // Check for custom token in localStorage
-    const token = localStorage.getItem('a2a_token')
-    const userStr = localStorage.getItem('a2a_user')
-
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr)
-        setCustomUser(user)
-      } catch {
-        // Invalid user data
-        localStorage.removeItem('a2a_token')
-        localStorage.removeItem('a2a_user')
-      }
-    }
-    setIsLoading(false)
-  }, [])
-
-  // Prefer NextAuth session, fall back to custom auth
-  const user = session?.user || customUser
-  const isAuthenticated = status === 'authenticated' || !!customUser
-  const loading = status === 'loading' || isLoading
-
-  return { user, isAuthenticated, loading, session, customUser }
-}
+import { DashboardNavigation } from '@/components/DashboardNavigation'
+import {
+  useDashboardAuth,
+  notifyDashboardAuthChange,
+} from '@/hooks/useDashboardAuth'
+import { useDashboardTheme } from '@/hooks/useDashboardTheme'
 
 function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
   return (
@@ -453,11 +437,21 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const { darkMode, toggleTheme: toggleDarkMode } = useDashboardTheme()
+  const sidebarCloseButton = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, isAuthenticated, loading, session, customUser } = useAuth()
+  const { user, isAuthenticated, loading, session } = useDashboardAuth()
+
+  // Do not leave an invisible modal trapping focus after switching to desktop.
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 768px)')
+    const closeOnDesktop = () => {
+      if (desktop.matches) setSidebarOpen(false)
+    }
+    desktop.addEventListener('change', closeOnDesktop)
+    return () => desktop.removeEventListener('change', closeOnDesktop)
+  }, [])
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -487,30 +481,34 @@ export default function DashboardLayout({
 
   // Check if user has admin role
   const isAdmin =
-    (user as any)?.roles?.includes('admin') ||
-    (user as any)?.roles?.includes('a2a-admin') ||
-    (user as any)?.role === 'admin'
+    user?.roles?.includes('admin') ||
+    user?.roles?.includes('a2a-admin') ||
+    user?.role === 'admin'
 
   // Build navigation with admin item if user is admin
   const navItems = isAdmin ? [...navigation, adminNavItem] : navigation
-
-  useEffect(() => {
-    setDarkMode(true)
-    document.documentElement.classList.add('dark')
-  }, [])
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
-  }
+  const activeItem = navItems.find(
+    (item) =>
+      pathname === item.href ||
+      (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`)),
+  )
 
   const handleSignOut = () => {
-    // Clear custom auth tokens from localStorage
-    localStorage.removeItem('a2a_token')
-    localStorage.removeItem('a2a_user')
-    localStorage.removeItem('a2a_refresh_token')
-    localStorage.removeItem('a2a_session')
-    localStorage.removeItem('access_token')
+    // Keep logout usable even when browser storage has been disabled.
+    try {
+      for (const key of [
+        'a2a_token',
+        'a2a_user',
+        'a2a_refresh_token',
+        'a2a_session',
+        'access_token',
+      ]) {
+        localStorage.removeItem(key)
+      }
+    } catch {
+      // Continue clearing the cookie and terminating the server session.
+    }
+    notifyDashboardAuthChange()
 
     // Clear cookie
     document.cookie = 'a2a_token=; path=/; max-age=0'
@@ -526,8 +524,15 @@ export default function DashboardLayout({
   // Show loading state
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-900">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
+      <div
+        role="status"
+        className="flex h-screen items-center justify-center bg-gray-900"
+      >
+        <span className="sr-only">Loading dashboard</span>
+        <div
+          aria-hidden="true"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"
+        />
       </div>
     )
   }
@@ -539,169 +544,124 @@ export default function DashboardLayout({
 
   return (
     <div
-      className={clsx('h-screen overflow-hidden relative', darkMode && 'dark')}
+      className={clsx('relative h-screen overflow-hidden', darkMode && 'dark')}
     >
       <ApiAuthSync />
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-gray-900/80 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Mobile sidebar */}
-      <div
-        className={clsx(
-          'fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-indigo-700 dark:bg-gray-800 lg:hidden transform transition-transform duration-300',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-        )}
+      <a
+        href="#dashboard-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-gray-900 focus:shadow-lg"
       >
-        <div className="flex h-16 items-center justify-between px-6 border-b border-indigo-600 dark:border-gray-700">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-              <TerminalIcon className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-white">CodeTether</span>
-          </Link>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="text-cyan-200 hover:text-white"
-          >
-            <XIcon className="h-6 w-6" />
-          </button>
-        </div>
-        <nav className="flex flex-col p-4">
-          <ul className="space-y-1">
-            {navItems.map((item) => (
-              <li key={item.name}>
-                <Link
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={clsx(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-                    pathname === item.href
-                      ? 'bg-white/10 text-white'
-                      : 'text-cyan-100 hover:bg-white/10',
-                    item.name === 'Admin' &&
-                      'border-t border-cyan-600 dark:border-gray-700 mt-2 pt-2',
-                    (item as any).highlight &&
-                      'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30',
-                  )}
-                >
-                  <item.icon
-                    className={clsx(
-                      'h-5 w-5',
-                      (item as any).highlight && 'text-orange-400',
-                    )}
-                  />
-                  {item.name}
-                  {(item as any).highlight && (
-                    <span className="ml-auto text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
-                      New
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </div>
+        Skip to main content
+      </a>
+      {/* Dialog unmounts the closed drawer and manages Escape/focus restoration. */}
+      <Dialog
+        open={sidebarOpen}
+        onClose={setSidebarOpen}
+        initialFocus={sidebarCloseButton}
+        className="fixed inset-0 z-50 md:hidden"
+      >
+        <DialogBackdrop className="fixed inset-0 bg-gray-950/45" />
+        <DialogPanel className="fixed inset-y-0 left-0 flex w-64 flex-col overflow-y-auto border-r border-gray-200 bg-white sm:w-72 dark:border-gray-800 dark:bg-gray-950">
+          <DialogTitle className="sr-only">Dashboard navigation</DialogTitle>
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 px-5 dark:border-gray-800">
+            <Link
+              href="/dashboard"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-2"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
+                <TerminalIcon
+                  aria-hidden="true"
+                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
+                />
+              </div>
+              <span className="text-base font-semibold tracking-tight text-gray-950 dark:text-gray-100">
+                CodeTether
+              </span>
+            </Link>
+            <button
+              ref={sidebarCloseButton}
+              type="button"
+              aria-label="Close navigation menu"
+              onClick={() => setSidebarOpen(false)}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-gray-100"
+            >
+              <XIcon className="h-6 w-6" />
+            </button>
+          </div>
+          <DashboardNavigation
+            items={navItems}
+            activeHref={activeItem?.href}
+            onNavigate={() => setSidebarOpen(false)}
+          />
+        </DialogPanel>
+      </Dialog>
 
       {/* Desktop sidebar */}
       <div className="hidden md:fixed md:inset-y-0 md:z-50 md:flex md:w-60 lg:w-56 lg:flex-col">
-        <div className="flex grow flex-col overflow-y-auto bg-cyan-700 dark:bg-gray-800">
-          <div className="flex h-16 items-center px-4 border-b border-cyan-600 dark:border-gray-700">
+        <div className="flex grow flex-col overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+          <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-5 dark:border-gray-800">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                <TerminalIcon className="h-5 w-5 text-white" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
+                <TerminalIcon
+                  aria-hidden="true"
+                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
+                />
               </div>
-              <span className="text-lg font-semibold text-white">
+              <span className="text-base font-semibold tracking-tight text-gray-950 dark:text-gray-100">
                 CodeTether
               </span>
             </Link>
           </div>
-          <nav className="flex flex-1 flex-col p-3">
-            <ul className="space-y-1">
-              {navItems.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    className={clsx(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-                      pathname === item.href
-                        ? 'bg-white/10 text-white'
-                        : 'text-cyan-100 hover:bg-white/10',
-                      item.name === 'Admin' &&
-                        'border-t border-cyan-600 dark:border-gray-700 mt-2 pt-2',
-                      (item as any).highlight &&
-                        'bg-orange-500/20 text-orange-200 hover:bg-orange-500/30',
-                    )}
-                  >
-                    <item.icon
-                      className={clsx(
-                        'h-5 w-5',
-                        (item as any).highlight && 'text-orange-400',
-                      )}
-                    />
-                    {item.name}
-                    {(item as any).highlight && (
-                      <span className="ml-auto text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
-                        New
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {/* Stats in sidebar */}
-            <div className="mt-auto pt-4 border-t border-cyan-600 dark:border-gray-700">
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="rounded-lg bg-white/5 p-2">
-                  <div className="text-lg font-bold text-white">0</div>
-                  <div className="text-xs text-cyan-200">Workspaces</div>
-                </div>
-                <div className="rounded-lg bg-white/5 p-2">
-                  <div className="text-lg font-bold text-white">0</div>
-                  <div className="text-xs text-cyan-200">Tasks</div>
-                </div>
-              </div>
-            </div>
-          </nav>
+          <DashboardNavigation items={navItems} activeHref={activeItem?.href} />
         </div>
       </div>
 
       {/* Main content wrapper */}
-      <div className="absolute inset-0 md:left-60 lg:left-52 flex flex-col overflow-hidden">
+      <div className="absolute inset-0 flex flex-col overflow-hidden md:left-60 lg:left-56">
         {/* Top navbar */}
-        <div className="shrink-0 z-40 flex h-16 items-center gap-x-2 border-b border-gray-200 bg-white px-2 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:gap-x-6 sm:px-6 lg:px-8">
+        <div className="z-40 flex h-16 shrink-0 items-center gap-x-3 border-b border-gray-200 bg-white px-3 sm:gap-x-6 sm:px-6 lg:px-8 dark:border-gray-800 dark:bg-gray-950">
           {/* Mobile menu button */}
           <button
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-200"
+            className="-m-2.5 p-2.5 text-gray-700 md:hidden dark:text-gray-200"
           >
             <MenuIcon className="h-6 w-6" />
           </button>
 
           {/* Separator */}
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 md:hidden" />
+          <div className="h-6 w-px bg-gray-200 md:hidden dark:bg-gray-700" />
 
           <div className="flex flex-1 gap-x-2 self-stretch overflow-hidden sm:gap-x-6">
-            {/* Status indicators */}
-            <div className="hidden md:flex items-center gap-4 ml-auto">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  Connected
-                </span>
-              </div>
-            </div>
+            <nav
+              aria-label="Breadcrumb"
+              className="hidden min-w-0 items-center gap-2 text-sm text-gray-600 md:flex dark:text-gray-300"
+            >
+              <Link href="/dashboard" className="hover:underline">
+                Dashboard
+              </Link>
+              {activeItem && activeItem.href !== '/dashboard' && (
+                <>
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page" className="truncate">
+                    {activeItem.name}
+                  </span>
+                </>
+              )}
+            </nav>
 
             {/* Right actions */}
-            <div className="flex items-center gap-x-2 ml-auto md:ml-0 sm:gap-x-3">
+            <div className="ml-auto flex items-center gap-x-2 sm:gap-x-3">
               <button
+                type="button"
+                aria-label={
+                  darkMode ? 'Switch to light mode' : 'Switch to dark mode'
+                }
                 onClick={toggleDarkMode}
-                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:text-gray-500 dark:hover:bg-gray-900 dark:hover:text-gray-200"
               >
                 {darkMode ? (
                   <SunIcon className="h-5 w-5" />
@@ -709,16 +669,13 @@ export default function DashboardLayout({
                   <MoonIcon className="h-5 w-5" />
                 )}
               </button>
-              <button className="hidden sm:block rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
-                <CogIcon className="h-5 w-5" />
-              </button>
 
               {/* User menu */}
               {user ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-1 sm:gap-2 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                <Menu as="div" className="relative">
+                  <MenuButton
+                    aria-label="Open user menu"
+                    className="flex min-h-11 items-center gap-2 rounded-md px-1 py-1 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:hover:bg-gray-900"
                   >
                     {user.image ? (
                       <img
@@ -727,55 +684,55 @@ export default function DashboardLayout({
                         className="h-8 w-8 rounded-full"
                       />
                     ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-white text-sm font-medium">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                         {user.name?.charAt(0) ||
                           user.first_name?.charAt(0) ||
                           user.email?.charAt(0) ||
                           'U'}
                       </div>
                     )}
-                    <span className="hidden xs:hidden sm:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 max-w-20 sm:max-w-none truncate">
+                    <span className="xs:hidden hidden max-w-20 truncate text-xs font-medium text-gray-700 sm:block sm:max-w-none sm:text-sm dark:text-gray-300">
                       {user.name || user.first_name || user.email}
                     </span>
-                  </button>
+                  </MenuButton>
 
-                  {userMenuOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setUserMenuOpen(false)}
-                      />
-                      <div className="absolute right-0 sm:right-auto sm:left-0 z-20 mt-2 w-48 rounded-md bg-white dark:bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5">
-                        <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                          Signed in as
-                          <div className="font-medium text-gray-900 dark:text-white truncate">
-                            {user.email}
-                          </div>
-                        </div>
-                        <Link
-                          href="/dashboard/billing"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                          Billing
-                        </Link>
-                        <Link
-                          href="/dashboard/settings"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                          Settings
-                        </Link>
-                        <button
-                          onClick={handleSignOut}
-                          className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                          Sign out
-                        </button>
+                  <MenuItems
+                    anchor="bottom end"
+                    className="ring-opacity-5 z-[60] w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black [--anchor-gap:0.5rem] focus:outline-none dark:bg-gray-800"
+                  >
+                    <div className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                      Signed in as
+                      <div className="truncate font-medium text-gray-900 dark:text-white">
+                        {user.email}
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                    <MenuItem>
+                      <Link
+                        href="/dashboard/billing"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 data-focus:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 dark:data-focus:bg-gray-700"
+                      >
+                        Billing
+                      </Link>
+                    </MenuItem>
+                    <MenuItem>
+                      <Link
+                        href="/dashboard/settings"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 data-focus:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 dark:data-focus:bg-gray-700"
+                      >
+                        Settings
+                      </Link>
+                    </MenuItem>
+                    <MenuItem>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 data-focus:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700 dark:data-focus:bg-gray-700"
+                      >
+                        Sign out
+                      </button>
+                    </MenuItem>
+                  </MenuItems>
+                </Menu>
               ) : (
                 <Link
                   href="/login"
@@ -787,7 +744,7 @@ export default function DashboardLayout({
 
               <Link
                 href="/"
-                className="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                className="hidden text-sm font-medium text-gray-600 hover:text-gray-900 sm:inline-flex dark:text-gray-300 dark:hover:text-white"
               >
                 ← Back to Site
               </Link>
@@ -796,7 +753,11 @@ export default function DashboardLayout({
         </div>
 
         {/* Main content */}
-        <main className="flex-1 min-h-0 overflow-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4">
+        <main
+          id="dashboard-main"
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4 md:px-6 lg:px-8"
+        >
           {children}
         </main>
       </div>
