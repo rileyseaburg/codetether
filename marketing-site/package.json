@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "jest",
+    "test:ui": "jest --projects jest.dashboard-shell.config.cjs jest.settings-billing.config.cjs jest.tasks-resilience.config.cjs jest.sessions-resilience.config.cjs jest.model-selector.config.cjs \"src/app/(dashboard)/dashboard/components/workspace-home/jest.config.cjs\" --runInBand",
+    "test:auth": "tsx --test src/lib/auth-ui.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
