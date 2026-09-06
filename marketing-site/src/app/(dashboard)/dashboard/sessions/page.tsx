@@ -35,7 +35,12 @@ export default function SessionsPage() {
   const prevSelectedSessionIdRef = useRef<string | null>(null)
   const pendingResponseKeyRef = useRef<string | null>(null)
 
-  const { workspaces } = useWorkspaces()
+  const {
+    workspaces,
+    loadWorkspaces,
+    loading: workspacesLoading,
+    error: workspacesError,
+  } = useWorkspaces()
   const { selectedModel, setSelectedModel } = useModelStorage()
   const {
     sessions,
@@ -46,6 +51,8 @@ export default function SessionsPage() {
     loadMoreMessages,
     clearSessions,
     loading,
+    sessionsLoading,
+    sessionsError,
     loadingMore,
     loadingMoreSessions,
     hasMore,
@@ -79,13 +86,19 @@ export default function SessionsPage() {
   const handleIdle = useCallback(() => {
     if (selectedSession?.id) loadSessionMessages(selectedSession.id)
   }, [selectedSession?.id, loadSessionMessages])
-  const { streamConnected, streamStatus, liveDraft, rlmSteps, rlmStats, resetStream } =
-    useSessionStream({
-      selectedWorkspace,
-      selectedWorkspaceMeta: selectedWorkspaceMeta,
-      selectedSession,
-      onIdle: handleIdle,
-    })
+  const {
+    streamConnected,
+    streamStatus,
+    liveDraft,
+    rlmSteps,
+    rlmStats,
+    resetStream,
+  } = useSessionStream({
+    selectedWorkspace,
+    selectedWorkspaceMeta: selectedWorkspaceMeta,
+    selectedSession,
+    onIdle: handleIdle,
+  })
   const chatItems = useChatItems(sessionMessages)
   const lastChatItem = chatItems[chatItems.length - 1]
   const lastChatKey = lastChatItem?.key ?? null
@@ -97,19 +110,22 @@ export default function SessionsPage() {
   const suggestedModels = useSuggestedModels(chatItems)
 
   // Extract RLM data from historical messages and combine with live data
-  const { steps: historyRlmSteps, stats: historyRlmStats } = useRlmFromHistory(chatItems)
-  const combinedRlmSteps = useMemo(() =>
-    rlmSteps.length > 0 ? rlmSteps : historyRlmSteps,
-    [rlmSteps, historyRlmSteps]
+  const { steps: historyRlmSteps, stats: historyRlmStats } =
+    useRlmFromHistory(chatItems)
+  const combinedRlmSteps = useMemo(
+    () => (rlmSteps.length > 0 ? rlmSteps : historyRlmSteps),
+    [rlmSteps, historyRlmSteps],
   )
-  const combinedRlmStats = useMemo(() =>
-    (rlmStats.tokens > 0 || rlmStats.chunks > 0 || rlmStats.subcalls.total > 0) ? rlmStats : historyRlmStats,
-    [rlmStats, historyRlmStats]
+  const combinedRlmStats = useMemo(
+    () =>
+      rlmStats.tokens > 0 || rlmStats.chunks > 0 || rlmStats.subcalls.total > 0
+        ? rlmStats
+        : historyRlmStats,
+    [rlmStats, historyRlmStats],
   )
 
-  const layoutClass = showRLMPane
-    ? 'md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_minmax(280px,360px)]'
-    : 'md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]'
+  const layoutClass =
+    'md:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]'
   const handleLoadMoreSessions = useCallback(
     () => loadMoreSessions(selectedWorkspace),
     [loadMoreSessions, selectedWorkspace],
@@ -181,7 +197,10 @@ export default function SessionsPage() {
       return
     }
     if (!lastChatKey) return
-    if (pendingResponseKeyRef.current && lastChatKey === pendingResponseKeyRef.current) {
+    if (
+      pendingResponseKeyRef.current &&
+      lastChatKey === pendingResponseKeyRef.current
+    ) {
       return
     }
     if (lastChatRole === 'assistant') {
@@ -193,6 +212,7 @@ export default function SessionsPage() {
     (id: string) => {
       setSelectedWorkspace(id)
       setSelectedSession(null)
+      setShowRLMPane(false)
       setMobilePane('sessions')
       setSessionQuery('')
       clearSessions()
@@ -243,23 +263,25 @@ export default function SessionsPage() {
   return (
     <div
       aria-label="Chat sessions dashboard"
-      className="flex h-full min-h-0 flex-col overflow-hidden"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
     >
       {/* Skip link for keyboard users */}
-      <a
-        href="#chat-message-input"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-cyan-600 focus:px-4 focus:py-2 focus:text-white"
-      >
-        Skip to message input
-      </a>
+      {selectedSession && (
+        <a
+          href="#chat-message-input"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-cyan-600 focus:px-4 focus:py-2 focus:text-white"
+        >
+          Skip to message input
+        </a>
+      )}
 
       <div
-        className={`grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden px-0.5 md:gap-4 ${layoutClass}`}
+        className={`grid min-h-0 flex-1 grid-cols-1 overflow-hidden ${layoutClass}`}
       >
         {/* Session sidebar */}
         <aside
           id="sessions-pane"
-          className={`h-full min-h-0 overflow-hidden ${mobilePane === 'sessions' ? '' : 'hidden'} md:block`}
+          className={`h-full min-h-0 overflow-hidden border-gray-200 md:border-r dark:border-gray-800 ${mobilePane === 'sessions' ? '' : 'hidden'} md:block`}
           aria-label="Session list sidebar"
         >
           <ErrorBoundary>
@@ -275,6 +297,17 @@ export default function SessionsPage() {
               loadingMoreSessions={loadingMoreSessions}
               onLoadMoreSessions={handleLoadMoreSessions}
               totalSessions={totalSessions}
+              loading={workspacesLoading || sessionsLoading}
+              loadingLabel={
+                workspacesLoading ? 'Loading workspaces…' : 'Loading sessions…'
+              }
+              error={workspacesError || sessionsError}
+              onRetry={() => {
+                if (workspacesError) void loadWorkspaces()
+                else if (sessions.length)
+                  void loadMoreSessions(selectedWorkspace)
+                else void loadSessions(selectedWorkspace, sessionQuery)
+              }}
             />
           </ErrorBoundary>
         </aside>
@@ -285,7 +318,7 @@ export default function SessionsPage() {
           className={`flex h-full min-h-0 flex-col overflow-hidden ${mobilePane === 'chat' ? '' : 'hidden'} md:flex`}
         >
           <div
-            className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10"
+            className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden bg-white dark:bg-gray-900 [&_article_.wrap-break-word]:text-base [&_article_.wrap-break-word]:leading-7 [&_section>div.sticky]:border-0 [&_section>div.sticky]:bg-transparent [&_section>div.sticky]:py-1"
             role="region"
             aria-label={
               selectedSession
@@ -294,71 +327,115 @@ export default function SessionsPage() {
             }
           >
             <ErrorBoundary>
-              <ChatHeader
-                selectedSession={selectedSession}
-                selectedWorkspace={selectedWorkspace}
-                selectedWorkspaceName={selectedWorkspaceMeta?.name}
-                selectedMode={selectedMode}
-                selectedModel={selectedModel}
-                suggestedModels={suggestedModels}
-                streamConnected={streamConnected}
-                streamStatus={streamStatus}
-                loading={loading || resumeLoading}
-                awaitingResponse={awaitingResponse}
-                chatItemsCount={displayChatItems.length}
-                showBackButton={mobilePane === 'chat'}
-                onBackToSessions={() => setMobilePane('sessions')}
-                onModeChange={setSelectedMode}
-                onModelChange={setSelectedModel}
-                onResume={() =>
-                  selectedSession && resumeSession(selectedSession, null)
-                }
-                onRefresh={() =>
-                  selectedSession && loadSessionMessages(selectedSession.id)
-                }
-                showRLMPane={showRLMPane}
-                onToggleRLMPane={() => setShowRLMPane(!showRLMPane)}
-              />
-              <ChatMessages
-                chatItems={displayChatItems}
-                selectedSession={selectedSession}
-                loading={loading}
-                loadingMore={loadingMore}
-                hasMore={hasMore}
-                totalMessages={totalMessages}
-                error={error}
-                liveDraft={liveDraft}
-                awaitingResponse={awaitingResponse}
-                onLoadMore={loadMoreMessages}
-              />
-              <ChatInput
-                draftMessage={draftMessage}
-                loading={loading || resumeLoading}
-                actionStatus={actionStatus}
-                hasSession={!!selectedSession}
-                onDraftChange={setDraftMessage}
-                onSend={onSend}
-              />
+              {!selectedSession ? (
+                <section
+                  className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center"
+                  aria-labelledby="conversation-empty-title"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-2xl text-gray-400 dark:bg-gray-800"
+                  >
+                    ↖
+                  </span>
+                  <p className="text-xs font-medium tracking-widest text-gray-500 uppercase">
+                    {selectedWorkspace
+                      ? 'Next: choose a conversation'
+                      : 'Start here'}
+                  </p>
+                  <h2
+                    id="conversation-empty-title"
+                    className="mt-3 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white"
+                  >
+                    {selectedWorkspace
+                      ? 'Choose a session'
+                      : 'Choose a workspace'}
+                  </h2>
+                  <p className="mt-3 max-w-sm text-sm leading-7 text-gray-500 dark:text-gray-400">
+                    {selectedWorkspace
+                      ? 'Select a conversation from the list to read its messages and pick up where you left off.'
+                      : 'Choose a workspace from the list. Its sessions will appear here, ready to continue.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobilePane('sessions')
+                      requestAnimationFrame(() => {
+                        const target = selectedWorkspace
+                          ? document.querySelector<HTMLButtonElement>(
+                              '#sessions-pane button[aria-controls="chat-pane"]',
+                            )
+                          : null
+                        ;(
+                          target || document.getElementById('workspace-select')
+                        )?.focus()
+                      })
+                    }}
+                    className="mt-6 min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-cyan-600 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    {selectedWorkspace ? 'View sessions' : 'Select workspace'}
+                  </button>
+                </section>
+              ) : (
+                <>
+                  <ChatHeader
+                    selectedSession={selectedSession}
+                    selectedWorkspace={selectedWorkspace}
+                    selectedWorkspaceName={selectedWorkspaceMeta?.name}
+                    selectedMode={selectedMode}
+                    selectedModel={selectedModel}
+                    suggestedModels={suggestedModels}
+                    streamConnected={streamConnected}
+                    streamStatus={streamStatus}
+                    loading={loading || resumeLoading}
+                    awaitingResponse={awaitingResponse}
+                    chatItemsCount={displayChatItems.length}
+                    showBackButton={mobilePane === 'chat'}
+                    onBackToSessions={() => setMobilePane('sessions')}
+                    onModeChange={setSelectedMode}
+                    onModelChange={setSelectedModel}
+                    onResume={() =>
+                      selectedSession && resumeSession(selectedSession, null)
+                    }
+                    onRefresh={() =>
+                      selectedSession && loadSessionMessages(selectedSession.id)
+                    }
+                    showRLMPane={showRLMPane}
+                    onToggleRLMPane={() => setShowRLMPane(!showRLMPane)}
+                  />
+                  <ChatMessages
+                    chatItems={displayChatItems}
+                    selectedSession={selectedSession}
+                    loading={loading}
+                    loadingMore={loadingMore}
+                    hasMore={hasMore}
+                    totalMessages={totalMessages}
+                    error={error}
+                    liveDraft={liveDraft}
+                    awaitingResponse={awaitingResponse}
+                    onLoadMore={loadMoreMessages}
+                    onRetry={() => {
+                      if (sessionMessages.length) void loadMoreMessages()
+                      else if (selectedSession)
+                        void loadSessionMessages(selectedSession.id, true)
+                    }}
+                  />
+                  <ChatInput
+                    draftMessage={draftMessage}
+                    loading={loading || resumeLoading}
+                    actionStatus={actionStatus}
+                    hasSession={!!selectedSession}
+                    onDraftChange={setDraftMessage}
+                    onSend={onSend}
+                  />
+                </>
+              )}
             </ErrorBoundary>
           </div>
         </div>
-
-        {showRLMPane && (
-          <aside className="hidden h-full min-h-0 overflow-hidden rounded-lg bg-gray-950 shadow-lg ring-1 ring-white/10 lg:flex">
-            <RLMExecutionPane
-              isOpen={showRLMPane}
-              onClose={() => setShowRLMPane(false)}
-              sessionId={selectedSession?.id}
-              liveDraft={liveDraft}
-              steps={combinedRlmSteps}
-              stats={combinedRlmStats}
-              variant="dock"
-            />
-          </aside>
-        )}
       </div>
 
-      {/* RLM Execution Pane (mobile overlay) */}
+      {/* Execution detail is an optional overlay, never a third conversation column. */}
       <RLMExecutionPane
         isOpen={showRLMPane}
         onClose={() => setShowRLMPane(false)}
@@ -367,7 +444,6 @@ export default function SessionsPage() {
         steps={combinedRlmSteps}
         stats={combinedRlmStats}
         variant="overlay"
-        className="lg:hidden"
       />
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Session, SessionMessageWithParts } from '../types'
 import {
   listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet,
@@ -8,8 +8,16 @@ import {
 const SESSIONS_PAGE_SIZE = 30
 
 export function useSessions(selectedWorkspace: string) {
+  const listRequest = useRef(0)
+  const messageRequest = useRef(0)
+  const listBusy = useRef(false)
+  const messageBusy = useRef(false)
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [sessionsError, setSessionsError] = useState<string | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
-  const [sessionMessages, setSessionMessages] = useState<SessionMessageWithParts[]>([])
+  const [sessionMessages, setSessionMessages] = useState<
+    SessionMessageWithParts[]
+  >([])
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false)
@@ -20,26 +28,43 @@ export function useSessions(selectedWorkspace: string) {
   const [error, setError] = useState<string | null>(null)
   const latestLoadedSessionId = useRef<string | null>(null)
   const currentLimit = useRef<number | null>(null)
-  const currentOffset = useRef<number | null>(null)
   const sessionsOffset = useRef<number>(0)
   const currentQuery = useRef<string>('')
   const INITIAL_LOAD_LIMIT = 20
   const LOAD_MORE_LIMIT = 20
 
+  useEffect(
+    () => () => {
+      ++listRequest.current
+      ++messageRequest.current
+      latestLoadedSessionId.current = null
+      listBusy.current = false
+      messageBusy.current = false
+    },
+    [],
+  )
+
   const loadSessions = useCallback(async (id: string, query?: string) => {
+    const request = ++listRequest.current
+    listBusy.current = true
+    setLoadingMoreSessions(false)
+    setSessionsError(null)
     if (!id) {
       setSessions([])
       setHasMoreSessions(true)
       setTotalSessions(0)
       sessionsOffset.current = 0
       currentQuery.current = ''
+      sessionsOffset.current = 0
+      listBusy.current = false
+      setSessionsLoading(false)
       return
     }
     if (typeof query === 'string') {
       currentQuery.current = query.trim()
     }
-    setLoading(true)
-    setError(null)
+    setSessionsLoading(true)
+    setSessions([])
     sessionsOffset.current = 0
     try {
       const result = await listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet({
@@ -51,9 +76,12 @@ export function useSessions(selectedWorkspace: string) {
         },
       })
 
-      if (result.data) {
+      if (request !== listRequest.current) return
+      if (!result.error && result.data) {
         const data = result.data as any
-        const sessionsList = data.sessions || []
+        if (!Array.isArray(data.sessions))
+          throw new Error('Invalid sessions response')
+        const sessionsList = [...data.sessions]
         sessionsList.sort((a: Session, b: Session) => {
           const dateA = a.time?.updated || a.time?.created || 0
           const dateB = b.time?.updated || b.time?.created || 0
@@ -63,42 +91,68 @@ export function useSessions(selectedWorkspace: string) {
         setTotalSessions(data.total ?? sessionsList.length)
         setHasMoreSessions(data.hasMore ?? false)
       } else {
-        setError('Failed to load sessions')
+        setSessionsError('Failed to load sessions. Please retry.')
       }
     } catch (e) {
-      setError('Failed to load sessions')
+      if (request === listRequest.current)
+        setSessionsError('Failed to load sessions. Please retry.')
     } finally {
-      setLoading(false)
+      if (request === listRequest.current) {
+        setSessionsLoading(false)
+        listBusy.current = false
+      }
     }
   }, [])
 
-  const loadMoreSessions = useCallback(async (id: string) => {
-    if (!id || loadingMoreSessions || !hasMoreSessions) return
-    setLoadingMoreSessions(true)
-    const newOffset = sessionsOffset.current + SESSIONS_PAGE_SIZE
-    try {
-      const result = await listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet({
-        path: { workspace_id: id },
-        query: {
-          limit: SESSIONS_PAGE_SIZE,
-          offset: newOffset,
-          ...(currentQuery.current ? { q: currentQuery.current } : {}),
-        },
-      })
+  const loadMoreSessions = useCallback(
+    async (id: string) => {
+      if (!id || listBusy.current || !hasMoreSessions) return
+      const request = listRequest.current
+      listBusy.current = true
+      setSessionsError(null)
+      setLoadingMoreSessions(true)
+      const newOffset = sessionsOffset.current + SESSIONS_PAGE_SIZE
+      try {
+        const result =
+          await listSessionsV1AgentWorkspacesWorkspaceIdSessionsGet({
+            path: { workspace_id: id },
+            query: {
+              limit: SESSIONS_PAGE_SIZE,
+              offset: newOffset,
+              ...(currentQuery.current ? { q: currentQuery.current } : {}),
+            },
+          })
 
-      if (result.data) {
-        const data = result.data as any
-        const newSessions = data.sessions || []
-        setSessions(prev => [...prev, ...newSessions])
-        setHasMoreSessions(data.hasMore ?? false)
-        sessionsOffset.current = newOffset
+        if (request !== listRequest.current) return
+        if (!result.error && result.data) {
+          const data = result.data as any
+          if (!Array.isArray(data.sessions))
+            throw new Error('Invalid sessions response')
+          const newSessions = data.sessions
+          setSessions((prev) => {
+            const ids = new Set(prev.map((session) => session.id))
+            return [
+              ...prev,
+              ...newSessions.filter((session: Session) => !ids.has(session.id)),
+            ]
+          })
+          setHasMoreSessions(data.hasMore ?? false)
+          sessionsOffset.current = newOffset
+        } else {
+          setSessionsError('Failed to load more sessions. Please retry.')
+        }
+      } catch (e) {
+        if (request === listRequest.current)
+          setSessionsError('Failed to load more sessions. Please retry.')
+      } finally {
+        if (request === listRequest.current) {
+          setLoadingMoreSessions(false)
+          listBusy.current = false
+        }
       }
-    } catch (e) {
-      console.error('Failed to load more sessions:', e)
-    } finally {
-      setLoadingMoreSessions(false)
-    }
-  }, [loadingMoreSessions, hasMoreSessions])
+    },
+    [hasMoreSessions],
+  )
 
   const loadSessionMessages = useCallback(
     async (
@@ -109,11 +163,17 @@ export function useSessions(selectedWorkspace: string) {
       if (!selectedWorkspace || !sessionId) {
         return
       }
-      if (!force && latestLoadedSessionId.current === sessionId) {
+      if (
+        !force &&
+        latestLoadedSessionId.current === `${selectedWorkspace}:${sessionId}`
+      ) {
         return
       }
-      const requestedSessionId = sessionId
-      latestLoadedSessionId.current = sessionId
+      const request = ++messageRequest.current
+      messageBusy.current = true
+      const requestedSessionId = `${selectedWorkspace}:${sessionId}`
+      latestLoadedSessionId.current = requestedSessionId
+      setTotalMessages(0)
       currentLimit.current = limit
       setLoading(true)
       setLoadingMore(false)
@@ -121,31 +181,37 @@ export function useSessions(selectedWorkspace: string) {
       setError(null)
       setSessionMessages([])
       try {
-        const result = await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet({
-          path: { workspace_id: selectedWorkspace, session_id: sessionId },
-          query: { limit },
-        })
+        const result =
+          await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet(
+            {
+              path: { workspace_id: selectedWorkspace, session_id: sessionId },
+              query: { limit },
+            },
+          )
 
-        if (latestLoadedSessionId.current !== requestedSessionId) {
+        if (request !== messageRequest.current) {
           return
         }
 
-        if (result.data) {
+        if (!result.error && result.data) {
           const data = result.data as any
-          if (latestLoadedSessionId.current === requestedSessionId) {
-            setSessionMessages(data.messages || [])
-            setTotalMessages(data.total ?? data.messages?.length ?? 0)
-            setHasMore(data.hasMore ?? false)
-          }
+          if (!Array.isArray(data.messages))
+            throw new Error('Invalid messages response')
+          setSessionMessages(data.messages)
+          setTotalMessages(data.total ?? data.messages?.length ?? 0)
+          setHasMore(data.hasMore ?? false)
         } else {
+          latestLoadedSessionId.current = null
           setError('Failed to load messages')
         }
       } catch (e) {
-        if (latestLoadedSessionId.current === requestedSessionId) {
+        if (request === messageRequest.current) {
+          latestLoadedSessionId.current = null
           setError('Failed to load messages')
         }
       } finally {
-        if (latestLoadedSessionId.current === requestedSessionId) {
+        if (request === messageRequest.current) {
+          messageBusy.current = false
           setLoading(false)
         }
       }
@@ -157,35 +223,66 @@ export function useSessions(selectedWorkspace: string) {
     if (
       !selectedWorkspace ||
       !latestLoadedSessionId.current ||
-      loadingMore
+      !latestLoadedSessionId.current.startsWith(`${selectedWorkspace}:`) ||
+      messageBusy.current ||
+      !hasMore
     ) {
       return
     }
 
-    const sessionId = latestLoadedSessionId.current
+    const sessionId = latestLoadedSessionId.current.slice(
+      selectedWorkspace.length + 1,
+    )
+    const request = messageRequest.current
+    const nextLimit =
+      (currentLimit.current ?? INITIAL_LOAD_LIMIT) + LOAD_MORE_LIMIT
+    messageBusy.current = true
     setLoadingMore(true)
+    setError(null)
     try {
-      const result = await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet({
-        path: { workspace_id: selectedWorkspace, session_id: sessionId },
-        query: { limit: LOAD_MORE_LIMIT },
-      })
-
-      if (result.data) {
-        const data = result.data as any
-        setSessionMessages((prev): any[] => [...(data.messages || []), ...prev])
-        setTotalMessages(
-          data.total ?? totalMessages + (data.messages?.length ?? 0),
+      const result =
+        await getSessionMessagesByIdV1AgentWorkspacesWorkspaceIdSessionsSessionIdMessagesGet(
+          {
+            path: { workspace_id: selectedWorkspace, session_id: sessionId },
+            // This endpoint supports a limit, not an offset: expand the window.
+            query: { limit: nextLimit },
+          },
         )
+
+      if (request !== messageRequest.current) return
+      if (!result.error && result.data) {
+        const data = result.data as any
+        if (!Array.isArray(data.messages))
+          throw new Error('Invalid messages response')
+        const messages = data.messages
+        setSessionMessages(messages)
+        currentLimit.current = nextLimit
+        setTotalMessages(data.total ?? messages.length)
         setHasMore(data.hasMore ?? false)
+      } else {
+        setError('Failed to load older messages. Please retry.')
       }
     } catch (e) {
-      console.error('Failed to load more messages:', e)
+      if (request === messageRequest.current)
+        setError('Failed to load older messages. Please retry.')
     } finally {
-      setLoadingMore(false)
+      if (request === messageRequest.current) {
+        messageBusy.current = false
+        setLoadingMore(false)
+      }
     }
-  }, [selectedWorkspace, loadingMore, LOAD_MORE_LIMIT, totalMessages])
+  }, [selectedWorkspace, hasMore])
 
   const clearSessions = useCallback(() => {
+    ++listRequest.current
+    ++messageRequest.current
+    listBusy.current = false
+    messageBusy.current = false
+    setSessionsLoading(false)
+    setSessionsError(null)
+    setLoadingMoreSessions(false)
+    setHasMoreSessions(false)
+    setTotalSessions(0)
     setSessions([])
     setSessionMessages([])
     setLoading(false)
@@ -195,11 +292,12 @@ export function useSessions(selectedWorkspace: string) {
     setError(null)
     latestLoadedSessionId.current = null
     currentLimit.current = null
-    currentOffset.current = null
     currentQuery.current = ''
   }, [])
 
   return {
+    sessionsLoading,
+    sessionsError,
     sessions,
     sessionMessages,
     loadSessions,

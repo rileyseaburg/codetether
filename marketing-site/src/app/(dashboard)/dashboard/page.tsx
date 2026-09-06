@@ -9,6 +9,7 @@ import { ModelSelector } from '@/components/ModelSelector'
 import { WorkerSelector } from '@/components/WorkerSelector'
 import { useRalphStore } from './ralph/store'
 import { useTenantApi } from '@/hooks/useTenantApi'
+import { WorkspaceBrowser } from './components/workspace-home/WorkspaceBrowser'
 import {
     listWorkspacesV1AgentWorkspacesListGet,
     listAllTasksV1AgentTasksGet,
@@ -393,7 +394,17 @@ export default function DashboardPage() {
     const { data: session } = useSession()
     const { apiUrl, tenantId, tenantSlug, isAuthenticated, tenantFetch } = useTenantApi()
     const { selectedModel, selectedCodebase, setSelectedCodebase, setAgents, setLoadingAgents } = useRalphStore()
+    const selectWorkspace = (id: string) => {
+        setSelectedCodebase(id)
+        if (window.matchMedia('(max-width: 1023px)').matches) {
+            document.getElementById('workspace-launcher')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            document.getElementById('workspace-command')?.focus({ preventScroll: true })
+        }
+    }
+
     const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+    const [workspacesLoading, setWorkspacesLoading] = useState(true)
+    const [workspaceLoadError, setWorkspaceLoadError] = useState<string | null>(null)
     const [workers, setWorkers] = useState<Worker[]>([])
     const [selectedAgent, setSelectedAgent] = useState('build')
     const [selectedWorkerId, setSelectedWorkerId] = useState('')
@@ -499,10 +510,7 @@ export default function DashboardPage() {
             setShowWorkspaceWizard(false)
             return
         }
-        if (!workspaceWizardDismissed) {
-            setWorkspaceWizardStep(0)
-            setShowWorkspaceWizard(true)
-        }
+        // First-time guidance remains available on demand, not as an interrupting overlay.
     }, [workspaceWizardDismissed, workspaces.length])
 
     const upsertRoutingSnapshot = useCallback(
@@ -533,21 +541,9 @@ export default function DashboardPage() {
         }
     }, [session])
 
-    // Redirect to dedicated instance if user has one and we're on the shared site
-    useEffect(() => {
-        if (isAuthenticated && session?.tenantApiUrl && tenantSlug) {
-            const currentHost = window.location.host
-            const tenantHost = `${tenantSlug}.codetether.run`
-
-            // If user has a dedicated instance and we're NOT on it, redirect
-            if (!currentHost.includes(tenantSlug) &&
-                session.tenantApiUrl.includes(tenantSlug) &&
-                !currentHost.includes('localhost')) {
-                console.log(`Redirecting to dedicated instance: ${session.tenantApiUrl}`)
-                window.location.href = `${session.tenantApiUrl}/dashboard`
-            }
-        }
-    }, [isAuthenticated, session?.tenantApiUrl, tenantSlug])
+    // Keep the UI on the origin where authentication completed. tenantApiUrl
+    // routes API requests; it is not a safe browser destination, and another
+    // subdomain does not receive this origin's host-only authentication cookie.
 
     // Log tenant info for debugging
     useEffect(() => {
@@ -664,7 +660,9 @@ export default function DashboardPage() {
     const loadWorkspaces = useCallback(async () => {
         try {
             const { data, error } = await listWorkspacesV1AgentWorkspacesListGet()
+            if (error) setWorkspaceLoadError('Workspaces could not be refreshed. Showing the last available list.')
             if (!error && data) {
+                setWorkspaceLoadError(null)
                 const response = data as any
                 const items = Array.isArray(response)
                     ? response
@@ -710,6 +708,9 @@ export default function DashboardPage() {
             }
         } catch (error) {
             console.error('Failed to load workspaces:', error)
+            setWorkspaceLoadError('Workspaces could not be loaded. Please retry.')
+        } finally {
+            setWorkspacesLoading(false)
         }
     }, [])
 
@@ -1320,8 +1321,8 @@ export default function DashboardPage() {
                 : 'Not yet resolved'
     const activeWorkspaceRuntime: Workspace['runtime'] = activeWorkspace?.runtime ?? 'container'
     const activeWorkspaceIsVm = activeWorkspaceRuntime === 'vm'
-    const osWorkspaceLabel = activeWorkspace?.name || activeWorkspaceId || 'Auto-create on Launch'
-    const canLaunchOs = Boolean(osPrompt.trim()) && !osLaunching && !loading
+    const osWorkspaceLabel = activeWorkspace?.name || (activeWorkspaceId ? 'the automatically routed workspace' : 'a new workspace')
+    const canLaunchOs = Boolean(osPrompt.trim()) && !osLaunching && !loading && !workspacesLoading && !workspaceLoadError
     const effectiveRegisterRuntime: 'container' | 'vm' =
         registerMode === 'local' ? registerRuntime : 'container'
     const registerVmEnabled = registerMode === 'local' && registerRuntime === 'vm'
@@ -1334,9 +1335,16 @@ export default function DashboardPage() {
         )
 
     return (
-        <div className="space-y-6">
-            {/* Tenant Status Banner */}
-            <TenantStatusBanner />
+        <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl dark:text-white">Workspaces</h1>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Choose your project, then tell the agent what to do.</p>
+                </div>
+                <button type="button" onClick={() => openRegisterWorkspaceModal()} className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
+                    <PlusIcon className="h-4 w-4" aria-hidden="true" /> Add workspace
+                </button>
+            </header>
 
             {showWorkspaceWizard && workspaces.length === 0 && (
                 <div className="fixed inset-0 z-50">
@@ -1483,13 +1491,17 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(300px,0.9fr)_minmax(0,1.1fr)]">
+                <div className="order-1 min-w-0">
+                    <WorkspaceBrowser workspaces={workspaces} selectedId={activeWorkspaceId} onSelect={selectWorkspace} onRegister={() => openRegisterWorkspaceModal()} statusLabel={getStatusLabel} connectedWorkerIds={workers.filter(worker => worker.is_sse_connected).map(worker => worker.worker_id)} loading={workspacesLoading} error={workspaceLoadError} onRetry={() => void loadWorkspaces()} />
+                </div>
                 {/* Left sidebar - Workspaces */}
-                <div className="lg:col-span-1">
+                <details className="order-3 rounded-xl border border-gray-200 bg-white lg:col-span-2 dark:border-gray-800 dark:bg-gray-900">
+                    <summary className="cursor-pointer px-5 py-4 text-sm font-medium text-gray-700 dark:text-gray-200">Workspace setup and selected workspace details</summary>
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Workspaces</h2>
+                                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Workspace setup</h2>
                                 <button
                                     onClick={() => openRegisterWorkspaceModal()}
                                     className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
@@ -1562,7 +1574,7 @@ export default function DashboardPage() {
                                     <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">Or run <code className="text-cyan-500">codetether</code> in any directory to auto-register.</p>
                                 </div>
                             ) : (
-                                workspaces.map((cb) => (
+                                workspaces.filter((cb) => cb.id === activeWorkspaceId).map((cb) => (
                                     <div
                                         key={cb.id}
                                         className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
@@ -1608,45 +1620,40 @@ export default function DashboardPage() {
                             )}
                         </div>
                     </div>
-                </div>
+                </details>
 
                 {/* Main content - Trigger Agent */}
-                <div className="lg:col-span-2">
-                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
+                <div id="workspace-launcher" className="order-2 min-w-0 scroll-mt-6 lg:sticky lg:top-4">
+                    <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trigger Agent</h2>
+                            <h2 className="text-base font-semibold text-gray-900 dark:text-white"><span aria-hidden="true" className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">2</span> Start work</h2>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Run work in any workspace. If none is selected, direct/global workspace is used.
+                                {activeWorkspace ? activeWorkspace.name : 'Automatic workspace routing'} · {activeWorkspace?.runtime === 'vm' ? 'Virtual machine' : activeWorkspace ? 'Container' : 'Select a workspace above, or launch to create one.'}
                             </p>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-cyan-50 p-4 dark:border-indigo-800 dark:from-indigo-900/25 dark:to-cyan-900/20">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
-                                            CodeTether OS Launcher
-                                        </p>
-                                        <p className="mt-1 text-sm text-indigo-900 dark:text-indigo-100">
-                                            One command, one launch. If no workspace is selected, we auto-create one.
-                                        </p>
-                                    </div>
-                                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-indigo-700 dark:bg-gray-900/40 dark:text-indigo-200">
-                                        Workspace: {osWorkspaceLabel}
-                                    </span>
+                            <div>
+                                <div className="space-y-2">
+                                    <label htmlFor="workspace-command" className="block text-sm font-medium text-gray-900 dark:text-white">What would you like to do?</label>
+                                    <p id="workspace-command-hint" className="text-xs text-gray-500 dark:text-gray-400">Describe a task for {osWorkspaceLabel}. Ctrl or ⌘ + Enter to start.</p>
                                 </div>
                                 <textarea
+                                    id="workspace-command"
+                                    aria-describedby="workspace-command-hint"
                                     value={osPrompt}
                                     onChange={(e) => setOsPrompt(e.target.value)}
                                     onKeyDown={(e) => {
-                                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing && canLaunchOs) {
                                             e.preventDefault()
                                             launchOsCommand()
                                         }
                                     }}
-                                    rows={3}
-                                    placeholder="Tell CodeTether what to build, fix, or deploy..."
-                                    className="mt-3 w-full rounded-md border-indigo-200 dark:border-indigo-700 dark:bg-gray-900/60 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400"
+                                    rows={5}
+                                    placeholder="For example, review the latest changes or fix a failing test…"
+                                    className="mt-3 w-full resize-y rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-cyan-600 focus:ring-cyan-600 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
                                 />
+                                <details className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                    <summary className="cursor-pointer">Auto-create runtime: {quickRuntime === 'vm' ? 'Virtual machine' : 'Container'}</summary>
                                 <div className="mt-3 grid grid-cols-2 gap-2 sm:w-64">
                                     <button
                                         type="button"
@@ -1669,29 +1676,35 @@ export default function DashboardPage() {
                                         Auto-Create Container
                                     </button>
                                 </div>
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                </details>
+                                <p className="mt-4 break-words text-xs text-gray-500 dark:text-gray-400">{selectedAgent} · {selectedWorker?.name || 'Automatic worker'} · {selectedModel || 'Default model'}</p>
+                                <div className="mt-5 flex flex-wrap items-center gap-3">
                                     <button
                                         onClick={launchOsCommand}
                                         disabled={!canLaunchOs}
-                                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="rounded-lg bg-cyan-700 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {osLaunching ? 'Launching...' : 'Launch'}
+                                        {osLaunching ? 'Starting…' : 'Start agent'}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setShowAdvancedControls((v) => !v)}
-                                        className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                        aria-expanded={showAdvancedControls}
+                                        aria-controls="workspace-advanced-controls"
+                                        className="min-h-10 rounded-md py-2 text-xs font-medium text-gray-600 hover:underline focus-visible:outline-2 focus-visible:outline-cyan-600 dark:text-gray-400"
                                     >
-                                        {showAdvancedControls ? 'Hide Advanced Controls' : 'Show Advanced Controls'}
+                                        {showAdvancedControls ? 'Hide agent settings' : 'Agent, worker & model settings'}
                                     </button>
                                 </div>
                             </div>
-                            <div className={showAdvancedControls ? 'space-y-4' : 'hidden'}>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <div id="workspace-advanced-controls" className={showAdvancedControls ? 'space-y-4 border-t border-gray-200 pt-5 dark:border-gray-800' : 'hidden'}>
+                                <details className="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+                                    <summary className="mb-3 cursor-pointer font-medium text-gray-600 dark:text-gray-300">Workspace routing and runtime details</summary>
+                                    <label htmlFor="advanced-workspace" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Workspace
                                     </label>
                                     <select
+                                        id="advanced-workspace"
                                         value={selectedCodebase}
                                         onChange={(e) => setSelectedCodebase(e.target.value)}
                                         className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -1784,7 +1797,7 @@ export default function DashboardPage() {
                                             </p>
                                         </div>
                                     )}
-                                </div>
+                                </details>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Worker
@@ -1803,10 +1816,11 @@ export default function DashboardPage() {
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <label htmlFor="workspace-agent-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Agent Type
                                     </label>
                                     <select
+                                        id="workspace-agent-type"
                                         value={selectedAgent}
                                         onChange={(e) => setSelectedAgent(e.target.value)}
                                         className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -1933,11 +1947,14 @@ export default function DashboardPage() {
                                         </label>
                                     </div>
                                 )}
+                                <details className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                                    <summary className="mb-3 cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300">Manual trigger without auto-create</summary>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <label htmlFor="workspace-manual-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Prompt
                                     </label>
                                     <textarea
+                                        id="workspace-manual-prompt"
                                         value={prompt}
                                         onChange={(e) => setPrompt(e.target.value)}
                                         rows={4}
@@ -1950,8 +1967,9 @@ export default function DashboardPage() {
                                     disabled={loading || !activeWorkspaceId || !prompt.trim()}
                                     className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {loading ? '⏳ Running...' : '🚀 Run Agent'}
+                                    {loading ? 'Running…' : 'Run manual trigger'}
                                 </button>
+                                </details>
                             </div>
                             {triggerNotification && (
                                 <div className={`rounded-lg p-4 ${triggerNotification.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
@@ -2005,6 +2023,7 @@ export default function DashboardPage() {
                                                             onClick={() => {
                                                                 const el = document.getElementById('swarm-monitor')
                                                                 if (el) {
+                                                                    el.closest('details')?.setAttribute('open', '')
                                                                     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
                                                                     el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2')
                                                                     setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2'), 3000)
@@ -2102,7 +2121,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right sidebar - Quick Actions & Workers */}
-                <div className="lg:col-span-1 space-y-6">
+                <details id="workspace-diagnostics" className="order-4 space-y-4 rounded-xl border border-gray-200 bg-white lg:col-span-2 dark:border-gray-800 dark:bg-gray-900">
+                    <summary className="cursor-pointer px-5 py-4 text-sm font-medium text-gray-700 dark:text-gray-200">Execution details, workers and more tools</summary>
+                    <div className="px-4"><TenantStatusBanner /></div>
                     {/* Swarm Monitor */}
                     <div id="swarm-monitor" className="rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -2298,7 +2319,7 @@ export default function DashboardPage() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </details>
 
                 {/* Register Modal */}
                 {showRegisterModal && (
