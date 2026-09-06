@@ -1,68 +1,85 @@
 'use client'
 
-import { useRalphStore, useAvailableModels } from '../app/(dashboard)/dashboard/ralph/store'
-import { SessionsSelector, CompactSelector, CardSelector, DefaultSelector } from './ModelSelector/variants'
+import {
+  useRalphStore,
+  useAvailableModels,
+} from '../app/(dashboard)/dashboard/ralph/store'
+import {
+  SessionsSelector,
+  CompactSelector,
+  CardSelector,
+  DefaultSelector,
+} from './ModelSelector/variants'
 
 export interface ModelSelectorProps {
-    visualVariant?: 'default' | 'compact' | 'card' | 'sessions'
-    showSelectedInfo?: boolean
-    showEmptyState?: boolean
-    showCountBadge?: boolean
-    hasCountBadge?: boolean  // Alias for showCountBadge
-    label?: string
-    className?: string
-    disabled?: boolean
-    selectedModel?: string
-    onSelectedModelChange?: (value: string) => void
-    availableModels?: string[]
-    loading?: boolean
+  visualVariant?: 'default' | 'compact' | 'card' | 'sessions'
+  showSelectedInfo?: boolean
+  showEmptyState?: boolean
+  showCountBadge?: boolean
+  hasCountBadge?: boolean // Alias for showCountBadge
+  label?: string
+  className?: string
+  disabled?: boolean
+  selectedModel?: string
+  onSelectedModelChange?: (value: string) => void
+  availableModels?: string[]
+  loading?: boolean
 }
 
 export function ModelSelector({
-    visualVariant = 'default',
-    showSelectedInfo = true,
-    showEmptyState = true,
-    showCountBadge,
-    hasCountBadge,
-    label = 'Model',
-    className = '',
-    disabled = false,
-    selectedModel: selectedModelProp,
-    onSelectedModelChange,
-    availableModels: availableModelsProp,
-    loading: loadingProp,
+  visualVariant = 'default',
+  showSelectedInfo = true,
+  showEmptyState = true,
+  showCountBadge,
+  hasCountBadge,
+  label = 'Model',
+  className = '',
+  disabled = false,
+  selectedModel: selectedModelProp,
+  onSelectedModelChange,
+  availableModels: availableModelsProp,
+  loading: loadingProp,
 }: ModelSelectorProps) {
-    const { selectedModel: selectedModelStore, setSelectedModel: setSelectedModelStore, loadingAgents: loadingAgentsStore } = useRalphStore()
-    const availableModelsStore = useAvailableModels()
+  const {
+    selectedModel: selectedModelStore,
+    setSelectedModel: setSelectedModelStore,
+    loadingAgents: loadingAgentsStore,
+  } = useRalphStore()
+  const availableModelsStore = useAvailableModels()
 
-    const selectedModel = selectedModelProp ?? selectedModelStore
-    const availableModels = availableModelsProp ?? availableModelsStore
-    const loadingAgents = loadingProp ?? loadingAgentsStore
-    const setSelectedModel = onSelectedModelChange ?? setSelectedModelStore
+  const selectedModel = selectedModelProp ?? selectedModelStore
+  const availableModels = availableModelsProp ?? availableModelsStore
+  const loadingAgents = loadingProp ?? loadingAgentsStore
+  const setSelectedModel = onSelectedModelChange ?? setSelectedModelStore
 
-    const Comp = (() => {
-        switch (visualVariant) {
-            case 'sessions': return { comp: SessionsSelector, hasBadge: true }
-            case 'compact': return { comp: CompactSelector, hasBadge: false }
-            case 'card': return { comp: CardSelector, hasBadge: false }
-            default: return { comp: DefaultSelector, hasBadge: false }
-        }
-    })()
+  const Comp = (() => {
+    switch (visualVariant) {
+      case 'sessions':
+        return { comp: SessionsSelector, hasBadge: true }
+      case 'compact':
+        return { comp: CompactSelector, hasBadge: false }
+      case 'card':
+        return { comp: CardSelector, hasBadge: false }
+      default:
+        return { comp: DefaultSelector, hasBadge: false }
+    }
+  })()
 
-    // Use hasCountBadge or showCountBadge, fallback to variant default
-    const showBadge = hasCountBadge ?? showCountBadge ?? Comp.hasBadge
+  // Use hasCountBadge or showCountBadge, fallback to variant default
+  const showBadge = hasCountBadge ?? showCountBadge ?? Comp.hasBadge
 
-    return (
-        <Comp.comp
-            selectedModel={selectedModel}
-            setSelectedModel={disabled ? () => {} : setSelectedModel}
-            availableModels={availableModels}
-            loadingAgents={loadingAgents}
-            showSelectedInfo={showSelectedInfo}
-            showEmptyState={showEmptyState}
-            hasCountBadge={showBadge}
-            label={label}
-            className={`${className}${disabled ? ' opacity-50 pointer-events-none' : ''}`}
-        />
-    )
+  return (
+    <Comp.comp
+      disabled={disabled}
+      selectedModel={selectedModel}
+      setSelectedModel={disabled ? () => {} : setSelectedModel}
+      availableModels={availableModels}
+      loadingAgents={loadingAgents}
+      showSelectedInfo={showSelectedInfo}
+      showEmptyState={showEmptyState}
+      hasCountBadge={showBadge}
+      label={label}
+      className={`${className}${disabled ? 'pointer-events-none opacity-50' : ''}`}
+    />
+  )
 }

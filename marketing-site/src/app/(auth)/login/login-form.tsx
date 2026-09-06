@@ -1,7 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { signIn, useSession } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
+import { startWorkspaceSignIn } from '../actions'
+import { localAuthRedirect } from '@/lib/tenant-auth'
+import { notifyApiAuthChange } from '@/lib/auth-token'
+import { useClientReady } from '@/hooks/useClientReady'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
 
@@ -22,16 +26,20 @@ function setAuthTokenCookie(token: string) {
   document.cookie =
     `a2a_token=${encodeURIComponent(token)}; path=/; ` +
     `max-age=${AUTH_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`
+  notifyApiAuthChange()
 }
 
 function LoginForm() {
+  const clientReady = useClientReady()
   const { status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const callbackUrl = localAuthRedirect(
+    searchParams.get('callbackUrl') || '/dashboard',
+  )
   const authError = searchParams.get('error')
 
   useEffect(() => {
@@ -49,9 +57,9 @@ function LoginForm() {
             ? 'Authentication callback failed'
             : authError === 'Configuration'
               ? 'Authentication is misconfigured (check Keycloak client ID/secret and issuer settings).'
-            : authError === 'OAuthAccountNotLinked'
-              ? 'Account not linked'
-              : 'Authentication failed'
+              : authError === 'OAuthAccountNotLinked'
+                ? 'Account not linked'
+                : 'Authentication failed',
       )
     }
   }, [authError])
@@ -60,7 +68,10 @@ function LoginForm() {
     setLoading(true)
     setError(null)
     try {
-      await signIn('keycloak', { callbackUrl })
+      const data = new FormData()
+      data.set('realm', searchParams.get('realm') || '')
+      data.set('callbackUrl', callbackUrl)
+      await startWorkspaceSignIn(data)
     } catch {
       setError('Failed to initiate login')
       setLoading(false)
@@ -76,18 +87,16 @@ function LoginForm() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
-     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
     try {
       // Try new self-service user auth first
-      const userAuthResponse = await fetch(
-        `${apiUrl}/v1/users/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        }
-      )
+      const userAuthResponse = await fetch(`${apiUrl}/v1/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
 
       if (userAuthResponse.ok) {
         const data = await userAuthResponse.json()
@@ -101,21 +110,21 @@ function LoginForm() {
       }
 
       // Fall back to Keycloak-based auth
-      const keycloakResponse = await fetch(
-        `${apiUrl}/v1/auth/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: email, password }),
-        }
-      )
+      const keycloakResponse = await fetch(`${apiUrl}/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password }),
+      })
 
       if (keycloakResponse.ok) {
         const data = await keycloakResponse.json()
         const accessToken = data.accessToken || data.access_token
         // Store token and redirect
         localStorage.setItem('a2a_token', accessToken)
-        localStorage.setItem('a2a_refresh_token', data.refreshToken || data.refresh_token || '')
+        localStorage.setItem(
+          'a2a_refresh_token',
+          data.refreshToken || data.refresh_token || '',
+        )
         localStorage.setItem('a2a_session', JSON.stringify(data.session || {}))
         // The middleware gates /dashboard on this cookie. Without it the
         // dashboard redirected straight back to /login, which the client then
@@ -166,7 +175,7 @@ function LoginForm() {
       <button
         type="button"
         onClick={handleKeycloakLogin}
-        disabled={loading}
+        disabled={!clientReady || loading}
         data-testid="keycloak-sso-button"
         className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
       >
@@ -187,7 +196,7 @@ function LoginForm() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form method="post" onSubmit={handleSubmit}>
         <div className="space-y-6">
           <TextField
             label="Email address"
