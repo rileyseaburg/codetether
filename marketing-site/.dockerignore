@@ -8,3 +8,11 @@ node_modules
 coverage
 .nyc_output
 *.log
+*.tsbuildinfo
+certs
+*.pem
+*.key
+coverage
+test-results
+playwright-report
+e2e

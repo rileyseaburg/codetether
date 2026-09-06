@@ -17,6 +17,7 @@ interface Props {
   liveDraft: string
   awaitingResponse: boolean
   onLoadMore: () => void
+  onRetry?: () => void
 }
 
 export function ChatMessages({
@@ -30,6 +31,7 @@ export function ChatMessages({
   liveDraft,
   awaitingResponse,
   onLoadMore,
+  onRetry,
 }: Props) {
   const parentRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -133,7 +135,7 @@ export function ChatMessages({
 
     const nearTopThreshold = el.scrollTop < 150
 
-    if (nearTopThreshold && hasMore && !loadingMoreRef.current && !loading) {
+    if (nearTopThreshold && hasMore && !loadingMoreRef.current && !loading && !error) {
       loadingMoreRef.current = true
       onLoadMore()
     }
@@ -176,7 +178,7 @@ export function ChatMessages({
   return (
     <section className="relative flex min-h-0 flex-1 flex-col bg-gray-50 dark:bg-gray-900">
       {visibleChatItems.length > 0 && (
-        <div className="sticky top-0 z-10 hidden flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-3 py-2 text-xs text-gray-500 backdrop-blur dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-400 sm:flex">
+        <div className="sticky top-0 z-10 flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-3 py-2 text-xs text-gray-500 backdrop-blur dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-400">
           <span>
             {loadingMore
               ? 'Loading older messages...'
@@ -185,6 +187,11 @@ export function ChatMessages({
                 : `${totalMessages} messages`}
           </span>
           <div className="flex gap-1">
+            {hasMore && (
+              <button type="button" onClick={onLoadMore} disabled={loading || loadingMore} className="rounded px-2 py-2 underline focus-visible:ring-2 focus-visible:ring-cyan-500">
+                Load older messages
+              </button>
+            )}
             <button
               onClick={scrollToTop}
               className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -239,8 +246,13 @@ export function ChatMessages({
         aria-label={`Chat: ${selectedSession.title || 'Untitled'}`}
       >
         {error && (
-          <div className="m-3 rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            {error}
+          <div role="alert" className="m-3 rounded bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            <p>{error}</p>
+            {onRetry && (
+              <button type="button" onClick={onRetry} disabled={loading || loadingMore} className="mt-2 rounded px-3 py-2 underline focus-visible:ring-2 focus-visible:ring-cyan-500">
+                Retry messages
+              </button>
+            )}
           </div>
         )}
 
