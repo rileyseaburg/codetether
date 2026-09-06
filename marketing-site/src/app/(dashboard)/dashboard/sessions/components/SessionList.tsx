@@ -4,246 +4,304 @@ import { ChatIcon } from './ChatIcon'
 import { SessionItem } from './SessionItem'
 
 interface Props {
-    workspaces: Workspace[]
-    sessions: Session[]
-    selectedWorkspace: string
-    selectedSession: Session | null
-    onWorkspaceChange: (id: string) => void
-    onSessionSelect: (s: Session) => void
-    onSearchChange?: (query: string) => void
-    hasMoreSessions?: boolean
-    loadingMoreSessions?: boolean
-    onLoadMoreSessions?: () => void
-    totalSessions?: number
+  workspaces: Workspace[]
+  sessions: Session[]
+  selectedWorkspace: string
+  selectedSession: Session | null
+  onWorkspaceChange: (id: string) => void
+  onSessionSelect: (s: Session) => void
+  onSearchChange?: (query: string) => void
+  hasMoreSessions?: boolean
+  loadingMoreSessions?: boolean
+  onLoadMoreSessions?: () => void
+  totalSessions?: number
+  loading?: boolean
+  loadingLabel?: string
+  error?: string | null
+  onRetry?: () => void
 }
 
 export function SessionList({
-    workspaces,
-    sessions,
-    selectedWorkspace,
-    selectedSession,
-    onWorkspaceChange,
-    onSessionSelect,
-    onSearchChange,
-    hasMoreSessions = false,
-    loadingMoreSessions = false,
-    onLoadMoreSessions,
-    totalSessions,
+  workspaces,
+  sessions,
+  selectedWorkspace,
+  selectedSession,
+  onWorkspaceChange,
+  onSessionSelect,
+  onSearchChange,
+  hasMoreSessions = false,
+  loadingMoreSessions = false,
+  onLoadMoreSessions,
+  totalSessions,
+  loading = false,
+  loadingLabel = 'Loading sessions…',
+  error = null,
+  onRetry,
 }: Props) {
-    const [filtersOpen, setFiltersOpen] = useState(false)
-    const selectedWorkspaceName = workspaces.find(cb => cb.id === selectedWorkspace)?.name || 'all workspaces'
-    const [query, setQuery] = useState('')
-    const [sortOrder, setSortOrder] = useState<'recent' | 'oldest'>('recent')
-    const normalizedQuery = query.trim().toLowerCase()
-    const totalLabel = totalSessions && totalSessions > sessions.length
-        ? `${sessions.length} of ${totalSessions}`
-        : `${sessions.length}`
+  const [query, setQuery] = useState('')
+  const [sortOrder, setSortOrder] = useState<'recent' | 'oldest'>('recent')
+  const normalizedQuery = query.trim().toLowerCase()
+  const workspaceName =
+    workspaces.find((workspace) => workspace.id === selectedWorkspace)?.name ||
+    'this workspace'
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
-    useEffect(() => {
-        setQuery('')
-        setSortOrder('recent')
-        if (onSearchChange) {
-            onSearchChange('')
-        }
-        setFiltersOpen(!selectedWorkspace)
-    }, [selectedWorkspace, onSearchChange])
+  useEffect(() => {
+    setQuery('')
+    setSortOrder('recent')
+    onSearchChange?.('')
+  }, [selectedWorkspace, onSearchChange])
 
-    useEffect(() => {
-        if (!onSearchChange) return
-        const handle = setTimeout(() => {
-            onSearchChange(query.trim())
-        }, 300)
-        return () => clearTimeout(handle)
-    }, [query, onSearchChange])
+  useEffect(() => {
+    if (!onSearchChange) return
+    const timer = setTimeout(() => onSearchChange(query.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [query, onSearchChange])
 
-    const filteredSessions = useMemo(() => {
-        if (!normalizedQuery || onSearchChange) return sessions
-        return sessions.filter((s) => {
-            const haystack = `${s.title || ''} ${s.id}`.toLowerCase()
-            return haystack.includes(normalizedQuery)
-        })
-    }, [sessions, normalizedQuery, onSearchChange])
+  const sortedSessions = useMemo(() => {
+    const filtered =
+      normalizedQuery && !onSearchChange
+        ? sessions.filter((session) =>
+            `${session.title || ''} ${session.id}`
+              .toLowerCase()
+              .includes(normalizedQuery),
+          )
+        : sessions
+    const timestamp = (session: Session) => {
+      const value = session.time?.updated || session.time?.created || 0
+      return Number.isFinite(value) ? value : 0
+    }
+    return filtered
+      .map((session, index) => ({ session, index }))
+      .sort((a, b) => {
+        const delta = timestamp(a.session) - timestamp(b.session)
+        return delta === 0
+          ? a.index - b.index
+          : sortOrder === 'recent'
+            ? -delta
+            : delta
+      })
+      .map((item) => item.session)
+  }, [sessions, normalizedQuery, onSearchChange, sortOrder])
 
-    const sortedSessions = useMemo(() => {
-        const withIndex = filteredSessions.map((session, index) => ({ session, index }))
-        const getTimestamp = (session: Session) => {
-            const time = session.time?.updated || session.time?.created || 0
-            return Number.isFinite(time) ? time : 0
-        }
-        withIndex.sort((a, b) => {
-            const aTime = getTimestamp(a.session)
-            const bTime = getTimestamp(b.session)
-            if (aTime === bTime) return a.index - b.index
-            return sortOrder === 'recent' ? bTime - aTime : aTime - bTime
-        })
-        return withIndex.map(({ session }) => session)
-    }, [filteredSessions, sortOrder])
-
-    const hasQuery = normalizedQuery.length > 0
-    const showEmpty = !hasQuery && sessions.length === 0
-    const showFilteredEmpty = hasQuery && sortedSessions.length === 0
-
-    // Infinite scroll: load more when sentinel comes into view
-    const sentinelRef = useRef<HTMLDivElement>(null)
-    const listRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        if (!hasMoreSessions || !onLoadMoreSessions || loadingMoreSessions) return
-        const sentinel = sentinelRef.current
-        if (!sentinel) return
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0]?.isIntersecting) {
-                    onLoadMoreSessions()
-                }
-            },
-            { root: listRef.current, rootMargin: '100px', threshold: 0 }
-        )
-        observer.observe(sentinel)
-        return () => observer.disconnect()
-    }, [hasMoreSessions, onLoadMoreSessions, loadingMoreSessions])
-
-    return (
-        <nav
-            aria-label="Chat sessions"
-            className="flex h-full min-h-0 max-h-full flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10"
-        >
-            <div className="shrink-0 border-b border-gray-200 p-2 dark:border-gray-700 sm:p-4">
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <h2 id="sessions-heading" className="text-base font-semibold text-gray-900 dark:text-white">Sessions</h2>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {selectedWorkspaceName} - {totalLabel} total
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                            {filteredSessions.length}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => setFiltersOpen((prev) => !prev)}
-                            aria-expanded={filtersOpen}
-                            aria-controls="session-filters"
-                            className="rounded-full border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 sm:hidden"
-                        >
-                            {filtersOpen ? 'Hide filters' : 'Filters'}
-                        </button>
-                    </div>
-                </div>
-                <div
-                    id="session-filters"
-                    className={`mt-2 grid gap-2 ${filtersOpen ? 'grid' : 'hidden'} sm:grid`}
-                >
-                    <div className="flex flex-col">
-                        <label htmlFor="workspace-select" className="sr-only">Select workspace</label>
-                        <select
-                            id="workspace-select"
-                            value={selectedWorkspace}
-                            onChange={(e) => onWorkspaceChange(e.target.value)}
-                             className="min-w-0 rounded-md border-gray-300 bg-white text-sm text-gray-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            aria-describedby="workspace-hint"
-                        >
-                            <option value="">Select workspace...</option>
-                            {workspaces.map((cb) => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
-                        </select>
-                        <span id="workspace-hint" className="sr-only">Choose a workspace to filter sessions</span>
-                    </div>
-                    <div className="relative">
-                        <label htmlFor="session-search" className="sr-only">Search sessions</label>
-                        <input
-                            id="session-search"
-                            type="text"
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search sessions..."
-                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-sm text-gray-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        />
-                        {query && (
-                            <button
-                                type="button"
-                                onClick={() => setQuery('')}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-600 dark:hover:text-gray-200"
-                                aria-label="Clear search"
-                            >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                        <label htmlFor="session-sort" className="text-xs font-medium text-gray-400">
-                            Sort
-                        </label>
-                        <select
-                            id="session-sort"
-                            value={sortOrder}
-                            onChange={(e) => setSortOrder(e.target.value as 'recent' | 'oldest')}
-                             className="min-w-[140px] rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                        >
-                            <option value="recent">Most recent</option>
-                            <option value="oldest">Oldest first</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <div
-                ref={listRef}
-                role="listbox"
-                aria-labelledby="sessions-heading"
-                aria-activedescendant={selectedSession?.id ? `session-${selectedSession.id}` : undefined}
-                className="flex min-h-0 flex-1 basis-0 flex-col divide-y divide-gray-200 overflow-y-auto overflow-x-hidden dark:divide-gray-700"
-                tabIndex={0}
-            >
-                {showEmpty && (
-                    <div className="p-6 text-center text-gray-500 sm:p-8" role="status" aria-live="polite">
-                        <ChatIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" aria-hidden="true" />
-                        <p className="mt-2 text-sm">{selectedWorkspace ? 'No sessions found' : 'Select a workspace'}</p>
-                    </div>
-                )}
-                {showFilteredEmpty && (
-                    <div className="p-6 text-center text-gray-500 sm:p-8" role="status" aria-live="polite">
-                        <ChatIcon className="mx-auto h-10 w-10 text-gray-400" aria-hidden="true" />
-                        <p className="mt-2 text-sm">No matches for "{query}".</p>
-                        <p className="mt-1 text-xs text-gray-400">Try clearing filters or changing workspace.</p>
-                    </div>
-                )}
-                {!showEmpty && !showFilteredEmpty && (
-                    <>
-                        <p className="sr-only" role="status" aria-live="polite">
-                            {sortedSessions.length} session{sortedSessions.length !== 1 ? 's' : ''} available in {selectedWorkspaceName}
-                        </p>
-                        {sortedSessions.map((s) => (
-                            <SessionItem
-                                key={s.id}
-                                session={s}
-                                isSelected={selectedSession?.id === s.id}
-                                onSelect={onSessionSelect}
-                            />
-                        ))}
-                        {/* Infinite scroll sentinel */}
-                        {hasMoreSessions && (
-                            <div ref={sentinelRef} className="p-4 text-center">
-                                {loadingMoreSessions ? (
-                                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                        Loading more...
-                                    </div>
-                                ) : (
-                                    <span className="text-xs text-gray-400">
-                                        {totalSessions ? `${sessions.length} of ${totalSessions}` : 'Scroll for more'}
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
-        </nav>
+  useEffect(() => {
+    if (
+      !hasMoreSessions ||
+      !onLoadMoreSessions ||
+      loadingMoreSessions ||
+      loading ||
+      error ||
+      typeof IntersectionObserver === 'undefined'
     )
+      return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMoreSessions()
+      },
+      { root: listRef.current, rootMargin: '100px', threshold: 0 },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMoreSessions, onLoadMoreSessions, loadingMoreSessions, loading, error])
+
+  const showEmpty = !loading && !error && sortedSessions.length === 0
+  return (
+    <nav
+      aria-label="Chat sessions"
+      className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-gray-950"
+    >
+      <div className="shrink-0 space-y-4 border-b border-gray-200 p-4 sm:p-5 dark:border-gray-800">
+        <div>
+          <h1
+            id="sessions-heading"
+            className="text-xl font-semibold tracking-tight text-gray-950 dark:text-white"
+          >
+            Sessions
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Pick up a conversation.
+          </p>
+        </div>
+        <div>
+          <label
+            htmlFor="workspace-select"
+            className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-300"
+          >
+            Workspace
+          </label>
+          <select
+            id="workspace-select"
+            aria-label="Select workspace"
+            value={selectedWorkspace}
+            onChange={(event) => onWorkspaceChange(event.target.value)}
+            className="min-h-11 w-full min-w-0 rounded-lg border-gray-300 bg-white text-sm text-gray-900 focus:border-cyan-600 focus:ring-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+          >
+            <option value="">Select workspace…</option>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selectedWorkspace && (
+          <div className="space-y-2">
+            <div className="relative">
+              <label htmlFor="session-search" className="sr-only">
+                Search sessions
+              </label>
+              <input
+                id="session-search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Find a session…"
+                className="min-h-11 w-full rounded-lg border-gray-300 bg-white pr-16 text-sm text-gray-900 focus:border-cyan-600 focus:ring-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                  className="absolute inset-y-0 right-2 rounded px-2 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <details>
+              <summary className="w-fit cursor-pointer rounded py-1 text-xs text-gray-500 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:text-gray-400">
+                Sort & list details
+              </summary>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <label htmlFor="session-sort">Sort</label>
+                <select
+                  id="session-sort"
+                  value={sortOrder}
+                  onChange={(event) =>
+                    setSortOrder(event.target.value as 'recent' | 'oldest')
+                  }
+                  className="min-h-10 rounded-lg border-gray-300 bg-white text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                >
+                  <option value="recent">Most recent</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+                {!loading && !error && (
+                  <span>
+                    {totalSessions && totalSessions > sessions.length
+                      ? `${sessions.length} of ${totalSessions}`
+                      : sessions.length}{' '}
+                    sessions
+                  </span>
+                )}
+              </div>
+            </details>
+          </div>
+        )}
+      </div>
+      <div
+        ref={listRef}
+        role="group"
+        aria-labelledby="sessions-heading"
+        aria-busy={loading || loadingMoreSessions}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        {loading && (
+          <p
+            className="p-6 text-sm text-gray-500 dark:text-gray-400"
+            role="status"
+          >
+            {loadingLabel}
+          </p>
+        )}
+        {error && (
+          <div
+            className="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"
+            role="alert"
+          >
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={loading || loadingMoreSessions}
+              className="mt-3 min-h-10 rounded-lg border border-current px-3 py-2 text-xs font-medium disabled:opacity-50"
+            >
+              Retry sessions
+            </button>
+          </div>
+        )}
+        {showEmpty && (
+          <div className="px-5 py-10 text-center" role="status">
+            <ChatIcon
+              className="mx-auto h-8 w-8 text-gray-400"
+              aria-hidden="true"
+            />
+            <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+              {normalizedQuery
+                ? `No matches for “${query}”.`
+                : selectedWorkspace
+                  ? 'No sessions found'
+                  : workspaces.length
+                    ? 'Select a workspace'
+                    : 'No workspaces available'}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
+              {normalizedQuery
+                ? 'Try another search or clear the filter.'
+                : selectedWorkspace
+                  ? 'Conversations from this workspace will appear here.'
+                  : 'Choose where you want to work to see its conversations.'}
+            </p>
+            {normalizedQuery && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="mt-3 min-h-10 rounded-lg px-3 text-sm font-medium text-cyan-700 dark:text-cyan-300"
+              >
+                Show all sessions
+              </button>
+            )}
+            {!selectedWorkspace && !workspaces.length && (
+              <a
+                href="/dashboard/getting-started"
+                className="mt-4 inline-block rounded-lg px-3 py-2 text-sm font-medium text-cyan-700 underline dark:text-cyan-300"
+              >
+                Connect a workspace
+              </a>
+            )}
+          </div>
+        )}
+        {!loading && sortedSessions.length > 0 && (
+          <div className="divide-y divide-gray-200 dark:divide-gray-800">
+            <p className="sr-only" role="status">
+              {sortedSessions.length} sessions available in {workspaceName}
+            </p>
+            {sortedSessions.map((session) => (
+              <SessionItem
+                key={session.id}
+                session={session}
+                isSelected={selectedSession?.id === session.id}
+                onSelect={onSessionSelect}
+              />
+            ))}
+            {hasMoreSessions && (
+              <div ref={sentinelRef} className="p-4 text-center">
+                <button
+                  type="button"
+                  onClick={onLoadMoreSessions}
+                  disabled={loadingMoreSessions || loading || !!error || !onLoadMoreSessions}
+                  className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                >
+                  {loadingMoreSessions ? 'Loading more…' : 'Load more sessions'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </nav>
+  )
 }

@@ -1,17 +1,31 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { getApiAuth } from '@/lib/auth-token'
 import { useSession } from 'next-auth/react'
 import { Workspace } from '../types'
 import { listWorkspacesV1AgentWorkspacesListGet, hasApiAuthToken } from '@/lib/api'
 
 export function useWorkspaces() {
-    const { data: session } = useSession()
+    const { data: session, status } = useSession()
     const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const requestId = useRef(0)
+    const invalidateRequest = useCallback(() => { ++requestId.current }, [])
 
     const loadWorkspaces = useCallback(async () => {
-        if (!hasApiAuthToken()) return
+        const request = ++requestId.current
+        const { token } = getApiAuth({ accessToken: session?.accessToken, tenantId: session?.tenantId })
+        if (!token && !hasApiAuthToken()) {
+            setLoading(false)
+            setError('Sign in to load your workspaces.')
+            return
+        }
+        setLoading(true)
+        setError(null)
         try {
-            const result = await listWorkspacesV1AgentWorkspacesListGet()
-            if (result.data) {
+            const result = await listWorkspacesV1AgentWorkspacesListGet(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+            if (request !== requestId.current) return
+            if (!result.error && result.data) {
                 const payload = result.data as any
                 const items: any[] = Array.isArray(payload)
                     ? payload
@@ -33,18 +47,21 @@ export function useWorkspaces() {
                         }))
                         .filter((ws) => ws.id)
                 )
-            }
+            } else setError('Failed to load workspaces. Please retry.')
         } catch (error) {
-            console.error('Failed to load workspaces:', error)
+            if (request === requestId.current) setError('Failed to load workspaces. Please retry.')
+        } finally {
+            if (request === requestId.current) setLoading(false)
         }
-    }, [])
+    }, [session?.accessToken, session?.tenantId])
 
     useEffect(() => {
-        if (!session?.accessToken && !hasApiAuthToken()) return
+        if (status === 'loading') return
         loadWorkspaces()
-    }, [loadWorkspaces, session?.accessToken])
+        return invalidateRequest
+    }, [loadWorkspaces, status, invalidateRequest])
 
-    return { workspaces, loadWorkspaces }
+    return { workspaces, loadWorkspaces, loading, error }
 }
 
 /** @deprecated Use useWorkspaces instead */
