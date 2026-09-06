@@ -4,43 +4,50 @@ metadata:
   name: codetether-marketing
   namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+  - resources-finalizer.argocd.argoproj.io
   labels:
     app.kubernetes.io/name: codetether-marketing
     app.kubernetes.io/part-of: codetether
 spec:
   project: codetether
   destination:
-    server: https://kubernetes.default.svc
     namespace: a2a-server
+    server: https://kubernetes.default.svc
   source:
-    repoURL: git@github.com:rileyseaburg/codetether.git
-    targetRevision: main
-    path: chart/a2a-server/charts/marketing
     helm:
       releaseName: codetether
       valuesObject:
-        enabled: true
-        replicaCount: 1
-        image:
-          repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
-          tag: main-9c97d0666c0c
-          pullPolicy: Always
-        imagePullSecrets:
-          - name: gcp-artifact-registry
-        service:
-          type: ClusterIP
-          port: 3000
-          targetPort: 3000
-        ingress:
+        apiProxy:
+          backendPort: 8000
+          backendService: codetether-a2a-server
           enabled: true
-          className: nginx
+        enabled: true
+        env:
+          A2A_API_BACKEND: http://codetether-a2a-server.a2a-server.svc.cluster.local:8000
+          AUTH_TRUST_HOST: 'true'
+          CONTACT_NOTIFICATION_EMAIL: riley@spotlessbinco.com
+          KEYCLOAK_CLIENT_ID: a2a-monitor
+          KEYCLOAK_ISSUER: https://auth.quantum-forge.io/realms/quantum-forge
+          SENDGRID_API_KEY: ''
+          SENDGRID_FROM_EMAIL: noreply@codetether.run
+        image:
+          pullPolicy: IfNotPresent
+          repository: registry.quantum-forge.net/cluster-ci-cache/codetether-marketing
+          tag: ui-02f2edbdb0e7
+        imagePullSecrets:
+        - name: registry-credentials
+        ingress:
           annotations:
             cert-manager.io/cluster-issuer: cloudflare-issuer
-            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+          className: nginx
+          enabled: true
           host: codetether.run
           tls:
             secretName: codetether-marketing-tls
+        keycloak:
+          secretName: keycloak-client-secret
+        replicaCount: 1
         resources:
           limits:
             cpu: 500m
@@ -48,28 +55,20 @@ spec:
           requests:
             cpu: 100m
             memory: 256Mi
-        keycloak:
-          secretName: keycloak-client-secret
-        env:
-          A2A_API_BACKEND: http://codetether-a2a-server.a2a-server.svc.cluster.local:8000
-          AUTH_TRUST_HOST: "true"
-          AUTH_URL: https://codetether.run
-          CONTACT_NOTIFICATION_EMAIL: riley@spotlessbinco.com
-          KEYCLOAK_CLIENT_ID: a2a-monitor
-          KEYCLOAK_ISSUER: https://auth.quantum-forge.io/realms/quantum-forge
-          NEXTAUTH_URL: https://codetether.run
-          SENDGRID_API_KEY: ""
-          SENDGRID_FROM_EMAIL: noreply@codetether.run
-        apiProxy:
-          enabled: true
-          backendService: codetether-a2a-server
-          backendPort: 8000
+        rolloutId: qf-auth-202605270346
+        service:
+          port: 3000
+          targetPort: 3000
+          type: ClusterIP
+    path: chart/a2a-server/charts/marketing
+    repoURL: git@github.com:rileyseaburg/codetether.git
+    targetRevision: 02f2edbdb0e7c49e849e35400990e2defe5520d9
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
-      - ApplyOutOfSyncOnly=true
-      - PruneLast=true
+    - CreateNamespace=true
+    - ServerSideApply=true
+    - ApplyOutOfSyncOnly=true
+    - PruneLast=true
