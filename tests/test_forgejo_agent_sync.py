@@ -4,7 +4,6 @@ import pytest
 
 from a2a_server import forgejo_agent_client
 from a2a_server import forgejo_task_completion as completion
-from a2a_server import session_view
 
 
 @pytest.mark.asyncio
@@ -32,11 +31,9 @@ async def test_sync_terminal_task_updates_forgejo_and_publishes_transcript(
         publishes.append(kwargs)
         return 2
 
-    monkeypatch.setattr(session_view, '_task_messages', fake_messages)
-    monkeypatch.setattr(forgejo_agent_client, 'update_task', fake_update)
-    monkeypatch.setattr(
-        forgejo_agent_client, 'publish_session_events', fake_publish
-    )
+    monkeypatch.setattr(completion, '_task_messages', fake_messages)
+    monkeypatch.setattr(completion, 'update_task', fake_update)
+    monkeypatch.setattr(completion, 'publish_session_events', fake_publish)
 
     task = {
         'id': 'codetether-77',
@@ -104,7 +101,10 @@ async def test_dispatch_creates_forgejo_task_before_codetether_and_links_it(
             'clone_url': 'https://forgejo.example/acme/widgets.git',
         }
 
-    async def fake_workspace(ctx, clone_url, branch, token):
+    async def fake_workspace(
+        ctx, clone_url, branch, token, *, workspace_branch=None
+    ):
+        assert workspace_branch == 'codetether/issue-7'
         return 'workspace-1'
 
     async def fake_routing():

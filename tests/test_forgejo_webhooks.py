@@ -228,46 +228,43 @@ async def test_ignores_bot_authored_comment(app, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_non_fix_mention_posts_guidance(app, monkeypatch):
-    comments = []
+async def test_non_fix_mention_is_durable_before_guidance(app, monkeypatch):
+    from a2a_server import forgejo_inbox
 
-    async def inactive(*args):
-        return False
+    async def accept(event, ctx, base):
+        assert ctx['body'] == '@codetether hello'
+        return {'accepted': True, 'state': 'pending'}
 
     async def comment(*args):
-        comments.append(args)
+        raise AssertionError('external effects must follow durable intake')
 
-    monkeypatch.setattr(fw, '_active_task', inactive)
+    monkeypatch.setattr(forgejo_inbox, 'accept', accept)
     monkeypatch.setattr(fw, '_comment', comment)
     response = await _post(app, _payload('@codetether hello'))
-    assert response.json() == {'accepted': False, 'reason': 'non-fix mention'}
-    assert 'Ask me explicitly' in comments[0][3]
+    assert response.json() == {'accepted': True, 'state': 'pending'}
 
 
 @pytest.mark.asyncio
-async def test_actionable_issue_dispatches_and_acknowledges(app, monkeypatch):
-    comments = []
+async def test_actionable_issue_is_acknowledged_only_after_receipt(
+    app, monkeypatch
+):
+    from a2a_server import forgejo_inbox
 
-    async def inactive(*args):
-        return False
-
-    async def dispatch(ctx, base):
+    async def accept(event, ctx, base):
         assert ctx['repo'] == 'owner/repo'
         assert ctx['number'] == 12
         assert not ctx['is_pr']
         assert base == 'https://forge.example/api/v1'
-        return {'accepted': True, 'clone_task_id': 'task-1'}
+        return {'accepted': True, 'delivery_id': 'receipt-1'}
 
     async def comment(*args):
-        comments.append(args)
+        raise AssertionError('external effects must follow durable intake')
 
-    monkeypatch.setattr(fw, '_active_task', inactive)
-    monkeypatch.setattr(fw, '_dispatch', dispatch)
+    monkeypatch.setattr(forgejo_inbox, 'accept', accept)
     monkeypatch.setattr(fw, '_comment', comment)
     response = await _post(app, _payload())
     assert response.status_code == 200
-    assert response.json() == {'accepted': True, 'clone_task_id': 'task-1'}
-    assert 'Picked this up' in comments[0][3]
+    assert response.json() == {'accepted': True, 'delivery_id': 'receipt-1'}
 
 
 def test_opened_issue_body_is_normalized_as_actionable_context():
@@ -285,6 +282,7 @@ def test_opened_issue_body_is_normalized_as_actionable_context():
 
 @pytest.mark.asyncio
 async def test_issue_dispatch_isolates_workspace_by_work_branch(monkeypatch):
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
     ensure_calls = []
     workflows = []
 
@@ -372,13 +370,15 @@ async def test_issue_dispatch_isolates_workspace_by_work_branch(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_pr_comment_is_normalized_as_pr(app, monkeypatch):
+    from a2a_server import forgejo_inbox
+
     payload = _payload('@codetether fix the tests')
     payload['issue']['pull_request'] = {'merged': False}
 
     async def inactive(*args):
         return False
 
-    async def dispatch(ctx, base):
+    async def dispatch(event, ctx, base):
         assert ctx['is_pr']
         return {'accepted': True}
 
@@ -386,7 +386,7 @@ async def test_pr_comment_is_normalized_as_pr(app, monkeypatch):
         return None
 
     monkeypatch.setattr(fw, '_active_task', inactive)
-    monkeypatch.setattr(fw, '_dispatch', dispatch)
+    monkeypatch.setattr(forgejo_inbox, 'accept', dispatch)
     monkeypatch.setattr(fw, '_comment', comment)
     assert (await _post(app, payload)).json() == {'accepted': True}
 

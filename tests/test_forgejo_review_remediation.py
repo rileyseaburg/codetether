@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from types import SimpleNamespace
 
@@ -209,6 +210,19 @@ async def test_activity_resumes_author_session_and_preserves_checklist(
     async def fake_route():
         return {'model_ref': 'openai-codex/gpt-test'}
 
+    @asynccontextmanager
+    async def fake_ownership(request):
+        yield
+
+    async def fake_checkpoint(task_id):
+        return {'id': task_id, 'metadata': dispatched[-1]['metadata']}
+
+    async def no_legacy_stage(request):
+        return None
+
+    monkeypatch.setattr(activities, '_legacy_stage_task_id', no_legacy_stage)
+    monkeypatch.setattr(activities, '_execution_ownership', fake_ownership)
+    monkeypatch.setattr(activities, '_codetether_task', fake_checkpoint)
     monkeypatch.setattr(activities, '_forgejo_context', fake_context)
     monkeypatch.setattr(
         'a2a_server.persistent_worker_pool.create_and_dispatch_task',

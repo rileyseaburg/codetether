@@ -45,10 +45,13 @@ async def test_resolve_task_target_prefers_persistent_workspace_capability(
     )
     monkeypatch.setattr(routing, 'PREFERRED_AGENTS', ('knative-worker',))
 
-    assert await routing.resolve_task_target() == {
-        'target_agent_name': 'harvester-a',
+    # Discovery verifies availability, not affinity: another capable replica
+    # must remain eligible to claim this request.
+    route = await routing.resolve_task_target()
+    assert route == {
         'required_capabilities': ['persistent-workspace'],
     }
+    assert 'target_agent_name' not in route
 
 
 @pytest.mark.asyncio
