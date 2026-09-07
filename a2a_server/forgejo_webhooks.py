@@ -11,6 +11,8 @@ import hmac
 import importlib
 import os
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 from urllib.parse import quote, urlparse
 
@@ -25,7 +27,19 @@ from a2a_server.github_app.workspace import workspace_id
 from a2a_server.session_view import session_view_router
 
 
-forgejo_webhook_router = APIRouter(tags=['forgejo'])
+@asynccontextmanager
+async def _inbox_lifespan(app) -> AsyncIterator[None]:
+    """Resume intake independently of webhook traffic or terminal reconciliation."""
+    from a2a_server.forgejo_inbox_worker import start, stop
+
+    start()
+    try:
+        yield
+    finally:
+        await stop()
+
+
+forgejo_webhook_router = APIRouter(tags=['forgejo'], lifespan=_inbox_lifespan)
 forgejo_webhook_router.include_router(session_view_router)
 
 
@@ -287,25 +301,24 @@ async def _ensure_workspace(
 
 
 async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
+    from a2a_server.forgejo_inbox_dispatch import prepare_plan
     from a2a_server.persistent_worker_pool import create_and_dispatch_task
+    from a2a_server.temporal.config import temporal_settings
+
+    if temporal_settings().enabled and _setting('FORGEJO_API_URL').rstrip(
+        '/'
+    ) != base.rstrip('/'):
+        raise HTTPException(
+            503,
+            'Temporal Forgejo handoff requires the configured FORGEJO_API_URL',
+        )
 
     repo = ctx['repo']
-    owner, name = repo.split('/', 1)
-    repo_data = await forgejo_json(
-        'GET', base, f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
-    )
-    default_branch = str(repo_data.get('default_branch') or 'main')
-    branch = default_branch
-    head_sha = ''
-    if ctx['is_pr']:
-        pr = await forgejo_json(
-            'GET',
-            base,
-            f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}/pulls/{ctx["number"]}',
-        )
-        head = pr.get('head') or {}
-        branch = str(head.get('ref') or default_branch)
-        head_sha = str(head.get('sha') or '')
+    plan = ctx.get('_dispatch_plan') or await prepare_plan(ctx, base)
+    repo_data = plan['repo_data']
+    default_branch = plan['default_branch']
+    branch = plan['branch']
+    head_sha = plan['head_sha']
     clone_url = str(
         repo_data.get('clone_url') or ctx['repo_data'].get('clone_url') or ''
     )
@@ -319,13 +332,6 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
     # prevent every later issue for the repository from checking out its branch.
     workspace_options = (
         {} if ctx['is_pr'] else {'workspace_branch': work_branch}
-    )
-    wid = await _ensure_workspace(
-        ctx,
-        clone_url,
-        branch,
-        _token(),
-        **workspace_options,
     )
     kind = 'pull request' if ctx['is_pr'] else 'issue'
     prompt = f"""Handle Forgejo {kind} #{ctx['number']} in {repo}.
@@ -358,8 +364,27 @@ Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from 
     )
     forgejo_agent_task_id = int(forgejo_agent_task['id'])
     forgejo_agent_task_url = str(forgejo_agent_task['html_url'])
+    if ctx.get('_inbox_id'):
+        from a2a_server.forgejo_inbox_dispatch import bind_native
 
-    from a2a_server.temporal.config import temporal_settings
+        await bind_native(ctx['_inbox_id'], forgejo_agent_task_id)
+
+    if forgejo_agent_task.get('status') in {'completed', 'failed', 'cancelled'}:
+        return {
+            'accepted': True,
+            'forgejo_agent_task_id': forgejo_agent_task_id,
+            'forgejo_agent_task_url': forgejo_agent_task_url,
+            'existing_task_status': forgejo_agent_task['status'],
+        }
+    # Create the native task before Vault-dependent workspace setup. Failed
+    # preparation remains visible and retries reuse the provider idempotency key.
+    wid = await _ensure_workspace(
+        ctx,
+        clone_url,
+        branch,
+        _token(),
+        **workspace_options,
+    )
 
     if temporal_settings().enabled:
         from a2a_server.forgejo_agent_client import (
@@ -592,33 +617,7 @@ async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
     if not ctx:
         return {'accepted': False, 'reason': 'unsupported-or-no-mention'}
     base = _api_base(payload)
-    # A repository hook and the instance-wide system hook can both target this
-    # endpoint, delivering the same comment id milliseconds apart. Claim the
-    # delivery atomically so only one of them answers the mention.
-    from .forgejo_delivery_claim import claim_delivery
+    from a2a_server.forgejo_inbox import accept
 
-    claimed, delivery = await claim_delivery(event, ctx)
-    if not claimed:
-        return {
-            'accepted': False,
-            'reason': 'duplicate-delivery',
-            'delivery_key': delivery,
-        }
-    if await _active_task(ctx['repo'], ctx['number']):
-        return {'accepted': False, 'reason': 'active-task-exists'}
-    if not is_fix_request(ctx['body']):
-        await _comment(
-            base,
-            ctx['repo'],
-            ctx['number'],
-            '## 🤖 CodeTether\n\nI saw the mention. Ask me explicitly to fix, implement, handle, update, or otherwise change the code, for example: `@codetether handle this issue`.',
-        )
-        return {'accepted': False, 'reason': 'non-fix mention'}
-    result = await _dispatch(ctx, base)
-    await _comment(
-        base,
-        ctx['repo'],
-        ctx['number'],
-        "## 🛠️ CodeTether Fix\n\nPicked this up. I'm preparing the Forgejo workspace and will report progress here.",
-    )
-    return result
+    # No external side effects until the immutable receipt is committed.
+    return await accept(event, ctx, base)

@@ -31,6 +31,8 @@ _FIX_TERMS = (
     'check failed', 'checks failed', 'failing check', 'failing checks',
     'ci failed', 'ci failure', 'failing ci', 'tests failed', 'test failed',
     'lint failed', 'typecheck failed', 'workflow failed', 'action failed',
+    # A direct @mention reporting a failed attempt is an explicit retry request.
+    'still not working', 'still broken', 'still failing',
     # Plain assignment language. Operators say "work on this" or "take this"
     # far more often than any of the verbs above; without these the bot
     # answered "ask me explicitly" to a clearly explicit request.

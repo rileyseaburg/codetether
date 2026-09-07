@@ -1,4 +1,4 @@
-"""Exactly-once handling of Forgejo webhook deliveries.
+"""Duplicate suppression for Forgejo webhook deliveries.
 
 Forgejo can deliver the same event through more than one hook: a repository hook
 and an instance-wide system hook both pointing at this endpoint. Both carry the
@@ -8,13 +8,16 @@ loses the race and the bot answers the same mention twice.
 `claim_delivery` performs an atomic insert. The first delivery to insert its key
 wins and proceeds; every duplicate sees the conflict and stops. The claim is
 keyed on the event's own identity (comment id, or issue number for an opened
-issue), so a genuinely new mention is never suppressed.
+issue), so a genuinely new mention is never suppressed. Failed handlers release
+their owned claims so redeliveries can retry unfinished work.
 """
 
 from __future__ import annotations
 
 import logging
+
 from typing import Any, Mapping, Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +83,11 @@ async def claim_delivery(
 
     from . import database as db
 
+    owned_key = None
     try:
         pool = await db.get_pool()
         if not pool:
-            return True, key
+            return True, None
         async with pool.acquire() as conn:
             await ensure_table(conn)
             claimed = await conn.fetchval(
@@ -105,13 +109,39 @@ async def claim_delivery(
                     key,
                 )
                 return False, key
+            owned_key = key
             await conn.execute(
-                f"DELETE FROM {_TABLE} WHERE claimed_at < now() - interval"
+                f'DELETE FROM {_TABLE} WHERE claimed_at < now() - interval'
                 f" '{RETENTION_HOURS} hours'"
             )
     except Exception as exc:
         # Never lose real work because the claim store misbehaved.
         logger.warning('Delivery claim failed for %s: %s', key, exc)
-        return True, key
+        return True, owned_key
 
     return True, key
+
+
+async def release_delivery(key: str | None) -> None:
+    """Release an owned claim on failure without masking the original error.
+
+    Fail-open deliveries have no owned key; they must not delete a concurrent
+    request's claim. Successful handlers retain their duplicate suppression.
+    """
+    if key is None:
+        return
+
+    # Keep database configuration lazy, as in claim_delivery.
+    from a2a_server import database as db  # noqa: PLC0415
+
+    try:
+        pool = await db.get_pool()
+        if not pool:
+            logger.error('Cannot release Forgejo delivery %s: no database', key)
+            return
+        async with pool.acquire() as conn:
+            await conn.execute(
+                f'DELETE FROM {_TABLE} WHERE delivery_key = $1', key
+            )
+    except Exception:
+        logger.exception('Could not release failed Forgejo delivery %s', key)

@@ -6,7 +6,11 @@ CodeTether exposes a native Forgejo-compatible webhook at:
 POST /v1/webhooks/forgejo
 ```
 
-It accepts both Forgejo (`X-Forgejo-*`) and Gitea-compatible (`X-Gitea-*`) event headers. Issue comments and pull-request conversation comments containing an actionable request such as `@codetether handle this issue` create a durable clone/build task and receive an acknowledgement comment.
+It accepts Forgejo (`X-Forgejo-*`) and Gitea-compatible (`X-Gitea-*`) headers.
+Mentions in newly opened issues, issue comments, and PR conversation comments
+are committed to a durable inbox before any external operation. The response
+contains a `delivery_id` and intake state; it is not proof of task completion.
+See [durable intake and orphan recovery](operations/forgejo-inbox.md).
 
 ## CodeTether configuration
 
@@ -29,19 +33,19 @@ In **Repository settings → Webhooks → Add webhook → Forgejo**, configure:
 - **HTTP method:** `POST`
 - **Content type:** `application/json`
 - **Secret:** the same value as `FORGEJO_WEBHOOK_SECRET`
-- **Events:** Issue comment events (Forgejo PR conversation comments use the issue-comment payload)
+- **Events:** Issues and issue comments (Forgejo PR conversations use issue-comment payloads).
 - **Active:** enabled
 
 Use Forgejo's webhook test delivery and confirm an HTTP 200 response. A bad signature returns 401; missing server configuration returns 503.
 
 ## Supported behavior
 
-- New actionable mentions dispatch work.
+- New actionable mentions queue durable work, including `@codetether still not working` retries.
 - Editing a comment to add the first mention dispatches work.
 - Editing an already-mentioned comment does not dispatch duplicate work.
 - Bot-authored comments are ignored to prevent loops.
 - Non-actionable mentions receive guidance.
-- Active work for the same repository issue/PR is deduplicated.
+- Duplicate deliveries reuse one receipt. Distinct mentions wait for prior issue/PR work rather than disappearing behind an active-task check.
 - Issue requests create a `codetether/issue-<number>` branch and instruct the worker to open a Forgejo PR.
 - PR requests target the current PR head branch.
 - Forgejo metadata remains tagged as `source=forgejo-webhook` and `platform=forgejo`; it is not represented as GitHub work.
@@ -54,12 +58,13 @@ Post this in a Forgejo issue or PR conversation:
 @codetether handle this issue
 ```
 
-Expected immediate reply:
+Expected receipt notification from the inbox worker (after durable acceptance,
+independent of Vault/workspace preparation):
 
 ```text
 ## 🛠️ CodeTether Fix
 
-Picked this up. I'm preparing the Forgejo workspace and will report progress here.
+Your request is queued durably.
 ```
 
 Then confirm a task with metadata `source=forgejo-webhook`, the expected repository and issue number, and a connected worker with the `persistent-workspace` capability.
