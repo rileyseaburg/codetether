@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -148,6 +149,15 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
     async def fake_progress(request, **kwargs):
         progress.append((request, kwargs))
 
+    @asynccontextmanager
+    async def fake_ownership(request):
+        yield
+
+    async def fake_checkpoint(task_id):
+        return {'id': task_id, 'metadata': dispatched[-1]['metadata']}
+
+    monkeypatch.setattr(activities, '_execution_ownership', fake_ownership)
+    monkeypatch.setattr(activities, '_codetether_task', fake_checkpoint)
     monkeypatch.setattr(activities, '_forgejo_context', fake_context)
     monkeypatch.setattr(
         'a2a_server.github_app.routing.resolve_task_target',
