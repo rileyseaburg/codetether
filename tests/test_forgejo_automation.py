@@ -265,6 +265,7 @@ async def test_changes_requested_creates_exactly_one_fix(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_failed_third_party_status_creates_deduped_fix(monkeypatch):
+    monkeypatch.setenv('FORGEJO_STATUS_REMEDIATION_ENABLED', 'true')
     dispatched = []
 
     class Connection:
@@ -292,6 +293,12 @@ async def test_failed_third_party_status_creates_deduped_fix(monkeypatch):
         dispatched.append(kwargs)
         return 'status-fix-1'
 
+    async def current_pr(method, base, path, payload=None):
+        assert method == 'GET'
+        assert path == '/repos/owner/repo/pulls/5'
+        return PR
+
+    monkeypatch.setattr(automation, 'forgejo_json', current_pr)
     monkeypatch.setattr(forgejo_webhooks, '_ensure_workspace', fake_ensure)
     monkeypatch.setattr(forgejo_webhooks, '_token', lambda: 'token')
     monkeypatch.setattr(
@@ -318,6 +325,13 @@ async def test_failed_third_party_status_creates_deduped_fix(monkeypatch):
     assert dispatched[0]['workspace_id'] == 'ws-status'
     assert dispatched[0]['priority'] == TASK_PRIORITY
     assert dispatched[0]['metadata']['forgejo_status_context'] == 'tests'
+    assert dispatched[0]['agent_type'] == 'clone_repo'
+    followup = dispatched[0]['metadata']['post_clone_task']
+    assert followup['agent_type'] == 'build'
+    assert followup['metadata']['git_branch'] == 'feature'
+    assert followup['metadata']['git_url']
+    assert 'Do not scan sibling checkouts' in followup['prompt']
+    assert 'Do not revert others changes' in followup['prompt']
 
     self_status = {**status, 'creator': {'login': 'codetether-bot'}}
     assert (

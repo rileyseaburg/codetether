@@ -156,14 +156,15 @@ def _legacy_terminal_message(
         return message
     if status == 'completed':
         message = (
-            '## 🛠️ CodeTether Fix\n\nCompleted and pushed the requested changes.'
+            '## 🛠️ CodeTether task\n\n'
+            'The worker reported completion. This alone does not prove '
+            'that changes were pushed or that CI succeeded.'
         )
         if followup_task_id:
             message += f'\n\nQueued review task `{followup_task_id}`.'
         return message
     return (
-        f'## ⚠️ CodeTether {stage.title()}\n\n'
-        f'Task ended with status `{status}`.'
+        f'## ⚠️ CodeTether {stage.title()}\n\nTask ended with status `{status}`.'
     )
 
 
@@ -207,12 +208,10 @@ async def notify_forgejo_task_completion(task: dict) -> None:
     ):
         return
 
-    detail = str(task.get('result') or task.get('error') or '').strip()
     message = _legacy_terminal_message(
         stage, status, review_evidence, followup_task_id
     )
-    if detail:
-        message += f'\n\n{detail}'
+    # Full narration belongs in the linked run, not in the PR conversation.
     message += _task_footer(task_id, metadata)
     message += f'\n\n{marker}'
     await forgejo_json('POST', base, issue_path, {'body': message})

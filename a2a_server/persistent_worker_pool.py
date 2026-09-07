@@ -243,7 +243,12 @@ async def create_and_dispatch_task(
     if work_key and effective_metadata.get('source') == 'github-app':
         effective_metadata['github_work_key'] = work_key
 
-    async with _github_work_dedupe_lock(effective_metadata) as locked_work_key:
+    from a2a_server.forgejo_writer_guard import single_writer
+
+    async with (
+        single_writer(effective_metadata),
+        _github_work_dedupe_lock(effective_metadata) as locked_work_key,
+    ):
         existing_task_id = await _active_github_work_task_id(locked_work_key)
         if existing_task_id:
             if effective_metadata.get('source') == 'forgejo-webhook':

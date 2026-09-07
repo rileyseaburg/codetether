@@ -44,8 +44,10 @@ async def test_posts_completed_forgejo_terminal_comment(monkeypatch):
 
     assert [call[0] for call in calls] == ['GET', 'POST']
     body = calls[1][3]['body']
-    assert 'Completed and pushed' in body
-    assert 'Pushed commit abc123.' in body
+    assert 'The worker reported completion' in body
+    assert 'Completed and pushed' not in body
+    assert 'Pushed commit abc123.' not in body
+    assert len(body) < 1000
     assert (
         '[View session](https://api.codetether.run/sessions/tasks/task-1?'
         in body

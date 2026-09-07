@@ -91,8 +91,9 @@ def harness(monkeypatch):
             yield Connection()
 
     db = SimpleNamespace(get_pool=AsyncMock(return_value=Pool()))
-    monkeypatch.setitem(sys.modules, 'a2a_server.database', db)
+    # Capture the real lazy package attribute before replacing sys.modules.
     monkeypatch.setattr(a2a_server, 'database', db, raising=False)
+    monkeypatch.setitem(sys.modules, 'a2a_server.database', db)
     bridge = SimpleNamespace(
         get_workspace=lambda wid: {'id': wid},
         create_task=AsyncMock(
@@ -100,8 +101,8 @@ def harness(monkeypatch):
         ),
     )
     monitor = SimpleNamespace(get_agent_bridge=lambda: bridge)
-    monkeypatch.setitem(sys.modules, 'a2a_server.monitor_api', monitor)
     monkeypatch.setattr(a2a_server, 'monitor_api', monitor, raising=False)
+    monkeypatch.setitem(sys.modules, 'a2a_server.monitor_api', monitor)
     monkeypatch.setattr(worker, '_github_work_dedupe_lock', lock)
     monkeypatch.setattr(
         worker,

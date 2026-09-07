@@ -9,6 +9,11 @@ from urllib.parse import quote
 
 from fastapi import HTTPException
 
+from a2a_server.forgejo_automation_policy import (
+    pr_is_paused,
+    self_review_status,
+    status_remediation_enabled,
+)
 from a2a_server.github_app.issue_review_task import reviewer_verdict
 from a2a_server.github_app.settings import MODEL_REF, TASK_PRIORITY
 
@@ -33,7 +38,9 @@ def review_marker(task_id: str) -> str:
 
 
 def remediation_key(repo: str, pr_number: int, sha: str, context: str) -> str:
-    return f'forgejo:{repo}:{pr_number}:status-fix:{sha}:{context}'
+    # Wrapper and child checks for one head are one repair, not two writers.
+    del context
+    return f'forgejo:{repo}:{pr_number}:status-fix:{sha}'
 
 
 def review_event(review_task: dict[str, Any]) -> str:
@@ -70,8 +77,8 @@ def is_self_status(status: dict[str, Any]) -> bool:
     creator = status.get('creator') or {}
     login = str(creator.get('login') or creator.get('username') or '').lower()
     context = str(status.get('context') or '').lower()
-    return login in {'codetether', 'codetether-bot'} or context.startswith(
-        'codetether/'
+    return login in {'codetether', 'codetether-bot'} or self_review_status(
+        context
     )
 
 
@@ -409,15 +416,26 @@ async def create_forgejo_fix_followup(
 async def create_status_remediation_task(
     *, base: str, repo: str, pr: dict[str, Any], status: dict[str, Any]
 ) -> str | None:
+    if not status_remediation_enabled():
+        return None
     if not is_failed_status(status) or is_self_status(status):
         return None
     pr_number = int(pr.get('number') or pr.get('index') or 0)
+    if pr_is_paused(repo, pr_number):
+        return None
     head = pr.get('head') or {}
     sha = str(head.get('sha') or '')
     branch = str(head.get('ref') or '')
     context = str(status.get('context') or 'unknown')
     work_key = remediation_key(repo, pr_number, sha, context)
     if not (pr_number and sha and branch) or await _task_exists(work_key):
+        return None
+    current = await forgejo_json(
+        'GET', base, f'{_repo_path(repo)}/pulls/{pr_number}'
+    )
+    if (current.get('head') or {}).get('sha') != sha:
+        return None
+    if current.get('state') == 'closed' or current.get('mergeable') is False:
         return None
 
     from a2a_server.persistent_worker_pool import create_and_dispatch_task
@@ -460,6 +478,8 @@ async def create_status_remediation_task(
         'forgejo_status_context': context,
         'forgejo_status_target_url': target_url,
         'forgejo_work_key': work_key,
+        'git_url': clone_url,
+        'git_branch': branch,
         **routing,
     }
     prompt = (
@@ -467,15 +487,35 @@ async def create_status_remediation_task(
         f'Description: {detail}\nTarget: {target_url}\n\n'
         'Inspect the failing check evidence, edit the existing branch, run focused '
         'validation, commit, and push. Do not open a duplicate pull request.'
+        ' Do not scan sibling checkouts or substitute a different repository. '
+        'If the prepared workspace is missing, stop with a workspace error. '
+        'Use the repository-declared registry, CI workflow, and commands; do not '
+        'assume Docker Hub. Do not revert others changes, rebase, or force-push. '
+        'If the remote head moved, stop and report superseded work.'
     )
+    # Workspace paths are node-local. Prepare through the canonical clone
+    # workflow before sending any implementation prompt to a model.
+    prepare_metadata = {
+        **metadata,
+        'workflow_stage': 'prepare',
+        'forgejo_work_key': work_key + ':prepare',
+        'post_clone_task': {
+            'title': f'Fix Forgejo status {context} on PR #{pr_number}',
+            'prompt': prompt,
+            'agent_type': 'build',
+            'priority': TASK_PRIORITY,
+            'model_ref': MODEL_REF,
+            'metadata': metadata,
+        },
+    }
     return await create_and_dispatch_task(
         workspace_id=workspace_id,
-        title=f'Fix Forgejo status {context} on PR #{pr_number}',
-        prompt=prompt,
-        agent_type='build',
+        title=f'Prepare Forgejo status repair on PR #{pr_number}',
+        prompt=f'Prepare {repo} at {branch} for the requested status repair.',
+        agent_type='clone_repo',
         priority=TASK_PRIORITY,
         model_ref=MODEL_REF,
-        metadata=metadata,
+        metadata=prepare_metadata,
         task_timeout_seconds=TASK_TIMEOUT_SECONDS,
         github_issue_url=metadata['forgejo_issue_url'],
     )
@@ -483,6 +523,8 @@ async def create_status_remediation_task(
 
 async def reconcile_forgejo_failures(limit: int = 20) -> int:
     """Recover missed status deliveries and support unpatched Forgejo servers."""
+    if not status_remediation_enabled():
+        return 0
     from a2a_server import database as db
 
     pool = await db.get_pool()
