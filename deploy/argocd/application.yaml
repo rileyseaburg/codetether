@@ -174,7 +174,7 @@ spec:
           # 402 ("Insufficient credits"), which correctly is not retried and so
           # failed tasks outright. Use the Vault-backed ChatGPT Codex backend,
           # which workers opt into under harvester.extraEnv below.
-          GITHUB_APP_MODEL_REF: openai-codex/gpt-5.6-luna-fast:max
+          GITHUB_APP_MODEL_REF: openai-codex/gpt-6-astra-fast:high
           GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
@@ -223,7 +223,7 @@ spec:
             tokenSecret:
               name: ""
           defaultProvider: openai-codex
-          defaultModel: openai-codex/gpt-5.6-luna-fast:max
+          defaultModel: openai-codex/gpt-6-astra-fast:high
           providerSecrets:
             envFrom:
               - secretRef:
