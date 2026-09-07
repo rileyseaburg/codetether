@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import os
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from functools import wraps
 from typing import Any, Callable
 from urllib.parse import quote
@@ -206,6 +208,28 @@ async def _report_stage_progress_safely(
         )
 
 
+@asynccontextmanager
+async def _execution_ownership(
+    request: ForgejoStageRequest,
+) -> AsyncIterator[None]:
+    """Fence execution against newer inbox owners through durable handoff.
+
+    Import intake lazily so workflow sandbox loading never imports its database
+    integration. Ownership rejection must propagate rather than dispatch work.
+    """
+    from a2a_server.forgejo_inbox import execution_ownership  # noqa: PLC0415
+
+    workflow = request.workflow
+    async with execution_ownership(
+        workflow.repository,
+        workflow.issue_number,
+        workflow.forgejo_task_id,
+        os.environ.get('FORGEJO_API_URL', '').rstrip('/'),
+        attempt=workflow.attempt,
+    ):
+        yield
+
+
 def _temporal_metadata(
     request: ForgejoStageRequest,
     *,
@@ -238,7 +262,9 @@ def _temporal_metadata(
         'fix_attempt': request.fix_attempt or None,
         'forgejo_work_key': (
             f'forgejo-temporal:{workflow.forgejo_task_id}:'
-            f'{workflow.attempt}:{request.stage}:{head_sha or branch}'
+            # Bind the invocation, not the mutable PR head, across retries.
+            f'{workflow.attempt}:{request.stage}:{request.fix_attempt}:'
+            f'{request.parent_task_id}:{request.review_task_id}'
         ),
     }
 
@@ -353,17 +379,26 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
     else:
         raise ValueError(f'unsupported direct stage: {request.stage}')
 
-    task_id = await create_and_dispatch_task(
-        workspace_id=request.workflow.workspace_id,
-        title=title,
-        prompt=prompt,
-        agent_type=agent_type,
-        priority=500 if request.stage == 'remediate' else 100,
-        model_ref=MODEL_REF,
-        metadata=metadata,
-        task_timeout_seconds=604800,
-        github_issue_url=metadata.get('forgejo_issue_url') or None,
-    )
+    async with _execution_ownership(request):
+        task_id = await create_and_dispatch_task(
+            workspace_id=request.workflow.workspace_id,
+            title=title,
+            prompt=prompt,
+            agent_type=agent_type,
+            priority=500 if request.stage == 'remediate' else 100,
+            model_ref=MODEL_REF,
+            metadata=metadata,
+            task_timeout_seconds=604800,
+            github_issue_url=metadata.get('forgejo_issue_url') or None,
+        )
+    # A deduplicated task may belong to an earlier activity attempt. Its saved
+    # checkpoint is authoritative, even if the PR advanced after dispatch.
+    # Missing checkpoint values must not fall back to today's mutable PR head.
+    task = await _codetether_task(str(task_id))
+    checkpoint = task.get('metadata') or {}
+    branch = str(checkpoint.get('branch_name') or '')
+    head_sha = str(checkpoint.get('pr_head_sha') or '')
+    pull_number = int(checkpoint.get('pr_number') or 0)
     await update_task(
         repo=request.workflow.repository,
         task_id=request.workflow.forgejo_task_id,
@@ -395,7 +430,8 @@ async def dispatch_review(request: ForgejoStageRequest) -> ForgejoStageResult:
     from a2a_server.forgejo_automation import create_forgejo_review_task
 
     parent = await _codetether_task(request.parent_task_id)
-    task_id = await create_forgejo_review_task(parent)
+    async with _execution_ownership(request):
+        task_id = await create_forgejo_review_task(parent)
     if not task_id:
         raise RuntimeError('Forgejo review task was not created')
     task = await _codetether_task(str(task_id))
@@ -437,7 +473,8 @@ async def dispatch_fix(request: ForgejoStageRequest) -> ForgejoStageResult:
     from a2a_server.forgejo_automation import create_forgejo_fix_followup
 
     review_task = await _codetether_task(request.review_task_id)
-    task_id = await create_forgejo_fix_followup(review_task)
+    async with _execution_ownership(request):
+        task_id = await create_forgejo_fix_followup(review_task)
     if not task_id:
         raise RuntimeError('Forgejo fix task was not created')
     task = await _codetether_task(str(task_id))
