@@ -156,6 +156,10 @@ async def test_temporal_stage_dispatch_uses_requested_openai_codex_model(
     async def fake_checkpoint(task_id):
         return {'id': task_id, 'metadata': dispatched[-1]['metadata']}
 
+    async def no_legacy_stage(request):
+        return None
+
+    monkeypatch.setattr(activities, '_legacy_stage_task_id', no_legacy_stage)
     monkeypatch.setattr(activities, '_execution_ownership', fake_ownership)
     monkeypatch.setattr(activities, '_codetether_task', fake_checkpoint)
     monkeypatch.setattr(activities, '_forgejo_context', fake_context)

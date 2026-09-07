@@ -230,6 +230,85 @@ async def _execution_ownership(
         yield
 
 
+async def _legacy_stage_task_id(request: ForgejoStageRequest) -> str | None:
+    """Find an unambiguous pre-rollout direct-stage invocation, across statuses.
+
+    Legacy keys have one SHA/branch suffix, with no further colon components.
+    Match only immutable metadata; even the saved head may change at completion.
+    Missing storage or ambiguous history must not turn into fresh dispatch.
+    """
+    from a2a_server import database as db  # noqa: PLC0415
+
+    pool = await db.get_pool()
+    if pool is None:
+        raise RuntimeError('Stage migration lookup requires database storage')
+    workflow = request.workflow
+    prefix = (
+        f'forgejo-temporal:{workflow.forgejo_task_id}:'
+        f'{workflow.attempt}:{request.stage}:'
+    )
+    async with pool.acquire() as conn:
+        candidates = await conn.fetch(
+            """SELECT id FROM tasks
+               WHERE metadata->>'source' = 'forgejo-webhook'
+                 AND metadata->>'temporal_orchestrated' = 'true'
+                 AND metadata->>'repo' = $1
+                 AND metadata->>'issue_number' = $2
+                 AND metadata->>'forgejo_agent_task_id' = $3
+                 AND metadata->>'temporal_attempt' = $4
+                 AND metadata->>'workflow_stage' = $5
+                 AND COALESCE(NULLIF(metadata->>'fix_attempt', ''), '0') = $6
+                 AND COALESCE(metadata->>'parent_task_id', '') = $7
+                 AND COALESCE(metadata->>'review_task_id', '') = $8
+                 AND left(metadata->>'forgejo_work_key',
+                     length($9::text)) = $9
+                 AND length(metadata->>'forgejo_work_key') > length($9::text)
+                 AND strpos(substring(metadata->>'forgejo_work_key'
+                     FROM length($9::text) + 1), ':') = 0
+               ORDER BY id LIMIT 2""",
+            workflow.repository,
+            str(workflow.issue_number),
+            str(workflow.forgejo_task_id),
+            str(workflow.attempt),
+            request.stage,
+            str(request.fix_attempt),
+            request.parent_task_id or '',
+            request.review_task_id or '',
+            prefix,
+        )
+    if len(candidates) > 1:
+        raise RuntimeError('Ambiguous legacy Temporal stage invocation')
+    return str(candidates[0]['id']) if candidates else None
+
+
+async def _reuse_legacy_stage(request: ForgejoStageRequest) -> str | None:
+    """Reuse legacy work under both issue and original work-key locks.
+
+    The caller holds execution ownership. Do not rewrite the legacy work key:
+    older activity workers and partial-run recovery must serialize on that key.
+    """
+    from a2a_server.persistent_worker_pool import (  # noqa: PLC0415
+        _github_work_dedupe_lock,
+        _reconcile_forgejo_dispatch,
+    )
+
+    task_id = await _legacy_stage_task_id(request)
+    if task_id is None:
+        return None
+    task = await _codetether_task(task_id)
+    metadata = task.get('metadata') or {}
+    async with _github_work_dedupe_lock(metadata):
+        # Recheck after waiting for an old worker's in-flight creation/repair.
+        if await _legacy_stage_task_id(request) != task_id:
+            raise RuntimeError('Legacy Temporal stage changed during migration')
+        await _reconcile_forgejo_dispatch(
+            task_id,
+            604800,
+            metadata.get('forgejo_issue_url') or None,
+        )
+    return task_id
+
+
 def _temporal_metadata(
     request: ForgejoStageRequest,
     *,
@@ -380,17 +459,19 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
         raise ValueError(f'unsupported direct stage: {request.stage}')
 
     async with _execution_ownership(request):
-        task_id = await create_and_dispatch_task(
-            workspace_id=request.workflow.workspace_id,
-            title=title,
-            prompt=prompt,
-            agent_type=agent_type,
-            priority=500 if request.stage == 'remediate' else 100,
-            model_ref=MODEL_REF,
-            metadata=metadata,
-            task_timeout_seconds=604800,
-            github_issue_url=metadata.get('forgejo_issue_url') or None,
-        )
+        task_id = await _reuse_legacy_stage(request)
+        if task_id is None:
+            task_id = await create_and_dispatch_task(
+                workspace_id=request.workflow.workspace_id,
+                title=title,
+                prompt=prompt,
+                agent_type=agent_type,
+                priority=500 if request.stage == 'remediate' else 100,
+                model_ref=MODEL_REF,
+                metadata=metadata,
+                task_timeout_seconds=604800,
+                github_issue_url=metadata.get('forgejo_issue_url') or None,
+            )
     # A deduplicated task may belong to an earlier activity attempt. Its saved
     # checkpoint is authoritative, even if the PR advanced after dispatch.
     # Missing checkpoint values must not fall back to today's mutable PR head.

@@ -67,6 +67,9 @@ def test_stage_identity_excludes_mutable_checkpoint_and_separates_invocations():
 
 @pytest.fixture
 def ownership(monkeypatch):
+    monkeypatch.setattr(
+        activities, '_legacy_stage_task_id', AsyncMock(return_value=None)
+    )
     state = {'held': False, 'calls': []}
 
     @asynccontextmanager
