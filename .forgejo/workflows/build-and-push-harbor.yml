@@ -16,7 +16,8 @@ env:
 
 jobs:
   test-build-push:
-    runs-on: spotlessbinco-k8s
+    # This job requires the pool-provided Docker daemon and Harbor credentials.
+    runs-on: spotlessbinco-k8s-dind
     timeout-minutes: 60
     steps:
       - name: Checkout
