@@ -110,11 +110,7 @@ def _issue_url(repository: str, number: int) -> str:
     origin = api.removesuffix('/api/v1')
     owner, name = repository.split('/', 1)
     issue_url = f'{origin}/{quote(owner, safe="")}/{quote(name, safe="")}'
-    return (
-        f'{issue_url}/issues/{number}'
-        if origin and number
-        else ''
-    )
+    return f'{issue_url}/issues/{number}' if origin and number else ''
 
 
 async def _report_stage_progress(
@@ -150,8 +146,7 @@ async def _report_stage_progress(
     if not isinstance(comments, list):
         comments = []
     if any(
-        marker in str((comment or {}).get('body') or '')
-        for comment in comments
+        marker in str((comment or {}).get('body') or '') for comment in comments
     ):
         return False
 

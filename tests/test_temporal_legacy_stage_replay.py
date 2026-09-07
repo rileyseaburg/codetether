@@ -54,7 +54,7 @@ def _assert_legacy_query(sql, params) -> None:
     assert "COALESCE(metadata->>'parent_task_id', '') = $7" in sql
     assert "COALESCE(metadata->>'review_task_id', '') = $8" in sql
     assert "left(metadata->>'forgejo_work_key'," in sql
-    assert "length($9::text)) = $9" in sql
+    assert 'length($9::text)) = $9' in sql
     assert "length(metadata->>'forgejo_work_key') > length($9::text)" in sql
     assert 'pr_head_sha' not in sql and 'branch_name' not in sql
     assert "strpos(substring(metadata->>'forgejo_work_key'" in sql
