@@ -142,6 +142,59 @@ async def _active_github_work_task_id(work_key: Optional[str]) -> Optional[str]:
     return str(row['id']) if row else None
 
 
+async def _reconcile_forgejo_dispatch(
+    task_id: str,
+    task_timeout_seconds: int,
+    github_issue_url: str | None,
+) -> None:
+    """Repair unstarted Forgejo work while its advisory work-key lock is held.
+
+    The run factory always inserts a run and atomically updates dispatch_mode.
+    Never call it when any run exists, including terminal or polling runs.
+    The task row lock also serializes status updates against this decision.
+    """
+    from a2a_server import database as db  # noqa: PLC0415
+
+    pool = await db.get_pool()
+    if not pool:
+        raise RuntimeError('Database unavailable for Forgejo dispatch recovery')
+    async with pool.acquire() as conn, conn.transaction():
+        task = await conn.fetchrow(
+            """SELECT status, worker_id, started_at, completed_at,
+                      priority, tenant_id
+               FROM tasks WHERE id = $1
+                 AND metadata->>'source' = 'forgejo-webhook'
+               FOR UPDATE""",
+            task_id,
+        )
+        if task is None:
+            raise RuntimeError('Forgejo task missing during dispatch recovery')
+        if (
+            task['status'] not in {'pending', 'queued'}
+            or task['worker_id'] is not None
+            or task['started_at'] is not None
+            or task['completed_at'] is not None
+        ):
+            return
+        has_run = await conn.fetchval(
+            'SELECT EXISTS (SELECT 1 FROM task_runs WHERE task_id = $1)',
+            task_id,
+        )
+        if has_run:
+            return
+        await conn.fetchval(
+            'SELECT create_fire_and_forget_run($1, $2, $3, $4, $5, $6)',
+            task_id,
+            None,
+            task['tenant_id'],
+            task['priority'],
+            min(task_timeout_seconds, PERSISTENT_WORKER_MAX_TIMEOUT),
+            github_issue_url,
+        )
+    # Polling workers discover the durable run even when SSE was lost.
+    logger.info('Recovered missing Forgejo dispatch run for task %s', task_id)
+
+
 async def create_and_dispatch_task(
     workspace_id: str,
     title: str,
@@ -193,6 +246,12 @@ async def create_and_dispatch_task(
     async with _github_work_dedupe_lock(effective_metadata) as locked_work_key:
         existing_task_id = await _active_github_work_task_id(locked_work_key)
         if existing_task_id:
+            if effective_metadata.get('source') == 'forgejo-webhook':
+                await _reconcile_forgejo_dispatch(
+                    existing_task_id,
+                    task_timeout_seconds,
+                    github_issue_url,
+                )
             logger.info(
                 'Reusing active GitHub App task %s for work key %s',
                 existing_task_id,
