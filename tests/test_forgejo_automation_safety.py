@@ -94,6 +94,15 @@ async def test_paused_writer_is_rejected_before_database(monkeypatch):
         ):
             pytest.fail('paused writer admitted')
     assert error.value.status_code == 409
+    from a2a_server.forgejo_inbox import accept
+
+    with pytest.raises(HTTPException) as receipt:
+        await accept(
+            'issues',
+            {'repo': 'owner/repo', 'number': 5873},
+            'https://forge.example/api/v1',
+        )
+    assert receipt.value.status_code == 409
     get_pool.assert_not_awaited()
 
 
