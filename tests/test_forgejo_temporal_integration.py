@@ -33,6 +33,7 @@ async def test_activity_failure_does_not_persist_sensitive_exception_text():
 async def test_temporal_dispatch_starts_workflow_without_legacy_clone(
     monkeypatch,
 ):
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
     started: list[ForgejoAgentWorkflowInput] = []
     updates: list[dict] = []
 
@@ -234,9 +235,7 @@ async def test_stage_progress_comment_is_visible_and_idempotent(monkeypatch):
     assert '`review-task-1`' in body
     assert '`abc123`' in body
     assert '[Native task #42]' in body
-    marker = (
-        '<!-- codetether-temporal-progress:42:2:review:review-task-1 -->'
-    )
+    marker = '<!-- codetether-temporal-progress:42:2:review:review-task-1 -->'
     assert marker in body
 
     async def duplicate_json(*args, **kwargs):
