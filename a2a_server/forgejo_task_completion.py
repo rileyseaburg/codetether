@@ -37,8 +37,8 @@ async def sync_forgejo_agent_task(
 ) -> None:
     """Publish lifecycle and complete transcript to Forgejo.
 
-    Temporal-managed stage completions remain ``running`` until the durable
-    workflow itself finalizes the Forgejo-owned task.
+    Temporal owns native lifecycle status. A late stage completion must not
+    reopen a native task that its workflow already cancelled or finalized.
     """
     metadata = task.get('metadata') or {}
     forgejo_task_id = int(metadata.get('forgejo_agent_task_id') or 0)
@@ -63,10 +63,7 @@ async def sync_forgejo_agent_task(
     with suppress(Exception):
         forget(str(task.get('id') or ''))
     session_id, messages = await _task_messages(task, 10_000)
-    if not workflow_terminal:
-        forgejo_status = 'running'
     lifecycle = {
-        'status': forgejo_status,
         'external_task_id': str(task.get('id') or ''),
         'external_session_id': session_id,
         'head_sha': str(metadata.get('pr_head_sha') or ''),
@@ -74,6 +71,7 @@ async def sync_forgejo_agent_task(
     }
     if workflow_terminal:
         lifecycle.update(
+            status=forgejo_status,
             result=str(task.get('result') or ''),
             error=str(task.get('error') or ''),
         )
@@ -156,14 +154,15 @@ def _legacy_terminal_message(
         return message
     if status == 'completed':
         message = (
-            '## 🛠️ CodeTether Fix\n\nCompleted and pushed the requested changes.'
+            '## 🛠️ CodeTether task\n\n'
+            'The worker reported completion. This alone does not prove '
+            'that changes were pushed or that CI succeeded.'
         )
         if followup_task_id:
             message += f'\n\nQueued review task `{followup_task_id}`.'
         return message
     return (
-        f'## ⚠️ CodeTether {stage.title()}\n\n'
-        f'Task ended with status `{status}`.'
+        f'## ⚠️ CodeTether {stage.title()}\n\nTask ended with status `{status}`.'
     )
 
 
@@ -207,12 +206,10 @@ async def notify_forgejo_task_completion(task: dict) -> None:
     ):
         return
 
-    detail = str(task.get('result') or task.get('error') or '').strip()
     message = _legacy_terminal_message(
         stage, status, review_evidence, followup_task_id
     )
-    if detail:
-        message += f'\n\n{detail}'
+    # Full narration belongs in the linked run, not in the PR conversation.
     message += _task_footer(task_id, metadata)
     message += f'\n\n{marker}'
     await forgejo_json('POST', base, issue_path, {'body': message})

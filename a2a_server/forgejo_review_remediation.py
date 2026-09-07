@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import re
 
+from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from a2a_server.forgejo_agent_client import create_task
+from a2a_server.forgejo_automation_policy import pr_is_paused
 from a2a_server.temporal.client import start_forgejo_workflow
 from a2a_server.temporal.config import temporal_settings
 from a2a_server.temporal.models import ForgejoAgentWorkflowInput
@@ -104,6 +106,10 @@ async def start_review_remediation(
     request: ForgejoReviewRemediationRequest,
 ) -> dict[str, object]:
     """Create the native Forgejo task and start its idempotent workflow."""
+    if pr_is_paused(request.repository, request.pull_request_number):
+        raise HTTPException(
+            409, 'Forgejo automation is paused for this request'
+        )
     if not temporal_settings().enabled:
         raise RuntimeError('Forgejo Temporal orchestration is disabled')
 

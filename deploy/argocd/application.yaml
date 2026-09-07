@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: main-299757b03f54
+          value: terminal-970864939256
         - name: blueGreen.rolloutId.green
-          value: resume-retry-main-299757b03f54
+          value: terminal-970864939256
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: main-299757b03f54
+          tag: terminal-970864939256
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-299757b03f54
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:terminal-970864939256
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: resume-retry-main-299757b03f54
+            green: terminal-970864939256
         service:
           type: ClusterIP
           port: 8000
@@ -174,7 +174,9 @@ spec:
           # 402 ("Insufficient credits"), which correctly is not retried and so
           # failed tasks outright. Use the Vault-backed ChatGPT Codex backend,
           # which workers opt into under harvester.extraEnv below.
-          GITHUB_APP_MODEL_REF: openai-codex/gpt-5.6-luna-fast:max
+          GITHUB_APP_MODEL_REF: openai-codex/gpt-6-astra-fast:high
+          FORGEJO_STATUS_REMEDIATION_ENABLED: "false"
+          FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
           GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
@@ -201,7 +203,7 @@ spec:
           replicaCount: 2
           image:
             repository: registry.quantum-forge.net/cluster-ci-cache/codetether-worker
-            tag: 4.7.5-dev.9-routing-ead741c6
+            tag: 4.7.5-dev.49-astra-client-f65279c7-devtools2
             pullPolicy: IfNotPresent
           tokenSecret:
             name: a2a-server-worker-token
@@ -223,7 +225,7 @@ spec:
             tokenSecret:
               name: ""
           defaultProvider: openai-codex
-          defaultModel: openai-codex/gpt-5.6-luna-fast:max
+          defaultModel: openai-codex/gpt-6-astra-fast:high
           providerSecrets:
             envFrom:
               - secretRef:

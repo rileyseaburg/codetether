@@ -16,6 +16,12 @@ async def execution_ownership(
     Ordinary stages of the current attempt finish before queued followups run.
     """
     from a2a_server.forgejo_inbox import ensure_schema, pool
+    from a2a_server.forgejo_automation_policy import pr_is_paused
+
+    if pr_is_paused(repository, issue_number):
+        raise HTTPException(
+            409, 'Forgejo automation is paused for this request'
+        )
 
     db = await pool()
     async with db.acquire() as conn:

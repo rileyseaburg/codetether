@@ -271,6 +271,12 @@ async def _ensure_workspace(
     from a2a_server import database as db
     from a2a_server.git_service import store_git_credential_record
     from a2a_server.monitor_api import _redis_upsert_workspace_meta
+    from a2a_server.forgejo_automation_policy import pr_is_paused
+
+    if pr_is_paused(ctx['repo'], ctx['number']):
+        raise HTTPException(
+            409, 'Forgejo automation is paused for this request'
+        )
 
     wid = workspace_id(clone_url, workspace_branch or branch)
     workspace = {
@@ -502,6 +508,10 @@ async def _handle_status_event(
     payload: dict[str, Any], base: str
 ) -> dict[str, Any]:
     """Create one remediation task for a failed status on an open PR head."""
+    from a2a_server.forgejo_automation_policy import status_remediation_enabled
+
+    if not status_remediation_enabled():
+        return {'accepted': False, 'reason': 'status-remediation-disabled'}
     from a2a_server.forgejo_automation import (
         create_status_remediation_task,
         is_failed_status,

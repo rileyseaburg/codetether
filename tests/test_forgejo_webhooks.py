@@ -44,6 +44,7 @@ def _signature(body: bytes, secret='secret') -> str:
 
 @pytest.fixture
 def app(monkeypatch):
+    monkeypatch.setenv('FORGEJO_STATUS_REMEDIATION_ENABLED', 'true')
     monkeypatch.setenv('FORGEJO_WEBHOOK_SECRET', 'secret')
     monkeypatch.setenv('FORGEJO_TOKEN', 'token')
     monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')

@@ -7,8 +7,11 @@ import contextlib
 import json
 import logging
 
+from fastapi import HTTPException
+
 from a2a_server import forgejo_inbox as inbox
 from a2a_server import forgejo_inbox_dispatch as effects
+from a2a_server.forgejo_automation_policy import pr_is_paused
 from a2a_server.github_app.mention import is_fix_request
 
 
@@ -20,6 +23,10 @@ async def _advance(conn, row) -> None:
     """Checkpoint handoff before acknowledgement so ack failure cannot requeue work."""
     identity = row['delivery_id']
     ctx, base = inbox.decode(row['context']), row['api_base']
+    if pr_is_paused(ctx['repo'], ctx['number']):
+        raise HTTPException(
+            409, 'Forgejo automation is paused for this request'
+        )
     ctx['_inbox_id'] = identity
     ctx['_native_task_id'] = row['native_task_id']
     plan, result = inbox.decode(row['plan']), inbox.decode(row['result'])

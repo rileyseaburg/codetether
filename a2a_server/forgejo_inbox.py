@@ -76,6 +76,14 @@ def decode(value):
 
 async def accept(event, context, base):
     """Commit one immutable receipt, then return its durable identity."""
+    from a2a_server.forgejo_automation_policy import pr_is_paused
+
+    if pr_is_paused(
+        str(context.get('repo') or ''), int(context.get('number') or 0)
+    ):
+        raise HTTPException(
+            409, 'Forgejo automation is paused for this request'
+        )
     event = 'issues' if event == 'issue' else event
     key = delivery_key(event, context)
     if not key:
