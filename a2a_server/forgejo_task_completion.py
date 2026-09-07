@@ -37,8 +37,8 @@ async def sync_forgejo_agent_task(
 ) -> None:
     """Publish lifecycle and complete transcript to Forgejo.
 
-    Temporal-managed stage completions remain ``running`` until the durable
-    workflow itself finalizes the Forgejo-owned task.
+    Temporal owns native lifecycle status. A late stage completion must not
+    reopen a native task that its workflow already cancelled or finalized.
     """
     metadata = task.get('metadata') or {}
     forgejo_task_id = int(metadata.get('forgejo_agent_task_id') or 0)
@@ -63,10 +63,7 @@ async def sync_forgejo_agent_task(
     with suppress(Exception):
         forget(str(task.get('id') or ''))
     session_id, messages = await _task_messages(task, 10_000)
-    if not workflow_terminal:
-        forgejo_status = 'running'
     lifecycle = {
-        'status': forgejo_status,
         'external_task_id': str(task.get('id') or ''),
         'external_session_id': session_id,
         'head_sha': str(metadata.get('pr_head_sha') or ''),
@@ -74,6 +71,7 @@ async def sync_forgejo_agent_task(
     }
     if workflow_terminal:
         lifecycle.update(
+            status=forgejo_status,
             result=str(task.get('result') or ''),
             error=str(task.get('error') or ''),
         )

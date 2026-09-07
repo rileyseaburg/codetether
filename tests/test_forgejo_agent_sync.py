@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from a2a_server import forgejo_agent_client
@@ -86,11 +88,44 @@ async def test_sync_terminal_task_updates_forgejo_and_publishes_transcript(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('native_status', ['cancelled', 'failed', 'completed'])
+async def test_late_temporal_stage_preserves_native_terminal_status(
+    monkeypatch, native_status
+):
+    native = {'status': native_status}
+
+    async def update(**fields):
+        native.update(fields)
+
+    publish = AsyncMock(return_value=1)
+    monkeypatch.setattr(
+        completion, '_task_messages', AsyncMock(return_value=('session', []))
+    )
+    monkeypatch.setattr(completion, 'update_task', update)
+    monkeypatch.setattr(completion, 'publish_session_events', publish)
+    await completion.sync_forgejo_agent_task(
+        {
+            'id': 'late-stage',
+            'status': 'completed',
+            'result': 'stage completed after cancellation',
+            'metadata': {
+                'repo': 'owner/repo',
+                'forgejo_agent_task_id': 457,
+                'forgejo_api_url': 'https://forge.example/api/v1',
+            },
+        },
+        workflow_terminal=False,
+    )
+    assert native['status'] == native_status
+    assert 'result' not in native
+    publish.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_creates_forgejo_task_before_codetether_and_links_it(
     monkeypatch,
 ):
-    from a2a_server import forgejo_webhooks
-    from a2a_server import persistent_worker_pool
+    from a2a_server import forgejo_webhooks, persistent_worker_pool
 
     calls: list[tuple[str, dict]] = []
 
