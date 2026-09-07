@@ -16,11 +16,18 @@ Configuration (environment variables):
 
 import asyncio
 import logging
+import math
 import os
+import time
+
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +43,22 @@ VAULT_API_KEYS_BASE_PATH = os.environ.get('VAULT_API_KEYS_PATH', 'a2a/users')
 # Kubernetes service account token path
 K8S_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token'
 
-# Module state
-_vault_token: Optional[str] = None
-_token_lock = asyncio.Lock()
+
+# Kubernetes tokens are shared only within the same authentication scope.
+@dataclass
+class _KubernetesToken:
+    """Lease and single-flight state; never include credentials in repr."""
+
+    token: str | None = field(default=None, repr=False)
+    expires_at: float = 0.0
+    retry_after: float = 0.0
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+
+
+_kubernetes_tokens: dict[tuple[str, str, str], _KubernetesToken] = {}
+_AUTH_RETRY_DELAY = 1.0
+# Missing/non-expiring leases must not recreate an indefinite cache.
+_MAX_CACHE_SECONDS = 300.0
 
 
 # Known providers with their display names and configurations
@@ -127,7 +147,12 @@ class VaultClient:
     def __init__(self, addr: str = VAULT_ADDR):
         self.addr = addr.rstrip('/')
         self._session: Optional[aiohttp.ClientSession] = None
-        self._token: Optional[str] = None
+        self._static_token = VAULT_TOKEN
+        self._role = VAULT_ROLE
+        self._jwt_path = K8S_TOKEN_PATH
+        self._auth_state = _kubernetes_tokens.setdefault(
+            (self.addr, self._role, self._jwt_path), _KubernetesToken()
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""
@@ -142,58 +167,97 @@ class VaultClient:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def _get_token(self) -> Optional[str]:
-        """Get Vault token, using Kubernetes auth if available."""
-        global _vault_token
+    async def _get_token(  # noqa: PLR0911 (explicit auth failure exits)
+        self, rejected_token: str | None = None
+    ) -> str | None:
+        """Return a static token or a shared, lease-aware Kubernetes token.
 
-        # Return cached token if available
-        if self._token:
-            return self._token
+        Compare the rejected token while holding the refresh lock: a late 403
+        from another client must not discard a replacement already obtained.
+        """
+        if self._static_token:
+            return self._static_token
 
-        async with _token_lock:
-            # Check again after acquiring lock
-            if _vault_token:
-                self._token = _vault_token
-                return self._token
-
-            # Try environment variable first
-            if VAULT_TOKEN:
-                self._token = VAULT_TOKEN
-                _vault_token = VAULT_TOKEN
-                logger.info('Using Vault token from environment')
-                return self._token
-
-            # Try Kubernetes auth
-            if os.path.exists(K8S_TOKEN_PATH):
-                try:
-                    with open(K8S_TOKEN_PATH, 'r') as f:
-                        k8s_token = f.read().strip()
-
-                    session = await self._get_session()
-                    async with session.post(
-                        f'{self.addr}/v1/auth/kubernetes/login',
-                        json={'jwt': k8s_token, 'role': VAULT_ROLE},
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            self._token = data['auth']['client_token']
-                            _vault_token = self._token
-                            logger.info(
-                                'Authenticated with Vault using Kubernetes auth'
-                            )
-                            return self._token
-                        else:
-                            error = await resp.text()
-                            logger.warning(
-                                f'Kubernetes auth failed: {resp.status} - {error}'
-                            )
-                except Exception as e:
-                    logger.warning(f'Kubernetes auth error: {e}')
-
-            logger.warning('No Vault authentication available')
+        state = self._auth_state
+        async with state.lock:
+            if rejected_token is not None and state.token == rejected_token:
+                state.token = None
+            now = time.monotonic()
+            if state.token and now < state.expires_at:
+                return state.token
+            if now < state.retry_after:
+                return None
+            state.token = None
+            # Bound repeated failed logins from concurrent callers.
+            state.retry_after = now + _AUTH_RETRY_DELAY
+            try:
+                jwt = Path(self._jwt_path).read_text().strip()
+                if not jwt:
+                    return None
+                session = await self._get_session()
+                async with session.post(
+                    f'{self.addr}/v1/auth/kubernetes/login',
+                    json={'jwt': jwt, 'role': self._role},
+                    allow_redirects=False,
+                ) as resp:
+                    if resp.status != 200:
+                        logger.warning(
+                            'Kubernetes auth failed: HTTP %s', resp.status
+                        )
+                        return None
+                    auth = (await resp.json())['auth']
+                    token = auth['client_token']
+                    if not isinstance(token, str) or not token.strip():
+                        return None
+                    lease = float(
+                        auth.get('lease_duration') or _MAX_CACHE_SECONDS
+                    )
+                    if not math.isfinite(lease) or lease < 0:
+                        return None
+                    # Start the deadline before login to account for latency,
+                    # refresh early, and bound even missing/zero lease metadata.
+                    lifetime = min(lease, _MAX_CACHE_SECONDS)
+                    state.expires_at = now + lifetime * 0.9
+                    if time.monotonic() >= state.expires_at:
+                        return None
+                    state.token = token
+                    state.retry_after = 0.0
+                    logger.info(
+                        'Authenticated with Vault using Kubernetes auth'
+                    )
+                    return token
+            except Exception as exc:
+                # Exception strings can include JWTs or raw Vault responses.
+                logger.warning('Kubernetes auth error: %s', type(exc).__name__)
+            finally:
+                if state.token is None:
+                    state.retry_after = time.monotonic() + _AUTH_RETRY_DELAY
             return None
 
-    async def _request(
+    async def _invalidate_token(self, rejected_token: str) -> None:
+        """Retire a twice-rejected token without initiating another login."""
+        async with self._auth_state.lock:
+            if self._auth_state.token == rejected_token:
+                self._auth_state.token = None
+                self._auth_state.retry_after = (
+                    time.monotonic() + _AUTH_RETRY_DELAY
+                )
+
+    @staticmethod
+    async def _invalid_token_response(resp: aiohttp.ClientResponse) -> bool:
+        """Recognize explicit invalid-token errors, not generic ACL denials."""
+        try:
+            errors = (await resp.json()).get('errors', [])
+            return isinstance(errors, list) and any(
+                line.strip().lstrip('* ').lower() == 'invalid token'
+                for error in errors
+                if isinstance(error, str)
+                for line in error.splitlines()
+            )
+        except Exception:
+            return False
+
+    async def _request(  # noqa: PLR0911 (bounded response handling)
         self, method: str, path: str, data: Optional[Dict] = None
     ) -> Optional[Dict]:
         """Make authenticated request to Vault."""
@@ -202,29 +266,45 @@ class VaultClient:
             return None
 
         session = await self._get_session()
-        headers = {'X-Vault-Token': token}
-
         url = f'{self.addr}/v1/{path}'
 
-        try:
-            async with session.request(
-                method, url, headers=headers, json=data
-            ) as resp:
-                if resp.status == 200:
-                    return await resp.json()
-                elif resp.status == 204:
-                    return {}
-                elif resp.status == 404:
-                    return None
-                else:
-                    error = await resp.text()
-                    logger.error(
-                        f'Vault request failed: {resp.status} - {error}'
+        for attempt in range(2):
+            try:
+                async with session.request(
+                    method,
+                    url,
+                    headers={'X-Vault-Token': token},
+                    json=data,
+                    allow_redirects=False,
+                ) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    if resp.status == 204:
+                        return {}
+                    if resp.status == 404:
+                        return None
+                    invalid = (
+                        resp.status == HTTPStatus.FORBIDDEN
+                        and not self._static_token
+                        and await self._invalid_token_response(resp)
                     )
+                    if not invalid:
+                        logger.error(
+                            'Vault request failed: HTTP %s', resp.status
+                        )
+                        return None
+                # Exit the response context before logging in or retrying.
+                if attempt:
+                    await self._invalidate_token(token)
+                    logger.error('Vault rejected refreshed Kubernetes token')
                     return None
-        except Exception as e:
-            logger.error(f'Vault request error: {e}')
-            return None
+                token = await self._get_token(rejected_token=token)
+                if not token:
+                    return None
+            except Exception as exc:
+                logger.error('Vault request error: %s', type(exc).__name__)
+                return None
+        return None
 
     async def read_secret(self, path: str) -> Optional[Dict[str, Any]]:
         """Read a secret from Vault KV v2."""
@@ -370,7 +450,9 @@ async def list_user_api_keys_with_diagnostics(
 
             error_text = await resp.text()
             if resp.status == 403:
-                message = 'Vault token is not authorized to access API key storage'
+                message = (
+                    'Vault token is not authorized to access API key storage'
+                )
             elif resp.status == 401:
                 message = 'Vault authentication failed'
             else:
@@ -389,9 +471,11 @@ async def get_all_user_api_keys_with_diagnostics(
     user_id: str,
 ) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], Optional[int]]:
     """Get all API keys for a user with Vault error diagnostics."""
-    provider_ids, list_error, status_code = (
-        await list_user_api_keys_with_diagnostics(user_id)
-    )
+    (
+        provider_ids,
+        list_error,
+        status_code,
+    ) = await list_user_api_keys_with_diagnostics(user_id)
 
     if list_error:
         return {}, list_error, status_code
@@ -511,9 +595,11 @@ async def check_vault_connection(
 
         # Optional: check whether this specific user can access API key storage.
         if user_id and token is not None:
-            _, access_error, access_status = (
-                await list_user_api_keys_with_diagnostics(user_id)
-            )
+            (
+                _,
+                access_error,
+                access_status,
+            ) = await list_user_api_keys_with_diagnostics(user_id)
             status['authorized'] = access_error is None
             if access_error:
                 status['authorization_error'] = access_error
