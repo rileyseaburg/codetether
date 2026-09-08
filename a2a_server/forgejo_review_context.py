@@ -62,6 +62,10 @@ async def review_context(api, base, repo, pr):
         + json.dumps(sections, ensure_ascii=True)
         + '\n\nUse the prepared local checkout to inspect the diff at the '
         'specified head. The server fetches Forgejo evidence and publishes your '
+        f'review. On configured harvesters, use `forgejo-cli get {root}/pulls/{number}` '
+        f'or `forgejo-cli get {root}/pulls/{number}.diff` for further read-only evidence; '
+        'the wrapper authenticates internally and needs neither --token nor a '
+        'separate vault kv get. The server publishes your '
         'review; do not retrieve additional Vault tokens or change policies '
         'for those operations. Never modify the branch. If essential evidence '
         'is unavailable, return BLOCKED and identify that prerequisite. '
