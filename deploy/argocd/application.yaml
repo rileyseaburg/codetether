@@ -21,9 +21,9 @@ spec:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: review-d64754c864db
+          value: automerge-580ff64bd07d
         - name: blueGreen.rolloutId.green
-          value: review-d64754c864db
+          value: automerge-580ff64bd07d
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: review-d64754c864db
+          tag: automerge-580ff64bd07d
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:review-d64754c864db
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:automerge-580ff64bd07d
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: review-d64754c864db
+            green: automerge-580ff64bd07d
         service:
           type: ClusterIP
           port: 8000
