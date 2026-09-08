@@ -11,7 +11,7 @@ from temporalio import activity
 from temporalio.client import WorkflowHistoryEventFilterType
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
-from temporalio.worker import Worker
+from temporalio.worker import Replayer, Worker
 
 from a2a_server.temporal.models import (
     ForgejoAgentWorkflowInput,
@@ -259,6 +259,68 @@ async def test_temporal_blocking_review_runs_fix_and_rereview():
     fix_request = activities.dispatched[3]
     assert fix_request.fix_attempt == 1
     assert fix_request.review_task_id.startswith('review-')
+
+
+@pytest.mark.asyncio
+async def test_blocked_review_stops_without_dispatching_code_remediation():
+    activities = FakeActivities(['BLOCKED'])
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        async with Worker(
+            env.client,
+            task_queue='forgejo-test-prerequisite-block',
+            workflows=[ForgejoAgentWorkflow],
+            activities=activities.registered,
+        ):
+            handle = await env.client.start_workflow(
+                ForgejoAgentWorkflow.run,
+                INPUT,
+                id='forgejo-agent-task-blocked-review',
+                task_queue='forgejo-test-prerequisite-block',
+            )
+            for stage in ('prepare', 'code', 'review'):
+                task_id = await wait_for_stage(handle, stage)
+                await complete(handle, task_id, stage)
+            result = await handle.result()
+    assert result.status == 'failed'
+    assert result.error_type == 'review_blocked'
+    assert result.review_verdict == 'BLOCKED'
+    assert [r.stage for r in activities.dispatched] == [
+        'prepare',
+        'code',
+        'review',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_legacy_blocked_review_history_remains_replayable(monkeypatch):
+    from a2a_server.temporal import workflows
+
+    activities = FakeActivities(['BLOCKED', 'APPROVED'])
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        with monkeypatch.context() as legacy:
+            legacy.setattr(
+                workflows.workflow, 'patched', lambda change_id: False
+            )
+            async with Worker(
+                env.client,
+                task_queue='forgejo-test-legacy-blocked',
+                workflows=[ForgejoAgentWorkflow],
+                activities=activities.registered,
+            ):
+                handle = await env.client.start_workflow(
+                    ForgejoAgentWorkflow.run,
+                    INPUT,
+                    id='forgejo-legacy-blocked-review',
+                    task_queue='forgejo-test-legacy-blocked',
+                )
+                for stage in ('prepare', 'code', 'review', 'fix', 'review'):
+                    task_id = await wait_for_stage(handle, stage)
+                    await complete(handle, task_id, stage)
+                assert (await handle.result()).status == 'completed'
+                history = await handle.fetch_history()
+        await Replayer(workflows=[ForgejoAgentWorkflow]).replay_workflow(
+            history
+        )
 
 
 @pytest.mark.asyncio

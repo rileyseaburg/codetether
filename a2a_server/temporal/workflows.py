@@ -254,6 +254,14 @@ class ForgejoAgentWorkflow:
             )
             if self._review_verdict == 'APPROVED':
                 return await self._finalize(workflow_input, 'completed')
+            if self._review_verdict == 'BLOCKED' and workflow.patched(
+                'review-blocked-is-not-code-remediation-v1'
+            ):
+                return await self._finish_attempt(
+                    workflow_input,
+                    'failed',
+                    error_type='review_blocked',
+                )
             if self._review_verdict not in _BLOCKING_VERDICTS:
                 return await self._finish_attempt(
                     workflow_input,

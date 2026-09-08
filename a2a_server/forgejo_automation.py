@@ -28,6 +28,21 @@ _REVIEW_BODY_LIMIT = 60_000
 _FAILED_STATES = {'error', 'failure', 'warning'}
 
 
+class ForgejoReviewNotReady(RuntimeError):
+    """Fixed, non-sensitive reasons why another review must not be dispatched."""
+
+    def __init__(self, reason: str):
+        if reason not in {
+            'review_pr_closed',
+            'review_pr_missing',
+            'review_fix_no_progress',
+            'review_already_exists',
+        }:
+            raise ValueError('Unknown review dispatch reason')
+        self.reason = reason
+        super().__init__(reason)
+
+
 def _repo_path(repo: str) -> str:
     owner, name = repo.split('/', 1)
     return f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
@@ -209,15 +224,19 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
     if pr:
         pr_number = int(pr.get('number') or pr.get('index') or 0)
         if pr.get('state') != 'open':
-            return None
+            raise ForgejoReviewNotReady('review_pr_closed')
     if not pr or not pr_number:
-        return None
+        raise ForgejoReviewNotReady('review_pr_missing')
     head = pr.get('head') or {}
     head_sha = str(head.get('sha') or '')
     branch = str(head.get('ref') or metadata.get('branch_name') or '')
     work_key = f'forgejo:{repo}:{pr_number}:review:{head_sha}'
+    if metadata.get('workflow_stage') == 'fix' and head_sha == str(
+        metadata.get('pr_head_sha') or ''
+    ):
+        raise ForgejoReviewNotReady('review_fix_no_progress')
     if await _task_exists(work_key):
-        return None
+        raise ForgejoReviewNotReady('review_already_exists')
 
     routing = {
         key: metadata[key]
@@ -257,6 +276,9 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
         'terminal verdict: APPROVED, CHANGES_REQUESTED, or BLOCKED, followed by '
         'concise evidence. Never modify the branch during review.'
     )
+    from a2a_server.forgejo_review_context import review_context
+
+    prompt += await review_context(forgejo_json, base, repo, pr)
     task_id = await create_and_dispatch_task(
         workspace_id=workspace_id,
         title=f'Review Forgejo PR #{pr_number}',
@@ -294,7 +316,8 @@ async def create_forgejo_fix_followup(
     review_task: dict[str, Any],
 ) -> str | None:
     verdict = reviewer_verdict(review_task)
-    if verdict not in {'CHANGES_REQUESTED', 'BLOCKED'}:
+    # Missing credentials/tools/evidence are prerequisites, not code findings.
+    if verdict != 'CHANGES_REQUESTED':
         return None
     metadata = review_task.get('metadata') or {}
     repo = str(metadata.get('repo') or '')
@@ -392,6 +415,9 @@ async def create_forgejo_fix_followup(
         f'to PR #{pr_number} in {repo} at head {expected_sha}.\n\n'
         f'Review verdict and evidence:\n{review_task.get("result") or review_task.get("error") or verdict}\n\n'
         'Edit the existing branch, run focused validation, commit, and push. '
+        'Address only actionable code findings. Do not change Vault policies, '
+        'credentials, permissions, or unrelated infrastructure to unblock the '
+        'review. If the findings are only missing prerequisites, stop and report BLOCKED. '
         'Do not open a duplicate pull request.'
     )
     task_id = await create_and_dispatch_task(

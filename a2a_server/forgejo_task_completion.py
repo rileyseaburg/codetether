@@ -10,6 +10,7 @@ from a2a_server.forgejo_agent_client import (
     update_task,
 )
 from a2a_server.forgejo_automation import (
+    ForgejoReviewNotReady,
     _mark_review_reconciled,
     create_forgejo_fix_followup,
     create_forgejo_review_task,
@@ -125,7 +126,8 @@ async def _legacy_followup(
     review_evidence: dict | None = None
     followup_task_id: str | None = None
     if stage == 'code' and status == 'completed':
-        followup_task_id = await create_forgejo_review_task(task)
+        with suppress(ForgejoReviewNotReady):
+            followup_task_id = await create_forgejo_review_task(task)
     elif stage == 'review' and status == 'completed':
         review_evidence = await publish_forgejo_review(task)
         followup_task_id = await create_forgejo_fix_followup(task)

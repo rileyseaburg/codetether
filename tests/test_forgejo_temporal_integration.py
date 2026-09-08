@@ -409,7 +409,8 @@ async def test_finalize_failed_comment_explains_why(monkeypatch):
     body = comments[0][3]
     assert 'status `failed`' in body
     assert '**Why:**' in body
-    assert 'no open pull request' in body
+    assert 'could not dispatch the review' in body
+    assert 'most likely stopped' not in body
     assert 'Completed stages: prepare, code.' in body
     assert 'Last CodeTether task: `8a848cf9`' in body
 

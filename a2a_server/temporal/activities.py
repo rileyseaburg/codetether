@@ -53,10 +53,14 @@ _FAILURE_EXPLANATIONS = {
     'prepare_failed': 'The workspace preparation task did not complete.',
     'code_failed': 'The implementation task did not complete.',
     'forgejo_dispatch_review_failed': (
-        'The implementation task finished, but no open pull request was '
-        'found for the branch, so there was nothing to review. The agent '
-        'most likely stopped before committing and opening a PR.'
+        'CodeTether could not dispatch the review. This does not establish '
+        'that the pull request is missing.'
     ),
+    'review_blocked': 'The reviewer could not complete the review because required access, tools, or evidence were unavailable. No coding remediation was scheduled.',
+    'review_fix_no_progress': 'The remediation task returned without advancing the PR head. The existing PR remains available; another review of the same commit was not scheduled.',
+    'review_already_exists': 'A review task already exists for this PR head. No duplicate review was scheduled.',
+    'review_pr_closed': 'The pull request is closed; no further review was scheduled.',
+    'review_pr_missing': 'No pull request was found for the requested branch.',
     'review_failed': 'The pull-request review task did not complete.',
     'review_unresolved': (
         'The review finished without an approve or request-changes verdict.'
@@ -503,11 +507,19 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
 @safe_activity('forgejo_dispatch_review_failed')
 async def dispatch_review(request: ForgejoStageRequest) -> ForgejoStageResult:
     """Create a head-bound review task using the existing safety checks."""
-    from a2a_server.forgejo_automation import create_forgejo_review_task
+    from a2a_server.forgejo_automation import (
+        ForgejoReviewNotReady,
+        create_forgejo_review_task,
+    )
 
     parent = await _codetether_task(request.parent_task_id)
     async with _execution_ownership(request):
-        task_id = await create_forgejo_review_task(parent)
+        try:
+            task_id = await create_forgejo_review_task(parent)
+        except ForgejoReviewNotReady as error:
+            raise ApplicationError(
+                error.reason, type=error.reason, non_retryable=True
+            ) from None
     if not task_id:
         raise RuntimeError('Forgejo review task was not created')
     task = await _codetether_task(str(task_id))
