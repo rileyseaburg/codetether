@@ -139,6 +139,9 @@ async def reconcile_github_app_terminal_tasks(limit: int = 20) -> int:
 
 def start_github_app_terminal_reconciler() -> None:
     """Start a lightweight reconciliation loop for missed terminal hooks."""
+    from ..forgejo_automerge import start_auto_merge_reconciler
+
+    start_auto_merge_reconciler()
     global _RECONCILER_TASK
     enabled = os.environ.get(
         'GITHUB_APP_TERMINAL_RECONCILER_ENABLED', 'true'

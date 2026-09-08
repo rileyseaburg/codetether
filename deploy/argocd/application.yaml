@@ -177,6 +177,15 @@ spec:
           GITHUB_APP_MODEL_REF: openai-codex/gpt-6-astra-fast:high
           FORGEJO_STATUS_REMEDIATION_ENABLED: "false"
           FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
+          FORGEJO_AUTO_MERGE_REQUIRED_CHECKS: >-
+            {"riley/spotlessbinco":[
+              "Dev Image Builds / build-and-push (pull_request)",
+              "Dev Image Builds / Build and push Dev Rust backend (pull_request)",
+              "Dev Image Builds / build-and-push-dev-api (pull_request)",
+              "Dev Image Builds / Build and push Dev Fastify API (pull_request)",
+              "Secret Scan / gitleaks (pull_request)",
+              "CodeTether PR Review / CodeTether Review (pull_request_target)"
+            ]}
           GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
           # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
