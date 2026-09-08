@@ -187,6 +187,10 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
             'GET', base, f'{_repo_path(repo)}/pulls/{pr_number}'
         )
     elif branch_hint:
+        from a2a_server.forgejo_pr_publication import ensure_issue_pull_request
+
+        pr = await ensure_issue_pull_request(code_task)
+    if not pr and branch_hint and not pr_number:
         pulls = await forgejo_json(
             'GET', base, f'{_repo_path(repo)}/pulls?state=open&limit=50'
         )
@@ -202,6 +206,10 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
         pr_number = int(
             (pr or {}).get('number') or (pr or {}).get('index') or 0
         )
+    if pr:
+        pr_number = int(pr.get('number') or pr.get('index') or 0)
+        if pr.get('state') != 'open':
+            return None
     if not pr or not pr_number:
         return None
     head = pr.get('head') or {}

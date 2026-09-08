@@ -190,6 +190,11 @@ async def test_dispatch_creates_forgejo_task_before_codetether_and_links_it(
         'forgejo-update',
     ]
     dispatch_metadata = calls[1][1]['metadata']
+    assert "CodeTether's server publishes" in calls[0][1]['prompt']
+    assert (
+        'Do not retrieve additional Vault credentials' in calls[0][1]['prompt']
+    )
+    assert 'commit, and push' in calls[0][1]['prompt']
     assert dispatch_metadata['forgejo_agent_task_id'] == 42
     assert (
         dispatch_metadata['post_clone_task']['metadata'][

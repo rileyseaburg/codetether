@@ -345,7 +345,9 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
 Request:
 {ctx['body']}
 
-Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from `{default_branch}` for an issue; for a PR update its existing branch). Implement the requested changes, run focused validation, commit, and push. For an issue, open a Forgejo pull request against `{default_branch}`. Post concise progress and the final commit/PR URL back to Forgejo issue #{ctx['number']}. Do not use GitHub APIs."""
+Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from `{default_branch}` for an issue; for a PR update its existing branch). Implement the requested changes, run authorized focused validation, commit, and push using the provisioned repository credential helper.
+CodeTether's server publishes the issue pull request against `{default_branch}` and workflow progress using its existing Forgejo integration. Do not retrieve additional Vault credentials or change access policies merely to create a PR or post a comment. Return the pushed commit SHA, a concise change summary, validation actually run, and any blockers. Do not claim validation passed when it was not run.
+Preserve unrelated changes. Do not rebase or force-push over another writer. Do not use GitHub APIs."""
     routing = await resolve_task_target()
     from a2a_server.forgejo_agent_client import create_task as create_agent_task
 
