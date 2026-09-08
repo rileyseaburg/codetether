@@ -213,7 +213,12 @@ def _token() -> str:
 
 
 async def forgejo_json(
-    method: str, base: str, path: str, payload: dict | None = None
+    method: str,
+    base: str,
+    path: str,
+    payload: dict | None = None,
+    *,
+    allow_not_found: bool = False,
 ) -> object:
     """Call the configured Forgejo JSON API using the bot token."""
     async with httpx.AsyncClient(timeout=30) as client:
@@ -226,6 +231,8 @@ async def forgejo_json(
             },
             json=payload,
         )
+    if response.status_code == 404 and allow_not_found:
+        return None
     if response.status_code >= 400:
         raise HTTPException(
             502, f'Forgejo API {method} {path} failed: {response.text[:400]}'

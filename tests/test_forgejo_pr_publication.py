@@ -54,7 +54,7 @@ def publication(monkeypatch):
         async def acquire(self):
             yield Connection()
 
-    async def api(method, base, path, payload=None):
+    async def api(method, base, path, payload=None, *, allow_not_found=False):
         assert base == BASE
         state['requests'].append((method, path))
         if path.endswith('/agent/tasks/42'):
@@ -66,6 +66,9 @@ def publication(monkeypatch):
                 'status': state['native_status'],
                 'html_url': 'https://forge.example/owner/repo/agent/tasks/42',
             }
+        if '/commits/' in path and path.endswith('/pull'):
+            assert allow_not_found
+            return copy.deepcopy(state['pulls'][0]) if state['pulls'] else None
         if '/pulls?' in path:
             return copy.deepcopy(state['pulls']) if 'page=1' in path else []
         if path.endswith('/issues/9'):

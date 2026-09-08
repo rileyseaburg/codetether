@@ -11,12 +11,28 @@ from fastapi import HTTPException
 from a2a_server.forgejo_automation_policy import pr_is_paused
 
 
-async def _existing_pr(api, base, path, repo, branch):
-    """Search all states; closed PRs must not be silently recreated."""
+async def _existing_pr(api, base, path, repo, branch, head_sha, checkpoint):
+    """Use indexed commit lookup, then reconcile open PRs without scanning history."""
+    if checkpoint:
+        row = await api('GET', base, f'{path}/pulls/{int(checkpoint)}')
+        if (row.get('head') or {}).get('ref') != branch:
+            raise HTTPException(
+                409, 'Published PR checkpoint does not match the issue branch'
+            )
+        return row
+    row = await api(
+        'GET', base, f'{path}/commits/{head_sha}/pull', allow_not_found=True
+    )
+    if (
+        row
+        and (row.get('head') or {}).get('ref') == branch
+        and ((row.get('head') or {}).get('repo') or {}).get('full_name') == repo
+    ):
+        return row
     seen = set()
     for page in range(1, 101):
         rows = await api(
-            'GET', base, f'{path}/pulls?state=all&limit=50&page={page}'
+            'GET', base, f'{path}/pulls?state=open&limit=50&page={page}'
         )
         if not isinstance(rows, list):
             raise RuntimeError('Forgejo PR listing unavailable')
@@ -114,8 +130,20 @@ async def ensure_issue_pull_request(task):
                 return None
             if native.get('status') == 'cancelled':
                 return None
+            remote = await forgejo_json(
+                'GET', base, f'{path}/branches/{quote(branch, safe="")}'
+            )
+            head_sha = str((remote.get('commit') or {}).get('id') or '')
+            if not head_sha:
+                return None
             existing = await _existing_pr(
-                forgejo_json, base, path, repo, branch
+                forgejo_json,
+                base,
+                path,
+                repo,
+                branch,
+                head_sha,
+                (meta.get('forgejo_published_pr') or {}).get('number'),
             )
             if existing:
                 pr = existing
@@ -131,10 +159,6 @@ async def ensure_issue_pull_request(task):
                 target = str(repository.get('default_branch') or '')
                 if not target or not repository.get('has_pull_requests'):
                     return None
-                remote = await forgejo_json(
-                    'GET', base, f'{path}/branches/{quote(branch, safe="")}'
-                )
-                head_sha = str((remote.get('commit') or {}).get('id') or '')
                 comparison = await forgejo_json(
                     'GET',
                     base,
