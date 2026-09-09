@@ -173,12 +173,45 @@ async def maybe_merge(repo, number, issue_number, *, execute=False):
             combined = await forgejo_json(
                 'GET', base, f'{root}/commits/{sha}/status?limit=100'
             )
+            from a2a_server.forgejo_review_owner import enabled, identities
+
+            if enabled(repo):
+                rows = combined.get('statuses') or []
+                if combined.get('total_count', len(rows)) != len(rows):
+                    return {
+                        'eligible': False,
+                        'reason': 'check-evidence-truncated',
+                    }
+                retired = 'CodeTether PR Review / CodeTether Review (pull_request_target)'
+                rows = [r for r in rows if r.get('context') != retired]
+                combined = {
+                    **combined,
+                    'statuses': rows,
+                    'total_count': len(rows),
+                    'state': 'success'
+                    if rows and all(r.get('status') == 'success' for r in rows)
+                    else 'failure',
+                }
             if not checks_succeeded(combined, required, sha):
                 return {
                     'eligible': False,
                     'reason': 'checks-not-all-successful',
                     'head': sha,
                 }
+            if enabled(repo):
+                owner_id, _ = identities(repo, number, sha)
+                review = await database.db_get_task(owner_id)
+                metadata = (review or {}).get('metadata') or {}
+                if (
+                    not review
+                    or review.get('status') != 'completed'
+                    or metadata.get('review_verdict') != 'APPROVED'
+                    or not metadata.get('review_published')
+                ):
+                    return {
+                        'eligible': False,
+                        'reason': 'single-review-not-approved',
+                    }
             native = await forgejo_json(
                 'GET', base, f'{root}/agent/tasks/{int(managed)}'
             )

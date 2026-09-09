@@ -882,3 +882,6 @@ harvester:
   extraEnv: []
   extraVolumeMounts: []
   extraVolumes: []
+
+reviewHarvester:
+  enabled: false

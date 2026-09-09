@@ -11,7 +11,12 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError, ApplicationError
 
+
 with workflow.unsafe.imports_passed_through():
+    from a2a_server.forgejo_review_owner.activities import (
+        snapshot as review_snapshot,
+    )
+
     from .activities import (
         cancel_task,
         dispatch_fix,
@@ -88,6 +93,34 @@ class ForgejoAgentWorkflow:
         self, stage: ForgejoStageResult
     ) -> ForgejoTaskTerminalSignal:
         self._active_task_id = stage.task_id
+        if stage.stage == 'review' and workflow.patched(
+            'single-review-owner-poll-v1'
+        ):
+            deadline = workflow.now() + timedelta(days=7)
+            while (
+                stage.task_id not in self._terminal
+                and not self._cancel_requested
+            ):
+                try:
+                    await workflow.wait_condition(
+                        lambda: stage.task_id in self._terminal
+                        or self._cancel_requested,
+                        timeout=timedelta(seconds=15),
+                    )
+                except asyncio.TimeoutError:
+                    state = await self._activity(review_snapshot, stage.task_id)
+                    if state['status'] in _TERMINAL_STATUSES:
+                        self._terminal[stage.task_id] = (
+                            ForgejoTaskTerminalSignal(
+                                task_id=stage.task_id,
+                                stage='review',
+                                status=state['status'],
+                                verdict=state.get('verdict', ''),
+                            )
+                        )
+                if workflow.now() >= deadline:
+                    self._cancel_requested = True
+                    break
         try:
             await workflow.wait_condition(
                 lambda: (

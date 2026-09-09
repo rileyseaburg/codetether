@@ -187,3 +187,40 @@ async def test_ineligible_pr_never_posts(merge_case, monkeypatch, case):
         'eligible'
     ]
     assert not merge_case['posts']
+
+
+@pytest.mark.asyncio
+async def test_cutover_requires_own_approved_ledger_and_ignores_only_retired_check(
+    merge_case, monkeypatch
+):
+    monkeypatch.setenv('FORGEJO_SINGLE_REVIEW_REPOS', 'owner/repo')
+    retired = {
+        'context': 'CodeTether PR Review / CodeTether Review (pull_request_target)',
+        'status': 'failure',
+    }
+    merge_case['checks']['statuses'].append(retired)
+    merge_case['checks']['total_count'] = 3
+    merge_case['checks']['state'] = 'failure'
+    monkeypatch.setattr(database, 'db_get_task', AsyncMock(return_value=None))
+    assert (await maybe_merge('owner/repo', 12, 9, execute=True))[
+        'reason'
+    ] == 'single-review-not-approved'
+    assert not merge_case['posts']
+    approved = {
+        'status': 'completed',
+        'metadata': {'review_verdict': 'APPROVED', 'review_published': True},
+    }
+    monkeypatch.setattr(
+        database, 'db_get_task', AsyncMock(return_value=approved)
+    )
+    merge_case['checks']['statuses'].append(
+        {'context': 'additional-security-check', 'status': 'failure'}
+    )
+    merge_case['checks']['total_count'] = 4
+    assert not (await maybe_merge('owner/repo', 12, 9, execute=True))[
+        'eligible'
+    ]
+    assert not merge_case['posts']
+    merge_case['checks']['statuses'].pop()
+    merge_case['checks']['total_count'] = 3
+    assert (await maybe_merge('owner/repo', 12, 9, execute=True))['merged']

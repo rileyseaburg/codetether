@@ -550,7 +550,13 @@ async def publish_review(review_task_id: str) -> str:
     )
 
     task = await _codetether_task(review_task_id)
-    await publish_forgejo_review(task)
+    publication = await publish_forgejo_review(task)
+    if publication.get('event') == 'SUPERSEDED':
+        raise ApplicationError(
+            'review_superseded', type='review_superseded', non_retryable=True
+        )
+    if (task.get('metadata') or {}).get('review_owner'):
+        return task['metadata']['review_verdict']
     return reviewer_verdict(task)
 
 
@@ -561,6 +567,19 @@ async def dispatch_fix(request: ForgejoStageRequest) -> ForgejoStageResult:
     from a2a_server.forgejo_automation import create_forgejo_fix_followup
 
     review_task = await _codetether_task(request.review_task_id)
+    if (review_task.get('metadata') or {}).get('review_owner'):
+        review_task = {
+            **review_task,
+            'metadata': {
+                **review_task['metadata'],
+                'workspace_id': request.workflow.workspace_id,
+                'forgejo_agent_task_id': request.workflow.forgejo_task_id,
+                'issue_number': request.workflow.issue_number,
+                'temporal_orchestrated': True,
+                'temporal_workflow_id': request.workflow_id,
+                'temporal_attempt': request.workflow.attempt,
+            },
+        }
     async with _execution_ownership(request):
         task_id = await create_forgejo_fix_followup(review_task)
     if not task_id:
@@ -589,6 +608,20 @@ async def cancel_task(task_id: str) -> bool:
     """Cancel the active CodeTether task and revoke its run lease."""
     from a2a_server.forgejo_agent_controls import _cancel_codetether_task
 
+    task = await _codetether_task(task_id)
+    if (task.get('metadata') or {}).get('review_owner'):
+        from .config import get_temporal_client
+
+        client = await get_temporal_client()
+        await client.get_workflow_handle(
+            task['metadata']['review_workflow_id']
+        ).signal('cancel')
+        from a2a_server import database
+
+        await database.db_update_task_status(
+            task_id, 'cancelled', error='review_cancel_requested'
+        )
+        return True
     return await _cancel_codetether_task(task_id)
 
 

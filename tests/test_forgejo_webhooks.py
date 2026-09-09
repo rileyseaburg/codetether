@@ -17,6 +17,42 @@ from a2a_server import forgejo_webhooks as fw
 from a2a_server.git_service import validate_git_url
 
 
+@pytest.mark.asyncio
+async def test_signed_pr_sync_uses_single_owner_even_for_bot_push(
+    app, monkeypatch
+):
+    from unittest.mock import AsyncMock
+    from a2a_server.forgejo_review_owner import hooks
+
+    monkeypatch.setenv('FORGEJO_SINGLE_REVIEW_REPOS', 'owner/repo')
+    start = AsyncMock(return_value='owner-task')
+    monkeypatch.setattr(hooks, 'ensure_review', start)
+    payload = {
+        'action': 'synchronized',
+        'repository': {'full_name': 'owner/repo'},
+        'pull_request': {'number': 7},
+        'sender': {'login': 'codetether-bot'},
+    }
+    response = await _post(app, payload, event='pull_request_sync')
+    assert response.status_code == 200
+    assert response.json()['review_task_id'] == 'owner-task'
+    start.assert_awaited_once_with('owner/repo', 7)
+
+
+@pytest.mark.asyncio
+async def test_bad_signature_cannot_start_single_owner(app, monkeypatch):
+    from unittest.mock import AsyncMock
+    from a2a_server.forgejo_review_owner import hooks
+
+    start = AsyncMock()
+    monkeypatch.setattr(hooks, 'ensure_review', start)
+    response = await _post(
+        app, {'action': 'opened'}, signature='bad', event='pull_request'
+    )
+    assert response.status_code == 401
+    start.assert_not_awaited()
+
+
 def _payload(
     body='@codetether handle this issue', *, sender='alice', action='created'
 ):

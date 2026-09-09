@@ -118,6 +118,20 @@ async def request_forgejo_review(
 
 async def publish_forgejo_review(review_task: dict[str, Any]) -> dict[str, Any]:
     metadata = review_task.get('metadata') or {}
+    from a2a_server.forgejo_review_owner import enabled
+
+    if enabled(str(metadata.get('repo') or '')) and not metadata.get(
+        'review_owner'
+    ):
+        return {'published': False, 'duplicate': True, 'event': 'SUPERSEDED'}
+    if metadata.get('review_owner'):
+        if not metadata.get('review_published'):
+            raise RuntimeError('single_review_not_published')
+        return {
+            'published': True,
+            'duplicate': True,
+            'event': metadata.get('review_verdict'),
+        }
     task_id = str(review_task.get('id') or '').strip()
     repo = str(metadata.get('repo') or '').strip()
     base = str(metadata.get('forgejo_api_url') or '').rstrip('/')
@@ -235,6 +249,10 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
         metadata.get('pr_head_sha') or ''
     ):
         raise ForgejoReviewNotReady('review_fix_no_progress')
+    from a2a_server.forgejo_review_owner import enabled, ensure_review
+
+    if enabled(repo):
+        return await ensure_review(repo, pr_number, expected_sha=head_sha)
     if await _task_exists(work_key):
         raise ForgejoReviewNotReady('review_already_exists')
 
@@ -315,11 +333,22 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
 async def create_forgejo_fix_followup(
     review_task: dict[str, Any],
 ) -> str | None:
-    verdict = reviewer_verdict(review_task)
+    owner_metadata = review_task.get('metadata') or {}
+    verdict = (
+        owner_metadata.get('review_verdict')
+        if owner_metadata.get('review_owner')
+        else reviewer_verdict(review_task)
+    )
     # Missing credentials/tools/evidence are prerequisites, not code findings.
     if verdict != 'CHANGES_REQUESTED':
         return None
     metadata = review_task.get('metadata') or {}
+    from a2a_server.forgejo_review_owner import enabled
+
+    if enabled(str(metadata.get('repo') or '')) and not metadata.get(
+        'review_owner'
+    ):
+        return None
     repo = str(metadata.get('repo') or '')
     base = str(metadata.get('forgejo_api_url') or '').rstrip('/')
     pr_number = int(metadata.get('pr_number') or 0)

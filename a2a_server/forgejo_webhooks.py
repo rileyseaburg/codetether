@@ -630,6 +630,16 @@ async def handle_forgejo_webhook(request: Request) -> dict[str, Any]:
         return {'ok': True}
     if event == 'status':
         return await _handle_status_event(payload, _api_base(payload))
+    if event in {
+        'pull_request',
+        'pull_request_sync',
+        'pull_request_review_request',
+    }:
+        from a2a_server.forgejo_review_owner.hooks import handle_event
+
+        result = await handle_event(payload)
+        if result is not None:
+            return result
     if _is_self_authored(payload, event):
         return {'accepted': False, 'reason': 'self-authored-event'}
     ctx = _context(event, payload)
