@@ -35,6 +35,8 @@ spec:
                   key: {{ .Values.harvester.tokenSecret.key | default "CODETETHER_TOKEN" }}
             - name: CODETETHER_WORKER_TARGETED_ONLY
               value: "true"
+            - name: CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND
+              value: {{ ternary "1" "0" .Values.reviewHarvester.allowChatGPTBackend | quote }}
             - name: CODETETHER_WORKER_CAPABILITIES
               value: "review-readonly"
             - name: CODETETHER_DEFAULT_MODEL
