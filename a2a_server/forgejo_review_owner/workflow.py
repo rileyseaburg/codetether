@@ -57,6 +57,24 @@ class HeadReviewWorkflow:
     async def review_once(self, arg):
         try:
             count = await self.call(activities.prepare, arg)
+            drain_deadline = workflow.now() + timedelta(minutes=30)
+            while not count and not self.cancelled:
+                if workflow.now() >= drain_deadline:
+                    return await self.call(
+                        activities.complete,
+                        {
+                            **arg,
+                            'blocked': True,
+                            'reason': 'review_legacy_drain_timeout',
+                        },
+                    )
+                try:
+                    await workflow.wait_condition(
+                        lambda: self.cancelled, timeout=timedelta(seconds=15)
+                    )
+                except asyncio.TimeoutError:
+                    pass
+                count = await self.call(activities.prepare, arg)
             deadline = workflow.now() + timedelta(hours=3)
             for start in range(1, count + 1, 2):
                 batch = []

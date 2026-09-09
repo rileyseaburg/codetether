@@ -17,6 +17,22 @@ from .state import snapshot as load_snapshot
 @safe_activity('review_capture_failed')
 async def prepare(arg):
     await bound_pr(arg)
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        active = await conn.fetchval(
+            """SELECT EXISTS(SELECT 1 FROM tasks
+            WHERE status IN ('pending','queued','running','working')
+            AND COALESCE(metadata->>'repo',metadata->>'repository')=$1
+            AND metadata->>'pr_number'=$2
+            AND COALESCE(metadata->>'pr_head_sha',metadata->>'head_sha')=$3
+            AND ((metadata->>'source'='forgejo-webhook' AND metadata->>'workflow_stage'='review')
+              OR metadata->>'source'='forgejo-pr-review'))""",
+            arg['repo'],
+            str(arg['pr']),
+            arg['sha'],
+        )
+    if active:
+        return 0
     await db.db_update_task_status(
         arg['task_id'], 'working', result='', error=''
     )
