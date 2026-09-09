@@ -17,6 +17,10 @@ spec:
         app.kubernetes.io/component: review-harvester
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}-harvester
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -28,6 +32,12 @@ spec:
           command: ["/usr/local/bin/codetether"]
           args: ["worker", "--server", "http://a2a-server:8000", "--name", "harvester-pr-review", "--workspaces", "/review", "--auto-approve", "safe", "--max-concurrent-tasks", "2"]
           env:
+            - name: HOME
+              value: /review
+            - name: XDG_CONFIG_HOME
+              value: /review/.config
+            - name: XDG_DATA_HOME
+              value: /review/.local/share
             - name: CODETETHER_TOKEN
               valueFrom:
                 secretKeyRef:
