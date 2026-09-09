@@ -15,15 +15,15 @@ spec:
     namespace: a2a-system
   source:
     repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
-    targetRevision: main
+    targetRevision: d8227827b179687118271d6d46d120da3dc80f4e
     path: chart/a2a-server
     helm:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: automerge-580ff64bd07d
+          value: single-review-d8227827b179
         - name: blueGreen.rolloutId.green
-          value: automerge-580ff64bd07d
+          value: single-review-d8227827b179
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: automerge-580ff64bd07d
+          tag: single-review-d8227827b179
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:automerge-580ff64bd07d
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:single-review-d8227827b179
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: automerge-580ff64bd07d
+            green: single-review-d8227827b179
         service:
           type: ClusterIP
           port: 8000
@@ -177,6 +177,8 @@ spec:
           GITHUB_APP_MODEL_REF: openai-codex/gpt-6-astra-fast:high
           FORGEJO_STATUS_REMEDIATION_ENABLED: "false"
           FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
+          FORGEJO_SINGLE_REVIEW_REPOS: "riley/spotlessbinco"
+          FORGEJO_REVIEW_SAFE_WORKER: "harvester-pr-review"
           FORGEJO_AUTO_MERGE_REQUIRED_CHECKS: >-
             {"riley/spotlessbinco":[
               "Dev Image Builds / build-and-push (pull_request)",
@@ -184,7 +186,7 @@ spec:
               "Dev Image Builds / build-and-push-dev-api (pull_request)",
               "Dev Image Builds / Build and push Dev Fastify API (pull_request)",
               "Secret Scan / gitleaks (pull_request)",
-              "CodeTether PR Review / CodeTether Review (pull_request_target)"
+              "CodeTether / Harvester Review"
             ]}
           GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
           GITHUB_APP_AUTO_MERGE_ENABLED: "false"
@@ -207,6 +209,9 @@ spec:
           enabled: false
         opa:
           enabled: false
+        reviewHarvester:
+          enabled: true
+          allowChatGPTBackend: true
         harvester:
           enabled: true
           replicaCount: 2
