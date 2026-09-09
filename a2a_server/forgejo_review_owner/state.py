@@ -6,14 +6,15 @@ import os
 from urllib.parse import quote
 
 from a2a_server import database as db
-from a2a_server.forgejo_agent_client import _request
 from a2a_server.forgejo_automation_policy import pr_is_paused
 
 from . import STATUS_CONTEXT
 
 
 async def forgejo_json(method, base, path, payload=None):
-    return await _request(method, path, base_url=base, payload=payload)
+    from a2a_server.forgejo_webhooks import forgejo_json as request
+
+    return await request(method, base, path, payload)
 
 
 def endpoint(repo):

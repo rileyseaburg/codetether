@@ -15,6 +15,18 @@ from a2a_server.forgejo_review_owner import (
 )
 
 
+@pytest.mark.asyncio
+async def test_review_client_accepts_list_endpoints(monkeypatch):
+    from a2a_server import forgejo_webhooks
+
+    request = AsyncMock(return_value=[{'id': 1, 'body': 'review'}])
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', request)
+    rows = await state.forgejo_json(
+        'GET', 'https://forge.example/api/v1', '/repos/o/r/pulls/7/reviews'
+    )
+    assert rows == [{'id': 1, 'body': 'review'}]
+
+
 def test_identity_is_shared_by_issue_and_pr_deliveries():
     assert identities('owner/repo', 7, 'a') == identities('owner/repo', 7, 'a')
     assert identities('owner/repo', 7, 'a') != identities('owner/repo', 7, 'b')
