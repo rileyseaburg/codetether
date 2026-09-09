@@ -332,8 +332,20 @@ async def create_forgejo_review_task(code_task: dict[str, Any]) -> str | None:
 
 async def create_forgejo_fix_followup(
     review_task: dict[str, Any],
+    *,
+    ownership_held: bool = False,
 ) -> str | None:
     owner_metadata = review_task.get('metadata') or {}
+    if owner_metadata.get('review_owner'):
+        from a2a_server.forgejo_review_owner.recovery import (
+            enabled as recovery_enabled,
+        )
+        from a2a_server.forgejo_review_owner.recovery import ensure_recovery
+
+        if recovery_enabled(str(owner_metadata.get('repo') or '')):
+            return await ensure_recovery(
+                str(review_task['id']), ownership_held=ownership_held
+            )
     verdict = (
         owner_metadata.get('review_verdict')
         if owner_metadata.get('review_owner')

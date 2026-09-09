@@ -138,6 +138,9 @@ async def retry_after_checks(task_id):
 
 async def reconcile():
     """Repair missed events only for enrolled PRs, never backfill an entire repository."""
+    from .recovery import watch_recoveries
+
+    await watch_recoveries()
     pool = await db.get_pool()
     if pool is None:
         return
@@ -151,5 +154,8 @@ async def reconcile():
         try:
             task_id = await ensure_review(row['repo'], int(row['pr']))
             await retry_after_checks(task_id)
+            from .recovery import ensure_recovery
+
+            await ensure_recovery(task_id)
         except RuntimeError:
             pass

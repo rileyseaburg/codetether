@@ -23,6 +23,43 @@ from a2a_server.forgejo_automation_policy import (
 from a2a_server.forgejo_writer_guard import single_writer
 
 
+@pytest.mark.asyncio
+async def test_readonly_chunks_do_not_take_writer_slots_but_builds_still_do(
+    writer_db, monkeypatch
+):
+    monkeypatch.setenv('FORGEJO_REVIEW_SAFE_WORKER', 'safe-reviewer')
+    readonly = {
+        'source': 'forgejo-webhook',
+        'repo': 'owner/repo',
+        'pr_number': 7,
+        'workflow_stage': 'review_chunk',
+        'agent_type': 'plan',
+        'target_agent_name': 'safe-reviewer',
+        'required_capabilities': ['review-readonly'],
+    }
+    async with writer_db.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO tasks(id,status,agent_type,metadata) VALUES('reader','running','plan',$1::jsonb)",
+            json.dumps(readonly),
+        )
+    writer = {
+        'source': 'forgejo-webhook',
+        'repo': 'owner/repo',
+        'pr_number': 7,
+        'agent_type': 'build',
+        'forgejo_work_key': 'repair',
+    }
+    async with single_writer(writer):
+        async with writer_db.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO tasks(id,status,agent_type,metadata) VALUES('writer','running','build',$1::jsonb)",
+                json.dumps(writer),
+            )
+    with pytest.raises(HTTPException):
+        async with single_writer({**writer, 'forgejo_work_key': 'another'}):
+            pytest.fail('parallel writer admitted')
+
+
 def test_status_edits_require_explicit_opt_in(monkeypatch):
     monkeypatch.delenv('FORGEJO_STATUS_REMEDIATION_ENABLED', raising=False)
     assert not status_remediation_enabled()

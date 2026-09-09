@@ -21,12 +21,13 @@ async def prepare(arg):
     async with pool.acquire() as conn:
         active = await conn.fetchval(
             """SELECT EXISTS(SELECT 1 FROM tasks
-            WHERE status IN ('pending','queued','running','working')
+            WHERE status IN ('pending','queued','assigned','running','in_progress','working')
             AND COALESCE(metadata->>'repo',metadata->>'repository')=$1
             AND metadata->>'pr_number'=$2
-            AND COALESCE(metadata->>'pr_head_sha',metadata->>'head_sha')=$3
-            AND ((metadata->>'source'='forgejo-webhook' AND metadata->>'workflow_stage'='review')
-              OR metadata->>'source'='forgejo-pr-review'))""",
+            AND ((metadata->>'source'='forgejo-webhook' AND metadata->>'workflow_stage'='review_recovery')
+              OR (COALESCE(metadata->>'pr_head_sha',metadata->>'head_sha')=$3
+                AND ((metadata->>'source'='forgejo-webhook' AND metadata->>'workflow_stage'='review')
+                  OR metadata->>'source'='forgejo-pr-review'))))""",
             arg['repo'],
             str(arg['pr']),
             arg['sha'],
@@ -51,6 +52,7 @@ async def prepare(arg):
             reason = str(error)
             if reason not in {
                 'review_diff_size_out_of_bounds',
+                'review_diff_empty',
                 'review_chunk_capacity_exceeded',
                 'review_coverage_mismatch',
             }:
@@ -158,6 +160,10 @@ async def complete(arg):
             {'review_error_reason': reason, 'review_chunk_task_ids': ids},
         )
         notes = []
+        if reason == 'review_diff_empty':
+            notes.append(
+                'The current PR diff has zero bytes. No coding repair or empty commit is warranted; verify whether this PR is now redundant. Older CI evidence is not a pass for this head.'
+            )
         for task_id in ids[-2:]:
             task = await db.db_get_task(task_id)
             output = ((task or {}).get('metadata') or {}).get(
@@ -235,10 +241,16 @@ async def cancel(arg):
 @activity.defn(name='forgejo_review_snapshot')
 @safe_activity('review_snapshot_failed')
 async def snapshot(task_id):
+    from .recovery import enabled as recovery_enabled
+
     task = await db.db_get_task(task_id)
     if not task:
         raise ApplicationError('review_record_missing', non_retryable=True)
     return {
         'status': task['status'],
+        'review_owner': bool((task.get('metadata') or {}).get('review_owner'))
+        and recovery_enabled(
+            str((task.get('metadata') or {}).get('repo') or '')
+        ),
         'verdict': (task.get('metadata') or {}).get('review_verdict', ''),
     }

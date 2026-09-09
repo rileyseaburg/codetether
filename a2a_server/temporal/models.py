@@ -55,6 +55,7 @@ class ForgejoTaskTerminalSignal:
     verdict: str = ''
     head_sha: str = ''
     pull_request_number: int = 0
+    review_owner: bool = False
 
 
 @dataclass(frozen=True)

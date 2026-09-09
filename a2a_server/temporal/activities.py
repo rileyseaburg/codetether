@@ -58,6 +58,7 @@ _FAILURE_EXPLANATIONS = {
     ),
     'review_blocked': 'The reviewer could not complete the review because required access, tools, or evidence were unavailable. No coding remediation was scheduled.',
     'review_fix_no_progress': 'The remediation task returned without advancing the PR head. The existing PR remains available; another review of the same commit was not scheduled.',
+    'review_recovery_no_progress': 'The coding harvester could not establish a new commit or newly successful exact-head validation. The existing review remains blocked; inspect the recovery task for the required operator action.',
     'review_already_exists': 'A review task already exists for this PR head. No duplicate review was scheduled.',
     'review_pr_closed': 'The pull request is closed; no further review was scheduled.',
     'review_pr_missing': 'No pull request was found for the requested branch.',
@@ -513,6 +514,30 @@ async def dispatch_review(request: ForgejoStageRequest) -> ForgejoStageResult:
     )
 
     parent = await _codetether_task(request.parent_task_id)
+    if (parent.get('metadata') or {}).get(
+        'workflow_stage'
+    ) == 'review_recovery':
+        from a2a_server.forgejo_review_owner.recovery import reconcile_recovery
+        from a2a_server import database
+
+        owner_id = parent['metadata']['review_owner_id']
+        owner = await database.db_get_task(owner_id)
+        await reconcile_recovery(owner, str(parent['id']))
+        parent = await database.db_get_task(str(parent['id']))
+        progress = parent['metadata'].get('recovery_state')
+        if progress == 'needs_input' or parent['metadata'].get(
+            'recovery_blocker'
+        ):
+            raise ApplicationError(
+                'review_recovery_no_progress',
+                type='review_recovery_no_progress',
+                non_retryable=True,
+            )
+        if progress not in {'new_head_review', 'validation_review'}:
+            raise ApplicationError(
+                'review_recovery_progress_pending',
+                type='review_recovery_progress_pending',
+            )
     async with _execution_ownership(request):
         try:
             task_id = await create_forgejo_review_task(parent)
@@ -581,7 +606,12 @@ async def dispatch_fix(request: ForgejoStageRequest) -> ForgejoStageResult:
             },
         }
     async with _execution_ownership(request):
-        task_id = await create_forgejo_fix_followup(review_task)
+        if (review_task.get('metadata') or {}).get('review_owner'):
+            task_id = await create_forgejo_fix_followup(
+                review_task, ownership_held=True
+            )
+        else:
+            task_id = await create_forgejo_fix_followup(review_task)
     if not task_id:
         raise RuntimeError('Forgejo fix task was not created')
     task = await _codetether_task(str(task_id))

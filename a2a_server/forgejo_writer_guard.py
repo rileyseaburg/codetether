@@ -1,5 +1,7 @@
 """Serialize repository-changing tasks by PR, not by CI status label or SHA."""
+
 # ruff: noqa: PLC0415, E501
+import os
 
 from contextlib import asynccontextmanager
 
@@ -25,7 +27,20 @@ async def single_writer(metadata):
         raise HTTPException(
             409, 'Forgejo automation is paused for this request'
         )
-    if not repo or not number or metadata.get('agent_type') == 'review':
+    readonly_chunk = (
+        bool(os.getenv('FORGEJO_REVIEW_SAFE_WORKER', ''))
+        and metadata.get('agent_type') == 'plan'
+        and metadata.get('workflow_stage') == 'review_chunk'
+        and 'review-readonly' in (metadata.get('required_capabilities') or [])
+        and metadata.get('target_agent_name')
+        == os.getenv('FORGEJO_REVIEW_SAFE_WORKER', '')
+    )
+    if (
+        not repo
+        or not number
+        or metadata.get('agent_type') == 'review'
+        or readonly_chunk
+    ):
         yield
         return
     from a2a_server import database
@@ -49,12 +64,16 @@ async def single_writer(metadata):
                     AND (metadata->>'pr_number' = $2 OR metadata->>'issue_number' = $2)
                     AND status IN ('pending','queued','assigned','running','in_progress','working')
                     AND COALESCE(agent_type, '') != 'review'
+                    AND NOT COALESCE(($4<>'' AND agent_type='plan' AND metadata->>'workflow_stage'='review_chunk'
+                      AND metadata->'required_capabilities' @> '["review-readonly"]'::jsonb
+                      AND metadata->>'target_agent_name'=$4),false)
                     AND ($3::text IS NULL OR metadata->>'forgejo_work_key' IS DISTINCT FROM $3)
                 ORDER BY created_at LIMIT 1
             """,
                 repo,
                 str(number),
                 work_key,
+                os.getenv('FORGEJO_REVIEW_SAFE_WORKER', ''),
             )
             if active:
                 raise HTTPException(

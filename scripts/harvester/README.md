@@ -21,5 +21,10 @@ Opaque mode rejects writes, other API origins, redirects, and paths outside
 the configured repository. PR/review publication remains server-owned. Legacy
 explicit-token mode remains available for existing callers.
 
+Harvester agents must use opaque mode. Never extract the credential or put it in
+`--token`, shell arguments, command strings, or diagnostics: an outer command
+timeout can echo those arguments even when this wrapper redacts its own errors.
+After rotation, invoke opaque mode again to obtain the current Vault projection.
+
 Build using `docker/Dockerfile.harvester-forgejo-cli`; its private dockerignore
 limits the build context to the wrapper files. No credentials enter the image.

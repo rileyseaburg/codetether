@@ -93,8 +93,12 @@ class ForgejoAgentWorkflow:
         self, stage: ForgejoStageResult
     ) -> ForgejoTaskTerminalSignal:
         self._active_task_id = stage.task_id
-        if stage.stage == 'review' and workflow.patched(
-            'single-review-owner-poll-v1'
+        if (
+            stage.stage == 'review'
+            and workflow.patched('single-review-owner-poll-v1')
+        ) or (
+            stage.stage == 'fix'
+            and workflow.patched('review-recovery-fix-poll-v1')
         ):
             deadline = workflow.now() + timedelta(days=7)
             while (
@@ -113,9 +117,10 @@ class ForgejoAgentWorkflow:
                         self._terminal[stage.task_id] = (
                             ForgejoTaskTerminalSignal(
                                 task_id=stage.task_id,
-                                stage='review',
+                                stage=stage.stage,
                                 status=state['status'],
                                 verdict=state.get('verdict', ''),
+                                review_owner=state.get('review_owner', False),
                             )
                         )
                 if workflow.now() >= deadline:
@@ -276,7 +281,12 @@ class ForgejoAgentWorkflow:
                 parent_task_id=parent_task_id,
                 fix_attempt=fix_attempt,
             )
-            if terminal.status != 'completed':
+            recovery_owner = terminal.review_owner and workflow.patched(
+                'review-owner-feedback-recovery-v1'
+            )
+            if terminal.status != 'completed' and not (
+                recovery_owner and terminal.verdict == 'BLOCKED'
+            ):
                 return await self._finish_attempt(
                     workflow_input,
                     terminal.status,
@@ -287,8 +297,12 @@ class ForgejoAgentWorkflow:
             )
             if self._review_verdict == 'APPROVED':
                 return await self._finalize(workflow_input, 'completed')
-            if self._review_verdict == 'BLOCKED' and workflow.patched(
-                'review-blocked-is-not-code-remediation-v1'
+            if (
+                self._review_verdict == 'BLOCKED'
+                and not recovery_owner
+                and workflow.patched(
+                    'review-blocked-is-not-code-remediation-v1'
+                )
             ):
                 return await self._finish_attempt(
                     workflow_input,

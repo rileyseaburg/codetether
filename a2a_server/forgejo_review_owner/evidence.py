@@ -17,7 +17,9 @@ MAX_CHUNKS = 128
 
 def split_diff(data):
     data.decode('utf-8')
-    if not data or len(data) > MAX_DIFF:
+    if not data:
+        raise ValueError('review_diff_empty')
+    if len(data) > MAX_DIFF:
         raise ValueError('review_diff_size_out_of_bounds')
     chunks = []
     start = 0
