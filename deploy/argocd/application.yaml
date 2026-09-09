@@ -15,15 +15,15 @@ spec:
     namespace: a2a-system
   source:
     repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
-    targetRevision: d8227827b179687118271d6d46d120da3dc80f4e
+    targetRevision: c9a83c9124357c8f88b8eb1ac01523d79256cafa
     path: chart/a2a-server
     helm:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: single-review-d8227827b179
+          value: review-recovery-c9a83c912435
         - name: blueGreen.rolloutId.green
-          value: single-review-d8227827b179
+          value: review-recovery-c9a83c912435
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: single-review-d8227827b179
+          tag: review-recovery-c9a83c912435
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:single-review-d8227827b179
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:review-recovery-c9a83c912435
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: single-review-d8227827b179
+            green: review-recovery-c9a83c912435
         service:
           type: ClusterIP
           port: 8000
@@ -178,6 +178,7 @@ spec:
           FORGEJO_STATUS_REMEDIATION_ENABLED: "false"
           FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
           FORGEJO_SINGLE_REVIEW_REPOS: "riley/spotlessbinco"
+          FORGEJO_REVIEW_RECOVERY_REPOS: "riley/spotlessbinco"
           FORGEJO_REVIEW_SAFE_WORKER: "harvester-pr-review"
           FORGEJO_AUTO_MERGE_REQUIRED_CHECKS: >-
             {"riley/spotlessbinco":[
