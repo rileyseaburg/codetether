@@ -460,11 +460,13 @@ async def observe_terminal(conn, task, job):
             ':' + ','.join(diagnostics) if diagnostics else ''
         )
         # The controller must not manufacture a worker success when the pod disappears.
-        await conn.execute(
+        updated = await conn.execute(
             "UPDATE tasks SET status='failed',error=$2,completed_at=NOW(),metadata=metadata || '{\"job_controller_failed\":true}'::jsonb WHERE id=$1 AND status NOT IN ('completed','failed','cancelled')",
             task['id'],
             failure,
         )
+        if updated != 'UPDATE 1':
+            return False
         await conn.execute(
             "UPDATE task_runs SET status='failed',completed_at=NOW(),lease_expires_at=NOW() WHERE task_id=$1 AND status IN ('queued','running')",
             task['id'],
