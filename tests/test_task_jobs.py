@@ -78,6 +78,12 @@ async def test_job_has_no_persistent_workspace_and_cannot_retry_duplicate_work(
     assert job['spec']['backoffLimit'] == 0
     assert job['spec']['activeDeadlineSeconds'] == 600
     assert job['spec']['template']['spec']['restartPolicy'] == 'Never'
+    assert (
+        job['spec']['template']['spec']['affinity']['podAntiAffinity'][
+            'requiredDuringSchedulingIgnoredDuringExecution'
+        ][0]['topologyKey']
+        == 'kubernetes.io/hostname'
+    )
     assert job['spec']['template']['spec']['volumes'] == [
         {'name': 'workspace', 'emptyDir': {'sizeLimit': '40Gi'}}
     ]

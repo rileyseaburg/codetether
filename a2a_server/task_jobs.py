@@ -272,6 +272,16 @@ async def launch(task):
                 }
             }
         }
+    spec.setdefault('affinity', {})['podAntiAffinity'] = {
+        'requiredDuringSchedulingIgnoredDuringExecution': [
+            {
+                'labelSelector': {
+                    'matchLabels': {'codetether.io/task-job': 'true'}
+                },
+                'topologyKey': 'kubernetes.io/hostname',
+            }
+        ]
+    }
     if not meta['job_readonly'] and meta.get('agent_type') != 'clone_repo':
         bootstrap = copy.deepcopy(container)
         bootstrap['name'] = 'workspace-prepare'
