@@ -11,16 +11,19 @@ import math
 import os
 import queue
 import re
+import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
 
 POLL_SECONDS = 2.0
 TICK_SECONDS = 0.2
@@ -333,6 +336,10 @@ def audit_workspace(config, deadline, termination):
         ).strip()
         result['workspace_clean'] = clean and stash_empty
         result['stash_empty'] = stash_empty
+        head = git('rev-parse', 'HEAD').decode().strip()
+        if not re.fullmatch(r'[0-9a-fA-F]{40,64}', head):
+            raise Diagnostic('audit_head_invalid')
+        result['head_sha'] = head
         branches = (
             git('for-each-ref', '--format=%(refname)', 'refs/heads')
             .decode()
@@ -387,6 +394,7 @@ def supervise(config):
     deadline = time.monotonic() + config.deadline
     termination, previous = Termination(), {}
     child = poller = None
+    worker_log = None
     result = {
         'schema_version': 1,
         'task_status': None,
@@ -422,7 +430,21 @@ def supervise(config):
         )
         if termination.received:
             raise Diagnostic('job_terminated')
+        minimum = int(os.getenv('JOB_MIN_FREE_BYTES', '0'))
+        if minimum:
+            root = Path('/var/lib/codetether/repos')
+            root.mkdir(parents=True, exist_ok=True)
+            if shutil.disk_usage(root).free < minimum:
+                raise Diagnostic('job_storage_insufficient')
         try:
+            # Retained privately on failure; never stream credential-bearing startup logs.
+            if os.getenv('JOB_PRIVATE_LOG_PATH'):
+                fd = os.open(
+                    os.environ['JOB_PRIVATE_LOG_PATH'],
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+                    0o600,
+                )
+                worker_log = os.fdopen(fd, 'wb')
             child = subprocess.Popen(
                 [
                     'codetether',
@@ -441,8 +463,12 @@ def supervise(config):
                 env=env,
                 start_new_session=True,
                 stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=worker_log
+                if worker_log is not None
+                else subprocess.DEVNULL,
+                stderr=worker_log
+                if worker_log is not None
+                else subprocess.DEVNULL,
             )
         except Exception:
             raise Diagnostic('worker_start_failed') from None
@@ -503,6 +529,8 @@ def supervise(config):
                 diagnostic='job_result_write_failed', cleanup_eligible=False
             )
         print(json.dumps(result, sort_keys=True), flush=True)
+        if worker_log is not None:
+            worker_log.close()
         for number, handler in previous.items():
             signal.signal(number, handler)
     if termination.received:

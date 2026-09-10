@@ -886,3 +886,6 @@ harvester:
 reviewHarvester:
   enabled: false
   allowChatGPTBackend: false
+
+taskJobs:
+  enabled: false

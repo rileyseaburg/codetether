@@ -239,6 +239,12 @@ async def create_and_dispatch_task(
     if model_ref:
         effective_metadata['model_ref'] = model_ref
 
+    from a2a_server.task_jobs import route as job_route
+
+    effective_metadata = job_route(
+        effective_metadata, workspace_id, task_timeout_seconds
+    )
+
     work_key = _github_work_key(effective_metadata)
     if work_key and effective_metadata.get('source') == 'github-app':
         effective_metadata['github_work_key'] = work_key

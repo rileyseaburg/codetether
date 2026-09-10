@@ -358,6 +358,10 @@ class AuditTests(unittest.TestCase):
                     'rev-list': b'0\n',
                 }
                 if kind == 'rev-parse':
+                    if command[1] == 'HEAD':
+                        return SimpleNamespace(
+                            returncode=0, stdout=b'a' * 40 + b'\n'
+                        )
                     value = (
                         str(path).encode() + b'\n'
                         if command[1] == '--show-toplevel'

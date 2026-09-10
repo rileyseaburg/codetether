@@ -28,12 +28,20 @@ async def single_writer(metadata):
             409, 'Forgejo automation is paused for this request'
         )
     readonly_chunk = (
-        bool(os.getenv('FORGEJO_REVIEW_SAFE_WORKER', ''))
-        and metadata.get('agent_type') == 'plan'
+        metadata.get('agent_type') == 'plan'
         and metadata.get('workflow_stage') == 'review_chunk'
         and 'review-readonly' in (metadata.get('required_capabilities') or [])
-        and metadata.get('target_agent_name')
-        == os.getenv('FORGEJO_REVIEW_SAFE_WORKER', '')
+        and (
+            (
+                bool(os.getenv('FORGEJO_REVIEW_SAFE_WORKER', ''))
+                and metadata.get('target_agent_name')
+                == os.getenv('FORGEJO_REVIEW_SAFE_WORKER', '')
+            )
+            or (
+                metadata.get('job_execution') is True
+                and metadata.get('job_readonly') is True
+            )
+        )
     )
     if (
         not repo
@@ -64,9 +72,10 @@ async def single_writer(metadata):
                     AND (metadata->>'pr_number' = $2 OR metadata->>'issue_number' = $2)
                     AND status IN ('pending','queued','assigned','running','in_progress','working')
                     AND COALESCE(agent_type, '') != 'review'
-                    AND NOT COALESCE(($4<>'' AND agent_type='plan' AND metadata->>'workflow_stage'='review_chunk'
+                    AND NOT COALESCE((agent_type='plan' AND metadata->>'workflow_stage'='review_chunk'
                       AND metadata->'required_capabilities' @> '["review-readonly"]'::jsonb
-                      AND metadata->>'target_agent_name'=$4),false)
+                      AND (($4<>'' AND metadata->>'target_agent_name'=$4)
+                        OR (metadata->>'job_execution'='true' AND metadata->>'job_readonly'='true'))),false)
                     AND ($3::text IS NULL OR metadata->>'forgejo_work_key' IS DISTINCT FROM $3)
                 ORDER BY created_at LIMIT 1
             """,

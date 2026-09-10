@@ -144,6 +144,9 @@ def start_github_app_terminal_reconciler() -> None:
 
     start_reconciler()
     start_auto_merge_reconciler()
+    from ..task_jobs import start_controller
+
+    start_controller()
     global _RECONCILER_TASK
     enabled = os.environ.get(
         'GITHUB_APP_TERMINAL_RECONCILER_ENABLED', 'true'
