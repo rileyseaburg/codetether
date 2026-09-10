@@ -249,6 +249,29 @@ async def launch(task):
                 }
             }
         }
+    allowed = [
+        n.strip()
+        for n in os.getenv('HARVESTER_JOB_ALLOWED_NODES', '').split(',')
+        if n.strip()
+    ]
+    if allowed:
+        spec['affinity'] = {
+            'nodeAffinity': {
+                'requiredDuringSchedulingIgnoredDuringExecution': {
+                    'nodeSelectorTerms': [
+                        {
+                            'matchExpressions': [
+                                {
+                                    'key': 'kubernetes.io/hostname',
+                                    'operator': 'In',
+                                    'values': allowed,
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
     if not meta['job_readonly'] and meta.get('agent_type') != 'clone_repo':
         bootstrap = copy.deepcopy(container)
         bootstrap['name'] = 'workspace-prepare'
@@ -356,12 +379,16 @@ async def observe_terminal(conn, task, job):
     pods = await kube('GET', path)
     evidence = []
     for pod in pods['items']:
-        for c in pod.get('status', {}).get('containerStatuses', []):
+        for c in [
+            *pod.get('status', {}).get('initContainerStatuses', []),
+            *pod.get('status', {}).get('containerStatuses', []),
+        ]:
             terminal = c.get('state', {}).get('terminated') or {}
             if terminal:
                 evidence.append(
                     {
                         'pod': pod['metadata']['name'],
+                        'container': c['name'],
                         'exit_code': terminal.get('exitCode'),
                         'reason': terminal.get('reason'),
                         'message': terminal.get('message', '')[:4096],
@@ -398,10 +425,35 @@ async def observe_terminal(conn, task, job):
             task['id'],
         )
     if task['status'] not in {'completed', 'failed', 'cancelled'}:
+        diagnostics = []
+        for item in evidence:
+            try:
+                diagnostic = json.loads(item.get('message') or '{}').get(
+                    'diagnostic'
+                )
+            except (ValueError, AttributeError):
+                continue
+            if diagnostic in {
+                'workspace_storage_insufficient',
+                'workspace_storage_exhausted',
+                'workspace_git_auth_failed',
+                'remote_head_advanced',
+                'workspace_bootstrap_failed',
+                'workspace_bootstrap_timeout',
+                'job_storage_insufficient',
+                'worker_start_failed',
+                'worker_exited_before_terminal',
+                'job_deadline_exceeded',
+            }:
+                diagnostics.append(diagnostic)
+        failure = 'kubernetes_job_terminated' + (
+            ':' + ','.join(diagnostics) if diagnostics else ''
+        )
         # The controller must not manufacture a worker success when the pod disappears.
         await conn.execute(
-            "UPDATE tasks SET status='failed',error='kubernetes_job_terminated',completed_at=NOW(),metadata=metadata || '{\"job_controller_failed\":true}'::jsonb WHERE id=$1 AND status NOT IN ('completed','failed','cancelled')",
+            "UPDATE tasks SET status='failed',error=$2,completed_at=NOW(),metadata=metadata || '{\"job_controller_failed\":true}'::jsonb WHERE id=$1 AND status NOT IN ('completed','failed','cancelled')",
             task['id'],
+            failure,
         )
         await conn.execute(
             "UPDATE task_runs SET status='failed',completed_at=NOW(),lease_expires_at=NOW() WHERE task_id=$1 AND status IN ('queued','running')",
@@ -415,7 +467,9 @@ async def safe_to_reclaim(task, evidence):
     meta = task['metadata']
     try:
         result = next(
-            json.loads(e['message']) for e in evidence if e.get('message')
+            json.loads(e['message'])
+            for e in evidence
+            if e.get('message') and e.get('container', 'worker') == 'worker'
         )
     except (ValueError, StopIteration):
         return False

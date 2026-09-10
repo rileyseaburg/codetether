@@ -13,6 +13,7 @@ spec:
   # Drain legacy workers without restarting active tasks during the Job cutover.
   updateStrategy:
     type: OnDelete
+    rollingUpdate: null
   {{- end }}
   selector:
     matchLabels:
