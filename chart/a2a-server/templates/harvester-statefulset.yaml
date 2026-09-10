@@ -9,6 +9,11 @@ metadata:
 spec:
   serviceName: {{ include "a2a-server.fullname" . }}-harvester
   replicas: {{ .Values.harvester.replicaCount }}
+  {{- if .Values.taskJobs.enabled }}
+  # Drain legacy workers without restarting active tasks during the Job cutover.
+  updateStrategy:
+    type: OnDelete
+  {{- end }}
   selector:
     matchLabels:
       {{- include "a2a-server.selectorLabels" . | nindent 6 }}
