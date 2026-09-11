@@ -17,6 +17,11 @@ use bounded `emptyDir` volumes with ephemeral-storage requests/limits. Known
 full nodes can be excluded with `HARVESTER_JOB_EXCLUDED_NODES`; a disk-free
 preflight prevents cloning into an already exhausted filesystem.
 
+Concurrency is `HARVESTER_JOB_MAX_ACTIVE` globally. Each coding Job requests
+6Gi ephemeral storage (a measured spotlessbinco clone is ~4.5Gi; the emptyDir
+ceiling is 10Gi) so the scheduler, not a one-per-node rule, keeps Jobs from
+overcommitting a node. Anti-affinity is only a spreading preference.
+
 Preparation runs the existing clone task. Later coding/recovery tasks reconstruct
 their workspace from the authenticated Git remote in an init container. PR tasks
 must match their pinned head. No old pod filesystem is reset, copied or removed.

@@ -68,7 +68,8 @@ def prepare(env):
         return result.stdout.decode().strip()
 
     root.mkdir(parents=True, exist_ok=True)
-    if shutil.disk_usage(root).free < 40 * 1024**3:
+    # Measured: a spotlessbinco clone is ~4.5 GiB; require ~2x headroom.
+    if shutil.disk_usage(root).free < 10 * 1024**3:
         raise ValueError('workspace_storage_insufficient')
     git(
         'clone',

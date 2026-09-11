@@ -182,15 +182,16 @@ spec:
           HARVESTER_JOB_REPOS: "riley/spotlessbinco"
           HARVESTER_JOB_NAMESPACE: "a2a-system"
           HARVESTER_JOB_TEMPLATE: "a2a-server-task-job-template"
-          # One Job per qualified node (pod anti-affinity); admission beyond that
-          # would only create unschedulable pods that still count as live.
-          HARVESTER_JOB_MAX_ACTIVE: "2"
+          # Global concurrency. Each coding Job reserves 6Gi ephemeral storage
+          # (measured clone ~4.5Gi) and spreads across nodes by preference;
+          # four qualified workers hold 40-60Gi free each.
+          HARVESTER_JOB_MAX_ACTIVE: "8"
           # Read-only review chunks release their slot on any terminal state;
           # this cap bounds retained failed/dirty coding Jobs awaiting recovery.
           HARVESTER_JOB_MAX_RETAINED: "40"
           HARVESTER_JOB_TTL: "60"
-          HARVESTER_JOB_EXCLUDED_NODES: "k8s-worker-1,k8s-worker-4"
-          HARVESTER_JOB_ALLOWED_NODES: "k8s-worker-2,k8s-worker-3"
+          HARVESTER_JOB_EXCLUDED_NODES: "kube-worker-08,node7,storage-node,spotless-tv-gpu"
+          HARVESTER_JOB_ALLOWED_NODES: "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
           FORGEJO_REVIEW_SAFE_WORKER: "harvester-pr-review"
           FORGEJO_AUTO_MERGE_REQUIRED_CHECKS: >-
             {"riley/spotlessbinco":[

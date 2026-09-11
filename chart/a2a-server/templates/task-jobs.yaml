@@ -44,8 +44,8 @@ data:
             {"name":"workspace","mountPath":"/var/lib/codetether/repos"},
             {"name":"vault-jwt","mountPath":"/var/run/secrets/vault","readOnly":true}
           ],
-          "resources":{"requests":{"cpu":"500m","memory":"2Gi","ephemeral-storage":"40Gi"},
-                       "limits":{"cpu":"4","memory":"6Gi","ephemeral-storage":"50Gi"}}
+          "resources":{"requests":{"cpu":"500m","memory":"2Gi","ephemeral-storage":"6Gi"},
+                       "limits":{"cpu":"4","memory":"6Gi","ephemeral-storage":"12Gi"}}
         }],
         "volumes":[
           {"name":"runner","configMap":{"name":{{ printf "%s-task-job-runner" (include "a2a-server.fullname" .) | toJson }},"defaultMode":365}},

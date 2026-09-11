@@ -211,7 +211,7 @@ async def launch(task):
             'JOB_DEADLINE_SECONDS': meta['job_timeout'] + 240,
             'JOB_MIN_FREE_BYTES': 128 * 1024**2
             if meta['job_readonly']
-            else (40 if meta.get('agent_type') == 'clone_repo' else 4)
+            else (10 if meta.get('agent_type') == 'clone_repo' else 4)
             * 1024**3,
             'CODETETHER_WORKER_CAPABILITIES': ','.join(
                 meta['required_capabilities']
@@ -221,8 +221,10 @@ async def launch(task):
     spec['volumes'].append(
         {
             'name': 'workspace',
+            # Measured clone ~4.5 GiB; sizeLimit is a per-Job ceiling, not a
+            # scheduling reservation (that is the ephemeral-storage request).
             'emptyDir': {
-                'sizeLimit': '2Gi' if meta['job_readonly'] else '40Gi'
+                'sizeLimit': '2Gi' if meta['job_readonly'] else '10Gi'
             },
         }
     )
@@ -272,13 +274,20 @@ async def launch(task):
                 }
             }
         }
+    # Spread Jobs across nodes but do not cap concurrency to one per node:
+    # the ephemeral-storage request already reserves each Job's disk budget,
+    # and the kubelet evicts on real pressure. HARVESTER_JOB_MAX_ACTIVE is the
+    # global concurrency limit.
     spec.setdefault('affinity', {})['podAntiAffinity'] = {
-        'requiredDuringSchedulingIgnoredDuringExecution': [
+        'preferredDuringSchedulingIgnoredDuringExecution': [
             {
-                'labelSelector': {
-                    'matchLabels': {'codetether.io/task-job': 'true'}
+                'weight': 100,
+                'podAffinityTerm': {
+                    'labelSelector': {
+                        'matchLabels': {'codetether.io/task-job': 'true'}
+                    },
+                    'topologyKey': 'kubernetes.io/hostname',
                 },
-                'topologyKey': 'kubernetes.io/hostname',
             }
         ]
     }
