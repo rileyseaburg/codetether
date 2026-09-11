@@ -24,8 +24,13 @@ Legacy author-session preservation requires an explicit handoff and is rejected
 rather than silently losing unpushed state.
 
 Successful read-only/clone Jobs receive a TTL after termination evidence is saved
-in task metadata. Coding Jobs additionally require a clean local audit, no stash
+in task metadata; because they never hold user work, cancelled or failed
+read-only Jobs are released the same way (their evidence is kept on the task).
+Coding Jobs additionally require a clean local audit, no stash
 or unpushed branches, and confirmation of the audited head on the remote branch.
+A committed `.gitmodules` file is ordinary content; only an initialised
+submodule store (`.git/modules`), shallow, grafted or alternate-object layouts
+make the audit refuse to judge the workspace.
 On ordinary task failure, unknown/dirty work is retained in a terminated pod for
 recovery. `emptyDir` is not disaster-recovery storage: node loss or eviction may
 remove it. Pushed Git commits and control-plane results are the durable handoff;

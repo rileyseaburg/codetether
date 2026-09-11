@@ -182,8 +182,12 @@ spec:
           HARVESTER_JOB_REPOS: "riley/spotlessbinco"
           HARVESTER_JOB_NAMESPACE: "a2a-system"
           HARVESTER_JOB_TEMPLATE: "a2a-server-task-job-template"
-          HARVESTER_JOB_MAX_ACTIVE: "4"
-          HARVESTER_JOB_MAX_RETAINED: "20"
+          # One Job per qualified node (pod anti-affinity); admission beyond that
+          # would only create unschedulable pods that still count as live.
+          HARVESTER_JOB_MAX_ACTIVE: "2"
+          # Read-only review chunks release their slot on any terminal state;
+          # this cap bounds retained failed/dirty coding Jobs awaiting recovery.
+          HARVESTER_JOB_MAX_RETAINED: "40"
           HARVESTER_JOB_TTL: "60"
           HARVESTER_JOB_EXCLUDED_NODES: "k8s-worker-1,k8s-worker-4"
           HARVESTER_JOB_ALLOWED_NODES: "k8s-worker-2,k8s-worker-3"
