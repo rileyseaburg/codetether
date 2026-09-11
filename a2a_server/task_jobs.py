@@ -341,7 +341,12 @@ async def reconcile():
                 WHERE metadata->>'job_execution'='true'
                 AND (metadata->>'job_cleanup_scheduled' IS DISTINCT FROM 'true'
                   OR (metadata->>'job_controller_failed'='true' AND metadata->>'job_failure_notified' IS DISTINCT FROM 'true'))
-                ORDER BY created_at LIMIT 100""")
+                ORDER BY
+                  -- Launchable work first: terminal rows awaiting cleanup must
+                  -- never push pending tasks out of the bounded window.
+                  (status IN ('pending','queued','assigned','running','working','in_progress')) DESC,
+                  created_at
+                LIMIT 100""")
             for row in rows:
                 task = dict(row)
                 task['metadata'] = (
@@ -387,6 +392,15 @@ async def reconcile():
                         + task['metadata']['job_name'],
                         missing=True,
                     )
+                    if job is None:
+                        # Job already gone (TTL, manual release, or never
+                        # created before the task ended). Nothing further to
+                        # observe; stop rescanning this row every cycle.
+                        await conn.execute(
+                            'UPDATE tasks SET metadata=metadata || \'{"job_cleanup_scheduled":true,"job_absent_at_reconcile":true}\'::jsonb WHERE id=$1',
+                            task['id'],
+                        )
+                        continue
                 if job and await observe_terminal(conn, task, job):
                     failures.append(task['id'])
         finally:

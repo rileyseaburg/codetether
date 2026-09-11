@@ -198,12 +198,66 @@ async def test_clean_work_requires_remote_head_confirmation(monkeypatch):
 
 
 class _Conn:
-    def __init__(self):
+    def __init__(self, rows=()):
         self.sql = []
+        self.rows = list(rows)
 
     async def execute(self, sql, *args):
         self.sql.append(sql)
         return 'UPDATE 1'
+
+    async def fetch(self, sql, *args):
+        self.sql.append(sql)
+        return self.rows
+
+    async def fetchval(self, sql, *args):
+        return True
+
+    def acquire(self):
+        conn = self
+
+        class _Ctx:
+            async def __aenter__(self):
+                return conn
+
+            async def __aexit__(self, *exc):
+                return False
+
+        return _Ctx()
+
+
+@pytest.mark.asyncio
+async def test_reconcile_scan_puts_launchable_tasks_before_terminal_backlog(
+    monkeypatch,
+):
+    """A backlog of terminal rows awaiting cleanup must never hide pending work."""
+    conn = _Conn(rows=[])
+    monkeypatch.setattr(jobs.db, 'get_pool', AsyncMock(return_value=conn))
+    await jobs.reconcile()
+    scan = next(s for s in conn.sql if 'job_execution' in s and 'ORDER BY' in s)
+    order = scan.split('ORDER BY', 1)[1]
+    assert "status IN ('pending'" in order
+    assert order.index('pending') < order.index('created_at')
+
+
+@pytest.mark.asyncio
+async def test_terminal_task_with_absent_job_stops_being_rescanned(monkeypatch):
+    conn = _Conn(
+        rows=[
+            {
+                'id': 'gone',
+                'status': 'cancelled',
+                'metadata': json.dumps({'job_name': 'ct-task-gone'}),
+            }
+        ]
+    )
+    monkeypatch.setattr(jobs.db, 'get_pool', AsyncMock(return_value=conn))
+    monkeypatch.setattr(jobs, 'kube', AsyncMock(return_value=None))
+    await jobs.reconcile()
+    assert any(
+        'job_cleanup_scheduled' in s and 'job_absent_at_reconcile' in s
+        for s in conn.sql
+    )
 
 
 def _terminal_job(name='ct-task-x'):
