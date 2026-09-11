@@ -186,6 +186,9 @@ spec:
           # (measured clone ~4.5Gi) and spreads across nodes by preference;
           # four qualified workers hold 40-60Gi free each.
           HARVESTER_JOB_MAX_ACTIVE: "8"
+          # Separate pool for read-only PR-review chunks (no clone, 2Gi, minutes)
+          # so multi-GiB coding clones cannot block the Harvester Review check.
+          HARVESTER_JOB_MAX_ACTIVE_READONLY: "4"
           # Read-only review chunks release their slot on any terminal state;
           # this cap bounds retained failed/dirty coding Jobs awaiting recovery.
           HARVESTER_JOB_MAX_RETAINED: "40"

@@ -91,6 +91,71 @@ async def test_job_has_no_persistent_workspace_and_cannot_retry_duplicate_work(
 
 
 @pytest.mark.asyncio
+async def test_readonly_review_jobs_have_their_own_admission_pool(monkeypatch):
+    """Long coding clones must not starve PR review indefinitely."""
+    monkeypatch.setenv('HARVESTER_JOB_TEMPLATE', 'template')
+    monkeypatch.setenv('HARVESTER_JOB_MAX_ACTIVE', '2')
+    monkeypatch.setenv('HARVESTER_JOB_MAX_ACTIVE_READONLY', '2')
+    template = {
+        'metadata': {},
+        'spec': {
+            'template': {
+                'metadata': {},
+                'spec': {'containers': [{'env': []}], 'volumes': []},
+            }
+        },
+    }
+    coding = {
+        'metadata': {
+            'name': 'c',
+            'labels': {'codetether.io/job-class': 'coding'},
+            'annotations': {},
+        },
+        'status': {'conditions': []},
+    }
+    posted = []
+
+    async def kube(method, path, body=None, missing=False):
+        if method == 'POST':
+            posted.append(body)
+            return body
+        if path.endswith('/ct-task-new'):
+            return None
+        if 'labelSelector' in path:
+            return {
+                'items': [
+                    coding,
+                    {
+                        **coding,
+                        'metadata': {**coding['metadata'], 'name': 'c2'},
+                    },
+                ]
+            }
+        return {'data': {'job.json': json.dumps(template)}}
+
+    monkeypatch.setattr(jobs, 'kube', kube)
+    base = {
+        'job_name': 'ct-task-new',
+        'job_workspace_id': 'ws',
+        'job_timeout': 300,
+        'required_capabilities': [],
+    }
+    # Coding pool full: a new coding Job waits.
+    assert (
+        await jobs.launch(
+            {'id': 't', 'metadata': {**base, 'job_readonly': False}}
+        )
+        is None
+    )
+    # Read-only pool empty: a review chunk is admitted despite the coding load.
+    job = await jobs.launch(
+        {'id': 't', 'metadata': {**base, 'job_readonly': True}}
+    )
+    assert job is not None and posted
+    assert job['metadata']['labels']['codetether.io/job-class'] == 'readonly'
+
+
+@pytest.mark.asyncio
 async def test_existing_job_is_never_recreated(monkeypatch):
     api = AsyncMock(return_value={'metadata': {'name': 'existing'}})
     monkeypatch.setattr(jobs, 'kube', api)

@@ -170,7 +170,28 @@ async def launch(task):
             for c in j.get('status', {}).get('conditions', [])
         )
     ]
-    if len(live) >= int(os.getenv('HARVESTER_JOB_MAX_ACTIVE', '4')):
+    # Read-only review Jobs (no clone, 2Gi, minutes) get their own admission
+    # pool so multi-GiB coding clones cannot starve PR review indefinitely.
+    # Coding Jobs are still bounded by MAX_ACTIVE alone.
+    readonly = bool(meta['job_readonly'])
+    same_class = [
+        j
+        for j in live
+        if (
+            j['metadata'].get('labels', {}).get('codetether.io/job-class')
+            == 'readonly'
+        )
+        == readonly
+    ]
+    limit = int(
+        os.getenv(
+            'HARVESTER_JOB_MAX_ACTIVE_READONLY'
+            if readonly
+            else 'HARVESTER_JOB_MAX_ACTIVE',
+            '4',
+        )
+    )
+    if len(same_class) >= limit:
         return None
     workspace = meta['job_workspace_id']
     if not meta['job_readonly'] and any(
@@ -187,7 +208,10 @@ async def launch(task):
     job = json.loads(cm['data']['job.json'])
     job['metadata'] = {
         'name': name,
-        'labels': {'codetether.io/task-job': 'true'},
+        'labels': {
+            'codetether.io/task-job': 'true',
+            'codetether.io/job-class': 'readonly' if readonly else 'coding',
+        },
         'annotations': {
             'codetether.io/task-id': task['id'],
             'codetether.io/workspace-id': str(workspace),

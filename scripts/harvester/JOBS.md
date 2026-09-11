@@ -17,7 +17,10 @@ use bounded `emptyDir` volumes with ephemeral-storage requests/limits. Known
 full nodes can be excluded with `HARVESTER_JOB_EXCLUDED_NODES`; a disk-free
 preflight prevents cloning into an already exhausted filesystem.
 
-Concurrency is `HARVESTER_JOB_MAX_ACTIVE` globally. Each coding Job requests
+Concurrency is `HARVESTER_JOB_MAX_ACTIVE` globally for coding Jobs, and
+`HARVESTER_JOB_MAX_ACTIVE_READONLY` for read-only review chunks. They are
+separate pools (label `codetether.io/job-class`) so a queue of multi-GiB clones
+cannot starve the PR review check. Each coding Job requests
 6Gi ephemeral storage (a measured spotlessbinco clone is ~4.5Gi; the emptyDir
 ceiling is 10Gi) so the scheduler, not a one-per-node rule, keeps Jobs from
 overcommitting a node. Anti-affinity is only a spreading preference.
