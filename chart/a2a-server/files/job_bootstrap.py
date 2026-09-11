@@ -42,8 +42,12 @@ def prepare(env):
         raise ValueError('server_invalid')
     helper = f'!codetether git-credential-helper --workspace-id {workspace} --server {server}'
     child = {**env, 'GIT_TERMINAL_PROMPT': '0'}
+    # Measured: forgejo.quantum-forge.io serves a ~3.3 GiB repository at
+    # roughly 100 MiB/min per concurrent clone, so a full clone needs ~35 min.
+    # The 10-minute default only ever succeeded for a single clone at a time.
+    clone_timeout = int(env.get('JOB_CLONE_TIMEOUT_SECONDS', '3000'))
 
-    def git(*args):
+    def git(*args, timeout=600):
         result = subprocess.run(
             [
                 'git',
@@ -57,7 +61,7 @@ def prepare(env):
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=600,
+            timeout=timeout,
         )
         if result.returncode:
             if b'No space left on device' in result.stderr:
@@ -80,6 +84,7 @@ def prepare(env):
         '--',
         url,
         str(path),
+        timeout=clone_timeout,
     )
     current = git('-C', str(path), 'rev-parse', 'HEAD')
     if sha and current != sha:
