@@ -252,7 +252,6 @@ def audit_workspace(config, deadline, termination):
             or any(
                 p.exists()
                 for p in (
-                    path / '.gitmodules',
                     gd / 'modules',
                     gd / 'shallow',
                     gd / 'info/grafts',
@@ -261,6 +260,9 @@ def audit_workspace(config, deadline, termination):
             )
         ):
             raise Diagnostic('audit_git_layout_unsupported')
+        # A committed .gitmodules is ordinary repository content. Only an
+        # initialised submodule checkout (.git/modules) is unsupported above;
+        # `status --ignore-submodules=none` still reports any nested state.
         env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
         env.update(
             {

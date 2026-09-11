@@ -335,11 +335,15 @@ class LifecycleTests(unittest.TestCase):
 
 
 class AuditTests(unittest.TestCase):
-    def audit(self, overrides=None):
+    def audit(self, overrides=None, layout=()):
         calls = []
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve()
             (path / '.git').mkdir()
+            for relative in layout:
+                target = path / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b'')
 
             def run(args, **kwargs):
                 command = args[args.index('-C') + 2 :]
@@ -431,6 +435,31 @@ class AuditTests(unittest.TestCase):
                 self.assertFalse(result['cleanup_eligible'])
                 self.assertNotIn(SECRET, json.dumps(result))
                 self.assertNotIn('private-file', json.dumps(result))
+
+    def test_committed_gitmodules_file_is_ordinary_content(self):
+        # Repositories that merely declare submodules (spotlessbinco) must
+        # still be auditable; only an initialised submodule store is not.
+        result, calls = self.audit(layout=['.gitmodules'])
+        self.assertTrue(result['cleanup_eligible'])
+        self.assertEqual(result['audit_diagnostic'], 'audit_local_refs_only')
+        status = next(cmd for cmd, _ in calls if cmd[0] == 'status')
+        self.assertIn('--ignore-submodules=none', status)
+
+    def test_initialised_submodules_shallow_or_alternates_are_unsupported(
+        self,
+    ):
+        for layout in (
+            ['.git/modules/lib/HEAD'],
+            ['.git/shallow'],
+            ['.git/objects/info/alternates'],
+        ):
+            with self.subTest(layout=layout):
+                result, calls = self.audit(layout=layout)
+                self.assertFalse(result['cleanup_eligible'])
+                self.assertEqual(
+                    result['audit_diagnostic'], 'audit_git_layout_unsupported'
+                )
+                self.assertEqual(calls, [])
 
     def test_missing_workspace_is_unknown_not_clean(self):
         with patch.object(worker.subprocess, 'run') as run:

@@ -411,10 +411,13 @@ async def observe_terminal(conn, task, job):
             {'job_terminal_observed': True, 'job_terminal_evidence': evidence}
         ),
     )
-    safe = task['status'] == 'completed' and (
-        task['metadata'].get('job_readonly')
-        or task['metadata'].get('agent_type') == 'clone_repo'
+    readonly = task['metadata'].get('job_readonly') or (
+        task['metadata'].get('agent_type') == 'clone_repo'
     )
+    # Read-only and clone Jobs never hold unpushed user work, so any terminal
+    # outcome (including cancelled/failed) may release its retention slot once
+    # the evidence above has been persisted. Coding Jobs still need the audit.
+    safe = readonly and task['status'] in {'completed', 'failed', 'cancelled'}
     if not safe and task['status'] == 'completed':
         safe = await safe_to_reclaim(task, evidence)
     if safe:

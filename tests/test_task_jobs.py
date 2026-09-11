@@ -130,3 +130,65 @@ async def test_clean_work_requires_remote_head_confirmation(monkeypatch):
         AsyncMock(return_value={'commit': {'id': 'head'}}),
     )
     assert await jobs.safe_to_reclaim(task, evidence)
+
+
+class _Conn:
+    def __init__(self):
+        self.sql = []
+
+    async def execute(self, sql, *args):
+        self.sql.append(sql)
+        return 'UPDATE 1'
+
+
+def _terminal_job(name='ct-task-x'):
+    return {
+        'metadata': {'name': name},
+        'status': {'conditions': [{'type': 'Failed', 'status': 'True'}]},
+    }
+
+
+@pytest.mark.asyncio
+async def test_cancelled_readonly_review_job_releases_retention_slot(
+    monkeypatch,
+):
+    """Review chunks hold no user work; a cancelled one must not exhaust admission."""
+    patches = []
+
+    async def kube(method, path, body=None, missing=False):
+        if method == 'PATCH':
+            patches.append(body)
+            return body
+        return {'items': []}
+
+    monkeypatch.setattr(jobs, 'kube', kube)
+    conn = _Conn()
+    task = {
+        'id': 'chunk',
+        'status': 'cancelled',
+        'metadata': {'job_readonly': True, 'workflow_stage': 'review_chunk'},
+    }
+    await jobs.observe_terminal(conn, task, _terminal_job())
+    assert patches and 'ttlSecondsAfterFinished' in patches[0]['spec']
+    assert any('job_cleanup_scheduled' in s for s in conn.sql)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_coding_job_is_retained_for_recovery(monkeypatch):
+    patches = []
+
+    async def kube(method, path, body=None, missing=False):
+        if method == 'PATCH':
+            patches.append(body)
+        return {'items': []}
+
+    monkeypatch.setattr(jobs, 'kube', kube)
+    conn = _Conn()
+    task = {
+        'id': 'code',
+        'status': 'cancelled',
+        'metadata': {'job_readonly': False, 'agent_type': 'build'},
+    }
+    await jobs.observe_terminal(conn, task, _terminal_job())
+    assert patches == []
+    assert not any('job_cleanup_scheduled' in s for s in conn.sql)
