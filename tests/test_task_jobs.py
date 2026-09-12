@@ -293,6 +293,79 @@ async def test_cancelled_readonly_review_job_releases_retention_slot(
 
 
 @pytest.mark.asyncio
+async def test_clean_unpublished_work_reclaims_when_base_commit_is_remote(
+    monkeypatch,
+):
+    """Agent finished clean but pushed no branch: only the remote base is on disk."""
+    from a2a_server import forgejo_webhooks
+
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
+    task = {'metadata': {'repo': 'owner/repo', 'branch_name': 'issue-9'}}
+    evidence = [
+        {'message': json.dumps({'cleanup_eligible': True, 'head_sha': 'base'})}
+    ]
+
+    async def api(method, base, path, **kw):
+        if '/branches/' in path:
+            return None
+        if path.endswith('/git/commits/base'):
+            return {'sha': 'base'}
+        return None
+
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', api)
+    assert await jobs.safe_to_reclaim(task, evidence)
+
+    async def unknown(method, base, path, **kw):
+        return None
+
+    monkeypatch.setattr(forgejo_webhooks, 'forgejo_json', unknown)
+    assert not await jobs.safe_to_reclaim(task, evidence)
+
+
+@pytest.mark.asyncio
+async def test_failed_job_whose_worker_never_started_releases_slot(monkeypatch):
+    patches = []
+
+    async def kube(method, path, body=None, missing=False):
+        if method == 'PATCH':
+            patches.append(body)
+        return {
+            'items': [
+                {
+                    'metadata': {'name': 'p'},
+                    'status': {
+                        'initContainerStatuses': [
+                            {
+                                'name': 'workspace-prepare',
+                                'state': {
+                                    'terminated': {
+                                        'exitCode': 1,
+                                        'reason': 'Error',
+                                        'message': '{"diagnostic": "workspace_bootstrap_timeout"}',
+                                    }
+                                },
+                            }
+                        ],
+                        'containerStatuses': [
+                            {'name': 'worker', 'state': {'terminated': None}}
+                        ],
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(jobs, 'kube', kube)
+    conn = _Conn()
+    task = {
+        'id': 'code',
+        'status': 'failed',
+        'metadata': {'job_readonly': False, 'agent_type': 'build'},
+    }
+    await jobs.observe_terminal(conn, task, _terminal_job())
+    assert patches and 'ttlSecondsAfterFinished' in patches[0]['spec']
+
+
+@pytest.mark.asyncio
 async def test_cancelled_coding_job_is_retained_for_recovery(monkeypatch):
     patches = []
 

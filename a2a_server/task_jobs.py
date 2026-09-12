@@ -467,6 +467,12 @@ async def observe_terminal(conn, task, job):
     safe = readonly and task['status'] in {'completed', 'failed', 'cancelled'}
     if not safe and task['status'] == 'completed':
         safe = await safe_to_reclaim(task, evidence)
+    if not safe and task['status'] in {'failed', 'cancelled'}:
+        # The worker container never started (only the workspace-prepare init
+        # container terminated), so no agent ever wrote into this workspace.
+        # Retaining it would only pin an admission slot.
+        containers = {e.get('container') for e in evidence}
+        safe = bool(evidence) and containers == {'workspace-prepare'}
     if safe:
         await kube(
             'PATCH',
@@ -546,13 +552,27 @@ async def safe_to_reclaim(task, evidence):
     from a2a_server.forgejo_webhooks import forgejo_json
 
     owner, name = meta['repo'].split('/', 1)
+    repo_path = f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
     remote = await forgejo_json(
         'GET',
         os.environ['FORGEJO_API_URL'],
-        f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}/branches/{quote(branch, safe="")}',
+        f'{repo_path}/branches/{quote(branch, safe="")}',
         allow_not_found=True,
     )
-    return bool(remote) and remote.get('commit', {}).get('id') == head
+    if remote:
+        return remote.get('commit', {}).get('id') == head
+    # No remote branch: the worker never published anything. The audit already
+    # proved the tree is clean with no unpushed commits on any local branch, so
+    # the only content is the base commit it started from. Confirm that commit
+    # is reachable on the remote (any ref) before treating the disk as empty
+    # of user work; a fabricated or orphaned head is still retained.
+    commit = await forgejo_json(
+        'GET',
+        os.environ['FORGEJO_API_URL'],
+        f'{repo_path}/git/commits/{quote(head, safe="")}',
+        allow_not_found=True,
+    )
+    return bool(commit) and commit.get('sha') == head
 
 
 def start_controller():
