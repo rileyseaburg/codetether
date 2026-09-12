@@ -196,6 +196,8 @@ spec:
           HARVESTER_JOB_EXCLUDED_NODES: "kube-worker-08,node7,storage-node,spotless-tv-gpu"
           HARVESTER_JOB_ALLOWED_NODES: "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
           FORGEJO_REVIEW_SAFE_WORKER: "harvester-pr-review"
+          # Forgejo progress comments deep-link to the live agent transcript.
+          CODETETHER_DASHBOARD_URL: "https://codetether.run"
           FORGEJO_AUTO_MERGE_REQUIRED_CHECKS: >-
             {"riley/spotlessbinco":[
               "Dev Image Builds / build-and-push (pull_request)",

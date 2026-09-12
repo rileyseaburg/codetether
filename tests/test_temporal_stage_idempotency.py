@@ -311,3 +311,44 @@ async def test_review_and_fix_handoff_hold_ownership(
     )
     assert result.task_id == 'task'
     assert not ownership['held']
+
+
+def test_transcript_url_targets_deterministic_task_session(monkeypatch):
+    """Operators can open the live transcript from the issue comment."""
+    monkeypatch.setenv('CODETETHER_DASHBOARD_URL', 'https://codetether.run/')
+    url = activities._transcript_url('abc-123', 'ws/1')
+    assert url == (
+        'https://codetether.run/dashboard/sessions'
+        '?session=task-abc-123&workspace=ws%2F1'
+    )
+    assert activities._transcript_url('abc-123', '') == (
+        'https://codetether.run/dashboard/sessions?session=task-abc-123'
+    )
+    monkeypatch.delenv('CODETETHER_DASHBOARD_URL')
+    assert activities._transcript_url('abc-123', 'ws') == ''
+
+
+@pytest.mark.asyncio
+async def test_progress_comment_links_transcript_only_for_agent_stages(
+    monkeypatch,
+):
+    monkeypatch.setenv('CODETETHER_DASHBOARD_URL', 'https://codetether.run')
+    monkeypatch.setenv('FORGEJO_API_URL', 'https://forge.example/api/v1')
+    from a2a_server import forgejo_webhooks
+
+    posted = []
+
+    async def comment(base, repo, number, body):
+        posted.append(body)
+
+    monkeypatch.setattr(forgejo_webhooks, '_comment', comment)
+    monkeypatch.setattr(
+        forgejo_webhooks, 'forgejo_json', AsyncMock(return_value=[])
+    )
+    for stage in ('prepare', 'code'):
+        await activities._report_stage_progress(
+            request(stage), task_id='t1', stage=stage, branch='b'
+        )
+    prepare_body, code_body = posted
+    assert 'Live agent transcript' not in prepare_body
+    assert 'sessions?session=task-t1' in code_body

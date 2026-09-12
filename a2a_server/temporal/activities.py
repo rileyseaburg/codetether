@@ -118,6 +118,24 @@ def _issue_url(repository: str, number: int) -> str:
     return f'{issue_url}/issues/{number}' if origin and number else ''
 
 
+def _transcript_url(task_id: str, workspace_id: str) -> str:
+    """Deep link to the live agent transcript for a CodeTether task.
+
+    Worker narration is persisted under the deterministic session id
+    `task-<task_id>` (see forgejo_progress_events), so the link is valid before
+    the worker has produced any output. Unset CODETETHER_DASHBOARD_URL disables it.
+    """
+    dashboard = os.environ.get('CODETETHER_DASHBOARD_URL', '').rstrip('/')
+    if not dashboard or not task_id:
+        return ''
+    query = {'session': f'task-{task_id}'}
+    if workspace_id:
+        query['workspace'] = workspace_id
+    return f'{dashboard}/dashboard/sessions?' + '&'.join(
+        f'{k}={quote(v, safe="")}' for k, v in query.items()
+    )
+
+
 async def _report_stage_progress(
     request: ForgejoStageRequest,
     *,
@@ -177,6 +195,9 @@ async def _report_stage_progress(
         body += f'\n- Head: `{head_sha}`'
     if task_url:
         body += f'\n- [Native task #{forgejo_task_id}]({task_url})'
+    transcript = _transcript_url(task_id, request.workflow.workspace_id)
+    if transcript and stage in {'code', 'fix', 'remediate'}:
+        body += f'\n- [Live agent transcript]({transcript})'
     body += f'\n\n{marker}'
     await _comment(base, repository, issue_number, body)
     return True
