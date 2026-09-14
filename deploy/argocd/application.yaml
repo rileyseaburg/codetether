@@ -15,15 +15,15 @@ spec:
     namespace: a2a-system
   source:
     repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
-    targetRevision: 27b021420425c474150900604a5284a1683e876f
+    targetRevision: 91c113bfa855bd3b15368df7fe21b506cffa5242
     path: chart/a2a-server
     helm:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: task-jobs-27b021420425
+          value: completion-binding-fix
         - name: blueGreen.rolloutId.green
-          value: task-jobs-27b021420425
+          value: completion-binding-fix
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: task-jobs-27b021420425
+          tag: completion-binding-fix
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:task-jobs-27b021420425
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:completion-binding-fix
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: task-jobs-27b021420425
+            green: completion-binding-fix
         service:
           type: ClusterIP
           port: 8000

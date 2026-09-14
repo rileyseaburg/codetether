@@ -10,6 +10,11 @@ Each task is a Kubernetes `batch/v1 Job` with one container worker slot,
 polls only its task, stops its own process group on terminal state, and exits.
 Job failure without a worker outcome is projected as a failed task, never success.
 
+Cleanup, review, and coding each have a bounded, rotating reconciliation window.
+Old retained work cannot monopolize the scan. A stale PR head or closed PR is a
+terminal admission error, not an endlessly queued task. Transient capacity and
+HTTP failures still defer without replaying a worker.
+
 ## Storage and handoff
 
 There is no shared workspace PVC in a new Job. Workspace and home/build caches
@@ -36,6 +41,17 @@ in task metadata; because they never hold user work, cancelled or failed
 read-only Jobs are released the same way (their evidence is kept on the task).
 Coding Jobs additionally require a clean local audit, no stash
 or unpushed branches, and confirmation of the audited head on the remote branch.
+The supervisor records every local branch head. The controller verifies those
+commits against live remote refs, including ancestry after a branch advances.
+The local `unpushed` flag alone is not remote proof: `--single-branch` clones
+can push topic branches without adding their remote-tracking refs. Genuine
+unpublished work is still retained.
+
+If Kubernetes has already removed a finished Pod, its Job record holds no
+workspace and can be reclaimed. Its last saved audit is preserved instead of
+being overwritten by an empty observation. Retained coding Jobs cannot consume
+the separately bounded read-only review pool.
+
 A committed `.gitmodules` file is ordinary content; only an initialised
 submodule store (`.git/modules`), shallow, grafted or alternate-object layouts
 make the audit refuse to judge the workspace.
