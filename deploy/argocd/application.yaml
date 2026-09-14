@@ -81,10 +81,11 @@ spec:
         resources:
           limits:
             cpu: 2000m
-            memory: 2Gi
+            memory: 4Gi
           requests:
             cpu: 500m
-            memory: 16Mi
+            # Reserve API memory instead of scheduling it as a tiny process.
+            memory: 1Gi
         autoscaling:
           enabled: false
         podDisruptionBudget:
