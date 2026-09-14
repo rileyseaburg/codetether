@@ -11,6 +11,7 @@ import pytest
 
 from a2a_server import forgejo_webhooks
 from a2a_server import task_jobs as jobs
+from a2a_server.task_jobs import _launch_safely as launch_safely
 
 
 SHORT_JOB_DEADLINE = 600
@@ -566,3 +567,30 @@ async def test_single_branch_clone_verifies_every_head_remotely(monkeypatch):
         task, [{'container': 'worker', 'message': json.dumps(audit)}]
     )
     api.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'reason,terminal',
+    [
+        ('job_head_advanced', True),
+        ('job_pr_closed', True),
+        ('job_kubernetes_GET_503', False),
+        ('job_retention_capacity_exhausted', False),
+    ],
+)
+async def test_permanent_binding_failure_is_not_queued_forever(
+    monkeypatch,
+    reason,
+    terminal,
+):
+    """Changed PR heads fail visibly; transient admission limits still defer."""
+    conn = AsyncMock()
+    conn.execute.return_value = 'UPDATE 1'
+    monkeypatch.setattr(
+        jobs, 'launch', AsyncMock(side_effect=RuntimeError(reason))
+    )
+    result, failed = await launch_safely(conn, {'id': 't'})
+    assert result is None and failed is terminal
+    sql = [c.args[0] for c in conn.execute.await_args_list]
+    assert any("SET status='failed'" in s for s in sql) is terminal

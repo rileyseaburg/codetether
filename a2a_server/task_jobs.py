@@ -420,25 +420,9 @@ async def reconcile():
                     'working',
                     'in_progress',
                 }:
-                    try:
-                        job = await launch(task)
-                    except Exception as error:
-                        reason = (
-                            str(error)
-                            if isinstance(error, RuntimeError)
-                            and str(error).startswith('job_')
-                            else 'job_launch_failed'
-                        )
-                        await conn.execute(
-                            'UPDATE tasks SET metadata=metadata || $2::jsonb '
-                            'WHERE id=$1',
-                            task['id'],
-                            json.dumps({'job_wait_reason': reason}),
-                        )
-                        LOG.warning(
-                            'Job launch deferred for %s: %s', task['id'], reason
-                        )
-                        continue
+                    job, failed = await _launch_safely(conn, task)
+                    if failed:
+                        failures.append(task['id'])
                 else:
                     job = await kube(
                         'GET',
@@ -489,6 +473,52 @@ async def reconcile():
                 'WHERE id=$1',
                 task_id,
             )
+
+
+async def _launch_safely(conn, task) -> tuple[dict | None, bool]:
+    """Separate transient admission delays from permanently stale bindings."""
+    try:
+        return await launch(task), False
+    except Exception as error:
+        reason = (
+            str(error)
+            if isinstance(error, RuntimeError) and str(error).startswith('job_')
+            else 'job_launch_failed'
+        )
+        await conn.execute(
+            'UPDATE tasks SET metadata=metadata || $2::jsonb WHERE id=$1',
+            task['id'],
+            json.dumps({'job_wait_reason': reason}),
+        )
+        LOG.warning('Job admission unavailable for %s: %s', task['id'], reason)
+        return None, await _fail_invalid_launch(conn, task, reason)
+
+
+async def _fail_invalid_launch(conn, task, reason: str) -> bool:
+    """Reject obsolete PR bindings instead of leaving them queued forever."""
+    if reason not in {
+        'job_head_advanced',
+        'job_pr_closed',
+        'job_fork_not_authorized',
+    }:
+        return False
+    updated = await conn.execute(
+        "UPDATE tasks SET status='failed',error=$2,completed_at=NOW(),"
+        'metadata=metadata || '
+        "jsonb_build_object('job_controller_failed',true) "
+        "WHERE id=$1 AND status NOT IN ('completed','failed','cancelled')",
+        task['id'],
+        reason,
+    )
+    if updated != 'UPDATE 1':
+        return False
+    await conn.execute(
+        "UPDATE task_runs SET status='failed',completed_at=NOW(),"
+        'lease_expires_at=NOW() WHERE task_id=$1 '
+        "AND status IN ('queued','running')",
+        task['id'],
+    )
+    return True
 
 
 async def _observe_safely(conn, task, job) -> bool:
