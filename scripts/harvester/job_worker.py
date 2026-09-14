@@ -3,7 +3,7 @@
 
 Worker output stays in CodeTether, not the Job console. The termination result
 contains metadata only. Local cleanup evidence never deletes files and does not
-prove remote branch state; the controller owns workflow/workspace retention decisions.
+prove remote branch state; the controller owns workspace retention decisions.
 """
 
 import json
@@ -18,8 +18,12 @@ import sys
 import threading
 import time
 
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from pathlib import Path
+from typing import Self
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -32,17 +36,25 @@ MAX_RESPONSE = 4 * 1024 * 1024
 STOP_GRACE = 5.0
 REAP_TIMEOUT = 2.0
 GIT_TIMEOUT = 5.0
+ASCII_CONTROL_LIMIT = 32
 TERMINAL = {'completed', 'failed', 'cancelled'}
 PENDING = {'pending', 'queued', 'assigned', 'running', 'working', 'in_progress'}
 IDENTIFIER = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
+OBJECT_ID = re.compile(r'(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})')
 
 
-class Diagnostic(Exception):
+class DiagnosticError(Exception):
     """A fixed diagnostic code, never a raw subprocess or HTTP exception."""
+
+
+# Preserve the import name used by existing supervisor integrations.
+Diagnostic = DiagnosticError
 
 
 @dataclass(frozen=True)
 class Config:
+    """Validated settings for one worker and its private result file."""
+
     task_id: str
     worker_name: str
     server: str
@@ -53,7 +65,7 @@ class Config:
     result_path: str
 
     @classmethod
-    def from_env(cls, env):
+    def from_env(cls, env) -> Self:
         """Validate input without reflecting its values in diagnostics."""
         try:
             task, name = env['JOB_TASK_ID'], env['JOB_WORKER_NAME']
@@ -75,7 +87,9 @@ class Config:
                 and not url.query
                 and not url.fragment
                 and token
-                and not any(ord(c) < 32 for c in token + server)
+                and not any(
+                    ord(c) < ASCII_CONTROL_LIMIT for c in token + server
+                )
                 and math.isfinite(seconds)
                 and seconds > 0
                 and mode in {'true', 'false'}
@@ -99,12 +113,25 @@ class Config:
 class NoRedirect(HTTPRedirectHandler):
     """Do not forward credentials to redirects."""
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
 
 
+def _decode_status_response(body: bytes, task_id: str) -> dict[str, str]:
+    """Validate a bounded response without exposing its contents."""
+    if len(body) > MAX_RESPONSE:
+        return {'error': 'task_poll_response_too_large'}
+    data = json.loads(body)
+    if not isinstance(data, dict) or data.get('id') != task_id:
+        return {'error': 'task_poll_identity_invalid'}
+    status = data.get('status')
+    if not isinstance(status, str) or status not in TERMINAL | PENDING:
+        return {'error': 'task_poll_status_invalid'}
+    return {'status': status}
+
+
 def read_status(config, timeout):
-    """Fetch only the target task's status; never log response/request bodies."""
+    """Fetch the target status without logging request or response bodies."""
     try:
         request = Request(
             config.server + '/v1/agent/tasks/' + quote(config.task_id, safe=''),
@@ -118,21 +145,13 @@ def read_status(config, timeout):
         with build_opener(NoRedirect()).open(
             request, timeout=timeout
         ) as response:
-            if response.status != 200:
+            if response.status != HTTPStatus.OK:
                 return {
                     'error': 'task_poll_http_error',
                     'http_status': response.status,
                 }
             body = response.read(MAX_RESPONSE + 1)
-        if len(body) > MAX_RESPONSE:
-            return {'error': 'task_poll_response_too_large'}
-        data = json.loads(body)
-        if not isinstance(data, dict) or data.get('id') != config.task_id:
-            return {'error': 'task_poll_identity_invalid'}
-        status = data.get('status')
-        if not isinstance(status, str) or status not in TERMINAL | PENDING:
-            return {'error': 'task_poll_status_invalid'}
-        return {'status': status}
+        return _decode_status_response(body, config.task_id)
     except HTTPError as error:
         code = error.code
         error.close()
@@ -166,10 +185,8 @@ class Poller:
             result = read_status(self.config, min(HTTP_TIMEOUT, remaining))
             if self.stopped.is_set():
                 return
-            try:
+            with suppress(queue.Full):
                 self.results.put_nowait(result)
-            except queue.Full:
-                pass
             if self.stopped.wait(POLL_SECONDS):
                 return
 
@@ -208,22 +225,135 @@ def stop_child(child, number):
     """Never signal arbitrary PIDs: child is our unreaped new-session leader."""
     try:
         child_exited(child)
-        try:
+        with suppress(ProcessLookupError):
             os.killpg(child.pid, number)
-        except ProcessLookupError:
-            pass
         # Do not reap the leader early: descendants get the full grace interval,
         # and the PGID cannot be recycled before our final group signal.
         end = time.monotonic() + STOP_GRACE
         while time.monotonic() < end:
             time.sleep(max(0, min(TICK_SECONDS, end - time.monotonic())))
-        try:
+        with suppress(ProcessLookupError):
             os.killpg(child.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         return child.wait(timeout=REAP_TIMEOUT), True
     except Exception:
         return None, False
+
+
+def _audit_path(workspace: str) -> Path:
+    """Reject layouts whose local state cannot be audited conservatively."""
+    path = Path(workspace)
+    if not path.is_absolute() or path.resolve(strict=True) != path:
+        raise Diagnostic('audit_workspace_invalid')
+    gd = path / '.git'
+    if (
+        not gd.is_dir()
+        or gd.is_symlink()
+        or any(
+            p.exists()
+            for p in (
+                gd / 'modules',
+                gd / 'shallow',
+                gd / 'info/grafts',
+                gd / 'objects/info/alternates',
+            )
+        )
+    ):
+        raise Diagnostic('audit_git_layout_unsupported')
+    # Merely declaring .gitmodules is supported, not initialised submodules.
+    return path
+
+
+def _git_reader(
+    path: Path, deadline: float, termination: Termination
+) -> Callable[..., bytes]:
+    """Build a bounded local-only Git reader without inherited Git overrides."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    env.update(
+        {
+            'GIT_OPTIONAL_LOCKS': '0',
+            'GIT_TERMINAL_PROMPT': '0',
+            'GIT_NO_LAZY_FETCH': '1',
+            'GIT_NO_REPLACE_OBJECTS': '1',
+            'GIT_CONFIG_NOSYSTEM': '1',
+            'GIT_CONFIG_GLOBAL': os.devnull,
+            'GIT_CEILING_DIRECTORIES': str(path.parent),
+        }
+    )
+
+    def git(*args: str, allowed: tuple[int, ...] = (0,)) -> bytes:
+        remaining = deadline - time.monotonic()
+        if termination.received or remaining <= 0:
+            raise Diagnostic('audit_deadline_or_termination')
+        run = subprocess.run(
+            [
+                'git',
+                '--no-pager',
+                '--no-optional-locks',
+                '-c',
+                'core.fsmonitor=false',
+                '-c',
+                'core.hooksPath=' + os.devnull,
+                '-c',
+                'log.showSignature=false',
+                '-C',
+                str(path),
+                *args,
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            timeout=min(GIT_TIMEOUT, remaining),
+            check=False,
+        )
+        if run.returncode not in allowed or len(run.stdout) > 1024 * 1024:
+            raise Diagnostic('audit_git_failed')
+        return run.stdout
+
+    return git
+
+
+def _local_branch_heads(git: Callable[..., bytes]) -> dict[str, str]:
+    """Read every branch head, exposing only validated ref/SHA metadata."""
+    records = (
+        git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads')
+        .decode()
+        .splitlines()
+    )
+    heads = {}
+    for record in records:
+        branch, separator, sha = record.partition(' ')
+        if not separator:
+            raise Diagnostic('audit_branch_invalid')
+        if (
+            not branch.startswith('refs/heads/')
+            or any(ord(c) < ASCII_CONTROL_LIMIT for c in branch)
+            or branch in heads
+        ):
+            raise Diagnostic('audit_branch_invalid')
+        if not OBJECT_ID.fullmatch(sha):
+            raise Diagnostic('audit_head_invalid')
+        # Let Git enforce every ref-format rule without fetching or mutating.
+        git('check-ref-format', branch)
+        heads[branch] = sha
+    if not heads:
+        raise Diagnostic('audit_refs_missing')
+    return heads
+
+
+def _has_local_unpushed(
+    git: Callable[..., bytes], branches: dict[str, str]
+) -> bool:
+    """Keep the cached-remote heuristic separate from branch-head evidence."""
+    if not git('for-each-ref', '--format=%(refname)', 'refs/remotes').strip():
+        raise Diagnostic('audit_refs_missing')
+    unpushed = False
+    for branch in branches:
+        count = git('rev-list', '--count', branch, '--not', '--remotes').strip()
+        if not count.isdigit():
+            raise Diagnostic('audit_count_invalid')
+        unpushed = unpushed or int(count) > 0
+    return unpushed
 
 
 def audit_workspace(config, deadline, termination):
@@ -237,74 +367,14 @@ def audit_workspace(config, deadline, termination):
         'stash_empty': None,
         'unpushed': None,
         'cleanup_eligible': False,
+        'local_branch_heads': None,
         'audit_diagnostic': 'audit_unavailable',
     }
     if not config.workspace:
         return {**result, 'audit_diagnostic': 'audit_workspace_unspecified'}
     try:
-        path = Path(config.workspace)
-        if not path.is_absolute() or path.resolve(strict=True) != path:
-            raise Diagnostic('audit_workspace_invalid')
-        gd = path / '.git'
-        if (
-            not gd.is_dir()
-            or gd.is_symlink()
-            or any(
-                p.exists()
-                for p in (
-                    gd / 'modules',
-                    gd / 'shallow',
-                    gd / 'info/grafts',
-                    gd / 'objects/info/alternates',
-                )
-            )
-        ):
-            raise Diagnostic('audit_git_layout_unsupported')
-        # A committed .gitmodules is ordinary repository content. Only an
-        # initialised submodule checkout (.git/modules) is unsupported above;
-        # `status --ignore-submodules=none` still reports any nested state.
-        env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
-        env.update(
-            {
-                'GIT_OPTIONAL_LOCKS': '0',
-                'GIT_TERMINAL_PROMPT': '0',
-                'GIT_NO_LAZY_FETCH': '1',
-                'GIT_NO_REPLACE_OBJECTS': '1',
-                'GIT_CONFIG_NOSYSTEM': '1',
-                'GIT_CONFIG_GLOBAL': os.devnull,
-                'GIT_CEILING_DIRECTORIES': str(path.parent),
-            }
-        )
-
-        def git(*args, allowed=(0,)):
-            remaining = deadline - time.monotonic()
-            if termination.received or remaining <= 0:
-                raise Diagnostic('audit_deadline_or_termination')
-            run = subprocess.run(
-                [
-                    'git',
-                    '--no-pager',
-                    '--no-optional-locks',
-                    '-c',
-                    'core.fsmonitor=false',
-                    '-c',
-                    'core.hooksPath=' + os.devnull,
-                    '-c',
-                    'log.showSignature=false',
-                    '-C',
-                    str(path),
-                    *args,
-                ],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                env=env,
-                timeout=min(GIT_TIMEOUT, remaining),
-                check=False,
-            )
-            if run.returncode not in allowed or len(run.stdout) > 1024 * 1024:
-                raise Diagnostic('audit_git_failed')
-            return run.stdout
+        path = _audit_path(config.workspace)
+        git = _git_reader(path, deadline, termination)
 
         if (
             Path(git('rev-parse', '--show-toplevel').decode().strip()).resolve()
@@ -342,31 +412,12 @@ def audit_workspace(config, deadline, termination):
         if not re.fullmatch(r'[0-9a-fA-F]{40,64}', head):
             raise Diagnostic('audit_head_invalid')
         result['head_sha'] = head
-        branches = (
-            git('for-each-ref', '--format=%(refname)', 'refs/heads')
-            .decode()
-            .splitlines()
-        )
-        remotes = git(
-            'for-each-ref', '--format=%(refname)', 'refs/remotes'
-        ).strip()
-        if not branches or not remotes:
-            raise Diagnostic('audit_refs_missing')
-        unpushed = False
-        for branch in branches:
-            if not branch.startswith('refs/heads/') or any(
-                ord(c) < 32 for c in branch
-            ):
-                raise Diagnostic('audit_branch_invalid')
-            count = git(
-                'rev-list', '--count', branch, '--not', '--remotes'
-            ).strip()
-            if not count.isdigit():
-                raise Diagnostic('audit_count_invalid')
-            unpushed = unpushed or int(count) > 0
+        branches = _local_branch_heads(git)
+        unpushed = _has_local_unpushed(git, branches)
         if termination.received or time.monotonic() >= deadline:
             raise Diagnostic('audit_deadline_or_termination')
         result.update(
+            local_branch_heads=branches,
             unpushed=unpushed,
             cleanup_eligible=clean and stash_empty and not unpushed,
             audit_diagnostic='audit_local_refs_only',
@@ -391,8 +442,76 @@ def write_result(path, result):
         os.fsync(output.fileno())
 
 
+def _poll_until_terminal(child, poller, deadline, termination, result) -> None:
+    """Observe only timely API outcomes; child exit is never task success."""
+    while True:
+        if termination.received:
+            raise Diagnostic('job_terminated')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise Diagnostic('job_deadline_exceeded')
+        item = poller.next(min(TICK_SECONDS, remaining))
+        if termination.received:
+            raise Diagnostic('job_terminated')
+        if time.monotonic() >= deadline:
+            raise Diagnostic('job_deadline_exceeded')
+        if item and 'error' in item:
+            result['poll_errors'] += 1
+            result['last_poll_error'] = item['error']
+            if 'http_status' in item:
+                result['last_http_status'] = item['http_status']
+        elif item:
+            result['task_status'] = item['status']
+            if item['status'] in TERMINAL:
+                result['diagnostic'] = 'task_' + item['status']
+                return
+        if child_exited(child):
+            raise Diagnostic('worker_exited_before_terminal_task')
+
+
+def _finish_result(config, deadline, termination, result) -> None:
+    """Audit after shutdown and persist only metadata, retaining uncertainty."""
+    if termination.received:
+        result.update(diagnostic='job_terminated', signal=termination.received)
+    if result['diagnostic'] == 'task_completed' and not config.read_only:
+        result.update(audit_workspace(config, deadline, termination))
+    if termination.received:
+        result.update(
+            diagnostic='job_terminated',
+            signal=termination.received,
+            cleanup_eligible=False,
+        )
+    try:
+        write_result(config.result_path, result)
+    except Exception:
+        result.update(
+            diagnostic='job_result_write_failed', cleanup_eligible=False
+        )
+    print(json.dumps(result, sort_keys=True), flush=True)
+
+
+def _install_signal_handlers(termination, previous) -> None:
+    """Record each original handler before installation can fail."""
+    for number in (signal.SIGTERM, signal.SIGINT, signal.SIGCHLD):
+        previous[number] = signal.getsignal(number)
+        signal.signal(
+            number,
+            signal.SIG_DFL if number == signal.SIGCHLD else termination.handle,
+        )
+
+
+def _check_storage() -> None:
+    """Apply the configured free-space preflight before starting the worker."""
+    minimum = int(os.getenv('JOB_MIN_FREE_BYTES', '0'))
+    if minimum:
+        root = Path('/var/lib/codetether/repos')
+        root.mkdir(parents=True, exist_ok=True)
+        if shutil.disk_usage(root).free < minimum:
+            raise Diagnostic('job_storage_insufficient')
+
+
 def supervise(config):
-    """Run one worker lifetime; zero means API-confirmed completed, not timeout."""
+    """Run one worker; zero means timely API-confirmed task completion."""
     deadline = time.monotonic() + config.deadline
     termination, previous = Termination(), {}
     child = poller = None
@@ -405,20 +524,14 @@ def supervise(config):
         'stash_empty': None,
         'unpushed': None,
         'cleanup_eligible': False,
+        'local_branch_heads': None,
         'audit_diagnostic': 'audit_not_applicable',
         'poll_errors': 0,
         'last_poll_error': None,
         'worker_exit_code': None,
     }
     try:
-        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGCHLD):
-            previous[number] = signal.getsignal(number)
-            signal.signal(
-                number,
-                signal.SIG_DFL
-                if number == signal.SIGCHLD
-                else termination.handle,
-            )
+        _install_signal_handlers(termination, previous)
         env = dict(os.environ)
         env.update(
             {
@@ -432,14 +545,9 @@ def supervise(config):
         )
         if termination.received:
             raise Diagnostic('job_terminated')
-        minimum = int(os.getenv('JOB_MIN_FREE_BYTES', '0'))
-        if minimum:
-            root = Path('/var/lib/codetether/repos')
-            root.mkdir(parents=True, exist_ok=True)
-            if shutil.disk_usage(root).free < minimum:
-                raise Diagnostic('job_storage_insufficient')
+        _check_storage()
         try:
-            # Retained privately on failure; never stream credential-bearing startup logs.
+            # Retain startup logs privately, never in the Job console.
             if os.getenv('JOB_PRIVATE_LOG_PATH'):
                 fd = os.open(
                     os.environ['JOB_PRIVATE_LOG_PATH'],
@@ -476,29 +584,7 @@ def supervise(config):
             raise Diagnostic('worker_start_failed') from None
         poller = Poller(config, deadline)
         poller.start()
-        while True:
-            if termination.received:
-                raise Diagnostic('job_terminated')
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise Diagnostic('job_deadline_exceeded')
-            item = poller.next(min(TICK_SECONDS, remaining))
-            if termination.received:
-                raise Diagnostic('job_terminated')
-            if time.monotonic() >= deadline:
-                raise Diagnostic('job_deadline_exceeded')
-            if item and 'error' in item:
-                result['poll_errors'] += 1
-                result['last_poll_error'] = item['error']
-                if 'http_status' in item:
-                    result['last_http_status'] = item['http_status']
-            elif item:
-                result['task_status'] = item['status']
-                if item['status'] in TERMINAL:
-                    result['diagnostic'] = 'task_' + item['status']
-                    break
-            if child_exited(child):
-                raise Diagnostic('worker_exited_before_terminal_task')
+        _poll_until_terminal(child, poller, deadline, termination, result)
     except Diagnostic as error:
         result['diagnostic'] = error.args[0]
     except Exception:
@@ -512,25 +598,7 @@ def supervise(config):
             )
             if not stopped:
                 result['diagnostic'] = 'worker_shutdown_unconfirmed'
-        if termination.received:
-            result.update(
-                diagnostic='job_terminated', signal=termination.received
-            )
-        if result['diagnostic'] == 'task_completed' and not config.read_only:
-            result.update(audit_workspace(config, deadline, termination))
-        if termination.received:
-            result.update(
-                diagnostic='job_terminated',
-                signal=termination.received,
-                cleanup_eligible=False,
-            )
-        try:
-            write_result(config.result_path, result)
-        except Exception:
-            result.update(
-                diagnostic='job_result_write_failed', cleanup_eligible=False
-            )
-        print(json.dumps(result, sort_keys=True), flush=True)
+        _finish_result(config, deadline, termination, result)
         if worker_log is not None:
             worker_log.close()
         for number, handler in previous.items():
@@ -553,6 +621,7 @@ def main():
                     'workspace_clean': None,
                     'stash_empty': None,
                     'unpushed': None,
+                    'local_branch_heads': None,
                     'cleanup_eligible': False,
                     'diagnostic': 'job_configuration_invalid',
                 }
