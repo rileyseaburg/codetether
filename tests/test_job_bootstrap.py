@@ -3,6 +3,7 @@
 import importlib.util
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,6 +13,8 @@ SPEC = importlib.util.spec_from_file_location(
 )
 bootstrap = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bootstrap)
+CLONE_TIMEOUT = 2400
+GIT_TIMEOUT = 600
 
 
 @pytest.mark.parametrize('workspace', ['../existing', '/outside', 'id;command'])
@@ -39,8 +42,6 @@ def test_existing_workspace_is_preserved(monkeypatch):
 
 def test_clone_gets_long_timeout_but_local_git_does_not(monkeypatch):
     """A multi-GiB clone over a shared link needs far more than 10 minutes."""
-    from types import SimpleNamespace
-
     calls = []
 
     def run(args, **kwargs):
@@ -76,5 +77,7 @@ def test_clone_gets_long_timeout_but_local_git_does_not(monkeypatch):
         return rest[0]
 
     timeouts = {subcommand(args): t for args, t in calls}
-    assert timeouts['clone'] == 2400
-    assert all(t == 600 for cmd, t in timeouts.items() if cmd != 'clone')
+    assert timeouts['clone'] == CLONE_TIMEOUT
+    assert all(
+        t == GIT_TIMEOUT for cmd, t in timeouts.items() if cmd != 'clone'
+    )

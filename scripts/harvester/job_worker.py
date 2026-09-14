@@ -3,7 +3,7 @@
 
 Worker output stays in CodeTether, not the Job console. The termination result
 contains metadata only. Local cleanup evidence never deletes files and does not
-prove remote branch state; the controller owns workflow/workspace retention decisions.
+prove remote branch state; the controller owns workspace retention decisions.
 """
 
 import json
@@ -18,8 +18,12 @@ import sys
 import threading
 import time
 
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from pathlib import Path
+from typing import Self
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -32,17 +36,25 @@ MAX_RESPONSE = 4 * 1024 * 1024
 STOP_GRACE = 5.0
 REAP_TIMEOUT = 2.0
 GIT_TIMEOUT = 5.0
+ASCII_CONTROL_LIMIT = 32
 TERMINAL = {'completed', 'failed', 'cancelled'}
 PENDING = {'pending', 'queued', 'assigned', 'running', 'working', 'in_progress'}
 IDENTIFIER = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
+OBJECT_ID = re.compile(r'(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})')
 
 
-class Diagnostic(Exception):
+class DiagnosticError(Exception):
     """A fixed diagnostic code, never a raw subprocess or HTTP exception."""
+
+
+# Preserve the import name used by existing supervisor integrations.
+Diagnostic = DiagnosticError
 
 
 @dataclass(frozen=True)
 class Config:
+    """Validated settings for one targeted worker and its private result file."""
+
     task_id: str
     worker_name: str
     server: str
@@ -53,7 +65,7 @@ class Config:
     result_path: str
 
     @classmethod
-    def from_env(cls, env):
+    def from_env(cls, env) -> Self:
         """Validate input without reflecting its values in diagnostics."""
         try:
             task, name = env['JOB_TASK_ID'], env['JOB_WORKER_NAME']
@@ -75,7 +87,9 @@ class Config:
                 and not url.query
                 and not url.fragment
                 and token
-                and not any(ord(c) < 32 for c in token + server)
+                and not any(
+                    ord(c) < ASCII_CONTROL_LIMIT for c in token + server
+                )
                 and math.isfinite(seconds)
                 and seconds > 0
                 and mode in {'true', 'false'}
@@ -99,12 +113,25 @@ class Config:
 class NoRedirect(HTTPRedirectHandler):
     """Do not forward credentials to redirects."""
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
 
 
+def _decode_status_response(body: bytes, task_id: str) -> dict[str, str]:
+    """Validate a bounded response without exposing its contents."""
+    if len(body) > MAX_RESPONSE:
+        return {'error': 'task_poll_response_too_large'}
+    data = json.loads(body)
+    if not isinstance(data, dict) or data.get('id') != task_id:
+        return {'error': 'task_poll_identity_invalid'}
+    status = data.get('status')
+    if not isinstance(status, str) or status not in TERMINAL | PENDING:
+        return {'error': 'task_poll_status_invalid'}
+    return {'status': status}
+
+
 def read_status(config, timeout):
-    """Fetch only the target task's status; never log response/request bodies."""
+    """Fetch only the target status, never logging request or response bodies."""
     try:
         request = Request(
             config.server + '/v1/agent/tasks/' + quote(config.task_id, safe=''),
@@ -118,21 +145,13 @@ def read_status(config, timeout):
         with build_opener(NoRedirect()).open(
             request, timeout=timeout
         ) as response:
-            if response.status != 200:
+            if response.status != HTTPStatus.OK:
                 return {
                     'error': 'task_poll_http_error',
                     'http_status': response.status,
                 }
             body = response.read(MAX_RESPONSE + 1)
-        if len(body) > MAX_RESPONSE:
-            return {'error': 'task_poll_response_too_large'}
-        data = json.loads(body)
-        if not isinstance(data, dict) or data.get('id') != config.task_id:
-            return {'error': 'task_poll_identity_invalid'}
-        status = data.get('status')
-        if not isinstance(status, str) or status not in TERMINAL | PENDING:
-            return {'error': 'task_poll_status_invalid'}
-        return {'status': status}
+        return _decode_status_response(body, config.task_id)
     except HTTPError as error:
         code = error.code
         error.close()
@@ -166,10 +185,8 @@ class Poller:
             result = read_status(self.config, min(HTTP_TIMEOUT, remaining))
             if self.stopped.is_set():
                 return
-            try:
+            with suppress(queue.Full):
                 self.results.put_nowait(result)
-            except queue.Full:
-                pass
             if self.stopped.wait(POLL_SECONDS):
                 return
 
@@ -208,19 +225,15 @@ def stop_child(child, number):
     """Never signal arbitrary PIDs: child is our unreaped new-session leader."""
     try:
         child_exited(child)
-        try:
+        with suppress(ProcessLookupError):
             os.killpg(child.pid, number)
-        except ProcessLookupError:
-            pass
         # Do not reap the leader early: descendants get the full grace interval,
         # and the PGID cannot be recycled before our final group signal.
         end = time.monotonic() + STOP_GRACE
         while time.monotonic() < end:
             time.sleep(max(0, min(TICK_SECONDS, end - time.monotonic())))
-        try:
+        with suppress(ProcessLookupError):
             os.killpg(child.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         return child.wait(timeout=REAP_TIMEOUT), True
     except Exception:
         return None, False

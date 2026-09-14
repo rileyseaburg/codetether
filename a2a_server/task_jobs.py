@@ -6,8 +6,12 @@ import hashlib
 import json
 import logging
 import os
+import re
 
+from http import HTTPStatus
+from importlib import import_module
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 
@@ -15,10 +19,19 @@ from a2a_server import database as db
 
 
 LOG = logging.getLogger(__name__)
-_LOOP = None
+_CONTROLLER = {'task': None}
+MAX_AUDIT_BRANCHES = 32
+
+
+async def _forgejo_json(*args: object, **kwargs: object) -> dict:
+    # Webhooks imports task dispatch; defer that import to avoid a cycle.
+    return await import_module('a2a_server.forgejo_webhooks').forgejo_json(
+        *args, **kwargs
+    )
 
 
 def enabled(metadata):
+    """Return whether the repository opted in to finite Job execution."""
     repos = {
         s.strip()
         for s in os.getenv('HARVESTER_JOB_REPOS', '').split(',')
@@ -63,6 +76,7 @@ def route(metadata, workspace_id, timeout):
 
 
 async def kube(method, path, body=None, missing=False):
+    """Call Kubernetes without exposing service credentials."""
     token = (
         Path('/var/run/secrets/kubernetes.io/serviceaccount/token')
         .read_text()
@@ -87,34 +101,32 @@ async def kube(method, path, body=None, missing=False):
             },
             json=body,
         )
-    if missing and r.status_code == 404:
+    if missing and r.status_code == HTTPStatus.NOT_FOUND:
         return None
-    if r.status_code >= 400:
+    if r.status_code >= HTTPStatus.BAD_REQUEST:
         raise RuntimeError(f'job_kubernetes_{method}_{r.status_code}')
     return r.json()
 
 
 def namespace():
+    """Return the namespace owning the task Jobs."""
     return os.getenv('HARVESTER_JOB_NAMESPACE', 'a2a-system')
 
 
 async def bootstrap_env(task):
-    from urllib.parse import quote
-
-    from a2a_server.forgejo_webhooks import forgejo_json
-
+    """Resolve a fresh clone's pinned repository, branch and head."""
     meta = task['metadata']
     repo = meta['repo']
     base = os.environ['FORGEJO_API_URL'].rstrip('/')
     owner, name = repo.split('/', 1)
     path = f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
-    data = await forgejo_json('GET', base, path)
+    data = await _forgejo_json('GET', base, path)
     branch = data['default_branch']
     target = meta.get('branch_name') or branch
     sha = meta.get('pr_head_sha') or ''
     url = data['clone_url']
     if meta.get('pr_number'):
-        pr = await forgejo_json(
+        pr = await _forgejo_json(
             'GET', base, f'{path}/pulls/{int(meta["pr_number"])}'
         )
         if pr.get('state') != 'open':
@@ -127,7 +139,7 @@ async def bootstrap_env(task):
         if (pr['head'].get('repo') or {}).get('full_name') != repo:
             raise RuntimeError('job_fork_not_authorized')
     else:
-        existing = await forgejo_json(
+        existing = await _forgejo_json(
             'GET',
             base,
             path + '/branches/' + quote(target, safe=''),
@@ -148,6 +160,7 @@ async def bootstrap_env(task):
 
 
 async def launch(task):
+    """Admit one idempotent Job, preserving separate review and coding pools."""
     meta = task['metadata']
     name = meta['job_name']
     ns = namespace()
@@ -155,10 +168,19 @@ async def launch(task):
     existing = await kube('GET', path + '/' + name, missing=True)
     if existing:
         return existing
+    readonly = bool(meta['job_readonly'])
     active = await kube(
         'GET', path + '?labelSelector=codetether.io%2Ftask-job%3Dtrue'
     )
-    if len(active['items']) >= int(
+    retained_coding = [
+        j
+        for j in active['items']
+        if j['metadata'].get('labels', {}).get('codetether.io/job-class')
+        != 'readonly'
+    ]
+    # Retained writer state must not deadlock read-only reviews. Their own
+    # active limit and terminal TTL independently bound review storage.
+    if not readonly and len(retained_coding) >= int(
         os.getenv('HARVESTER_JOB_MAX_RETAINED', '16')
     ):
         raise RuntimeError('job_retention_capacity_exhausted')
@@ -173,7 +195,6 @@ async def launch(task):
     # Read-only review Jobs (no clone, 2Gi, minutes) get their own admission
     # pool so multi-GiB coding clones cannot starve PR review indefinitely.
     # Coding Jobs are still bounded by MAX_ACTIVE alone.
-    readonly = bool(meta['job_readonly'])
     same_class = [
         j
         for j in live
@@ -221,9 +242,22 @@ async def launch(task):
         {'backoffLimit': 0, 'activeDeadlineSeconds': meta['job_timeout'] + 300}
     )
     pod = job['spec']['template']
-    pod['metadata'] = {'labels': {'codetether.io/task-job': 'true'}}
+    pod['metadata'] = {'labels': dict(job['metadata']['labels'])}
     spec = pod['spec']
     container = spec['containers'][0]
+    if readonly:
+        # Review consumes the pinned diff, not a repository clone/build tree.
+        container['resources'] = {
+            'requests': {
+                'cpu': '250m',
+                'memory': '512Mi',
+                'ephemeral-storage': '1Gi',
+            },
+            'limits': {'cpu': '2', 'memory': '2Gi', 'ephemeral-storage': '4Gi'},
+        }
+        for volume in spec['volumes']:
+            if volume['name'] == 'home':
+                volume['emptyDir'] = {'sizeLimit': '2Gi'}
     root = '/var/lib/codetether/repos'
     container['env'] += [
         {'name': k, 'value': str(v)}
@@ -332,27 +366,46 @@ async def reconcile():
     failures = []
     async with pool.acquire() as conn:
         lock = await conn.fetchval(
-            "SELECT pg_try_advisory_lock(hashtextextended('codetether-task-job-launch',0))"
+            'SELECT pg_try_advisory_lock('
+            "hashtextextended('codetether-task-job-launch',0))"
         )
         if not lock:
             return
         try:
-            rows = await conn.fetch("""SELECT id,status,metadata FROM tasks
+            rows = await conn.fetch("""WITH candidates AS (
+              SELECT id,status,metadata,created_at,
+                CASE WHEN status IN ('completed','failed','cancelled')
+                     THEN 'cleanup'
+                     WHEN metadata->>'job_readonly'='true' THEN 'review'
+                     ELSE 'coding' END AS lane
+              FROM tasks
                 WHERE metadata->>'job_execution'='true'
                 AND (metadata->>'job_cleanup_scheduled' IS DISTINCT FROM 'true'
-                  OR (metadata->>'job_controller_failed'='true' AND metadata->>'job_failure_notified' IS DISTINCT FROM 'true'))
-                ORDER BY
-                  -- Launchable work first: terminal rows awaiting cleanup must
-                  -- never push pending tasks out of the bounded window.
-                  (status IN ('pending','queued','assigned','running','working','in_progress')) DESC,
-                  created_at
-                LIMIT 100""")
+                  OR (metadata->>'job_controller_failed'='true'
+                    AND metadata->>'job_failure_notified'
+                        IS DISTINCT FROM 'true'))
+            ), ranked AS (
+              SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY lane ORDER BY
+                  COALESCE(metadata->>'job_last_observed_at',''),created_at,id
+              ) AS ordinal FROM candidates
+            )
+            SELECT id,status,metadata FROM ranked WHERE ordinal<=40
+            ORDER BY CASE lane WHEN 'cleanup' THEN 0
+                               WHEN 'review' THEN 1 ELSE 2 END,
+                     ordinal""")
             for row in rows:
                 task = dict(row)
                 task['metadata'] = (
                     json.loads(row['metadata'])
                     if isinstance(row['metadata'], str)
                     else row['metadata']
+                )
+                await conn.execute(
+                    'UPDATE tasks SET metadata=metadata || '
+                    "jsonb_build_object('job_last_observed_at', NOW()) "
+                    'WHERE id=$1',
+                    task['id'],
                 )
                 if task['metadata'].get('job_controller_failed') and not task[
                     'metadata'
@@ -377,7 +430,8 @@ async def reconcile():
                             else 'job_launch_failed'
                         )
                         await conn.execute(
-                            'UPDATE tasks SET metadata=metadata || $2::jsonb WHERE id=$1',
+                            'UPDATE tasks SET metadata=metadata || $2::jsonb '
+                            'WHERE id=$1',
                             task['id'],
                             json.dumps({'job_wait_reason': reason}),
                         )
@@ -397,40 +451,66 @@ async def reconcile():
                         # created before the task ended). Nothing further to
                         # observe; stop rescanning this row every cycle.
                         await conn.execute(
-                            'UPDATE tasks SET metadata=metadata || \'{"job_cleanup_scheduled":true,"job_absent_at_reconcile":true}\'::jsonb WHERE id=$1',
+                            'UPDATE tasks SET metadata=metadata || '
+                            'jsonb_build_object('
+                            "'job_cleanup_scheduled',true,"
+                            "'job_absent_at_reconcile',true) "
+                            'WHERE id=$1',
                             task['id'],
                         )
                         continue
-                if job and await observe_terminal(conn, task, job):
-                    failures.append(task['id'])
+                if job:
+                    await conn.execute(
+                        "UPDATE tasks SET metadata=metadata-'job_wait_reason' "
+                        'WHERE id=$1',
+                        task['id'],
+                    )
+                    if await _observe_safely(conn, task, job):
+                        failures.append(task['id'])
         finally:
             await conn.execute(
-                "SELECT pg_advisory_unlock(hashtextextended('codetether-task-job-launch',0))"
+                'SELECT pg_advisory_unlock('
+                "hashtextextended('codetether-task-job-launch',0))"
             )
 
-    from a2a_server.forgejo_task_completion import (
-        notify_forgejo_task_completion,
-    )
+    # Completion hooks import dispatch too; resolve them only after releasing
+    # the admission lock and its connection.
+    notify_forgejo_task_completion = import_module(
+        'a2a_server.forgejo_task_completion'
+    ).notify_forgejo_task_completion
 
     for task_id in failures:
         task = await db.db_get_task(task_id)
         await notify_forgejo_task_completion(task)
         async with pool.acquire() as conn:
             await conn.execute(
-                'UPDATE tasks SET metadata=metadata || \'{"job_failure_notified":true}\'::jsonb WHERE id=$1',
+                'UPDATE tasks SET metadata=metadata || '
+                "jsonb_build_object('job_failure_notified',true) "
+                'WHERE id=$1',
                 task_id,
             )
 
 
+async def _observe_safely(conn, task, job) -> bool:
+    """Keep uncertain work without starving other tasks if an audit fails."""
+    try:
+        return await observe_terminal(conn, task, job)
+    except Exception:
+        LOG.warning('Job terminal observation deferred: %s', task['id'])
+        return False
+
+
 async def observe_terminal(conn, task, job):
+    """Preserve terminal evidence and reclaim only proven-safe state."""
     done = any(
         c.get('status') == 'True' and c['type'] in ('Complete', 'Failed')
         for c in job.get('status', {}).get('conditions', [])
     )
     if not done:
-        return
+        return False
     path = (
-        f'/api/v1/namespaces/{namespace()}/pods?labelSelector=batch.kubernetes.io%2Fjob-name%3D'
+        f'/api/v1/namespaces/{namespace()}/pods'
+        '?labelSelector=batch.kubernetes.io%2Fjob-name%3D'
         + job['metadata']['name']
     )
     pods = await kube('GET', path)
@@ -451,11 +531,23 @@ async def observe_terminal(conn, task, job):
                         'message': terminal.get('message', '')[:4096],
                     }
                 )
+    # Keep the last audit if Kubernetes already garbage-collected its Pod.
+    # The remaining terminal Job object itself cannot contain workspace data.
+    prior = task['metadata'].get('job_terminal_evidence') or []
+    if isinstance(prior, str):
+        prior = json.loads(prior)
+    if not evidence:
+        evidence = prior
+    pods_absent = not pods['items']
     await conn.execute(
         'UPDATE tasks SET metadata=metadata || $2::jsonb WHERE id=$1',
         task['id'],
         json.dumps(
-            {'job_terminal_observed': True, 'job_terminal_evidence': evidence}
+            {
+                'job_terminal_observed': True,
+                'job_terminal_evidence': evidence,
+                'job_pods_absent': pods_absent,
+            }
         ),
     )
     readonly = task['metadata'].get('job_readonly') or (
@@ -464,15 +556,19 @@ async def observe_terminal(conn, task, job):
     # Read-only and clone Jobs never hold unpushed user work, so any terminal
     # outcome (including cancelled/failed) may release its retention slot once
     # the evidence above has been persisted. Coding Jobs still need the audit.
-    safe = readonly and task['status'] in {'completed', 'failed', 'cancelled'}
+    # With no Pods left, deleting the finished Job cannot delete a workspace.
+    safe = (readonly or pods_absent) and task['status'] in {
+        'completed',
+        'failed',
+        'cancelled',
+    }
     if not safe and task['status'] == 'completed':
         safe = await safe_to_reclaim(task, evidence)
     if not safe and task['status'] in {'failed', 'cancelled'}:
         # The worker container never started (only the workspace-prepare init
         # container terminated), so no agent ever wrote into this workspace.
         # Retaining it would only pin an admission slot.
-        containers = {e.get('container') for e in evidence}
-        safe = bool(evidence) and containers == {'workspace-prepare'}
+        safe = _init_failed_before_worker(pods['items'])
     if safe:
         await kube(
             'PATCH',
@@ -487,9 +583,37 @@ async def observe_terminal(conn, task, job):
             },
         )
         await conn.execute(
-            'UPDATE tasks SET metadata=metadata || \'{"job_cleanup_scheduled":true}\'::jsonb WHERE id=$1',
+            'UPDATE tasks SET metadata=metadata || '
+            "jsonb_build_object('job_cleanup_scheduled',true) "
+            'WHERE id=$1',
             task['id'],
         )
+    if task['status'] not in {'completed', 'failed', 'cancelled'}:
+        return await _fail_terminated_task(conn, task, evidence)
+    return False
+
+
+def _init_failed_before_worker(pods) -> bool:
+    """Require positive failed-init and never-started-worker evidence."""
+    return bool(pods) and all(
+        any(
+            c.get('state', {}).get('terminated', {}).get('exitCode', 0) != 0
+            for c in p.get('status', {}).get('initContainerStatuses', [])
+        )
+        and any(
+            c.get('name') == 'worker'
+            and c.get('state', {}).get('waiting', {}).get('reason')
+            == 'PodInitializing'
+            and not c.get('lastState')
+            and c.get('restartCount', 0) == 0
+            for c in p.get('status', {}).get('containerStatuses', [])
+        )
+        for p in pods
+    )
+
+
+async def _fail_terminated_task(conn, task, evidence) -> bool:
+    """Fail missing worker outcomes without replacing a concurrent success."""
     if task['status'] not in {'completed', 'failed', 'cancelled'}:
         diagnostics = []
         for item in evidence:
@@ -515,23 +639,93 @@ async def observe_terminal(conn, task, job):
         failure = 'kubernetes_job_terminated' + (
             ':' + ','.join(diagnostics) if diagnostics else ''
         )
-        # The controller must not manufacture a worker success when the pod disappears.
+        # Do not manufacture success, or overwrite a late terminal update.
         updated = await conn.execute(
-            "UPDATE tasks SET status='failed',error=$2,completed_at=NOW(),metadata=metadata || '{\"job_controller_failed\":true}'::jsonb WHERE id=$1 AND status NOT IN ('completed','failed','cancelled')",
+            "UPDATE tasks SET status='failed',error=$2,completed_at=NOW(),"
+            'metadata=metadata || '
+            "jsonb_build_object('job_controller_failed',true) "
+            "WHERE id=$1 AND status NOT IN ('completed','failed','cancelled')",
             task['id'],
             failure,
         )
         if updated != 'UPDATE 1':
             return False
         await conn.execute(
-            "UPDATE task_runs SET status='failed',completed_at=NOW(),lease_expires_at=NOW() WHERE task_id=$1 AND status IN ('queued','running')",
+            "UPDATE task_runs SET status='failed',completed_at=NOW(),"
+            'lease_expires_at=NOW() WHERE task_id=$1 '
+            "AND status IN ('queued','running')",
             task['id'],
         )
         return True
+    return False
+
+
+async def _branch_contains(repo_path: str, branch: str, head: str) -> bool:
+    """Prove a local commit is reachable from a named remote branch."""
+    remote = await _forgejo_json(
+        'GET',
+        os.environ['FORGEJO_API_URL'],
+        f'{repo_path}/branches/{quote(branch, safe="")}',
+        allow_not_found=True,
+    )
+    if not remote:
+        return False
+    tip = (remote.get('commit') or {}).get('id')
+    if tip == head:
+        return True
+    if not isinstance(tip, str) or not re.fullmatch(r'[0-9a-f]{40,64}', tip):
+        return False
+    # Forgejo Compare has no merge_base/behind_by field. Reverse the
+    # comparison: zero commits reachable from head but not tip proves that
+    # head is an ancestor of tip. A commit object's mere existence does not.
+    comparison = await _forgejo_json(
+        'GET',
+        os.environ['FORGEJO_API_URL'],
+        f'{repo_path}/compare/{tip}...{head}',
+    )
+    return (
+        comparison.get('total_commits') == 0 and comparison.get('commits') == []
+    )
+
+
+async def _audited_branches_are_remote(meta: dict, result: dict) -> bool:
+    """Verify every audited local branch, including single-branch clone refs."""
+    heads = result.get('local_branch_heads')
+    if (
+        not isinstance(heads, dict)
+        or not heads
+        or len(heads) > MAX_AUDIT_BRANCHES
+    ):
+        return False
+    owner, name = meta['repo'].split('/', 1)
+    repo_path = f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
+    default_branch = None
+    for ref, head in heads.items():
+        if not isinstance(ref, str) or not ref.startswith('refs/heads/'):
+            return False
+        if not isinstance(head, str) or not re.fullmatch(
+            r'[0-9a-f]{40,64}', head
+        ):
+            return False
+        branch = ref.removeprefix('refs/heads/')
+        if await _branch_contains(repo_path, branch, head):
+            continue
+        # An issue branch might contain no new commits and never be pushed.
+        # Only a base commit reachable from the actual default branch is safe.
+        if default_branch is None:
+            repository = await _forgejo_json(
+                'GET', os.environ['FORGEJO_API_URL'], repo_path
+            )
+            default_branch = repository.get('default_branch') or ''
+        if not default_branch or not await _branch_contains(
+            repo_path, default_branch, head
+        ):
+            return False
+    return True
 
 
 async def safe_to_reclaim(task, evidence):
-    """Reclaim only clean work whose head is independently verified on the remote."""
+    """Reclaim clean work only after independently checking remote refs."""
     meta = task['metadata']
     try:
         result = next(
@@ -541,19 +735,32 @@ async def safe_to_reclaim(task, evidence):
         )
     except (ValueError, StopIteration):
         return False
+    if not isinstance(result, dict):
+        return False
+    if result.get('local_branch_heads'):
+        if (
+            result.get('workspace_clean') is not True
+            or result.get('stash_empty') is not True
+            or result.get('audit_diagnostic') != 'audit_local_refs_only'
+        ):
+            return False
+        # `unpushed` compares cached tracking refs, not the remote. A
+        # --single-branch clone tracks main only, even after pushing a topic.
+        return await _audited_branches_are_remote(meta, result)
     if result.get('cleanup_eligible') is not True:
         return False
+    return await _legacy_audit_is_remote(meta, result)
+
+
+async def _legacy_audit_is_remote(meta: dict, result: dict) -> bool:
+    """Apply the conservative legacy contract without per-branch evidence."""
     branch = meta.get('branch_name')
     head = result.get('head_sha')
     if not branch or not head:
         return False
-    from urllib.parse import quote
-
-    from a2a_server.forgejo_webhooks import forgejo_json
-
     owner, name = meta['repo'].split('/', 1)
     repo_path = f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
-    remote = await forgejo_json(
+    remote = await _forgejo_json(
         'GET',
         os.environ['FORGEJO_API_URL'],
         f'{repo_path}/branches/{quote(branch, safe="")}',
@@ -561,26 +768,23 @@ async def safe_to_reclaim(task, evidence):
     )
     if remote:
         return remote.get('commit', {}).get('id') == head
-    # No remote branch: the worker never published anything. The audit already
-    # proved the tree is clean with no unpushed commits on any local branch, so
-    # the only content is the base commit it started from. Confirm that commit
-    # is reachable on the remote (any ref) before treating the disk as empty
-    # of user work; a fabricated or orphaned head is still retained.
-    commit = await forgejo_json(
-        'GET',
-        os.environ['FORGEJO_API_URL'],
-        f'{repo_path}/git/commits/{quote(head, safe="")}',
-        allow_not_found=True,
+    # Preserve conservative behavior for older audits without per-branch heads.
+    repository = await _forgejo_json(
+        'GET', os.environ['FORGEJO_API_URL'], repo_path
     )
-    return bool(commit) and commit.get('sha') == head
+    default_branch = repository.get('default_branch') or ''
+    return bool(default_branch) and await _branch_contains(
+        repo_path, default_branch, head
+    )
 
 
 def start_controller():
-    global _LOOP
-    if not os.getenv('HARVESTER_JOB_REPOS') or (_LOOP and not _LOOP.done()):
+    """Start at most one finite-Job reconciliation loop per API process."""
+    running = _CONTROLLER['task']
+    if not os.getenv('HARVESTER_JOB_REPOS') or (running and not running.done()):
         return
 
-    async def loop():
+    async def loop() -> None:
         while True:
             try:
                 await reconcile()
@@ -590,4 +794,4 @@ def start_controller():
                 LOG.exception('Task Job reconciliation failed')
             await asyncio.sleep(15)
 
-    _LOOP = asyncio.create_task(loop())
+    _CONTROLLER['task'] = asyncio.create_task(loop())
