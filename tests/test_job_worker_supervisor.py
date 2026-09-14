@@ -1,19 +1,22 @@
-"""Mocked local stdlib tests: no workers, Git commands or HTTP requests run."""
+"""Mocked supervisor tests plus an isolated filesystem-only Git regression."""
 
 import importlib.util
 import io
 import json
+import os
 import signal
 import subprocess
 import sys
 import tempfile
 import unittest
+
 from contextlib import ExitStack, contextmanager, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
+
 
 SOURCE = Path(__file__).resolve().parents[1] / 'scripts/harvester/job_worker.py'
 SPEC = importlib.util.spec_from_file_location('job_worker_supervisor', SOURCE)
@@ -166,7 +169,7 @@ class LifecycleTests(unittest.TestCase):
                 patch.object(
                     worker.signal,
                     'signal',
-                    side_effect=lambda n, h: handlers.__setitem__(n, h),
+                    side_effect=handlers.__setitem__,
                 )
             )
             spawn = stack.enter_context(
@@ -244,6 +247,28 @@ class LifecycleTests(unittest.TestCase):
             self.assertNotIn(SECRET, h.output.getvalue())
             h.poller.close.assert_called_once()
             h.child.poll.assert_not_called()
+
+    def test_branch_metadata_is_saved_only_after_owned_child_shutdown(self):
+        heads = {'refs/heads/main': 'a' * 40, 'refs/heads/topic': 'b' * 40}
+        with self.harness([{'status': 'completed'}]) as h:
+
+            def audit(*args):
+                self.assertTrue(h.child.wait.called)
+                return {
+                    'workspace_clean': True,
+                    'stash_empty': True,
+                    'unpushed': True,
+                    'cleanup_eligible': False,
+                    'local_branch_heads': heads,
+                }
+
+            h.audit.side_effect = audit
+            self.assertEqual(worker.supervise(config()), 0)
+            result = h.save.call_args.args[1]
+            self.assertEqual(result['local_branch_heads'], heads)
+            self.assertTrue(result['unpushed'])
+            self.assertFalse(result['cleanup_eligible'])
+            self.assertNotIn(SECRET, h.output.getvalue())
 
     def test_readonly_success_never_audits_git(self):
         with self.harness([{'status': 'completed'}]) as h:
@@ -360,6 +385,7 @@ class AuditTests(unittest.TestCase):
                     'status': b'',
                     'stash': b'',
                     'rev-list': b'0\n',
+                    'check-ref-format': b'',
                 }
                 if kind == 'rev-parse':
                     if command[1] == 'HEAD':
@@ -373,7 +399,8 @@ class AuditTests(unittest.TestCase):
                     )
                 elif kind == 'for-each-ref':
                     value = (
-                        b'refs/heads/main\nrefs/heads/topic\n'
+                        b'refs/heads/main ' + b'a' * 40 + b'\n'
+                        b'refs/heads/topic ' + b'b' * 40 + b'\n'
                         if command[-1] == 'refs/heads'
                         else b'refs/remotes/origin/main\n'
                     )
@@ -395,6 +422,10 @@ class AuditTests(unittest.TestCase):
         self.assertFalse(result['unpushed'])
         self.assertTrue(result['stash_empty'])
         self.assertTrue(result['cleanup_eligible'])
+        self.assertEqual(
+            result['local_branch_heads'],
+            {'refs/heads/main': 'a' * 40, 'refs/heads/topic': 'b' * 40},
+        )
         revs = [cmd for cmd, _ in calls if cmd[0] == 'rev-list']
         self.assertEqual(
             revs,
@@ -421,6 +452,59 @@ class AuditTests(unittest.TestCase):
         self.assertTrue(
             all(opts['env']['GIT_NO_LAZY_FETCH'] == '1' for _, opts in calls)
         )
+
+    def test_branch_map_is_available_when_cached_refs_say_unpushed(self):
+        # A single-branch clone tracks only main even after pushing topic.
+        result, calls = self.audit({'rev-list': b'2\n'})
+        self.assertEqual(
+            result['local_branch_heads'],
+            {'refs/heads/main': 'a' * 40, 'refs/heads/topic': 'b' * 40},
+        )
+        self.assertTrue(result['workspace_clean'])
+        self.assertTrue(result['stash_empty'])
+        self.assertTrue(result['unpushed'])
+        self.assertFalse(result['cleanup_eligible'])
+        self.assertEqual(result['head_sha'], 'a' * 40)
+        checked = [cmd[-1] for cmd, _ in calls if cmd[0] == 'check-ref-format']
+        self.assertEqual(checked, ['refs/heads/main', 'refs/heads/topic'])
+
+    def test_branch_map_accepts_full_sha256_ids(self):
+        result, _ = self.audit(
+            {'for-each-ref': b'refs/heads/topic ' + b'b' * 64 + b'\n'}
+        )
+        self.assertEqual(
+            result['local_branch_heads'], {'refs/heads/topic': 'b' * 64}
+        )
+
+    def test_invalid_branch_map_never_exposes_a_partial_map(self):
+        valid = b'refs/heads/main ' + b'a' * 40 + b'\n'
+        for record in (
+            b'',
+            b'refs/heads/no-sha',
+            b'refs/remotes/origin/topic ' + b'b' * 40,
+            b'refs/heads/bad\x00name ' + b'b' * 40,
+            b'refs/heads/main ' + b'b' * 40,
+            b'refs/heads/topic ' + b'b' * 39,
+            b'refs/heads/topic ' + b'b' * 41,
+            b'refs/heads/topic ' + b'b' * 63,
+            b'refs/heads/topic ' + b'g' * 40,
+            b'refs/heads/topic ' + b'b' * 40 + b' ' + SECRET.encode(),
+        ):
+            with self.subTest(record=record):
+                result, _ = self.audit({'for-each-ref': valid + record + b'\n'})
+                self.assertIsNone(result['local_branch_heads'])
+                self.assertFalse(result['cleanup_eligible'])
+                self.assertNotIn(SECRET, json.dumps(result))
+        result, _ = self.audit({'for-each-ref': b''})
+        self.assertEqual(result['audit_diagnostic'], 'audit_refs_missing')
+        self.assertIsNone(result['local_branch_heads'])
+
+    def test_git_ref_format_rejection_keeps_audit_unknown(self):
+        result, _ = self.audit(
+            {'check-ref-format': worker.Diagnostic('audit_git_failed')}
+        )
+        self.assertIsNone(result['local_branch_heads'])
+        self.assertFalse(result['cleanup_eligible'])
 
     def test_dirty_stash_unpushed_and_errors_retain_workspace(self):
         for overrides in (
@@ -460,6 +544,7 @@ class AuditTests(unittest.TestCase):
                     result['audit_diagnostic'], 'audit_git_layout_unsupported'
                 )
                 self.assertEqual(calls, [])
+                self.assertIsNone(result['local_branch_heads'])
 
     def test_missing_workspace_is_unknown_not_clean(self):
         with patch.object(worker.subprocess, 'run') as run:
@@ -467,6 +552,90 @@ class AuditTests(unittest.TestCase):
         self.assertIsNone(result['workspace_clean'])
         self.assertIsNone(result['unpushed'])
         run.assert_not_called()
+
+
+class LocalGitTests(unittest.TestCase):
+    def test_pushed_branch_is_reported_with_single_branch_fetch_refspec(self):
+        # These temporary repositories never contact a network or use user
+        # credentials/configuration; file is the only allowed Git transport.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source, checkout = root / 'origin', root / 'checkout'
+            env = {
+                k: v for k, v in os.environ.items() if not k.startswith('GIT_')
+            }
+            env.update(
+                GIT_CONFIG_GLOBAL=os.devnull,
+                GIT_CONFIG_NOSYSTEM='1',
+                GIT_TERMINAL_PROMPT='0',
+            )
+
+            def git(*args):
+                return subprocess.run(
+                    [
+                        'git',
+                        '-c',
+                        'user.name=Supervisor Test',
+                        '-c',
+                        'user.email=supervisor@example.invalid',
+                        '-c',
+                        'commit.gpgsign=false',
+                        '-c',
+                        'core.hooksPath=' + os.devnull,
+                        '-c',
+                        'protocol.allow=never',
+                        '-c',
+                        'protocol.file.allow=always',
+                        *map(str, args),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=10,
+                ).stdout.strip()
+
+            git('init', '--initial-branch=main', source)
+            git('-C', source, 'commit', '--allow-empty', '-m', 'base')
+            git(
+                'clone', '--single-branch', '--branch', 'main', source, checkout
+            )
+            base = git('-C', checkout, 'rev-parse', 'HEAD')
+            git('-C', checkout, 'checkout', '-b', 'issue/audit-head-map')
+            git('-C', checkout, 'commit', '--allow-empty', '-m', 'topic')
+            head = git('-C', checkout, 'rev-parse', 'HEAD')
+            git(
+                '-C',
+                checkout,
+                'push',
+                'origin',
+                'HEAD:refs/heads/issue/audit-head-map',
+            )
+            self.assertEqual(
+                git(
+                    '-C', source, 'rev-parse', 'refs/heads/issue/audit-head-map'
+                ),
+                head,
+            )
+            result = worker.audit_workspace(
+                config(workspace=str(checkout)),
+                worker.time.monotonic() + 30,
+                worker.Termination(),
+            )
+            self.assertEqual(
+                result['local_branch_heads'],
+                {
+                    'refs/heads/main': base,
+                    'refs/heads/issue/audit-head-map': head,
+                },
+            )
+            self.assertTrue(result['workspace_clean'])
+            self.assertTrue(result['stash_empty'])
+            self.assertTrue(result['unpushed'])
+            self.assertFalse(result['cleanup_eligible'])
+            self.assertEqual(
+                result['audit_diagnostic'], 'audit_local_refs_only'
+            )
 
 
 if __name__ == '__main__':
