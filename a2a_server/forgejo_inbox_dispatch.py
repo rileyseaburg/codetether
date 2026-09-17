@@ -4,6 +4,7 @@
 
 from urllib.parse import quote
 
+from a2a_server.forgejo_workflow_projection import reconcile_native
 from a2a_server.github_app.mention import is_fix_request
 
 
@@ -77,6 +78,8 @@ async def ensure_issue_idle(conn, row, ctx, base):
     )
     if previous:
         task = await get_task(repo=ctx['repo'], task_id=previous, base_url=base)
+        if task.get('status') not in {'completed', 'failed', 'cancelled'}:
+            task = await reconcile_native(conn, ctx['repo'], task, base)
         if task.get('status') not in {'completed', 'failed', 'cancelled'}:
             raise RuntimeError('forgejo_issue_busy')
     busy = await conn.fetchval(

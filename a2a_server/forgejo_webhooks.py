@@ -84,9 +84,9 @@ def _context(event: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     """
     if event in {'issues', 'issue'}:
         return _opened_issue_context(event, payload)
-    if event not in {'issue_comment', 'pull_request_comment'}:
-        return None
-    if payload.get('action') not in {
+    if event not in {'issue_comment', 'pull_request_comment'} or payload.get(
+        'action'
+    ) not in {
         'created',
         'edited',
     }:
@@ -276,9 +276,9 @@ async def _ensure_workspace(
     workspace_branch: str | None = None,
 ) -> str:
     from a2a_server import database as db
+    from a2a_server.forgejo_automation_policy import pr_is_paused
     from a2a_server.git_service import store_git_credential_record
     from a2a_server.monitor_api import _redis_upsert_workspace_meta
-    from a2a_server.forgejo_automation_policy import pr_is_paused
 
     if pr_is_paused(ctx['repo'], ctx['number']):
         raise HTTPException(
@@ -347,12 +347,21 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
         {} if ctx['is_pr'] else {'workspace_branch': work_branch}
     )
     kind = 'pull request' if ctx['is_pr'] else 'issue'
+    issue = ctx.get('issue') or {}
     prompt = f"""Handle Forgejo {kind} #{ctx['number']} in {repo}.
 
-Request:
+Issue title:
+{issue.get('title') or ''}
+
+Issue requirements and Definition of Done:
+{issue.get('body') or ''}
+
+Current user request (clarifies the issue requirements):
 {ctx['body']}
 
-Use the checked-out Forgejo repository. Work on `{work_branch}` (create it from `{default_branch}` for an issue; for a PR update its existing branch). Implement the requested changes, run authorized focused validation, commit, and push using the provisioned repository credential helper.
+Use the checked-out Forgejo repository. Work on `{work_branch}`. Reuse its existing remote branch and PR; create the branch from `{default_branch}` only if it does not exist. Implement the requested changes, run authorized focused validation, commit, and push using the provisioned repository credential helper.
+For an implementation request, a plan or documentation-only response does not establish completion of the code changes. Address the Definition of Done or explicitly identify remaining requirements and concrete blockers.
+Honor the user's validation location and the repository's build restrictions. When validation is assigned to Forgejo Actions, update the authorized CI workflow to perform it; lack of a local compiler is not by itself a blocker to making code and workflow changes. Do not claim CI or compile timings passed before their results exist.
 CodeTether's server publishes the issue pull request against `{default_branch}` and workflow progress using its existing Forgejo integration. Do not retrieve additional Vault credentials or change access policies merely to create a PR or post a comment. Return the pushed commit SHA, a concise change summary, validation actually run, and any blockers. Do not claim validation passed when it was not run.
 Preserve unrelated changes. Do not rebase or force-push over another writer. Do not use GitHub APIs."""
     routing = await resolve_task_target()
