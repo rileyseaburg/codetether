@@ -347,7 +347,7 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
         {} if ctx['is_pr'] else {'workspace_branch': work_branch}
     )
     kind = 'pull request' if ctx['is_pr'] else 'issue'
-    issue = ctx.get('issue') or {}
+    issue = plan.get('issue') or ctx.get('issue') or {}
     prompt = f"""Handle Forgejo {kind} #{ctx['number']} in {repo}.
 
 Issue title:

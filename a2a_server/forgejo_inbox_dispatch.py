@@ -18,6 +18,9 @@ async def prepare_plan(ctx, base):
     owner, name = ctx['repo'].split('/', 1)
     path = f'/repos/{quote(owner, safe="")}/{quote(name, safe="")}'
     repo = await forgejo_json('GET', base, path)
+    # Receipts intentionally omit the raw webhook's issue object. Resolve only
+    # its public task requirements once and freeze them with the dispatch plan.
+    issue = await forgejo_json('GET', base, f'{path}/issues/{ctx["number"]}')
     branch = str(repo.get('default_branch') or 'main')
     head_sha = ''
     if ctx['is_pr']:
@@ -30,6 +33,10 @@ async def prepare_plan(ctx, base):
         'default_branch': str(repo.get('default_branch') or 'main'),
         'branch': branch,
         'head_sha': head_sha,
+        'issue': {
+            'title': str(issue.get('title') or ''),
+            'body': str(issue.get('body') or ''),
+        },
     }
 
 

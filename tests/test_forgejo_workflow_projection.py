@@ -137,6 +137,26 @@ async def test_followup_prompt_keeps_issue_dod_and_ci_instruction(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_plan_hydrates_requirements_omitted_from_durable_receipt(
+    monkeypatch,
+):
+    """Hydrate issue requirements missing from normalized receipts."""
+    issue = {'title': 'Cargo pilot', 'body': 'Implement the pilot and CI'}
+    api = AsyncMock(
+        side_effect=[
+            {'default_branch': 'main', 'clone_url': 'https://forge/o/r.git'},
+            issue,
+        ]
+    )
+    monkeypatch.setattr(hooks, 'forgejo_json', api)
+    plan = await effects.prepare_plan(
+        {'repo': 'o/r', 'number': 5853, 'is_pr': False}, 'https://forge/api/v1'
+    )
+    assert plan['issue'] == issue
+    assert api.await_args.args[-1] == '/repos/o/r/issues/5853'
+
+
+@pytest.mark.asyncio
 async def test_live_related_task_blocks_projection(runtime):
     runtime.conn.fetchval.return_value = 'still-running-task'
     await projection.reconcile_native(

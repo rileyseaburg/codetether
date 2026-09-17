@@ -7,13 +7,16 @@ import sys
 import time
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from a2a_server import forgejo_inbox
 from a2a_server import forgejo_webhooks as fw
+from a2a_server.forgejo_review_owner import hooks
 from a2a_server.git_service import validate_git_url
 
 
@@ -21,9 +24,6 @@ from a2a_server.git_service import validate_git_url
 async def test_signed_pr_sync_uses_single_owner_even_for_bot_push(
     app, monkeypatch
 ):
-    from unittest.mock import AsyncMock
-    from a2a_server.forgejo_review_owner import hooks
-
     monkeypatch.setenv('FORGEJO_SINGLE_REVIEW_REPOS', 'owner/repo')
     start = AsyncMock(return_value='owner-task')
     monkeypatch.setattr(hooks, 'ensure_review', start)
@@ -41,9 +41,6 @@ async def test_signed_pr_sync_uses_single_owner_even_for_bot_push(
 
 @pytest.mark.asyncio
 async def test_bad_signature_cannot_start_single_owner(app, monkeypatch):
-    from unittest.mock import AsyncMock
-    from a2a_server.forgejo_review_owner import hooks
-
     start = AsyncMock()
     monkeypatch.setattr(hooks, 'ensure_review', start)
     response = await _post(
@@ -266,8 +263,6 @@ async def test_ignores_bot_authored_comment(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_non_fix_mention_is_durable_before_guidance(app, monkeypatch):
-    from a2a_server import forgejo_inbox
-
     async def accept(event, ctx, base):
         assert ctx['body'] == '@codetether hello'
         return {'accepted': True, 'state': 'pending'}
@@ -285,8 +280,6 @@ async def test_non_fix_mention_is_durable_before_guidance(app, monkeypatch):
 async def test_actionable_issue_is_acknowledged_only_after_receipt(
     app, monkeypatch
 ):
-    from a2a_server import forgejo_inbox
-
     async def accept(event, ctx, base):
         assert ctx['repo'] == 'owner/repo'
         assert ctx['number'] == 12
@@ -325,6 +318,8 @@ async def test_issue_dispatch_isolates_workspace_by_work_branch(monkeypatch):
 
     async def fake_json(method, base, path, payload=None):
         assert method == 'GET'
+        if path == '/repos/owner/repo/issues/4743':
+            return {'title': 'Example issue', 'body': 'Implement the change'}
         assert path == '/repos/owner/repo'
         return {
             'default_branch': 'main',
@@ -407,8 +402,6 @@ async def test_issue_dispatch_isolates_workspace_by_work_branch(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_pr_comment_is_normalized_as_pr(app, monkeypatch):
-    from a2a_server import forgejo_inbox
-
     payload = _payload('@codetether fix the tests')
     payload['issue']['pull_request'] = {'merged': False}
 
@@ -466,7 +459,7 @@ async def test_active_task_uses_database_pool(monkeypatch, row, expected):
 
     database = SimpleNamespace(get_pool=get_pool)
     monkeypatch.setitem(sys.modules, 'a2a_server.database', database)
-    assert await fw._active_task('owner/repo', 12) is expected  # noqa: SLF001
+    assert await fw._active_task('owner/repo', 12) is expected
 
 
 def test_configured_forgejo_host_is_allowed_without_credential_injection(
