@@ -15,15 +15,15 @@ spec:
     namespace: a2a-system
   source:
     repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
-    targetRevision: f4c760c48aad5fb6fb5e117a3fc77fa190da319c
+    targetRevision: 678b9240bbf1102ce9424b6b71954768dddbd46e
     path: chart/a2a-server
     helm:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: issue-context-f4c760c48aad
+          value: review-ci-678b9240bbf1
         - name: blueGreen.rolloutId.green
-          value: issue-context-f4c760c48aad
+          value: review-ci-678b9240bbf1
       valuesObject:
         app:
           name: CodeTether Server
@@ -32,7 +32,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: issue-context-f4c760c48aad
+          tag: review-ci-678b9240bbf1
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -42,7 +42,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:issue-context-f4c760c48aad
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:review-ci-678b9240bbf1
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -50,7 +50,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: issue-context-f4c760c48aad
+            green: review-ci-678b9240bbf1
         service:
           type: ClusterIP
           port: 8000
@@ -120,9 +120,21 @@ spec:
           enabled: true
         spiffe:
           enabled: true
-          trustDomain: codetether.run
+          # Must match the live SPIRE server (spire-server-0 trust_domain /
+          # jwt_issuer). The old codetether.run value rejected every SVID.
+          trustDomain: codetether.io
+          issuer: https://oidc-discovery.codetether.io
           audience: a2a-server
           jwksUrl: https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys
+          # Only these workloads may act as workers (SPIRE gives every pod an
+          # SVID via the spire-spire-default ClusterSPIFFEID).
+          workerIds:
+            - spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester
+          # Task Jobs fetch JWT-SVIDs via the SPIFFE CSI driver + spiffe-helper.
+          workloadApi:
+            enabled: true
+          # Keep true until every worker presents SVIDs, then set false to
+          # retire shared tokens (SPIRE-native).
           allowTokenLegacy: true
           bundle:
             namespace: spire
