@@ -155,6 +155,8 @@ async def bootstrap_env(task):
             'JOB_GIT_BRANCH': branch,
             'JOB_TARGET_BRANCH': target,
             'JOB_EXPECTED_HEAD': sha,
+            # Work is synced with, and gated on containing, the default branch.
+            'JOB_BASE_BRANCH': data['default_branch'],
         }.items()
     ]
 
@@ -657,6 +659,7 @@ async def _fail_terminated_task(conn, task, evidence) -> bool:
                 'workspace_storage_insufficient',
                 'workspace_storage_exhausted',
                 'workspace_git_auth_failed',
+                'workspace_hooks_unavailable',
                 'remote_head_advanced',
                 'workspace_bootstrap_failed',
                 'workspace_bootstrap_timeout',
