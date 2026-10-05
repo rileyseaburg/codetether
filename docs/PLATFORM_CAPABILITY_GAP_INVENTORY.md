@@ -8,15 +8,14 @@ It is a review artifact, not implementation, deployment, or release evidence.
 
 The child checkout is based on `336f5fd88707887c2747939438c48115350fa6cd`.
 The pinned Rust submodule is `8d9bf0c49e2a842e457f147f80c8c6945069c7c9`.
-Parent uncommitted edits are not copied here. Parent worker visibility, SSE,
-strict database-helper, and voice changes are reported work, not independently
-inspected results in this child. The parent reports an existing **mocked local
-24-test worker-visibility artifact** and a rerun in progress. Its exact command,
-exit/result and artifact path have not been supplied to or inspected by this
-child; the rerun outcome is pending, not inferred. Parent reports prior
-**mocked local** voice runs of 44 UI / 199 Python tests, not executed or
-independently inspected here. Live/platform evidence is **not-run**.
-Parallel auth/checkout work likewise needs integration and inspection.
+Parent uncommitted edits are not copied here. This reconciliation inspected
+current parent source and retained audit/test artifacts **read-only** at
+`/home/riley/A2A-Server-MCP`; it does not import those changes into this child
+or certify their integration. Parent UI, worker and voice evidence is recorded
+below as **mocked local**, separately from this child's **static/local** review.
+No application tests were rerun by this child. Strict database-helper behavior,
+SSE replay, durable execution, tenant isolation and independent Rust contracts
+remain **pending/not-run**. Live/platform evidence is **not-run**.
 The full platform implementation objective remains **pending**.
 
 ### Evidence labels and source boundaries
@@ -29,8 +28,9 @@ The full platform implementation objective remains **pending**.
 - **blocked** identifies an unavailable prerequisite for a specific slice.
   A blocked source review is not evidence that a capability is unavailable.
 
-No application tests, live Argo checks, provider calls, or platform uploads are
-asserted by this document. Preserve incoming evidence with its actual level:
+No fresh child application-test execution, live Argo checks, provider calls, or
+platform uploads are asserted by this document. Retained parent test evidence
+is recorded below with its limits. Preserve incoming evidence with its actual level:
 mocked local, focused CI-like, live deployment/Argo, or real platform upload.
 Do not convert one slice's result into proof for another runtime or capability.
 
@@ -43,11 +43,14 @@ Authoritative sources inspected here:
 - [Roadmap](../marketing-site/src/components/Roadmap.tsx)
 - [Primary claims](../marketing-site/src/components/PrimaryFeatures.tsx)
 
-The designated `artifacts/ui-audit/AUDIT.md` is absent from this child and its
-tracked files. **Blocked: original UI-audit/source-artifact reconciliation.**
-The UI findings named in the active assignment are retained below, but this is
-not an exhaustive reconstruction of the unavailable audit. No audit date,
-fixture result, screenshot, platform ID, or live result is inferred.
+The designated original audit is available and was inspected read-only at
+`/home/riley/A2A-Server-MCP/artifacts/ui-audit/AUDIT.md` (still absent from this
+child snapshot). The missing-audit reconciliation blocker is removed. Its eight
+findings and additional shell observations are reconciled below against current
+parent sources. The audit covers selected marketing/auth, dashboard-shell,
+Tasks, Sessions, Settings and Billing flows, not exhaustive routes or WCAG
+conformance. Its fixture-authenticated browser/interaction probes are **mocked
+local** observation collection, not defect-free UI or post-fix acceptance.
 
 ## Agent API and dashboard contracts
 
@@ -83,7 +86,7 @@ Acceptance below is **pending/not-run** here; parent changes need separate revie
 
 | ID / priority / owner | Dashboard contract | Current Python implementation (static/local) | Current Rust implementation and alias disposition (static/local) | Remaining acceptance / dependencies |
 | --- | --- | --- | --- | --- |
-| C01 / P0 / worker + security | `/v1/agent/workers`, `/v1/worker/connected`; [voice consumer](../marketing-site/src/app/(dashboard)/dashboard/components/voice/VoiceAgentButton.tsx). | [monitor_api: list_workers](../a2a_server/monitor_api.py) returns a worker list; [worker_sse: list_connected_workers](../a2a_server/worker_sse.py) authenticates worker/user requests and returns `{workers, count, timestamp}` from the SSE registry. Parent visibility repair is outside this snapshot. | Both URLs alias `list_connected_workers` via [worker_modules](../codetether-agent/src/server/worker_modules.rs). [Handler](../codetether-agent/src/server/mod.rs) returns `{workers}` from name-filtered Kubernetes pods; `Running` becomes `is_sse_connected`, and pod-list errors become an empty list. **Aliases present; shapes and liveness differ.** | Integrate parent repair; reconcile list/envelope, capability/model discovery, true connection liveness, stale workers and errors; exercise user/worker credentials and cross-tenant denial. Parent reports an existing **mocked local 24-test artifact**, not inspected here; rerun pending. |
+| C01 / P0 / worker + security | `/v1/agent/workers`, `/v1/worker/connected`; [voice consumer](../marketing-site/src/app/(dashboard)/dashboard/components/voice/VoiceAgentButton.tsx). | [monitor_api: list_workers](../a2a_server/monitor_api.py) returns a worker list; [worker_sse: list_connected_workers](../a2a_server/worker_sse.py) authenticates worker/user requests and returns `{workers, count, timestamp}` from the SSE registry. Parent visibility repair is outside this snapshot. | Both URLs alias `list_connected_workers` via [worker_modules](../codetether-agent/src/server/worker_modules.rs). [Handler](../codetether-agent/src/server/mod.rs) returns `{workers}` from name-filtered Kubernetes pods; `Running` becomes `is_sse_connected`, and pod-list errors become an empty list. **Aliases present; shapes and liveness differ.** | Integrate parent repair; reconcile list/envelope, capability/model discovery, true connection liveness, stale workers and errors; exercise user/worker credentials and cross-tenant denial. Retained parent **mocked local** worker evidence now inspected: `artifacts/platform-gap-closure/parent-worker-current.log` records 24 passing tests; `worker-access-rerun-tests.xml` records 24 tests with zero failures/errors. These results do not close independent Rust, liveness or tenant-contract gates. |
 | C02 / P0 / execution + control plane | Create/dispatch/poll tasks: `/v1/agent/tasks/*`, `/v1/tasks/dispatch`; [task dashboard](../marketing-site/src/app/(dashboard)/dashboard/tasks/page.tsx). | [monitor_api](../a2a_server/monitor_api.py) owns agent-task operations. [automation_api: dispatch_task](../a2a_server/automation_api.py) requires `UserSession`, persists a database task, attempts Knative publication and falls back to the task queue; returns `event_id`, `created_at`, `task_timeout_seconds` and a flag derived from publication. This is not observed execution. | [Server handlers](../codetether-agent/src/server/mod.rs) expose task/dispatch aliases but use in-memory `KnativeTaskQueue`. Dispatch returns `{task_id, status, dispatched_via_knative: true}` after bus publication and enqueue; model/metadata are not retained. **Routing exists; response, persistence and execution are not equivalent.** | First gate: durable tenant-owned run, preserve request fields, distinguish accepted/queued/executing/terminal, truthful dispatch mode, executor acknowledgement, cancel/retry/restart recovery. Depends on C01 and worker claim/release ownership; broker publication alone is not task success. |
 | C03 / P0 / runtime + telemetry + security | Output GET/POST and `/v1/agent/tasks/{id}/output/stream`; [EventSource consumer](../marketing-site/src/app/(dashboard)/dashboard/tasks/page.tsx). | [monitor_api: get_task_output / stream_task_output_sse](../a2a_server/monitor_api.py) returns `{task_id, outputs, total}` with optional `since`, and emits `output`/terminal SSE using process-local `_task_output_streams`. History in source does not prove durable replay or authorization. | [get_agent_task_output / agent_task_output / stream_agent_task_output](../codetether-agent/src/server/mod.rs) returns `output: null`, ignores submitted worker ID, marks task `working` and broadcasts; SSE has no cursor replay and prefix-matches task topics. **Routes present; output/event contracts differ.** | Persist ordered tenant-owned chunks; authenticate assigned worker; preserve terminal state; exact task matching; cursor/reconnect, lag and restart recovery; test consumer event names/payloads/errors against both supported backends. Depends on C02; parent SSE repair does not close standalone Rust. |
 | C04 / P1 / control plane + dashboard | Codebase/workspace/session CRUD and resume; [resume hook](../marketing-site/src/app/(dashboard)/dashboard/sessions/hooks/useSessionResume.ts). | [monitor_api](../a2a_server/monitor_api.py) owns workspace/session APIs, persistence helpers and `/workspaces/{workspace_id}/sessions/{session_id}/resume`; [server mount](../a2a_server/server.py) provides codebase compatibility routing. Workspace-to-codebase mapping needs contract tests. | [resume_codebase_session](../codetether-agent/src/server/mod.rs) exposes `/v1/agent/codebases/{id}/sessions/{id}/resume` but ignores `_codebase_id`, creates a session after any load error, and lacks the corresponding full CRUD family. **One resume alias is not the control plane.** | Bind tenant/workspace/codebase/session identity; distinguish missing, forbidden and load failure; reconcile resume body/return/stream and model selection, durable lifecycle and lineage. Depends on C02/C03 and explicit API topology. |
@@ -115,13 +118,15 @@ The transport-adoption discussion does not replace the separate endpoint-topolog
 
 ## UI findings retained from the active assignment
 
-The missing original audit limits source-to-finding and fixture reconciliation.
-The following are independently inspectable current-code facts, not a claim
-that the original audit suite passed. Parent/parallel edits are excluded.
+The recovered parent audit identifies the eight findings below. Current parent
+files were inspected read-only for this reconciliation; relative source links
+resolve to the child baseline, not a copy of parent edits. **Static/local** repair
+dispositions and retained **mocked local** tests are not blanket behavioral
+acceptance or a claim that the original audit findings are all closed.
 
 | Finding | Current source and status | Required remaining proof/action |
 | --- | --- | --- |
-| Signup must enter Auth.js/PKCE flow | [Register](../marketing-site/src/app/(auth)/register/page.tsx) submits the realm to [startWorkspaceSignIn](../marketing-site/src/app/(auth)/actions.ts), which validates the realm, sets an HTTP-only selector and calls Auth.js `signIn`; it does not redirect to signup-response `login_url`. [Auth configuration](../marketing-site/src/auth.ts) and [tenant selector](../marketing-site/src/lib/tenant-auth.ts) own issuer/PKCE setup. **Static/local repair present; behavioral acceptance not-run.** Parallel auth/checkout integration still needs inspection. | Inspect integrated register handler and exercise PKCE/state/callback, expired/error states, and real identity-provider behavior when live evidence is requested. |
+| Signup must enter Auth.js/PKCE flow | [Register](../marketing-site/src/app/(auth)/register/page.tsx) submits the realm to [startWorkspaceSignIn](../marketing-site/src/app/(auth)/actions.ts), which validates the realm, sets an HTTP-only selector and calls Auth.js `signIn`; it does not redirect to signup-response `login_url`. [Auth configuration](../marketing-site/src/auth.ts) and [tenant selector](../marketing-site/src/lib/tenant-auth.ts) own issuer/PKCE setup. **Static/local repair present; behavioral acceptance not-run.** Current parent auth/checkout changes were inspected read-only; integrated behavioral acceptance remains pending. | Inspect integrated register handler and exercise PKCE/state/callback, expired/error states, and real identity-provider behavior when live evidence is requested. |
 | Password-authenticated paid checkout misidentified as unauthenticated | [Pricing](../marketing-site/src/components/Pricing.tsx) uses [getApiAuth](../marketing-site/src/lib/auth-token.ts) and sends its bearer token to checkout, covering stored password credentials and Auth.js sessions rather than checking Auth.js alone. [Billing](../marketing-site/src/app/(dashboard)/dashboard/billing/page.tsx) remains a second consumer. **Static/local repair present; behavioral acceptance not-run.** Parallel auth/checkout ownership and integration remain separate. | Cover credentials and OIDC sessions, token refresh, server-authoritative checkout identity, subscription selection, failures, and return/cancel flows. Local fixtures are not Stripe payment proof. |
 | Closed mobile navigation remains keyboard-focusable | [Dashboard layout](../marketing-site/src/app/(dashboard)/layout.tsx) now uses Headless UI `Dialog` with an unmounted closed drawer and focus restoration. **Static/local repair present.** | Not-run here: keyboard/focus restoration, Escape, responsive transitions, screen-reader semantics, and regressions against the original audit. |
 | Task row not keyboard-operable | [Task page](../marketing-site/src/app/(dashboard)/dashboard/tasks/page.tsx) now renders selectable task cards as buttons with `aria-pressed`, `aria-controls`, and visible focus styles. **Static/local repair present.** | Not-run here: Enter/Space selection, details focus, mobile/back navigation, and stream update stability. |
@@ -132,8 +137,12 @@ that the original audit suite passed. Parent/parallel edits are excluded.
 
 ### Additional UI shell findings retained
 
-The active assignment names four additional shell findings. Original audit
-wording/artifacts are **blocked**; acceptance remains **pending/not-run**.
+The recovered audit also records these four shell observations. Current parent
+`marketing-site/src/app/(dashboard)/layout.tsx` uses managed `Dialog`/`Menu`,
+accessible navigation/menu labels, a `/dashboard/settings` link, and matching
+`lg:w-56`/`lg:left-56` dimensions. **Static/local repair evidence** removes the
+unavailable-wording blocker; it does not establish browser or accessibility
+acceptance. Keep all four gates **pending** below.
 
 | Finding | Source and concrete pending gate |
 | --- | --- |
@@ -142,13 +151,38 @@ wording/artifacts are **blocked**; acceptance remains **pending/not-run**.
 | Unlabeled controls | [Dashboard](../marketing-site/src/app/(dashboard)/dashboard/); icon-only inputs/actions need accessible names, semantic controls, focus states and keyboard/screen-reader coverage. |
 | Settings navigation/current location | [Settings](../marketing-site/src/app/(dashboard)/dashboard/settings/page.tsx)/[layout](../marketing-site/src/app/(dashboard)/layout.tsx); reliable active route/section, mobile access and history/deep-link behavior. |
 
+## Retained parent evidence — mocked local, not live acceptance
+
+Paths in this table are relative to the **parent**
+`/home/riley/A2A-Server-MCP/`, not this child. These are inspected retained
+artifacts, not fresh test runs by the child. Passing totals are scoped to the
+named suites; they do not certify live Auth.js/Keycloak, Stripe, provider keys,
+native OS IME, screen-reader behavior, media, Argo or independent Rust contracts.
+
+| Evidence / artifact | Observed result and boundary |
+| --- | --- |
+| Original UI audit: `artifacts/ui-audit/AUDIT.md` | Available; eight findings plus shell observations retained. Fixture authentication and intentional API failures limit its probes to **mocked local**. |
+| Current UI: `artifacts/platform-gap-closure/parent-ui-all-current.log` / `parent-ui-all-current.json` | **Mocked local:** 14 suites / 224 tests passing in retained results. Source repairs plus these selected tests do not close every original finding. |
+| Integrated UI rerun: `artifacts/platform-gap-closure/integrated-ui-tests-rerun.log` / `integrated-ui-tests-rerun.json` | **Mocked local:** 12 suites / 186 tests passing. Earlier `integrated-ui-tests.log` records failures; preserve it separately rather than describe every integration attempt as successful. |
+| Reported combined UI: `artifacts/platform-gap-closure/ui-combined-jest.log` | User reports **mocked local:** 11 suites / 194 tests, exit 0. Named log absent at inspection; **not-run by child / report-only**, not independently corroborated or conflated with the two retained UI results above. |
+| Prior voice: `artifacts/platform-gap-closure/voice-ui-tests.json` / `voice-python-tests.xml` | **Mocked local:** retained 3-suite / 44-test UI result and 199-test Python result (zero failures/errors). No real-media or Rust parity evidence. |
+| Worker: `artifacts/platform-gap-closure/parent-worker-current.log` / `parent-worker-current.xml`; `worker-access-rerun-tests.xml` | **Mocked local:** current worker and access rerun each record 24 tests, zero failures/errors. Supersedes the earlier uninspected-artifact / rerun-pending statement only for these runs; broader worker gates remain pending. |
+| Current voice subset: `artifacts/platform-gap-closure/parent-voice-current.log` / `parent-voice-current.xml` | **Mocked local:** 53 tests, zero failures/errors; log records two warnings. Not equivalent to the prior 199-test scope. |
+| Current combined worker/voice: `artifacts/platform-gap-closure/parent-worker-voice-current.log` / `parent-worker-voice-current.xml` | **Mocked local failure:** collection of `tests/test_voice_session_access.py` fails with `ModuleNotFoundError: No module named 'temporalio'` through `a2a_server/temporal/config.py`. Separate successful runs do not establish that this command succeeded. Dependency recovery and a traceable rerun remain pending. |
+
+The narrow inventory reconciliation is not full-platform completion. C01–C10,
+I01–I12, all 45 roadmap claims and the backend/runtime gates below remain in
+scope. Live/platform proof is **not-run**, not inferred from these artifacts.
+
 ## Open P0/P1 backend/runtime gates
 
 **Static/local observations** apply to this checkout and Rust pin, not the
 parent's uncommitted work. Parent owns Python voice ownership, telemetry,
-reconnection/UI and worker tenant visibility. Parent reports **mocked local:
-44 UI / 199 Python** voice tests from prior runs; child did not run them.
-Worker results are pending. No live or platform evidence is claimed here.
+reconnection/UI and worker tenant visibility. Retained parent **mocked local**
+voice and worker artifacts were inspected read-only (see the evidence table).
+The child did not run those tests. Separate
+passing subsets do not erase the retained combined collection failure or close
+standalone Rust contracts. No live or platform evidence is claimed here.
 
 | Gate / owner | Finding and concrete pending acceptance |
 | --- | --- |
@@ -318,12 +352,13 @@ removal, migration rewrite, directory rename or secret exposure in this change.
 
 - Integrate parent worker/voice/telemetry/reconnection/UI and parallel
   auth/checkout changes before claiming acceptance. This child edits docs only.
-- Parent reports voice **mocked local: 44 UI / 199 Python** prior results;
-  current worker/voice test evidence must attach exact commands/results/artifacts.
-  These counts do not establish standalone Rust contracts or real media behavior.
-- The original designated UI audit is missing in this checkout. Recover it via
-  parent for original fixture/finding reconciliation; unrelated implementation
-  is not blocked by that source gap.
+- Retained parent UI/voice/worker artifacts are inspected **mocked local**
+  evidence, not fresh child executions. Preserve exact command/exit provenance
+  where available; do not infer it from a summary count. Separate successful
+  subsets from failed runs and keep standalone Rust/real-media gates pending.
+- Original UI-audit source reconciliation is no longer blocked: the parent
+  artifact was inspected read-only. Post-fix behavior, exhaustive accessibility
+  and wider capability acceptance remain pending, not narrowed to UI tests.
 - Prioritize durable dispatch/output/approvals and remaining standalone runtime
   gates, then MCP/cognition/swarm/control-plane/metering acceptance.
 - Each finding needs change→focused command→exit/result→artifact traceability.
