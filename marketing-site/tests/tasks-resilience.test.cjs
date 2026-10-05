@@ -182,18 +182,23 @@ test('filters have names, pressed state, and a clear-filter recovery', async () 
   expect(screen.getByRole('button', { name: /Example task/ })).toBeVisible()
 })
 
-test('keyboard task selection remains native and mobile selection focuses details', async () => {
-  window.matchMedia.mockReturnValue({ matches: true })
-  api.listAllTasksV1AgentTasksGet.mockResolvedValue({ data: [task] })
-  render(React.createElement(Tasks))
-  const row = await screen.findByRole('button', { name: /Example task/ })
-  row.focus()
-  await userEvent.keyboard('{Enter}')
-  expect(row).toHaveAttribute('aria-pressed', 'true')
-  await waitFor(() =>
-    expect(screen.getByRole('heading', { name: 'Example task' })).toHaveFocus(),
-  )
-})
+test.each(['{Enter}', ' '])(
+  'keyboard task selection with %s remains native and mobile selection focuses details',
+  async (key) => {
+    window.matchMedia.mockReturnValue({ matches: true })
+    api.listAllTasksV1AgentTasksGet.mockResolvedValue({ data: [task] })
+    render(React.createElement(Tasks))
+    const row = await screen.findByRole('button', { name: /Example task/ })
+    row.focus()
+    await userEvent.keyboard(key)
+    expect(row).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Example task' }),
+      ).toHaveFocus(),
+    )
+  },
+)
 
 test('Tasks has one primary action and prioritizes results over collapsed metadata', async () => {
   api.listAllTasksV1AgentTasksGet.mockResolvedValue({
